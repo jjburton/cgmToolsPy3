@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html class="writer-html4" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro_Pack : audio &mdash; Red9 3.0 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Pro_Pack : exporter" href="Red9_Pro_export.html" />
+    <link rel="prev" title="Pro_Pack : animation" href="Red9_Pro_animation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Red9<img src="../_static/Red9_ProPack_logo.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_AnimationUtils.html">Red9_AnimationUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_Audio.html">Red9_Audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_Core.html">Red9_CoreUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_General.html">Red9_General</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_Meta.html">Red9_Meta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_PoseSaver.html">Red9_PoseSaver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_Setup.html">Red9_Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9core_templates/Red9_Tools.html">Red9_Tools</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_animation.html">Pro_Pack : animation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_export.html">Pro_Pack : exporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_general.html">Pro_Pack : general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_project.html">Pro_Pack : project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tools/Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools/Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools/Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools/Red9_Pro_project_manager.html">Pro_Pack : tools : project_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools/Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Red9</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Pro_Pack : audio</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/red9pro_templates/Red9_Pro_audio.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="pro-pack-audio">
+<h1>Pro_Pack : audio<a class="headerlink" href="#pro-pack-audio" title="Permalink to this headline">¶</a></h1>
+<p>ProPack audio module manages BWav formats, Timecode and the more advanced aspects of dealing with Audio within Maya.
+All the BWav handling in the StudioPack ultimately calls this codebase but most of the actual handling in ProPack still uses the AudioNode and AudioHandler
+from the StudioPack API.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># import statement for the module via the r9pro decompiler</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">Red9.pro_pack</span> <span class="k">import</span> <span class="n">r9pro</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r9paudio</span> <span class="o">=</span> <span class="n">r9pro</span><span class="o">.</span><span class="n">r9import</span><span class="p">(</span><span class="s1">&#39;r9paudio&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<span class="target" id="module-Red9.pro_pack.core.audio"></span><p>This module is extensions to the main audio support through the Red9 StudioPack and
+requires the StudioPack codebase to run</p>
+<p class="rubric">Core Functions</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.milliseconds_to_Timecode" title="Red9.pro_pack.core.audio.milliseconds_to_Timecode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">milliseconds_to_Timecode</span></code></a>(milliseconds[,&nbsp;…])</td>
+<td>convert milliseconds into correctly formatted timecode</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.milliseconds_to_frame" title="Red9.pro_pack.core.audio.milliseconds_to_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">milliseconds_to_frame</span></code></a>(milliseconds[,&nbsp;framerate])</td>
+<td>convert milliseconds into frames</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.timecode_to_milliseconds" title="Red9.pro_pack.core.audio.timecode_to_milliseconds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timecode_to_milliseconds</span></code></a>(timecode[,&nbsp;smpte,&nbsp;…])</td>
+<td>from a properly formatted timecode return it in milliseconds timecode_to_milliseconds(‘09:00:00:00’)</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.timecode_to_frame" title="Red9.pro_pack.core.audio.timecode_to_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timecode_to_frame</span></code></a>(timecode[,&nbsp;smpte,&nbsp;framerate])</td>
+<td>from a properly formatted timecode return it in frames</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.frame_to_timecode" title="Red9.pro_pack.core.audio.frame_to_timecode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frame_to_timecode</span></code></a>(frame[,&nbsp;smpte,&nbsp;framerate])</td>
+<td>from a given frame return that time as timecode relative to the given framerate</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.frame_to_milliseconds" title="Red9.pro_pack.core.audio.frame_to_milliseconds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frame_to_milliseconds</span></code></a>(frame[,&nbsp;framerate])</td>
+<td>from a given frame return that time in milliseconds relative to the given framerate</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.validate_timecodeString" title="Red9.pro_pack.core.audio.validate_timecodeString"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_timecodeString</span></code></a>(timecode[,&nbsp;smpte,&nbsp;fps])</td>
+<td>validate that any timecode string entered is correctly formatted</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Main Classes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.Timecode" title="Red9.pro_pack.core.audio.Timecode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Timecode</span></code></a>([node])</td>
+<td>Timecode class designed to be integrated into a pipeline for adding timecode markers, extracting data from nodes, decoding data and syncing assets.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.BWav_Handler" title="Red9.pro_pack.core.audio.BWav_Handler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BWav_Handler</span></code></a>(filepath)</td>
+<td>a class designed to extract Timecode from a BWav’s header data and return it in various formats</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.pro_pack.core.audio.AudioGRP_Manager" title="Red9.pro_pack.core.audio.AudioGRP_Manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AudioGRP_Manager</span></code></a>([parent])</td>
+<td>simple UI to connect Audio Group data</td>
+</tr>
+</tbody>
+</table>
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.milliseconds_to_Timecode">
+<code class="descname">milliseconds_to_Timecode</code><span class="sig-paren">(</span><em>milliseconds</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.milliseconds_to_Timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert milliseconds into correctly formatted timecode</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>milliseconds</strong> – time in milliseconds</li>
+<li><strong>smpte</strong> – format the timecode HH:MM:SS:FF where FF is frames</li>
+<li><strong>framerate</strong> – when using smpte this is the framerate used in the FF block
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<ul class="last simple">
+<li>If smpte = False : the format will be HH:MM:SS:MSS = hours, minutes, seconds, milliseconds</li>
+<li>If smpte = True  : the format will be HH:MM:SS:FF  = hours, minutes, seconds, frames</li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.milliseconds_to_frame">
+<code class="descname">milliseconds_to_frame</code><span class="sig-paren">(</span><em>milliseconds</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.milliseconds_to_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert milliseconds into frames</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>milliseconds</strong> – time in milliseconds</li>
+<li><strong>framerate</strong> – when using smpte this is the framerate used in the FF block
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_to_milliseconds">
+<code class="descname">timecode_to_milliseconds</code><span class="sig-paren">(</span><em>timecode</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_to_milliseconds" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a properly formatted timecode return it in milliseconds
+timecode_to_milliseconds(‘09:00:00:00’)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>timecode</strong> – ‘09:00:00:20’ as a string</li>
+<li><strong>smpte</strong> – calculate the milliseconds based on HH:MM:SS:FF (frames as last block)</li>
+<li><strong>framerate</strong> – only used if smpte=True, the framerate to use in the conversion,
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_to_frame">
+<code class="descname">timecode_to_frame</code><span class="sig-paren">(</span><em>timecode</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_to_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a properly formatted timecode return it in frames</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>timecode</strong> – ‘09:00:00:20’ as a string</li>
+<li><strong>smpte</strong> – calculate the milliseconds based on HH:MM:SS:FF (frames as last block)</li>
+<li><strong>framerate</strong> – only used if smpte=True, the framerate to use in the conversion,
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.frame_to_timecode">
+<code class="descname">frame_to_timecode</code><span class="sig-paren">(</span><em>frame</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.frame_to_timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a given frame return that time as timecode
+relative to the given framerate</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>frame</strong> – current frame in Maya</li>
+<li><strong>smpte</strong> – calculate the milliseconds based on HH:MM:SS:FF (frames as last block)</li>
+<li><strong>framerate</strong> – the framerate to use in the conversion,
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.frame_to_milliseconds">
+<code class="descname">frame_to_milliseconds</code><span class="sig-paren">(</span><em>frame</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.frame_to_milliseconds" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a given frame return that time in milliseconds
+relative to the given framerate</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>frame</strong> – current frame in Maya</li>
+<li><strong>framerate</strong> – only used if smpte=True, the framerate to use in the conversion,
+default (None) uses the current scenes framerate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_difference">
+<code class="descname">timecode_difference</code><span class="sig-paren">(</span><em>referencedTC</em>, <em>inputTC</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_difference" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate the difference between 2 timecodes in frames
+timecodes are in a string format ‘00:00:00:00’. Mainly used in the
+r9Anim load when we load against a given timecode and need to calculate the offsets</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>src</strong> – timecode we’re comparing against SMPTE formatted as string</li>
+<li><strong>des</strong> – timecode we want to find the frame difference too from the src</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_falls_within">
+<code class="descname">timecode_falls_within</code><span class="sig-paren">(</span><em>timecode</em>, <em>timecode_bounds</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_falls_within" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a given list of timecode bounds in smpte format [(startTC, endTC),….] see if the
+given TC falls within any of them and if so return that timecode section. This is a little
+like searching an EDL for the correct take based on a given timecode</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">timecode_falls_within</span><span class="p">(</span><span class="s1">&#39;06:35:01:18&#39;</span><span class="p">,</span> <span class="p">[(</span><span class="s1">&#39;06:34:36:17&#39;</span><span class="p">,</span> <span class="s1">&#39;06:34:40:11&#39;</span><span class="p">),</span>
+<span class="gp">&gt;&gt;&gt; </span>                                      <span class="p">(</span><span class="s1">&#39;06:34:59:21&#39;</span><span class="p">,</span> <span class="s1">&#39;06:35:03:24&#39;</span><span class="p">),</span>
+<span class="gp">&gt;&gt;&gt; </span>                                      <span class="p">(</span><span class="s1">&#39;06:33:25:28&#39;</span><span class="p">,</span> <span class="s1">&#39;06:33:31:10&#39;</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Result : (&#39;06:34:59:21&#39;, &#39;06:35:03:24&#39;)</span>
+</pre></div>
+</div>
+<p>Alternatively if we have a node with timecode stamped we can do the following</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tc</span><span class="o">=</span><span class="n">r9Audio</span><span class="o">.</span><span class="n">Timecode</span><span class="p">(</span><span class="s1">&#39;my_node_with_timecode&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">timecode_falls_within</span><span class="p">(</span><span class="s1">&#39;06:35:01:18&#39;</span><span class="p">,</span> <span class="n">tc</span><span class="o">.</span><span class="n">getTimecode_bounds</span><span class="p">(</span><span class="n">tc_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.validate_timecodeString">
+<code class="descname">validate_timecodeString</code><span class="sig-paren">(</span><em>timecode</em>, <em>smpte=True</em>, <em>fps=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.validate_timecodeString" title="Permalink to this definition">¶</a></dt>
+<dd><p>validate that any timecode string entered is correctly formatted</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>timecode</strong> – expecting a correctly formatted string ‘00:00:00:00’ but
+here we validate that this is correct and return False if not</li>
+<li><strong>smpte</strong> – format of the timecode expected</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_set_to_mrigs">
+<code class="descname">timecode_set_to_mrigs</code><span class="sig-paren">(</span><em>tc</em>, <em>mrigs=None</em>, <em>propagate=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_set_to_mrigs" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the timecode to multiple mRigs at the same time, syncing the data between them
+via the copyTimecode call from the first mRig found or given</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tc</strong> – timecode to set to the mrigs</li>
+<li><strong>mrigs</strong> – if given set the timecode to the given mrigs, else find all connected mrigs to set from the selection</li>
+<li><strong>propagate</strong> – do we just set the attrs or push the counter keys, if the UI is True then this is True by default</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_maya_set_production">
+<code class="descname">timecode_maya_set_production</code><span class="sig-paren">(</span><em>reset=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_maya_set_production" title="Permalink to this definition">¶</a></dt>
+<dd><p>wrapper to set the Maya Production timecode</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.timecode_maya_toggle_timeline">
+<code class="descname">timecode_maya_toggle_timeline</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.timecode_maya_toggle_timeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Toggle between frame and timecode view in Maya’s timeline</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler">
+<em class="property">class </em><code class="descname">Timecode_Wrangler</code><span class="sig-paren">(</span><em>parent=None</em>, <em>*args</em>, <em>**kwgs</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PySide2.QtWidgets.QMainWindow</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Ui_MainWindow</span></code></p>
+<p>simple UI to manager timecode on the mRigs</p>
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.offset_selectedBy">
+<code class="descname">offset_selectedBy</code><span class="sig-paren">(</span><em>direction</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.offset_selectedBy" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset the audio by a set amount</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.offset_selectedTo">
+<code class="descname">offset_selectedTo</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.offset_selectedTo" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset the audio so that the overall start frame of all
+the selected audio is shifted to start at the given frame</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.offset_ripple">
+<code class="descname">offset_ripple</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.offset_ripple" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple ripple offset</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.sync_bwavsRelative">
+<code class="descname">sync_bwavsRelative</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.sync_bwavsRelative" title="Permalink to this definition">¶</a></dt>
+<dd><p>sync selected Bwavs against the Reference Timecode that’s been set</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.sync_bwavs">
+<code class="descname">sync_bwavs</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.sync_bwavs" title="Permalink to this definition">¶</a></dt>
+<dd><p>sync selected the Bwavs against their internal Timecode</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.mrig_set_timecode">
+<code class="descname">mrig_set_timecode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.mrig_set_timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the timecode for all selected mRigs</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.mrig_copy_timecode">
+<code class="descname">mrig_copy_timecode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.mrig_copy_timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the timecode for all selected mRigs based on the first selected node
+being from the master rig from which all others will be synced</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_connect">
+<code class="descname">timecodeHud_connect</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>manage the timecode HUD</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_remove">
+<code class="descname">timecodeHud_remove</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>manage the timecode HUD</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_toggle">
+<code class="descname">timecodeHud_toggle</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_toggle" title="Permalink to this definition">¶</a></dt>
+<dd><p>manage the timecode HUD</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_delete">
+<code class="descname">timecodeHud_delete</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.timecodeHud_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>manage the timecode HUD</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode_Wrangler.staticMetaObject">
+<code class="descname">staticMetaObject</code><em class="property"> = &lt;PySide2.QtCore.QMetaObject object&gt;</em><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode_Wrangler.staticMetaObject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.pro_pack.core.audio.Timecode">
+<em class="property">class </em><code class="descname">Timecode</code><span class="sig-paren">(</span><em>node=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Timecode class designed to be integrated into a pipeline for adding timecode markers,
+extracting data from nodes, decoding data and syncing assets.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>node</strong> – node to bind to the class for timecode management</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.count">
+<code class="descname">count</code><em class="property"> = 'timecode_count'</em><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.samplerate">
+<code class="descname">samplerate</code><em class="property"> = 'timecode_samplerate'</em><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.samplerate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.ref">
+<code class="descname">ref</code><em class="property"> = 'timecode_ref'</em><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.ref" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.timecode_input">
+<code class="descname">timecode_input</code><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.timecode_input" title="Permalink to this definition">¶</a></dt>
+<dd><p>internal timecode cached on the class instance</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.isValid">
+<code class="descname">isValid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.isValid" title="Permalink to this definition">¶</a></dt>
+<dd><p>return if the timecode is valid</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.is_active">
+<code class="descname">is_active</code><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.is_active" title="Permalink to this definition">¶</a></dt>
+<dd><p>return if the timecode is actually being used (only checks keyed data not connected at the moment)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_count">
+<code class="descname">getTimecode_count</code><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_count" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the ‘timecode_count’ attr from the Maya node at the current frame. This is the incremental
+counter thats added to the ‘timecode_ref’ attr to generate the actual timecode at a given frame</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_ref">
+<code class="descname">getTimecode_ref</code><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the ‘timecode_ref’ attr from the Maya node at the current frame, this is the
+pointer in milliseconds</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_samplerate">
+<code class="descname">getTimecode_samplerate</code><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_samplerate" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the ‘timecode_samplerate’ attr from the Maya node at the current frame, this is the
+sample-rate set when the counter attr was generated</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hasTimeCode">
+<code class="descname">hasTimeCode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hasTimeCode" title="Permalink to this definition">¶</a></dt>
+<dd><p>test to check if our node has all the required TimeCode setups</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_from_node">
+<code class="descname">getTimecode_from_node</code><span class="sig-paren">(</span><em>time=None</em>, <em>smpte=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_from_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>wrapper method to get the timecode back from a the node bound to the class</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>time</strong> – time at which to get the data, else get it from currentTime</li>
+<li><strong>smpte</strong> – if true (default) return the timecode as smpte, else return millisecs</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_bounds">
+<code class="descname">getTimecode_bounds</code><span class="sig-paren">(</span><em>tol=2</em>, <em>tc_only=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_bounds" title="Permalink to this definition">¶</a></dt>
+<dd><p>from node bound to the class find all timecode bounds and return as a list of tuples.
+This is designed to handle discontinuous timecode, ie a scene with multiple cuts that
+have multiple timecode slices.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tol</strong> – key gradient thats allowed, usually count attr is a linear counter of val 1 but
+default for this is 2 to give us a margin of error</li>
+<li><strong>tc_only</strong> – if True we only return the found bounds as timecode data [(startTC, endTC)….]
+else the return includes the frame times [(startFrm, endFrm, startTC, endTC)]</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">timecode bounds in this case are obvious slices of timecode within an animation curve,
+a rig may have many different timecode sections bound to it and this will find and return
+those ranges for processing, think of them as cuts in an EDL edit</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.find_Timecode_frame">
+<code class="descname">find_Timecode_frame</code><span class="sig-paren">(</span><em>timecode</em>, <em>bounds=[]</em>, <em>set=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.find_Timecode_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>find a given timecode on the node, this searches all the timecode bounds on the node
+to try and find an appropriate match, then returns the actual frame it was found at</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>bounds</strong> – default return from the getTimecode_bounds function</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.pro_pack.core.audio.Timecode.getTimecode_maya_production">
+<em class="property">static </em><code class="descname">getTimecode_maya_production</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.getTimecode_maya_production" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the internal timecode binding from Maya’s Production mapping</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.pro_pack.core.audio.Timecode.setTimecode_maya_production">
+<em class="property">static </em><code class="descname">setTimecode_maya_production</code><span class="sig-paren">(</span><em>tc=''</em>, <em>frame=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.setTimecode_maya_production" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the Maya Production timecode mapping, managing and modifying the mapping
+of the visual timecode on the timeslider in Maya</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tc</strong> – timecode to set</li>
+<li><strong>frame</strong> – if given set the timecode at frame else use the currentTime as the binding</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.addTimecode_to_node">
+<code class="descname">addTimecode_to_node</code><span class="sig-paren">(</span><em>tc=''</em>, <em>propagate=False</em>, <em>suppress=False</em>, <em>timerange=[]</em>, <em>set_from_currentTime=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.addTimecode_to_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>wrapper to add the timecode attrs to a node and if set
+propagate that data to the node and fill the attrs up</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tc</strong> – optional timecode, used in conjunction with the propagate flag</li>
+<li><strong>propagate</strong> – push the timecode given onto the node and bake the count attr against the current fps</li>
+<li><strong>suppress</strong> – confirmDialog warnings supression</li>
+<li><strong>timerange</strong> – If propagate then this is an optional timerange over which to set the data</li>
+<li><strong>set_from_currentTime</strong> – if True we use the currentTime / currentFrame in the initial calculations
+else we use the startTime, either given (timerange[0]) or the current timeslider start. If you’re
+setting multiple bounds of timecode with this it’s expecting you to be at the startFrame,
+setting this to False will do this for you.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.setTimecode">
+<code class="descname">setTimecode</code><span class="sig-paren">(</span><em>tc</em>, <em>propagate=False</em>, <em>suppress=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.setTimecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the timecode to the Maya node and propagate if set, just a re-worked stub to make it
+more obvious when setting the timecode up rather than calling add, which actuially does the same thing ;)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tc</strong> – timecode used in conjunction with the propagate flag</li>
+<li><strong>propagate</strong> – push the timecode given onto the node and bake the count attr against the current fps</li>
+<li><strong>suppress</strong> – confirmDialog warnings supression</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.removedTimecode_from_node">
+<code class="descname">removedTimecode_from_node</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.removedTimecode_from_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove the timecode attrs from the node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.timecode_difference_to">
+<code class="descname">timecode_difference_to</code><span class="sig-paren">(</span><em>referenceTC</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.timecode_difference_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the difference in frames between this instances timecode and a given reference TC</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.timecode_HUD">
+<code class="descname">timecode_HUD</code><span class="sig-paren">(</span><em>force=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.timecode_HUD" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the current Timecode HUD mNode, if not found, create one with the force flag</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>force</strong> – if there’s no MetaTimeCodeHUD node already in the scene we generate one and return that</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hud_connect">
+<code class="descname">hud_connect</code><span class="sig-paren">(</span><em>draw=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hud_connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>add this Timecode node to the Timecode HUD display</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>draw</strong> – when we connect set the HUD to be drawn</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hud_remove">
+<code class="descname">hud_remove</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hud_remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove this timecode instance from the timecode HUD, unconnecting the nodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hud_delete">
+<code class="descname">hud_delete</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hud_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>delete the MetaTimeCodeHUD node altogether</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hud_toggle_draw">
+<code class="descname">hud_toggle_draw</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hud_toggle_draw" title="Permalink to this definition">¶</a></dt>
+<dd><p>toggle the HUD draw state</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.hud_kill">
+<code class="descname">hud_kill</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.hud_kill" title="Permalink to this definition">¶</a></dt>
+<dd><p>turn OFF the HUD draw but do not delete the wires or the MetaTimeCodeHUD</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.Timecode.enterTimecodeUI">
+<code class="descname">enterTimecodeUI</code><span class="sig-paren">(</span><em>buttonlabel='Set'</em>, <em>buttonfunc=None</em>, <em>runfunc=True</em>, <em>default='01:00:00:00'</em>, <em>propagate=True</em>, <em>timerange=()</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.Timecode.enterTimecodeUI" title="Permalink to this definition">¶</a></dt>
+<dd><p>generic UI to enter timecode</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>buttonlabel</strong> – label to add to the button in the ui when it’s opened</li>
+<li><strong>buttonfunc</strong> – function to bind to the button on exit, default is self.addTimecode_to_node(), note that
+the buttonfunc is passed the timecode from the UI on exit</li>
+<li><strong>runfunc</strong> – if True run the buttonfunc on close, note that if buttonfunc is None we run the default func
+if this is False then we just return the timecode entered</li>
+<li><strong>default</strong> – if propagate=False this is the default timecode in the UI when it’s opened</li>
+<li><strong>propagate</strong> – if True we set the initial UI timecode to that of this class instances.timecode_input property,
+if this is called from mRig this will be the current timecode bound to that rig</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler">
+<em class="property">class </em><code class="descname">BWav_Handler</code><span class="sig-paren">(</span><em>filepath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>a class designed to extract Timecode from a BWav’s header data and
+return it in various formats</p>
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.isBwav">
+<code class="descname">isBwav</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.isBwav" title="Permalink to this definition">¶</a></dt>
+<dd><p>validate if the given source wav is a BWav or not</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.sampleRate">
+<code class="descname">sampleRate</code><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.sampleRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>sample rate in milliseconds</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.bwav_getHeader">
+<code class="descname">bwav_getHeader</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.bwav_getHeader" title="Permalink to this definition">¶</a></dt>
+<dd><p>retrieve the BWav header info and push it into an internal dic
+that you can inspect self.bwav_HeaderData. This is designed to be cached
+against this instance of the audioNode object.
+Note that this code uses a binary seek to first find the starting chunk
+in the binary file where the ‘bext’ data is written.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">We could, if we could ensure it was available, use ffprobe.exe (part of the ffmpeg project)
+This would also cover most media file formats including Mov, avi etc
+There is coverage for this in this module getMediaFileMetaData() does just that</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeMS">
+<code class="descname">bwav_timecodeMS</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeMS" title="Permalink to this definition">¶</a></dt>
+<dd><p>read the internal timecode reference form the bwav and convert that number into milliseconds</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeReference">
+<code class="descname">bwav_timecodeReference</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeReference" title="Permalink to this definition">¶</a></dt>
+<dd><p>internal timeReference in the bwav</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeFormatted">
+<code class="descname">bwav_timecodeFormatted</code><span class="sig-paren">(</span><em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.BWav_Handler.bwav_timecodeFormatted" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert milliseconds into timecode</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>smpte</strong> – format the timecode HH:MM:SS:FF where FF is frames, else milliseconds</li>
+<li><strong>framerate</strong> – when using smpte this is the framerate used in the FF block</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager">
+<em class="property">class </em><code class="descname">AudioGRP_Manager</code><span class="sig-paren">(</span><em>parent=None</em>, <em>*args</em>, <em>**kwgs</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PySide2.QtWidgets.QMainWindow</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Ui_MainWindow</span></code></p>
+<p>simple UI to connect Audio Group data</p>
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.selected_expTag">
+<code class="descname">selected_expTag</code><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.selected_expTag" title="Permalink to this definition">¶</a></dt>
+<dd><p>we only allow single selection of expTags</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.selected_sceneAudio">
+<code class="descname">selected_sceneAudio</code><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.selected_sceneAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>return instantiated r9Audio.AudioNodes</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.selected_linkedAudio">
+<code class="descname">selected_linkedAudio</code><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.selected_linkedAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>return instantiated r9Audio.AudioNodes</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.staticMetaObject">
+<code class="descname">staticMetaObject</code><em class="property"> = &lt;PySide2.QtCore.QMetaObject object&gt;</em><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.staticMetaObject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.disconnectAudio">
+<code class="descname">disconnectAudio</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.disconnectAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>disconnect the selected linked audio from the tag</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.core.audio.AudioGRP_Manager.connectAudio">
+<code class="descname">connectAudio</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.AudioGRP_Manager.connectAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>connect the selected audio in the scene list to the selected tag</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.core.audio.getMediaFileMetaData">
+<code class="descname">getMediaFileMetaData</code><span class="sig-paren">(</span><em>filepath</em>, <em>ffprobePath=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.core.audio.getMediaFileMetaData" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is capable of returning most metaData from mediaFiles, the return
+is in a json format so easily accessed.
+:param ffprobePath: if not given the code will asume that ffprobe.exe has been</p>
+<blockquote>
+<div>dropped into teh Red9/packages folder, else it’ll use the given path</div></blockquote>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a stub function that requires ffprobe.exe, you can download from
+<a class="reference external" href="http://www.ffmpeg.org/download.html">http://www.ffmpeg.org/download.html</a> it’s part of the ffmpeg tools.
+Once downloaded drop it here Red9/pakcages/ffprobe.exe
+This inspect function will then be available to use for many common media formats.
+More info: <a class="reference external" href="http://www.ffmpeg.org/ffprobe.html">http://www.ffmpeg.org/ffprobe.html</a></p>
+</div>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Red9_Pro_animation.html" class="btn btn-neutral float-left" title="Pro_Pack : animation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Red9_Pro_export.html" class="btn btn-neutral float-right" title="Pro_Pack : exporter" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Red9 Consultancy Limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

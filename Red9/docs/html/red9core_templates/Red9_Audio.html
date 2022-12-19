@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html class="writer-html4" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red9_Audio &mdash; Red9 3.0 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Red9_CoreUtils" href="Red9_Core.html" />
+    <link rel="prev" title="Red9_AnimationUtils" href="Red9_AnimationUtils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Red9<img src="../_static/Red9_ProPack_logo.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Red9_AnimationUtils.html">Red9_AnimationUtils</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Red9_Audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Core.html">Red9_CoreUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_General.html">Red9_General</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Meta.html">Red9_Meta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_PoseSaver.html">Red9_PoseSaver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Setup.html">Red9_Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Tools.html">Red9_Tools</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_anim_map.html">Pro_Pack : anim_map</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_animation.html">Pro_Pack : animation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_audio.html">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_export.html">Pro_Pack : exporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_general.html">Pro_Pack : general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_project.html">Pro_Pack : project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skining.html">Pro_Pack : skining</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_project_manager.html">Pro_Pack : tools : project_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Red9</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Red9_Audio</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/red9core_templates/Red9_Audio.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <a class="reference external image-reference" href="http://red9consultancy.com/propack"><img alt="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" src="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<div class="section" id="red9-audio">
+<h1>Red9_Audio<a class="headerlink" href="#red9-audio" title="Permalink to this headline">¶</a></h1>
+<p>Red9 Audio is the module for all audio handling within the Red9 pack.</p>
+<p>This includes the wrapper to the new audio compile tools for mixing multiple wavs
+inside Maya to a single merged track, allowing you to finally playblast multiple
+separate audio nodes! Why the hell Autodesk haven’t done this I have no idea
+as it’s a major issue when you’re dealing with facial sequences. There’s is
+a ‘compile’ flag in the playblast command but it’s never worked.</p>
+<span class="target" id="module-Red9.core.Red9_Audio"></span><p>This is the Audio library of utils used throughout the modules</p>
+<p class="rubric">Core Functions</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.milliseconds_to_Timecode" title="Red9.core.Red9_Audio.milliseconds_to_Timecode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">milliseconds_to_Timecode</span></code></a>(milliseconds[,&nbsp;…])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_Audio.milliseconds_to_frame" title="Red9.core.Red9_Audio.milliseconds_to_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">milliseconds_to_frame</span></code></a>(milliseconds[,&nbsp;framerate])</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.timecode_to_milliseconds" title="Red9.core.Red9_Audio.timecode_to_milliseconds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timecode_to_milliseconds</span></code></a>(timecode[,&nbsp;smpte,&nbsp;…])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_Audio.timecode_to_frame" title="Red9.core.Red9_Audio.timecode_to_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timecode_to_frame</span></code></a>(timecode[,&nbsp;smpte,&nbsp;framerate])</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.frame_to_timecode" title="Red9.core.Red9_Audio.frame_to_timecode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frame_to_timecode</span></code></a>(frame[,&nbsp;smpte,&nbsp;framerate])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_Audio.frame_to_milliseconds" title="Red9.core.Red9_Audio.frame_to_milliseconds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frame_to_milliseconds</span></code></a>(frame[,&nbsp;framerate])</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.combineAudio" title="Red9.core.Red9_Audio.combineAudio"><code class="xref py py-obj docutils literal notranslate"><span class="pre">combineAudio</span></code></a>()</td>
+<td>this is a logic wrapper over the main compile call in the AudioHandler I wanted to keep things simple in the base class.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_Audio.inspect_wav" title="Red9.core.Red9_Audio.inspect_wav"><code class="xref py py-obj docutils literal notranslate"><span class="pre">inspect_wav</span></code></a>([multi,&nbsp;audioNodes])</td>
+<td>Simple UI to show internal Wav file properties.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.audioPathLoaded" title="Red9.core.Red9_Audio.audioPathLoaded"><code class="xref py py-obj docutils literal notranslate"><span class="pre">audioPathLoaded</span></code></a>(filepath)</td>
+<td>return any soundNodes in Maya that point to the given audio path</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Main Classes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_Audio.AudioHandler" title="Red9.core.Red9_Audio.AudioHandler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AudioHandler</span></code></a>([audio])</td>
+<td>process on multiple audio nodes within the Maya scene, ie, already loaded</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_Audio.AudioNode" title="Red9.core.Red9_Audio.AudioNode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AudioNode</span></code></a>([audioNode,&nbsp;filepath])</td>
+<td>Single AudioNode handler for simple audio management object</td>
+</tr>
+</tbody>
+</table>
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.bind_pro_audio">
+<code class="descname">bind_pro_audio</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.bind_pro_audio" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a wrap to import the pro_audio extensions. We have to
+lazy load this to avoid cyclic issues in the boot and wrapping it
+like this makes it easy to consume in the classes</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.milliseconds_to_Timecode">
+<code class="descname">milliseconds_to_Timecode</code><span class="sig-paren">(</span><em>milliseconds</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.milliseconds_to_Timecode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.milliseconds_to_frame">
+<code class="descname">milliseconds_to_frame</code><span class="sig-paren">(</span><em>milliseconds</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.milliseconds_to_frame" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.timecode_to_milliseconds">
+<code class="descname">timecode_to_milliseconds</code><span class="sig-paren">(</span><em>timecode</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.timecode_to_milliseconds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.timecode_to_frame">
+<code class="descname">timecode_to_frame</code><span class="sig-paren">(</span><em>timecode</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.timecode_to_frame" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.frame_to_timecode">
+<code class="descname">frame_to_timecode</code><span class="sig-paren">(</span><em>frame</em>, <em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.frame_to_timecode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.frame_to_milliseconds">
+<code class="descname">frame_to_milliseconds</code><span class="sig-paren">(</span><em>frame</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.frame_to_milliseconds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.combineAudio">
+<code class="descname">combineAudio</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.combineAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>this is a logic wrapper over the main compile call in the AudioHandler
+I wanted to keep things simple in the base class.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.audioSelected">
+<code class="descname">audioSelected</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.audioSelected" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.audioPathLoaded">
+<code class="descname">audioPathLoaded</code><span class="sig-paren">(</span><em>filepath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.audioPathLoaded" title="Permalink to this definition">¶</a></dt>
+<dd><p>return any soundNodes in Maya that point to the given audio path</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_Audio.inspect_wav">
+<code class="descname">inspect_wav</code><span class="sig-paren">(</span><em>multi=False</em>, <em>audioNodes=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.inspect_wav" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simple UI to show internal Wav file properties. Supports full Broadcast Wav inspection</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>multi</strong> – allow multiple audio nodes to be inspected</li>
+<li><strong>audioNodes</strong> – allows you to pass in either Maya sound nodes or filepaths to wavs to inspect</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_Audio.AudioHandler">
+<em class="property">class </em><code class="descname">AudioHandler</code><span class="sig-paren">(</span><em>audio=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>process on multiple audio nodes within the Maya scene, ie, already loaded</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">all BWav and Timecode support is in the Red9 ProPack</p>
+</div>
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioHandler.audioNodes">
+<code class="descname">audioNodes</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.audioNodes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioHandler.mayaNodes">
+<code class="descname">mayaNodes</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.mayaNodes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.getAudioInRange">
+<code class="descname">getAudioInRange</code><span class="sig-paren">(</span><em>time=()</em>, <em>asNodes=True</em>, <em>start_inRange=True</em>, <em>end_inRange=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.getAudioInRange" title="Permalink to this definition">¶</a></dt>
+<dd><p>return any audio in the handler within a given timerange</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>time</strong> – tuple, (min,max) timerange which returned audio has to fall
+within else it’s ignored.</li>
+<li><strong>asNodes</strong> – return the data as r9Audio.AudioNodes, default=True</li>
+<li><strong>start_inRange</strong> – check if the audio startFrame is after the time[0] value</li>
+<li><strong>end_inRange</strong> – check if the audio endFrame is before the time[1] value</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">if you pass in time as (None, 100) then we only validate against the end time.
+if we pass in time as (10, None) we only validate against the start time
+else we validate that the audio’s start and end times are fully within the time range given</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.getOverallRange">
+<code class="descname">getOverallRange</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.getOverallRange" title="Permalink to this definition">¶</a></dt>
+<dd><p>return the overall frame range of the given audioNodes (min/max)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.getOverallBwavTimecodeRange">
+<code class="descname">getOverallBwavTimecodeRange</code><span class="sig-paren">(</span><em>ms=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.getOverallBwavTimecodeRange" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>: PRO_PACK :</dt>
+<dd>return the overall internal BWAV timecode range for the given
+nodes. Note this is the internal timecode plus the length of the files</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>ms</strong> – return the (minV,maxV) in milliseconds or SMPTE timecode</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.setTimelineToAudio">
+<code class="descname">setTimelineToAudio</code><span class="sig-paren">(</span><em>audioNodes=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.setTimelineToAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the current TimeSlider to the extent of the given audioNodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.setActive">
+<code class="descname">setActive</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.setActive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.offsetBy">
+<code class="descname">offsetBy</code><span class="sig-paren">(</span><em>offset</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.offsetBy" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset all audioNode by a given frame offset</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.offsetRipple">
+<code class="descname">offsetRipple</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.offsetRipple" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset all audioNodes so that they ripple in the
+order of self.audioNodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.offsetTo">
+<code class="descname">offsetTo</code><span class="sig-paren">(</span><em>startFrame</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.offsetTo" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset all audio such that they start relative to a given frame,
+takes the earliest startpoint of the given audio to calculate how much
+to offset by</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>startFrame</strong> – the required start frame to set too</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.muteSelected">
+<code class="descname">muteSelected</code><span class="sig-paren">(</span><em>state=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.muteSelected" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.lockTimeInputs">
+<code class="descname">lockTimeInputs</code><span class="sig-paren">(</span><em>state=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.lockTimeInputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>lock the time attrs of the audio nodes so they can’t be slipped or moved by accident</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>state</strong> – state of the lock, True or False</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.deleteSelected">
+<code class="descname">deleteSelected</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.deleteSelected" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.formatNodes_to_Path">
+<code class="descname">formatNodes_to_Path</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.formatNodes_to_Path" title="Permalink to this definition">¶</a></dt>
+<dd><p>rename the sound nodes to match their internal audioPath filename</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.bwav_sync_to_Timecode">
+<code class="descname">bwav_sync_to_Timecode</code><span class="sig-paren">(</span><em>relativeToo=None</em>, <em>offset=0</em>, <em>timecodebase=None</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.bwav_sync_to_Timecode" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>: PRO_PACK :</dt>
+<dd>process either selected or all audio nodes and IF they are found
+to be BWav’s with valid timecode references, sync them in Maya such
+that their offset = Bwav’s timecode ie: sync them on the timeline to
+the bwavs internal timecode.</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>relativeToo</strong> – This is fucking clever, even though I do say so. Pass in another BWav Audio node and we
+calculate it’s internal timecode against where it is in the timeline. We then use any difference in
+that nodes time as an offset for all the other nodes in self.audioNodes. Basically syncing multiple
+bwav’s against a given sound.</li>
+<li><strong>offset</strong> – given offset (in frames) to pass to the sync call</li>
+<li><strong>timecodebase</strong> – optional mapping for a reference timecode so we can manipulate the offset
+relative to a given timecodebase rather than assuming that frame 1 = ‘00:00:00:00’
+ie, we set the timecodebase to ‘01:00:00:00’ therefore day 1 timecode is stripped from
+all the calculations and a bwav who’s timecode is ‘01:00:00:10’ is set to frame 10</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.bwav_sync_to_dynamic">
+<code class="descname">bwav_sync_to_dynamic</code><span class="sig-paren">(</span><em>tc_node</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.bwav_sync_to_dynamic" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>: PRO_PACK :</dt>
+<dd>like the baw_sync_to_timecode func this will sync this audio bwav node to a given timecode
+but the difference here is that that timecode is extracted dynamically from a given node,
+stamped with the Red9 timecode attrs. This also supports multiple timecode takes within the
+same node</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>tc_node</strong> – the Maya node that has the Red9 Timecode attrs that we want to sync against</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioHandler.combineAudio">
+<code class="descname">combineAudio</code><span class="sig-paren">(</span><em>filepath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioHandler.combineAudio" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine audio tracks into a single wav file. This by-passes
+the issues with Maya not playblasting multiple audio tracks.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filepath</strong> – filepath to store the combined audioTrack</td>
+</tr>
+</tbody>
+</table>
+<p>TODO: Deal with offset start and end data + silence</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_Audio.AudioNode">
+<em class="property">class </em><code class="descname">AudioNode</code><span class="sig-paren">(</span><em>audioNode=None</em>, <em>filepath=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Single AudioNode handler for simple audio management object</p>
+<p>“Broadcast Wav” format now supported using specs from :
+<a class="reference external" href="https://tech.ebu.ch/docs/tech/tech3285.pdf">https://tech.ebu.ch/docs/tech/tech3285.pdf</a></p>
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.path">
+<code class="descname">path</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.path" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.name">
+<code class="descname">name</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.audioNode">
+<code class="descname">audioNode</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.audioNode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.gatherInfo">
+<code class="descname">gatherInfo</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.gatherInfo" title="Permalink to this definition">¶</a></dt>
+<dd><p>gather all general data on this audioNode
+replicates the ProPack’s gatherInfo call on mNodes</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.sampleRate">
+<code class="descname">sampleRate</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.sampleRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>sample rate in milliseconds</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.sample_width">
+<code class="descname">sample_width</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.sample_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>bytes per sample, is converted by the sample_bits into bitrate</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.sample_bits">
+<code class="descname">sample_bits</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.sample_bits" title="Permalink to this definition">¶</a></dt>
+<dd><p>bit rate taken from the bytes per sample : 4,8,16,24 bit</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.channels">
+<code class="descname">channels</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.channels" title="Permalink to this definition">¶</a></dt>
+<dd><p>number of channels 1=mone, 2=stereo</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.dBFS">
+<code class="descname">dBFS</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.dBFS" title="Permalink to this definition">¶</a></dt>
+<dd><p>loudness of the AudioSegment in dBFS (db relative to the maximum possible loudness)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.max_dBFS">
+<code class="descname">max_dBFS</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.max_dBFS" title="Permalink to this definition">¶</a></dt>
+<dd><p>The highest amplitude of any sample in the AudioSegment,
+in dBFS (relative to the highest possible amplitude value).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.duration">
+<code class="descname">duration</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.duration" title="Permalink to this definition">¶</a></dt>
+<dd><p>return the duration of the wav from the file directly</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.startFrame">
+<code class="descname">startFrame</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.startFrame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maya start frame of the sound node</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.endFrame">
+<code class="descname">endFrame</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.endFrame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Note in batch mode we calculate via the Wav duration
+NOT the Maya audioNode length as it’s invalid under batch mode!</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.startTime">
+<code class="descname">startTime</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.startTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : Maya start time of the sound node in milliseconds</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.endTime">
+<code class="descname">endTime</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.endTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : Maya end time of the sound node in milliseconds</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.offset">
+<code class="descname">offset</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>simply get the offset</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.inspect">
+<code class="descname">inspect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.inspect" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple warp over the inspect function to bind it to this audioNode instance</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.to_mono">
+<code class="descname">to_mono</code><span class="sig-paren">(</span><em>output</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.to_mono" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert a stereo file to mono</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.isBwav">
+<code class="descname">isBwav</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.isBwav" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : validate if the given source Wav is a BWav or not</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_getHeader">
+<code class="descname">bwav_getHeader</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_getHeader" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : get the internal BWav header data from the wav if found</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_timecodeMS">
+<code class="descname">bwav_timecodeMS</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_timecodeMS" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : read the internal timecode reference from the bwav and convert that number into milliseconds</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_timecodeReference">
+<code class="descname">bwav_timecodeReference</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_timecodeReference" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : if is BWaw return the internal timeReference</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_timecodeFormatted">
+<code class="descname">bwav_timecodeFormatted</code><span class="sig-paren">(</span><em>smpte=True</em>, <em>framerate=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_timecodeFormatted" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : if is Bwav return the internal timecode &amp; convert from milliseconds into timecode</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>smpte</strong> – format the timecode HH:MM:SS:FF where FF is frames, else milliseconds</li>
+<li><strong>framerate</strong> – when using smpte this is the framerate used in the FF block</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_sync_to_Timecode">
+<code class="descname">bwav_sync_to_Timecode</code><span class="sig-paren">(</span><em>offset=0</em>, <em>timecodebase=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_sync_to_Timecode" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : given that self is a Bwav and has timecode reference, sync it’s position
+in the Maya timeline to match</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – offset (in frames) to apply to the internal timecode of the given wav’s</li>
+<li><strong>timecodebase</strong> – optional mapping for a reference timecode so we can manipulate the offset
+relative to a given timecodebase rather than assuming that frame 1 = ‘00:00:00:00’
+ie, we set the timecodebase to ‘01:00:00:00’ therefore day 1 timecode is stripped from
+all the calculations and a bwav who’s timecode is ‘00:00:00:10’ is set to frame 10</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.bwav_sync_to_dynamic">
+<code class="descname">bwav_sync_to_dynamic</code><span class="sig-paren">(</span><em>tc_node</em>, <em>bounds=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.bwav_sync_to_dynamic" title="Permalink to this definition">¶</a></dt>
+<dd><p>like the baw_sync_to_timecode func this will sync this audio bwav node to a given timecode
+but the difference here is that that timecode is extracted dynamically from a given node,
+stamped with the Red9 timecode attrs. This also supports multiple timecode takes within the
+same node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.isConnected_AudioGrp">
+<code class="descname">isConnected_AudioGrp</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.isConnected_AudioGrp" title="Permalink to this definition">¶</a></dt>
+<dd><p>: PRO_PACK : is this audioNode connected to a <a href="#id1"><span class="problematic" id="id2">Pro_</span></a> AudioGrp metaNode
+for asset management in the Pro systems</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.isValid">
+<code class="descname">isValid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.isValid" title="Permalink to this definition">¶</a></dt>
+<dd><p>If the audionode is loaded in maya then valid is if that node we’re pointing to exists
+If the audionode is NOT loaded and we just have a path check if that path exists</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.delete">
+<code class="descname">delete</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maya delete the sound node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.offsetTime">
+<code class="descname">offsetTime</code><span class="sig-paren">(</span><em>offset</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.offsetTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset the time of this audioNode instance</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>offset</strong> – amount to offset</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.importAndActivate">
+<code class="descname">importAndActivate</code><span class="sig-paren">(</span><em>active=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.importAndActivate" title="Permalink to this definition">¶</a></dt>
+<dd><p>If self was instantiated with filepath then this will import that wav
+into Maya and activate it on the timeline. Note that if there is already
+an instance of a sound node in Maya that points to this path them the
+class will bind itself to that node.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>active</strong> – do we set the imported audio to be active on the timerange in Maya</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># example of use:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">audio</span> <span class="o">=</span> <span class="n">r9Audio</span><span class="o">.</span><span class="n">AudioNode</span><span class="p">(</span><span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;c:/my_audio.wav&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">audio</span><span class="o">.</span><span class="n">importAndActivate</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.setActive">
+<code class="descname">setActive</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.setActive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the sound node as active on the timeSlider</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.getLengthFromWav">
+<code class="descname">getLengthFromWav</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.getLengthFromWav" title="Permalink to this definition">¶</a></dt>
+<dd><p>This uses the wav itself bypassing the Maya handling, why?
+In maya.standalone the audio isn’t loaded correctly and always is of length 1!</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.setTimeline">
+<code class="descname">setTimeline</code><span class="sig-paren">(</span><em>full=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.setTimeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the Maya timeline to the duration of the sound</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.mute">
+<code class="descname">mute</code><span class="sig-paren">(</span><em>state=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.mute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maya sound node, mute the sound</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>state</strong> – the mute state to use, default is True</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.openAudioPath">
+<code class="descname">openAudioPath</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.openAudioPath" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.formatAudioNode_to_Path">
+<code class="descname">formatAudioNode_to_Path</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.formatAudioNode_to_Path" title="Permalink to this definition">¶</a></dt>
+<dd><p>rename the AudioNode so it ties to the wav name</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.lockTimeInputs">
+<code class="descname">lockTimeInputs</code><span class="sig-paren">(</span><em>state=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.lockTimeInputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>lock the audio in time so it can’t be accidentally shifted</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>state</strong> – the lock state of the node, True or False</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_Audio.AudioNode.isCompiled">
+<code class="descname">isCompiled</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.isCompiled" title="Permalink to this definition">¶</a></dt>
+<dd><p>return if the audioNode in Maya was generated via the compileAudio
+call in the AudioHandler.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.stampCompiled">
+<code class="descname">stampCompiled</code><span class="sig-paren">(</span><em>audioNodes</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.stampCompiled" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used by the Audio compiler - stamp the audioNodes from which this audio
+track was compiled from</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>audioNodes</strong> – the audioNodes being compiled</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioNode.select">
+<code class="descname">select</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioNode.select" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap">
+<em class="property">class </em><code class="descname">AudioToolsWrap</code><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="classmethod">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap.show">
+<em class="property">classmethod </em><code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap.close">
+<code class="descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap.offsetSelectedBy">
+<code class="descname">offsetSelectedBy</code><span class="sig-paren">(</span><em>direction</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap.offsetSelectedBy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap.offsetSelectedTo">
+<code class="descname">offsetSelectedTo</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap.offsetSelectedTo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_Audio.AudioToolsWrap.offsetRipple">
+<code class="descname">offsetRipple</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_Audio.AudioToolsWrap.offsetRipple" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Red9_AnimationUtils.html" class="btn btn-neutral float-left" title="Red9_AnimationUtils" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Red9_Core.html" class="btn btn-neutral float-right" title="Red9_CoreUtils" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Red9 Consultancy Limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

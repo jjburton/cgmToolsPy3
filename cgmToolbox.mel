@@ -1,0 +1,4 @@
+global proc cgmToolbox() {
+	python( "import cgmToolbox;reload(cgmToolbox)" );
+	}
+

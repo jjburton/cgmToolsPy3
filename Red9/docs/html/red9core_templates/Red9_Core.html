@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html class="writer-html4" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red9_CoreUtils &mdash; Red9 3.0 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Red9_General" href="Red9_General.html" />
+    <link rel="prev" title="Red9_Audio" href="Red9_Audio.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Red9<img src="../_static/Red9_ProPack_logo.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Red9_AnimationUtils.html">Red9_AnimationUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Audio.html">Red9_Audio</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Red9_CoreUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_General.html">Red9_General</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Meta.html">Red9_Meta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_PoseSaver.html">Red9_PoseSaver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Setup.html">Red9_Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Tools.html">Red9_Tools</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_anim_map.html">Pro_Pack : anim_map</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_animation.html">Pro_Pack : animation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_audio.html">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_export.html">Pro_Pack : exporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_general.html">Pro_Pack : general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_project.html">Pro_Pack : project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skining.html">Pro_Pack : skining</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_project_manager.html">Pro_Pack : tools : project_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Red9</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Red9_CoreUtils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/red9core_templates/Red9_Core.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <a class="reference external image-reference" href="http://red9consultancy.com/propack"><img alt="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" src="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<div class="section" id="red9-coreutils">
+<h1>Red9_CoreUtils<a class="headerlink" href="#red9-coreutils" title="Permalink to this headline">¶</a></h1>
+<p>Red9_CoreUtils is the backbone of much of the systems, used to filter, find and process nodes
+on mass withing Maya as well as containing a lot of core functions for dealing with data.</p>
+<p>The FilterNode and FilterSettings classes are used throughout the pack, in fact any
+time the tools process a hierarchy it’s these classes that deal with it.</p>
+<span class="target" id="module-Red9.core.Red9_CoreUtils"></span><p class="rubric">Core Functions</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.nodeNameStrip" title="Red9.core.Red9_CoreUtils.nodeNameStrip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nodeNameStrip</span></code></a>(node)</td>
+<td>Simple method to strip any <a href="#id1"><span class="problematic" id="id2">|</span></a>Path and :Namespaces: from a given object DagPath ie Ns:Rig|Ns:Leg|Ns:Foot == Foot</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.prioritizeNodeList" title="Red9.core.Red9_CoreUtils.prioritizeNodeList"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prioritizeNodeList</span></code></a>(*args,&nbsp;**kws)</td>
+<td>Simple function to force the order of a given nList such that nodes in the given priority list are moved to the front of the list.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.sortNumerically" title="Red9.core.Red9_CoreUtils.sortNumerically"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sortNumerically</span></code></a>(data)</td>
+<td>Sort the given data in the way that humans expect.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.stringReplace" title="Red9.core.Red9_CoreUtils.stringReplace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stringReplace</span></code></a>(text,&nbsp;replace_dict)</td>
+<td>Replace words in a text that match a key in replace_dict with the associated value, return the modified text.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.matchNodeLists" title="Red9.core.Red9_CoreUtils.matchNodeLists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">matchNodeLists</span></code></a>(nodeListA,&nbsp;nodeListB[,&nbsp;…])</td>
+<td>Matches 2 given NODE LISTS by node name via various methods.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.getBlendTargetsFromMesh" title="Red9.core.Red9_CoreUtils.getBlendTargetsFromMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getBlendTargetsFromMesh</span></code></a>(node[,&nbsp;asList,&nbsp;…])</td>
+<td>quick func to return the blendshape targets found from a give mesh’s connected blendshape’s</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.processMatchedNodes" title="Red9.core.Red9_CoreUtils.processMatchedNodes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">processMatchedNodes</span></code></a>([nodes,&nbsp;filterSettings,&nbsp;…])</td>
+<td>HUGELY IMPORTANT CALL FOR ALL ANIMATION FUNCTIONS</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.matchNodeLists" title="Red9.core.Red9_CoreUtils.matchNodeLists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">matchNodeLists</span></code></a>(nodeListA,&nbsp;nodeListB[,&nbsp;…])</td>
+<td>Matches 2 given NODE LISTS by node name via various methods.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.timeOffset_addPadding" title="Red9.core.Red9_CoreUtils.timeOffset_addPadding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeOffset_addPadding</span></code></a>([pad,&nbsp;padfrom,&nbsp;scene,&nbsp;…])</td>
+<td>simple wrap of the timeoffset class which will add padding into the animation curves on the selected object by shifting keys</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.timeOffset_collapse" title="Red9.core.Red9_CoreUtils.timeOffset_collapse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeOffset_collapse</span></code></a>([scene,&nbsp;timerange,&nbsp;mRigs])</td>
+<td>Light wrap over the TimeOffset call to manage collapsing time</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.decodeString" title="Red9.core.Red9_CoreUtils.decodeString"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decodeString</span></code></a>(val)</td>
+<td>From configObj the return is a string, we want to encode it back to it’s original state so we pass it through this</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.floatIsEqual" title="Red9.core.Red9_CoreUtils.floatIsEqual"><code class="xref py py-obj docutils literal notranslate"><span class="pre">floatIsEqual</span></code></a>(a,&nbsp;b[,&nbsp;tolerance,&nbsp;allowGimbal])</td>
+<td>compare 2 floats with tolerance.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.valueToMappedRange" title="Red9.core.Red9_CoreUtils.valueToMappedRange"><code class="xref py py-obj docutils literal notranslate"><span class="pre">valueToMappedRange</span></code></a>(value,&nbsp;currentMin,&nbsp;…)</td>
+<td>Acts like the setRange node but code side we have a min max range, lets say 0.5 - 15 and we want to map the range to a new range say 0-1 and return where the value given is in that new range</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.distanceBetween" title="Red9.core.Red9_CoreUtils.distanceBetween"><code class="xref py py-obj docutils literal notranslate"><span class="pre">distanceBetween</span></code></a>(nodeA,&nbsp;nodeB)</td>
+<td>simple calculation to return the distance between 2 objects</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Core Classes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings" title="Red9.core.Red9_CoreUtils.FilterNode_Settings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FilterNode_Settings</span></code></a>()</td>
+<td>Simple concept, this settings object is passed into the filterNode Calls and is used to setup how hierarchies are processed and filtered.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.FilterNode" title="Red9.core.Red9_CoreUtils.FilterNode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FilterNode</span></code></a>([roots,&nbsp;filterSettings])</td>
+<td>FilterNode is a class for managing, searching and filtering nodes with the scene.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.MatchedNodeInputs" title="Red9.core.Red9_CoreUtils.MatchedNodeInputs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MatchedNodeInputs</span></code></a>([nodes,&nbsp;filterSettings,&nbsp;…])</td>
+<td>Class to process and match input nodes for most of the Hierarchy/Anim functions that work on carefully managed matched pairs of nodes.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.LockChannels" title="Red9.core.Red9_CoreUtils.LockChannels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LockChannels</span></code></a>()</td>
+<td>Simple UI to manage the lock and key status of nodes</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.TimeOffset" title="Red9.core.Red9_CoreUtils.TimeOffset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TimeOffset</span></code></a>([cache_object])</td>
+<td>A class for dealing with time manipulation inside Maya.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_CoreUtils.MatrixOffset" title="Red9.core.Red9_CoreUtils.MatrixOffset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MatrixOffset</span></code></a>()</td>
+<td>Given 2 transforms calculate the difference as a Matrix and apply that as an offset matrix to a given list of nodes.</td>
+</tr>
+</tbody>
+</table>
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.logging_is_debug">
+<code class="descname">logging_is_debug</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.logging_is_debug" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.nodeNameStrip">
+<code class="descname">nodeNameStrip</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.nodeNameStrip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simple method to strip any <a href="#id3"><span class="problematic" id="id4">|</span></a>Path and :Namespaces: from
+a given object DagPath ie Ns:Rig|Ns:Leg|Ns:Foot == Foot</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.prioritizeNodeList">
+<code class="descname">prioritizeNodeList</code><span class="sig-paren">(</span><em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.prioritizeNodeList" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simple function to force the order of a given nList such that nodes
+in the given priority list are moved to the front of the list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>inputlist</strong> – main input list</li>
+<li><strong>priorityList</strong> – list which is used to prioritize/order the main nList</li>
+<li><strong>regex</strong> – Switches from regex search to simple exact node name</li>
+<li><strong>prioritysOnly</strong> – return just the priorityList matches or the entire list sorted</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Known issue, if regex=True and you have 2 similar str’s in the priority list then there’s
+a chance that matching may be erratic…</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">priorityList</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;upperLip&#39;</span><span class="p">,</span><span class="s1">&#39;l_upperLip&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nodes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;|my|dag|path|jaw&#39;</span><span class="p">,</span><span class="o">|</span><span class="n">my</span><span class="o">|</span><span class="n">dag</span><span class="o">|</span><span class="n">path</span><span class="o">|</span><span class="n">l_upperLip</span><span class="s1">&#39;,&#39;</span><span class="o">|</span><span class="n">my</span><span class="o">|</span><span class="n">dag</span><span class="o">|</span><span class="n">path</span><span class="o">|</span><span class="n">upperLip</span><span class="s1">&#39;,&#39;</span><span class="o">|</span><span class="n">my</span><span class="o">|</span><span class="n">dag</span><span class="o">|</span><span class="n">path</span><span class="o">|</span><span class="n">lowerLip</span><span class="s1">&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">returns</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;|my|dag|path|l_upperLip&#39;</span><span class="p">,</span><span class="s1">&#39;|my|dag|path|upperLip&#39;</span><span class="p">,</span><span class="o">|</span><span class="n">my</span><span class="o">|</span><span class="n">dag</span><span class="o">|</span><span class="n">path</span><span class="o">|</span><span class="n">jaw</span><span class="p">,</span><span class="s1">&#39;|my|dag|path|lowerLip]</span>
+</pre></div>
+</div>
+<p class="last">as in regex <strong>‘l_upperLip’==’upperLip’</strong> as well as <strong>‘upperLip’==’upperLip’</strong>. 
+Really in regex you’d need to be more specific:  <strong>priorityList=[‘^upperLip’,’l_upperLip’]</strong></p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.sortNumerically">
+<code class="descname">sortNumerically</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.sortNumerically" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sort the given data in the way that humans expect.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Joint_1&#39;</span><span class="p">,</span><span class="s1">&#39;Joint_2&#39;</span><span class="p">,</span><span class="s1">&#39;Joint_9&#39;</span><span class="p">,</span><span class="s1">&#39;Joint_10&#39;</span><span class="p">,</span><span class="s1">&#39;Joint_11&#39;</span><span class="p">,</span><span class="s1">&#39;Joint_12&#39;</span><span class="p">]</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># standard gives us:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="s1">&#39;Joint_1&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_10&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_11&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_12&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_2&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_9&#39;</span><span class="p">]</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># sortNumerically gives us:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sortNumerically</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="s1">&#39;Joint_1&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_2&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_9&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_10&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_11&#39;</span><span class="p">,</span> <span class="s1">&#39;Joint_12&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.sorted_nicely">
+<code class="descname">sorted_nicely</code><span class="sig-paren">(</span><em>items</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.sorted_nicely" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sort the given iterable in the way that humans expect.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.common_suffix">
+<code class="descname">common_suffix</code><span class="sig-paren">(</span><em>test_list</em>, <em>suggested=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.common_suffix" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a list of strings return the common suffix. Note that all of the 
+strings given have to share the same suffix else we return None</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>suggested</strong> – if True and not all strings share the same common suffix then
+we suggest a suffix based on the percentage of matches</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">test_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;pelvis_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;spine_01_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;spine_02_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;spine_03_drv&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">common_suffix</span><span class="p">(</span><span class="n">test_list</span><span class="p">)</span>  <span class="c1"># return &#39;_drv&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.common_prefix">
+<code class="descname">common_prefix</code><span class="sig-paren">(</span><em>test_list</em>, <em>suggested=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.common_prefix" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a list of strings return the common prefix. Note that all of the 
+strings given have to share the same prefix else we return None</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>test_list</strong> – list of strings we’re going to test</li>
+<li><strong>suggested</strong> – if True and not all strings share the same common prefix then
+we suggest a prefix based on the percentage of matches</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">test_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;bob_pelvis_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;bob_spine_01_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;bob_spine_02_drv&#39;</span><span class="p">,</span> <span class="s1">&#39;bob_spine_03_drv&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">common_prefix</span><span class="p">(</span><span class="n">test_list</span><span class="p">)</span>  <span class="c1"># return &#39;bob_&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.stringReplace">
+<code class="descname">stringReplace</code><span class="sig-paren">(</span><em>text</em>, <em>replace_dict</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.stringReplace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Replace words in a text that match a key in replace_dict
+with the associated value, return the modified text.
+Only whole words are replaced.
+Note that replacement is case sensitive, but attached
+quotes and punctuation marks are neutral.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>replace_dict</strong> – </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.removeNameSpace_fromDag">
+<code class="descname">removeNameSpace_fromDag</code><span class="sig-paren">(</span><em>dagpath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.removeNameSpace_fromDag" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a given DagPath remove any namespaces - used in the poseCompare to only compare the native hierarchies</p>
+<dl class="docutils">
+<dt>such that:</dt>
+<dd>“<a href="#id5"><span class="problematic" id="id6">|</span></a>test:Reference|test:Hips|test:Spine|test:Spine1|test:Spine2|test:Spine3|test:Spine4|test:Neck|test:Neck1|test:Neck2|test:Head”</dd>
+<dt>will return:</dt>
+<dd>“<a href="#id7"><span class="problematic" id="id8">|</span></a>Reference|Hips|Spine|Spine1|Spine2|Spine3|Spine4|Neck|Neck1|Neck2|Head”</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.decodeString">
+<code class="descname">decodeString</code><span class="sig-paren">(</span><em>val</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.decodeString" title="Permalink to this definition">¶</a></dt>
+<dd><p>From configObj the return is a string, we want to encode
+it back to it’s original state so we pass it through this</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.validateString">
+<code class="descname">validateString</code><span class="sig-paren">(</span><em>strText, fix=False, illegals=['-', '#', '!', ' ', '&#64;']</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.validateString" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to validate that a string has no illegal characters</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>strText</strong> – text to validate</li>
+<li><strong>fix</strong> – if True then we replace illegals with ‘_’</li>
+<li><strong>illegals</strong> – now allow you to pass in what you consider illegals, default=[‘-‘, ‘#’, ‘!’, ‘ ‘, ‘&#64;’]</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.filterListByString">
+<code class="descname">filterListByString</code><span class="sig-paren">(</span><em>input_list</em>, <em>filter_string</em>, <em>matchcase=False</em>, <em>os_basename=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.filterListByString" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generic way to filter a list by a given string input. This is so that all
+the filtering used in the UI’s is consistent. Used by the poseSaver, facialUI,
+MetaUI and many others.</p>
+<p>see : <a class="reference external" href="https://docs.python.org/3.3/howto/regex.html">https://docs.python.org/3.3/howto/regex.html</a> , <a class="reference external" href="http://www.pyregex.com">http://www.pyregex.com</a> , or search for Regex cheat sheets</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>iniput_list</strong> – list of strings to be filtered</li>
+<li><strong>filter_string</strong> – string to use in the filter, supports comma separated search strings
+eg : ‘brows,smile,funnel’</li>
+<li><strong>matchcase</strong> – whether to match or ignore case sensitivity</li>
+<li><strong>os_basename</strong> – if True and the list is a list of full os paths, we strip filter just the filename, path and ext stripped off</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>this is a Regex search but it’s carefully managed under the hood.</p>
+<ul class="last simple">
+<li><strong>‘attack knife’</strong> : yield matches with ‘attack’ and ‘knife’ in the string in that order, similar to ‘attack*.*knife in windows, compiles to (‘attack.*knife’)</li>
+<li><strong>‘knife+attack’</strong> : yield matches where order does not matter but the string has to contain both ‘attack’ and ‘knife’</li>
+<li><strong>‘attack..knife’</strong> would yield matches with ‘attack12knife’ 2 wildcards between the params (dots are wildcards in regex), compiles to (‘attack..knife’)</li>
+<li><strong>‘attack.*knife’</strong> would yield matches with ‘attack_big_massive_knife’ because of the .* is multiple wildcards between the search params, compiles to (‘attack.*knife’)</li>
+<li><strong>‘attack,knife’</strong> would yield matches with either ‘attack’ and ‘knife’ in the string, compiles to (‘attack|knife’) with the ‘|’ or operator</li>
+<li><strong>‘attack|knife’</strong> same as above</li>
+<li><strong>‘attack$’</strong> would match ‘we_attack’ but not ‘they_attacked’ as the $ is used here as the end of the search string</li>
+<li><strong>^attack’</strong> would match ‘attack_then’ but not ‘they_attack’ as the ^ clamps to the front of the string</li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.nodes_in_hierarchy">
+<code class="descname">nodes_in_hierarchy</code><span class="sig-paren">(</span><em>rootNode</em>, <em>nodes=[]</em>, <em>nodeType=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.nodes_in_hierarchy" title="Permalink to this definition">¶</a></dt>
+<dd><p>check to see if a given set of nodes (shortname matched) are found in
+the given hierarchy and return the matches</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>rootNode</strong> – rootNode of the hierarchy to search</li>
+<li><strong>nodes</strong> – nodes to find from their shortName</li>
+<li><strong>nodeType</strong> – nodeTypes within the hierarchy to search</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.nodes_are_constrained">
+<code class="descname">nodes_are_constrained</code><span class="sig-paren">(</span><em>src</em>, <em>target</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.nodes_are_constrained" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>src</strong> – the node that would be the driver of the constraint</li>
+<li><strong>target</strong> – the node we think is being driven</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>return any constraints between the source and target object if found.
+This checks the target for child constraints, then checks the target list
+for those constraints to see if the src is in the list, if so it’s added to the return</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.parent">
+<code class="descname">parent</code><span class="sig-paren">(</span><em>children</em>, <em>parent=None</em>, <em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.parent" title="Permalink to this definition">¶</a></dt>
+<dd><p>this is a simple parent call but includes a base check. It’s simply wrapping Maya’s parent call
+but doing the check to see if the children are already parented to the given node, and if so, just returning
+the full path of the children</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>children</strong> – [] children to parent / check parenting</li>
+<li><strong>parent</strong> – parent to move the child under</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">the newly parented full dag path</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings">
+<em class="property">class </em><code class="descname">FilterNode_Settings</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Simple concept, this settings object is passed into the filterNode Calls
+and is used to setup how hierarchies are processed and filtered. This is
+class is used through out Red in conjunction with the filterNode class.</p>
+<p>default settings bound:</p>
+<blockquote>
+<div><ul class="simple">
+<li>nodeTypes: []  - search for given Maya nodeTypes’</li>
+<li>searchAttrs: [] - search for given attributes on nodes</li>
+<li>searchPattern: [] - search for nodeName patterns</li>
+<li>hierarchy: False - full hierarchy process</li>
+<li>metaRig: False - ??Do we do this here?? {‘MetaClass’,’functCall’}</li>
+<li>filterPriority: [] - A way of re-ordering the hierarchy lists</li>
+<li>incRoots: True - process rootNodes in the filters</li>
+<li>transformClamp: True - clamp any nodes found to their transforms</li>
+<li>infoBlock: ‘’</li>
+<li>prefix: ‘’ - know prefix thats been used on these nodes</li>
+<li>suffix: ‘’ - known suffix thats been used on these nodes</li>
+<li>rigData: {}</li>
+</ul>
+</div></blockquote>
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.filterIsActive">
+<code class="descname">filterIsActive</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.filterIsActive" title="Permalink to this definition">¶</a></dt>
+<dd><p>the filter is deemed to be active if any of the filterSettings would
+produce a hierarchy search.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.printSettings">
+<code class="descname">printSettings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.printSettings" title="Permalink to this definition">¶</a></dt>
+<dd><p>pretty print the filterSettings data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.resetFilters">
+<code class="descname">resetFilters</code><span class="sig-paren">(</span><em>rigData=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.resetFilters" title="Permalink to this definition">¶</a></dt>
+<dd><p>reset the MAIN filter args only</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rigData</strong> – this is a cached attr and not fully handled
+by the UI hence the option NOT to reset, used by the UI presetFill calls</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.setByDict">
+<code class="descname">setByDict</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.setByDict" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the filetrSettings via a dict correctly formatted, used
+to pull the data back from an MRig that has this data bound to it</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> – dict of data formatted as per the filterSettings keys.
+this is a new function allowing a dict of data to be passed into the
+object from a config file or mNode directly</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>filepath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>write the filterSettings attribute out to a ConfigFile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filepath</strong> – file path to write the configFile out to</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_Settings.read">
+<code class="descname">read</code><span class="sig-paren">(</span><em>filepath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_Settings.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a given ConfigFile and fill this object instance with the data</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filepath</strong> – file path to write the configFile out to</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If filepath doesn’t exists or you pass in just the short name of the config you
+want to load then we try and find a matching config in the default presets dir in Red9</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_UI">
+<em class="property">class </em><code class="descname">FilterNode_UI</code><span class="sig-paren">(</span><em>settings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_UI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_UI.show">
+<em class="property">classmethod </em><code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_UI.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode_UI.close">
+<code class="descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode_UI.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode">
+<em class="property">class </em><code class="descname">FilterNode</code><span class="sig-paren">(</span><em>roots=None</em>, <em>filterSettings=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>FilterNode is a class for managing, searching and filtering nodes with the scene.
+If the arg roots[] is given then the code filters the hierarchy’s of these roots.
+If roots is not given then the functions will search globally at a scene level.</p>
+<p>Note that the main call, ProcessFilter() is only part of this class, there are
+many other specific filtering functions for finding nodes in your Maya scene.</p>
+<p>This is a crucial class and used extensively in Red9 where ever hierarchies
+are in need of filtering. Used in conjunction with a FilterNode_Settings object
+which,if not given, gets bound to self.settings.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span> <span class="o">=</span> <span class="n">FilterNode</span><span class="p">(</span><span class="n">rootNode</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">nodeTypes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;nurbsCurve&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">filt</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">searchPattern</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Ctrl&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">filt</span><span class="o">.</span><span class="n">ProcessFilter</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The above makes a filterNode class, we pass in our hierarchies rootNode (string),
+then set the internal settings to filter the hierarchy for all child nurbsCurves
+who’s name includes ‘Ctrl’. Finally the ProcessFilter runs the main call.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>the searchPattern is a compiled Regex search but it’s managed under the hood.</p>
+<ul class="last simple">
+<li><strong>‘attack knife’</strong> : would yield matches with ‘attack and knife in the string, similar to ‘attack*.*knife in windows, compiles to (‘attack.*knife’)</li>
+<li><strong>‘attack..knife’</strong> : would yield matches with ‘attack12knife’ 2 wildcards between the params (dots are wildcards in regex), compiles to (‘attack..knife’)</li>
+<li><strong>‘attack.*knife’</strong> : would yield matches with ‘attack_big_massive_knife’ because of the .* is multiple wildcards between the search params, compiles to (‘attack.*knife’)</li>
+<li><strong>‘attack,knife’</strong> : would yield matches with either ‘attack’ and ‘knife’ in the string, compiles to (‘attack|knife’) with the ‘|’ or operator</li>
+<li><strong>‘attack|knife’</strong> : same as above</li>
+<li><strong>‘attack$’</strong> : would match ‘we_attack’ but not ‘they_attacked’ as the $ is used here as the end of the search string</li>
+<li><strong>^attack’</strong> : would match ‘attack_then’ but not ‘they_attack’ as the ^ clamps to the front of the string</li>
+</ul>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>roots</strong> – Given root nodes in the Maya scene to search from.
+If a root is NOT given then the filter codes default to scanning all scene nodes.</li>
+<li><strong>filterSettings</strong> – This expects a FilterNode_Settings Object to be passed in. This
+in turn holds all the filtering parameters used by the main lsIntersector call
+all other calls use given params so can be called directly.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.rootNodes">
+<code class="descname">rootNodes</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.rootNodes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.processMode">
+<code class="descname">processMode</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.processMode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.knownShapes">
+<em class="property">static </em><code class="descname">knownShapes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.knownShapes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.getObjectSetMembers">
+<code class="descname">getObjectSetMembers</code><span class="sig-paren">(</span><em>objSet</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.getObjectSetMembers" title="Permalink to this definition">¶</a></dt>
+<dd><p>return objectSet members in long form</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>objSet</strong> – set to inspect and return the memebers from</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsHierarchy">
+<code class="descname">lsHierarchy</code><span class="sig-paren">(</span><em>incRoots=False</em>, <em>transformClamp=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simple wrapper of the listRelatives, BUT with the option
+to include the rootNodes and select the results</p>
+<p>Also if a single rootNode is passed, and it’s of type ‘character’
+then the code will return the characterMembers instead</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>incRoots</strong> – include the given rootNodes in the filter</li>
+<li><strong>transformClamp</strong> – clamp all searches so that any shape style node returns it’s parent transform</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>TODO: objectSet modifications need testing!!!!!</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsSearchNodeTypes">
+<code class="descname">lsSearchNodeTypes</code><span class="sig-paren">(</span><em>nodeTypes</em>, <em>nodes=None</em>, <em>incRoots=True</em>, <em>transformClamp=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsSearchNodeTypes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main filter function wraps the cmds.listRelatives but replicates
+the mel listTransforms function in that it’s capable of just returning
+the transform nodes of the given nodeTypes
+for example, when filtered for meshes, we might not want the shape node
+This now has complex handling for dealing with CharcterSets and SelectionSets</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nodeTypes</strong> – Maya NodeTypes passed into the listRelatives wrapper</li>
+<li><strong>nodes</strong> – optional - allows you to pass in a list to process if required</li>
+<li><strong>incRoots</strong> – Include the given root nodes in the search, default=True
+Valid only if the Class is in ‘Selected’ processMode only.</li>
+<li><strong>transformClamp</strong> – Clamp the return to the Transform nodes. Ie, mesh normally
+would return the shape node, this clamps the return to it’s Transform node, default=False</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">a list of nodes who type match the given search list</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>TODO: Add the ability to use the NOT: operator in this, so for example, nodeTypes=transform
+would return all mesh nodes too, or rather the transform from a mesh, maybe you’d want to
+clamp that and prevent mesh transforms being returned? Is this even reasonable???</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsMeshes">
+<code class="descname">lsMeshes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsMeshes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for Meshes : from a start node find all mesh nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsTransforms">
+<code class="descname">lsTransforms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsTransforms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for Transforms : from a start node find all transform nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsJoints">
+<code class="descname">lsJoints</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsJoints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for Joints : from a start node find all Joints nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsLocators">
+<code class="descname">lsLocators</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsLocators" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for Locators : from a start node find all Locators nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsIkData">
+<code class="descname">lsIkData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsIkData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for IKData : from a start node find all ikHandle &amp; ikEffector nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsNurbsCurve">
+<code class="descname">lsNurbsCurve</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsNurbsCurve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for NurbsCurve : from a start node find all NurbsCurve nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsConstraintsAll">
+<code class="descname">lsConstraintsAll</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsConstraintsAll" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for All Constraint Nodes : from a start node find all Constraint nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsOrientConstraint">
+<code class="descname">lsOrientConstraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsOrientConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for OrientConstraint : from a start node find all OrientConstraint nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsPointConstraint">
+<code class="descname">lsPointConstraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsPointConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for PointConstraint : from a start node find all PointConstraint nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsParentConstraint">
+<code class="descname">lsParentConstraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsParentConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter for ParentConstraint : from a start node find all ParentConstraint nodes in the hierarchy</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsAnimCurves">
+<em class="property">static </em><code class="descname">lsAnimCurves</code><span class="sig-paren">(</span><em>nodes=None</em>, <em>safe=False</em>, <em>allow_ref=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsAnimCurves" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search for animationCurves. If no nodes are passed in to process then this
+is a simple one liner, BUT if you pass in a selection of nodes to process
+then it’s a lot harder. This code has to traverse the history and connection
+lists to find any animCurves that are in the nodes graph. This passes over
+character sets and animLayers to find all animCurve data.
+Note that this has no filter for excluding curves of type
+eg: setDrivens etc will need post filtering from the returns in many cases</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – optional given node list, return animData in the nodes history</li>
+<li><strong>safe</strong> – optional ‘bool’, only return animCurves which are safe to modify, this
+will strip out SetDrivens, Clips curves etc..</li>
+<li><strong>allow_ref</strong> – if False and “safe” we remove all references animCurves, else we leave them in the return</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsSearchAttributes">
+<code class="descname">lsSearchAttributes</code><span class="sig-paren">(</span><em>searchAttrs</em>, <em>nodes=None</em>, <em>incRoots=True</em>, <em>returnValues=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsSearchAttributes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search for nodes that have a given attr or any attrs from a given list[]
+:param searchAttrs: list or string of attributes to search for on all child nodes</p>
+<blockquote>
+<div>NOTE: new operators ‘NOT:’ and ‘=’</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nodes</strong> – optional - allows you to pass in a list to process if required</li>
+<li><strong>returnValues</strong> – If found return the Value of the Attrs
+along with the node - switches return type to tuple. default=False</li>
+<li><strong>incRoots</strong> – Include the given root nodes in the search, default=True
+Valid only if the Class is in ‘Selected’ processMode only.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">list[] or dict{} of nodes whos attributes include any of the given attrs[]</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Nodes that have the search attr/attrs. If returnValue is given as a
+keyword then it will return a dict in the form {node,attrValue}</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If the searchAttrs has an entry in the form <strong>NOT:searchAttr</strong> then this will be forcibly
+excluded from the filter. Also you can now do <strong>myAttr=2.33</strong> to only pass if the attr is equal
+similarly <strong>NOT:myAttr=2.33</strong> will exclude if the value is equal
+see the “..Red9    estsRed9_CoreUtilTests.py” for live unittest examples</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">current Implementation DOES NOT allow multiple attr tests as only 1 val per key
+in the excludeAttrs and includeAttrs is currently supported!!</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsSearchNamePattern">
+<code class="descname">lsSearchNamePattern</code><span class="sig-paren">(</span><em>searchPattern</em>, <em>nodes=None</em>, <em>incRoots=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsSearchNamePattern" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search for nodes who’s name match the given search patterns</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>searchPattern</strong> – string/list patterns to match node names against (includes a ‘NOT:’ operator)</li>
+<li><strong>nodes</strong> – optional - allows you to pass in a list to process if required</li>
+<li><strong>incRoots</strong> – Include the given root nodes in the search, default=True
+Valid only if the Class is in ‘Selected’ processMode only.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If the searchPattern has an entry in the form <strong>NOT:searchtext</strong> then this will be forcibly
+excluded from the filter. ie, My_L_Foot_Ctrl will be excluded with the following pattern
+<strong>[‘Ctrl’,’NOT:My’]</strong> where Ctrl finds it, but the ‘NOT:My’ tells the filter to skip it if found</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsCharacterSets">
+<code class="descname">lsCharacterSets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsCharacterSets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get any characterSets from the given rootNode (single only). If rootNode[0]
+is of type ‘character’ then it will just return itself. If not will test
+all children of the root for links to characterSets and return those found.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsCharacterMembers">
+<code class="descname">lsCharacterMembers</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsCharacterMembers" title="Permalink to this definition">¶</a></dt>
+<dd><p>From self.characterSets return all it’s node members. If characterSets attr
+hasn’t been set then it will invoke a test on the RootNode down through
+it’s hierarchy to find all characterSet links. Not that this now processes
+subCharacterSets too</p>
+<p>##### THIS NEEDS WORK TO RETURN THE MEMBERS IN THE CORRECT ORDER #####</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.lsMetaRigControllers">
+<code class="descname">lsMetaRigControllers</code><span class="sig-paren">(</span><em>walk=True</em>, <em>incMain=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.lsMetaRigControllers" title="Permalink to this definition">¶</a></dt>
+<dd><p>very light wrapper to handle MetaData in the FilterSystems. This is hard coded
+to find CTRL markered attrs and give back the attached nodes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>walk</strong> – walk the found systems for subSystems and process those too</li>
+<li><strong>incMain</strong> – Like the other filters we allow the given top
+node in the hierarchy to be removed from processing. In a MetaRig
+this is the CTRL_Main controller which should be Top World Space</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.ProcessFilter">
+<code class="descname">ProcessFilter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.ProcessFilter" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name" colspan="2">Depricated Function:</th></tr>
+<tr class="field-odd field"><td>&#160;</td><td class="field-body"></td>
+</tr>
+</tbody>
+</table>
+<p>Replace the ‘P’ in the function call but not depricating it just yet
+as too much code both internally and externally relies on this method</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.FilterNode.processFilter">
+<code class="descname">processFilter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.FilterNode.processFilter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses intersection to allow you to process multiple search flags for
+more accurate filtering.
+Uses the FilterNode_Settings object for all args such that:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>settings.nodeTypes</strong> – nodetypes to search for on child nodes</li>
+<li><strong>settings.searchAttrs</strong> – attribute to search for on child nodes</li>
+<li><strong>settings.searchPattern</strong> – name pattern to match on child nodes</li>
+<li><strong>settings.transformClamp</strong> – Clamp the return to the Transform nodes.</li>
+<li><strong>settings.incRoots</strong> – Include the given root nodes in the search.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">all nodes which match ALL the given keyword filter searches</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.getBlendTargetsFromMesh">
+<code class="descname">getBlendTargetsFromMesh</code><span class="sig-paren">(</span><em>node</em>, <em>asList=True</em>, <em>returnAll=False</em>, <em>levels=4</em>, <em>indexes=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.getBlendTargetsFromMesh" title="Permalink to this definition">¶</a></dt>
+<dd><p>quick func to return the blendshape targets found from a give mesh’s connected blendshape’s</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>node</strong> – node to inspect for blendShapes, or the blendshape itself</li>
+<li><strong>asList</strong> – return as a straight list of target names or a dict of data</li>
+<li><strong>returnAll</strong> – if multiple blendshapes are found do we return all, or just the first</li>
+<li><strong>levels</strong> – same as the ‘levels’ flag in listHistory as that’s ultimately what grabs the blendShape nodes here</li>
+<li><strong>indexes</strong> – return the data as a tuple (index, plug(weight[index]), blendtarget )</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.getBlendTargetIndex">
+<code class="descname">getBlendTargetIndex</code><span class="sig-paren">(</span><em>blendNode</em>, <em>targetName</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.getBlendTargetIndex" title="Permalink to this definition">¶</a></dt>
+<dd><p>given a blendshape node return the weight index for a given targetName</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>blendNode</strong> – blendShape node to inspect</li>
+<li><strong>targetName</strong> – target Alias Name of the channel we’re trying to find the index for</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.matchNodeLists">
+<code class="descname">matchNodeLists</code><span class="sig-paren">(</span><em>nodeListA</em>, <em>nodeListB</em>, <em>matchMethod='stripPrefix'</em>, <em>returnfails=False</em>, <em>prefix=''</em>, <em>suffix=''</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.matchNodeLists" title="Permalink to this definition">¶</a></dt>
+<dd><p>Matches 2 given NODE LISTS by node name via various methods.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nodeListA</strong> – list of nodes</li>
+<li><strong>nodeListB</strong> – list of nodes</li>
+<li><strong>returnfails</strong> – if True we return [matchedData, unmatched] so that we can pass the unmatched list for further processing</li>
+<li><strong>matchMethod</strong> – <p>default ‘stripPrefix’</p>
+<ul>
+<li>matchMethod=”index” : no intelligent matching, just purely zip the lists             together in the order they were given</li>
+<li>matchMethod=”indexReversed” : no intelligent matching, just purely zip             the lists together in the reverse order they were given</li>
+<li>matchMethod=”base” :  match each element by exact name (shortName) such             that Spine==Spine or REF1:Spine==REF2:Spine</li>
+<li>matchMethod=”stripPrefix” : match each element by a relaxed naming convention             allowing for prefixes one side such that RigX_Spine == Spine</li>
+<li>matchMethod=”stripSuffix” : match each element by a relaxed naming convention             allowing for suffixes one side such that Spine_DRV == Spine</li>
+<li><dl class="first docutils">
+<dt>matchMethod=”commonPrefix” <span class="classifier-delimiter">:</span> <span class="classifier">match each element by a relaxed naming convention             allowing for prefixes such that RigX_Spine == Spine. This tries to ID a single prefix on either</span></dt>
+<dd>side and uses those as the keys for the match. “stripPrefix” method falls over if you have multiple
+nodes where nodeA.endswith(nodeB) ie:/ spine_04 == drv_spine_04 but also spine_04 == drv_leg_spine_04</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>matchMethod=”commonSuffix” <span class="classifier-delimiter">:</span> <span class="classifier">match each element by a relaxed naming convention             allowing for suffixes such that Spine_DRV == Spine. This tries to ID a single suffix on either</span></dt>
+<dd>side and uses those as the keys for the match. “stripSuffix” method falls over if you have multiple
+nodes where nodeA.endswith(nodeB) ie:/ spine_04 == spine_04_drv but also spine_04 == spine_04_leg_drv</dd>
+</dl>
+</li>
+<li>matchMethod=”mirrorIndex” : match via the nodes MirrorMarker</li>
+<li>matchMethod=”metaData” : match the nodes based on their wiring connections to the MetaData framework</li>
+</ul>
+</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">matched pairs of tuples for processing [(a1,b2),[(a2,b2)]</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.processMatchedNodes">
+<code class="descname">processMatchedNodes</code><span class="sig-paren">(</span><em>nodes=None</em>, <em>filterSettings=None</em>, <em>toMany=False</em>, <em>matchMethod='stripPrefix'</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.processMatchedNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>HUGELY IMPORTANT CALL FOR ALL ANIMATION FUNCTIONS</p>
+<p>PreProcess the given ‘nodes’ and ‘filterSettings’(optional)
+via a MatchedNodeInput OBJECT that has an attribute self.MatchedPairs
+We’re going to use this throughout the code such that:
+nodeList.MatchedPairs = [(ObjA,ObjB),(ObjC,ObjD) …..]</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nodes</strong> – Given Nodes for processing</li>
+<li><strong>filterSettings</strong> – as all other functions, this is the main hierarchy filter</li>
+<li><strong>toMany</strong> – Return a MatchedPairs where the first node in each
+tuple is the first selected node, ie, used to cast data from the first
+node to all subsequent nodes [(ObjA,ObjB),(ObjA,ObjC),(ObjA,ObjD) ….</li>
+<li><strong>matchMethod</strong> – method used in the name matchProcess</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">MatchNodeInputs class object</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">the filterSettings object now has “.prefix” and “.suffix” settings which can be used in the
+match calls for a more accurate stripPrefix or stripSuffix call. This allows you to match against
+a known / given prefix / suffix string on the hierarch nodes to match</p>
+</div>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.MatchedNodeInputs">
+<em class="property">class </em><code class="descname">MatchedNodeInputs</code><span class="sig-paren">(</span><em>nodes=None</em>, <em>filterSettings=None</em>, <em>matchMethod='stripPrefix'</em>, <em>returnfails=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatchedNodeInputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to process and match input nodes for most of the Hierarchy/Anim
+functions that work on carefully managed matched pairs of nodes.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nodes</strong> – root nodes to start the filtering process from</li>
+<li><strong>matchMethod</strong> – Method of matching each nodePair based on nodeName</li>
+<li><strong>filterSettings</strong> – <p>This is a FilterSettings_Node object used to pass all
+the filter types into the FilterNode code within. Internally the following
+is true:</p>
+<ul>
+<li>settings.nodeTypes: list[] - search nodes of type</li>
+<li>settings.searchAttrs: list[] - search nodes with Attrs of name</li>
+<li>settings.searchPattern: list[] - search for a given nodeName searchPattern</li>
+<li>settings.hierarchy: bool - process all children from the roots</li>
+<li>settings.incRoots: bool - include the original root nodes in the filter</li>
+</ul>
+</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">list of matched pairs [(a1,b2),[(a2,b2)]</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">with all the search and hierarchy keywords OFF the code performs
+a Dumb zip, no matching and no Hierarchy filtering, just zip the given nodes
+into selected pairs obj[0]&gt;obj[1], obj[2]&gt;obj[3] etc</p>
+</div>
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.MatchedNodeInputs.processMatchedPairs">
+<code class="descname">processMatchedPairs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatchedNodeInputs.processMatchedPairs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter selected roots for hierarchy matching using a FilterNode and it’s
+settings object if one was passed in to the main class.
+This uses the ProcessFilter() method for powerful pre-filtering before
+passing the results into the matchNodeLists func.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">tuple</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">a matched pair list of nodes</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels">
+<em class="property">class </em><code class="descname">LockChannels</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Simple UI to manage the lock and key status of nodes</p>
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.UI">
+<em class="property">class </em><code class="descname">UI</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.UI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.UI.show">
+<em class="property">classmethod </em><code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.UI.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.UI.close">
+<code class="descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.UI.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.saveChannelMap">
+<code class="descname">saveChannelMap</code><span class="sig-paren">(</span><em>filepath=None</em>, <em>nodes=None</em>, <em>hierarchy=True</em>, <em>serializeNode=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.saveChannelMap" title="Permalink to this definition">¶</a></dt>
+<dd><p>WE HAVE TO LOCK THE ATTRIBUTE!! why, 32k Maya string character Limits kick in and
+truncates the data unless the attr is locked out</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.loadChannelMap">
+<code class="descname">loadChannelMap</code><span class="sig-paren">(</span><em>filepath=None</em>, <em>nodes=None</em>, <em>hierarchy=True</em>, <em>serializeNode=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.loadChannelMap" title="Permalink to this definition">¶</a></dt>
+<dd><p>From a given chnMap file restore the channelBox status for all attributes
+found that are in the map file. ie, keyable, hidden, locked</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filepath</strong> – filepath to the map to load</li>
+<li><strong>nodes</strong> – nodes to load the data onto, if hierarcchy=True this is the rootNode</li>
+<li><strong>hierarchy</strong> – process all child nodes of the nodes passed in</li>
+<li><strong>serializeNode</strong> – if Meta then this is used to serialize the attrMap to the node itself</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Here we’re dealing with 2 possible sets of data, either decoded by the
+ConfigObj decoder or a JSON deserializer and there’s subtle differences in the dict
+thats returned hence the decodeString() calls</p>
+</div>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_CoreUtils.LockChannels.processState">
+<em class="property">static </em><code class="descname">processState</code><span class="sig-paren">(</span><em>nodes</em>, <em>attrs=None</em>, <em>mode=None</em>, <em>hierarchy=False</em>, <em>userDefined=False</em>, <em>attrKws={}</em>, <em>suppress_errors=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.LockChannels.processState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Easy wrapper to manage channels that are keyable / locked
+in the channelBox.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes to process</li>
+<li><strong>attrs</strong> – set() of attrs, or ‘all’</li>
+<li><strong>mode</strong> – ‘lock’, ‘unlock’, ‘hide’, ‘unhide’, ‘fullkey’, ‘lockall’</li>
+<li><strong>hierarchy</strong> – process all child nodes, default is now False</li>
+<li><strong>usedDefined</strong> – process all UserDefined attributes on all nodes</li>
+<li><strong>attrKws</strong> – if mode=None then these are the flags passed to the setAttr
+command to control the node states, ie: {‘keyable’:True, ‘lock’:False, ‘channelBox’:True}</li>
+<li><strong>suppress_errors</strong> – Tue by default, if a node doesn’t have one one of the attrs we’re trying to lock suppress the errors</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">r9Core</span><span class="o">.</span><span class="n">LockChannels</span><span class="o">.</span><span class="n">processState</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sx&quot;</span><span class="p">,</span> <span class="s2">&quot;sy&quot;</span><span class="p">,</span> <span class="s2">&quot;sz&quot;</span><span class="p">,</span> <span class="s2">&quot;v&quot;</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;lockall&#39;</span><span class="p">)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># note: if attrs=&#39;all&#39; we now set it to the following for ease:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="s2">&quot;tx&quot;</span><span class="p">,</span> <span class="s2">&quot;ty&quot;</span><span class="p">,</span> <span class="s2">&quot;tz&quot;</span><span class="p">,</span> <span class="s2">&quot;rx&quot;</span><span class="p">,</span> <span class="s2">&quot;ry&quot;</span><span class="p">,</span> <span class="s2">&quot;rz&quot;</span><span class="p">,</span> <span class="s2">&quot;sx&quot;</span><span class="p">,</span> <span class="s2">&quot;sy&quot;</span><span class="p">,</span> <span class="s2">&quot;sz&quot;</span><span class="p">,</span> <span class="s2">&quot;v&quot;</span><span class="p">,</span> <span class="s2">&quot;radius&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.timeOffset_addPadding">
+<code class="descname">timeOffset_addPadding</code><span class="sig-paren">(</span><em>pad=None</em>, <em>padfrom=None</em>, <em>scene=False</em>, <em>mRigs=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.timeOffset_addPadding" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple wrap of the timeoffset class which will add padding into the
+animation curves on the selected object by shifting keys</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>pad</strong> – amount of padding frames to add</li>
+<li><strong>padfrom</strong> – frame to pad from</li>
+<li><strong>scene</strong> – offset the entire scene</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.timeOffset_collapse">
+<code class="descname">timeOffset_collapse</code><span class="sig-paren">(</span><em>scene=False</em>, <em>timerange=None</em>, <em>mRigs=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.timeOffset_collapse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Light wrap over the TimeOffset call to manage collapsing time</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>scene</strong> – offset the entire scene or just selected</li>
+<li><strong>timerange</strong> – specific timerange to collapse else we use the r9 timerange get call</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.timeOffset_collapseUI">
+<code class="descname">timeOffset_collapseUI</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.timeOffset_collapseUI" title="Permalink to this definition">¶</a></dt>
+<dd><p>collapse time confirmation UI</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset">
+<em class="property">class </em><code class="descname">TimeOffset</code><span class="sig-paren">(</span><em>cache_object=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class for dealing with time manipulation inside Maya.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">offset</span><span class="o">=</span><span class="mi">100</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#build a filterSettings object up, in this case we&#39;re loading a current one.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span><span class="o">=</span><span class="n">r9Core</span><span class="o">.</span><span class="n">FilterNode_Settings</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">r9Setup</span><span class="o">.</span><span class="n">red9Presets</span><span class="p">(),</span><span class="s1">&#39;Red9_DevRig.cfg&#39;</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span><span class="o">.</span><span class="n">incRoots</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">flt</span><span class="o">.</span><span class="n">printSettings</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r9Core</span><span class="o">.</span><span class="n">TimeOffset</span><span class="o">.</span><span class="n">fromSelected</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">filterSettings</span><span class="o">=</span><span class="n">flt</span><span class="p">,</span> <span class="n">flocking</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">randomize</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.fullScene">
+<em class="property">classmethod </em><code class="descname">fullScene</code><span class="sig-paren">(</span><em>offset</em>, <em>timelines=False</em>, <em>timerange=None</em>, <em>ripple=True</em>, <em>startfrm=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.fullScene" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the entire scene and time offset all suitable nodes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – number of frames to offset</li>
+<li><strong>timelines</strong> – offset the playback timelines</li>
+<li><strong>timerange</strong> – only offset times within a given timerange</li>
+<li><strong>ripple</strong> – manage the upper range of data and ripple them with the offset</li>
+<li><strong>startfrm</strong> – this turns the offset arg into a new target start frame for the animation,
+calculating the offset for you such that timerange[0] starts at the offset frm value, only works if timerange is passed in</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.fromSelected">
+<em class="property">classmethod </em><code class="descname">fromSelected</code><span class="sig-paren">(</span><em>offset</em>, <em>nodes=None</em>, <em>filterSettings=None</em>, <em>flocking=False</em>, <em>randomize=False</em>, <em>timerange=None</em>, <em>ripple=True</em>, <em>mRigs=False</em>, <em>startfrm=False</em>, <em>currentSystem=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.fromSelected" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the current selection list and offset as appropriate.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – number of frames to offset</li>
+<li><strong>nodes</strong> – nodes to offset (or root of the filterSettings)</li>
+<li><strong>flocking</strong> – whether to successively increment nodes during offset</li>
+<li><strong>randomize</strong> – whether to add a random factor to each successive nodes offset</li>
+<li><strong>timerange</strong> – only offset times within a given timerange</li>
+<li><strong>ripple</strong> – manage the upper range of data and ripple them with the offset</li>
+<li><strong>mRigs</strong> – if True then the nodes to be used are resolved via mRig.getChildren but for all
+mRigs wired to the given nodes</li>
+<li><strong>startfrm</strong> – this turns the offset arg into a new target start frame for the animation,
+calculating the offset for you such that timerange[0] starts at the offset frm value, only works if timerange is passed in</li>
+<li><strong>filterSettings</strong> – this is a FilterSettings_Node object used to pass all
+the filter types into the FilterNode code. Internally the following is true:</li>
+<li><strong>currentSystem</strong> – <p>mRigs flag only: if True we check for the mSystemRoot attr (bool) on mNodes and if set,
+we skip the node and all childnodes from that node. Why?? The mSystsmRoot attr is a marker to denote the
+root of a given mRig system, by respecting this we clamp searches to the current system and prevent
+walking into the connected child sub-system. Primarily used in ProPack to stop facial nodes being
+returned and processed as part of the connected body rig.</p>
+<ul>
+<li>settings.nodeTypes: list[] - search nodes of type</li>
+<li>settings.searchAttrs: list[] - search nodes with Attrs of name</li>
+<li>settings.searchPattern: list[] - search for a given nodeName searchPattern</li>
+<li>settings.hierarchy: bool - process all children from the roots</li>
+<li>settings.incRoots: bool - include the original root nodes in the filter</li>
+</ul>
+</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.animCurves">
+<em class="property">classmethod </em><code class="descname">animCurves</code><span class="sig-paren">(</span><em>offset</em>, <em>nodes=None</em>, <em>timerange=None</em>, <em>ripple=True</em>, <em>safe=True</em>, <em>allow_ref=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.animCurves" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shift Animation curves. If nodes are fed in to process then we do
+a number of aggressive searches to find all linked animation data.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – amount to offset the curves</li>
+<li><strong>nodes</strong> – nodes to offset if given</li>
+<li><strong>timerange</strong> – if timerange given [start,end] then we cut the keys in that
+range before shifting associated keys. Now we could just use the
+keyframe(option=’insert’) BUT this has a MAJOR crash bug!</li>
+<li><strong>ripple</strong> – manage the upper range of keys and ripple them with the offset</li>
+<li><strong>safe</strong> – optional ‘bool’, only return animCurves which are safe to modify, this
+will strip out SetDrivens, Clips curves etc..</li>
+<li><strong>allow_ref</strong> – if False and “safe” we remove all references animCurves, else we leave them in the return</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.timelines">
+<em class="property">static </em><code class="descname">timelines</code><span class="sig-paren">(</span><em>offset</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.timelines" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shift the main playback timelines and CurrentFrame</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.sound">
+<em class="property">classmethod </em><code class="descname">sound</code><span class="sig-paren">(</span><em>offset</em>, <em>mode='Scene'</em>, <em>audioNodes=None</em>, <em>timerange=None</em>, <em>ripple=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.sound" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset Audio nodes.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – amount to offset the sounds nodes by</li>
+<li><strong>mode</strong> – either process entire scene or selected</li>
+<li><strong>audioNodes</strong> – optional, given nodes to process</li>
+<li><strong>timerange</strong> – optional timerange to process (outer bounds only)</li>
+<li><strong>ripple</strong> – when shifting nodes ripple the offset to sounds after the range,
+if ripple=False we only shift audio that starts in the bounds of the timerange</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.animClips">
+<em class="property">classmethod </em><code class="descname">animClips</code><span class="sig-paren">(</span><em>offset</em>, <em>mode='Scene'</em>, <em>clips=None</em>, <em>timerange=None</em>, <em>ripple=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.animClips" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset Trax Clips</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – amount to offset the sounds nodes by</li>
+<li><strong>mode</strong> – either process entire scene or selected</li>
+<li><strong>clips</strong> – optional, given clips to offset</li>
+<li><strong>timerange</strong> – optional timerange to process (outer bounds only)</li>
+<li><strong>ripple</strong> – when shifting nodes ripple the offset to clips after the range,
+if ripple=False we only shift clips that starts in tghe bounds of the timerange</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.TimeOffset.metaNodes">
+<em class="property">classmethod </em><code class="descname">metaNodes</code><span class="sig-paren">(</span><em>offset</em>, <em>timerange=None</em>, <em>ripple=True</em>, <em>mNodes=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.TimeOffset.metaNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset special handling for MetaNodes. Inspect the metaNode and see if
+the ‘timeOffset’ method has been implemented and if so, call it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>offset</strong> – amount to offset the sounds nodes by</li>
+<li><strong>timerange</strong> – optional timerange to process (outer bounds only)</li>
+<li><strong>ripple</strong> – when shifting nodes ripple the offset to clips after the range,
+if ripple=False we only shift clips that starts in the bounds of the timerange</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">each timeOffset function implemented within a MetaClass must now return ALL Maya nodes (dag path)
+that were processed by it (other than itself) so that these can be flagged as processed and
+removed from the standard nodeType handlers in the TimeOffset class</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.floatIsEqual">
+<code class="descname">floatIsEqual</code><span class="sig-paren">(</span><em>a</em>, <em>b</em>, <em>tolerance=0.01</em>, <em>allowGimbal=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.floatIsEqual" title="Permalink to this definition">¶</a></dt>
+<dd><p>compare 2 floats with tolerance.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>a</strong> – value 1</li>
+<li><strong>b</strong> – value 2</li>
+<li><strong>tolerance</strong> – compare with this tolerance default=0.001</li>
+<li><strong>allowGimbal</strong> – allow values differences to be divisible by 180 compensate for gimbal flips</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.valueToMappedRange">
+<code class="descname">valueToMappedRange</code><span class="sig-paren">(</span><em>value</em>, <em>currentMin</em>, <em>currentMax</em>, <em>givenMin</em>, <em>givenMax</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.valueToMappedRange" title="Permalink to this definition">¶</a></dt>
+<dd><p>Acts like the setRange node but code side
+we have a min max range, lets say 0.5 - 15 and we want to map the
+range to a new range say 0-1 and return where the value given is
+in that new range</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.timeIsInRange">
+<code class="descname">timeIsInRange</code><span class="sig-paren">(</span><em>baseRange=()</em>, <em>testRange=()</em>, <em>start_inRange=True</em>, <em>end_inRange=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.timeIsInRange" title="Permalink to this definition">¶</a></dt>
+<dd><p>test that a given testRange [start,end], falls within the bounds of a baseRange [start,end]
+Used to test if timeRanges fall within a baseRange</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>baseRange</strong> – base time range to test against</li>
+<li><strong>testRange</strong> – range to test against the baseRange, do these times fall within the baseRange?</li>
+<li><strong>start_inRange</strong> – check is the testRange[0] value falls fully in the baseRange</li>
+<li><strong>end_inRange</strong> – check is the testRange[1] value falls fully in the baseRange</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">if you pass in baseRange as (None, 100) then we only validate against the end time regardless of the flags.
+if we pass in baseRange as (10, None) we only validate against the start time regardless of the flags.
+else we validate that testRange is fully within the baseRanges times</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.distanceBetween">
+<code class="descname">distanceBetween</code><span class="sig-paren">(</span><em>nodeA</em>, <em>nodeB</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.distanceBetween" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple calculation to return the distance between 2 objects</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.convertUnits_internalToUI">
+<code class="descname">convertUnits_internalToUI</code><span class="sig-paren">(</span><em>value</em>, <em>unit</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.convertUnits_internalToUI" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert units to Maya’s internal ‘cm’ unit
+for the API to use when loading linear data</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_CoreUtils.convertUnits_uiToInternal">
+<code class="descname">convertUnits_uiToInternal</code><span class="sig-paren">(</span><em>value</em>, <em>unit</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.convertUnits_uiToInternal" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert units from Maya’s internal / base ‘cm’
+to a given unit, multiplying up to suit</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset">
+<em class="property">class </em><code class="descname">MatrixOffset</code><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Given 2 transforms calculate the difference as a Matrix and
+apply that as an offset matrix to a given list of nodes.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">matrixOffset</span> <span class="o">=</span> <span class="n">MatrixOffset</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">matrixOffset</span><span class="o">.</span><span class="n">setOffsetMatrix</span><span class="p">(</span><span class="s1">&#39;inputA&#39;</span><span class="p">,</span><span class="s1">&#39;inputB&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">applyOffsetMatrixToNodes</span><span class="p">(</span><span class="n">nodesToOffset</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset.get_MDagPath">
+<em class="property">static </em><code class="descname">get_MDagPath</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset.get_MDagPath" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset.setOffsetMatrix">
+<code class="descname">setOffsetMatrix</code><span class="sig-paren">(</span><em>inputA</em>, <em>inputB</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset.setOffsetMatrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>from 2 transform return an offsetMatrix between them</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>inputA</strong> – MayaNode A</li>
+<li><strong>inputB</strong> – MayaNode B</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset.nodesAreEquivalent">
+<em class="property">classmethod </em><code class="descname">nodesAreEquivalent</code><span class="sig-paren">(</span><em>inputA</em>, <em>inputB</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset.nodesAreEquivalent" title="Permalink to this definition">¶</a></dt>
+<dd><p>do the 2 nodes passed in have an equivalant inclusiveMatrix? ie, are they
+in the same worldSpace!</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>inputA</strong> – nodeA</li>
+<li><strong>inputB</strong> – nodeB</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset.applyOffsetTransformsToNodes">
+<code class="descname">applyOffsetTransformsToNodes</code><span class="sig-paren">(</span><em>nodes</em>, <em>matrix=None</em>, <em>inversed=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset.applyOffsetTransformsToNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple move function called to shift the given nodes against the offsetMatrix</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_CoreUtils.MatrixOffset.applyOffsetMatrixToNodes">
+<code class="descname">applyOffsetMatrixToNodes</code><span class="sig-paren">(</span><em>nodes</em>, <em>matrix=None</em>, <em>inversed=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_CoreUtils.MatrixOffset.applyOffsetMatrixToNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset all the given nodes by the given MMatrix object</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – Nodes to apply the offset Matrix too</li>
+<li><strong>matrix</strong> – Optional OpenMaya.MMatrix to transform the data by</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">this doesn’t deal with joints as for that we need to rotate by the inverse
+of the jointOrient matrix, after the rotation matrix</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Red9_Audio.html" class="btn btn-neutral float-left" title="Red9_Audio" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Red9_General.html" class="btn btn-neutral float-right" title="Red9_General" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Red9 Consultancy Limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

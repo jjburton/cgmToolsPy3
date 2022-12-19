@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html class="writer-html4" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red9_PoseSaver &mdash; Red9 3.0 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Red9_Setup" href="Red9_Setup.html" />
+    <link rel="prev" title="Red9_Meta" href="Red9_Meta.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Red9<img src="../_static/Red9_ProPack_logo.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Red9_AnimationUtils.html">Red9_AnimationUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Audio.html">Red9_Audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Core.html">Red9_CoreUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_General.html">Red9_General</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Meta.html">Red9_Meta</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Red9_PoseSaver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Setup.html">Red9_Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Tools.html">Red9_Tools</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_anim_map.html">Pro_Pack : anim_map</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_animation.html">Pro_Pack : animation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_audio.html">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_export.html">Pro_Pack : exporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_general.html">Pro_Pack : general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_project.html">Pro_Pack : project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skining.html">Pro_Pack : skining</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_project_manager.html">Pro_Pack : tools : project_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../red9pro_templates/tools/Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Red9</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Red9_PoseSaver</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/red9core_templates/Red9_PoseSaver.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <a class="reference external image-reference" href="http://red9consultancy.com/propack"><img alt="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" src="red9core_templates\../../_images/Red9_ProPack_strap_pro.png" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<div class="section" id="red9-posesaver">
+<h1>Red9_PoseSaver<a class="headerlink" href="#red9-posesaver" title="Permalink to this headline">¶</a></h1>
+<p>Red9_PoseSaver is designed as a generic module for storing and dealing
+with poses inside Maya. The PoseData object is the base for all of this
+and is what’s wrapped by the AnimUI and the MetaData.poseCacheLoad() calls.</p>
+<p>There’s also a powerful setup for testing a rigs current pose against a
+previously stored pose file, or you can test poseObjectA==poseObjectB
+or even poseFileA==poseFileB</p>
+<span class="target" id="module-Red9.core.Red9_PoseSaver"></span><p>This is a new implementation of the PoseSaver core, same file format
+and ConfigObj but now supports relative pose data handled via a
+posePointCloud and the snapping core</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">I use the node short name as the key in the dictionary so
+ALL NODES must have unique names or you may get unexpected  results!</p>
+</div>
+<p class="rubric">Core Pose Classes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_PoseSaver.DataMap" title="Red9.core.Red9_PoseSaver.DataMap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataMap</span></code></a>([filterSettings])</td>
+<td>New base class for handling data storage and reloading with intelligence</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_PoseSaver.PoseData" title="Red9.core.Red9_PoseSaver.PoseData"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PoseData</span></code></a>([filterSettings])</td>
+<td>The PoseData is stored per node inside an internal dict as follows:</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_PoseSaver.PosePointCloud" title="Red9.core.Red9_PoseSaver.PosePointCloud"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PosePointCloud</span></code></a>(nodes[,&nbsp;filterSettings,&nbsp;…])</td>
+<td>PosePointCloud is the technique inside the PoseSaver used to snap the pose into relative space.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#Red9.core.Red9_PoseSaver.PoseBlender" title="Red9.core.Red9_PoseSaver.PoseBlender"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PoseBlender</span></code></a>(filepaths[,&nbsp;nodes,&nbsp;…])</td>
+<td>simple wrap over the PoseLoad code to control the loading of the r9Pose through a poseBlender UI or a simple percent args passed into the applyPercent call.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#Red9.core.Red9_PoseSaver.PoseCompare" title="Red9.core.Red9_PoseSaver.PoseCompare"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PoseCompare</span></code></a>(currentPose,&nbsp;referencePose[,&nbsp;…])</td>
+<td>This is aimed at comparing a rigs current pose with a given one, be that a pose file on disc, a pose class object, or even a poseObject against another.</td>
+</tr>
+</tbody>
+</table>
+<dl class="function">
+<dt id="Red9.core.Red9_PoseSaver.getFolderPoseHandler">
+<code class="descname">getFolderPoseHandler</code><span class="sig-paren">(</span><em>posePath</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.getFolderPoseHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the given directory contains a poseHandler.py file
+if so return the filename. PoseHandlers are a way of extending or
+over-loading the standard behaviour of the poseSaver, see Vimeo for
+a more detailed explanation.</p>
+<p>TODO: have this also accept a pointer to a handler file rather than a direct
+poseHnadler.py file in each folder. This means we could point a folder to a generic handler
+inside our presets folder rather than having the code logic in each folder.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_PoseSaver.store_nodepose_to_clipboard">
+<code class="descname">store_nodepose_to_clipboard</code><span class="sig-paren">(</span><em>nodes=[]</em>, <em>clipboard=True</em>, <em>verbose=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.store_nodepose_to_clipboard" title="Permalink to this definition">¶</a></dt>
+<dd><p>a simple wrap over the main DataMap to grab the poseData for a given set of nodes
+by-passing the rest of the pose logic. Returns the DataMap object with the poseDict filled</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes to capture</li>
+<li><strong>clipboard</strong> – if True we puhs the data to the system clipboard also for recovery</li>
+<li><strong>verbose</strong> – if True(default) we show on screen message to show the data has been captured</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_PoseSaver.apply_nodepose_from_clipboad">
+<code class="descname">apply_nodepose_from_clipboad</code><span class="sig-paren">(</span><em>nodes=None</em>, <em>cb_selection=True</em>, <em>world_space=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.apply_nodepose_from_clipboad" title="Permalink to this definition">¶</a></dt>
+<dd><p>given a valid datamap.poseDict, buffered to the clipboard (using the above function
+“store_nodepose_to_clipboard”) apply that internal pose, attr for attr, to the given object.
+If there are selected attrs in the ChannelBox then we only load to those. This loads against index order</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – the nodes we want to cast the data too, note these are processed in the original selection order of the data when stored</li>
+<li><strong>cb_selection</strong> – if True we only load those attrs that are selected in the channelBox</li>
+<li><strong>world_space</strong> – loads the data against the kWorld space stored in the attr blocks in the pose data</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_PoseSaver.DataMap">
+<em class="property">class </em><code class="descname">DataMap</code><span class="sig-paren">(</span><em>filterSettings=None</em>, <em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>New base class for handling data storage and reloading with intelligence</p>
+<p>The idea of the DataMap is to make the node handling part of any system generic.
+This allows us to use this baseClass to build up things like poseSavers and all
+we have to worry about is the data save / extraction part, all the node handling
+and file handling is already done by this class ;)</p>
+<p>Note that we’re not passing any data in terms of nodes here, We’ll deal with
+those in the Save and Load calls.</p>
+<dl class="attribute">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.metaPose">
+<code class="descname">metaPose</code><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.metaPose" title="Permalink to this definition">¶</a></dt>
+<dd><p>this flag adds in the additional MetaData block for all the matching code and info extraction.
+True if self.metaRig is filled, self.settings.metaRig=True or self.metaPose=True</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.filepath">
+<code class="descname">filepath</code><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.filepath" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.setMetaRig">
+<code class="descname">setMetaRig</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.setMetaRig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Master call to bind and set the mRig for the DataMap</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>node</strong> – node to set the mRig from or instance of an mRig object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.hasFolderOverload">
+<code class="descname">hasFolderOverload</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.hasFolderOverload" title="Permalink to this definition">¶</a></dt>
+<dd><p>modified so you can now prefix the poseHandler.py file
+makes it easier to keep track of in a production environment</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.getNodesFromFolderConfig">
+<code class="descname">getNodesFromFolderConfig</code><span class="sig-paren">(</span><em>rootNode</em>, <em>mode</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.getNodesFromFolderConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>if the poseFolder has a poseHandler.py file use that to
+return the nodes to use for the pose instead</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>rootNode</strong> – rootNode passed to the search poseHandlers
+poseGetNodesLoad or poseGetNodesSave functions</li>
+<li><strong>mode</strong> – ‘save’ or ‘load’</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.getNodes">
+<code class="descname">getNodes</code><span class="sig-paren">(</span><em>nodes</em>, <em>incRoots=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.getNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main call to get the nodes to process based on the filterSettings data
+This is designed to allow for specific hooks to be used from user
+code stored in the pose folder itself.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes passed to the filter calls</li>
+<li><strong>incRoots</strong> – added Oct2021 : this now force overrides the settings.incRoots value so we can
+force it on for all Save functions. For loads this isn’t used as we want the user to determine the behaviour</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Because this calls FilterNode to get the data when useFilter=True it
+allows for any mRig with internal filterSettings bound to it to dynamically
+modify the settings on the fly to suit. This is a big update in handling
+for ProPack to integrate without having to massively restructure</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.getSkippedAttrs">
+<code class="descname">getSkippedAttrs</code><span class="sig-paren">(</span><em>rootNode=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.getSkippedAttrs" title="Permalink to this definition">¶</a></dt>
+<dd><p>the returned list of attrs from this function will be
+COMPLETELY ignored by the pose system. They will not be saved
+or loaded.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The collection of these attrs is currently only supported under MetaRig.
+IF self.skipAttrs was passed into the object then we do NOT run this func, returning the currently setup list</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.getMaintainedAttrs">
+<code class="descname">getMaintainedAttrs</code><span class="sig-paren">(</span><em>nodesToLoad</em>, <em>parentSpaceAttrs</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.getMaintainedAttrs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attrs returned here will be cached prior to pose load, then restored in-tact afterwards</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodesToLoad</strong> – nodes that the pose is about to load the data too,
+this is the already processed nodeList</li>
+<li><strong>parentSpaceAttrs</strong> – attributes we want to be ignored by the load system</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.buildBlocks_fill">
+<code class="descname">buildBlocks_fill</code><span class="sig-paren">(</span><em>nodes=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.buildBlocks_fill" title="Permalink to this definition">¶</a></dt>
+<dd><p>To Be Overloaded : What capture routines to run in order to build the DataMap up.
+Note that the self._buildBlock_poseDict(nodes) calls the self._collectNodeData per node
+as a way of gathering what info to be stored against each node.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.buildDataMap">
+<code class="descname">buildDataMap</code><span class="sig-paren">(</span><em>nodes</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.buildDataMap" title="Permalink to this definition">¶</a></dt>
+<dd><p>build the internal dataMap dict, useful as a separate func so it
+can be used in the PoseCompare class easily. This is the main internal call
+for managing the actual pose data for save</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">this replaces the original pose call self.buildInternalPoseData()</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>this code sets up self.rootJnt and IF that is setup then we also trigger the
+_buildBlock_skeletonData() and _buildBlock_hikData() dicts which inject specific
+skeleton joint data for later processing. This is setup if one of the following is True</p>
+<ul class="last simple">
+<li>pose is self.metaPose and self.metaRig.getSkeletonRoots() returns a rootJnt</li>
+<li>nodes[0] (rootNode) has attribute ‘exportSkeletonRoot’ that is connected to a joint</li>
+<li>nodes[0] (rootNode) is of type joint</li>
+<li>self.settings.nodeTypes == [‘joint’]</li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.processPoseFile">
+<code class="descname">processPoseFile</code><span class="sig-paren">(</span><em>nodes</em>, <em>read=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.processPoseFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>pre-loader function that processes all the nodes and data prior to
+actually calling the load… why? this is for the poseMixer for speed.
+This reads the file, matches the nodes to the internal file data and fills
+up the self.matchedPairs data [(src,dest),(src,dest)]</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes to process</li>
+<li><strong>read</strong> – if True we read the r9Anim from file, else we skip the load</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">this replaced the original call self._poseLoad_buildcache()</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.matchInternalPoseObjects">
+<code class="descname">matchInternalPoseObjects</code><span class="sig-paren">(</span><em>nodes=None</em>, <em>fromFilter=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.matchInternalPoseObjects" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a throw-away and only used in the UI to select for debugging!
+from a given poseFile return or select the internal stored objects</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.saveData">
+<code class="descname">saveData</code><span class="sig-paren">(</span><em>nodes</em>, <em>filepath=None</em>, <em>useFilter=True</em>, <em>storeThumbnail=True</em>, <em>force=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.saveData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generic entry point for the Data Save.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes to store the data against OR the rootNode if the
+filter is active.</li>
+<li><strong>filepath</strong> – posefile to save - if not given the pose is cached on this
+class instance.</li>
+<li><strong>useFilter</strong> – use the filterSettings or not.</li>
+<li><strong>storeThumbnail</strong> – save a thumbnail or not</li>
+<li><strong>force</strong> – force write the data even if the file is read-only</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.DataMap.loadData">
+<code class="descname">loadData</code><span class="sig-paren">(</span><em>nodes</em>, <em>filepath=None</em>, <em>useFilter=True</em>, <em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.DataMap.loadData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generic entry point for the Data Load.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – if given load the data to only these. If given and filter=True
+this is the rootNode for the filter.</li>
+<li><strong>filepath</strong> – file to load - if not given the pose is loaded from a
+cached instance on this class.</li>
+<li><strong>useFilter</strong> – If the pose has an active Filter_Settings block and this
+is True then use the filter on the destination hierarchy.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_PoseSaver.PoseData">
+<em class="property">class </em><code class="descname">PoseData</code><span class="sig-paren">(</span><em>filterSettings=None</em>, <em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#Red9.core.Red9_PoseSaver.DataMap" title="Red9.core.Red9_PoseSaver.DataMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">Red9.core.Red9_PoseSaver.DataMap</span></code></a></p>
+<p>The PoseData is stored per node inside an internal dict as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">node</span> <span class="o">=</span> <span class="s1">&#39;|group|Rig|Body|TestCtr&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;ID&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>   <span class="n">index</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">Hierarchy</span> <span class="n">used</span> <span class="n">to</span> <span class="n">build</span> <span class="n">the</span> <span class="n">data</span> <span class="n">up</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;longName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;|group|Rig|Body|TestCtr&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;attrs&#39;</span><span class="p">][</span><span class="s1">&#39;translateX&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;attrs&#39;</span><span class="p">][</span><span class="s1">&#39;translateY&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;attrs&#39;</span><span class="p">][</span><span class="s1">&#39;translateZ&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">22</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># if we&#39;re storing as MetaData we also include:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;metaData&#39;</span><span class="p">][</span><span class="s1">&#39;metaAttr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">CTRL_L_Thing</span>    <span class="o">=</span> <span class="n">the</span> <span class="n">attr</span> <span class="n">that</span> <span class="n">wires</span> <span class="n">this</span> <span class="n">node</span> <span class="n">to</span> <span class="n">the</span> <span class="n">MetaSubsystem</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poseDict</span><span class="p">[</span><span class="s1">&#39;TestCtr&#39;</span><span class="p">][</span><span class="s1">&#39;metaData&#39;</span><span class="p">][</span><span class="s1">&#39;metaNodeID&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">L_Arm_System</span>  <span class="o">=</span> <span class="n">the</span> <span class="n">metaNode</span> <span class="n">this</span> <span class="n">node</span> <span class="ow">is</span> <span class="n">wired</span> <span class="n">to</span> <span class="n">via</span> <span class="n">the</span> <span class="n">above</span> <span class="n">attr</span>
+</pre></div>
+</div>
+<p>Matching of nodes against this dict is via either the nodeName, nodeIndex (ID) or
+the metaData block.</p>
+<p>New functionality allows you to use the main calls to cache a pose and reload it
+from this class instance, wraps things up nicely for you:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">metaPose</span><span class="o">=</span><span class="kc">True</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># cache the pose (just don&#39;t pass in a filePath)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">poseSave</span><span class="p">(</span><span class="n">cmds</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">sl</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># reload the cache you just stored</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">poseLoad</span><span class="p">(</span><span class="n">cmds</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">sl</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>We can also load in a percentage of a pose by running the PoseData._applyData(percent) as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">metaPose</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">filepath</span><span class="o">=</span><span class="s1">&#39;C:/mypose.pose&#39;</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># processPoseFile does just that, processes and build up the list of data but doesn&#39;t apply it</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">processPoseFile</span><span class="p">(</span><span class="n">nodes</span><span class="o">=</span><span class="s1">&#39;myRootNode&#39;</span><span class="p">)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># now we can dial in a percentage of the pose, we bind this to a floatSlider in the UI</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pose</span><span class="o">.</span><span class="n">_applyData</span><span class="p">(</span><span class="n">percent</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>If the root node of the hierarchy passed into the poseSave() has a message attr
+‘exportSkeletonRoot’ or ‘animSkeletonRoot’ and that message is connected to a
+skeleton then the pose will also include an internal ‘skeleton’ pose, storing all
+child joints into a separate block in the poseFile that can be used by the
+PoseCompare class/function.</p>
+<p class="last">For metaData based rigs this calls a function on the metaRig class getSkeletonRoots()
+which wraps the ‘exportSkeletonRoot’ attr, allowing you to overload this behaviour
+in your own MetaRig subclasses.</p>
+</div>
+<p>I’m not passing any data in terms of nodes here, We’ll deal with
+those in the PoseSave and PoseLoad calls. Leaves this open for
+expansion</p>
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseData.buildBlocks_fill">
+<code class="descname">buildBlocks_fill</code><span class="sig-paren">(</span><em>nodes=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseData.buildBlocks_fill" title="Permalink to this definition">¶</a></dt>
+<dd><p>What capture routines to run in order to build the poseDict data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseData.poseSave">
+<code class="descname">poseSave</code><span class="sig-paren">(</span><em>nodes</em>, <em>filepath=None</em>, <em>useFilter=True</em>, <em>storeThumbnail=True</em>, <em>modelPanel=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseData.poseSave" title="Permalink to this definition">¶</a></dt>
+<dd><p>Entry point for the generic PoseSave.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – nodes to store the data against OR the rootNode if the
+filter is active.</li>
+<li><strong>filepath</strong> – posefile to save - if not given the pose is cached on this
+class instance.</li>
+<li><strong>useFilter</strong> – use the filterSettings or not.</li>
+<li><strong>storeThumbnail</strong> – generate and store a thubmbnail from the screen to go alongside the pose</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">as from Oct2021 the save function will ALWAYS internally set incRoots=True so that all data is captured.
+The user can then choose if they use that data during the load process but it seems correct to store it
+regardless</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseData.poseLoad">
+<code class="descname">poseLoad</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseData.poseLoad" title="Permalink to this definition">¶</a></dt>
+<dd><p>Entry point for the generic PoseLoad.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – if given load the data to only these. If given and filter=True
+this is the rootNode for the filter.</li>
+<li><strong>filepath</strong> – posefile to load - if not given the pose is loaded from a
+cached instance on this class.</li>
+<li><strong>useFilter</strong> – If the pose has an active Filter_Settings block and this
+is True then use the filter on the destination hierarchy.</li>
+<li><strong>relativePose</strong> – kick in the posePointCloud to align the loaded pose
+relatively to the selected node.</li>
+<li><strong>relativeRots</strong> – ‘projected’ or ‘absolute’ - how to calculate the offset.</li>
+<li><strong>relativeTrans</strong> – ‘projected’ or ‘absolute’ - how to calculate the offset.</li>
+<li><strong>maintainSpaces</strong> – this preserves any parentSwitching mismatches between
+the stored pose and the current rig settings, current spaces are maintained.
+This only checks those nodes in the snapList and only runs under relative mode.</li>
+<li><strong>percent</strong> – percentage of the pose to apply, used by the poseBlender in the UIs</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Relative mode currently relies on the controller / reference node thats passed in to be Y-up in it’s native state,
+thats to say the Y axis pointing upwards. We’ll be patching this moving forwards</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_PoseSaver.PoseBlender">
+<em class="property">class </em><code class="descname">PoseBlender</code><span class="sig-paren">(</span><em>filepaths</em>, <em>nodes=None</em>, <em>filterSettings=None</em>, <em>useFilter=True</em>, <em>matchMethod='stripPrefix'</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseBlender" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>simple wrap over the PoseLoad code to control the loading of the r9Pose through a poseBlender UI
+or a simple percent args passed into the applyPercent call. This is called by the AnimUI and is really
+only meant as an internal binding</p>
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseBlender.keyMembers">
+<code class="descname">keyMembers</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseBlender.keyMembers" title="Permalink to this definition">¶</a></dt>
+<dd><p>key the members of the pose data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseBlender.selectMembers">
+<code class="descname">selectMembers</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseBlender.selectMembers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseBlender.applyPercent">
+<code class="descname">applyPercent</code><span class="sig-paren">(</span><em>percent</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseBlender.applyPercent" title="Permalink to this definition">¶</a></dt>
+<dd><p>direct call to load a percentage of the given pose in this instance</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseBlender.show">
+<code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseBlender.show" title="Permalink to this definition">¶</a></dt>
+<dd><p>main blender UI, simple but generic and allows us to dial in a percentage
+of the given pose. This is basically a wrap for the other UI’s and functions
+that call this method so we have a single class managing the UI and functionality.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud">
+<em class="property">class </em><code class="descname">PosePointCloud</code><span class="sig-paren">(</span><em>nodes</em>, <em>filterSettings=None</em>, <em>meshes=[]</em>, <em>prioritySnapOnly=False</em>, <em>*args</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>PosePointCloud is the technique inside the PoseSaver used to snap the pose into
+relative space. It’s been added as a tool in it’s own right as it’s sometimes
+useful to be able to shift poses in global space.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># heres an mRig example, it will also work with any other rigs by just setting up</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># the filter settings object in the same way for any of the Red9 tools</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">Red9.core.Red9_PoseSaver</span> <span class="k">as</span> <span class="nn">r9Pose</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">Red9.core.Red9_Meta</span> <span class="k">as</span> <span class="nn">r9Meta</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># grab our mRig node</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mrig</span><span class="o">=</span><span class="n">r9Meta</span><span class="o">.</span><span class="n">getMetaRigs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PosePointCloud</span><span class="p">(</span><span class="n">nodes</span><span class="o">=</span><span class="n">mrig</span><span class="o">.</span><span class="n">ctrl_main</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">metaRig</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">prioritySnapOnly</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># for rigs you can turn this on so that ONLY those nodes in the filterPriority list get built and used</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># build the cloud system</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">buildOffsetCloud</span><span class="p">()</span>   <span class="c1"># you can also pass a root point in, used as the base pivot ( rootReference=&#39;pSphere1&#39;)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># to apply the cloud, snapping the rig into the clouds pose</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">applyPosePointCloud</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># to sync the cloud to the rigs current frame, allowing you to update the clouds internal pose</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">updatePosePointCloud</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># delete the ppc node</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ppc</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+</pre></div>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – feed the nodes to process in as a list, if a filter is given
+then these are the rootNodes for it</li>
+<li><strong>filterSettings</strong> – pass in a filterSettings object to filter the given hierarchy</li>
+<li><strong>meshes</strong> – this is really for reference, rather than make a locator, pass in a reference geo
+which is then shapeSwapped for the PPC root node giving great reference!</li>
+<li><strong>prioritySnapOnly</strong> – ONLY make ppc points for the filterPriority nodes</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.syncdatafromCurrentInstance">
+<code class="descname">syncdatafromCurrentInstance</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.syncdatafromCurrentInstance" title="Permalink to this definition">¶</a></dt>
+<dd><p>pull existing data back from the metaNode</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.getInputNodes">
+<code class="descname">getInputNodes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.getInputNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>handler to build up the list of nodes to generate the cloud against.
+This uses the filterSettings and the inputNodes variables to process the
+hierarchy and is designed for overloading if required.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.getPPCNodes">
+<code class="descname">getPPCNodes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.getPPCNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>return a list of the PPC nodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.getTargetNodes">
+<code class="descname">getTargetNodes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.getTargetNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>return a list of the target controllers</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.matchPPCNodes">
+<code class="descname">matchPPCNodes</code><span class="sig-paren">(</span><em>srcTargets</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.matchPPCNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>return a list of the PPC nodes which were generated against the given target nodes</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">the PPC contains a list of tuples where [(ppc_node, target_node),(…..]
+with this we pass in the target and get a list back of the PPC node that
+was generated against it</p>
+</div>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.getCurrentInstances">
+<em class="property">static </em><code class="descname">getCurrentInstances</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.getCurrentInstances" title="Permalink to this definition">¶</a></dt>
+<dd><p>get any current PPC nodes in the scene</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.snapPosePntstoNodes">
+<code class="descname">snapPosePntstoNodes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.snapPosePntstoNodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>snap each pntCloud point to their respective Maya nodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.snapNodestoPosePnts">
+<code class="descname">snapNodestoPosePnts</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.snapNodestoPosePnts" title="Permalink to this definition">¶</a></dt>
+<dd><p>snap each MAYA node to it’s respective pntCloud point</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.generateVisualReference">
+<code class="descname">generateVisualReference</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.generateVisualReference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generic call that’s used to overload the visual handling
+of the PPC is other instances such as the AnimationPPC</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.buildOffsetCloud">
+<code class="descname">buildOffsetCloud</code><span class="sig-paren">(</span><em>rootReference=None</em>, <em>raw=False</em>, <em>projectedRots=False</em>, <em>projectedTrans=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.buildOffsetCloud" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a point cloud up for each node in nodes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>nodes</strong> – list of objects to be in the cloud</li>
+<li><strong>rootReference</strong> – the node used for the initial pivot location</li>
+<li><strong>raw</strong> – build the cloud but DON’T snap the nodes into place - an optimisation for the PoseLoad sequence</li>
+<li><strong>projectedRots</strong> – project the rotates of the root node of the cloud</li>
+<li><strong>projectedTrans</strong> – project the translates of the root node of the cloud</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.shapeSwapMeshes">
+<code class="descname">shapeSwapMeshes</code><span class="sig-paren">(</span><em>selectable=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.shapeSwapMeshes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Swap the mesh Geo so it’s a shape under the PPC transform root</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.applyPosePointCloud">
+<code class="descname">applyPosePointCloud</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.applyPosePointCloud" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.updatePosePointCloud">
+<code class="descname">updatePosePointCloud</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.updatePosePointCloud" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.delete">
+<code class="descname">delete</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.delete" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PosePointCloud.deleteCurrentInstances">
+<code class="descname">deleteCurrentInstances</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PosePointCloud.deleteCurrentInstances" title="Permalink to this definition">¶</a></dt>
+<dd><p>delete any current instances of PPC clouds</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="Red9.core.Red9_PoseSaver.PoseCompare">
+<em class="property">class </em><code class="descname">PoseCompare</code><span class="sig-paren">(</span><em>currentPose</em>, <em>referencePose</em>, <em>angularTolerance=0.1</em>, <em>linearTolerance=0.001</em>, <em>compareDict='poseDict'</em>, <em>filterMap=[]</em>, <em>ignoreBlocks=[]</em>, <em>ignoreStrings=[]</em>, <em>ignoreAttrs=[]</em>, <em>longName=False</em>, <em>**kws</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseCompare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This is aimed at comparing a rigs current pose with a given one, be that a
+pose file on disc, a pose class object, or even a poseObject against another.
+It will compare either the main [poseData].keys or the [‘skeletonDict’].keys
+and for key in keys compare, with tolerance, the [attrs] block.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># lets do simple skeleton comparison giving it 2 rootjnts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">Red9.core.Red9_PoseSaver</span> <span class="k">as</span> <span class="nn">r9Pose</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># root jnts of skeletons to test</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test_root</span><span class="o">=</span><span class="s1">&#39;root_of_skl_to_test&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">master_root</span><span class="o">=</span><span class="s1">&#39;root_of_correct_skl&#39;</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">nodeTypes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;joint&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">buildDataMap</span><span class="p">(</span><span class="n">test_root</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">buildBlocks_fill</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">nodeTypes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;joint&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">buildDataMap</span><span class="p">(</span><span class="n">master_root</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">buildBlocks_fill</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseCompare</span><span class="p">(</span><span class="n">mPoseA</span><span class="p">,</span><span class="n">mPoseB</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">.</span><span class="n">compare</span><span class="p">()</span> <span class="c1">#&gt;&gt; bool, True = same</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="o">----------------------------------------------------</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># mRig manual pose testing - note that mRig has</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># poseCompare wrapped as an internal function also!</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="o">----------------------------------------------------</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># build an mPose object and fill the internal poseDict</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">metaPose</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">buildDataMap</span><span class="p">(</span><span class="n">cmds</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">sl</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseA</span><span class="o">.</span><span class="n">buildBlocks_fill</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseData</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">metaPose</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">buildDataMap</span><span class="p">(</span><span class="n">cmds</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">sl</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mPoseB</span><span class="o">.</span><span class="n">buildBlocks_fill</span><span class="p">()</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseCompare</span><span class="p">(</span><span class="n">mPoseA</span><span class="p">,</span><span class="n">mPoseB</span><span class="p">)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#.... or ....</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseCompare</span><span class="p">(</span><span class="n">mPoseA</span><span class="p">,</span><span class="s1">&#39;H:/Red9PoseTests/thisPose.pose&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#.... or ....</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">=</span><span class="n">r9Pose</span><span class="o">.</span><span class="n">PoseCompare</span><span class="p">(</span><span class="s1">&#39;H:/Red9PoseTests/thisPose.pose&#39;</span><span class="p">,</span><span class="s1">&#39;H:/Red9PoseTests/thatPose.pose&#39;</span><span class="p">)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">.</span><span class="n">compare</span><span class="p">()</span> <span class="c1">#&gt;&gt; bool, True = same</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compare</span><span class="o">.</span><span class="n">fails</span><span class="p">[</span><span class="s1">&#39;failedAttrs&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Make sure we have 2 PoseData objects to compare
+:param currentPose: either a PoseData object or a valid pose file
+:param referencePose: either a PoseData object or a valid pose file
+:param angularTolerance: default 0.1 : the tolerance used to check rotate attr float values
+:param linearTolerance: default: 0.001 : the tolerance used to check all other float attrs
+:param compareDict: the internal main dict in the pose file to compare the data with : base options : ‘poseDict’, ‘skeletonDict’
+:param filterMap: if given this is used as a high level filter, only matching nodes get compared</p>
+<blockquote>
+<div>others get skipped. Good for passing in a master core skeleton to test whilst ignoring extra nodes</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>ignoreBlocks</strong> – allows the given failure blocks to be ignored. We mainly use this for [‘missingKeys’]</li>
+<li><strong>ignoreStrings</strong> – allows you to pass in a list of strings, if any of the keys in the data contain
+that string it will be skipped, note this is a partial match so you can pass in wildcard searches [‘_’,’_end’]</li>
+<li><strong>ignoreAttrs</strong> – allows you to skip given attrs from the poseCompare calls</li>
+<li><strong>longName</strong> – compare the longName DAG path stores against each node, note that the compare strips out any namespaces before compare</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>In the new setup if the pose being generated had it’s settings.nodeTypes=[‘joint’] or we found the
+exportSkeletonRoot jnt (mrig) then we add a whole new dict to serialize the current skeleton data to the pose,
+this means that we can then compare a pose on a rig via the internal skeleton transforms as well
+as the actual rig controllers… makes validation a lot more accurate for export</p>
+<blockquote class="last">
+<div><ul class="simple">
+<li>‘poseDict’     = [poseData] main controller data</li>
+<li>‘skeletonDict’ = [skeletonDict] block generated if exportSkeletonRoot is connected</li>
+<li>‘infoDict’     = [info] block</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">currentPose is the driving data here. If referencePose has additional nodes then that won’t trigger a fail.
+If however currentPose has nodes that aren’t in referencePose that will trigger ‘MissingKey’ error in the fail dict.
+This is because we use this to compare a master setup against a given reference setup, and if the given has
+extra data we ignore as it’s the core of the currentPose we’re testing against.</p>
+</div>
+<dl class="method">
+<dt id="Red9.core.Red9_PoseSaver.PoseCompare.compare">
+<code class="descname">compare</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.PoseCompare.compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare the 2 PoseData objects via their internal [key][attrs] blocks
+return a bool. After processing self.fails is a dict holding all the fails
+for processing later if required</p>
+<ul class="simple">
+<li>currentPose is MASTER</li>
+<li>referencePose is the one being compared to the currentPose</li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.core.Red9_PoseSaver.batchPatchPoses">
+<code class="descname">batchPatchPoses</code><span class="sig-paren">(</span><em>posedir</em>, <em>config</em>, <em>poseroot</em>, <em>load=True</em>, <em>save=True</em>, <em>patchfunc=None</em>, <em>relativePose=False</em>, <em>relativeRots=False</em>, <em>relativeTrans=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.core.Red9_PoseSaver.batchPatchPoses" title="Permalink to this definition">¶</a></dt>
+<dd><p>whats this?? a fast method to run through all the poses in a given dictionary and update
+or patch them. If patchfunc isn’t given it’ll just run through and resave the pose - updating
+the systems if needed. If it is then it gets run between the load and save calls.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>posedir</strong> – directory of poses to process</li>
+<li><strong>config</strong> – hierarchy settings cfg to use to ID the nodes (hierarchy tab preset = filterSettings object)</li>
+<li><strong>poseroot</strong> – root node to the filters - poseTab rootNode/MetaRig root</li>
+<li><strong>patchfunc</strong> – optional function to run between the load and save call in processing, great for
+fixing issues on mass with poses. Note we now pass pose file back into this func as an arg</li>
+<li><strong>load</strong> – should the batch load the pose</li>
+<li><strong>save</strong> – should the batch resave the pose</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Red9_Meta.html" class="btn btn-neutral float-left" title="Red9_Meta" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Red9_Setup.html" class="btn btn-neutral float-right" title="Red9_Setup" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Red9 Consultancy Limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

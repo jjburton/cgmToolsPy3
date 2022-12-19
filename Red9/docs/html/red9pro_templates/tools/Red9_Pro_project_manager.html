@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html class="writer-html4" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro_Pack : tools : project_manager &mdash; Red9 3.0 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Pro_Pack : tools : rig_manager" href="Red9_Pro_rig_manager.html" />
+    <link rel="prev" title="Pro_Pack : tools : health_manager" href="Red9_Pro_health_manager.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Red9<img src="../../_static/Red9_ProPack_logo.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_AnimationUtils.html">Red9_AnimationUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_Audio.html">Red9_Audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_Core.html">Red9_CoreUtils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_General.html">Red9_General</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_Meta.html">Red9_Meta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_PoseSaver.html">Red9_PoseSaver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_Setup.html">Red9_Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../red9core_templates/Red9_Tools.html">Red9_Tools</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_animation.html">Pro_Pack : animation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_audio.html">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_export.html">Pro_Pack : exporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_general.html">Pro_Pack : general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_project.html">Pro_Pack : project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_r9skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pro_Pack : tools : project_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Red9</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Pro_Pack : tools : project_manager</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/red9pro_templates/tools/Red9_Pro_project_manager.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="pro-pack-tools-project-manager">
+<h1>Pro_Pack : tools : project_manager<a class="headerlink" href="#pro-pack-tools-project-manager" title="Permalink to this headline">¶</a></h1>
+<p>ProPack project_manager module the base UI wrapping of the main project module.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># import statement for the module via the r9pro decompiler</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">Red9.pro_pack</span> <span class="k">import</span> <span class="n">r9pro</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r9project_man</span> <span class="o">=</span> <span class="n">r9pro</span><span class="o">.</span><span class="n">r9import</span><span class="p">(</span><span class="s1">&#39;r9project_man&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<span class="target" id="module-Red9.pro_pack.tools.project_manager"></span><p>Health manager UI, connected to the optimiser module but separated to stop QT being imported at boot</p>
+<p class="rubric">Main Classes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+</tbody>
+</table>
+<dl class="function">
+<dt id="Red9.pro_pack.tools.project_manager.projectmanager_ui">
+<code class="descname">projectmanager_ui</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.projectmanager_ui" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager">
+<em class="property">class </em><code class="descname">ProjectManager</code><span class="sig-paren">(</span><em>parent=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PySide2.QtWidgets.QMainWindow</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Ui_MainWindow</span></code></p>
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.set_project">
+<code class="descname">set_project</code><span class="sig-paren">(</span><em>project=None</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.set_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main Project Switch call</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.create_new_project">
+<code class="descname">create_new_project</code><span class="sig-paren">(</span><em>basepath=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.create_new_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>hi-level function to create a fresh project file from the default data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.delete_project">
+<code class="descname">delete_project</code><span class="sig-paren">(</span><em>project=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.delete_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>delete the given project and clean up the data set</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.set_perforce_feedback">
+<code class="descname">set_perforce_feedback</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.set_perforce_feedback" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the Perforce Client feedback in the UI</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.p4_refresh">
+<code class="descname">p4_refresh</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.p4_refresh" title="Permalink to this definition">¶</a></dt>
+<dd><p>force refresh the P4 connection and update</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.p4_scramble_connections">
+<code class="descname">p4_scramble_connections</code><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.p4_scramble_connections" title="Permalink to this definition">¶</a></dt>
+<dd><p>key to scramble the p4 workspace info for demos</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.change_p4_client">
+<code class="descname">change_p4_client</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.change_p4_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>change the Perforce client mount</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.change_p4_connection">
+<code class="descname">change_p4_connection</code><span class="sig-paren">(</span><em>set_feedback=True</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.change_p4_connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>change the Perforce connection itself</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.openfile">
+<code class="descname">openfile</code><span class="sig-paren">(</span><em>mode='project'</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.openfile" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.fill_project_info">
+<code class="descname">fill_project_info</code><span class="sig-paren">(</span><em>raw=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.fill_project_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>format the data returned</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_fill_grid">
+<code class="descname">edit_fill_grid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_fill_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>fill the main edit gridLayout based on each keys value type</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_add_key">
+<code class="descname">edit_add_key</code><span class="sig-paren">(</span><em>dataType</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_add_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>add a new key to the edit_dict. This does not commit that change to the Project,
+you still have to call edit_save to push the data to the live project file</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dataType</strong> – the type of data we’re going to initialize this key wish. This is a string
+which looks up from a master dict as follows: {‘string’: ‘’, ‘int’: 0, ‘float’: 0.0, ‘dict’: {}, ‘bool’: True, ‘list’:[]}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_add_default_key">
+<code class="descname">edit_add_default_key</code><span class="sig-paren">(</span><em>key</em>, <em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_add_default_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>add a new key to the edit_dict. This does not commit that change to the Project,
+you still have to call edit_save to push the data to the live project file</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dataType</strong> – the type of data we’re going to initialize this key wish. This is a string
+which looks up from a master dict as follows: {‘string’: ‘’, ‘int’: 0, ‘float’: 0.0, ‘dict’: {}, ‘bool’: True, ‘list’:[]}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_delete_key">
+<code class="descname">edit_delete_key</code><span class="sig-paren">(</span><em>key</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_delete_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>delete a key from the edit_dict. This does not commit that change to the Project,
+you still have to call edit_save to push the data to the live project file</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_revert">
+<code class="descname">edit_revert</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_revert" title="Permalink to this definition">¶</a></dt>
+<dd><p>revert any changes in the edit fields</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_toggle">
+<code class="descname">edit_toggle</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_toggle" title="Permalink to this definition">¶</a></dt>
+<dd><p>toggle the edit UI setup</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.edit_save">
+<code class="descname">edit_save</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.edit_save" title="Permalink to this definition">¶</a></dt>
+<dd><p>commit the edit data to the project file itself</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.closeEvent">
+<code class="descname">closeEvent</code><span class="sig-paren">(</span><em>event</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.closeEvent" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Red9.pro_pack.tools.project_manager.ProjectManager.staticMetaObject">
+<code class="descname">staticMetaObject</code><em class="property"> = &lt;PySide2.QtCore.QMetaObject object&gt;</em><a class="headerlink" href="#Red9.pro_pack.tools.project_manager.ProjectManager.staticMetaObject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Red9_Pro_health_manager.html" class="btn btn-neutral float-left" title="Pro_Pack : tools : health_manager" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Red9_Pro_rig_manager.html" class="btn btn-neutral float-right" title="Pro_Pack : tools : rig_manager" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Red9 Consultancy Limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
