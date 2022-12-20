@@ -63,7 +63,7 @@ import maya.mel as mm
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(9)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -117,7 +117,7 @@ def deleteKey(deleteSubFrames=False, selectedKeys=False, selectedChannels=False,
     '''
     
     if selectedChannels:
-        print 'selectedChannels flag is deprecated, please use the deleteChannels() function instead'
+        print('selectedChannels flag is deprecated, please use the deleteChannels() function instead')
     
     keySel = utl.KeySelection()
     

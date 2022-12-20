@@ -112,7 +112,7 @@ def reset(node, attrs = None, amount = None):
                 setValue = current + ((setValue - current)*amount)
             set(node,attr,setValue)
             _reset.append(attr)
-        except Exception,err:
+        except Exception as err:
             log.error("{0}.{1} resetAttrs | error: {2}".format(node, attr,err))   	
     return _reset
     #except Exception,err:
@@ -189,8 +189,8 @@ def validate_value(node, attr = None, value = None):
             return _l.index(value)
         elif _int is not None and _int <= len(_l):
             return _int
-        raise ValueError,"|{0}| >>> Not a valid enum value: {1} | {2}".format(_str_func,value,_l)
-    raise ValueError,"|{0}| >>> Not a valid value: {1} | type: {2} | value: {3}".format(_str_func,_d['combined'],_aType,value)
+        raise ValueError("|{0}| >>> Not a valid enum value: {1} | {2}".format(_str_func,value,_l))
+    raise ValueError("|{0}| >>> Not a valid value: {1} | type: {2} | value: {3}".format(_str_func,_d['combined'],_aType,value))
     
         
     
@@ -217,7 +217,7 @@ def validate_arg(*a):
             if a[0].get('combined'):
                 log.debug("|{0}| >> passed validated arg, repassing...".format(_str_func))
                 return a[0]
-            raise ValueError,"This isn't a valid dict: {0}".format(a[0])
+            raise ValueError("This isn't a valid dict: {0}".format(a[0]))
 
         elif type(a[0]) in [list,tuple] and len(a[0]) == 2:
             log.debug("|{0}| >> list arg...".format(_str_func))             
@@ -231,7 +231,7 @@ def validate_arg(*a):
             _attr = '.'.join(a[0].split('.')[1:])
             _combined = a[0]        
         else:        
-            raise ValueError,"Don't know what this is: {0}".format(a)
+            raise ValueError("Don't know what this is: {0}".format(a))
     else:
         log.debug("|{0}| >> multi arg...".format(_str_func))                
         _combined = "{0}.{1}".format(a[0],a[1])
@@ -257,7 +257,7 @@ def validate_attrTypeMatch(t1,t2):
     if t1 == t2:
             return True
     
-    for o in _d_attrTypes.keys():
+    for o in list(_d_attrTypes.keys()):
         if t1 in _d_attrTypes.get(o) and t2 in _d_attrTypes.get(o): 
             return True
     return False    
@@ -315,24 +315,24 @@ def get_valueDict(target,**kws):
     
     l_targetAttrs = mc.listAttr(target,**kws)
     if not l_targetAttrs:
-        raise ValueError,"No attrs found. kws: {0}".format(kws)
+        raise ValueError("No attrs found. kws: {0}".format(kws))
     
     for a in l_targetAttrs:
         try:
             res[a] = get(target,a)
-        except Exception,error:
+        except Exception as error:
             log.warning(error)	
             log.warning("'%s.%s'couldn't query"%(target,a))
     return res
 
 def set_valueDict(target,d={}):
     if not d:
-        raise ValueError,"No data passed"
+        raise ValueError("No data passed")
     
-    for a,v in d.iteritems():
+    for a,v in list(d.items()):
         try:
             set(target,a,v)
-        except Exception,error:
+        except Exception as error:
             log.warning(error)	
             log.warning("'%s.%s'couldn't query"%(target,a))    
 
@@ -357,7 +357,7 @@ def compare_attrs(source, targets, **kws):
     for t in _l_targets:
         l_targetAttrs = mc.listAttr(t,**kws)
         if not l_targetAttrs:
-            raise ValueError,"No attrs found. kws: {0}".format(kws)
+            raise ValueError("No attrs found. kws: {0}".format(kws))
         _t = NAMES.get_short(t)
         log.info("Comparing {0} to {1}...".format(_source,_t))
         _l_matching = []
@@ -374,7 +374,7 @@ def compare_attrs(source, targets, **kws):
                 _l_matching.append(a)
                     #print ("{0}.{1} != {2}.{1}".format(self.getShortName(),a,_t))
                     #log.debug("%s.%s : %s != %s.%s : %s"%(self.getShortName(),a,selfBuffer,target,a,targetBuffer))
-            except Exception,error:
+            except Exception as error:
                 log.warning(error)	
                 log.warning("'%s.%s'couldn't query"%(_source,a))
         log.info("Matching attrs: {0} | Unmatching: {1}".format(len(_l_matching),len(_l_notMatching)))
@@ -396,7 +396,7 @@ def delete(*a):
     _combined = _d['combined'] 
     try:
         if mc.objExists(_combined):
-            if get_parent(_d):raise ValueError,"{0} is child attr, try deleting parent attr: {1}".format(_combined,get_parent(_d))
+            if get_parent(_d):raise ValueError("{0} is child attr, try deleting parent attr: {1}".format(_combined,get_parent(_d)))
             try:
                 mc.setAttr(_combined,lock=False)
             except:pass            
@@ -412,9 +412,9 @@ def delete(*a):
             mc.deleteAttr(_combined)  
             return True
         return False
-    except Exception,err:
+    except Exception as err:
         pprint.pprint(vars())
-        raise Exception,err
+        raise Exception(err)
         
 def get(*a, **kws):
     """   
@@ -479,7 +479,7 @@ def get(*a, **kws):
             #return mc.getAttr("{0}.{1}".format(_obj,parentAttr[0]), **kws)
         else:
             return mc.getAttr(_combined, **kws)
-    except Exception,err:
+    except Exception as err:
         if has_attr(*a):
             cgmGEN.cgmExceptCB(Exception,err)
         return False
@@ -513,14 +513,14 @@ def set_keyframe(node, attr = None, value = None, time = None):
         if len(_children) == len(value):
             for i,c in enumerate(_children):
                 try:mc.setKeyframe(_node,attribute=c,v=value[i], t=time)
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >>  failed to set... f{1} : {2}.{3} --> {4} | {5}".format(_str_func,time,_node,_attr,value, err))
                           
         else:
-            raise ValueError,"Children len to value len mismatch|| children: {0} | v: {1}".format(_children,value)
+            raise ValueError("Children len to value len mismatch|| children: {0} | v: {1}".format(_children,value))
     else:
         try:mc.setKeyframe(_node,attribute=_attr,**_kws)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >>  failed to set... f{1} : {2}.{3} --> {4} | {5}".format(_str_func,time,_node,_attr,value, err))
         
 
@@ -548,7 +548,7 @@ def set_standardFlags(node, attrs = ['tx','ty','tz','rx','ry','rz','sx','sy','sz
             set_keyable(_v,keyable)
             #if hidden is not None:
                 #set_hidden(_v,hidden)
-        except Exception, e:
+        except Exception as e:
             log.error("|{0}| >>  {1}.{2} failed...".format(_str_func,node,a))            
             for arg in e.args:
                 log.warning(arg)
@@ -610,7 +610,7 @@ def set(node, attr = None, value = None, lock = False,force=True, **kws):
             _children = get_children(_obj,_attrClean)
             
             if len(value)!= len(_children):
-                raise ValueError,"Invalid value length, children: {0} | value: {1}".format(_children,value)
+                raise ValueError("Invalid value length, children: {0} | value: {1}".format(_children,value))
             
             for i,a in enumerate(_children):
                 mc.setAttr("{3}.{0}[{1}].{2}".format(_attrClean,_idx,a,_obj),value[i])
@@ -618,12 +618,12 @@ def set(node, attr = None, value = None, lock = False,force=True, **kws):
             return
         else:
             if not issubclass(type(value),dict):
-                raise ValueError,"TdataCompound for multiset must be dict. type: {0} | value: {1}".format(type(value),value)
+                raise ValueError("TdataCompound for multiset must be dict. type: {0} | value: {1}".format(type(value),value))
             
             clear_TdataCompound(_d)
             
             _children = get_children(_d)
-            for idx,lv in value.iteritems():
+            for idx,lv in list(value.items()):
                 if len(lv)!= len(_children):
                     log.warning("Invalid value list | children: {0} | idx: {1} | lv: {2}".format(_children,idx,lv))
                     
@@ -654,7 +654,7 @@ def set(node, attr = None, value = None, lock = False,force=True, **kws):
     if _children:
         if VALID.isListArg(value):
             if len(_children) != len(value):
-                raise ValueError,"Must have matching len for value and children. Children: {0} | value: {1}".format(_children,value)
+                raise ValueError("Must have matching len for value and children. Children: {0} | value: {1}".format(_children,value))
         else:
             value = [value for i in range(len(_children))]
         for i,c in enumerate(_children):
@@ -839,7 +839,7 @@ def set_default(node, attr = None, arg = None):
         for i,c in enumerate(_children):
             _str_c = "{0}.{1}".format(_node,c) 
             try:mc.addAttr(_str_c,e=True,defaultValue = arg)   
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_str_c,arg,err))
     elif _type == 'enum':
         _l = get_enum(_d).split(':')
@@ -848,10 +848,10 @@ def set_default(node, attr = None, arg = None):
         elif arg is not None and arg <= len(_l):
             mc.addAttr(_combined, e=True,defaultValue =arg)  
         else:
-            raise ValueError,"Shouldn't be here"
+            raise ValueError("Shouldn't be here")
     else:
         try:mc.addAttr(_combined,e=True,defaultValue = arg)  
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_combined,arg,err))
             
 def set_max(node, attr = None, arg = None):
@@ -886,7 +886,7 @@ def set_max(node, attr = None, arg = None):
                     mc.addAttr(_str_c,e=True,maxValue = arg) 
                 else:
                     mc.addAttr(_str_c,e=True,hasMaxValue = False) 
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_str_c,arg,err))
     else:
         try:
@@ -894,7 +894,7 @@ def set_max(node, attr = None, arg = None):
                 mc.addAttr(_combined,e=True,maxValue = arg)  
             else:
                 mc.addAttr(_combined,e=True,hasMaxValue = False)                  
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_combined,arg,err))
             
 def set_softMax(node, attr = None, arg = None):
@@ -928,7 +928,7 @@ def set_softMax(node, attr = None, arg = None):
                 mc.addAttr(_combined,e=True,softMaxValue = arg)  
             else:
                 mc.addAttr(_combined,e=True,hasSoftMaxValue = False)                  
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_combined,arg,err))
     return arg
             
@@ -964,7 +964,7 @@ def set_min(node, attr = None, arg = None):
                     mc.addAttr(_str_c,e=True,minValue = arg) 
                 else:
                     mc.addAttr(_str_c,e=True,hasMinValue = False) 
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_str_c,arg,err))
     else:
         try:
@@ -972,7 +972,7 @@ def set_min(node, attr = None, arg = None):
                 mc.addAttr(_combined,e=True,minValue = arg)  
             else:
                 mc.addAttr(_combined,e=True,hasMinValue = False)                  
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_combined,arg,err))
             
 def set_softMin(node, attr = None, arg = None):
@@ -1006,7 +1006,7 @@ def set_softMin(node, attr = None, arg = None):
                 mc.addAttr(_combined,e=True,softMinValue = arg)  
             else:
                 mc.addAttr(_combined,e=True,hasSoftMinValue = False)                  
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} | arg: {2} || err: {3}".format(_str_func,_combined,arg,err))
     return arg
 
@@ -1021,7 +1021,7 @@ def validate_attrTypeName(attrType):
         validatedType(string)
     """         
     _str_func = 'validate_attrTypeName'    
-    for option in _d_attrTypes.keys():
+    for option in list(_d_attrTypes.keys()):
         if attrType == option:return option
         if attrType in _d_attrTypes.get(option): 
             return option
@@ -1152,7 +1152,7 @@ def is_keyable(*a):
         if _children:
             return [mc.getAttr("{0}.{1}".format(_d['node'],a),keyable=True) for a in _children ]
         return mc.getAttr(_d['combined'],keyable=True) 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     
@@ -1177,7 +1177,7 @@ def is_locked(*a):
                 if v:return True
             return False        
         return mc.getAttr(_d['combined'],lock=True) 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     
@@ -1198,7 +1198,7 @@ def is_multi(*a):
         if not is_dynamic(_d):
             return False
         return mc.addAttr(_d['combined'],q=True,m=True)
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     
@@ -1218,7 +1218,7 @@ def is_connected(*a):
     if _children:
         try:
             _l = [mc.connectionInfo("{0}.{1}".format(_d['node'],a), isDestination=True) for a in _children ]
-        except Exception,err:
+        except Exception as err:
             return False
         for v in _l:
             if v:return True
@@ -1311,7 +1311,7 @@ def break_connection(*a):
     
     
         return False
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 def disconnect(fromAttr,toAttr):
     """   
@@ -1384,7 +1384,7 @@ def connect(fromAttr,toAttr,transferConnection=False,lock = False, pushToChildre
 
     assert _combined != _combined_to,"Cannot connect an attr to itself. The world might blow up!"
 
-    if transferConnection: raise Exception,"Look at why you're transferring connection"
+    if transferConnection: raise Exception("Look at why you're transferring connection")
 
     _wasLocked = False
     _connection = False
@@ -1465,7 +1465,7 @@ def add(obj,attr=None,attrType=None, enumOptions = ['off','on'],value=None, lock
         
         _type = validate_attrTypeName(attrType)
         if not _type:
-            raise ValueError,"'{0}' is not a valid attribute type for creation.".format(attrType)
+            raise ValueError("'{0}' is not a valid attribute type for creation.".format(attrType))
         if mc.objExists(_combined):
             currentType = get_type(_d)
             currentValid = validate_attrTypeName(currentType)
@@ -1473,7 +1473,7 @@ def add(obj,attr=None,attrType=None, enumOptions = ['off','on'],value=None, lock
                 if convert:
                     convert_type(_node,_attr,_type)
                 else:
-                    raise ValueError,"{0} already exists. Wrong type [{1}] != [{2}]. No convert flag".format(_combined,currentValid,_type)
+                    raise ValueError("{0} already exists. Wrong type [{1}] != [{2}]. No convert flag".format(_combined,currentValid,_type))
                 
                 if value is not None:
                     set(_node,_attr,value=value)
@@ -1509,7 +1509,7 @@ def add(obj,attr=None,attrType=None, enumOptions = ['off','on'],value=None, lock
             mc.addAttr (_node, ln=(_attr+'Y'),p=_attr , at= 'float',*a, **kws)
             mc.addAttr (_node, ln=(_attr+'Z'),p=_attr , at= 'float',*a, **kws)        
         else:
-            raise ValueError,"Don't know what to do with attrType: {0}".format(attrType)
+            raise ValueError("Don't know what to do with attrType: {0}".format(attrType))
             #return False
             
         if value is not None:
@@ -1517,7 +1517,7 @@ def add(obj,attr=None,attrType=None, enumOptions = ['off','on'],value=None, lock
         if lock:
             set_lock(_node,_attr,lock)
         return _combined        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 def get_standardFlagsDict(*a):
     """   
     Returns a diciontary of locked,keyable,locked states of an attribute. If
@@ -1650,7 +1650,7 @@ def get_max(*a):
                 if len(_res) == 1:
                     return _res[0]
                 return _res       
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     return False
@@ -1673,7 +1673,7 @@ def get_min(*a):
                 if len(_res) == 1:
                     return _res[0]
                 return _res           
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     return False
@@ -1695,7 +1695,7 @@ def get_softMin(*a):
             if len(_res) == 1:
                 return _res[0]
             return _res     
-    except Exception,err:
+    except Exception as err:
         log.debug("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     return False
@@ -1717,7 +1717,7 @@ def get_softMax(*a):
             if len(_res) == 1:
                 return _res[0]
             return _res       
-    except Exception,err:
+    except Exception as err:
         log.debug("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
     return False
@@ -1871,7 +1871,7 @@ def get_nameLong(*a):
         if mc.objExists(_d['combined']):
             return _d['attr']
         else:
-            raise RuntimeError,"Attr does not exist: {0}".format(_d['combined'])
+            raise RuntimeError("Attr does not exist: {0}".format(_d['combined']))
 
 def rename(obj=None, attr=None, name=None):
     """   
@@ -1913,7 +1913,7 @@ def rename(obj=None, attr=None, name=None):
     if _lock:set_lock(obj,name,True)
     if _res is not None:
         return _res
-    raise ValueError,"No new attr name provided"
+    raise ValueError("No new attr name provided")
 
 def is_dynamic(*a):
     """   
@@ -2044,7 +2044,7 @@ def get_nextCompoundIndex(*a):
 
 def clear_TdataCompound(*a):
     if get_type(*a) != 'TdataCompound':
-        raise ValueError,"must be compound attr"    
+        raise ValueError("must be compound attr")    
     _d = validate_arg(*a) 
     
     for v in get_compoundIndices(_d):
@@ -2071,7 +2071,7 @@ def get_range(*a):
     _d = validate_arg(*a) 
 
     try:return mc.attributeQuery(_d['attr'], node = _d['node'], range=True) or False 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
 
@@ -2087,7 +2087,7 @@ def get_softRange(*a):
     _d = validate_arg(*a) 
 
     try:return mc.attributeQuery(_d['attr'], node = _d['node'], softRange=True) or False 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
 
@@ -2108,7 +2108,7 @@ def get_children(*a):
         return False
     
     try:return mc.attributeQuery(_d['attr'], node = _d['node'], listChildren=True) or [] 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False
 
@@ -2129,7 +2129,7 @@ def get_parent(*a):
         _buffer = mc.attributeQuery(_d['attr'], node = _d['node'], listParent=True) or [] 
         if _buffer:return _buffer[0]
         return _buffer
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False   
 
@@ -2148,7 +2148,7 @@ def get_siblings(*a):
 
     try:
         return mc.attributeQuery(_d['attr'], node = _d['node'], listSiblings=True) or [] 
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False  
     
@@ -2167,7 +2167,7 @@ def get_type(*a):
 
     try:
         return mc.getAttr(_d['combined'],type=True) 
-    except Exception,err:
+    except Exception as err:
         log.debug("|{0}| >> {1} | {2}".format(_str_func,_d['combined'],err))
         return False  
     
@@ -2307,7 +2307,7 @@ def get_message(messageHolder, messageAttr = None, dataAttr = None, dataKey = No
     if dataKey is None:
         dataKey = messageAttr
     else:
-        dataKey = unicode(dataKey)
+        dataKey = str(dataKey)
         
     log.debug("|{0}| >> {1} | dataAttr: {2} | dataKey: {3}".format(_str_func,_combined,_dataAttr,dataKey))
     
@@ -2322,7 +2322,7 @@ def get_message(messageHolder, messageAttr = None, dataAttr = None, dataKey = No
             _msgBuffer = [_msgBuffer[0].split('.')[0]]
         else:
             return False
-            raise ValueError,"not sure what to do with this: {0}".format(_msgBuffer)
+            raise ValueError("not sure what to do with this: {0}".format(_msgBuffer))
     else:
         _msgBuffer = mc.listConnections(_combined,destination=True,source=True,shapes=True)
         
@@ -2413,7 +2413,7 @@ def multi_append(messageHolder, messageAttr, message, im=True):
         for n in msgNodes:
             try:
                 connect((n + ".message"),holderDict['combined'],nextAvailable=True)
-            except Exception,err:
+            except Exception as err:
                 log.debug("|{0}| >> {1} failed: {2}".format(_str_func, n, err))  
                 
     if mc.objExists(_combined):
@@ -2507,7 +2507,7 @@ def set_message(messageHolder, messageAttr, message, dataAttr = None, dataKey = 
                 for n in msgNodes:
                     try:
                         connect((n + ".message"),holderDict['combined'],nextAvailable=True)
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> {1} failed: {2}".format(_str_func, n, err))  
                         
             if len(message) > 1 or _multi:#MULTIMESSAGE MODE...
@@ -2591,7 +2591,7 @@ def set_message(messageHolder, messageAttr, message, dataAttr = None, dataKey = 
         if dataKey is None:
             dataKey = messageAttr
         else:
-            dataKey = unicode(dataKey)
+            dataKey = str(dataKey)
             
         log.debug("|{0}| >> mode: {1} | dataAttr: {2} | dataKey: {3}".format(_str_func,_mode, _dataAttr,dataKey))
         log.debug("|{0}| >> messageHolder: {1} | messageAttr: {2}".format(_str_func,messageHolder, messageAttr))
@@ -2616,7 +2616,7 @@ def set_message(messageHolder, messageAttr, message, dataAttr = None, dataKey = 
                     add(dataAttrDict['node'],dataAttrDict['attr'],'string')
                             
                 if get_type(dataAttrDict['combined']) != 'string':
-                    raise ValueError,"DataAttr must be string. {0} is type {1}".format(dataAttrDict['combined'], get_type(dataAttrDict['combined']) )
+                    raise ValueError("DataAttr must be string. {0} is type {1}".format(dataAttrDict['combined'], get_type(dataAttrDict['combined']) ))
                 
                 mi_node = r9Meta.MetaClass(_d['node'])
                 _dBuffer = mi_node.__getattribute__(dataAttrDict['attr']) or {}
@@ -2673,7 +2673,7 @@ def set_message(messageHolder, messageAttr, message, dataAttr = None, dataKey = 
             storeMsg(_messagedNode, _messagedExtra, _d, _d_dataAttr,dataKey)
             
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def convert_type(node = None, attr = None, attrType = None, enum = None):
     """   
@@ -2760,18 +2760,18 @@ def convert_type(node = None, attr = None, attrType = None, enum = None):
                 _data = float(_data)
             elif _attrType == 'long':
                 _data = int(_data)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to convert data: {1} | type: {2} | err: {3}".format(_str_func,_data,_attrType,err))        
         
         
         try:set(_d, value = _data)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to set back data buffer {1} | data: {2} | err: {3}".format(_str_func,_combined,_data,err))        
 
     if _driver and _typeCurrent != 'message':
         log.debug("|{0}| >> Driver: {1}".format(_str_func,_driver))
         try:connect(_driver,_combined)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to connect {1} >--> {2} | err: {3}".format(_str_func,_driver,_combined,err))        
                 
     if _driven:
@@ -2779,7 +2779,7 @@ def convert_type(node = None, attr = None, attrType = None, enum = None):
         for c in _driven:
             log.debug("|{0}| >> driven: {1}".format(_str_func,c))
             try:connect(_combined,c)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to connect {1} >--> {2} | err: {3}".format(_str_func,_combined,c,err))        
         
     if _lock:
@@ -2851,7 +2851,7 @@ def reorder(node = None, attrs = None, direction = 0,top = False):
             #delete(_d)
 
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} || err: {2}".format(_str_func,_d['combined'],err))
         finally:
             mc.undoInfo(cck=True)
@@ -2961,7 +2961,7 @@ def datList_purge(node = None, attr = None, dataAttr=None):
     else:
         _str_dataAttr = "{0}_datdict".format(attr)
         """
-    for k in d_attrs.keys():
+    for k in list(d_attrs.keys()):
         str_attr = d_attrs[k]
         delete(node,str_attr)
         log.debug("|{0}| >> Removed: '{1}.{2}'".format(_str_func,node,str_attr))
@@ -2999,7 +2999,7 @@ def datList_exists(node = None, attr = None, mode = None, dataAttr = None):
     else:
         _str_dataAttr = "{0}_datdict".format(attr)
         """
-    l_keys = d_attrs.keys()
+    l_keys = list(d_attrs.keys())
     for i in l_keys:
         str_attr = d_attrs[i]
         if mode == 'message':
@@ -3111,7 +3111,7 @@ def datList_connect(node = None, attr = None, data = None, mode = None, dataAttr
             for p in _plug:
                 try:
                     connect("{0}.{1}".format(node,attr), p)
-                except Exception,err:
+                except Exception as err:
                     log.warning("|{0}| >> Failed to reconnect {1} | driven: {2} | err: {3}".format(_str_func, str_attr,p,err ))
         
     elif mode == 'enum':
@@ -3143,7 +3143,7 @@ def datList_connect(node = None, attr = None, data = None, mode = None, dataAttr
                 for p in _plug:
                     try:
                         connect("{0}.{1}".format(node,str_attr), p)
-                    except Exception,err:
+                    except Exception as err:
                         log.warning("|{0}| >> Failed to reconnect {1} | driven: {2} | err: {3}".format(_str_func, str_attr,p,err ))
                     
     return True
@@ -3188,7 +3188,7 @@ def datList_get(node = None, attr = None, mode = None, dataAttr = None, cull = F
     l_return = []
     ml_return = []
     
-    for k in d_attrs.keys():
+    for k in list(d_attrs.keys()):
         if _mode == 'message':
             _res = get_message(node,d_attrs[k], dataAttr, k ) or None
             if _res:_res = _res[0]
@@ -3201,7 +3201,7 @@ def datList_get(node = None, attr = None, mode = None, dataAttr = None, cull = F
                         _res = get(node,d_attrs[k])
                 else:
                     _res = get(node,d_attrs[k])
-            except Exception,err:
+            except Exception as err:
                 log.warning("|{0}| >> {1}.{2} Failed! || err: {3}".format(_str_func,node,d_attrs[k],err))
                 _res = None
         if issubclass(type(_res),list):
@@ -3234,7 +3234,7 @@ def datList_getAttrs(node = None, attr = None):
     _str_func = 'datList_get'
     
     d_attrs = get_sequentialAttrDict(node,attr)
-    return [d_attrs[i] for i in d_attrs.keys()]
+    return [d_attrs[i] for i in list(d_attrs.keys())]
 msgList_getAttrs = datList_getAttrs
 
 def msgList_index(node = None, attr = None, data = None, dataAttr = None):
@@ -3278,7 +3278,7 @@ def datList_index(node = None, attr = None, data = None, mode = None, dataAttr =
             idx = _l_long.index(_str_long)
     elif data in _l_dat:
         if _l_dat.count(data) > 1:
-            raise ValueError,"More than one entry"
+            raise ValueError("More than one entry")
         else:
             idx = _l_dat.index(data) 
     
@@ -3287,7 +3287,7 @@ def datList_index(node = None, attr = None, data = None, mode = None, dataAttr =
         log.debug("|{0}| >> values...".format(_str_func))
         for i,v in enumerate(_l_dat):
             log.debug("idx: {0} | {1}".format(i,v))
-        raise ValueError,"Data not found"
+        raise ValueError("Data not found")
     return idx
 
 def msgList_append(node = None, attr = None, data = None, connectBack = None,dataAttr=None):
@@ -3355,7 +3355,7 @@ def datList_setByIndex(node = None, attr = None, data = None, mode = None, dataA
     
     log.debug("|{0}| >> node: {1} | attr: {2} | indices: {3}".format(_str_func,node,attr,_indices))
     
-    for i in d_attrs.keys():
+    for i in list(d_attrs.keys()):
         if i in _indices:
             log.warning("|{0}| >> Setting... | idx: {1} | attr: {2}".format(_str_func,i,d_attrs[i]))
             
@@ -3370,7 +3370,7 @@ def datList_setByIndex(node = None, attr = None, data = None, mode = None, dataA
                     for p in _plug:
                         try:
                             connect("{0}.{1}".format(node,d_attrs[i]), p)
-                        except Exception,err:
+                        except Exception as err:
                             log.warning("|{0}| >> Failed to reconnect {1} | driven: {2} | err: {3}".format(_str_func, str_attr,p,err ))
             
     
@@ -3393,7 +3393,7 @@ def datList_removeByIndex(node = None, attr = None, indices = None):
     
     log.debug("|{0}| >> node: {1} | attr: {2} | indices: {3}".format(_str_func,node,attr,_indices))
     
-    for i in d_attrs.keys():
+    for i in list(d_attrs.keys()):
         if i in _indices:
             log.warning("|{0}| >> removing... | idx: {1} | attr: {2}".format(_str_func,i,d_attrs[i]))
             delete(node,d_attrs[i])
@@ -3437,7 +3437,7 @@ def datList_remove(node = None, attr = None, data = None, mode = None, dataAttr 
         _data = VALID.objStringList(_data,calledFrom=_str_func)
         _l_dat_long = [NAMES.get_long(o) for o in _data]  
         
-        for i in d_attrs.keys():
+        for i in list(d_attrs.keys()):
             _o = get_message(node, d_attrs[i],"{0}_datdict".format(attr), dataKey=i)
             if _o and NAMES.get_long(_o) in _l_dat_long:
                 log.debug("|{0}| >> removing... | idx: {1} | attr: {2} | value: {3}".format(_str_func,i,d_attrs[i],_o))
@@ -3445,7 +3445,7 @@ def datList_remove(node = None, attr = None, data = None, mode = None, dataAttr 
                 _action = True
     else:
         d_attrs = get_sequentialAttrDict(node,attr)
-        for i in d_attrs.keys():
+        for i in list(d_attrs.keys()):
             _v =  get(node,d_attrs[i])
             if _v in _data:
                 log.debug("|{0}| >> removing... | idx: {1} | attr: {2} | value: {3}".format(_str_func,i,d_attrs[i],_v))
@@ -3536,7 +3536,7 @@ def copy_to(fromObject, fromAttr, toObject = None, toAttr = None,
     _d_targetAttr = validate_arg(_toObject,_toAttr)
     
     if _combined == _d_targetAttr['combined']:
-        raise ValueError,"Cannot copy to self."
+        raise ValueError("Cannot copy to self.")
         
     log.debug("|{0}| >> source: {1}".format(_str_func,_combined))    
     log.debug("|{0}| >> target: {1} | {2}".format(_str_func,_toObject,_toAttr))    
@@ -3577,7 +3577,7 @@ def copy_to(fromObject, fromAttr, toObject = None, toAttr = None,
                 #_relockSource
                 convert_type(_d_targetAttr,_d_sourceFlags['type'])
             else:
-                raise Exception,"|{0}| >> {1} Not the correct type, conversion necessary and convertToMatch is off".format(_str_func,_d_targetAttr['combined'])
+                raise Exception("|{0}| >> {1} Not the correct type, conversion necessary and convertToMatch is off".format(_str_func,_d_targetAttr['combined']))
                 _goodToGo = False
     else:
         add(_d_targetAttr, _d_sourceFlags['type'])
@@ -3586,14 +3586,14 @@ def copy_to(fromObject, fromAttr, toObject = None, toAttr = None,
     
     if _data is not None :
         try:set(_d_targetAttr,value = _data)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to set back data buffer {1} | data: {2} | err: {3}".format(_str_func,_d_targetAttr['combined'],_data,err))        
    
     if _driver and inConnection:
         if _d_sourceFlags['type'] != 'message':
             log.debug("|{0}| >> Current Driver: {1}".format(_str_func,_driver))
             try:connect(_driver,_d_targetAttr['combined'])
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to connect {1} >--> {2} | err: {3}".format(_str_func,_driver,_d_targetAttr['combined'],err))        
                     
     if _driven and outConnections:
@@ -3603,7 +3603,7 @@ def copy_to(fromObject, fromAttr, toObject = None, toAttr = None,
             if _d_driven['combined'] != _d_targetAttr['combined']:
                 log.debug("|{0}| >> driven: {1}".format(_str_func,c))
                 try:connect(_d_targetAttr['combined'],c)
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> Failed to connect {1} >--> {2} | err: {3}".format(_str_func,_d_targetAttr['combined'],c,err))        
     
     if not keepSourceConnections:
@@ -3650,12 +3650,12 @@ def copy_to(fromObject, fromAttr, toObject = None, toAttr = None,
     if driven == 'target':
         try:            
             connect(_d,_d_targetAttr)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to connect source to target {1} >--> {2} | err: {3}".format(_str_func,_combined,_d_targetAttr['combined'],err))        
     elif driven == 'source':
         try:            
             connect(_d_targetAttr,_d)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to connect target to source {1} >--> {2} | err: {3}".format(_str_func,_d_targetAttr['combined'],_combined,err))        
            
     if _d_sourceFlags['locked']:
@@ -3737,7 +3737,7 @@ def store_info(node = None, attr = None, data = None, attrType = None, lock = Tr
         if lock:
             set_lock(node,attr,lock)
         return True
-    except Exception,err:
+    except Exception as err:
         raise cgmGEN.cgmExceptCB(Exception,err)
 def get_attrsByTypeDict(node,typeCheck = [],*a,**kws):
     """   
@@ -3762,10 +3762,10 @@ def get_attrsByTypeDict(node,typeCheck = [],*a,**kws):
             try:               
                 typeBuffer  = get_type(node,a)
                 if typeCheck:
-                    if typeBuffer and typeBuffer in typeDict.keys():
+                    if typeBuffer and typeBuffer in list(typeDict.keys()):
                         typeDict[typeBuffer].append(a)
                 else:
-                    if typeBuffer and typeBuffer in typeDict.keys():
+                    if typeBuffer and typeBuffer in list(typeDict.keys()):
                         typeDict[typeBuffer].append(a)
                     elif typeBuffer:
                         typeDict[typeBuffer] = [a]                    
@@ -3774,7 +3774,7 @@ def get_attrsByTypeDict(node,typeCheck = [],*a,**kws):
     #cgmGEN.print_dict(typeDict)
     
     if typeDict: 
-        for key in typeDict.keys():
+        for key in list(typeDict.keys()):
             if typeDict.get(key):
                 return typeDict
     return False   
@@ -3806,14 +3806,14 @@ def get_compatible(node,attr,targetNode, direction = 'to'):
             _combined = "{0}.{1}".format(targetNode,a)
             
             if direction == 'to':
-                for k,types in _d_compatibility.iteritems():
+                for k,types in list(_d_compatibility.items()):
                     log.debug(k + ' ' + _type)
                     if _type in types:
                         log.debug(k)
                         _l_goodTypes.append(k)
             else:
                 pass
-        except Exception,err:
+        except Exception as err:
             log.debug("|{0}| >> Attr failed: {1}.{2} || err: {3}".format(_str_func,targetNode,a,err))
     return _res
 
@@ -3853,18 +3853,18 @@ def get_compatibilityDict(report = False):
         if report:log.debug("|{0}| >> getting attrs for {1}".format(_str_func,o))
         _d = get_attrsByTypeDict(o,keyable=True) 
         _l_d_byType.append( _d )
-        for k in _d.keys():
-            if k not in _d_attrsByType.keys():
+        for k in list(_d.keys()):
+            if k not in list(_d_attrsByType.keys()):
                 _d_attrsByType[k] = []
             for a in _d[k]:
                 _d_attrsByType[k].append(a)
                 
     if report:cgmGEN.print_dict(_d_attrsByType,'Attr type by keys',_str_func)
     
-    for k in _d_attrsByType.keys():
+    for k in list(_d_attrsByType.keys()):
         _d_compatible[k] = {'out':[],'in':[]}
-        for k2 in _d_attrsByType.keys():
-            for n in _d_nodePairs.keys():
+        for k2 in list(_d_attrsByType.keys()):
+            for n in list(_d_nodePairs.keys()):
                 atr = _d_attrsByType[k][0]
                 if has_attr(n,atr):
                     n2 = _d_nodePairs[n]
@@ -3928,7 +3928,7 @@ def returnCompatibleAttrs(sourceObj,sourceAttr,target,*a, **kw):
     if sourceType:
         returnBuffer = []
         bufferDict = returnObjectsAttributeByTypeDict(target,attrTypesDict.get(sourceType),*a, **kw) or {}
-        for key in bufferDict.keys():
+        for key in list(bufferDict.keys()):
             returnBuffer.extend(bufferDict.get(key))
         if returnBuffer:    
             return returnBuffer

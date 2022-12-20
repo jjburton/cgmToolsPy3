@@ -1,7 +1,7 @@
 from maya.cmds import *
 
 import maya.cmds as cmd
-import vectors
+from . import vectors
 import re
 
 Vector = vectors.Vector

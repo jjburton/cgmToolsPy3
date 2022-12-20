@@ -21,6 +21,7 @@ import os
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -259,9 +260,9 @@ d_block_profiles = {
  'baseSizeY': 8.737809181213379,
  'baseSizeZ': 14.744741439819336,
  'buildEnd': 'dag',
- 'buildProfile': u'unityToon',
+ 'buildProfile': 'unityToon',
  'castVector': 'out',
- 'cgmName': u'ear',
+ 'cgmName': 'ear',
  'followParentBank': True,
  'formEndAim': 'back',
  'ikEnd': 'default',
@@ -280,8 +281,8 @@ d_block_profiles = {
  'loftShapeEnd': 'wideUp',
  'loftShapeStart': 'squareRoundUp',
  'mainRotAxis': 'out',
- 'nameList_0': u'earBase',
- 'nameList_1': u'earEnd',
+ 'nameList_0': 'earBase',
+ 'nameList_1': 'earEnd',
  'numControls': 2,
  'numJoints': 0.0,
  'numRoll': 0,
@@ -1092,7 +1093,7 @@ def define(self):
           'rp':{'color':'redBright','defaults':{'tx':.5}},
           'lever':{'color':'orange','defaults':{'tz':-.25}}}
     
-    for k,d in _d.iteritems():
+    for k,d in list(_d.items()):
         d['arrow'] = 1
         
     md_handles = {}
@@ -1186,7 +1187,7 @@ def formDelete(self):
                  
             
         self.defineLoftMesh.v = True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
     
 def form(self):
@@ -1780,7 +1781,7 @@ def form(self):
         #Subshaper count -------------------------------------------------------------------------
         l_numSubShapers =  self.datList_get('numSubShapers')
         if not l_numSubShapers:
-            l_numSubShapers = [self.numSubShapers for i in xrange(self.numShapers-1)]
+            l_numSubShapers = [self.numSubShapers for i in range(self.numShapers-1)]
         log.info("|{0}| >> l_numSubShapers: {1}".format(_str_func,l_numSubShapers))         
         
         
@@ -2554,7 +2555,7 @@ def prerig(self):
             try:ATTR.copy_to(self.mNode,_baseNameAttrs[i],_short, 'cgmName', driven='target')
             except:mHandle.doStore('cgmName','NeedAnotherNameAttr')
             mHandle.doStore('cgmType','preHandle')
-            for k,v in _nameDict.iteritems():
+            for k,v in list(_nameDict.items()):
                 if v:
                     ATTR.copy_to(self.mNode,k,_short, k, driven='target')
                     
@@ -2732,7 +2733,7 @@ def prerig(self):
         self.blockState = 'prerig'
         return True
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
 def create_jointHelpers(self, force = True):
     #>>Joint placers ================================================================================    
@@ -3017,7 +3018,7 @@ def create_jointHelpers(self, force = True):
             l_targets.append(mLoftCurve.mNode)
 
     
-    for mMain,l in md_helperRolls.iteritems():
+    for mMain,l in list(md_helperRolls.items()):
         
         for mObj in l:
             mc.orientConstraint(mMain.loftCurve.mNode, mObj.mNode)
@@ -3080,28 +3081,28 @@ def skeleton_build(self, forceNew = True):
     self.atUtils('module_verify')
     mModule = self.moduleTarget
     if not mModule:
-        raise ValueError,"No moduleTarget connected"
+        raise ValueError("No moduleTarget connected")
     mRigNull = mModule.rigNull
     if not mRigNull:
-        raise ValueError,"No rigNull connected"
+        raise ValueError("No rigNull connected")
     
     ml_formHandles = self.msgList_get('formHandles',asMeta = True)
     if not ml_formHandles:
-        raise ValueError,"No formHandles connected"
+        raise ValueError("No formHandles connected")
     
     ml_prerigHandles = self.msgList_get('prerigHandles',asMeta = True)
     if not ml_prerigHandles:
-        raise ValueError,"No prerig connected"
+        raise ValueError("No prerig connected")
     
     ml_handleHelpers = [mHandle.jointHelper for mHandle in ml_prerigHandles]
     if len(ml_handleHelpers) != len(ml_prerigHandles):
-        raise ValueError,"Must have matching handleHelper length to prerig."
+        raise ValueError("Must have matching handleHelper length to prerig.")
     
     ml_handleHelpersRaw = copy.copy(ml_handleHelpers)
         
     ml_jointHelpers = self.msgList_get('jointHelpers',asMeta = True)
     if not ml_jointHelpers:
-        raise ValueError,"No jointHelpers connected"
+        raise ValueError("No jointHelpers connected")
     
     
       
@@ -3214,7 +3215,7 @@ def skeleton_build(self, forceNew = True):
                      _vec)
             JOINT.freezeOrientation(mJoint.mNode)
         else:
-            raise ValueError,"Josh fix this case"
+            raise ValueError("Josh fix this case")
     else:
         if _b_lever:
             log.debug("|{0}| >> lever...".format(_str_func))            
@@ -3250,7 +3251,7 @@ def skeleton_build(self, forceNew = True):
     def nameJoint(mJnt,mHelper):
         d = mHelper.getNameDict()
         d['cgmType'] = 'skinJoint'
-        for t,v in d.iteritems():
+        for t,v in list(d.items()):
             if v not in [False,None]:
                 mJnt.doStore(t,v)
         mJnt.doName()
@@ -3305,7 +3306,7 @@ def skeleton_build(self, forceNew = True):
     mRigNull.msgList_connect('moduleJoints', ml_joints)
     mPrerigNull.msgList_connect('handleJoints', ml_handleJoints)
     
-    for i,l in d_rolls.iteritems():
+    for i,l in list(d_rolls.items()):
         mPrerigNull.msgList_connect('rollJoints_{0}'.format(i), l)
         for mJnt in l:
             mJnt.radius = _radius / 2
@@ -3380,7 +3381,7 @@ def skeleton_build(self, forceNew = True):
     #if len(ml_handleJoints) > self.numControls:
         #log.debug("|{0}| >> Extra joints, checking last handle".format(_str_func))
     
-    print _specialEndHandling
+    print(_specialEndHandling)
     if _specialEndHandling:
         mEndOrient = self.ikOrientHandle
         
@@ -3505,7 +3506,7 @@ def rig_prechecks(self):
         
         #if mBlock.getEnumValueString('squashMeasure') == 'pointDist':
         #    self.l_precheckErrors.append('pointDist squashMeasure mode not recommended')
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 @cgmGEN.Timer
 def rig_dataBuffer(self):
@@ -3857,12 +3858,12 @@ def rig_dataBuffer(self):
         if self.b_leverJoint:
             log.debug("|{0}| >> lever roll remap...".format(_str_func))
             md_rollRemap = {}
-            for i,v in self.md_roll.iteritems():
+            for i,v in list(self.md_roll.items()):
                 md_rollRemap[i-1] = v
             self.md_roll = md_rollRemap
             
             ml_indiceRemap = {}
-            for v,i in self.md_segHandleIndices.iteritems():
+            for v,i in list(self.md_segHandleIndices.items()):
                 ml_indiceRemap[v] = i-1
             self.md_segHandleIndices = ml_indiceRemap
             
@@ -3981,7 +3982,7 @@ def rig_dataBuffer(self):
         
     
         log.debug(cgmGEN._str_subLine)    
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 @cgmGEN.Timer
 def rig_skeleton(self):
@@ -4068,7 +4069,7 @@ def rig_skeleton(self):
             
             ml_jointHelpers = mBlock.msgList_get('jointHelpers',asMeta = True)
             if not ml_jointHelpers:
-                raise ValueError,"No jointHelpers connected"            
+                raise ValueError("No jointHelpers connected")            
             
             mLever.p_position = ml_jointHelpers[0].p_position
             
@@ -4231,7 +4232,7 @@ def rig_skeleton(self):
         #ml_handleJoints[-1].p_orient = ml_handleJoints[-2].p_orient
         #JOINT.freezeOrientation(ml_handleJoints[-1].mNode)      
             
-        for i,ml_set in self.md_roll.iteritems():
+        for i,ml_set in list(self.md_roll.items()):
             if i == -1:
                 continue
             
@@ -5123,7 +5124,7 @@ def rig_digitShapes(self):
                     #mShape.doName()"""
 
         return
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 @cgmGEN.Timer
 def rig_shapes(self):
@@ -5255,7 +5256,7 @@ def rig_shapes(self):
     
     if self.md_roll:#Segment stuff ===================================================================
         log.debug("|{0}| >> Checking for mid handles...".format(_str_func))
-        for i in self.md_roll.keys():
+        for i in list(self.md_roll.keys()):
             mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
             log.debug("|{0}| >> Found: {1}".format(_str_func,mControlMid))
             if mControlMid:
@@ -5759,7 +5760,7 @@ def rig_controls(self):
     log.debug("|{0}| >> Root...".format(_str_func))
     
     if not mRigNull.getMessage('rigRoot'):
-        raise ValueError,"No rigRoot found"
+        raise ValueError("No rigRoot found")
     
     mRoot = mRigNull.rigRoot
     log.debug("|{0}| >> Found rigRoot : {1}".format(_str_func, mRoot))
@@ -5802,7 +5803,7 @@ def rig_controls(self):
         log.debug("|{0}| >> limbRoot...".format(_str_func))
         
         if not mRigNull.getMessage('limbRoot'):
-            raise ValueError,"No limbRoot found"
+            raise ValueError("No limbRoot found")
     
         mLimbRoot = mRigNull.limbRoot
         log.debug("|{0}| >> Found rigRoot : {1}".format(_str_func, mLimbRoot))
@@ -6045,7 +6046,7 @@ def rig_controls(self):
     if self.md_roll:
         log.debug("|{0}| >> Checking for mid handles...".format(_str_func))
     
-        for i in self.md_roll.keys():
+        for i in list(self.md_roll.keys()):
             mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
             log.debug("|{0}| >> found mControlMid {2} : {1}".format(_str_func,mControlMid,i))
             if mControlMid:
@@ -6148,12 +6149,12 @@ def rig_controls(self):
 @cgmGEN.Timer
 def rig_segments(self):
     _short = self.d_block['shortName']
-    reload(RIGCONSTRAINT)
+    importlib.reload(RIGCONSTRAINT)
     _str_func = 'rig_segments'
     log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
     log.debug(self)
     
-    reload(IK)
+    importlib.reload(IK)
     mBlock = self.mBlock
     mRigNull = self.mRigNull
     ml_rigJoints = mRigNull.msgList_get('rigJoints')
@@ -6217,7 +6218,7 @@ def rig_segments(self):
         #mMasterCurve.p_parent = mRoot
         
         
-        l_rollKeys = self.md_roll.keys()
+        l_rollKeys = list(self.md_roll.keys())
         l_rollKeys.sort()
         if -1 in l_rollKeys:
             l_rollKeys.remove(-1)
@@ -6236,11 +6237,11 @@ def rig_segments(self):
             
             #Parent these to their handles ------------------------------------------------
             try:ml_segHandles[0].parent = ml_handleJoints[i]
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 continue                
             try:ml_segHandles[-1].parent = ml_handleJoints[i+1]
-            except Exception,err:#...if we don't have a target end we're not processing this
+            except Exception as err:#...if we don't have a target end we're not processing this
                 log.error(err)
                 continue
             
@@ -6631,7 +6632,7 @@ def rig_segments(self):
                     log.debug("|{0}| >> Last segment, buildEnd dag attachEndToInfluence = on".format(_str_func))                    
                     _d['attachEndToInfluence'] = True
                     
-                reload(IK)
+                importlib.reload(IK)
                 _l_segJoints = _d['jointList']
                 _ml_segTmp = cgmMeta.asMeta(_l_segJoints)
                 pprint.pprint(_d)
@@ -6688,7 +6689,7 @@ def rig_segments(self):
         
         elif not self.mToe and not self.b_extraHandles:
             #...no roll setups end not following the segment handles
-            for key,v in self.md_rollMulti.iteritems():
+            for key,v in list(self.md_rollMulti.items()):
                 if not v:
                     #try:self.md_roll[key][-1].rigJoint.masterGroup.p_parent = self.md_segHandles[key][-1].p_parent
                     try:
@@ -6774,7 +6775,7 @@ def rig_segments(self):
     
     
     if self.b_segmentSetup:
-        raise NotImplementedError,'Not done here Josh'
+        raise NotImplementedError('Not done here Josh')
     
     else:#Roll setup
         log.debug("|{0}| >> Roll setup".format(_str_func))
@@ -6936,7 +6937,7 @@ def rig_frame(self):
     
         log.debug("|{0}| >> Lever setup | LimbRoot".format(_str_func))            
         if not mRigNull.getMessage('limbRoot'):
-            raise ValueError,"No limbRoot found"
+            raise ValueError("No limbRoot found")
     
         mLimbRoot = mRigNull.limbRoot
         log.debug("|{0}| >> Found limbRoot : {1}".format(_str_func, mLimbRoot))
@@ -7076,9 +7077,9 @@ def rig_frame(self):
         _ikSetup = mBlock.getEnumValueString('ikSetup')
         log.debug("|{0}| >> IK Type: {1}".format(_str_func,_ikSetup))    
         if not mRigNull.getMessage('rigRoot'):
-            raise ValueError,"No rigRoot found"
+            raise ValueError("No rigRoot found")
         if not mRigNull.getMessage('controlIK'):
-            raise ValueError,"No controlIK found"
+            raise ValueError("No controlIK found")
         
         mIKControl = mRigNull.controlIK
         mSettings = mRigNull.settings
@@ -7514,7 +7515,7 @@ def rig_frame(self):
                         'nameSuffix':'ikFull',
                         'controlObject':mIKControl.mNode,
                         'moduleInstance':self.mModule.mNode}
-                reload(IK)
+                importlib.reload(IK)
                 
                 if self.str_ikExtendSetup == 'rpFull':
                     _d_ik['solverType'] = 'ikRPsolver'
@@ -7558,7 +7559,7 @@ def rig_frame(self):
             log.debug("|{0}| >> spline setup...".format(_str_func))
             ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
             if not ml_ribbonIkHandles:
-                raise ValueError,"No ribbon IKDriversFound"
+                raise ValueError("No ribbon IKDriversFound")
         
             log.debug("|{0}| >> ribbon ik handles...".format(_str_func))
             
@@ -7604,7 +7605,7 @@ def rig_frame(self):
             log.debug("|{0}| >> ribbon setup...".format(_str_func))
             ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
             if not ml_ribbonIkHandles:
-                raise ValueError,"No ribbon IKDriversFound"
+                raise ValueError("No ribbon IKDriversFound")
             
             
             
@@ -7670,7 +7671,7 @@ def rig_frame(self):
             
             
         else:
-            raise ValueError,"Not implemented {0} ik setup".format(_ikSetup)
+            raise ValueError("Not implemented {0} ik setup".format(_ikSetup))
         
         
         
@@ -7780,7 +7781,7 @@ def rig_frameSingle(self):
         
             log.debug("|{0}| >> Lever setup | LimbRoot".format(_str_func))            
             if not mRigNull.getMessage('limbRoot'):
-                raise ValueError,"No limbRoot found"
+                raise ValueError("No limbRoot found")
         
             mLimbRoot = mRigNull.limbRoot
             log.debug("|{0}| >> Found limbRoot : {1}".format(_str_func, mLimbRoot))
@@ -7793,9 +7794,9 @@ def rig_frameSingle(self):
             log.debug("|{0}| >> IK Type: {1}".format(_str_func,_ikSetup))    
         
             if not mRigNull.getMessage('rigRoot'):
-                raise ValueError,"No rigRoot found"
+                raise ValueError("No rigRoot found")
             if not mRigNull.getMessage('controlIK'):
-                raise ValueError,"No controlIK found"            
+                raise ValueError("No controlIK found")            
             
             mIKControl = mRigNull.controlIK
             mSettings = mRigNull.settings
@@ -7953,7 +7954,7 @@ def rig_frameSingle(self):
 
         
             else:
-                raise ValueError,"Not implemented {0} ik setup".format(_ikSetup)
+                raise ValueError("Not implemented {0} ik setup".format(_ikSetup))
             
             
             
@@ -7975,7 +7976,7 @@ def rig_frameSingle(self):
             
         #cgmGEN.func_snapShot(vars())
         return    
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 
@@ -8262,7 +8263,7 @@ def rig_pivotSetup(self):
                 break
             
         if not mParentDriver:
-            raise Exception,"No parent driver found for follow parent bank"
+            raise Exception("No parent driver found for follow parent bank")
         
         mControlFollowParentBank.masterGroup.parent = mParentDriver
         
@@ -8618,7 +8619,7 @@ def rig_matchSetup(self):
         len_blend = len(ml_blendJoints)
         
         if len_blend != len_ik and len_blend != len_fk:
-            raise ValueError,"|{0}| >> All chains must equal length. fk:{1} | ik:{2} | blend:{2}".format(_str_func,len_fk,len_ik,len_blend)
+            raise ValueError("|{0}| >> All chains must equal length. fk:{1} | ik:{2} | blend:{2}".format(_str_func,len_fk,len_ik,len_blend))
         
         cgmGEN.func_snapShot(vars())
         
@@ -8658,7 +8659,7 @@ def rig_matchSetup(self):
                              1,
                              [mMatch_FKtoIK])        
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
 
 
@@ -9020,7 +9021,7 @@ def rig_cleanUp(self):
                 ml_handles = self.mRigNull.msgList_get('handleJoints')
                 for mHandle in ml_handles:
                     ml_controlsToLock.remove(mHandle)
-                for i in self.md_roll.keys():
+                for i in list(self.md_roll.keys()):
                     mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
                     if mControlMid:
                         ml_controlsToLock.remove(mControlMid)
@@ -9080,7 +9081,7 @@ def rig_cleanUp(self):
         
         #cgmGEN.func_snapShot(vars())
         return
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 @cgmGEN.Timer
 def rigDelete2(self):
@@ -9110,7 +9111,7 @@ def rigDelete2(self):
                 
         
         return True
-    except Exception,err:
+    except Exception as err:
         raise cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     
@@ -9148,7 +9149,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
         ml_formHandles = mBlock.msgList_get('formHandles',asMeta = True)
         
         if not ml_rigJoints:
-            raise ValueError,"No rigJoints connected"
+            raise ValueError("No rigJoints connected")
         
         #print.pprint(ml_rigJoints)
         
@@ -9423,7 +9424,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 
             
         mRigNull.msgList_connect('proxyMesh', ml_segProxy)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 @cgmGEN.Timer
@@ -9543,12 +9544,12 @@ def switchMode(self,mode = 'fkOn'):
                 md_locs[i] = mCtrl.switchTarget.doLoc(fastMode=True)
                 md_controls[i] = mCtrl
             else:
-                raise ValueError,"mCtrl: {0}  missing switchTarget".format(mCtrl)
+                raise ValueError("mCtrl: {0}  missing switchTarget".format(mCtrl))
             
     
         mSettings.FKIK = 1
         log.debug(cgmGEN.logString_sub(_str_func,"Snapping") )
-        for i,mLoc in md_locs.iteritems():
+        for i,mLoc in list(md_locs.items()):
             log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(i,md_controls[i])))
             SNAP.go(md_controls[i].mNode,mLoc.mNode)
             mLoc.delete()
@@ -9595,7 +9596,7 @@ def switchMode(self,mode = 'fkOn'):
             log.warning("mode: {0} | Direct controls vis turned on for mode.".format(_mode))
             
         #Pose compare =========================================================================
-        for i,v in md_datPostCompare.iteritems():
+        for i,v in list(md_datPostCompare.items()):
             mBlend = ml_blendJoints[i]
             dNew = {'pos':mBlend.p_position, 'orient':mBlend.p_orient}
     
@@ -9608,7 +9609,7 @@ def switchMode(self,mode = 'fkOn'):
                 log.warning("|{0}| >> [{1}] orient blend dat off... {2}".format(_str_func,i,mBlend))
                 log.warning("|{0}| >> base: {1}.".format(_str_func,md_datPostCompare[i]['orient']))
                 log.warning("|{0}| >> base: {1}.".format(_str_func,dNew['orient']))
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
 def snapBall(self,driven = 'L_ball_blend_frame',
              target = 'L_ball_blend_frame_fromTarget_loc',
@@ -9643,7 +9644,7 @@ def snapBall(self,driven = 'L_ball_blend_frame',
                'driverAttr' : 'L_ankle_ik_anim.ballLift', 
                'minIn' : -179, 'maxIn' : 179, 'maxIterations' : 40, 'matchValue' : -63.858}
         CORERIGGEN.matchValue_iterator(**_d)    
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 def get_handleIndices(self):
@@ -9683,7 +9684,7 @@ def get_handleIndices(self):
             idx_end -=1
                 
         return idx_start,idx_end
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def controller_getDat(self):
     _str_func = 'controller_getDat'

@@ -485,7 +485,7 @@ def returnAbsoluteSizeCurve(curve):
     def duplicateShape(shape):
         parentObj = mc.listRelatives(shape, p=True, fullPath=True)
         shapes = mc.listRelatives(parentObj, shapes=True, fullPath=True)
-        matchObjName = mc.ls(shape, long=True)
+        matchObjName = mc.ls(shape, int=True)
         matchIndex = shapes.index(matchObjName[0])
 
         dupBuffer = mc.duplicate(parentObj)
@@ -622,7 +622,7 @@ def returnObjectSize(obj,debugReport = False):
     if objType == 'mesh':
         size =  mc.polyEvaluate(obj,worldArea = True)
 
-        if debugReport: print ('%s%f' %('mesh area is ',size))
+        if debugReport: print(('%s%f' %('mesh area is ',size)))
         return size
 
     elif objType == 'polyVertex':
@@ -631,19 +631,19 @@ def returnObjectSize(obj,debugReport = False):
         vertices = mc.ls ([splitBuffer[0]+'.vtx[*]'],flatten=True)
         size = meshArea/len(vertices)
 
-        if debugReport: print ('%s%f' %('Average mesh area per vert is  ',size))
+        if debugReport: print(('%s%f' %('Average mesh area per vert is  ',size)))
         return size
 
     elif objType == 'polyEdge':
         size = returnEdgeLength(obj)
 
-        if debugReport: print ('%s%f' %('The Edge length is ',size))
+        if debugReport: print(('%s%f' %('The Edge length is ',size)))
         return size
 
     elif objType == 'polyFace':
         size =  returnFaceArea(obj)
 
-        if debugReport: print ('%s%f' %('face area is ',size))
+        if debugReport: print(('%s%f' %('face area is ',size)))
         return size
 
     #>>> Nurbs
@@ -651,13 +651,13 @@ def returnObjectSize(obj,debugReport = False):
         boundingBoxSize = returnBoundingBoxSize(obj)
         size = cgmMath.multiplyList(boundingBoxSize)
 
-        if debugReport: print ('%s%f' %('Bounding box volume is ',size))
+        if debugReport: print(('%s%f' %('Bounding box volume is ',size)))
         return size
 
     elif objType == 'nurbsCurve':
         size =  returnCurveLength(obj)
 
-        if debugReport: print ('%s%f' %('Curve length is ',size))
+        if debugReport: print(('%s%f' %('Curve length is ',size)))
         return size
     else:
         if debugReport: print ("Don't know how to handle that one")
@@ -773,11 +773,11 @@ def returnMidU(curve):
     """
     uReturn = mc.ls('%s.u[*]'%curve,flatten = True) or []
     if not uReturn:
-        raise StandardError, "returnMidU>>> No u return "
+        raise Exception("returnMidU>>> No u return ")
     if len(uReturn)>1:
-        raise StandardError, "returnMidU>>> Can only currently do single curves: %s"%uReturn
+        raise Exception("returnMidU>>> Can only currently do single curves: %s"%uReturn)
     if ':' not in uReturn[0]:
-        raise StandardError, "returnMidU>>> No ':' in return: %s"%uReturn
+        raise Exception("returnMidU>>> No ':' in return: %s"%uReturn)
     bracketEnd_split = uReturn[0].split(']')[0]
     bracketStart_split = bracketEnd_split.split('[')[1]
     log.debug("bracket: %s"%bracketStart_split)
@@ -1295,8 +1295,8 @@ def returnNearestPointOnCurveInfo(targetObject,curve,deleteNode = True,cullOrigi
         if l_nodes:mc.delete(l_nodes)
 
         return d_return
-    except StandardError,error:
-        raise StandardError,"%s >>> error : %s"%(_str_funcName,error)	    
+    except Exception as error:
+        raise Exception("%s >>> error : %s"%(_str_funcName,error))	    
 
 def returnClosestPointOnMeshInfoFromPos(pos, mesh):
     """
@@ -1538,7 +1538,7 @@ def returnNormalizedUV(mesh, uValue, vValue):
         try:#Validation ----------------------------------------------------------------
             mesh = cgmValid.objString(mesh,'nurbsSurface', calledFrom = _str_funcName)
             if len(mc.ls(mesh))>1:
-                raise StandardError,"{0}>>> More than one mesh named: {1}".format(_str_funcName,mesh)
+                raise Exception("{0}>>> More than one mesh named: {1}".format(_str_funcName,mesh))
             _str_objType = search.returnObjectType(mesh)
 
             l_shapes = mc.listRelatives(mesh, shapes=True)
@@ -1555,7 +1555,7 @@ def returnNormalizedUV(mesh, uValue, vValue):
             vMin = mi_shape.mnv
             vMax = mi_shape.mxv"""
 
-        except Exception,error:raise Exception,"Validation failure | {0}".format(error) 		
+        except Exception as error:raise Exception("Validation failure | {0}".format(error)) 		
 
         try:#Calculation ----------------------------------------------------------------
             uSize = uMax - uMin
@@ -1566,14 +1566,14 @@ def returnNormalizedUV(mesh, uValue, vValue):
 
             uNormal = uSum / uSize
             vNormal = vSum / vSize
-        except Exception,error:raise Exception,"Calculation |{0}".format(error) 		
+        except Exception as error:raise Exception("Calculation |{0}".format(error)) 		
 
         try:
             d_return = {'uv':[uNormal,vNormal],'uValue':uNormal,'vValue':vNormal}
             return d_return 
-        except Exception,error:raise Exception,"Return prep |{0}".format(error) 		
+        except Exception as error:raise Exception("Return prep |{0}".format(error)) 		
 
-    except Exception,error:
+    except Exception as error:
         log.error(">>> {0} >> Failure! mesh: '{1}' | uValue: {2} | vValue {3}".format(_str_funcName,mesh,uValue,vValue))
         log.error(">>> {0} >> error: {1}".format(_str_funcName,error))        
         return None

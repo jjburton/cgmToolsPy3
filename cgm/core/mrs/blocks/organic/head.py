@@ -20,6 +20,7 @@ import os
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -575,7 +576,7 @@ def define(self):
           'up':{'color':'greenBright','name':'neckUp','defaults':{'tz':-1}},
           'rp':{'color':'redBright','name':'neckRP','defaults':{'tz':-2},'parentTag':'end'}}
     
-    for k,d in _d.iteritems():
+    for k,d in list(_d.items()):
         d['vectorLine'] = False
 
     _l_order = ['aim','end','start','up','rp']
@@ -885,9 +886,9 @@ def form(self):
             
             
         else:
-            raise NotImplementedError,"|{0}| >> Unknown proxyType: [{1}:{2}]".format(_str_func,
+            raise NotImplementedError("|{0}| >> Unknown proxyType: [{1}:{2}]".format(_str_func,
                                                                                      _proxyType,
-                                                                                     ATTR.get_enumValueString(self.mNode,'proxyType'))
+                                                                                     ATTR.get_enumValueString(self.mNode,'proxyType')))
         
         self.msgList_connect('headMeshProxy',ml_proxies,'block')#Connect
         
@@ -1074,7 +1075,7 @@ def form(self):
         self.blockState = 'form'#...buffer
         
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
 #=============================================================================================================
@@ -1092,7 +1093,7 @@ def build_prerigMesh(self):
     elif _shape == 'cylinder':
         _res = mc.polyCylinder(height = MATH.average(_size), radius = MATH.average(_size) * .5)
     else:
-        raise ValueError,"|{0}| >> Unknown shape: [{1}]".format(_str_func,_shape)
+        raise ValueError("|{0}| >> Unknown shape: [{1}]".format(_str_func,_shape))
     return _res
 
 def prerig(self):
@@ -1287,7 +1288,7 @@ def prerig(self):
                 #try:ATTR.copy_to(self.mNode,_baseNameAttrs[i],_short, 'cgmName', driven='target')
                 #except:mHandle.doStore('cgmName','NeedAnotherNameAttr')
                 mHandle.doStore('cgmType','preHandle')
-                for k,v in _nameDict.iteritems():
+                for k,v in list(_nameDict.items()):
                     if v:
                         ATTR.copy_to(self.mNode,k,_short, k, driven='target')
                 mHandle.doName()
@@ -1472,7 +1473,7 @@ def prerig(self):
             create_jointHelpers(self,force=True)
         self.blockState = 'prerig'#...buffer
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
 
@@ -1814,19 +1815,19 @@ def skeleton_build(self, forceNew = True):
     
         mRigNull = mModule.rigNull
         if not mRigNull:
-            raise ValueError,"No rigNull connected"
+            raise ValueError("No rigNull connected")
         
         ml_formHandles = self.msgList_get('formHandles',asMeta = True)
         if not ml_formHandles:
-            raise ValueError,"No formHandles connected"    
+            raise ValueError("No formHandles connected")    
         
         ml_prerigHandles = self.msgList_get('prerigHandles',asMeta = True)
         if not ml_prerigHandles:
-            raise ValueError,"No prerigHandles connected"
+            raise ValueError("No prerigHandles connected")
         
         ml_jointHelpers = self.msgList_get('jointHelpers',asMeta = True)
         if not ml_jointHelpers:
-            raise ValueError,"No jointHelpers connected"        
+            raise ValueError("No jointHelpers connected")        
         
         
         
@@ -1907,7 +1908,7 @@ def skeleton_build(self, forceNew = True):
         
         if self.neckBuild:#...Neck =====================================================================
             if self.neckJoints == 0:
-                raise Exception,"|{0}| >> Neck build on, no neckJoints. Setting to 1".format(_str_func)#                
+                raise Exception("|{0}| >> Neck build on, no neckJoints. Setting to 1".format(_str_func))#                
                 #self.neckJoints = 1
             log.debug("|{0}| >> neckBuild...".format(_str_func))
 
@@ -1927,7 +1928,7 @@ def skeleton_build(self, forceNew = True):
         for i,mJoint in enumerate(ml_joints):
             d = ml_jointHelpers[i].getNameDict(ignore = ['cgmType'])
             d['cgmType'] = 'skinJoint'
-            for t,tag in d.iteritems():
+            for t,tag in list(d.items()):
                 if t and tag:
                     mJoint.doStore(t,tag)
             mJoint.doName()        
@@ -1948,7 +1949,7 @@ def skeleton_build(self, forceNew = True):
                 mJnt.p_parent = ml_joints[0]        
         
         return ml_joints
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 #=============================================================================================================
@@ -1999,7 +2000,7 @@ def rig_prechecks(self):
         if mBlock.neckBuild and len(ml_pre) != mBlock.neckControls +1:
             self.l_precheckErrors.append('Not enough preHandles for the neckControls count. | neckControls: {0} | prerig: {1} | Excpected: {2}'.format(mBlock.neckControls,len(ml_pre),mBlock.neckControls+1))
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 @cgmGEN.Timer
 def rig_dataBuffer(self):
@@ -2148,7 +2149,7 @@ def rig_dataBuffer(self):
         log.debug("|{0}| >> twistUp | self.v_twistUp: {1}".format(_str_func,self.v_twistUp))        
     
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 @cgmGEN.Timer
@@ -2368,7 +2369,7 @@ def rig_skeleton(self):
         self.fnc_connect_toRigGutsVis( ml_jointsToConnect )        
         
         return
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 #@cgmGEN.Timer
 def rig_shapes(self):
@@ -2761,7 +2762,7 @@ def rig_shapes(self):
                                              mCrv.mNode, False,
                                              replaceShapes=True)
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 
@@ -2816,7 +2817,7 @@ def rig_controls(self):
             
             #Root -------------------------------------------------------------------------------------------
             if not mRigNull.getMessage('rigRoot'):
-                raise ValueError,"No rigRoot found"
+                raise ValueError("No rigRoot found")
             
             mRoot = mRigNull.rigRoot
             log.debug("|{0}| >> Found rigRoot : {1}".format(_str_func, mRoot))
@@ -3094,7 +3095,7 @@ def rig_controls(self):
         mRigNull.msgList_connect('controlsIK',ml_controlsIK)
 
         return 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)        
 
     try:#>>>> IK Segments =============================================================================	 
         for i_obj in ml_shapes_segmentIK:
@@ -3107,7 +3108,7 @@ def rig_controls(self):
 
         mi_go._i_rigNull.msgList_connect('segmentHandles',ml_shapes_segmentIK,'rigNull')
         ml_controlsAll.extend(ml_shapes_segmentIK)	
-    except Exception,error:raise Exception,"IK Segments! | error: {0}".format(error)
+    except Exception as error:raise Exception("IK Segments! | error: {0}".format(error))
 
 
 @cgmGEN.Timer
@@ -3229,7 +3230,7 @@ def rig_segments(self):
                 mJnt.p_parent = ml_segJoints[0].p_parent    
         
         return
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
     #>> Ribbon setup ========================================================================================
     log.debug("|{0}| >> Ribbon setup...".format(_str_func))
@@ -3452,7 +3453,7 @@ def rig_frame(self):
             mHeadFK.masterGroup.p_parent = ml_fkJoints[-2]
             
             if not mRigNull.getMessage('rigRoot'):
-                raise ValueError,"No rigRoot found"
+                raise ValueError("No rigRoot found")
             
             mRoot = mRigNull.rigRoot
             mSettings = mRigNull.settings
@@ -3752,9 +3753,9 @@ def rig_frame(self):
                     log.debug("|{0}| >> Neck IK | ikType: {1}".format(_str_func,_ikNeck))
                     
                     if not mRigNull.getMessage('rigRoot'):
-                        raise ValueError,"No rigRoot found"
+                        raise ValueError("No rigRoot found")
                     if not mRigNull.getMessage('controlIK'):
-                        raise ValueError,"No controlIK found"            
+                        raise ValueError("No controlIK found")            
                 
                     mIKControl = mRigNull.controlIK
                     mSettings = mRigNull.settings
@@ -3927,7 +3928,7 @@ def rig_frame(self):
                         
                         ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
                         if not ml_ribbonIkHandles:
-                            raise ValueError,"No ribbon IKDriversFound"
+                            raise ValueError("No ribbon IKDriversFound")
                         
                         
                         if mIKBaseControl:
@@ -3982,7 +3983,7 @@ def rig_frame(self):
                             
 
                         ml_ribbonIkHandles[-1].parent = mIKControl
-                        reload(RIGFRAME)
+                        importlib.reload(RIGFRAME)
 
                         if _ikNeck == 'spline':
                             for i,mJnt in enumerate(ml_ikJoints[1:]):
@@ -4041,7 +4042,7 @@ def rig_frame(self):
                                 ml_skinDrivers.extend(ml_handleJoints)
                 
                             if not len(ml_skinDrivers):
-                                raise ValueError,"No skin drivers for ribbon found!"
+                                raise ValueError("No skin drivers for ribbon found!")
                             d_ik = {'jointList':[mObj.mNode for mObj in ml_ikJoints],
                                     'baseName' : self.d_module['partName'] + '_ikRibbon',
                                     'driverSetup':'stable',
@@ -4092,7 +4093,7 @@ def rig_frame(self):
                             _d['parentDeformTo'] = mIKGroup
                             _d['setupAim'] = 1
                             
-                            reload(IK)
+                            importlib.reload(IK)
                             #_l_segJoints = _d['jointList']
                             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                             IK.curve(**_d)                                  
@@ -4110,7 +4111,7 @@ def rig_frame(self):
                             mc.parentConstraint([mIKControl.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)
            
                     else:
-                        raise ValueError,"Not implemented {0} ik setup".format(_ikNeck)                    
+                        raise ValueError("Not implemented {0} ik setup".format(_ikNeck))                    
                     
     
     
@@ -4178,7 +4179,7 @@ def rig_frame(self):
                     RIGCONSTRAINT.blendChainsBy(ml_fkJoints,ml_ikJoints,ml_blendJoints,
                                                 driver = mPlug_FKIK.p_combinedName,
                                                 l_constraints=['point','orient'])                
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
     
 def rig_cleanUp(self):
@@ -4584,8 +4585,8 @@ def rig_cleanUp(self):
                 ml_handles = self.mRigNull.msgList_get('handleJoints')
                 for mHandle in ml_handles:
                     ml_controlsToLock.remove(mHandle)
-                if self.__dict__.has_key('md_roll'):
-                    for i in self.md_roll.keys():
+                if 'md_roll' in self.__dict__:
+                    for i in list(self.md_roll.keys()):
                         mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
                         if mControlMid:
                             ml_controlsToLock.remove(mControlMid)
@@ -4615,7 +4616,7 @@ def rig_cleanUp(self):
     #>>  DynParentGroups - Register parents for various controls ============================================
     #>>  Lock and hide ======================================================================================
     #>>  Attribute defaults =================================================================================
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
 """def rig(self):    
     if self.hasRootJoint:
@@ -4750,7 +4751,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             except:pass
         
         return cgmMeta.validateObjListArg(_mesh)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def asdfasdfasdf(self, forceNew = True, skin = False):
     """
@@ -4769,7 +4770,7 @@ def asdfasdfasdf(self, forceNew = True, skin = False):
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError,"No rigJoints connected"
+        raise ValueError("No rigJoints connected")
 
     #>> If proxyMesh there, delete --------------------------------------------------------------------------- 
     _bfr = mRigNull.msgList_get('proxyMesh',asMeta=True)
@@ -4848,7 +4849,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError,"No rigJoints connected"
+        raise ValueError("No rigJoints connected")
     
     #>> If proxyMesh there, delete ---------------------------------------------------------------------- 
     if puppetMeshMode:

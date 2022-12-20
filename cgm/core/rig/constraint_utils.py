@@ -311,14 +311,14 @@ def attach_toShape(obj = None, targetShape = None, connectBy = 'parent', driver 
         elif connectBy is None:
             pass
         else:
-            raise NotImplementedError,"|{0}| >>invalid connectBy: {1}".format(_str_func,connectBy)        
+            raise NotImplementedError("|{0}| >>invalid connectBy: {1}".format(_str_func,connectBy))        
         
         if md_res:
             return _res , md_res
         return _res
 
         #pprint.pprint(vars())
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
     
@@ -373,7 +373,7 @@ def driven_connect(driven = None, driver = None, mode = 'best'):
         mc.orientConstraint(mDriver.mNode,mDriven.mNode,maintainOffset=False,weight=1)         
     else:
         pprint.pprint(vars())
-        raise ValueError,"Unknown mode: {0}".format(mode)
+        raise ValueError("Unknown mode: {0}".format(mode))
 
 
 
@@ -439,7 +439,7 @@ def blendChainsBy(l_jointChain1 = None,
             l_constraints.remove(c)
 
     if not l_constraints:
-        raise StandardError,"Need valid constraints"
+        raise Exception("Need valid constraints")
 
 
     ml_jointChain1 = cgmMeta.validateObjListArg(l_jointChain1,'cgmObject',noneValid=False)
@@ -451,10 +451,10 @@ def blendChainsBy(l_jointChain1 = None,
     if d_driver:
         mi_driver = d_driver.get('mi_plug') or False
     else:
-        raise ValueError,"Invalid driver: {0}".format(driver)
+        raise ValueError("Invalid driver: {0}".format(driver))
 
     if not len(ml_jointChain1) >= len(ml_blendChain) or not len(ml_jointChain2) >= len(ml_blendChain):
-        raise StandardError,"Joint chains aren't equal lengths: l_jointChain1: %s | l_jointChain2: %s | l_blendChain: %s"%(len(l_jointChain1),len(l_jointChain2),len(l_blendChain))
+        raise Exception("Joint chains aren't equal lengths: l_jointChain1: %s | l_jointChain2: %s | l_blendChain: %s"%(len(l_jointChain1),len(l_jointChain2),len(l_blendChain)))
 
     ml_nodes = []
 
@@ -488,7 +488,7 @@ def blendChainsBy(l_jointChain1 = None,
             
             targetWeights = d_funcs[constraint](mConst.mNode,q=True, weightAliasList=True)
             if len(targetWeights)>2:
-                raise StandardError,"Too many weight targets: obj: %s | weights: %s"%(i_jnt.mNode,targetWeights)
+                raise Exception("Too many weight targets: obj: %s | weights: %s"%(i_jnt.mNode,targetWeights))
 
             if mi_driver:
                 d_blendReturn = NODEFACTORY.createSingleBlendNetwork(mi_driver,
@@ -570,7 +570,7 @@ def build_aimSequence(l_driven = None,
         mDriven = ml_driven[0]
         if not mDriven.getMessage(msgLink_masterGroup):
             log.debug("|{0}| >> No master group, creating...".format(_str_func))
-            raise ValueError, log.error("|{0}| >> Add the create masterGroup setup, Josh".format(_str_func))
+            raise ValueError(log.error("|{0}| >> Add the create masterGroup setup, Josh".format(_str_func)))
 
         mMasterGroup = mDriven.getMessage(msgLink_masterGroup,asMeta=True)[0]
 
@@ -598,7 +598,7 @@ def build_aimSequence(l_driven = None,
             d_worldUp = {'worldUpObject' : ml_parents[i].mNode,
                          'worldUpType' : 'objectRotation', 'worldUpVector': upParent}            
         else:
-            raise ValueError, log.error("|{0}| >> Unknown upMode: {1}".format(_str_func,upMode))
+            raise ValueError(log.error("|{0}| >> Unknown upMode: {1}".format(_str_func,upMode)))
 
         if s_targetForward:
             mAimForward = mDriven.doCreateAt()
@@ -683,7 +683,7 @@ def build_aimSequence(l_driven = None,
             mUpDecomp = False
             if not mDriven.getMessage(msgLink_masterGroup):
                 log.debug("|{0}| >> No master group, creating...".format(_str_func))
-                raise ValueError, log.error("|{0}| >> Add the create masterGroup setup, Josh".format(_str_func))
+                raise ValueError(log.error("|{0}| >> Add the create masterGroup setup, Josh".format(_str_func)))
 
             mDriven.masterGroup.parent = ml_parents[i]
 
@@ -704,7 +704,7 @@ def build_aimSequence(l_driven = None,
                 d_worldUp = {'worldUpObject' : ml_upTargets[i].mNode,
                              'worldUpType' : 'objectRotation', 'worldUpVector': upParent}            
             else:
-                raise ValueError, log.error("|{0}| >> Unknown upMode: {1}".format(_str_func,upMode))            
+                raise ValueError(log.error("|{0}| >> Unknown upMode: {1}".format(_str_func,upMode)))            
 
 
 
@@ -822,7 +822,7 @@ def build_aimSequence(l_driven = None,
             mDriven.followRoot = .5
         return True
 
-    raise ValueError,"Not done..."
+    raise ValueError("Not done...")
     return
     for i,mObj in enumerate(ml_driven):
 
@@ -924,15 +924,15 @@ def build_aimSequence(l_driven = None,
         else:
             mObj.followRoot = .5
 
-d_wiring_l = {'modules':[u'L_feather1_limb', u'L_feather2_limb', u'L_feather3_limb',
-                         u'L_feather4_limb', u'L_feather5_limb', u'L_index_limb'],
+d_wiring_l = {'modules':['L_feather1_limb', 'L_feather2_limb', 'L_feather3_limb',
+                         'L_feather4_limb', 'L_feather5_limb', 'L_index_limb'],
             'driven':{1:[0,3],
                       2:[0,3],
                       3:[0,5],
                       4:[3,5],
                       }}
-d_wiring_r = {'modules':[u'R_feather1_limb', u'R_feather2_limb', u'R_feather3_limb',
-                         u'R_feather4_limb', u'R_feather5_limb', u'R_index_limb'],
+d_wiring_r = {'modules':['R_feather1_limb', 'R_feather2_limb', 'R_feather3_limb',
+                         'R_feather4_limb', 'R_feather5_limb', 'R_index_limb'],
             'driven':{1:[0,3],
                       2:[0,3],
                       3:[0,5],
@@ -1005,7 +1005,7 @@ d_wiring_r_griffon = {'mode':'limbFrameSurface',#'mode':'limbFrameCurve',
                        'R_feather_3_segment_part',#10
                        'R_feather_4_segment_part',#11
                        'R_feather_5_segment_part'], #12
-'color':range(13),
+'color':list(range(13)),
 'name':'R_feathersFrame',
 'curveDrivers':['R_wingClav_limb_part',
                 'R_wingBase_limb_part',
@@ -1053,7 +1053,7 @@ d_wiring_l_griffon = {'mode':'limbFrameSurface',#'mode':'limbFrameCurve',
                        'L_feather_3_segment_part',#10
                        'L_feather_4_segment_part',#11
                        'L_feather_5_segment_part'], #12
-'color':range(13),
+'color':list(range(13)),
 'name':'L_feathersFrame',
 'curveDrivers':['L_wingClav_limb_part',
                 'L_wingBase_limb_part',
@@ -1098,7 +1098,7 @@ d_wiring_r_owl = {'mode':'limbFrameSurface',#'mode':'limbFrameCurve',
                    'R_feather_3_segment_part',#09
                    'R_feather_4_segment_part',#10
                    'R_feather_5_segment_part'], #11
-'color':range(12),
+'color':list(range(12)),
 'name':'R_feathersFrame',
 'curveDrivers':['R_wingBase_limb_part', 'R_wing_1_limb_part', 'R_wing_2_limb_part', 'R_wingEnd_limb_part'],
 'driven':{0:[0],
@@ -1140,7 +1140,7 @@ d_wiring_l_owl = {'mode':'limbFrameCurve',
                    'L_feather_3_segment_part',#09
                    'L_feather_4_segment_part',#10
                    'L_feather_5_segment_part'], #11
-'color':range(12),
+'color':list(range(12)),
 'name':'L_feathersFrame',
 'curveDrivers':['L_wingBase_limb_part', 'L_wing_1_limb_part', 'L_wing_2_limb_part', 'L_wingEnd_limb_part'],
 'driven':{0:[0],
@@ -1352,7 +1352,7 @@ def wing_temp(d_wiring=d_wiring_r, mode = 'limbFrameCurve'):
             ml_fkEnds.append(ml_joints[-1])
             ml_fkStarts.append(ml_joints[0])
             if i in l_toColor:
-                print 'Color'
+                print('Color')
                 mHandleFactory =  mPart.rigBlock.asHandleFactory()
                 ml_fkJoints = mRigNull.msgList_get('fkJoints')
                 for mJnt in ml_fkJoints:
@@ -1448,7 +1448,7 @@ def wing_temp(d_wiring=d_wiring_r, mode = 'limbFrameCurve'):
                       'keepControlPoints':False}
                       #'spansU':_len,
                       #'spansV':_len}#General}
-                for a,v in _d.iteritems():
+                for a,v in list(_d.items()):
                     ATTR.set(_rebuildNode,a,v)
                     
                 mLoftSurface.rename("{0}_frameSurface".format(name))
@@ -1457,7 +1457,7 @@ def wing_temp(d_wiring=d_wiring_r, mode = 'limbFrameCurve'):
                 
         
         #Generate driver locs...
-        for d,s in d_wiring['driven'].iteritems():
+        for d,s in list(d_wiring['driven'].items()):
             mPart = ml_parts[d]
             mRoot = ml_roots[d]
             mRigNull = ml_rigNulls[d]
@@ -1490,8 +1490,8 @@ def wing_temp(d_wiring=d_wiring_r, mode = 'limbFrameCurve'):
                 _vList = DIST.get_normalizedWeightsByDistance(mLoc.mNode,
                                                               l_drivers)
                 
-                print ml_drivers
-                print l_drivers
+                print(ml_drivers)
+                print(l_drivers)
                 
                 if mode  in ['frameCurve','limbFrameCurve','limbFrameSurface']:
                     if not d_wiring.get('orientOnly'):
@@ -1574,7 +1574,7 @@ def wing_temp(d_wiring=d_wiring_r, mode = 'limbFrameCurve'):
         #                    n="{0}_reparamRebuild".format(mEndCrv.p_nameBase))                
         
         return True
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
     
 
 def baseTalon_tmp(mPart,indices = None):
@@ -1602,7 +1602,7 @@ def baseTalon_tmp(mPart,indices = None):
 
     ml_targetJoints = mParentModule.rigNull.msgList_get('blendJoints',asMeta = True, cull = True)
     if not ml_targetJoints:
-        raise ValueError,"mParentModule has no blend joints."
+        raise ValueError("mParentModule has no blend joints.")
     
     if indices:
         mTargets = []
@@ -1613,7 +1613,7 @@ def baseTalon_tmp(mPart,indices = None):
         if _attachPoint == 'end':
             mTargets = ml_targetJoints[-2:]
         elif _attachPoint in ['base','closest']:
-            raise ValueError,"can't do base"
+            raise ValueError("can't do base")
         #elif _attachPoint == 'closest':
         #    jnt = DIST.get_closestTarget(ml_targetJoints[0].mNode, [mObj.mNode for mObj in ml_targetJoints])
         #    mTargetJoint = cgmMeta.asMeta(jnt)

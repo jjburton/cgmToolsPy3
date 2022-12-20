@@ -215,7 +215,7 @@ class cgmMarkingMenu(mmTemplate.cgmMetaMM):
             _msg = "{0} : {1}".format(calling,o)
             try:
                 self.action_logged( RIGGING.copy_pivot(o,self._l_sel[0],rotatePivot,scalePivot), _msg  )
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} ||| Failure >>> err:s[{1}]".format(_msg,err))
         mc.select(self._l_sel)
         
@@ -345,7 +345,7 @@ def killUI():
     try:
         if mc.popupMenu(_str_popWindow,ex = True):
             mc.deleteUI(_str_popWindow)  
-    except Exception,err:
+    except Exception as err:
         log.error(err)    
         
 from cgm.core.classes import DraggerContextFactory as cgmDrag
@@ -355,7 +355,7 @@ def raySnap_start(targets = []):
     _toSnap = targets
     log.info("raySnap_start | targets: {0}".format(_toSnap))
     if not _toSnap:
-        raise ValueError,"raySnap_start >> Must have targets!"
+        raise ValueError("raySnap_start >> Must have targets!")
 
     var_RayCastMode = cgmMeta.cgmOptionVar('cgmVar_SnapMenuRayCastMode', defaultValue=0)
     log.info("mode: {0}".format(var_RayCastMode.value))
@@ -387,7 +387,7 @@ def snap_action(self,mode = 'point'):
                 kws['position'] = True
                 kws['rotation'] = True
             else:
-                raise ValueError,"Unknown mode!"
+                raise ValueError("Unknown mode!")
             
             _pivotMode = self.var_snapPivotMode.value
             
@@ -397,10 +397,10 @@ def snap_action(self,mode = 'point'):
             elif _pivotMode == 2:
                 kws['pivot'] = 'boundingBox'
             else:
-                raise ValueError,"Uknown pivotMode: {0}".format(_pivotMode)
+                raise ValueError("Uknown pivotMode: {0}".format(_pivotMode))
             
             self.action_logged( SNAP.go(**kws), _msg  )
-        except Exception,err:
+        except Exception as err:
             log.error("{0} ||| Failure >>> err:s[{1}]".format(_msg,err))
     mc.select(self._l_sel)    
     

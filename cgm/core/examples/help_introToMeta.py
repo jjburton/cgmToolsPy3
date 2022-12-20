@@ -308,14 +308,14 @@ n1.connectChild(c1, 'childNode2', srcAttr='parentNode')#...and another
 r9Meta.getMClassInstances(r9Meta.MetaClass)
 
 #...make it more readable
-for o in r9Meta.getMClassInstances(r9Meta.MetaClass):print o
+for o in r9Meta.getMClassInstances(r9Meta.MetaClass):print(o)
 #...as you can see there are a lot of subclasses. What if we just wanted to see subclasses to cgmObject
-for o in r9Meta.getMClassInstances(cgmMeta.cgmObject):print o#...quite a few less
+for o in r9Meta.getMClassInstances(cgmMeta.cgmObject):print(o)#...quite a few less
 
 #>>getMetaNodes =========================================================================
 #...just to make seeing stuff a little easier, we're gonna make a little pass through function
 def _res(l):
-    for o in l:print o
+    for o in l:print(o)
 
 _res(r9Meta.getMetaNodes())#...returns all metaNodes in the scene
 _res(r9Meta.getMetaNodes(dataType = ''))#...returns as dag strings
@@ -382,7 +382,7 @@ def jointStuff_standard():
 
     for jnt in l_joints:#Validation loop before doing stuff...
         if not mc.objectType(jnt) == 'joint':
-            raise ValueError,"Not a joint: {0}".format(jnt)
+            raise ValueError("Not a joint: {0}".format(jnt))
         
     for i,jnt in enumerate(l_joints):   
         #First we're gonna create a curve at each joint. Name, parent and snap it ...

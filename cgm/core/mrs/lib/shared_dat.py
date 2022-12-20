@@ -19,14 +19,14 @@ d_outlinerColors = {'master':{'main':CORESHARE._d_colors_to_RGB['yellowLight']},
                     'head':{'main':CORESHARE._d_colors_to_RGB['redWhite']},
                     'segment':{'main':CORESHARE._d_colors_to_RGB['orange']},
                     'handle':{'main':CORESHARE._d_colors_to_RGB['purpleWhite']}}
-for k,d in d_outlinerColors.iteritems():
+for k,d in list(d_outlinerColors.items()):
     d['sub'] = [v * .8 for v in d['main']]
     
 d_colors_side  = {'left':[.4,.4,1],
                   'right':[.9,.2,.2],
                   'center':[.8,.8,0]}
 d_colors_side_sub  = {}
-for k,l in d_colors_side.iteritems():
+for k,l in list(d_colors_side.items()):
     d_colors_side_sub[k] = [v * .8 for v in l]
 
 d_defaultAttrs= {'version':'string',#Attributes to be initialzed for any module

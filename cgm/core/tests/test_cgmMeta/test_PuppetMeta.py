@@ -24,10 +24,10 @@ try:
     from cgm.core.lib import attribute_utils as ATTR
     #from cgm.core.lib import transform_utils as TRANS
     #from cgm.core.lib import math_utils as MATH
-    from cgm.core import cgm_PuppetMeta as PUPPETMETA
+    #from cgm.core import cgm_PuppetMeta as PUPPETMETA
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -48,8 +48,8 @@ class Test_cgmPuppet(unittest.TestCase):
                          True)
         
         try:mPuppet._UTILS
-        except Exception,error:
-            raise Exception,"No _Utils found | error: {0}".format(error)     
+        except Exception as error:
+            raise Exception("No _Utils found | error: {0}".format(error))     
         
         self.assertEqual(mc.nodeType(mPuppet.mNode), 'network')
         
@@ -58,13 +58,13 @@ class Test_cgmPuppet(unittest.TestCase):
                                'cgmType':['string','puppetNetwork'],
                                'mClass':['string','cgmPuppet'],
                                'version':['double',1.0],
-                               'masterNull':['message',[u'cgmPuppetTesting']],
+                               'masterNull':['message',['cgmPuppetTesting']],
                                'font':['string','Arial'],
                                'axisAim':['enum',2],
                                'axisUp':['enum',1],
                                'axisOut':['enum',0]}                                   
     
-        for attr in puppetDefaultValues.keys():
+        for attr in list(puppetDefaultValues.keys()):
             try:
                 self.assertEqual(ATTR.has_attr(mPuppet.mNode, attr),
                                  True, attr)
@@ -72,11 +72,11 @@ class Test_cgmPuppet(unittest.TestCase):
                                  puppetDefaultValues.get(attr)[0])            
                 self.assertEqual(ATTR.get(mPuppet.mNode, attr),
                                  puppetDefaultValues.get(attr)[1])#"{0} value test fail".format(attr) 
-            except Exception,err:
-                print "{0} attr failed...".format(attr)
+            except Exception as err:
+                print(("{0} attr failed...".format(attr)))
                 for arg in err:
                     log.error(arg)
-                raise Exception,err        
+                raise Exception(err)        
         
         
             
@@ -92,7 +92,7 @@ class Test_cgmPuppet(unittest.TestCase):
             masterDefaultValues = {'cgmType':['string','ignore'],
                                    'cgmModuleType':['string','master']}                                   
     
-            for attr in masterDefaultValues.keys():
+            for attr in list(masterDefaultValues.keys()):
                 try:
                     self.assertEqual(ATTR.has_attr(mMasterNull.mNode, attr),
                                      True, attr)
@@ -100,11 +100,11 @@ class Test_cgmPuppet(unittest.TestCase):
                                      masterDefaultValues.get(attr)[0])            
                     self.assertEqual(ATTR.get(mMasterNull.mNode, attr),
                                      masterDefaultValues.get(attr)[1])#"{0} value test fail".format(attr) 
-                except Exception,err:
-                    print "{0} attr failed...".format(attr)
+                except Exception as err:
+                    print(("{0} attr failed...".format(attr)))
                     for arg in err:
                         log.error(arg)
-                    raise Exception,err
+                    raise Exception(err)
     
       
 

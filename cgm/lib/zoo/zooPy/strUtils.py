@@ -1,5 +1,5 @@
 
-import name
+from . import name
 
 
 class Parity(int):
@@ -21,7 +21,7 @@ class Parity(int):
 			return False
 
 		return self % 2 == int( other ) % 2
-	def __nonzero__( self ):
+	def __bool__( self ):
 		return self % 2
 	def __ne__( self, other ):
 		return not self.__eq__( other )
@@ -120,8 +120,8 @@ def matchNames( srcList, tgtList, strip=True, parity=True, unique=False, opposit
 
 	nomatch: teh object used when no match occurs - defaults to Name()
 	'''
-	if isinstance(srcList, basestring): srcList = [srcList]
-	if isinstance(tgtList, basestring): tgtList = [tgtList]
+	if isinstance(srcList, str): srcList = [srcList]
+	if isinstance(tgtList, str): tgtList = [tgtList]
 
 	#build the Name objects for the strings
 	srcNames = [ Name(name) for name in srcList ]
@@ -209,7 +209,7 @@ class Mapping(object):
 	def __getitem__( self, item ):
 		return self.asDict()[ item ]
 	def __setitem__( self, item, value ):
-		if isinstance( value, basestring ):
+		if isinstance( value, str ):
 			value = [ value ]
 
 		asDict = self.asDict()
@@ -218,13 +218,13 @@ class Mapping(object):
 	def iteritems( self ):
 		return iter( zip( self.srcs, self.tgts ) )
 	def iterkeys( self ):
-		return self.asDict().iterkeys()
+		return iter(list(self.asDict().keys()))
 	def itervalues( self ):
-		return self.asDict().itervalues()
+		return iter(list(self.asDict().values()))
 	def keys( self ):
-		return self.asDict().keys()
+		return list(self.asDict().keys())
 	def values( self ):
-		return self.asDict().values()
+		return list(self.asDict().values())
 	def swap( self ):
 		'''
 		swaps sources and targets - this is done in place
@@ -264,7 +264,7 @@ class Mapping(object):
 		srcs = []
 		tgts = []
 		def appendTgt( src, tgt ):
-			if isinstance( tgt, basestring ):
+			if isinstance( tgt, str ):
 				srcs.append( src )
 				tgts.append( tgt )
 			elif isinstance( tgt, (list, tuple) ):
@@ -276,13 +276,13 @@ class Mapping(object):
 			tgt = mappingDict.pop( src )
 			appendTgt( src, tgt )
 
-		for src, tgt in mappingDict.iteritems():
+		for src, tgt in list(mappingDict.items()):
 			appendTgt( src, tgt )
 
 		self.srcs = srcs
 		self.tgts = tgts
 	def asStr( self ):
-		return '\n'.join( [ '%s  ->  %s' % m for m in self.iteritems() ] )
+		return '\n'.join( [ '%s  ->  %s' % m for m in list(self.items()) ] )
 	@classmethod
 	def FromDict( cls, mappingDict, ordering=() ):
 		new = Mapping( [], [] )

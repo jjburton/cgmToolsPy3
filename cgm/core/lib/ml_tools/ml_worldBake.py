@@ -54,7 +54,7 @@ import maya.cmds as mc
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(13)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -155,7 +155,7 @@ def fromLocators(bakeOnOnes=False):
                 source.append(src)
                 destination.append(dest)
             
-        except StandardError:
+        except Exception:
             pass
     
     if not destination:
@@ -168,7 +168,7 @@ def fromLocators(bakeOnOnes=False):
         if constraints:
             try:
                 mc.delete(constraints)
-            except StandardError:
+            except Exception:
                 pass
     
     utl.matchBake(source, destination, bakeOnOnes=bakeOnOnes)

@@ -112,7 +112,7 @@ class PostBake(object):
             
             try:
                 self.update(fixedDeltaTime)
-            except Exception,err:
+            except Exception as err:
                 mc.refresh(su=False)
                 mc.autoKeyframe(state=ak)
                 log.warning('Error on update | {0}'.format(err))   
@@ -136,7 +136,7 @@ class PostBake(object):
             
             l_dat = []
             #...collect a series of back frames
-            for i in xrange(self.cycleBlend):
+            for i in range(self.cycleBlend):
                 _frame = self.endTime - (self.cycleBlend - i)
                 
                 log.info("...frame: {}".format(_frame))

@@ -11,17 +11,17 @@ from cgm.lib.zoo.zooPy.vectors import Vector, Colour, Axis
 from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy.misc import removeDupes
 
-import meshUtils
-import rigUtils
+from . import meshUtils
+from . import rigUtils
 
-from control import attrState, NORMAL, HIDE, LOCK_HIDE, NO_KEY
-from apiExtensions import asMObject, castToMObjects, cmpNodes
-from mayaDecorators import d_unifyUndo, d_maintainSceneSelection, d_showWaitCursor
-from referenceUtils import ReferencedNode
-from melUtils import mel, printErrorStr, mayaVar
-from rigUtils import ENGINE_FWD, ENGINE_UP, ENGINE_SIDE
-from rigUtils import MAYA_SIDE, MAYA_FWD, MAYA_UP
-from rigUtils import Axis, resetSkinCluster
+from .control import attrState, NORMAL, HIDE, LOCK_HIDE, NO_KEY
+from .apiExtensions import asMObject, castToMObjects, cmpNodes
+from .mayaDecorators import d_unifyUndo, d_maintainSceneSelection, d_showWaitCursor
+from .referenceUtils import ReferencedNode
+from .melUtils import mel, printErrorStr, mayaVar
+from .rigUtils import ENGINE_FWD, ENGINE_UP, ENGINE_SIDE
+from .rigUtils import MAYA_SIDE, MAYA_FWD, MAYA_UP
+from .rigUtils import Axis, resetSkinCluster
 
 AXES = Axis.BASE_AXES
 
@@ -249,7 +249,7 @@ def d_restoreLocksAndNames(f):
 		makeIdentity( item, a=True, r=True )
 
 		#now re-parent children
-		for child, (originalName, lockStates) in childrenPreStates.iteritems():
+		for child, (originalName, lockStates) in list(childrenPreStates.items()):
 			if child != item:
 				child = cmd.parent( child, item )[0]
 				child = rename( child, originalName.split( '|' )[-1] )
@@ -464,7 +464,7 @@ def buildSkeletonPartContainer( typeClass, kwDict, items ):
 
 
 	#now add all the items
-	items = map( str, items )
+	items = list(map( str, items ))
 	for item in set( items ):
 
 		if nodeType( item ) == 'joint':
@@ -502,12 +502,12 @@ def d_disconnectJointsFromSkinning( f ):
 		for c in skinClusters:
 			cons = listConnections( c, destination=False, plugs=True, connections=True )
 			if cons is None:
-				print 'WARNING - no connections found on the skinCluster %s' % c
+				print(('WARNING - no connections found on the skinCluster %s' % c))
 				continue
 
 			conIter = iter( cons )
 			for tgtConnection in conIter:
-				srcConnection = conIter.next()  #cons is a list of what should be tuples, but maya just returns a flat list - basically every first item is the destination plug, and every second is the source plug
+				srcConnection = next(conIter)  #cons is a list of what should be tuples, but maya just returns a flat list - basically every first item is the destination plug, and every second is the source plug
 
 				#if the connection is originating from a joint delete the connection - otherwise leave it alone - we only want to disconnect joints from the skin cluster
 				node = srcConnection.split( '.' )[0]
@@ -645,10 +645,10 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 		self._container = partContainer
 		self._items = None
 	def __unicode__( self ):
-		return u"%s( %r )" % (self.__class__.__name__, self._container)
+		return "%s( %r )" % (self.__class__.__name__, self._container)
 	__str__ = __unicode__
 	def __repr__( self ):
-		return repr( unicode( self ) )
+		return repr( str( self ) )
 	def __hash__( self ):
 		return hash( self._container )
 	def __eq__( self, other ):
@@ -1330,7 +1330,7 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 		for part in cls.IterAllParts( partClass ):
 			partKwargs = part.getBuildKwargs()
 			match = True
-			for argName, argValue in withKwargs.iteritems():
+			for argName, argValue in list(withKwargs.items()):
 				try:
 					if partKwargs[ argName ] != argValue:
 						match = False
@@ -1653,13 +1653,13 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 			iParent, xformHash, xxa, yya = self.generateItemHash( i )
 			try: storedParent, stored_xHash, xxb, yyb = eval( getAttr( '%s._skeletonFinalizeHash' % i ) )
 			except:
-				print 'stored hash differs from the current hashing routine - please re-finalize'
+				print('stored hash differs from the current hashing routine - please re-finalize')
 				return False
 
 			#if the stored parent is different from the current parent, there may only be a namespace conflict - so strip namespace prefixes and redo the comparison
 			if iParent != storedParent:
 				if Name( iParent ).strip() != Name( storedParent ).strip():
-					print 'parenting mismatch on %s since finalization (%s vs %s)' % (i, iParent, storedParent)
+					print(('parenting mismatch on %s since finalization (%s vs %s)' % (i, iParent, storedParent)))
 					return False
 
 			TOLERANCE = 1e-6  #tolerance used to compare floats
@@ -1674,11 +1674,11 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 			if xformHash != stored_xHash:
 				#so did we really fail?  sometimes 0 gets stored as -0 or whatever, so make sure the values are actually different
 				if not doubleCheckValues( xxa, xxb ):
-					print 'the translation on %s changed since finalization (%s vs %s)' % (i, xxa, xxb)
+					print(('the translation on %s changed since finalization (%s vs %s)' % (i, xxa, xxb)))
 					return False
 
 				if not doubleCheckValues( yya, yyb ):
-					print 'joint orienatation on %s changed since finalization (%s vs %s)' % (i, yya, yyb)
+					print(('joint orienatation on %s changed since finalization (%s vs %s)' % (i, yya, yyb)))
 					return False
 
 		return True
@@ -1698,7 +1698,7 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 
 		#check to see if there is already a rig built
 		if listConnections( rigContainerAttrpath, d=False ):
-			print 'Rig already built for %s - skipping' % self
+			print(('Rig already built for %s - skipping' % self))
 			return
 
 		#update the kw dict for the part
@@ -1708,13 +1708,13 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 		kw = rigKw
 
 		if kw.get( 'disable', False ):
-			print 'Rigging disabled for %s - skipping' % self
+			print(('Rigging disabled for %s - skipping' % self))
 			return
 
 		#pop the rig method name out of the kwarg dict, and look it up
 		try: rigMethodName = kw.pop( 'rigMethodName', self.RigTypes[ 0 ].__name__ )
 		except IndexError:
-			print "No rig method defined for %s" % self
+			print(("No rig method defined for %s" % self))
 			return
 
 		#make sure to break drivers before we rig
@@ -1723,7 +1723,7 @@ class SkeletonPart(typeFactories.trackableClassFactory()):
 		#discover the rigging method
 		rigType = self.GetRigMethod( rigMethodName )
 		if rigType is None:
-			print 'ERROR :: there is no such rig method with the name %s' % rigMethodName
+			print(('ERROR :: there is no such rig method with the name %s' % rigMethodName))
 			return
 
 		#bulid the rig and connect it to the part
@@ -1882,7 +1882,7 @@ def createRotationCurves( theJoint ):
 
 def kwargsToOptionStr( kwargDict ):
 	toks = []
-	for k, v in kwargDict.iteritems():
+	for k, v in list(kwargDict.items()):
 		if isinstance( v, (list, tuple) ):
 			v = ' '.join( v )
 		elif isinstance( v, bool ):
@@ -2049,7 +2049,7 @@ def realignAllParts():
 		try:
 			part.align()
 		except:
-			print 'ERROR: %s failed to align properly' % part
+			print(('ERROR: %s failed to align properly' % part))
 			continue
 
 
@@ -2071,7 +2071,7 @@ def finalizeAllParts():
 				part.finalize()
 			except:
 				failedParts.append( part )
-				print 'ERROR: %s failed to finalize properly!' % part
+				print(('ERROR: %s failed to finalize properly!' % part))
 				continue
 
 	return failedParts
@@ -2170,7 +2170,7 @@ def shrinkWrap( obj, shrinkTo=None, performReverse=False ):
 	kTransform = MSpace.kTransform
 
 	obj = asMObject( obj )
-	shrinkTo = map( asMObject, shrinkTo )
+	shrinkTo = list(map( asMObject, shrinkTo ))
 
 	#get the shape nodes...
 	dagObj = MDagPath.getAPathTo( obj )
@@ -2180,12 +2180,12 @@ def shrinkWrap( obj, shrinkTo=None, performReverse=False ):
 	dagWorldMatrix = dagObj.exclusiveMatrix()
 	dagWorldMatrixInv = dagObj.exclusiveMatrixInverse()
 
-	dagShinkTo = map( MDagPath.getAPathTo, shrinkTo )
+	dagShinkTo = list(map( MDagPath.getAPathTo, shrinkTo ))
 	for dag in dagShinkTo:
 		dag.extendToShape()
 
 	fnObj = MFnMesh( dagObj )
-	fnShrinkTo = map( MFnMesh, dagShinkTo )
+	fnShrinkTo = list(map( MFnMesh, dagShinkTo ))
 
 	aimIdx = BONE_AIM_AXIS
 	otherIdxs = idxA, idxB = BONE_AIM_AXIS.otherAxes()
@@ -2255,7 +2255,7 @@ def shrinkWrap( obj, shrinkTo=None, performReverse=False ):
 
 		vertPositions.append( (actualPos, newPosition) )
 
-		vert = itObjVerts.next()
+		vert = next(itObjVerts)
 
 	#now we have a list of vertex positions, figure out the average delta and clamp deltas that are too far away from this average
 	deltaSum = 0
@@ -2302,7 +2302,7 @@ def shrinkWrap( obj, shrinkTo=None, performReverse=False ):
 		itObjVerts.setPosition( position, kWorld )
 
 		n += 1
-		vert = itObjVerts.next()
+		vert = next(itObjVerts)
 
 
 def shrinkWrapSelection( shrinkTo=None ):
@@ -2323,7 +2323,7 @@ def volumesToSkinning():
 	#get the character meshes before we build the temp transfer surface
 	charMeshes = getCharacterMeshes()
 
-	import skinWeights
+	from . import skinWeights
 
 	#combine them all
 	duplicateVolumes = duplicate( allVolumes, renameChildren=True )

@@ -94,7 +94,7 @@ class NameFactory():
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     
     def storeNameStrings(self,obj):
-        buffer = mc.ls(obj,long=True)
+        buffer = mc.ls(obj,int=True)
         self.nameLong = buffer[0]
         buffer = mc.ls(obj,shortNames=True)        
         self.nameShort = buffer[0]
@@ -170,7 +170,7 @@ class NameFactory():
 
         self.baseIterator = 0
         #If we have an assigned iterator, start with that
-        if 'cgmIterator' in self.objGeneratedNameDict.keys():
+        if 'cgmIterator' in list(self.objGeneratedNameDict.keys()):
             self.baseIterator = int(self.objGeneratedNameDict.get('cgmIterator'))
         
         self.baseIteratorChecked = True
@@ -182,17 +182,17 @@ class NameFactory():
         self.matchDictionaryList = []
         
         #Get a list of objects in the scene that match the name object
-        if len(self.objGeneratedNameDict.keys()) <= 1 and 'cgmType' in self.objGeneratedNameDict.keys():
+        if len(list(self.objGeneratedNameDict.keys())) <= 1 and 'cgmType' in list(self.objGeneratedNameDict.keys()):
             log.debug("There's only a type tag, ignoring match check")
         else:
             if not self.sceneObjectsNameDictMap:
                 self.generateSceneDictMap()            
-            for k in self.sceneObjectsNameDictMap.keys():
+            for k in list(self.sceneObjectsNameDictMap.keys()):
                 if k not in (self.nameLong,self.nameShort): 
                     if self.sceneObjectsNameDictMap[k] == self.objGeneratedNameDict:
                         self.matchObjectList.append(k)
                         self.matchDictionaryList.append(self.sceneObjectsNameDictMap[k])
-                    elif 'cgmIterator' in self.sceneObjectsNameDictMap[k].keys() and returnObjectGeneratedNameDict(k,['cgmIterator']) == self.objGeneratedNameDict:
+                    elif 'cgmIterator' in list(self.sceneObjectsNameDictMap[k].keys()) and returnObjectGeneratedNameDict(k,['cgmIterator']) == self.objGeneratedNameDict:
                         self.claimedIterators.append(int(self.sceneObjectsNameDictMap[k]['cgmIterator']))
                         self.matchObjectList.append(k)
                         self.matchDictionaryList.append(self.sceneObjectsNameDictMap[k])                         
@@ -221,7 +221,7 @@ class NameFactory():
     def getNameLinkObject(self):   
         self.isObjectNameLinked = False
         if self.objGeneratedNameDict:
-            if 'cgmName' in self.objGeneratedNameDict.keys():
+            if 'cgmName' in list(self.objGeneratedNameDict.keys()):
                 if mc.objExists('%s.cgmName'%self.nameLong) and mc.attributeQuery ('cgmName',node=self.nameLong,msg=True):
                     buffer = attributes.returnMessageObject(self.nameLong,'cgmName')
                     self.nameLinkObject = buffer
@@ -281,7 +281,7 @@ class NameFactory():
 
                     else:
                         #next look through the named dictionaries
-                        for o in sceneObjectsNameDictMap.keys():
+                        for o in list(sceneObjectsNameDictMap.keys()):
                             if o not in self.matchedChildren:
                                 if o not in self.matchedParents: 
                                     if objGeneratedNameCandidateDict == sceneObjectsNameDictMap.get(o):
@@ -324,7 +324,7 @@ class NameFactory():
                                 foundAvailableNumber = True
                 else:
                     #next look through the named dictionaries
-                    for o in sceneObjectsNameDictMap.keys():
+                    for o in list(sceneObjectsNameDictMap.keys()):
                         if objGeneratedNameCandidateDict == sceneObjectsNameDictMap.get(o):
                             if not self.amIMe(o):
                                 #log.info ("%s has conflicting dictionary to %s" %(o,self.nameShort))
@@ -495,7 +495,7 @@ class NameFactory():
                             foundAvailableNumber = True
             else:
                 #next look through the named dictionaries
-                for o in sceneObjectsNameDictMap.keys():
+                for o in list(sceneObjectsNameDictMap.keys()):
                     if objGeneratedNameCandidateDict == sceneObjectsNameDictMap.get(o):
                         if not self.amIMe(o):
                             cnt+=1
@@ -782,7 +782,7 @@ def returnUniqueGeneratedName(obj,sceneUnique = False,fastIterate = True, ignore
     updatedNamesDict = returnObjectGeneratedNameDict(obj,ignore)
     order = returnCGMOrder()
     
-    if 'cgmName' not in updatedNamesDict.keys() and search.returnObjectType(obj) !='group':
+    if 'cgmName' not in list(updatedNamesDict.keys()) and search.returnObjectType(obj) !='group':
         buffer = mc.ls(obj,shortNames = True)
         attributes.storeInfo(obj,'cgmName',buffer[0],True)
         updatedNamesDict = returnObjectGeneratedNameDict(obj,ignore)
@@ -1028,7 +1028,7 @@ def doNameObject(obj,sceneUnique = False,fastIterate = True):
         log.debug("'%s' is already named correctly."%nameFactory.nameBase)
         return name
     else:
-        objLong = mc.ls(obj,long=True)
+        objLong = mc.ls(obj,int=True)
         renameBuffer = mc.rename(objLong,name)
 
         shapes = mc.listRelatives(renameBuffer,shapes=True,fullPath=True)

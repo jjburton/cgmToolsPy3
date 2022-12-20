@@ -19,6 +19,7 @@ import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -512,14 +513,14 @@ def define(self):
         self.baseDat = _dat
         
         
-        for tag,mHandle in md_handles.iteritems():
+        for tag,mHandle in list(md_handles.items()):
             if cgmGEN.__mayaVersion__ >= 2018:
                 mController = cgmMeta.controller_get(mHandle)
                 
                 try:
                     ATTR.connect("{0}.visProximityMode".format(self.mNode),
                              "{0}.visibilityMode".format(mHandle.mNode))    
-                except Exception,err:
+                except Exception as err:
                     log.error(err)
                 
                 self.msgList_append('defineStuff',mController)
@@ -553,7 +554,7 @@ def define(self):
         
         #ATTR.set(self.vectorUpHelper.mNode,'sy', MATH.average(md_handles['end'].width,md_handles['end'].height))
         #self.vectorUpHelper.scale = MATH.average(md_handles['end'].width,md_handles['end'].height)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 #=============================================================================================================
 #>> Form
@@ -811,7 +812,7 @@ def form(self):
                 try:
                     ATTR.connect("{0}.visProximityMode".format(self.mNode),
                              "{0}.visibilityMode".format(mHandle.mNode))    
-                except Exception,err:
+                except Exception as err:
                     log.error(err)                                
                 self.msgList_append('formStuff',mController)
         
@@ -1129,7 +1130,7 @@ def prerig(self):
                 self.msgList_append('prerigHandles',mSpin)
                 
         else:
-            raise ValueError,"Unknown pivot setup: {}".format(_pivotSetup)
+            raise ValueError("Unknown pivot setup: {}".format(_pivotSetup))
                 
     
     if self.addScalePivot:
@@ -1209,9 +1210,9 @@ def rigDelete(self):
     
     return
     try:self.moduleTarget.masterControl.delete()
-    except Exception,err:
+    except Exception as err:
         for a in err:
-            print a
+            print(a)
     return True
             
 def is_rig(self):
@@ -1221,7 +1222,7 @@ def is_rig(self):
         
         _d_links = {'moduleTarget' : ['constrainNull']}
         
-        for plug,l_links in _d_links.iteritems():
+        for plug,l_links in list(_d_links.items()):
             _mPlug = self.getMessage(plug,asMeta=True)
             if not _mPlug:
                 _l_missing.append("{0} : {1}".format(plug,l_links))
@@ -1236,7 +1237,7 @@ def is_rig(self):
                 log.info("|{0}| >> {1}".format(_str_func,l))  
             return False
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 #=============================================================================================================
@@ -1252,11 +1253,11 @@ def skeleton_build(self, forceNew = True):
     
     mModule = self.moduleTarget
     if not mModule:
-        raise ValueError,"No moduleTarget connected"
+        raise ValueError("No moduleTarget connected")
     
     mRigNull = mModule.rigNull
     if not mRigNull:
-        raise ValueError,"No rigNull connected"
+        raise ValueError("No rigNull connected")
     
     if not self.hasJoint:
         return True
@@ -1278,7 +1279,7 @@ def skeleton_build(self, forceNew = True):
     JOINTS.freezeOrientation(mJoint)
 
     _l_namesToUse = self.atUtils('skeleton_getNameDicts',False, 1)
-    for k,v in _l_namesToUse[0].iteritems():
+    for k,v in list(_l_namesToUse[0].items()):
         mJoint.doStore(k,v)
         mJoint.doName()
     mJoint.doName()
@@ -1400,7 +1401,7 @@ def rig_dataBuffer(self):
         log.debug(cgmGEN._str_subLine)
 
         log.debug(cgmGEN._str_subLine)    
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 def rig_skeleton(self):
@@ -1525,7 +1526,7 @@ def rig_shapes(self):
     mControl = cgmMeta.validateObjArg(mControl,'cgmObject',setClass=True)
     
     
-    for a,v in self.d_blockNameDict.iteritems():
+    for a,v in list(self.d_blockNameDict.items()):
         mControl.doStore(a,v)
     mControl.doName()    
     
@@ -1556,7 +1557,7 @@ def rig_shapes(self):
         ATTR.copy_to(_short_module,'cgmName',mLookAt.mNode,driven='target')
         #mIK.doStore('cgmName','head')
         
-        for a,v in self.d_blockNameDict.iteritems():
+        for a,v in list(self.d_blockNameDict.items()):
             mLookAt.doStore(a,v)
             
         mLookAt.doStore('cgmTypeModifier','lookAt')
@@ -1597,7 +1598,7 @@ def rig_shapes(self):
     #Pivots =======================================================================================
     if mBlock.getMessage('pivotHelper'):
         if self.str_addPivot == 'wobbleOnly':
-            reload(RIGSHAPES)
+            importlib.reload(RIGSHAPES)
             #_l = ['center','front','spin','tilt']
             _l = ['spin','tilt','center']
             RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)
@@ -1816,7 +1817,7 @@ def rig_controls(self):
         
         
         return 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def rig_frame(self):
     try:
@@ -1858,7 +1859,7 @@ def rig_frame(self):
             mAimDriver = mPivotResultDriver
             mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
             
-            reload(mBlock.UTILS)
+            importlib.reload(mBlock.UTILS)
             
             _pivot_kws = {}
             pivotSetup = 'default'
@@ -1949,7 +1950,7 @@ def rig_frame(self):
             ml_rigJoints[0].parent = mDirectDriver
             
         log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 def rig_cleanUp(self):
@@ -2123,7 +2124,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
         ml_proxy = []
         str_setup = self.getEnumValueString('proxyShape')
         if str_setup == 'geoOnly' and not ml_geo:
-            raise ValueError,"No geo found and proxyShape is 'geoOnly'."
+            raise ValueError("No geo found and proxyShape is 'geoOnly'.")
         
         if str_setup == 'shapers':# and not ml_geo:
             mMesh = self.UTILS.create_simpleLoftMesh(self,divisions=5,cap= self.proxyGeoCap)[0]
@@ -2174,7 +2175,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                                 normalizeWeights = 1, dropoffRate=10)            
             mMesh.rename('{0}_{1}_puppetmesh_geo'.format(self.p_nameBase,i))
         return ml_proxy
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False, **kws):
     """
@@ -2253,7 +2254,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
         log.warning("|{0}| >> building mesh...".format(_str_func))            
         
         if str_setup == 'geoOnly' and not ml_geo:
-            raise ValueError,"No geo found and proxyShape is 'geoOnly'."
+            raise ValueError("No geo found and proxyShape is 'geoOnly'.")
         
         if str_setup == 'shapers':# and not ml_geo:
             d_kws = {}

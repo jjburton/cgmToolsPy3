@@ -22,11 +22,11 @@ from cgm.core.cgmPy import path_Utils as PATH
 
 def sceneSetup():
 	try:mc.file(new=True,f=True)
-	except Exception,err:
+	except Exception as err:
 		log.error("New File fail!")
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception,err  
+		raise Exception(err)  
 	
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -54,11 +54,11 @@ def main(**kwargs):
 	for t in tests:
 		for t2 in t:
 			for t3 in t2:
-				print t3
-				print t3._testMethodName
+				print(t3)
+				print((t3._testMethodName))
 				
-				for k in t3.__dict__.keys():
-					print k
+				for k in list(t3.__dict__.keys()):
+					print(k)
 				#exec("reload({0})".format(t3))
 	return
 	

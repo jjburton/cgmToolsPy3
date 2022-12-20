@@ -43,7 +43,7 @@ log.setLevel(logging.INFO)
 class cgmBlendShape(cgmMeta.cgmNode):  
     def __init__(self,node = None, name = 'null', **kws):
         if not search.returnObjectType(node) == 'blendShape':
-            raise ValueError, "Not a blendshape"
+            raise ValueError("Not a blendshape")
 
         super(cgmBlendShape, self).__init__(node = node)
         if self.cached:return
@@ -103,8 +103,8 @@ class cgmBlendShape(cgmMeta.cgmNode):
         _d_targetsData = self.get_targetWeightsDict()
         _d_deltas = []	
         _created = []
-        for i in _d_targetsData.keys():
-            for ii in _d_targetsData[i].keys():
+        for i in list(_d_targetsData.keys()):
+            for ii in list(_d_targetsData[i].keys()):
                 _d_buffer = self.bsShape_validateShapeArg(i, ii)
                 #_d_buffer = _d_targetsData[i][ii]
                 if not _d_buffer['shape']:
@@ -117,8 +117,8 @@ class cgmBlendShape(cgmMeta.cgmNode):
                         attributes.doConnectAttr(_shapes[0] + '.worldMesh[0]',
                                                  self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputGeomTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
                         #_data = mc.getAttr(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputPointsTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
-                    except Exception,err:
-                        raise Exception, err
+                    except Exception as err:
+                        raise Exception(err)
                     #self.bsShape_replace(self.bsShape_createGeoFromIndex(i,ii), i, ii)
 
 
@@ -139,7 +139,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
 
         _d_buffer = self.bsShape_validateShapeArg(shapeOrIndex, weight)
         if not _d_buffer:
-            raise ValueError, _str_funcName + "shapeOrIndex({0}) and weight ({1}) found no data.".format(shapeOrIndex,weight)
+            raise ValueError(_str_funcName + "shapeOrIndex({0}) and weight ({1}) found no data.".format(shapeOrIndex,weight))
 
         #mc.getAttr('pSphere1_bsNode.inputTarget[0].inputTargetGroup[0].inputTargetItem[6000].inputPointsTarget')
         _data = mc.getAttr(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputPointsTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
@@ -199,7 +199,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         _dup = mc.duplicate(_baseTrans.mNode)	
 
         #...rewire
-        for mDef in _d_wiring.keys():
+        for mDef in list(_d_wiring.keys()):
             _d = _d_wiring[mDef]
             if _d.get('plug'):
                 attributes.doConnectAttr( _d.get('plug'),_d['attr'])
@@ -240,7 +240,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             _result.append(mc.xform("{0}.vtx[{1}]".format(_baseTrans.mNode,i), t = True, os = True, q=True))
 
         #...rewire
-        for mDef in _d_wiring.keys():
+        for mDef in list(_d_wiring.keys()):
             _d = _d_wiring[mDef]
             if _d.get('plug'):
                 attributes.doConnectAttr( _d.get('plug'),_d['attr'])
@@ -257,7 +257,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         _d_buffer = self.bsShape_validateShapeArg(shapeOrIndex, weight)
 
         if not _d_buffer:
-            raise ValueError,"{0}>> Invalid shape:{1} | weight:{2}".format(_str_funcName_,shapeOrIndex,weight)
+            raise ValueError("{0}>> Invalid shape:{1} | weight:{2}".format(_str_funcName_,shapeOrIndex,weight))
         #mc.getAttr('pSphere1_bsNode.inputTarget[0].inputTargetGroup[0].inputTargetItem[6000].inputPointsTarget')
         _l_deltaVs = mc.getAttr(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputPointsTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
 
@@ -303,13 +303,13 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if correctiveItem == None:
             correctiveItem = int(6000)
         crPercentage = (correctiveItem - 5000) / 10
-        print "crPercentage: " + str(crPercentage) + '%'
+        print(("crPercentage: " + str(crPercentage) + '%'))
         numVtx = cmds.getAttr (skinGeo + '.vrts', s=True )
         defaultPointArray = ([numVtx] + [(0,0,0,1)] * numVtx)
         #print defaultPointArray
         ###################################
         xSculp = cmds.xform(sculptGeo + '.pnts[*]', q=True, os=True, t=True)
-        sculptPts = zip(xSculp[0::3], xSculp[1::3], xSculp[2::3])
+        sculptPts = list(zip(xSculp[0::3], xSculp[1::3], xSculp[2::3]))
         #####################################
         iTg = '%s.inputTarget[0]' %blendShapeNode
         iTgGr = '.inputTargetGroup[%s]' %correctiveGroup
@@ -321,7 +321,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         gatherInfoFrom = iTg + iTgGr + iTi + iPt
         cmds.setAttr(gatherInfoFrom, type='pointArray', *defaultPointArray)
         xSkin = cmds.xform(skinGeo + '.pnts[*]', q=True, os=True, t=True)
-        skinPts = zip(xSkin[0::3], xSkin[1::3], xSkin[2::3])
+        skinPts = list(zip(xSkin[0::3], xSkin[1::3], xSkin[2::3]))
         offsetPointArray = []
         offsetPointArray.append([numVtx] + [(1,0,0,1)] * numVtx)
         offsetPointArray.append([numVtx] + [(0,1,0,1)] * numVtx)
@@ -334,7 +334,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         for pArray in offsetPointArray:
             cmds.setAttr(gatherInfoFrom, type='pointArray', *pArray)
             tmpXform = cmds.xform(skinGeo + '.pnts[*]', q=True, os=True, t=True)
-            unityDeltaXYZ.append(zip(tmpXform[0::3], tmpXform[1::3], tmpXform[2::3]))
+            unityDeltaXYZ.append(list(zip(tmpXform[0::3], tmpXform[1::3], tmpXform[2::3])))
             eval('unitDelta' + axis[offsetPointArray.index(pArray)]).append(unityDeltaXYZ[offsetPointArray.index(pArray)])
         if not keepSculpt:
             cmds.delete(sculptGeo)
@@ -383,7 +383,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         #allData = [resultPointArray, resultComponentList]
 
         if inBetweenMode != True:
-            print '--------------IF'
+            print('--------------IF')
             cmds.setAttr(cr6000, type='pointArray', *resultPointArray)
             cmds.setAttr(cri6000, type='componentList', *resultComponentList)
             if correctiveItem != 6000:
@@ -395,7 +395,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             cmds.setAttr(iTg + iTgGr + iTi + iCt, type='componentList', *resultComponentList)
 
             if cmds.listAttr(cr6000) == None:
-                print 'cmds.listAttr(cr6000) == None:'
+                print('cmds.listAttr(cr6000) == None:')
                 cmds.setAttr(cr6000, type='pointArray', *resultPointArray)
                 cmds.setAttr(iTg + iTgGr + iTi + iCt, type='componentList', *resultComponentList)
             if flatten:
@@ -423,7 +423,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if target is None :
             _sel = mc.ls(sl=True)
             if not _sel:
-                raise ValueError,"cgmBlendshape.is_bsShape: No object selected and no arg passed!"
+                raise ValueError("cgmBlendshape.is_bsShape: No object selected and no arg passed!")
             target = _sel[0]
 
         _targets = self.bsShapes_get()
@@ -451,24 +451,24 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if target is None :
             _sel = mc.ls(sl=True)
             if not _sel:
-                raise ValueError,"cgmBlendshape.bsShape_index: No object selected and no arg passed!"
+                raise ValueError("cgmBlendshape.bsShape_index: No object selected and no arg passed!")
             target = _sel[0]
 
         _d_targetsData = self.get_targetWeightsDict()
         _match = []
         if cgmMeta.isTransform(target):
             for shape in mc.listRelatives(target,shapes=True,fullPath=True):
-                for i in _d_targetsData.keys():
-                    for ii in _d_targetsData[i].keys():
+                for i in list(_d_targetsData.keys()):
+                    for ii in list(_d_targetsData[i].keys()):
                         _buffer = _d_targetsData[i][ii]
                         if shape == _buffer['shape']:
                             _match.append([i,ii])
                         #else:
                             #log.info("{0} != {1}".format(shape, _buffer['shape']))
         else:
-            _shapeLong = mc.ls(target, long = True)[0]
-            for i in _d_targetsData.keys():
-                for ii in _d_targetsData[i].keys():
+            _shapeLong = mc.ls(target, int = True)[0]
+            for i in list(_d_targetsData.keys()):
+                for ii in list(_d_targetsData[i].keys()):
                     _buffer = _d_targetsData[i][ii]
                     if _shapeLong == _buffer['shape']:
                         _match.append([i,ii])
@@ -576,8 +576,8 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 targetDict[i] = d_targetsBuffer
 
             return targetDict
-        except Exception,err:
-            raise Exception,err
+        except Exception as err:
+            raise Exception(err)
 
     def bsShape_get(self, index = None, weight = None):
         """
@@ -596,8 +596,8 @@ class cgmBlendShape(cgmMeta.cgmNode):
             if weight is not None:
                 return _d_targetsData[index][weight]
             return _d_targetsData[index]
-        except Exception,err:
-            raise Exception,"cgmBlendshape.bsShape_get: no data found at index:{0} | weight:{1}".format(index,weight)
+        except Exception as err:
+            raise Exception("cgmBlendshape.bsShape_get: no data found at index:{0} | weight:{1}".format(index,weight))
         return False
 
     def bsShape_validateShapeArg(self, shapeOrIndex = None, weight = None):
@@ -613,7 +613,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         """ 
         _str_func = "cgmBlendshape.bsShape_validateShapeArg: "
         if shapeOrIndex is None and weight is None:
-            raise ValueError, _str_func + "Must have shape or index and weight args"
+            raise ValueError(_str_func + "Must have shape or index and weight args")
 
         #Validate
         _d_targetsData = self.get_targetWeightsDict()
@@ -653,10 +653,10 @@ class cgmBlendShape(cgmMeta.cgmNode):
                     log.warning( _str_func + "Invalid weight specified. No data on: {0}".format(weight))
                     return {}
 
-            elif len(_buffer.keys()) == 1:
+            elif len(list(_buffer.keys())) == 1:
                 log.info(_str_func + "One key at index. Can resolve.")
-                for k in _buffer.keys():
-                    _weight = _buffer.keys()[0]
+                for k in list(_buffer.keys()):
+                    _weight = list(_buffer.keys())[0]
                     _shape = _buffer[k]['shape']
                     _dag = _buffer[k]['dag']	
                     continue
@@ -732,7 +732,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         """ 
         _str_func = "cgmBlendshape.bsShape_nameWeightAlias: "
         if shapeOrIndex is None and name is None:
-            raise ValueError, _str_func + "Must have shape or index and weight args"
+            raise ValueError(_str_func + "Must have shape or index and weight args")
 
         _l_indices = self.get_indices()
         _index = False
@@ -757,7 +757,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         _str_func = "cgmBlendshape.bsShape_getAvailableAlias: "
 
         if name is None:
-            raise ValueError, _str_func + "Must have a name arg"
+            raise ValueError(_str_func + "Must have a name arg")
 
         _name = str(name)#...just to make sure we're on the same playing field
         _l_attrs = [str(n) for n in self.get_weight_attrs()]
@@ -795,13 +795,13 @@ class cgmBlendShape(cgmMeta.cgmNode):
 
         if targetShape is None:
             if not _sel:
-                raise ValueError,"cgmBlendshape.bsShape_replace: must have an index or target shape"
+                raise ValueError("cgmBlendshape.bsShape_replace: must have an index or target shape")
             targetShape = _sel[0]
 
         if shapeToReplace is None:
             try:shapeToReplace = _sel[1]
             except:
-                raise ValueError,"cgmBlendshape.bsShape_replace: must have an index or shapeToReplace specified"
+                raise ValueError("cgmBlendshape.bsShape_replace: must have an index or shapeToReplace specified")
         else:
             _type = type(shapeToReplace)
             if _type is int:
@@ -813,7 +813,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 _currentWeight = _buffer[0][1]
                 #weight?
             else:
-                raise ValueError,"cgmBlendshape.bsShape_replace: invalid shapeToReplace ({0})".format(shapeToReplace)
+                raise ValueError("cgmBlendshape.bsShape_replace: invalid shapeToReplace ({0})".format(shapeToReplace))
 
 
         """if _index is None:
@@ -850,7 +850,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             self.bsShape_remove(_d_targetsData[_index][w]['shape'], index = _index, weight = w)
 
         #Need to rebuild in 1.0 order
-        l_keys = _d_new_arg.keys()
+        l_keys = list(_d_new_arg.keys())
         l_keys.sort()
         l_keys.reverse()
 
@@ -895,13 +895,13 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if targetShape is None:
             _sel = mc.ls(sl=True)
             if not _sel:
-                raise ValueError,"cgmBlendshape.bsShape_add: must have an index or target shape"
+                raise ValueError("cgmBlendshape.bsShape_add: must have an index or target shape")
             targetShape = _sel[0]
 
         _l_indices = self.get_indices()
         if index is None:
             if weight != 1.0:
-                raise ValueError,"cgmBlendshape.bsShape_add: Must have index value for inbetween setup"
+                raise ValueError("cgmBlendshape.bsShape_add: Must have index value for inbetween setup")
 
             _foundValue = False
             _cnt = 0
@@ -912,7 +912,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                     log.debug("cgmBlendshape.bsShape_add: Found open index: {0}".format(_cnt))
                 _cnt+=1	  
         elif weight != 1.0 and index not in _l_indices:
-            raise ValueError,"cgmBlendshape.bsShape_add: Must have valid index value for inbetween setup. Valid indices: {0}".format(_l_indices)	    
+            raise ValueError("cgmBlendshape.bsShape_add: Must have valid index value for inbetween setup. Valid indices: {0}".format(_l_indices))	    
 
         _baseObject = self.get_baseObjects()[0]
         log.debug("cgmBlendshape.bsShape_add...")
@@ -933,14 +933,14 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if index is None and targetShape is None:
             _sel = mc.ls(sl=True)
             if not _sel:
-                raise ValueError,"cgmBlendshape.bsShape_remove: must have an index or target shape"
+                raise ValueError("cgmBlendshape.bsShape_remove: must have an index or target shape")
             targetShape = _sel[0]
 
         if targetShape is None:
             try:
                 targetShape = self.bsShapes_get()[index]
-            except Exception, err:
-                raise Exception,"cgmBlendshape.bsShape_remove: invalid index most likely | {0}".format(err)
+            except Exception as err:
+                raise Exception("cgmBlendshape.bsShape_remove: invalid index most likely | {0}".format(err))
 
         _baseObject = self.get_baseObjects()[0]
         _args = self.bsShape_getTargetArgs(targetShape)
@@ -980,7 +980,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
 
         _d_buffer = self.bsShape_validateShapeArg(shapeOrIndex, weight)
         if not _d_buffer:
-            raise ValueError, _str_funcName + "shapeOrIndex({0}) and weight ({1}) found no data.".format(shapeOrIndex,weight)
+            raise ValueError(_str_funcName + "shapeOrIndex({0}) and weight ({1}) found no data.".format(shapeOrIndex,weight))
 
         #Get our target mesh
         mi_target = cgmMeta.validateObjArg(targetMesh,'cgmObject', mayaType = ['mesh'])
@@ -1064,13 +1064,13 @@ class cgmBlendShape(cgmMeta.cgmNode):
 
         if targetShape is None:
             if not _sel:
-                raise ValueError,"cgmBlendshape.bsShape_replace: must have an index or target shape"
+                raise ValueError("cgmBlendshape.bsShape_replace: must have an index or target shape")
             targetShape = _sel[0]
 
         if shapeToReplace is None:
             try:shapeToReplace = _sel[1]
             except:
-                raise ValueError,"cgmBlendshape.bsShape_replace: must have an index or shapeToReplace specified"
+                raise ValueError("cgmBlendshape.bsShape_replace: must have an index or shapeToReplace specified")
         else:
             _type = type(shapeToReplace)
             if _type is int:
@@ -1082,7 +1082,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 _currentWeight = _buffer[0][1]
                 #weight?
             else:
-                raise ValueError,"cgmBlendshape.bsShape_replace: invalid shapeToReplace ({0})".format(shapeToReplace)
+                raise ValueError("cgmBlendshape.bsShape_replace: invalid shapeToReplace ({0})".format(shapeToReplace))
 
 
 
@@ -1103,7 +1103,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             self.bsShape_remove(_d_targetsData[_index][w]['shape'], index = _index, weight = w)
 
         #Need to rebuild in 1.0 order
-        l_keys = _d_new_arg.keys()
+        l_keys = list(_d_new_arg.keys())
         l_keys.sort()
         l_keys.reverse()
 
@@ -1145,18 +1145,18 @@ class cgmBlendShape(cgmMeta.cgmNode):
         if target is None :
             _sel = mc.ls(sl=True)
             if not _sel:
-                raise ValueError,"bsShape_getTargetArgs: No object selected and no arg passed!"
+                raise ValueError("bsShape_getTargetArgs: No object selected and no arg passed!")
             target = _sel[0]
 
-        target = mc.ls(target, long = True)[0]
+        target = mc.ls(target, int = True)[0]
         _result = []    
         _d_buffer = self.get_targetWeightsDict()
 
         log.debug("cgmBlendshape.bsShape_getTargetArgs...")
         log.debug("targetShape: {0}".format(target))	
 
-        for i in _d_buffer.keys():
-            for ii in _d_buffer[i].keys():
+        for i in list(_d_buffer.keys()):
+            for ii in list(_d_buffer[i].keys()):
                 #log.info(_d_buffer[i][ii])
                 if target == _d_buffer[i][ii]['dag'] or target == _d_buffer[i][ii]['shape']:
                     _result.append([i, target, ii])
@@ -1217,16 +1217,16 @@ class cgmBlendShape(cgmMeta.cgmNode):
         try:#>>Figure out our target...
             if targetShapeOrIndex is None:
                 if not _sel:
-                    raise ValueError,"{0}: must have an index or target shape".format(_str_func)
+                    raise ValueError("{0}: must have an index or target shape".format(_str_func))
                 targetShape = _sel[-1]
                 _l_sourceOptions = _sel[:-1]
-        except Exception,err:raise Exception,"{0}: failed to find target".format(_str_func)
+        except Exception as err:raise Exception("{0}: failed to find target".format(_str_func))
         return  
 
         if shapeToReplace is None:
             try:shapeToReplace = _sel[1]
             except:
-                raise ValueError,"{0}: must have an index or shapeToReplace specified".format(_str_func)
+                raise ValueError("{0}: must have an index or shapeToReplace specified".format(_str_func))
         else:
             _type = type(shapeToReplace)
             if _type is int:
@@ -1238,7 +1238,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 _currentWeight = _buffer[0][1]
                 #weight?
             else:
-                raise ValueError,"{1}: invalid shapeToReplace ({0})".format(shapeToReplace,_str_func)
+                raise ValueError("{1}: invalid shapeToReplace ({0})".format(shapeToReplace,_str_func))
 
 
         log.info(cgmGeneral._str_subLine)	

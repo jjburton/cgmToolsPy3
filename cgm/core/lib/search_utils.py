@@ -151,7 +151,7 @@ def get_tagInfoShort(info,tagType=None):
     #typesDictionary = dictionary.initializeDictionary(typesDictionaryFile)
     #namesDictionary = dictionary.initializeDictionary(namesDictionaryFile)
     
-    if info in CORESHARE.d_shortNames.keys():
+    if info in list(CORESHARE.d_shortNames.keys()):
         return CORESHARE.d_shortNames.get(info,info)
     return CORESHARE.d_cgmTypes.get(info,info)
     
@@ -176,7 +176,7 @@ def parents_get(node = None, fullPath = True):
         tmpParent = mc.listRelatives(tmpObj,allParents=True,fullPath=True)
         if tmpParent:
             if len(tmpParent) > 1:
-                raise ValueError,"Resolve what to do with muliple parents...{0} | {1}".format(_node,tmpParent)
+                raise ValueError("Resolve what to do with muliple parents...{0} | {1}".format(_node,tmpParent))
             _l_parents.append(tmpParent[0])
             tmpObj = tmpParent[0]
         else:
@@ -246,7 +246,7 @@ def get_objectSetsDict():
         if mc.referenceQuery(s, isNodeReferenced=True):
             refPrefix = NAME.get_refPrefix(s)
 
-            if refPrefix in refBuffer.keys():
+            if refPrefix in list(refBuffer.keys()):
                 refBuffer[refPrefix].append(s)
             else:
                 refBuffer[refPrefix] = [s]
@@ -256,9 +256,9 @@ def get_objectSetsDict():
         #Type sort
         buffer = ATTR.get(s,'cgmType')
         _match = False
-        for tag,v in CORESHARE.objectSetTypes.iteritems():
+        for tag,v in list(CORESHARE.objectSetTypes.items()):
             if v == buffer:
-                if tag in typeBuffer.keys():
+                if tag in list(typeBuffer.keys()):
                     typeBuffer[tag].append(s)
                     _match =True
                 else:
@@ -297,7 +297,7 @@ def get_nonintermediateShape(shape):
         if len(_l_matches) == 1:
             return _l_matches[0]
         else:
-            raise ValueError,"Not sure what to do with this many intermediate shapes: {0}".format(_l_matches)        
+            raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))        
     elif ATTR.get(shape,'intermediateObject'):
         _type = VALID.get_mayaType(shape)
         _trans = SEARCH.get_transform(shape)
@@ -309,7 +309,7 @@ def get_nonintermediateShape(shape):
         if len(_l_matches) == 1:
             return _l_matches[0]
         else:
-            raise ValueError,"Not sure what to do with this many intermediate shapes: {0}".format(_l_matches)
+            raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))
     else:
         return shape
 
@@ -334,7 +334,7 @@ def get_all_parents(node = None, shortNames = True):
         tmpParent = mc.listRelatives(tmpObj,allParents=True,fullPath=True)
         if tmpParent:
             if len(tmpParent) > 1:
-                raise ValueError,"Resolve what to do with muliple parents...{0} | {1}".format(node,tmpParent)
+                raise ValueError("Resolve what to do with muliple parents...{0} | {1}".format(node,tmpParent))
             _l_parents.append(tmpParent[0])
             tmpObj = tmpParent[0]
         else:
@@ -551,7 +551,7 @@ def get_key_indices_from(node = None, mode = 'all'):
                 
         
     else:
-        raise ValueError,"Unknown mode: {0}".format(mode)
+        raise ValueError("Unknown mode: {0}".format(mode))
     
     #mc.currentTime(initialTimeState)
     return lists.returnListNoDuplicates(keyFrames)
@@ -674,7 +674,7 @@ def seek_upStream(startingNode,endObjType = None, mode = 'objType', getPlug=Fals
         mode = 'matchAttrValue'
     elif mode == 'objType':
         if endObjType == None:
-            raise ValueError,"Must have endObjType when objType mode is True"
+            raise ValueError("Must have endObjType when objType mode is True")
         else:
             destNodeType = ''
         
@@ -694,7 +694,7 @@ def seek_upStream(startingNode,endObjType = None, mode = 'objType', getPlug=Fals
         
         
         if mode == 'matchAttrValue':
-            for k,v in matchAttrValue.iteritems():
+            for k,v in list(matchAttrValue.items()):
                 if ATTR.get(endNode,k) != v:
                     continue
                 _done = True
@@ -710,7 +710,7 @@ def seek_upStream(startingNode,endObjType = None, mode = 'objType', getPlug=Fals
 
         if destNodeType == 'pairBlend':
             pairBlendInPlug = mc.listConnections(currentNode, scn = True, p = True,d=False, s= True)
-            print ('pairBlendInPlug is %s' %pairBlendInPlug)
+            print(('pairBlendInPlug is %s' %pairBlendInPlug))
         else:
             currentNode = destNodeName[0]
             log.info("|{0}| >> Current: {1} | {2} | {3}".format(_str_func,timeOut,destNodeType,currentNode))
@@ -752,7 +752,7 @@ def seek_downStream(startingNode, endObjType = None, mode = 'objType', getPlug=F
         mode = 'matchAttrValue'
     elif mode == 'objType':
         if endObjType == None:
-            raise ValueError,"Must have endObjType when objType mode is True"
+            raise ValueError("Must have endObjType when objType mode is True")
         else:
             destNodeType = ''
         
@@ -777,7 +777,7 @@ def seek_downStream(startingNode, endObjType = None, mode = 'objType', getPlug=F
             destNodeType = destNodeTypeBuffer[1]
             
             if mode == 'matchAttrValue':
-                for k,v in matchAttrValue.iteritems():
+                for k,v in list(matchAttrValue.items()):
                     if ATTR.get(endNode,k) != v:
                         continue
                     _done = True
@@ -793,7 +793,7 @@ def seek_downStream(startingNode, endObjType = None, mode = 'objType', getPlug=F
             
             if destNodeType == 'pairBlend':
                 pairBlendInPlug = mc.listConnections(currentNode, scn = True, p = True, s= False)
-                print ('pairBlendInPlug is %s' %pairBlendInPlug)
+                print(('pairBlendInPlug is %s' %pairBlendInPlug))
             else:
                 currentNode = destNodeName[0]
                 log.debug("|{0}| >> Current: {1} | {2} | {3}".format(_str_func,timeOut,destNodeType,currentNode))                
@@ -818,26 +818,26 @@ def get_nodeSnapShot(report = False,uuid=False):
                 md[_type] = []
             md[_type].append(o)
     
-        for k,l in md.iteritems():
+        for k,l in list(md.items()):
             _len_type = len(l)
-            print("|{0}| >>  Type: {1} ...".format(_str_func,k)+'-'*100)
+            print(("|{0}| >>  Type: {1} ...".format(_str_func,k)+'-'*100))
             d_counts[k] = _len_type
             for i,mNode in enumerate(l):
-                print("{0} | {1}".format(i,mNode))
+                print(("{0} | {1}".format(i,mNode)))
     
         log.info(cgmGEN._str_subLine)
-        _sort = d_counts.keys()
+        _sort = list(d_counts.keys())
         _sort.sort()
         for k in _sort:
-            print("|{0}| >>  {1} : {2}".format(_str_func,k,d_counts[k]))
-        print("|{0}| >>  Total: {1} ".format(_str_func,_len))
+            print(("|{0}| >>  {1} : {2}".format(_str_func,k,d_counts[k])))
+        print(("|{0}| >>  Total: {1} ".format(_str_func,_len)))
         log.info(cgmGEN._str_hardLine)
         
     if uuid:
         _resUUID=[]
         for o in _res:
             try:_resUUID.append( mc.ls(o, uuid=True)[0] )
-            except Exception,err:
+            except Exception as err:
                 log.warning("{0} failed to query UUID | {1}".format(o,err))
         return _res,_resUUID
     return _res

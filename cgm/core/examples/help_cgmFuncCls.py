@@ -26,7 +26,7 @@ def myFirstFuncCls(*args, **kws):
             self._str_funcName = 'myFirstFuncCls'	
             self.__dataBind__(*args, **kws)#...this needs to be here
         def __func__(self):
-            print 'hello world'
+            print('hello world')
     return fncWrap(*args, **kws).go()
 
 myFirstFuncCls()
@@ -153,7 +153,7 @@ def myThirdFuncCls(*args, **kws):
             if self.b_testException:
                 self.log_warning("Test exception warning")	    		
                 self.log_error("Test exception error")		
-                raise Exception,"Just throwing this out there..."
+                raise Exception("Just throwing this out there...")
     return fncWrap(*args, **kws).go()
 
 #Before delving in, let's see what we have in terms of new info 

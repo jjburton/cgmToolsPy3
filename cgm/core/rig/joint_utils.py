@@ -98,9 +98,9 @@ def orientByPlane(joints = None, axisAim = 'z+', axisUp = 'y+',
     ml_delete = []
     
     if str_aim == str_up:
-        raise ValueError,"axisAim and axisUp cannot be the same"
+        raise ValueError("axisAim and axisUp cannot be the same")
     if len(ml_joints) < 3:
-        raise ValueError,"{0} > Need more than 3 joints".format(_str_func)
+        raise ValueError("{0} > Need more than 3 joints".format(_str_func))
     
     #First setup a dup chain of first and end, orient those ----------------------------------------------------------------
     log.debug("|{0}| >> Setup tmp chain...".format(_str_func))                     
@@ -142,7 +142,7 @@ def orientByPlane(joints = None, axisAim = 'z+', axisUp = 'y+',
           'polygonType':1,#'quads'
           }
           
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)    
             
     #Snap our joints ---------------------------------------------------------------------------------
@@ -189,7 +189,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
     """    
     try:
         _str_func = 'orientChain'
-        if baseName:raise NotImplementedError,"Remove these calls"
+        if baseName:raise NotImplementedError("Remove these calls")
         
         def orientJoint(mJnt):
             try:
@@ -208,9 +208,9 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
                     log.debug("|{0}| >> World joint: {1}".format(_str_func,mJnt.mNode))
                     try:
                         axisWorldOrient = SHARED._d_axisToJointOrient[str_aim][str_up]
-                    except Exception,err:
+                    except Exception as err:
                         log.error("{0}>> World axis query. {1} | {2}".format(_str_func, str_aim, str_up))
-                        raise Exception,err
+                        raise Exception(err)
                     
                     log.debug("|{0}| >> World joint: {1} | {2}".format(_str_func,mJnt.mNode, axisWorldOrient))
                     mJnt.rotate = 0,0,0
@@ -291,7 +291,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
                     
                 if mJnt in ml_cull:ml_cull.remove(mJnt)
                 return
-            except Exception,err:
+            except Exception as err:
                 cgmGEN.cgmException(Exception,err)
                 
         def reparent(progressBar=None):
@@ -325,7 +325,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
         str_up = mAxis_up.p_string
         
         if str_aim == str_up:
-            raise ValueError,"axisAim and axisUp cannot be the same"
+            raise ValueError("axisAim and axisUp cannot be the same")
         
         _len = len(ml_joints)
         _d_parents = {}
@@ -368,7 +368,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
                 try:            
                     #cgmUI.progressBar_iter(progressBar,status='Orienting: {0}'.format(mJnt.mNode))
                     orientJoint(mJnt)
-                except Exception,err:
+                except Exception as err:
                     log.error("{0}>> Error fail. Last joint: {1} | {2}".format(_str_func, mJnt.mNode, err))
                     _go = False
                     #cgmUI.progressBar_end(progressBar)
@@ -378,7 +378,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
                 
         reparent(progressBar)
         return
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
             
@@ -484,7 +484,7 @@ def freezeOrientation(targetJoints):
     #reparent
     if mi_parent:
         try:ml_targetJoints[0].parent = mi_parent
-        except Exception,error: raise StandardError,"Failed to parent back %s"%error
+        except Exception as error: raise Exception("Failed to parent back %s"%error)
     for i,i_jnt in enumerate(ml_targetJoints):
         for ii,i_c in enumerate(d_children[i_jnt]):
             #log.info("{0} | {1}".format(i,ii))
@@ -576,7 +576,7 @@ def build_chain(posList = [],
                     posList = CURVES.returnSplitCurveList(curve,count)
            
             else:
-                raise ValueError, "Unknown splitMode: {0}".format(splitMode)
+                raise ValueError("Unknown splitMode: {0}".format(splitMode))
     
     #>>Radius =======================================================================================
     _len = len(posList)

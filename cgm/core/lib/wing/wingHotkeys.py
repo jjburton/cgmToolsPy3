@@ -120,8 +120,8 @@ def send_to_maya(language):
       # Send our code to Maya:
       # It is intercepted via the function processDataInMaya(), created via mayaWingServer.py
       mSocket.send(language)
-   except Exception, e:
-      print "Send to Maya fail:", e
+   except Exception as e:
+      print(("Send to Maya fail:", e))
 
    mSocket.close()
 

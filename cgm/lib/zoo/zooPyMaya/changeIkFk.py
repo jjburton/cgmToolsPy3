@@ -1,14 +1,14 @@
 
 import re
-import rigPrimitives
+from . import rigPrimitives
 
 from maya.cmds import *
 
-from baseMelUI import *
-from mayaDecorators import d_disableViews, d_noAutoKey, d_unifyUndo, d_restoreTime
-from melUtils import printWarningStr
-from triggered import Trigger
-from rigUtils import findPolePosition, alignFast
+from .baseMelUI import *
+from .mayaDecorators import d_disableViews, d_noAutoKey, d_unifyUndo, d_restoreTime
+from .melUtils import printWarningStr
+from .triggered import Trigger
+from .rigUtils import findPolePosition, alignFast
 
 _FK_CMD_NAME = 'switch to FK'.lower()
 _IK_CMD_NAME = 'switch to IK'.lower()

@@ -57,8 +57,8 @@ def combine(shapeTranforms):
     for t in shapeTranforms:
         try:
             pass
-        except Exception,err:
-            raise Exception,"|{0}| >> Channel history delete on {2} | err: {1}".format(_str_func,err,t)
+        except Exception as err:
+            raise Exception("|{0}| >> Channel history delete on {2} | err: {1}".format(_str_func,err,t))
         
     for t in shapeTranforms[1:]:
         RIGGING.shapeParent_in_place(_transform, t, 
@@ -87,7 +87,7 @@ def get_nonintermediate(shape):
             if len(_l_matches) == 1:
                 return _l_matches[0]
             else:
-                raise ValueError,"Not sure what to do with this many intermediate shapes: {0}".format(_l_matches)        
+                raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))        
         elif ATTR.get(shape,'intermediateObject'):
             _type = VALID.get_mayaType(shape)
             _trans = SEARCH.get_transform(shape)
@@ -99,7 +99,7 @@ def get_nonintermediate(shape):
             if len(_l_matches) == 1:
                 return _l_matches[0]
             else:
-                raise ValueError,"Not sure what to do with this many intermediate shapes: {0}".format(_l_matches)
+                raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))
         else:
             return shape
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)

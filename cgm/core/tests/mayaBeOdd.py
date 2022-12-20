@@ -431,7 +431,7 @@ def speedTest_simpleLocator(iterations = 100):
     l_times = []
     
     for i in range(iterations):
-	print("On...{0}".format(i))
+	print(("On...{0}".format(i)))
 	
 	t1 = time.clock()		
 	mc.duplicate(_loc, po = False, ic = False, un = False)
@@ -439,11 +439,11 @@ def speedTest_simpleLocator(iterations = 100):
 	l_times.append(t2-t1)
 	
     for i,t in enumerate(l_times):
-	print("Step {0} |  {1}".format(i,"%0.3f"%t))
+	print(("Step {0} |  {1}".format(i,"%0.3f"%t)))
 	
     _str_dif = l_times[-1] - l_times[0] 
-    print(" CGM Simple loc duplication -- {0} | Start -- {1} | End -- {2} | [Diff] -- {3} ".format("%0.3f"%(sum(l_times)),"%0.3f"%l_times[0],"%0.3f"%l_times[-1],"%0.3f"%_str_dif))
-    print(" Maya: {0} | OS: {1}".format(mel.eval( 'about -%s'%'version'), mel.eval( 'about -%s'%'operatingSystemVersion')))
+    print((" CGM Simple loc duplication -- {0} | Start -- {1} | End -- {2} | [Diff] -- {3} ".format("%0.3f"%(sum(l_times)),"%0.3f"%l_times[0],"%0.3f"%l_times[-1],"%0.3f"%_str_dif)))
+    print((" Maya: {0} | OS: {1}".format(mel.eval( 'about -%s'%'version'), mel.eval( 'about -%s'%'operatingSystemVersion'))))
 			                   
 #==============================================================================================
 def speedTest_mNodeCall(*args, **kws):

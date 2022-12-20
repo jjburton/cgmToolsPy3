@@ -106,7 +106,7 @@ def uiAsset_addSub(self):
     _value = self.uiAssetTypeOptions.getSelectedIdx()
         
     try:_dat = self.mDat.assetDat[_value]
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> Failed to query idx for asset type | {2}".format(_str_func,err))
         return False
     pprint.pprint(_dat)
@@ -131,7 +131,7 @@ def uiAsset_remove(self):
     log.debug("|{0}| >>...".format(_str_func))
     #mUI.MelOptionMenu
     _value = self.uiAssetTypeOptions.getSelectedIdx()
-    print _value
+    print(_value)
     self.mDat.assetType_remove(idx=_value)
     uiAsset_rebuildOptionMenu(self)
     uiAsset_rebuildSub(self)
@@ -188,7 +188,7 @@ def uiAsset_duplicate(self):
         _name = str(mc.promptDialog(query=True, text=True))
         
         if _name == _currentName:
-            raise ValueError,"Same name given as exists. Pick a new name"
+            raise ValueError("Same name given as exists. Pick a new name")
     
         _current['n'] = _name
         
@@ -227,7 +227,7 @@ def uiAsset_rebuildSub(self):
         if _v:
             self.mDat.assetDat[_value]['content'][index]['hasVariant'] = _v
         else:
-            if self.mDat.assetDat[_value]['content'][index].has_key('hasVariant'):
+            if 'hasVariant' in self.mDat.assetDat[_value]['content'][index]:
                 self.mDat.assetDat[_value]['content'][index].pop('hasVariant')
         log.info( self.mDat.assetDat[_value]['content'][index].get('hasVariant') ) 
         
@@ -265,7 +265,7 @@ def uiAsset_rebuildSub(self):
         mUI.MelSpacer(_row,w=10)       
         
         
-        if not d2.has_key('hasSub'):
+        if 'hasSub' not in d2:
             d2['hasSub'] = True
             
         _cb_sub = mUI.MelCheckBox(_row,w=25)
@@ -614,7 +614,7 @@ def buildFrames(self,parent, changeCommand = ''):
     
     _nameStyle = self.d_tf['general']['nameStyle'].getValue()
     
-    for k,l in d_toDo.iteritems():
+    for k,l in list(d_toDo.items()):
         log.debug(cgmGEN.logString_sub(_str_func,k))
         
         _key = 'project{0}DatCollapse'.format(k.capitalize())
@@ -1044,7 +1044,7 @@ class ui(cgmUI.cgmGUI):
                                'weightedTangents':MAYASET.weightedTangets_set},}
             
         #pprint.pprint(d_toDo)
-        for k,l in d_toDo.iteritems():
+        for k,l in list(d_toDo.items()):
             log.info(cgmGEN.logString_sub(_str_func,k))
             
             _d = self.d_tf[k]
@@ -1066,7 +1066,7 @@ class ui(cgmUI.cgmGUI):
                         fnc(_value)
                     else:
                         log.warning("No function found for {0} | {1}".format(k,_name))
-                except Exception,err:
+                except Exception as err:
                     log.error("Failure {0} | {1} | {2}".format(k,_name,err))
                 
                 """
@@ -1135,7 +1135,7 @@ class ui(cgmUI.cgmGUI):
                                'weightedTangents':MAYASET.weightedTangents_get},}
             
         #pprint.pprint(d_toDo)
-        for k,l in d_settings.iteritems():
+        for k,l in list(d_settings.items()):
             log.info(cgmGEN.logString_sub(_str_func,k))
             
             _d = self.d_tf[k]
@@ -1164,7 +1164,7 @@ class ui(cgmUI.cgmGUI):
                         
                     else:
                         log.warning("No function found for {0} | {1}".format(k,_name))
-                except Exception,err:
+                except Exception as err:
                     log.error("Failure {0} | {1} | {2}".format(k,_name,err))        
     
     def buildMenu_help( self, *args):
@@ -1222,7 +1222,7 @@ class ui(cgmUI.cgmGUI):
         if mPath.exists():
             try:
                 uiProject_load(self, mPath)        
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed to load last: {0} | {1}".format(mPath, err))
                 cgmGEN.cgmException(Exception,err)    
 
@@ -1319,11 +1319,11 @@ class ui(cgmUI.cgmGUI):
                     self.pathProject = mc.fileDialog2(fileMode=3,
                                                    dir=_dir)[0]
                 else:
-                    print 'Sorry Maya2009 and Maya2010 support is being dropped'
+                    print('Sorry Maya2009 and Maya2010 support is being dropped')
                     def setPosePath(fileName, fileType):
                         self.pathProject = fileName
                     mc.fileBrowserDialog(m=4, fc=setPosePath, ft='image', an='setPoseFolder', om='Import')
-            except Exception,err:
+            except Exception as err:
                 log.warning('No Folder Selected or Given | {0}'.format(err))
         elif field:
             self.pathProject = self.tf_projectPath.getValue()
@@ -1461,22 +1461,22 @@ def uiProject_clear(self,path=None,revert=False):
     for dType in ui._l_sections:
         log.debug(cgmGEN.logString_sub(_str_func,dType))
         
-        for k,v in self.mDat.__dict__[PU._dataConfigToStored[dType]].iteritems():
+        for k,v in list(self.mDat.__dict__[PU._dataConfigToStored[dType]].items()):
             try:
                 log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(k,v)))
                 _type = type(self.d_tf[dType][k])
                 if _type not in [mUI.MelOptionMenu]:
                     try:self.d_tf[dType][k].clear()
                     except:pass
-            except Exception,err:
+            except Exception as err:
                 log.error("err | {0}".format(err))
                 
     self.path_projectConfig = None
     
-    for k,tf in self.d_tf['pathsProject'].iteritems():
+    for k,tf in list(self.d_tf['pathsProject'].items()):
         tf.setValue('',executeChangeCB=False)
         
-    for k, tf in self.d_tf['paths'].iteritems():
+    for k, tf in list(self.d_tf['paths'].items()):
         tf.setValue('',executeChangeCB=False)
     
     #Set pose path
@@ -1511,14 +1511,14 @@ def uiProject_lock(self):
         _color = .2,.2,.2
         _template = 'cgmUILockedTemplate'
         
-        for k,tf in self.d_tf['pathsProject'].iteritems():
+        for k,tf in list(self.d_tf['pathsProject'].items()):
             tf(edit=True,visible=False)
             
-        for k,tf in self.d_labels['pathsProject'].iteritems():
+        for k,tf in list(self.d_labels['pathsProject'].items()):
             tf(edit=True,visible=True,
                label = self.d_tf['pathsProject'][k].getValue())
             
-        for k,tf in self.d_buttons['pathsProject'].iteritems():
+        for k,tf in list(self.d_buttons['pathsProject'].items()):
             tf(edit=True,
                visible =False)
             
@@ -1529,11 +1529,11 @@ def uiProject_lock(self):
     else:
         log.debug("|{0}| >>...off".format(_str_func))
         
-        for k,tf in self.d_tf['pathsProject'].iteritems():
+        for k,tf in list(self.d_tf['pathsProject'].items()):
             tf(edit=True,visible=True)
-        for k,tf in self.d_labels['pathsProject'].iteritems():
+        for k,tf in list(self.d_labels['pathsProject'].items()):
             tf(edit=True,visible=False)
-        for k,tf in self.d_buttons['pathsProject'].iteritems():
+        for k,tf in list(self.d_buttons['pathsProject'].items()):
             tf(edit=True,
                visible =True)
         
@@ -1548,7 +1548,7 @@ def uiProject_lock(self):
                'anim':PU._animSettings}
 
     #pprint.pprint(d_toDo)
-    for k,l in d_toDo.iteritems():
+    for k,l in list(d_toDo.items()):
         log.debug(cgmGEN.logString_sub(_str_func,k))
         
         _d = self.d_tf[k]
@@ -1565,7 +1565,7 @@ def uiProject_lock(self):
                     _d[_name](edit=True,bgc = _color)
                     
                 
-            except Exception,err:
+            except Exception as err:
                 log.error("Failure {0} | {1} | {2}".format(k,_name,err))
            
  
@@ -1581,7 +1581,7 @@ def uiProject_fill(self,fillDir = True):
     for dType in ['general','anim','pathsProject','colors','exportOptions']:
         log.debug(cgmGEN.logString_sub(_str_func,dType))
         
-        for k,v in self.mDat.__dict__[PU._dataConfigToStored[dType]].iteritems():
+        for k,v in list(self.mDat.__dict__[PU._dataConfigToStored[dType]].items()):
             try:
                 log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(k,v)))
                 try:_type = self.d_uiTypes[dType][k]
@@ -1605,7 +1605,7 @@ def uiProject_fill(self,fillDir = True):
                         self.d_tf[dType][k].setValue('',executeChangeCB=False)
                         
                         
-            except Exception,err:
+            except Exception as err:
                 log.error("Missing data field or failure: dtype:{0} | {1}".format(dType,k))
                 log.error("err | {0}".format(err))
                 
@@ -1619,7 +1619,7 @@ def uiProject_fill(self,fillDir = True):
     d_pathsUse = copy.copy(self.mDat.d_pathsProject)
     if d_user:
         log.debug("Found user path dat!")
-        for k,v in d_user.iteritems():
+        for k,v in list(d_user.items()):
             if v:
                 d_pathsUse[k]=v
     else:
@@ -1629,7 +1629,7 @@ def uiProject_fill(self,fillDir = True):
         
 
     l_pathsMissing = []
-    for k,v in d_pathsUse.iteritems():
+    for k,v in list(d_pathsUse.items()):
         try:
             log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(k,v)))
             if v is not None:
@@ -1644,7 +1644,7 @@ def uiProject_fill(self,fillDir = True):
                     self.d_tf['paths'][k].setValue('',executeChangeCB=False)
                     self.d_tf['paths'][k](e=True, bgc=_colorBad)
                     
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | Missing data field or failure: {0}".format(_str_func,k))
             log.error("err | {0}".format(err))
             
@@ -1738,13 +1738,13 @@ def uiProject_save(self, path = None, updateFile = True, duplicateMode = False):
             path = self.mDat.str_filepath        
         
         
-    for dType,d in PU._dataConfigToStored.iteritems():
+    for dType,d in list(PU._dataConfigToStored.items()):
         if dType in ['enviornment','pathsUser']:
             continue
         
         log.debug(cgmGEN.logString_sub(_str_func,"{0} | {1}".format(dType,d)))
         
-        for k,ui in self.d_tf.get(dType,{}).iteritems():
+        for k,ui in list(self.d_tf.get(dType,{}).items()):
             try:_type = self.d_uiTypes[dType][k]
             except:_type = None
             
@@ -1768,7 +1768,7 @@ def uiProject_save(self, path = None, updateFile = True, duplicateMode = False):
     if not duplicateMode:
         ###Local paths
         _d_local = {}
-        for k,v in self.mDat.__dict__['d_paths'].iteritems():
+        for k,v in list(self.mDat.__dict__['d_paths'].items()):
             if v != self.mDat.__dict__['d_pathsProject'][k]:
                 _d_local[k] = v
             
@@ -1778,7 +1778,7 @@ def uiProject_save(self, path = None, updateFile = True, duplicateMode = False):
     else:
         log.debug(cgmGEN.logString_sub(_str_func,"Duplicate mode..."))
         for d in self.mDat.d_paths,self.mDat.d_pathsProject:
-            for k,d2 in d.iteritems():
+            for k,d2 in list(d.items()):
                 d[k] = ''
         self.mDat.d_pathsUser = {}
         
@@ -1825,13 +1825,13 @@ def uiProject_addDir(self,pSet = None, mScrollList = None):
     log.debug("|{0}| >>...".format(_str_func))
 
     if pSet == None:
-        raise ValueError,"Must have directory set arg. Most likely: export/content"
+        raise ValueError("Must have directory set arg. Most likely: export/content")
     
     _path = self.d_tf['paths'].get(pSet).getValue()
     mPath = PATHS.Path(_path)
     
     if not mPath.exists():
-        raise ValueError,"uiProject_addDir | Invalid Path: {0}".format(_path)
+        raise ValueError("uiProject_addDir | Invalid Path: {0}".format(_path))
     
     log.debug(cgmGEN.logString_msg(_str_func,'Path: {0}'.format(mPath)))
     
@@ -1872,23 +1872,23 @@ def uiProject_verifyDir(self,pSet = None,pType = None, mScrollList = None, addHo
     log.debug(cgmGEN.logString_msg(_str_func,'pType: {0}'.format(pType)))
     
     if pSet == None:
-        raise ValueError,"Must have directory set arg. Most likely: export/content"
+        raise ValueError("Must have directory set arg. Most likely: export/content")
     
     _path = self.d_tf['paths'].get(pSet).getValue()
     mPath = PATHS.Path(_path)
     
     if not mPath.exists():
-        raise ValueError,"uiProject_verifyDir | Invalid Path: {0}".format(_path)
+        raise ValueError("uiProject_verifyDir | Invalid Path: {0}".format(_path))
     
     log.debug(cgmGEN.logString_msg(_str_func,'Path: {0}'.format(mPath)))
     
-    _dat = self.mDat.assetType_getTypeDict().keys()#PU.dirCreateList_get(pType,pSet)
+    _dat = list(self.mDat.assetType_getTypeDict().keys())#PU.dirCreateList_get(pType,pSet)
     #pprint.pprint(_dat)
     _type = type(_dat)
     
     if issubclass(_type,dict):
         log.debug(cgmGEN.logString_msg(_str_func,'dict...'))
-        for k,l in _dat.iteritems():
+        for k,l in list(_dat.items()):
             
             mDir =  PATHS.Path( os.path.join(mPath, k))
             if not mDir.exists():
@@ -2153,7 +2153,7 @@ class data(object):
         #self.d_env = {}#cgmGEN.get_mayaEnviornmentDict()
         #self.d_env['file'] = mc.file(q = True, sn = True)
         
-        for k,d in PU._dataConfigToStored.iteritems():
+        for k,d in list(PU._dataConfigToStored.items()):
             log.debug("initialze: {0}".format(k))
             self.__dict__[d] = {}
         
@@ -2162,7 +2162,7 @@ class data(object):
             
         if filepath is not None:
             try:self.read(filepath)
-            except Exception,err:log.error("data Filepath failed to read | {0}".format(err))
+            except Exception as err:log.error("data Filepath failed to read | {0}".format(err))
             
         self.fillDefaults()
             
@@ -2171,7 +2171,7 @@ class data(object):
         _str_func = 'data.fillDefaults'
         log.debug("|{0}| >>...".format(_str_func))
         
-        for k,d in PU._dataConfigToStored.iteritems():
+        for k,d in list(PU._dataConfigToStored.items()):
             log.debug("checking: {0}".format(k))
             mD = self.__dict__[d]
             
@@ -2187,19 +2187,19 @@ class data(object):
     def nameStyle_push(self):
         _nameStyle = self.d_project.get('nameStyle')
         if not _nameStyle:
-            raise ValueError,"No nameStyle set"
+            raise ValueError("No nameStyle set")
         
-        for k,d in PU._dataConfigToStored.iteritems():
+        for k,d in list(PU._dataConfigToStored.items()):
             log.debug("Checking: {0}".format(k))
             mD = self.__dict__[d]
             
-            for k2,v in mD.iteritems():
-                if issubclass(type(v), basestring):
+            for k2,v in list(mD.items()):
+                if issubclass(type(v), str):
                     mD[k2] = CORESTRINGS.byMode(v,_nameStyle)
                     log.debug("set: {0}".format(k2))
                 
     def projectPaths_getActive(self):
-        for k,v in self.d_pathsProject.iteritems():
+        for k,v in list(self.d_pathsProject.items()):
             _v2 = self.d_paths.get(k)
             if _v2:
                 self.d_pathsProject[k] = _v2
@@ -2216,7 +2216,7 @@ class data(object):
         d_pathsUse = copy.copy(self.d_pathsProject)
         if d_user:
             log.debug("Found user path dat!")
-            for k,v in d_user.iteritems():
+            for k,v in list(d_user.items()):
                 if v:
                     d_pathsUse[k]=v
         else:
@@ -2263,7 +2263,7 @@ class data(object):
         ConfigObj = configobj.ConfigObj(indent_type='\t')
         ConfigObj['configType']= 'cgmProject'
         
-        for k,d in PU._dataConfigToStored.iteritems():
+        for k,d in list(PU._dataConfigToStored.items()):
             _dat = self.__dict__.get(d,None)
             if _dat:
                 log.debug("Dat: {0}".format(k))
@@ -2299,14 +2299,14 @@ class data(object):
         #if _config.get('configType') != 'cgmSkinConfig':
             #raise ValueError,"This isn't a cgmSkinConfig config | {0}".format(filepath)
                 
-        for k in PU._dataConfigToStored.keys():
+        for k in list(PU._dataConfigToStored.keys()):
             log.debug("Checking...{0}".format(k))
             
-            if _config.has_key(k):
+            if k in _config:
                 _d = _config[k]
                 if issubclass(type(_d),dict):
                     self.__dict__[PU._dataConfigToStored[k]] = {}
-                    for _k,_item in _d.iteritems():
+                    for _k,_item in list(_d.items()):
                         log.debug("{0} | {1}".format(_k,_item))
                         self.__dict__[PU._dataConfigToStored[k]][_k] = decodeString(_item)                    
                 else:
@@ -2357,9 +2357,9 @@ class data(object):
         for i,d in enumerate(self.assetDat):
             _name = d.get('n','NONAME')
             _content = d.get('content',[])
-            print cgmGEN.logString_sub('', "{0} | {1} ".format(i,_name))
+            print((cgmGEN.logString_sub('', "{0} | {1} ".format(i,_name))))
             for ii,d2 in enumerate(_content):
-                print cgmGEN.logString_msg('   ', "{0}".format (d2.get('n')))
+                print((cgmGEN.logString_msg('   ', "{0}".format (d2.get('n')))))
             #print "{0} | {1} | {2}".format(i,_name,_content)
             
     def assetTypes_get(self):
@@ -2466,7 +2466,7 @@ class data(object):
         '''
         mPath = PATHS.Path(path)
         if not mPath.exists():
-            raise StandardError('asset_addDir | Invalid Path: {0}'.format(path))
+            raise Exception('asset_addDir | Invalid Path: {0}'.format(path))
         
         promptstring = 'Add {0} '.format(dType)
         
@@ -2474,7 +2474,7 @@ class data(object):
         
         if not l_subs:
             pprint.pprint(vars())
-            raise ValueError,"No subs found for : {0}".format(dType)
+            raise ValueError("No subs found for : {0}".format(dType))
         
         result = mc.promptDialog(
                 title=promptstring,
@@ -2521,7 +2521,7 @@ def decodeString(val):
         if cgmValid.isListArg(val):
             return [decodeString(v) for v in val]
         
-        if not issubclass(type(val), str) and not type(val) == unicode:
+        if not issubclass(type(val), str) and not type(val) == str:
             # log.debug('Val : %s : is not a string / unicode' % val)
             # log.debug('ValType : %s > left undecoded' % type(val))
             return val
@@ -2650,11 +2650,11 @@ class cgmProjectDirList(mUI.BaseMelWidget):
         log.debug("Dat: "+cgmGEN._str_subLine)
         return
         for i,mObj in enumerate(self._l_dat):
-            print ("{0} | {1} | {2}".format(i,self._l_strings[i],mObj))
+            print(("{0} | {1} | {2}".format(i,self._l_strings[i],mObj)))
             
         log.debug("Loaded "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_loaded):
-            print("{0} | {1}".format(i, mObj))
+            print(("{0} | {1}".format(i, mObj)))
             
         pprint.pprint(self._ml_scene)
         
@@ -2695,7 +2695,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
         '''
         mPath = PATHS.Path(path)
         if not mPath.exists():
-            raise StandardError('uiPath_addDir | Invalid Path: {0}'.format(path))
+            raise Exception('uiPath_addDir | Invalid Path: {0}'.format(path))
         
         promptstring = 'Add Dir '.format(mPath.asFriendly())
         
@@ -2736,7 +2736,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
         '''
         mPath = PATHS.Path(path)
         if not mPath.exists():
-            raise StandardError('uiPath_removeDir | Invalid Path: {0}'.format(path))
+            raise Exception('uiPath_removeDir | Invalid Path: {0}'.format(path))
         
         promptstring = 'Remove Dir '.format(mPath.asFriendly())
         
@@ -2853,7 +2853,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                     continue
 
                 newRefFilename = os.path.normpath(refFile).replace(os.path.normpath(self.project.userPaths_get()['content']), os.path.normpath(newProject.userPaths_get()['content']))
-                print newRefFilename
+                print(newRefFilename)
                 if not os.path.exists(newRefFilename):
                     if not os.path.exists(os.path.dirname(newRefFilename)):
                         os.makedirs(os.path.dirname(newRefFilename))
@@ -2994,7 +2994,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                       'env':'enviornment',
                       'sub':'sub project'}"""
             
-            l_types = self.mDat.assetType_getTypeDict().keys() #self.uiAssetTypeOptions.getMenuItems()
+            l_types = list(self.mDat.assetType_getTypeDict().keys()) #self.uiAssetTypeOptions.getMenuItems()
 
             
             for t in l_types: #['char','prop','env','sub']:
@@ -3021,7 +3021,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                 _color = [v*.5 for v in _color]
                 self(e =1, hlc = _color)
                 return
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 
             try:self(e =1, hlc = self.v_bgc)
@@ -3188,7 +3188,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                 _key = self._d_strToKey[str_entry]
                 
                 if str_entry in self._l_uiStr_loaded:
-                    raise ValueError,'Dup uiString: {0}'.format(str_entry)
+                    raise ValueError('Dup uiString: {0}'.format(str_entry))
                     #log.warning("Duplicate string: {0}".format(str_entry))
                 
                 self._l_uiStr_loaded.append(str_entry)
@@ -3203,7 +3203,7 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                 try:self(e=1, itc = [(i+1,_color[0],_color[1],_color[2])])
                 except:pass
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
@@ -3239,7 +3239,7 @@ def uiCC_checkPath(self, key, mode='local'):
 
 def uiUpdate_fbxVersionLabel(self):
     try:self.uiLabel_fbxVersion(edit=True, label = mel.eval('FBXExportFileVersion -q') )
-    except Exception,err:
+    except Exception as err:
         log.error(err)
         self.uiLabel_fbxVersion(edit=True, label = 'Error' )
     log.info("FBX Version: {}".format(self.uiLabel_fbxVersion.getValue()))
@@ -3258,7 +3258,7 @@ def uiButton_fbxVersion_set(self,uiOption, uiLabel):
                 continue
     else:
         try:mel.eval('FBXExportFileVersion -v {}'.format(_v))
-        except Exception,err:
+        except Exception as err:
             log.error("Failed to set to: {} | {}".foramt(_v,err))
     uiUpdate_fbxVersionLabel(self)
     
@@ -3280,7 +3280,7 @@ def uiButton_setPathToTextField(self,key,mode='project'):
         
         if not PATHS.Path(x[0]).exists():
             mField(edit=True,bgc = _colorBad)
-            raise ValueError,"Invalid path: {0}".format(x[0])
+            raise ValueError("Invalid path: {0}".format(x[0]))
         
         mField.setValue( x[0] )
         mField(edit=True,bgc = _colorGood)
@@ -3309,7 +3309,7 @@ def uiButton_colorSet(self,d,key):
         #values = mc.colorEditor(query=True, hsv=True)
         #print 'HSV = ' + str(values)
         values = mc.colorEditor(query=True, rgb=True)
-        print ('RGB = ' + str(values))
+        print(('RGB = ' + str(values)))
         
         self.d_tf[d][key](edit = 1, bgc = values)
         

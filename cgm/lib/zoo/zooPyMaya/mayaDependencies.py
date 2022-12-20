@@ -8,13 +8,13 @@ from cgm.lib.zoo.zooPy.path import Path
 import maya
 import maya.cmds as cmd
 
-import melUtils
-import baseMelUI
+from . import melUtils
+from . import baseMelUI
 
 
 def flush():
 
-	pluginPaths = map( Path, melUtils.melEval( 'getenv MAYA_PLUG_IN_PATH' ).split( os.pathsep ) )  #NOTE: os.environ is different from the getenv call, and getenv isn't available via python...  yay!
+	pluginPaths = list(map( Path, melUtils.melEval( 'getenv MAYA_PLUG_IN_PATH' ).split( os.pathsep ) ))  #NOTE: os.environ is different from the getenv call, and getenv isn't available via python...  yay!
 
 	#before we do anything we need to see if there are any plugins in use that are python scripts - if there are, we need to ask the user to close the scene
 	#now as you might expect maya is a bit broken here - querying the plugins in use doesn't return reliable information - instead we ask for all loaded
@@ -34,7 +34,7 @@ def flush():
 			BUTTONS = YES, NO = 'Yes', 'NO'
 			ret = cmd.confirmDialog( t='Plugins in Use!', m="Your scene has python plugins in use - these need to be unloaded to properly flush.\n\nIs it cool if I close the current scene?  I'll prompt to save your scene...\n\nNOTE: No flushing has happened yet!", b=BUTTONS, db=NO )
 			if ret == NO:
-				print "!! FLUSH ABORTED !!"
+				print("!! FLUSH ABORTED !!")
 				return
 
 			initialScene = cmd.file( q=True, sn=True )
@@ -62,7 +62,7 @@ def flush():
 		if Path( initialScene ).exists():
 			cmd.file( initialScene, o=True )
 
-	print "WARNING: You'll need to close and re-open any python based tools that are currently open..."
+	print("WARNING: You'll need to close and re-open any python based tools that are currently open...")
 
 
 def reconnect():
@@ -75,7 +75,7 @@ def reconnect():
 	try:
 		debugger = wingdbstub.debugger
 	except AttributeError:
-		print "No debugger found!"
+		print("No debugger found!")
 	else:
 		if debugger is not None:
 			debugger.StopDebug()

@@ -22,6 +22,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -93,7 +94,7 @@ def get_dynSwitch(self):
         mDynSwitch = RIGMETA.cgmDynamicSwitch(dynOwner=mRigNull.mNode)
         log.debug("|{0}| >> Created dynSwitch: {1}".format(_str_func,mDynSwitch))
         return mDynSwitch
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def mirror_getSideString(self):
     _str_func = ' mirror_getSideString'
@@ -105,7 +106,7 @@ def mirror_getSideString(self):
         if _str_direction is not None and _str_direction.lower() in ['right','left']:
             return _str_direction.capitalize()
         else:return 'Centre'	           
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 def get_settingsHandle(self):
@@ -127,7 +128,7 @@ def get_settingsHandle(self):
         log.debug("|{0}| >> No settings found".format(_str_func))   
     
         return False       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 def moduleChildren_get(self,excludeSelf = True):
@@ -142,7 +143,7 @@ def moduleChildren_get(self,excludeSelf = True):
         while len(ml_childrenCull)>0 and cnt < 100:#While we still have a cull list
             cnt+=1                        
             if cnt == 99:
-                raise StandardError,"Max count reached"
+                raise Exception("Max count reached")
             for mChild in ml_childrenCull:
                 if mChild not in ml_children:
                     ml_children.append(mChild)
@@ -154,7 +155,7 @@ def moduleChildren_get(self,excludeSelf = True):
             ml_children.append(self)
         return ml_children
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def doName(self):
     _str_func = ' doName'
@@ -170,7 +171,7 @@ def doName(self):
         log.debug("|{0}| >>  str: {1}".format(_str_func,_str))
         self.rename(_str)
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 #=============================================================================================================
 #>> verify
 #=============================================================================================================
@@ -193,7 +194,7 @@ def verify_objectSet(self):
             if not mi_modulePuppet.getMessage('puppetSet'):
                 mi_modulePuppet.verify_objectSet()
             self.modulePuppet.puppetSet.addObj(mSet.mNode)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def verify_faceObjectSet(self):
     _str_func = ' verify_faceObjectSet'
@@ -238,7 +239,7 @@ def verify_faceObjectSet(self):
             mPuppetSet.addObj(mFaceSet.mNode)
         return mFaceSet
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 #=============================================================================================================
 #>> Skeleton
@@ -259,7 +260,7 @@ def is_skeletonized(self):
             log.debug("|{0}| >> no joints found...".format(_str_func))
             return False  
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def rig_getSkinJoints(self,asMeta=True):
     _str_func = ' rig_getSkinJoints'
@@ -281,7 +282,7 @@ def rig_getSkinJoints(self,asMeta=True):
         if ml_skinJoints:
             return [obj.p_nameShort for obj in ml_skinJoints]	            
 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 #=============================================================================================================
 #>> Rig
@@ -350,7 +351,7 @@ def is_rigged(self):
                 log.warning("No data found on '%s'"%(attr))
                 mRigNull.version = ''#clear the version            
                 return False            
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 def rig_connect(self,force=False):
@@ -379,7 +380,7 @@ def rig_connect(self,force=False):
         else:_b_faceState = False
     
         if len(ml_skinJoints)!=len(ml_rigJoints):
-            raise ValueError,"Rig/Skin joint chain lengths don't match"
+            raise ValueError("Rig/Skin joint chain lengths don't match")
     
         l_constraints = []
         int_lenMax = len(ml_skinJoints)
@@ -410,7 +411,7 @@ def rig_connect(self,force=False):
             #attributes.doConnectAttr((ml_rigJoints[i].mNode+'.s'),(i_jnt.mNode+'.s'))
 
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 def rig_isConnected(self):
@@ -432,7 +433,7 @@ def rig_isConnected(self):
                 return False
 
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def rig_getSkinJoints(self,asMeta=True):
     _str_func = ' rig_getSkinJoints'
@@ -456,7 +457,7 @@ def rig_getSkinJoints(self,asMeta=True):
             return [obj.mNode for obj in ml_skinJoints]	    
         return True
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def rig_disconnect(self,force=False):
     _str_func = ' rig_disconnect'
@@ -477,7 +478,7 @@ def rig_disconnect(self,force=False):
         mi_rigNull = self.rigNull
         ml_skinJoints = rig_getSkinJoints(self,asMeta=True)
         if not ml_skinJoints:
-            raise ValueError,"No skin joints found"
+            raise ValueError("No skin joints found")
         
         l_constraints = []
         for i,mJnt in enumerate(ml_skinJoints):
@@ -492,7 +493,7 @@ def rig_disconnect(self,force=False):
             for mJnt in ml_skinJoints:
                 mJnt.scale = 1,1,1
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def rig_reset(self,transformsOnly = True):
     _str_func = ' rig_reset'
@@ -505,7 +506,7 @@ def rig_reset(self,transformsOnly = True):
         if _sel:
             mc.select(_sel)
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
     
 def parentModule_set(self,mModuleParent = None):
@@ -614,14 +615,14 @@ def skeleton_connectToParent(self):
         else:
             ml_targetJoints = mParentModule.rigNull.msgList_get('moduleJoints',asMeta = True, cull = True)
             if not ml_targetJoints:
-                raise ValueError,"mParentModule has no module joints."
+                raise ValueError("mParentModule has no module joints.")
             _attachPoint = ATTR.get_enumValueString(mBlock.mNode,'attachPoint')
             if _attachPoint == 'end':
                 mTargetJoint = ml_targetJoints[-1]
             elif _attachPoint == 'base':
                 mTargetJoint = ml_targetJoints[0]
             else:
-                raise ValueError,"Not done with {0}".format(_attachPoint)
+                raise ValueError("Not done with {0}".format(_attachPoint))
         
             ml_moduleJoints[0].p_parent = mTargetJoint
     return True
@@ -637,7 +638,7 @@ def get_attachPoint(self, mode = 'end',idx = None, noneValid = True):
                 log.debug("|{0}| >> Root joint on master found".format(_str_func))
                 return self.modulePuppet.rootJoint[0]
             return False
-        raise RuntimeError,"Shouldn't have gotten here"
+        raise RuntimeError("Shouldn't have gotten here")
     else:
         mParentModule = mParentModule[0]
         log.debug("|{0}| >> moduleParent: {1}".format(_str_func,mParentModule))
@@ -663,7 +664,7 @@ def get_attachPoint(self, mode = 'end',idx = None, noneValid = True):
                 break
             
         if not ml_targetJoints:
-            raise ValueError,"mParentModule has no module joints."
+            raise ValueError("mParentModule has no module joints.")
         if mode == 'end':
             mTarget = ml_targetJoints[-1]
         elif mode == 'base':
@@ -678,7 +679,7 @@ def get_attachPoint(self, mode = 'end',idx = None, noneValid = True):
             _msg = ("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
             if noneValid:
                 return log.error(_msg)
-            raise ValueError,_msg
+            raise ValueError(_msg)
         return mTarget
     
 def get_driverPoint(self, mode = 'end',idx = None,noneValid = True):
@@ -698,7 +699,7 @@ def get_driverPoint(self, mode = 'end',idx = None,noneValid = True):
                 #return self.modulePuppet.rootJoint[0]
             return self.modulePuppet.masterControl
             #return self.modulePuppet.masterNull.skeletonGroup
-        raise RuntimeError,"Shouldn't have gotten here"
+        raise RuntimeError("Shouldn't have gotten here")
     else:
         mParentModule = mParentModule[0]
         log.debug("|{0}| >> moduleParent: {1}".format(_str_func,mParentModule))
@@ -726,7 +727,7 @@ def get_driverPoint(self, mode = 'end',idx = None,noneValid = True):
                 break        
         
         if not ml_targetJoints:
-            raise ValueError,"mParentModule has no rig joints."
+            raise ValueError("mParentModule has no rig joints.")
         if mode == 'end':
             mTarget = ml_targetJoints[-1]
         elif mode == 'base':
@@ -741,7 +742,7 @@ def get_driverPoint(self, mode = 'end',idx = None,noneValid = True):
             _msg = ("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
             if noneValid:
                 return log.error(_msg)
-            raise ValueError,_msg
+            raise ValueError(_msg)
         
         if _plugUsed not in ['handleJoints'] and _direct != True:
             if mTarget.getMessage('masterGroup'):
@@ -802,7 +803,7 @@ def controls_getDat(self, keys = None,
             if _res:
                 log.debug(cgmGEN.logString_msg(_str_func,'mControlsAll'))
                 return _res
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(self,err))
             
     if core:
@@ -811,7 +812,7 @@ def controls_getDat(self, keys = None,
             if _res:
                 log.debug(cgmGEN.logString_msg(_str_func,'mControlsCore'))
                 return _res
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(self,err))        
     
     
@@ -850,7 +851,7 @@ def controls_getDat(self, keys = None,
     
     if ignore:
         if rewire:
-            raise ValueError,"Cannot have rewire on with ignore"
+            raise ValueError("Cannot have rewire on with ignore")
         log.debug("|{0}| >> Ignore found... ".format(_str_func)+'-'*20)        
         for k in ignore:
             if k in l_useKeys:
@@ -977,7 +978,7 @@ def control_add(self, controls = None, face=True):
             
         if mObj in ml_exists:
             continue
-        print mObj
+        print(mObj)
 
         
         mRigNull.msgList_append('controlsAll',mObj)
@@ -1057,7 +1058,7 @@ def get_joints(self, skinJoints = False, moduleJoints =False, rigJoints=False,
         return l_return        
     
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 #=============================================================================================================
@@ -1073,12 +1074,12 @@ def anim_settings_toggle(self,attr=None):
             _short_settings = mSettings.mNode
             try:
                 ATTR.set(_short_settings,attr,not(ATTR.get(_short_settings,attr)))
-            except Exception,err:
+            except Exception as err:
                 log.debug("|{0}| >>  Failed to set: module:{1} | attr:{2}".format(_str_func,self.mNode,attr))
         else:
             log.debug("|{0}| >>  Missing settings: {1}".format(_str_func,self.mNode))
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 
@@ -1096,7 +1097,7 @@ def anim_reset(self,transformsOnly = True):
         if _sel:mc.select(_sel)
         return _result
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def anim_select(self):
     try:
@@ -1105,7 +1106,7 @@ def anim_select(self):
         mRigNull = self.rigNull        
         mRigNull.moduleSet.select()
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def anim_key(self,**kws):
     try:
@@ -1125,7 +1126,7 @@ def anim_key(self,**kws):
         if _sel:mc.select(_sel)
         return _result
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def siblings_get(self,matchType = True, excludeSelf = True, matchName=False):
     _str_func = 'siblings_get'
@@ -1148,7 +1149,7 @@ def siblings_get(self,matchType = True, excludeSelf = True, matchName=False):
     for mChild in ml_children:
         log.debug("|{0}| >> mChild: {1}".format(_str_func,mChild))        
         _match = True
-        for a,v in d.iteritems():
+        for a,v in list(d.items()):
             if not str(mChild.getMayaAttr(a)) == str(v):
                 _match = False
                 continue
@@ -1207,7 +1208,7 @@ def mirror_get(self,recheck=False):
     for mChild in ml_children:
         log.debug("|{0}| >> mChild: {1}".format(_str_func,mChild))        
         _match = True
-        for a,v in d.iteritems():
+        for a,v in list(d.items()):
             if not str(mChild.getMayaAttr(a)) == str(v):
                 log.debug("|{0}| >> fail: {1}:{2} | {3}".format(_str_func,a,v,str(mChild.getMayaAttr(a))))
                 _match = False
@@ -1216,7 +1217,7 @@ def mirror_get(self,recheck=False):
     
     if len(ml_match)>1:
         pprint.pprint(vars())
-        raise ValueError,"Shouldn't have found more than one mirror module!"
+        raise ValueError("Shouldn't have found more than one mirror module!")
     elif not ml_match:
         return False
     
@@ -1241,9 +1242,9 @@ def mirror_reportSetup(self):
         _v = mObj.mirrorIndex
         
         if md_controls[_side].get(_v):
-            raise ValueError,"Already stored: {0} | {1} | stored: {2} | mObj: {3}".format(_v,
+            raise ValueError("Already stored: {0} | {1} | stored: {2} | mObj: {3}".format(_v,
                                                                                           _side,
-                                                                                          md_controls[_side].get(_v),mObj)
+                                                                                          md_controls[_side].get(_v),mObj))
         
         md_controls[_side][_v] = mObj
         
@@ -1264,22 +1265,22 @@ def mirror_reportSetup(self):
                 registerObj(mObj)
                        
     if md_controls.get('Centre'):
-        print(cgmGEN._str_subLine)
+        print((cgmGEN._str_subLine))
         print("Centre...")
-        l_keys = md_controls['Centre'].keys()
+        l_keys = list(md_controls['Centre'].keys())
         l_keys.sort()
         for i in l_keys:
             mObj = md_controls['Centre'][i]
-            print("[{0}] : {1} | {2}".format(mObj.mirrorIndex,
+            print(("[{0}] : {1} | {2}".format(mObj.mirrorIndex,
                                              mObj.p_nameShort,
-                                             mObj.mirrorAxis))
+                                             mObj.mirrorAxis)))
     
     if md_controls.get('Left') and md_controls.get('Right'):
-        print(cgmGEN._str_subLine)
+        print((cgmGEN._str_subLine))
         print("Sides...")
         
-        l_keysLeft = md_controls['Left'].keys()
-        l_keysRight = md_controls['Right'].keys()
+        l_keysLeft = list(md_controls['Left'].keys())
+        l_keysRight = list(md_controls['Right'].keys())
         
         minLeft = min(l_keysLeft)
         minRight = min(l_keysRight)
@@ -1295,26 +1296,26 @@ def mirror_reportSetup(self):
             i_max = maxRight
             
         for i in range(i_min,i_max):
-            print("[{0}] | Left: {1} | Right: {2}".format(i,
+            print(("[{0}] | Left: {1} | Right: {2}".format(i,
                                                           md_controls['Left'][i].p_nameShort,
                                                           md_controls['Right'][i].p_nameShort,
-))                        
+)))                        
     
     else:
         for t in ['Left','Right']:
-            print("{0}...".format(t))
-            l_keys = md_controls[t].keys()
+            print(("{0}...".format(t)))
+            l_keys = list(md_controls[t].keys())
             l_keys.sort()
             for i in l_keys:
                 mObj = md_controls[t][i]
-                print("[{0}] : {1} | {2}".format(mObj.mirrorIndex,
+                print(("[{0}] : {1} | {2}".format(mObj.mirrorIndex,
                                                  mObj.p_nameShort,
-                                                 mObj.mirrorAxis))            
+                                                 mObj.mirrorAxis)))            
     
 def get_controllerDat(self,rewire = True,report = False):
     _d = {}
     mModule = self.getBlockModule()
-    reload(mModule)
+    importlib.reload(mModule)
     if mModule.__dict__.get('controller_getDat'):
         log.debug("get_controllerDat | getting from module: {}".format(self))
         _d = mModule.controller_getDat(self)
@@ -1347,13 +1348,13 @@ def mirror_verifySetup(self, d_Indices = {},
                        md_data = None,
                        progressBar = None,progressEnd=True):
     _str_func = ' mirror_verifySetup'
-    raise ValueError,"Don't use this"
+    raise ValueError("Don't use this")
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
     log.debug("{0}".format(self))
     
     md_indicesToControls = {}
     for k in ['Centre','Left','Right']:
-        if not d_Indices.has_key(k):
+        if k not in d_Indices:
             d_Indices[k] = 0
         if not k in md_indicesToControls:
             md_indicesToControls[k] = {}
@@ -1395,7 +1396,7 @@ def mirror_verifySetup(self, d_Indices = {},
     if not d_mirror:
         log.debug("|{0}| >> No mirror found...".format(_str_func))
         if not d_self['ml_controls']:
-            raise ValueError,"Not rigged: {0} ".format(self)
+            raise ValueError("Not rigged: {0} ".format(self))
         validate_controls(d_self['ml_controls'])
         log.debug(cgmGEN._str_subLine)
         _v = None
@@ -1469,7 +1470,7 @@ def mirror_verifySetup(self, d_Indices = {},
                     #l_candSplit = mCandidate.p_nameBase.split('_')
                     _match = True
                     tags_second = md_cgmTags[mCandidate]
-                    for a,v in tags_second.iteritems():
+                    for a,v in list(tags_second.items()):
                         if tags_prime[a] != v:
                             _match = False
                             break
@@ -1551,7 +1552,7 @@ def mirror(self,mode = 'self'):
                 r9Anim.MirrorHierarchy().makeSymmetrical(l_objs,mode = '',primeAxis = _primeAxis )
                 _result = True                
             else:
-                raise ValueError,"|{0}| >> unknown mode: {1} | [{2}]".format(_str_func,mode,self)            
+                raise ValueError("|{0}| >> unknown mode: {1} | [{2}]".format(_str_func,mode,self))            
                 
             
         if _sel:
@@ -1560,7 +1561,7 @@ def mirror(self,mode = 'self'):
             mc.select(l_objs)
         return _result
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 @cgmGEN.Timer
 def switchMode(self,mode = 'fkOn', bypassModuleCheck=False, distCheck = False):
@@ -1698,7 +1699,7 @@ def switchMode(self,mode = 'fkOn', bypassModuleCheck=False, distCheck = False):
                 #mObj.p_orient = l_rot[i]
                 SNAP.go(mObj.mNode,mLoc.mNode)
             
-            for i,mLoc in md_locs.iteritems():
+            for i,mLoc in list(md_locs.items()):
                 mLoc.delete()
                 
             for mObj in mRigNull.msgList_get('handleJoints'):
@@ -1750,18 +1751,18 @@ def switchMode(self,mode = 'fkOn', bypassModuleCheck=False, distCheck = False):
                     log.error("mCtrl: {0}  missing switchTarget".format(mCtrl))
                     
             
-            for i,mCtrl in md_controls.iteritems():
+            for i,mCtrl in list(md_controls.items()):
                 mCtrl.resetAttrs(transformsOnly = True)
             
             mSettings.FKIK = 1
             
-            for i,mLoc in md_locs.iteritems():
+            for i,mLoc in list(md_locs.items()):
                 SNAP.go(md_controls[i].mNode,mLoc.mNode)
                 mLoc.delete()
             
             if distCheck:
                 
-                for i,v in md_datPostCompare.iteritems():
+                for i,v in list(md_datPostCompare.items()):
                     mBlend = ml_blendJoints[i]
                     dNew = {'pos':mBlend.p_position, 'orient':mBlend.p_orient}
                     
@@ -1785,8 +1786,8 @@ def switchMode(self,mode = 'fkOn', bypassModuleCheck=False, distCheck = False):
                 return log.warning("mode: {0} | Direct controls vis turned on for mode.".format(_mode))
             
         else:
-            raise ValueError,"|{0}| >> unknown mode: {1} | [{2}]".format(_str_func,_mode,self)
-    except Exception,err:
+            raise ValueError("|{0}| >> unknown mode: {1} | [{2}]".format(_str_func,_mode,self))
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 def is_upToDate(self,report=False):
@@ -1804,11 +1805,11 @@ def is_upToDate(self,report=False):
     if report:
         _short = self.p_nameBase        
         if b_upToDate:
-            print("|{0}| >> build current | {1}".format(_short,v_build))
+            print(("|{0}| >> build current | {1}".format(_short,v_build)))
         else:
-            print("|{0}| >> OUT OF DATE | buildVersion: {1} | blockVersion: {2}".format(_short,
+            print(("|{0}| >> OUT OF DATE | buildVersion: {1} | blockVersion: {2}".format(_short,
                                                                           v_build,
-                                                                          v_blockBuild))        
+                                                                          v_blockBuild)))        
     if b_upToDate:
         return True
     return False
@@ -1830,9 +1831,9 @@ def get_report(self, mode='rig'):
             b_upToDate = True
             
         if b_upToDate:
-            print("|{0}| >> build current. ".format(_short))
+            print(("|{0}| >> build current. ".format(_short)))
         else:
-            print("|{0}| >> buildVersion: {1} | blockVersion: {2}".format(_short,v_build, v_blockBuild))
+            print(("|{0}| >> buildVersion: {1} | blockVersion: {2}".format(_short,v_build, v_blockBuild)))
         
         
         
@@ -1904,7 +1905,7 @@ def get_uiString(self,showSide=True):
             
         return _str
         
-    except Exception,err:
+    except Exception as err:
         log.debug(cgmGEN.logString_start(_str_func,'ERROR'))
         log.error(err)
         return self.mNode

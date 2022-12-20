@@ -1,5 +1,5 @@
 
-from baseRigPrimitive import *
+from .baseRigPrimitive import *
 
 HandSkeletonCls = SkeletonPart.GetNamedSubclass( 'Hand' )
 FINGER_IDX_NAMES = HandSkeletonCls.FINGER_IDX_NAMES or ()

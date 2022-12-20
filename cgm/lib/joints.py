@@ -43,8 +43,8 @@ from cgm.lib import cgmMath
 #reload(cgmMath)
 
 def connectJointScalingBlendToMasterScale(mainDriverAttribute,jointList):
-    import attributes
-    import nodes
+    from . import attributes
+    from . import nodes
     for joint in jointList:
         # Get driver
         jointDriver = attributes.returnDriverObject(joint+'.scale')
@@ -184,11 +184,11 @@ def doCopyJointOrient(sourceJoint,targetJoints):
     """
     if type(targetJoints) not in [list,tuple]:targetJoints=[targetJoints]
     if not mc.objExists(sourceJoint):
-        raise StandardError,"doCopyJointOrient>> source doesn't exist: '%s'"%sourceJoint
+        raise Exception("doCopyJointOrient>> source doesn't exist: '%s'"%sourceJoint)
     if len(mc.ls(sourceJoint))>1:
-        raise StandardError,"doCopyJointOrient>> More than one sourcejoint found by that name: '%s'"%mc.ls(sourceJoint)        
+        raise Exception("doCopyJointOrient>> More than one sourcejoint found by that name: '%s'"%mc.ls(sourceJoint))        
     if mc.objectType(sourceJoint) != 'joint':
-        raise StandardError,"doCopyJointOrient>> Source joint isn't a joint: '%s'"%mc.objectType(sourceJoint)         
+        raise Exception("doCopyJointOrient>> Source joint isn't a joint: '%s'"%mc.objectType(sourceJoint))         
     for jnt in targetJoints:
         if not mc.objExists(jnt):
             log.warning("doCopyJointOrient>> target joint doesn't exist. Culling from targets: '%s'"%jnt)
@@ -200,7 +200,7 @@ def doCopyJointOrient(sourceJoint,targetJoints):
             log.warning("doCopyJointOrient>> target joint is not a joint. Can't change orientation. Culling from targets: '%s'"%jnt)
             targetJoints.remove(jnt)             
     if not targetJoints:
-        raise StandardError,"doCopyJointOrient>> No targets"
+        raise Exception("doCopyJointOrient>> No targets")
     
     #buffer parents and children of 
     d_children = {}
@@ -243,7 +243,7 @@ def freezeJointOrientation(targetJoints):
             log.warning("freezeJointOrientation>> target joint is not a joint. Can't change orientation. Culling from targets: '%s'"%jnt)
             targetJoints.remove(jnt)             
     if not targetJoints:
-        raise StandardError,"freezeJointOrientation>> No targets"
+        raise Exception("freezeJointOrientation>> No targets")
     
     #buffer parents and children of 
     d_children = {}
@@ -1585,7 +1585,7 @@ def insertRollJointsSegment (start, end, number):
     Heavily modified over time
     """
     if not number or type(number) not in [int,float]:
-        raise StandardError,"insertRollJointsSegment>>> must have an number. Arg: %s"%number
+        raise Exception("insertRollJointsSegment>>> must have an number. Arg: %s"%number)
     rollChain = []
     """checks to see if 'end' is child of 'start'"""
     checkChild = search.returnChildrenJoints(start,False,True)

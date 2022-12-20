@@ -17,6 +17,7 @@ import pprint
 import sys
 import os
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -172,7 +173,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItem( self.uiMenu_help, l="Get Pose Nodes",
                          c=lambda *a: self.get_poseNodes(select=True) )
         mUI.MelMenuItem( self.uiMenu_help, l="Reset Animate Module",
-                         c=lambda *a: reload(MRSANIMUTILS) )        
+                         c=lambda *a: importlib.reload(MRSANIMUTILS) )        
 
         mc.menuItem(parent=self.uiMenu_help,
                     l = 'Get Help',
@@ -441,7 +442,7 @@ class ui(cgmUI.cgmGUI):
         #buildTab_poses(self,uiTab_poses)
         
         #buildTab_anim(self,uiTab_poses)
-        reload(TOOLBOX)
+        importlib.reload(TOOLBOX)
         TOOLBOX.optionVarSetup_basic(self)
         TOOLBOX.buildTab_options(self,uiTab_settings)
         TOOLBOX.buildTab_anim(self,uiTab_anim)
@@ -482,7 +483,7 @@ class ui(cgmUI.cgmGUI):
 
     def getPoseSelected(self):
         if not self.poseSelected:
-            raise StandardError('No Pose Selected in the UI')
+            raise Exception('No Pose Selected in the UI')
         return self.poseSelected
 
     def buildPoseList(self, sortBy='name'):
@@ -531,7 +532,7 @@ class ui(cgmUI.cgmGUI):
         '''
         if self.posePathMode == 'projectPoseMode':
             if self.poseProjectMute:
-                raise StandardError('%s : function disabled in Project Pose Mode!' % func)
+                raise Exception('%s : function disabled in Project Pose Mode!' % func)
             else:
                 result = mc.confirmDialog(
                     title='Project Pose Modifications',
@@ -630,11 +631,11 @@ class ui(cgmUI.cgmGUI):
                     self.posePath = mc.fileDialog2(fileMode=3,
                                                    dir=_dir)[0]
                 else:
-                    print 'Sorry Maya2009 and Maya2010 support is being dropped'
+                    print('Sorry Maya2009 and Maya2010 support is being dropped')
                     def setPosePath(fileName, fileType):
                         self.posePath = fileName
                     mc.fileBrowserDialog(m=4, fc=setPosePath, ft='image', an='setPoseFolder', om='Import')
-            except Exception,err:
+            except Exception as err:
                 log.warning('No Folder Selected or Given | {0}'.format(err))
         elif field:
             self.posePath = self.cgmUIField_posePath.getValue()
@@ -701,7 +702,7 @@ class ui(cgmUI.cgmGUI):
 
         dirs = [subdir for subdir in os.listdir(basePath) if os.path.isdir(os.path.join(basePath, subdir))]
         if not dirs:
-            raise StandardError('Folder has no subFolders for pose scanning')
+            raise Exception('Folder has no subFolders for pose scanning')
         for subdir in dirs:
             mc.textScrollList(self.cgmUItslPoseSubFolders, edit=True,
                                             append='/%s' % subdir,
@@ -807,8 +808,8 @@ class ui(cgmUI.cgmGUI):
             # Clear the Grid if it's already filled
             try:
                 [mc.deleteUI(button) for button in mc.gridLayout(self.cgmUIglPoses, q=True, ca=True)]
-            except StandardError, error:
-                print error
+            except Exception as error:
+                print(error)
             for pose in r9Core.filterListByString(self.poses, searchFilter, matchcase=False):  # self.buildFilteredPoseList(searchFilter):
                 try:
                     # :NOTE we prefix the buttons to get over the issue of non-numeric
@@ -821,8 +822,8 @@ class ui(cgmUI.cgmGUI):
                                             ann=pose,
                                             onc=self.mmCallback(self._uiCB_iconGridSelection, pose),
                                             ofc="import maya.cmds as cmds;mc.iconTextCheckBox('_%s', e=True, v=True)" % pose)  # we DONT allow you to deselect
-                except StandardError, error:
-                    raise StandardError(error)
+                except Exception as error:
+                    raise Exception(error)
 
             if searchFilter:
                 # with search scroll the list to the top as results may seem blank otherwise
@@ -1007,7 +1008,7 @@ class ui(cgmUI.cgmGUI):
         if poseHandler:
             import imp
             import inspect
-            print 'Adding to menus From PoseHandler File!!!!'
+            print('Adding to menus From PoseHandler File!!!!')
             tempPoseFuncs = imp.load_source(poseHandler.split('.py')[0], os.path.join(self.getPoseDir(), poseHandler))
             if [func for name, func in inspect.getmembers(tempPoseFuncs, inspect.isfunction) if name == 'posePopupAdditions']:
                 # NOTE we pass in self so the new additions have the same access as everything else!
@@ -1083,7 +1084,7 @@ class ui(cgmUI.cgmGUI):
             name = mc.promptDialog(query=True, text=True)
             try:
                 return os.path.join(self.getPoseDir(), '%s.pose' % r9Core.validateString(name, fix=True))
-            except ValueError, error:
+            except ValueError as error:
                 raise ValueError(error)
 
     def _uiCB_setPoseRootNode(self, specific=None, *args):
@@ -1109,14 +1110,14 @@ class ui(cgmUI.cgmGUI):
         else:
             if self.poseRootMode == 'RootNode':
                 if not rootNode:
-                    raise StandardError('Warning nothing selected')
+                    raise Exception('Warning nothing selected')
                 fillTextField(rootNode[0])
             elif self.poseRootMode == 'MetaRoot':
                 if rootNode:
                     # metaRig=r9Meta.getConnectedMetaNodes(rootNode[0])
                     metaRig = r9Meta.getConnectedMetaSystemRoot(rootNode[0])
                     if not metaRig:
-                        raise StandardError("Warning selected node isn't connected to a MetaRig node")
+                        raise Exception("Warning selected node isn't connected to a MetaRig node")
                     fillTextField(metaRig.mNode)
                 else:
                     metaRigs = r9Meta.getMetaNodes(dataType='mClass')
@@ -1126,7 +1127,7 @@ class ui(cgmUI.cgmGUI):
                                             mInstances=['MetaRig'],
                                             allowMulti=False)._showUI()
                     else:
-                        raise StandardError("Warning: No MetaRigs found in the Scene")
+                        raise Exception("Warning: No MetaRigs found in the Scene")
 
         # fill the cache up for the ini file
         self.ANIM_UI_OPTVARS['AnimationUI']['poseRoot'] = mc.textFieldButtonGrp(self.cgmUItfgPoseRootNode, q=True, text=True)
@@ -1197,7 +1198,7 @@ class ui(cgmUI.cgmGUI):
             return
         try:
             newName = self._uiCB_savePosePath(self.getPoseSelected())
-        except ValueError, error:
+        except ValueError as error:
             raise ValueError(error)
         try:
             os.rename(self.getPosePath(), newName)
@@ -1266,7 +1267,7 @@ class ui(cgmUI.cgmGUI):
                 mc.select(cl=True)
                 [mc.select(node, add=True) for node in nodes]
         else:
-            raise StandardError('RootNode not Set for Hierarchy Processing')
+            raise Exception('RootNode not Set for Hierarchy Processing')
 
     def _uiPoseMakeSubFolder(self, handlerFile=None, *args):
         '''
@@ -1275,7 +1276,7 @@ class ui(cgmUI.cgmGUI):
         '''
         basePath = self.cgmUIField_posePath.getValue()
         if not os.path.exists(basePath):
-            raise StandardError('Base Pose Path is inValid or not yet set')
+            raise Exception('Base Pose Path is inValid or not yet set')
         promptstring = 'New Pose Folder Name'
         if handlerFile:
             promptstring = 'New %s POSE Folder Name' % os.path.basename(handlerFile).replace('_poseHandler.py', '').upper()
@@ -1308,7 +1309,7 @@ class ui(cgmUI.cgmGUI):
         localPath = self.posePathLocal
         
         if not os.path.exists(self.posePathProject):
-            raise StandardError('Project Pose Path is inValid or not yet set')
+            raise Exception('Project Pose Path is inValid or not yet set')
         
         
         
@@ -1329,7 +1330,7 @@ class ui(cgmUI.cgmGUI):
                         os.mkdir(projectPath)
                         log.debug('New Folder Added to ProjectPosePath: %s' % projectPath)
                     except:
-                        raise StandardError('Failed to make the SubFolder path')
+                        raise Exception('Failed to make the SubFolder path')
                 elif result == 'CopyToRoot':
                     projectPath = self.posePathProject
                 else:
@@ -1339,8 +1340,8 @@ class ui(cgmUI.cgmGUI):
         try:
             shutil.copy2(self.getPosePath(), projectPath)
             shutil.copy2(self.getIconPath(), projectPath)
-        except Exception,err:
-            print ('Unable to copy pose : %s > to Project dirctory' % self.poseSelected)
+        except Exception as err:
+            print(('Unable to copy pose : %s > to Project dirctory' % self.poseSelected))
             
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
@@ -1382,11 +1383,11 @@ class ui(cgmUI.cgmGUI):
             def _uiCache_LoadCheckboxes():
                 if 'checkboxes' in self.ANIM_UI_OPTVARS['AnimationUI'] and \
                             self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes']:
-                    for cb, status in self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes'].items():
+                    for cb, status in list(self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes'].items()):
                         try:
                             mc.checkBox(cb, e=True, v=r9Core.decodeString(status))
                         except:
-                            print 'given checkbox no longer exists : %s' % cb
+                            print(('given checkbox no longer exists : %s' % cb))
 
             AnimationUI = self.ANIM_UI_OPTVARS['AnimationUI']
 
@@ -1422,7 +1423,7 @@ class ui(cgmUI.cgmGUI):
 
             # callbacks
             if self.posePathMode:
-                print 'setting : ', self.posePathMode
+                print(('setting : ', self.posePathMode))
                 mc.radioCollection(self.cgmUIrcbPosePathMethod, edit=True, select=self.posePathMode)
             self._uiCB_enableRelativeSwitches()  # relativePose switch enables
             self._uiCB_managePoseRootMethod()  # metaRig or SetRootNode for Pose Root
@@ -1432,7 +1433,7 @@ class ui(cgmUI.cgmGUI):
             self._uiCB_manageTimeOffsetState()
 
 
-        except StandardError, err:
+        except Exception as err:
             log.debug('failed to complete UIConfig load')
             log.warning(err)
         finally:
@@ -1533,7 +1534,7 @@ class ui(cgmUI.cgmGUI):
     
         except r9Setup.ProPack_Error:
             log.warning('ProPack not Available')
-        except Exception, error:
+        except Exception as error:
             cgmGEN.cgmExceptCB(Exception,error,msg=vars())
             
         if objs and not func == 'HierarchyTest':
@@ -1556,7 +1557,7 @@ class ui(cgmUI.cgmGUI):
             if not path:
                 try:
                     path = self._uiCB_savePosePath()
-                except Exception, error:
+                except Exception as error:
                     raise Exception(error)
     
             poseHierarchy = False#mc.checkBox(self.cgmUIcbPoseHierarchy, q=True, v=True)
@@ -1574,7 +1575,7 @@ class ui(cgmUI.cgmGUI):
                                                           storeThumbnail=storeThumbnail)
             log.info('Pose Stored to : %s' % path)
             self._uiCB_fillPoses(rebuildFileList=True)
-        except Exception,error:
+        except Exception as error:
             raise cgmGEN.cgmExceptCB(Exception,error,msg=vars())
         
     def get_poseNodes(self,select=False):
@@ -1592,7 +1593,7 @@ class ui(cgmUI.cgmGUI):
             d = configobj.ConfigObj(path)['poseData']
             nodes=[]
             l_start = []
-            for k in d.keys():
+            for k in list(d.keys()):
                 k_dat = d[k]
                 _longName = k_dat['longName']
                 _longmatch = _longName.split(':')[-1]
@@ -1837,7 +1838,7 @@ def buildTab_poses(self,parent):
 
     _manager = POSEMANAGER.manager(parent = _column)
     self.mPoseManager = _manager
-    for k in self.__dict__.keys():
+    for k in list(self.__dict__.keys()):
         if str(k).startswith('var_'):
             self.mPoseManager.__dict__[k] = self.__dict__[k]
     
@@ -1970,7 +1971,7 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
         log.debug("|{0}| >> context: {1} | {2} - {3} | {4}".format(_str_func,_context,_contextKeys,_contextTime, ' | '.join(kws)))
         
         #First cather our controls
-        _keys = kws.keys()
+        _keys = list(kws.keys())
         if 'children' in _keys:
             b_children = kws.get('children')
         else:
@@ -2101,7 +2102,7 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
                 d_tmp = {}
                 l_keys = []
                 #First pass we collect all the keys...
-                for mPart,controls in self.mDat.d_context['partControls'].iteritems():
+                for mPart,controls in list(self.mDat.d_context['partControls'].items()):
                     d_tmp[mPart] = []
                     _l = d_tmp[mPart]
                     for c in controls:
@@ -2116,7 +2117,7 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
                 if _context in ['part']:
                     if _contextTime in ['next','previous']:
                         log.debug(cgmGEN.logString_sub(_str_func,'Second pass | {0}'.format(_contextTime)))                        
-                        for mPart,keys in d_tmp.iteritems():
+                        for mPart,keys in list(d_tmp.items()):
                             if not keys:
                                 continue
                             if _contextTime== 'next':
@@ -2132,11 +2133,11 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
                         else:
                             _match = MATH.find_valueInList(_frame,l_keys,'previous')                        
                         
-                        for mPart,keys in d_tmp.iteritems():
+                        for mPart,keys in list(d_tmp.items()):
                             d_tmp[mPart] = [_match]                    
                     
                 
-                for mPart,keys in d_tmp.iteritems():
+                for mPart,keys in list(d_tmp.items()):
                     for k in keys:
                         addSource(self,mPart,k,_res)
                         
@@ -2148,16 +2149,16 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
             if _contextTime in ['next','previous'] and _context !='control' and 'cat'=='dog':
                 #We only want one value here...
                 if _contextTime== 'next':
-                    _match = MATH.find_valueInList(_frame,_res.keys(),'next')
+                    _match = MATH.find_valueInList(_frame,list(_res.keys()),'next')
                 else:
-                    _match = MATH.find_valueInList(_frame,_res.keys(),'previous')
+                    _match = MATH.find_valueInList(_frame,list(_res.keys()),'previous')
                 
-                for k in _res.keys():
+                for k in list(_res.keys()):
                     if k != _match:
                         _res.pop(k)
             else:
                 _range = SEARCH.get_time('slider')
-                for k in _res.keys():
+                for k in list(_res.keys()):
                     if k < _range[0] or k > _range[1]:
                         log.debug("Out of range: {0}".format(k))
                         _res.pop(k)
@@ -2166,26 +2167,26 @@ def get_contextTimeDat(self,mirrorQuery=False,**kws):
             log.debug(cgmGEN.logString_sub(_str_func,'Combining keys'))
             
             if _context == 'control':
-                for k in _res.keys():
+                for k in list(_res.keys()):
                     _res[k]= self.l_sources                
             else:
-                mSources = self.mDat.d_context['partControls'].keys()
-                for k in _res.keys():
+                mSources = list(self.mDat.d_context['partControls'].keys())
+                for k in list(_res.keys()):
                     _res[k]= mSources
             
             if _contextTime in ['next','previous']:
                 log.debug(cgmGEN.logString_sub(_str_func,'Combined final cull | {0}'.format(_contextTime)))
                 if _contextTime== 'next':
-                    _match = MATH.find_valueInList(_frame,_res.keys(),'next')
+                    _match = MATH.find_valueInList(_frame,list(_res.keys()),'next')
                 else:
-                    _match = MATH.find_valueInList(_frame,_res.keys(),'previous')
+                    _match = MATH.find_valueInList(_frame,list(_res.keys()),'previous')
                 
-                for k in _res.keys():
+                for k in list(_res.keys()):
                     if k != _match:
                         _res.pop(k)                
             
         return _res
-    except Exception,err:
+    except Exception as err:
         #pprint.pprint(self.mDat.d_context)
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
         
@@ -2203,7 +2204,7 @@ def uiCB_contextualActionMM(self,**kws):
     _res = None
     try:
         _res = uiCB_contextualAction(self,**kws)
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     finally:
         mc.evalDeferred(MMUTILS.kill_mmTool,lp=True)
@@ -2215,7 +2216,7 @@ def uiCB_contextualAction(self,**kws):
     log.debug(cgmGEN.logString_start(_str_func))
     
     l_kws = []
-    for k,v in kws.iteritems():
+    for k,v in list(kws.items()):
         l_kws.append("{0}:{1}".format(k,v))
     
     #_mode = kws.pop('mode',False)
@@ -2292,7 +2293,7 @@ def uiCB_contextualAction(self,**kws):
         for mPuppet in self.mDat.d_context['mPuppets']:
             try:
                 mPuppet.UTILS.mirror_verify(mPuppet)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         endCall(self,False)
         
@@ -2400,7 +2401,7 @@ def uiCB_contextualAction(self,**kws):
             elif _mode == 'holdPrev':
                 ml_hold.previous()
             elif _mode == 'holdNext':
-                ml_hold.next()
+                next(ml_hold)
             elif _mode == 'holdCurrentTime':
                 ml_hold.holdRange(True,False)
             elif _mode == 'holdAverageTime':
@@ -2501,7 +2502,7 @@ def uiCB_contextualAction(self,**kws):
     #Frame Processing ============================================================================
     log.info(cgmGEN.logString_sub(None,'Frame Processing: {0}'.format(_mode)))
     
-    _keys = _res.keys()
+    _keys = list(_res.keys())
     _keys.sort()
     _int_keys = len(_keys)
     
@@ -2605,18 +2606,18 @@ def uiCB_contextualAction(self,**kws):
                             #mc.setKeyframe(o,time = f)
             elif _mode == 'pushKey':
                 self.mDat.snapShot_set()
-                for mPart,controls in self.mDat.d_timeContext['partControls'].iteritems():
+                for mPart,controls in list(self.mDat.d_timeContext['partControls'].items()):
                     for c in controls:
                         if SEARCH.get_key_indices_from(c):
                             mc.setKeyframe(c,time = f)                        
             else:
                 log.info("Processing parts...".format(_context))
                 
-                for mPart,controls in self.mDat.d_timeContext['partControls'].iteritems():
+                for mPart,controls in list(self.mDat.d_timeContext['partControls'].items()):
                     log.info(cgmGEN.logString_sub(None,'Part: {0}'.format(mPart),'_',40))
                     try:
                         mc.progressBar(self.uiProgressBar,edit=True,
-                                       maxValue = len(self.mDat.d_timeContext['partControls'].keys()),step = 1, vis=1)
+                                       maxValue = len(list(self.mDat.d_timeContext['partControls'].keys())),step = 1, vis=1)
                     except:pass
                     
                     if _mode == 'reset':
@@ -2715,7 +2716,7 @@ def uiCB_contextualAction(self,**kws):
                                                                  primeAxis = _primeAxis )                        
 
             
-    except Exception,err:
+    except Exception as err:
         pprint.pprint(vars())
         log.error(err)
     finally:
@@ -3304,7 +3305,7 @@ def buildFrame_poses(self,parent):
     
     _manager = POSEMANAGER.manager(parent = _frame)
     self.mPoseManager = _manager
-    for k in self.__dict__.keys():
+    for k in list(self.__dict__.keys()):
         if str(k).startswith('var_'):
             self.mPoseManager.__dict__[k] = self.__dict__[k]
     
@@ -4058,7 +4059,7 @@ def get_context(self, addMirrors = False,**kws):
         _str_func='get_context'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         
-        _keys = kws.keys()
+        _keys = list(kws.keys())
         if 'children' in _keys:
             b_children = kws.get('children')
         else:
@@ -4169,11 +4170,11 @@ def get_context(self, addMirrors = False,**kws):
             log.debug(cgmGEN._str_subLine)        
             log.debug("|{0}| >> sibling check...".format(_str_func))
             if context == 'part':
-                print(cgmGEN._str_hardBreak)        
+                print((cgmGEN._str_hardBreak))        
                 log.warning(cgmGEN._str_hardBreak)
                 log.debug("|{0}| >> JOSH ... part siblings won't work right until you tag build profile for matching ".format(_str_func))
                 log.warning(cgmGEN._str_hardBreak)        
-                print(cgmGEN._str_hardBreak)                    
+                print((cgmGEN._str_hardBreak))                    
                 
                 res = []
                 for mModule in self.mDat.d_context['mModules']:
@@ -4285,7 +4286,7 @@ def get_context(self, addMirrors = False,**kws):
 
         #pprint.pprint(self.mDat.d_context)
         return res
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 #@cgmGEN.Timer
 def get_contextualControls(self,mirrorQuery=False,**kws):
@@ -4293,7 +4294,7 @@ def get_contextualControls(self,mirrorQuery=False,**kws):
         _str_func='get_contextualControls'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         
-        _keys = kws.keys()
+        _keys = list(kws.keys())
         if 'children' in _keys:
             b_children = kws.get('children')
         else:
@@ -4359,7 +4360,7 @@ def get_contextualControls(self,mirrorQuery=False,**kws):
         self.mDat.d_context['sControls'] = LISTS.get_noDuplicates(self.mDat.d_context['sControls'])
         self.mDat.d_context['mControls'] = cgmMeta.validateObjListArg(self.mDat.d_context['sControls'])
         return self.mDat.d_context['sControls']
-    except Exception,err:
+    except Exception as err:
         pprint.pprint(self.mDat.d_context)
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
@@ -4368,7 +4369,7 @@ def uiCB_contextualActionBAK(self, **kws):
     try:
         _str_func='cgmUICB_contextualAction'
         l_kws = []
-        for k,v in kws.iteritems():
+        for k,v in list(kws.items()):
             l_kws.append("{0}:{1}".format(k,v))
         
         _mode = kws.pop('mode',False)
@@ -4612,7 +4613,7 @@ def uiCB_contextualActionBAK(self, **kws):
             elif _mode == 'holdPrev':
                 ml_hold.previous()
             elif _mode == 'holdNext':
-                ml_hold.next()
+                next(ml_hold)
                 
             return endCall(self)
         
@@ -4635,7 +4636,7 @@ def uiCB_contextualActionBAK(self, **kws):
         else:
             return log.error("Unknown contextual action: {0}".format(_mode))
         return 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 
 def uiCB_contextSetValue(self, attr=None,value=None, mode = None,**kws):
@@ -4659,7 +4660,7 @@ def uiCB_contextSetValue(self, attr=None,value=None, mode = None,**kws):
 
         for mModule in self.mDat.d_context['mModules']:
             try:ATTR.set(mModule.rigNull.settings.mNode, attr, value)
-            except Exception,err:log.warning("Failed to set: {0} | value: {1} | mModule: {2} | {3}".format(attr,value,mModule,err))
+            except Exception as err:log.warning("Failed to set: {0} | value: {1} | mModule: {2} | {3}".format(attr,value,mModule,err))
             
             
             
@@ -4690,14 +4691,14 @@ def uiCB_contextSetValue(self, attr=None,value=None, mode = None,**kws):
                         try:
                             if mModule in self.mDat.d_context['mModules']:
                                 try:ATTR.set(mModule.modulePuppet.masterControl.controlVis.mNode, attr, _v1)
-                                except Exception,err:
+                                except Exception as err:
                                     log.info("attr: {0} | Switch call".format(attr))
                             else:
                                 try:ATTR.set(mModule.modulePuppet.masterControl.controlVis.mNode, attr, _v2)
-                                except Exception,err:
+                                except Exception as err:
                                     log.info("attr: {0} | Switch call".format(attr))
                                 
-                        except Exception,err:log.warning("Failed to set: {0} | value: {1} | mModule: {2} | {3}".format(attr,value,mModule,err))                
+                        except Exception as err:log.warning("Failed to set: {0} | value: {1} | mModule: {2} | {3}".format(attr,value,mModule,err))                
             elif value == 'focusClear':
                 if not self.mDat.d_context['mPuppets']:
                     return log.warning("Nothing selected")
@@ -4711,14 +4712,14 @@ def uiCB_contextSetValue(self, attr=None,value=None, mode = None,**kws):
                             attr = "{0}_vis".format(mModule.get_partNameBase())
                             
                             try:ATTR.set(mModule.modulePuppet.masterControl.controlVis.mNode, attr, 1)
-                            except Exception,err:
+                            except Exception as err:
                                 log.info("attr: {0} | Switch call".format(attr))
         
         else:
             for mModule in self.mDat.d_context['mModules']:
                 attr = "{0}_vis".format(mModule.get_partNameBase())
                 try:ATTR.set(mModule.modulePuppet.masterControl.controlVis.mNode, attr, value)
-                except Exception,err:
+                except Exception as err:
                     log.info("attr: {0} | Switch call".format(attr))
                 
     else:
@@ -4963,7 +4964,7 @@ def deleteKey():
 def uiCB_bufferDat(self,update=True):
     _str_func='uiCB_bufferDat'
     log.info(cgmGEN.logString_msg(_str_func))
-    reload(MRSANIMUTILS)
+    importlib.reload(MRSANIMUTILS)
     self.mDat = MRSANIMUTILS.get_sharedDatObject()#MRSANIMUTILS.MRSDAT
         
 def uiCB_resetSliderDrop(self):
@@ -5026,7 +5027,7 @@ def uiCB_resetSlider(self):
                     _v = ATTR.get(mCtrl.mNode,a)
                     self.d_resetDat[mCtrl][a] = {'default':_d,
                                                  'value':_v}
-                except Exception,err:
+                except Exception as err:
                     pass
                 
         
@@ -5036,8 +5037,8 @@ def uiCB_resetSlider(self):
     v_reset = self.cgmUISlider_reset.getValue()
     #log.info("value: {0}".format(v_reset))
     
-    for mCtrl,aDat in self.d_resetDat.iteritems():
-        for a,vDat in aDat.iteritems():
+    for mCtrl,aDat in list(self.d_resetDat.items()):
+        for a,vDat in list(aDat.items()):
             try:
                 
                 #print("{0} | {1} | {2}".format(mCtrl.mNode,a,vDat['default']))
@@ -5045,7 +5046,7 @@ def uiCB_resetSlider(self):
                 setValue = current + ((vDat['default'] - current)*v_reset)
                 #ATTR.set(mCtrl.mNode,a,setValue)
                 mCtrl.__setattr__(a,setValue)
-            except Exception,err:
+            except Exception as err:
                 log.error("Attr fail: {0}.{1}".format(mCtrl,a))
                 self.d_resetDat[mCtrl].pop(a)
                 
@@ -5717,11 +5718,11 @@ class mrsScrollList(mUI.BaseMelWidget):
         log.debug(cgmGEN.logString_start('report'))                
         log.info("Scene: "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_scene):
-            print ("{0} | {1} | {2}".format(i,self._l_strings[i],mObj))
+            print(("{0} | {1} | {2}".format(i,self._l_strings[i],mObj)))
             
         log.info("Loaded "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_loaded):
-            print("{0} | {1}".format(i, mObj))
+            print(("{0} | {1}".format(i, mObj)))
             
         pprint.pprint(self._ml_scene)
         
@@ -5740,7 +5741,7 @@ class mrsScrollList(mUI.BaseMelWidget):
                 _color = [v*.7 for v in _color]
                 self(e =1, hlc = _color)
                 return
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 
             try:self(e =1, hlc = [.5,.5,.5])
@@ -5822,8 +5823,8 @@ class mrsScrollList(mUI.BaseMelWidget):
         
         if ml_sel:
             try:self.selectByBlock(ml_sel)
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
         self.b_selCommandOn = True
 
     def clear( self ):
@@ -5864,7 +5865,7 @@ class mrsScrollList(mUI.BaseMelWidget):
                 try:self(e=1, itc = [(i+1,_color[0],_color[1],_color[2])])
                 except:pass
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
@@ -5879,7 +5880,7 @@ class mrsScrollList(mUI.BaseMelWidget):
             for mBlock in self.getSelectedBlocks():
                 try:
                     res = func( *args, **kws )
-                except Exception,err:
+                except Exception as err:
                     try:log.debug("Func: {0}".format(_func.__name__))
                     except:log.debug("Func: {0}".format(_func))
       
@@ -5889,10 +5890,10 @@ class mrsScrollList(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception,err
+                    raise Exception(err)
         except:pass
         finally:
             self.rebuild()
             
     def selectCallBack(self,func=None,*args,**kws):
-        print self.getSelectedBlocks()
+        print((self.getSelectedBlocks()))

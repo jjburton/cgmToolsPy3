@@ -20,6 +20,7 @@ import os
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -135,9 +136,9 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
         
         if not ml_handles:
             
-            raise ValueError,"{0} | ml_handles required".format(_str_func)
+            raise ValueError("{0} | ml_handles required".format(_str_func))
         if not ml_ribbonHandles:
-            raise ValueError,"{0} | ml_ribbonHandles required".format(_str_func)
+            raise ValueError("{0} | ml_ribbonHandles required".format(_str_func))
         
 
                 
@@ -274,9 +275,9 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
                                  worldUpType = 'objectrotation', worldUpVector = [1,0,0])                
             
         else:
-            raise Exception, "unknown mode : {}".format(_str_mode)
+            raise Exception("unknown mode : {}".format(_str_mode))
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
     
@@ -295,12 +296,12 @@ def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
         if not ml_ikFrame:
             ml_ikFrame = self.ml_handleTargetsCulled
         if not mIKControl:
-            raise ValueError,"Must have mIKControl"
+            raise ValueError("Must have mIKControl")
             
         if not mIKHandleDriver:
-            raise ValueError,"Must have mIKHandleDriver"
+            raise ValueError("Must have mIKHandleDriver")
         if not mRoot:
-            raise ValueError,"Must have mRoot"
+            raise ValueError("Must have mRoot")
         
         log.debug("|{0}| >> rp setup...".format(_str_func))
         mIKMid = mRigNull.controlIKMid
@@ -328,7 +329,7 @@ def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
     
     
         #Build the IK ---------------------------------------------------------------------
-        reload(IK)
+        importlib.reload(IK)
         """
         if mIKControlEnd and str_ikEnd in ['tipCombo']:
             mMainIKControl = mIKControlEnd
@@ -597,7 +598,7 @@ def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
         #if mIKBaseControl:
             #mc.pointConstraint(mIKBaseControl.mNode, ml_ikFrame[0].mNode,maintainOffset=True)
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
             
 def get_spinGroup(self):
     try:
@@ -618,7 +619,7 @@ def get_spinGroup(self):
         mPlug_spin = cgmMeta.cgmAttr(mIKControl,'spin',attrType='float',keyable=True, defaultValue = 0, hidden = False)
         mPlug_spin.doConnectOut("%s.r%s"%(mSpinGroup.mNode,_jointOrientation[0]))
         return mSpinGroup
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
            mIKBaseControl=None,ml_skinDrivers=None,mPlug_masterScale=None,stretchBy='scale',
@@ -771,7 +772,7 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
         #mc.orientConstraint(mIKControl.mNode, ml_ikJoints[-1].mNode, maintainOffset=True)
         
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
 def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseControl=None,
@@ -786,9 +787,9 @@ def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseCon
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)
+            raise ValueError("{0} | ml_handles required".format(_str_func))
         if not ml_handleParents:
-            raise ValueError,"{0} | ml_handleParents required".format(_str_func)
+            raise ValueError("{0} | ml_handleParents required".format(_str_func))
         
         ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
         if not ml_ribbonIkHandles:
@@ -1069,7 +1070,7 @@ def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseCon
     
 
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
     
@@ -1084,6 +1085,6 @@ def backup(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)        
+            raise ValueError("{0} | ml_handles required".format(_str_func))        
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())

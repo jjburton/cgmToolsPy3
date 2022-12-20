@@ -216,7 +216,7 @@ def buildColumn_main(self,parent, asScroll = False):
     _d = {'aim':self.var_jointAimAxis,
           'up':self.var_jointUpAxis}
 
-    for k in _d.keys():
+    for k in list(_d.keys()):
         _var = _d[k]
 
         _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
@@ -552,7 +552,7 @@ def createJoints(self, mode = 'each'):
                                relativeOrient=_d['relativeOrient'])
         
     else:
-        raise ValueError,"Unknown mode: {0}".format(mode)
+        raise ValueError("Unknown mode: {0}".format(mode))
     mc.select(_sel)
     
     
@@ -684,11 +684,11 @@ def uiFunc_getVectorOfSelected(self,axis = 'x+'):
     
     if axis == 'between':
         if not len(_sel) >= 2:
-            raise ValueError,'Must have more than two objects selected for between mode'
+            raise ValueError('Must have more than two objects selected for between mode')
         try:vec = MATH.get_vector_of_two_points(POS.get(_sel[0]),POS.get(_sel[-1]))
-        except Exception,err:
+        except Exception as err:
             log.error("Query fail: {0}".format(_sel))
-            raise Exception,err
+            raise Exception(err)
     else:
         vec = MATH.get_obj_vector(_sel[0],axis)
     log.info("Found vector: {0}".format(vec))

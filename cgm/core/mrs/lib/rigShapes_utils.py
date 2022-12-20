@@ -239,7 +239,7 @@ def ik_bankRollShapes(self):
         
         mMesh_tmp.delete()
         return ml_fkShapes
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def ik_rp(self,mHandle = None,ml_targets = None):
     _str_func = 'rp'
@@ -292,7 +292,7 @@ def ik_segMid(self,mHandle = None):
         mHandle.doName()            
         self.mHandleFactory.color(mHandle.mNode, controlType = 'sub')
         return mHandle
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def limbRoot(self):
     try:
@@ -333,7 +333,7 @@ def limbRoot(self):
         mHandleFactory.color(mLimbRoot.mNode, controlType = 'sub')
         self.mRigNull.connectChildNode(mLimbRoot,'limbRoot','rigNull')        
 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 def rootOrCog(self,mHandle = None):
     _str_func = 'rootOrCog'
@@ -437,7 +437,7 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
         ml_formHandles = self.ml_formHandles
         
         if ml_handleTargets == None:
-            raise ValueError,"{0} | ml_handleTargets required".format(_str_func)
+            raise ValueError("{0} | ml_handleTargets required".format(_str_func))
         if ikEnd == None:
             ikEnd = mBlock.getEnumValueString('ikEnd')
     
@@ -528,7 +528,7 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
         self.mRigNull.connectChildNode(mIKCrv,'controlIK','rigNull')#Connect
         log.debug(cgmGEN._str_subLine)    
         return mIKCrv
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def ik_base(self,ikBase = None, ml_baseJoints = None, ml_fkShapes = None):
     try:
@@ -545,7 +545,7 @@ def ik_base(self,ikBase = None, ml_baseJoints = None, ml_fkShapes = None):
             ikBase = mBlock.getEnumValueString('ikBase')        
         
         if not ml_baseJoints:
-            raise ValueError,"{0} | ml_baseJoints required".format(_str_func)
+            raise ValueError("{0} | ml_baseJoints required".format(_str_func))
         
         
         log.debug("|{0}| >> {1} ...".format(_str_func,ikBase))
@@ -588,7 +588,7 @@ def ik_base(self,ikBase = None, ml_baseJoints = None, ml_fkShapes = None):
         self.mHandleFactory.color(mIKBaseCrv.mNode, controlType = 'main')
         self.mRigNull.connectChildNode(mIKBaseCrv,'controlIKBase','rigNull')#Connect                
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def settings(self,settingsPlace = None,ml_targets = None):
     try:
@@ -681,10 +681,10 @@ def settings(self,settingsPlace = None,ml_targets = None):
             #cgmGEN.func_snapShot(vars())
             #mSettings.select()
         else:
-            raise ValueError,"Unknown settingsPlace: {1}".format(settingsPlace)
+            raise ValueError("Unknown settingsPlace: {1}".format(settingsPlace))
         
         return mSettings
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def direct(self,ml_rigJoints = None, mult = 2.0):
     try:
@@ -721,7 +721,7 @@ def direct(self,ml_rigJoints = None, mult = 2.0):
                 mJnt.radius = .00001
                 
         return ml_rigJoints
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def segment_handles(self,ml_handles = None):
     try:
@@ -734,7 +734,7 @@ def segment_handles(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)
+            raise ValueError("{0} | ml_handles required".format(_str_func))
             
         ml_handleShapes = self.atBuilderUtils('shapes_fromCast',
                                               targets = ml_handles,
@@ -749,7 +749,7 @@ def segment_handles(self,ml_handles = None):
                                          mCrv.mNode, False,
                                          replaceShapes=True)
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 def leverBAK(self,ml_handles = None):
     try:
@@ -822,7 +822,7 @@ def leverBAK(self,ml_handles = None):
         mc.delete([mShape.mNode for mShape in ml_clavShapes] + [mDup.mNode,mDup2.mNode])        
 
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 def lever(self,ball = False):
     try:
@@ -953,7 +953,7 @@ def lever(self,ball = False):
         mMesh_tmp.delete()
 
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 l_pivotOrder = BLOCKSHARE._l_pivotOrder
 d_pivotBankNames = BLOCKSHARE._d_pivotBankNames
@@ -981,7 +981,7 @@ def pivotShapes(self, mPivotHelper = None, l_pivotOrder = l_pivotOrder):
         
     if mPivotHelper is None:
         if not self.getMessage('pivotHelper'):
-            raise ValueError,"|{0}| >> No pivots helper found. mBlock: {1}".format(_str_func,mBlock)
+            raise ValueError("|{0}| >> No pivots helper found. mBlock: {1}".format(_str_func,mBlock))
         mPivotHelper = mBlock.pivotHelper
         
     md = {}
@@ -1028,6 +1028,6 @@ def backup(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)        
+            raise ValueError("{0} | ml_handles required".format(_str_func))        
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())

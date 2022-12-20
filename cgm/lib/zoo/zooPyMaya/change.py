@@ -1,9 +1,9 @@
 
-from baseMelUI import *
+from .baseMelUI import *
 
-from changeIkFk import ChangeIkFkLayout
-from changeParent import ChangeParentLayout
-from changeRo import ChangeRoLayout
+from .changeIkFk import ChangeIkFkLayout
+from .changeParent import ChangeParentLayout
+from .changeRo import ChangeRoLayout
 
 
 class ChangeLayout(MelColumnLayout):

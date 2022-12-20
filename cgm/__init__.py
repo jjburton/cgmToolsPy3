@@ -1,9 +1,11 @@
+"""
 import os
 #from cgm.lib.zoo.zooPy.path import Path
-""" From http://stackoverflow.com/questions/1057431/loading-all-modules-in-a-folder-in-python"""
+#From http://stackoverflow.com/questions/1057431/loading-all-modules-in-a-folder-in-python
 
 #Need to setup our cgm paths ===========================================================
 #from cgm.lib.zoo.zooPy.path import Path, findFirstInEnv, findInPyPath
+
 from cgm.core.cgmPy import path_Utils as cgmPath
 import sys
 
@@ -25,8 +27,9 @@ def setupContributorPaths():
                                 try:
                                         sys.path.append("%s" %bufferFolderPath)
                                 except:
-                                        print ('%s Failed to append' %bufferFolderPath)
-        except Exception,err:
-                raise Exception,"setupContributorPaths FAILURE || {0}".format(err)
+                                        print(('%s Failed to append' %bufferFolderPath))
+        except Exception as err:
+                raise Exception("setupContributorPaths FAILURE || {0}".format(err))
 #setupContributorPaths()
 #=======================================================================================
+"""

@@ -1,9 +1,9 @@
 
 from maya.cmds import *
 
-from baseMelUI import *
-from mayaDecorators import d_disableViews, d_noAutoKey, d_unifyUndo
-from melUtils import printWarningStr
+from .baseMelUI import *
+from .mayaDecorators import d_disableViews, d_noAutoKey, d_unifyUndo
+from .melUtils import printWarningStr
 
 
 @d_unifyUndo
@@ -51,7 +51,7 @@ def changeParent( parent=0, objs=None ):
 				objsWithKeysAtThisTime.append( obj )
 
 	#now that we've secured the translation/rotation poses with keys on all axes, change the parent on each keyframe
-	for time, objsWithKeysAtThisTime in timeObjs.iteritems():
+	for time, objsWithKeysAtThisTime in list(timeObjs.items()):
 		currentTime( time, e=True )
 		for obj in objsWithKeysAtThisTime:
 			pos = xform( obj, q=True, rp=True, ws=True )

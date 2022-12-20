@@ -32,6 +32,7 @@ from time import strftime
 
 #=========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -147,7 +148,7 @@ class cgmFuncCls(object):
                 str_kw = d_buffer['kw']		
                 #self.log_info("Checking: [%s] | args: %s | l_argsCull: %s"%(str_kw,args,l_argCull))
                 l_argCull = copy.copy(list(args))
-                if not self._d_funcKWs.has_key(str_kw):
+                if str_kw not in self._d_funcKWs:
                     try:
                         self.d_kws[str_kw] = kws[str_kw]#Then we try a kw call
                     except:
@@ -165,11 +166,11 @@ class cgmFuncCls(object):
                     #self.log_info("Has key [%s] = %s | New argIdx: %s "%(str_kw,self._d_funcKWs[str_kw],int_argIdx +1))
                 int_argIdx +=1
 
-        l_storedKeys = self.d_kws.keys()
+        l_storedKeys = list(self.d_kws.keys())
         for kw in kws:
             try:
                 if kw not in l_storedKeys:self.d_kws[kw] = kws[kw]
-            except Exception,error:raise StandardError,"{0} failed to store kw: {1} | value: {2} | error: {3}".format(self._str_reportStart,kw,kws[kw],error)
+            except Exception as error:raise Exception("{0} failed to store kw: {1} | value: {2} | error: {3}".format(self._str_reportStart,kw,kws[kw],error))
         '''
 	self._l_ARGS_KWS_BUILTINS = [{'kw':'reportShow',"default":False,'help':"(BUILTIN) - show report at start of log","argType":"bool"},
 	                             {'kw':'reportTimes',"default":False,'help':"(BUILTIN) - show step times in log","argType":"bool"},
@@ -193,7 +194,7 @@ class cgmFuncCls(object):
         if __stopAtStep is not None:
             if type(__stopAtStep) is int:
                 self.log_debug("stopAtStep is int")
-                if __stopAtStep is 0:
+                if __stopAtStep == 0:
                     self.log_warning("a stopAtStep of 0 is pointless as no steps will execute. Will stop anyway.")		    
                 if __stopAtStep <= (len(self.l_funcSteps)-1):
                     self.log_debug("stopAtStep in range")		    
@@ -247,18 +248,18 @@ class cgmFuncCls(object):
                 self.report_errors()
                 if str_lastLogBuffer:
                     try:self.log_info("Last log entry: %s"%str_lastLogBuffer)
-                    except Exception, error:
+                    except Exception as error:
                         log.error("This failed")
                         log.error("Failed to report last log: {0}".format(error))		
                 for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
-                    print("traceback frame[{0}]".format(i+1) + _str_subLine)		    
-                    print ' File "{1}", line {2}, in {3}\n'.format(*item),
+                    print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
+                    print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
                     for item in inspect.getinnerframes(tb):
                         if 'go' not in item:#Path to get our wrapper stuff out of the traceback report
-                            if '__func__' not in item:print ' File "{1}", line {2}, in {3}\n'.format(*item),
+                            if '__func__' not in item:print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
                     if item[4] is not None:
                         for line in item[4]:
-                            print ' ' + line.lstrip(),			
+                            print(' ' + line.lstrip(), end=' ')			
                     #for line in item[4]:
                         #print ' ' + line.lstrip(),		
                 '''if db_file != "<maya console>":
@@ -283,9 +284,9 @@ class cgmFuncCls(object):
             #mUtils.formatGuiException = cgmExceptCB#Link back to our orignal overload
             return cgmExceptCB(etype,value,tb,detail)#True
             #return mUtils._formatGuiException(etype, value, tb, detail)	
-        except Exception,error:
+        except Exception as error:
             #mUtils.formatGuiException = cgmExceptCB#Link back to our orignal overload	    
-            print("[{0}._ExceptionHook_ Exception | {1}".format(self._str_funcCombined,error))
+            print(("[{0}._ExceptionHook_ Exception | {1}".format(self._str_funcCombined,error)))
 
     def go(self,*args,**kws):
         """
@@ -304,10 +305,10 @@ class cgmFuncCls(object):
         t_start = time.clock()
         try:
             if not self.l_funcSteps: self.l_funcSteps = [{'call':self.__func__}]
-            int_keys = range(0,len(self.l_funcSteps)-1)
+            int_keys = list(range(0,len(self.l_funcSteps)-1))
             self.int_max = len(self.l_funcSteps)-1
-        except Exception,error:
-            raise StandardError, ">"*3 + " {0}[FAILURE go start | error: {1}]".format(self._str_funcCombined,error)
+        except Exception as error:
+            raise Exception(">"*3 + " {0}[FAILURE go start | error: {1}]".format(self._str_funcCombined,error))
 
         #mc.undoInfo(openChunk=True)
         int_lenSteps = len(self.l_funcSteps)
@@ -339,16 +340,16 @@ class cgmFuncCls(object):
 
                     self._str_step = _str_step	
                     try:self.log_debug(_str_headerDiv + " Step : %s "%_str_step + _str_headerDiv + _str_subLine)
-                    except Exception,error:
+                    except Exception as error:
                         if self._b_ExceptionInterupt:
                             pass
                             #mUtils.formatGuiException = self._ExceptionHook_#Link our exception hook   			
                         self.log_warning("[debug info! | error: {0}]".format(error))		    
-                except Exception,error:raise Exception,"[strStep query]{%s}"%error 
+                except Exception as error:raise Exception("[strStep query]{%s}"%error) 
 
                 try:
                     if self._b_autoProgressBar:self.progressBar_set(status = _str_step, progress = i, maxValue = int_lenSteps)
-                except Exception,error:self.log_warning("[progress bar! | error: {0}]".format(error))
+                except Exception as error:self.log_warning("[progress bar! | error: {0}]".format(error))
 
                 res = d_step['call'](*args,**kws)
                 if res is not None:
@@ -357,7 +358,7 @@ class cgmFuncCls(object):
 		if goTo.lower() == str_name:
 		    log.debug("%s.doBuild >> Stopped at step : %s"%(self._strShortName,str_name))
 		    break"""
-            except Exception, error:
+            except Exception as error:
                 self._str_failStep = _str_step
                 self._str_failTime = "%0.3f"%(time.clock()-t1)
                 self._Exception = Exception
@@ -393,7 +394,7 @@ class cgmFuncCls(object):
                             #self.log_info(" -- '{0}' >>  {1} ".format(pair[0],pair[1]))				 
                     self.log_warning(_str_headerDiv + " Total : %0.3f sec "%(f_total) + _str_headerDiv + _str_subLine)			    	    
                 #else:self.log_warning("[Total = %0.3f sec] " % (f_total))
-            except Exception,error:self.log_error("[Failed to report times | error: {0}]".format(error))
+            except Exception as error:self.log_error("[Failed to report times | error: {0}]".format(error))
 
         if self._Exception is not None:
             if self._b_ExceptionInterupt:
@@ -401,7 +402,7 @@ class cgmFuncCls(object):
                 #mUtils.formatGuiException = self._ExceptionHook_#Link our exception hook   
 
             self._ExceptionHook_(self._Exception,self._ExceptionError)
-            raise self._Exception, self._ExceptionError
+            raise self._Exception(self._ExceptionError)
             #raise self._Exception,"{0} >> {1}".format(self._str_funcCombined,str(self._ExceptionError))
             #else:
                 #raise self._Exception,"{0} | {1} | {2}".format(self._str_reportStart,self._str_step,self._ExceptionError)
@@ -412,10 +413,10 @@ class cgmFuncCls(object):
     def _return_(self):
         '''overloadable for special return'''
         if self.int_max == 0:#If it's a one step, return, return the single return
-            try:return self.d_return[self.d_return.keys()[0]]
+            try:return self.d_return[list(self.d_return.keys())[0]]
             except:pass
 
-        for k in self.d_return.keys():#Otherise we return the first one with actual data
+        for k in list(self.d_return.keys()):#Otherise we return the first one with actual data
             buffer = self.d_return.get(k)
             if buffer is not None:
                 return buffer
@@ -464,7 +465,7 @@ class cgmFuncCls(object):
 		self.log_info(_str_baseStart *2 + "['%s'] = %s "%(k,self.d_kws[k]))"""
 
     def report_selfStored(self):
-        l_keys = self.__dict__.keys()
+        l_keys = list(self.__dict__.keys())
         l_keys.sort()
         if l_keys:
             self.log_info(_str_headerDiv + " Self Stored " + _str_headerDiv + _str_subLine)
@@ -473,7 +474,7 @@ class cgmFuncCls(object):
                     buffer = self.__dict__[k]
                     if type(buffer) is dict:
                         self.log_info("('{0}' -- nested dict)".format(k))
-                        l_bufferKeys = buffer.keys()
+                        l_bufferKeys = list(buffer.keys())
                         l_bufferKeys.sort()
                         for k2 in l_bufferKeys:
                             self.log_info(_str_baseStart * 2 + "[%s] = %s "%(k2,buffer[k2]))			
@@ -536,12 +537,12 @@ class cgmFuncCls(object):
 
     def printHelp(self):
         self.update_moduleData()		
-        print("#" + ">"*3 + " %s "%self._str_funcCombined + _str_hardBreak)
-        print("Python Module: %s "%self._str_modPath)	 
+        print(("#" + ">"*3 + " %s "%self._str_funcCombined + _str_hardBreak))
+        print(("Python Module: %s "%self._str_modPath))	 
         if self._str_funcHelp is not None:
-            print(_str_subLine * 2)		
-            print("%s "%self._str_funcHelp)
-        print(_str_subLine * 2)	
+            print((_str_subLine * 2))		
+            print(("%s "%self._str_funcHelp))
+        print((_str_subLine * 2))	
         print("@kws -- [index - argKW(argType - default) | info]") 
         for i,d_buffer in enumerate(self._l_ARGS_KWS_DEFAULTS + self._l_ARGS_KWS_BUILTINS):
             l_tmp = ['    %i - '%i]
@@ -561,25 +562,25 @@ class cgmFuncCls(object):
             try:l_tmp.append(" | %s"%d_buffer['help'])
             except:pass		
             #l_build = ["%s : %s"%(s[0],s[1]) for s in l_tmp]
-            print("".join(l_tmp))	
+            print(("".join(l_tmp)))	
 
     def set_logging(self,arg):
         try:
             d_logging = {'info':logging.INFO,
                          'debug':logging.DEBUG}	    
             str_key = str(arg).lower()
-            if str_key in d_logging.keys():
+            if str_key in list(d_logging.keys()):
                 log.setLevel(d_logging.get(str_key))
             else:
                 self.log_warning("Logging arg not understood : %s"%arg)
-        except Exception,error:
+        except Exception as error:
             self.log_warning("set_logging Exception: %s"%error)
 
     def log_info(self,arg):
         try:
             #log.info("%s%s"%(self._str_reportStart,str(arg)))
             self._str_lastLog = arg
-            print("%s%s"%(self._str_reportStart,str(arg)))
+            print(("%s%s"%(self._str_reportStart,str(arg))))
         except:pass	
 
     def log_toDo(self,arg):
@@ -606,7 +607,7 @@ class cgmFuncCls(object):
             log.warning("%s%s"%(self._str_reportStart,str(arg)))
             self._str_lastLog = arg	    
             #print("[WARNING]%s%s"%(self._str_reportStart,str(arg)))	    
-        except Exception,error:
+        except Exception as error:
             log.error(error)	
     def log_debug(self,arg):
         try:
@@ -627,8 +628,8 @@ class cgmFuncCls(object):
         if kws.get('status'):
             str_bfr = kws.get('status')
             kws['status'] = "%s > %s"%(self._str_progressBarReportStart,str_bfr) 
-        if 'step' not in kws.keys():kws['step'] = 1
-        if 'beginProgress' not in kws.keys():kws['beginProgress'] = 1
+        if 'step' not in list(kws.keys()):kws['step'] = 1
+        if 'beginProgress' not in list(kws.keys()):kws['beginProgress'] = 1
         kws['edit'] = 1
         mc.progressBar(self._str_progressBar, **kws)
 
@@ -638,19 +639,19 @@ class cgmFuncCls(object):
     def progressBar_setMaxStepValue(self,int_value):
         if not self._str_progressBar:self.progressBar_start()
         try:mc.progressBar(self._str_progressBar,edit = True, progress = 0, maxValue = int_value)	
-        except Exception,error:log.error("%s > failed to set progress bar maxValue | %s"%(self._str_reportStart,error))	
+        except Exception as error:log.error("%s > failed to set progress bar maxValue | %s"%(self._str_reportStart,error))	
     def progressBar_setMinStepValue(self,int_value):
         if not self._str_progressBar:self.progressBar_start()	
         try:mc.progressBar(self._str_progressBar,edit = True, minValue = int_value)	
-        except Exception,error:log.error("%s > failed to set progress bar minValue | %s"%(self._str_reportStart,error))	
+        except Exception as error:log.error("%s > failed to set progress bar minValue | %s"%(self._str_reportStart,error))	
     def progressBar_set(self,**kws):
         if not self._str_progressBar:self.progressBar_start()	
         if kws.get('status'):
             str_bfr = kws.get('status')
             kws['status'] = "%s > %s"%(self._str_progressBarReportStart,str_bfr) 
-        if 'beginProgress' not in kws.keys():kws['beginProgress'] = 1
+        if 'beginProgress' not in list(kws.keys()):kws['beginProgress'] = 1
         try:mc.progressBar(self._str_progressBar,edit = True,**kws)	
-        except Exception,error:log.error("%s > failed to set progress bar status | %s"%(self._str_reportStart,error))	
+        except Exception as error:log.error("%s > failed to set progress bar status | %s"%(self._str_reportStart,error))	
 
 
     def log_infoDict(self,arg = None,tag = 'Stored Dict'):
@@ -667,9 +668,9 @@ class cgmFuncCls(object):
         '''
         try:
             if not isinstance(arg,dict):
-                raise TypeError,"[Not a dict. arg: {0}]".format(arg)
+                raise TypeError("[Not a dict. arg: {0}]".format(arg))
             try:
-                l_keys = arg.keys()
+                l_keys = list(arg.keys())
                 self.log_info('Dict: {0} '.format(tag) + _str_subLine)			    
                 l_keys.sort()
                 for k in l_keys:
@@ -678,13 +679,13 @@ class cgmFuncCls(object):
                     buffer = arg[k]
                     if isinstance(buffer,dict):
                         self.log_info(" Nested Dict: '{0}' ".format(str_key) + _str_subLine)
-                        l_bufferKeys = buffer.keys()
+                        l_bufferKeys = list(buffer.keys())
                         l_bufferKeys.sort()
                         for k2 in l_bufferKeys:
                             self.log_info("-"*3 +'>' + " '{0}' : {1} ".format(k2,buffer[k2]))			
                     else:
                         self.log_info(">" + " '{0}' : {1} ".format(str_key,arg[k]))		    
-            except Exception,error:
+            except Exception as error:
                 self.log_warning("[Not a dict. arg: {0} | error: {1} ]".format(arg,error))
         except:pass	
 
@@ -694,7 +695,7 @@ class cgmFuncCls(object):
 
             for atr in arg:
                 try:
-                    l_keys = self.__dict__[atr].keys()
+                    l_keys = list(self.__dict__[atr].keys())
                     log.info('%s'%self._str_funcCombined +" Self Stored: '%s' "%atr + _str_subLine)			    
                     l_keys.sort()
                     for k in l_keys:
@@ -703,13 +704,13 @@ class cgmFuncCls(object):
                         buffer = self.__dict__[atr][k]
                         if type(buffer) is dict:
                             self.log_info(">" + " Nested Dict: '%s' "%(str_key) + _str_subLine)
-                            l_bufferKeys = buffer.keys()
+                            l_bufferKeys = list(buffer.keys())
                             l_bufferKeys.sort()
                             for k2 in l_bufferKeys:
                                 self.log_info("-"*2 +'>' + " '%s' : %s "%(k2,buffer[k2]))			
                         else:
                             self.log_info(">" + " '%s' : %s "%(str_key,self.__dict__[atr][k]))		    
-                except Exception,error:
+                except Exception as error:
                     log.warning("Key not found or not dict: %s | %s"%(atr,error))
         except:pass
 
@@ -721,10 +722,10 @@ class cgmFuncCls(object):
             d_kws = copy.copy(self._d_funcKWs)
             for arg in self._l_ARGS_KWS_DEFAULTS + self._l_ARGS_KWS_BUILTINS:
                 str_key = arg['kw']
-                if str_key in d_kws.keys():d_kws.pop(str_key)
+                if str_key in list(d_kws.keys()):d_kws.pop(str_key)
             self.log_debug("Clean kws : %s" %d_kws)
             return d_kws
-        except Exception, error:
+        except Exception as error:
             log.error("[%s | func: get_cleanKWS]{%s}"%(self._str_funcName,error))
             return {}
 
@@ -761,7 +762,7 @@ def returnCallerFunctionName():
 
         if filename == "<maya console>":
             result = "<Maya>.{0}".format(s_funcName)
-    except StandardError:
+    except Exception:
         log.exception("Failed to inspect function name")
     return result
 
@@ -800,25 +801,25 @@ def log_info_dict(arg = None,tag = 'Stored Dict'):
     '''
     try:
         if not isinstance(arg,dict):
-            raise TypeError,"[Not a dict. arg: {0}]".format(arg)
+            raise TypeError("[Not a dict. arg: {0}]".format(arg))
         try:
-            l_keys = arg.keys()
-            print('Dict: {0} '.format(tag) + _str_subLine)			    
+            l_keys = list(arg.keys())
+            print(('Dict: {0} '.format(tag) + _str_subLine))			    
             l_keys.sort()
             for k in l_keys:
                 try:str_key = k.p_nameShort
                 except:str_key = k
                 buffer = arg[k]
                 if isinstance(buffer,dict):
-                    print(">" + " Nested Dict: '{0}' ".format(str_key) + _str_subLine)
-                    l_bufferKeys = buffer.keys()
+                    print((">" + " Nested Dict: '{0}' ".format(str_key) + _str_subLine))
+                    l_bufferKeys = list(buffer.keys())
                     l_bufferKeys.sort()
                     for k2 in l_bufferKeys:
-                        print("-"*2 +'>' + " '{0}' : {1} ".format(k2,buffer[k2]))			
+                        print(("-"*2 +'>' + " '{0}' : {1} ".format(k2,buffer[k2])))			
                 else:
-                    print(">" + " '{0}' : {1} ".format(str_key,arg[k]))		    
-        except Exception,error:
-            print("[Not a dict. arg: {0} | error: {1} ]".format(arg,error))
+                    print((">" + " '{0}' : {1} ".format(str_key,arg[k])))		    
+        except Exception as error:
+            print(("[Not a dict. arg: {0} | error: {1} ]".format(arg,error)))
     except:pass
     
 def walk_dat(arg = None, tag = None, counter = 0):
@@ -834,13 +835,13 @@ def walk_dat(arg = None, tag = None, counter = 0):
     TypeError | if not passed a dict
     '''
     if isinstance(arg,dict):
-        l_keys = arg.keys()
+        l_keys = list(arg.keys())
         if counter == 0:
-            print('> {0} '.format(tag) + _str_subLine)			                
+            print(('> {0} '.format(tag) + _str_subLine))			                
         elif len(l_keys)<2:
-            print('-'* counter + '> {0} '.format(tag))		            
+            print(('-'* counter + '> {0} '.format(tag)))		            
         else:
-            print('-'* counter + '> {0} '.format(tag) + _str_subLine)		
+            print(('-'* counter + '> {0} '.format(tag) + _str_subLine))		
         
         counter+=2                
         l_keys.sort()
@@ -851,18 +852,18 @@ def walk_dat(arg = None, tag = None, counter = 0):
             walk_dat(buffer,str_key,counter)
     elif isinstance(arg,list):
         if counter == 0:
-            print('{0} : '.format(tag))			                
+            print(('{0} : '.format(tag)))			                
         else:
-            print(' '* counter + ' {0} : '.format(tag))			                            
+            print((' '* counter + ' {0} : '.format(tag)))			                            
         for i,v in enumerate(arg):
             try:str_v = v.p_nameShort
             except:str_v = v                
-            print(' '* counter + ' {0} : {1}'.format(i,str_v) + str(arg))		        
+            print((' '* counter + ' {0} : {1}'.format(i,str_v) + str(arg)))		        
     else:
         if counter == 0:
-            print('{0} : '.format(tag) + str(arg))			                
+            print(('{0} : '.format(tag) + str(arg)))			                
         else:
-            print(' '* counter + ' {0} : '.format(tag) + str(arg))			                
+            print((' '* counter + ' {0} : '.format(tag) + str(arg)))			                
 
     return    
 
@@ -883,7 +884,7 @@ def walk_heirarchy_dict_to_list(arg = None, l_return = None):
         l_return = []
             
     if isinstance(arg,dict):
-        l_keys = arg.keys()	
+        l_keys = list(arg.keys())	
         l_return.extend(l_keys)
         
         for k in l_keys:
@@ -907,12 +908,12 @@ def print_dict(arg = None,tag = 'Stored Dict', module = "Stuff..."):
     TypeError | if not passed a dict
     '''
     def p(msg):
-        print "{0} : {1}".format(module,msg)
+        print("{0} : {1}".format(module,msg))
     try:
         if not isinstance(arg,dict):
-            raise TypeError,"[Not a dict. arg: {0}]".format(arg)
+            raise TypeError("[Not a dict. arg: {0}]".format(arg))
         try:
-            l_keys = arg.keys()
+            l_keys = list(arg.keys())
             p('d: {0} '.format(tag) + _str_subLine)			    
             l_keys.sort()
             for k in l_keys:
@@ -921,13 +922,13 @@ def print_dict(arg = None,tag = 'Stored Dict', module = "Stuff..."):
                 buffer = arg[k]
                 if isinstance(buffer,dict):
                     p(">" + "'{0}' ".format(str_key) + _str_subLine)
-                    l_bufferKeys = buffer.keys()
+                    l_bufferKeys = list(buffer.keys())
                     l_bufferKeys.sort()
                     for k2 in l_bufferKeys:
                         p("-"*2 +'>' + " '{0}' : {1} ".format(k2,buffer[k2]))			
                 else:
                     p(">" + " '{0}' : {1} ".format(str_key,arg[k]))		    
-        except Exception,error:
+        except Exception as error:
             log.warning("[Not a dict. arg: {0} | error: {1} ]".format(arg,error))
     except:pass	
 
@@ -955,7 +956,7 @@ def verify_mirrorSideArg(*args,**kws):
                 else:
                     return False
                     #raise Exception,"Failed to find match"
-            except Exception,error:raise Exception,"[ str_side: %s]{%s}"%(arg,error)	
+            except Exception as error:raise Exception("[ str_side: %s]{%s}"%(arg,error))	
     return fncWrap(*args,**kws).go()	
 
 def get_mayaEnviornmentDict():
@@ -964,7 +965,7 @@ def get_mayaEnviornmentDict():
                'application','buildDirectory','environmentFile','operatingSystem',
                'operatingSystemVersion']:#'codeset'
         try:_d[kw] = mel.eval( 'about -%s'%kw )	
-        except Exception,error:log.error("%s | %s"%(kw,error))	
+        except Exception as error:log.error("%s | %s"%(kw,error))	
     return _d
 
 __mayaVersion__ = mel.eval( 'getApplicationVersionAsFloat' )
@@ -972,15 +973,15 @@ __mayaVersionInt__ = int( __mayaVersion__ )
 __mayaApiVersion__ = int( mel.eval( 'about -apiVersion' ) )
 
 def report_enviornment():
-    print(_str_headerDiv + " Enviornment Info " + _str_headerDiv + _str_subLine)	
+    print((_str_headerDiv + " Enviornment Info " + _str_headerDiv + _str_subLine))	
     #print(_str_headerDiv + " Maya Version: %s "%int( mel.eval( 'getApplicationVersionAsFloat' )))
     _d = get_mayaEnviornmentDict()
-    for kw,item in _d.iteritems():
-        try:print(_str_baseStart + " Maya %s : %s "%(kw,item))	
-        except Exception,error:log.error("%s | %s"%(kw,error))	
+    for kw,item in _d.items():
+        try:print((_str_baseStart + " Maya %s : %s "%(kw,item)))	
+        except Exception as error:log.error("%s | %s"%(kw,error))	
 
 def report_enviornmentSingleLine():
-    print("Maya: {0} | OS: {1}".format(mel.eval( 'about -%s'%'version'), mel.eval( 'about -%s'%'operatingSystemVersion')))
+    print(("Maya: {0} | OS: {1}".format(mel.eval( 'about -%s'%'version'), mel.eval( 'about -%s'%'operatingSystemVersion'))))
 
 
 #import sys
@@ -1001,7 +1002,7 @@ class Callback(object):
         self._kwargs = kw
     def __call__( self, *args ):
         try:return self._func( *self._args, **self._kwargs )
-        except Exception,err:
+        except Exception as err:
             try:log.info("Func: {0}".format(self._func.__name__))
             except:log.info("Func: {0}".format(self._func))
             if self._args:
@@ -1034,7 +1035,7 @@ class CallbackPlus(object):
             self._args = args + self._args
             self._kwargs.update(kwargs)
             return self._func( *self._args, **self._kwargs )
-        except Exception,err:
+        except Exception as err:
             try:log.info("Func: {0}".format(self._func.__name__))
             except:log.info("Func: {0}".format(self._func))
             if self._args:
@@ -1072,7 +1073,7 @@ def stringModuleClassCall(self, module = None,  func = '', *args,**kws):
         _kwString = ''  
     else:
         _l = []
-        for k,v in kws.iteritems():
+        for k,v in kws.items():
             _l.append("{0}={1}".format(k,v))
         _kwString = ','.join(_l)  
 
@@ -1081,7 +1082,7 @@ def stringModuleClassCall(self, module = None,  func = '', *args,**kws):
         log.debug("|{0}| >> On: {1}.{2}".format(_str_func,module.__name__, _short))     
         log.debug("|{0}| >> {1}.{2}({3}{4})...".format(_str_func,_short,func,_str_args,_kwString))                                    
         _res = getattr(module,func)(*args,**kws)
-    except Exception,err:
+    except Exception as err:
         #mc.undoInfo(closeChunk=True, chunkName=_str_func)        
         log.error(_str_hardLine)
         log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
@@ -1094,13 +1095,13 @@ def stringModuleClassCall(self, module = None,  func = '', *args,**kws):
                 log.error("      {0}".format(a))
         if kws:
             log.error(" KWS...".format(_str_func))
-            for k,v in kws.iteritems():
+            for k,v in kws.items():
                 log.error("      {0} : {1}".format(k,v))   
         log.error("Errors...")
         for a in err.args:
             log.error(a)
         #cgmExceptCB(Exception,err)
-        raise Exception,err
+        raise Exception(err)
     #mc.undoInfo(closeChunk=True, chunkName=_str_func)            
     return _res    
         
@@ -1130,15 +1131,15 @@ def myFirstFuncCls(*args, **kws):
             self._str_funcName = 'myFirstFuncCls'	
             self.__dataBind__(*args, **kws)#...this needs to be here
         def __func__(self):
-            raise ValueError, "no"
+            raise ValueError("no")
     return fncWrap(*args, **kws).go()
 
 def testException(message = 'cat'):
-    a = range(0,22)
+    a = list(range(0,22))
     cat = 1
     try:
-        raise Exception, message
-    except Exception,err:
+        raise Exception(message)
+    except Exception as err:
         cgmExceptCB(Exception,err,fncDat=vars())
 def cgmExceptCB_BAK(etype = None, value = None, tb = None, detail=2, localDat = None, processed = False,tracebackCap=1,**kws):
     if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
@@ -1153,39 +1154,39 @@ def cgmExceptCB_BAK(etype = None, value = None, tb = None, detail=2, localDat = 
         #report_enviornment()
         try:db_file = tb.tb_frame.f_code.co_filename
         except:db_file = "<maya console>"
-        print(_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine)		
+        print((_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine))		
         
         try:
             for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
                 try:
                     if i >= tracebackCap:
                         break
-                    print("traceback frame[{0}]".format(i+1) + _str_subLine)		    
-                    print ' File "{1}", line {2}, in {3}\n'.format(*item),
+                    print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
+                    print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
                     #for item in inspect.getinnerframes(tb):
                         #print ' File "{1}", line {2}, in {3}\n'.format(*item)
                     if item[4] is not None:
                         for line in item[4]:
                             try:
-                                print ' ' + line.lstrip()
-                            except Exception,err:
-                                print "Item [4] Failed: {0} | {1}".format(i,err)                            
-                except Exception,err:
-                    print "Failed: {0} | {1}".format(i,err)
-                    print item
-        except Exception,err:
-            print "Traceback Failed: {0}".format(err)
+                                print(' ' + line.lstrip())
+                            except Exception as err:
+                                print("Item [4] Failed: {0} | {1}".format(i,err))                            
+                except Exception as err:
+                    print("Failed: {0} | {1}".format(i,err))
+                    print(item)
+        except Exception as err:
+            print("Traceback Failed: {0}".format(err))
                 
     
     if value:
-        print(_str_headerDiv + " Error log " + _str_headerDiv + _str_subLine)		        
+        print((_str_headerDiv + " Error log " + _str_headerDiv + _str_subLine))		        
         for i,a in enumerate(value.args):
-            print(" {0} : {1}".format(i,a))
+            print((" {0} : {1}".format(i,a)))
     if localDat:
-        print(_str_headerDiv + " Local " + _str_headerDiv + _str_subLine)		
+        print((_str_headerDiv + " Local " + _str_headerDiv + _str_subLine))		
         pprint.pprint(localDat)
-    print _str_hardBreak
-    if etype:raise etype,value
+    print(_str_hardBreak)
+    if etype:raise etype(value)
     
     
 def cgmExceptCB2(etype, value, tb = None, detail=2, processed = False):
@@ -1203,36 +1204,36 @@ def cgmExceptCB2(etype, value, tb = None, detail=2, processed = False):
             if not processed:
                 if db_file != "<maya console>":
                     for item in reversed(inspect.getouterframes(tb.tb_frame)[1:]):
-                        print ' File "{1}", line {2}, in {3}\n'.format(*item),
+                        print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
                         for line in item[4]:
-                            print ' ' + line.lstrip(),
+                            print(' ' + line.lstrip(), end=' ')
                         for item in inspect.getinnerframes(tb):
-                            print ' File "{1}", line {2}, in {3}\n'.format(*item),
+                            print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
                         for line in item[4]:
-                            print ' ' + line.lstrip()		    
+                            print(' ' + line.lstrip())		    
                     #lineno = tb.tb_lineno
                     #line = linecache.getline(db_file, lineno)
                     #print("-- Traceback File: %s"%db_file)
                     #print("-- Traceback Line #: %d"%lineno)
                     #print("-- Traceback Line: %s"%line)
-                print(_str_headerDiv + "Exception encountered..." + _str_headerDiv + _str_hardLine)	    		
+                print((_str_headerDiv + "Exception encountered..." + _str_headerDiv + _str_hardLine))	    		
                 print("-- Coming from cgmExceptCB")		
-                print("-- etype: %s"%etype)
-                print("-- value: %s"%value)
+                print(("-- etype: %s"%etype))
+                print(("-- value: %s"%value))
                 #print("-- tb: %s"%tb)
                 #print("-- detail: %s"%detail)
 
-            print ""
+            print("")
             #report_enviornment()
         #return value
         return mUtils._formatGuiException(etype, value, tb, detail)
-    except Exception,error:
+    except Exception as error:
         log.info("Exception Exception....{%s}"%error)
 
 #mUtils.formatGuiException = cgmExceptCB
 
 def reset_mayaException():
-    reload(mUtils)    
+    importlib.reload(mUtils)    
 """
 example subFunctionClass(object)
 class sampleClass(cgmFunctionClass):
@@ -1241,7 +1242,7 @@ class sampleClass(cgmFunctionClass):
 """
 
 def example_throwException():
-    raise Exception,"Exception!"
+    raise Exception("Exception!")
 
 def funcClassWrap(funcClass):
     '''
@@ -1252,11 +1253,11 @@ def funcClassWrap(funcClass):
         #Data Gather
         _str_funcName = 'No Func found'
         try:_str_funcName = args[0]._str_funcName
-        except Exception,error:log.info(error)
+        except Exception as error:log.info(error)
 
         t1 = time.clock()
         try:res=funcClass(*args,**kws) 
-        except Exception,error:
+        except Exception as error:
             log.info(">"*3 + " %s "%_str_funcName + _str_hardLine)	    
             log.error(">"*3 + " Step: %s "%args[0]._str_funcStep)	    
             log.error(">"*3 + " Args: %s "%args[0]._str_funcArgs)
@@ -1305,7 +1306,7 @@ def func_getTraceString(func):
         if mNode: _l_join.append("('{0}')".format(mNode))
         _l_join.append(str_func)
         
-    except Exception,error:
+    except Exception as error:
         log.debug('function class inspect failure: %s'%error)
             
     return '.'.join(_l_join)
@@ -1335,7 +1336,7 @@ def Timer2(func):
             cls = args[0].__class__
             #log.debug("cls: %s"%cls)
             #log.debug("arg[0]: %s"%args[0])
-            if type(args[0]) in [str,unicode]:
+            if type(args[0]) in [str,str]:
                 str_first = args[0]
             else:
                 str_first = args[0].__class__.__name__  
@@ -1346,7 +1347,7 @@ def Timer2(func):
             except:
                 log.debug("arg[0] failed to call: %s"%args[0])
             functionTrace+='%s.' % str_first
-        except StandardError,error:
+        except Exception as error:
             log.debug('function class inspect failure: %s'%error)
         functionTrace+=func.__name__ 
         if str_arg:functionTrace+='(%s)'%str_arg      
@@ -1401,8 +1402,8 @@ def returnTimeStr(arg = "%m%d%Y"):
         #today = datetime.date.today()
         #return today.strftime(arg)  
         return time.strftime(arg)
-    except Exception,error:
-        raise Exception,"cgmGeneral.returnDateStr(arg = {1}) fail | {0}".format(error,arg)
+    except Exception as error:
+        raise Exception("cgmGeneral.returnDateStr(arg = {1}) fail | {0}".format(error,arg))
 
 def doStartMayaProgressBar(stepMaxValue = 100, statusMessage = 'Calculating....',interruptableState = True):
     """
@@ -1454,22 +1455,22 @@ def Func(func):
         err=None
         try:
             res=func(*args, **kws)
-        except Exception, error:
+        except Exception as error:
             err = error
         finally:
             if err:
                 #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_hardBreak)		                
                 
-                try:print("Func: {0}".format(func.__name__))
-                except:print("Func: {0}".format(func))                
+                try:print(("Func: {0}".format(func.__name__)))
+                except:print(("Func: {0}".format(func)))                
                 if args:
-                    print(_str_headerDiv + " Args " + _str_headerDiv + _str_subLine)		        
+                    print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))		        
                     for i, arg in enumerate(args):
-                        print("    arg {0}: {1}".format(i, arg))
+                        print(("    arg {0}: {1}".format(i, arg)))
                 if kws:
-                    print(_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine)		        
-                    for items in kws.items():
-                        print("    kw: {0}".format(items))   
+                    print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
+                    for items in list(kws.items()):
+                        print(("    kw: {0}".format(items)))   
                 traceback = sys.exc_info()[2]  # get the full traceback
                 cgmException(Exception,err,traceback)
             return res
@@ -1489,25 +1490,28 @@ def Timer(func):
             t1 = time.time()
             res=func(*args,**kws) 
             t2 = time.time()            
-            print("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 ))) 
+            print(("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 )))) 
             
-        except Exception, error:
+        except Exception as error:
             err = error
         finally:
             if err:
                 #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)		                
-                try:print("Func: {0}".format(func.__name__))
-                except:print("Func: {0}".format(func))                
+                try:print(("Func: {0}".format(func.__name__)))
+                except:print(("Func: {0}".format(func)))                
                 if args:
-                    print(_str_headerDiv + " Args " + _str_headerDiv + _str_subLine)		        
+                    print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))		        
                     for i, arg in enumerate(args):
-                        print("    arg {0}: {1}".format(i, arg))
+                        print(("    arg {0}: {1}".format(i, arg)))
                 if kws:
-                    print(_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine)		        
-                    for items in kws.items():
-                        print("    kw: {0}".format(items))   
+                    print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
+                    for items in list(kws.items()):
+                        print(("    kw: {0}".format(items)))   
                         
-                traceback = sys.exc_info()[2]  # get the full traceback
+                traceback = sys.exc_info()  # get the full traceback
+                pprint.pprint(traceback)
+                if traceback:
+                    traceback = traceback[2]
                 cgmException(Exception,err,traceback)
             return res
     return wrapper
@@ -1521,14 +1525,14 @@ def testTimer(sleep = .5):
 
 @Func
 def testFunc(*args,**kws):
-    raise Exception,'test'
+    raise Exception('test')
 
 def getModule(arg):
     mod = inspect.getmodule(arg)
     #log.debug("mod: %s"%mod)
-    print mod
-    print mod.__name__
-    print mod.__name__.split('.')[-1]
+    print(mod)
+    print(mod.__name__)
+    print(mod.__name__.split('.')[-1])
     functionTrace+='%s >> ' % mod.__name__.split('.')[-1]
     
 def whoami():
@@ -1536,23 +1540,23 @@ def whoami():
     return sys._getframe(1).f_code.co_name
 def queryCode(v=1):
     import sys
-    print 'name'
+    print('name')
     pprint.pprint( sys._getframe(v).f_code.co_name)
-    print 'varnames'
+    print('varnames')
     pprint.pprint (sys._getframe(v).f_code.co_varnames)
-    print 'filename'
+    print('filename')
     pprint.pprint(sys._getframe(v).f_code.co_filename)
-    print 'flags'
+    print('flags')
     pprint.pprint(sys._getframe(v).f_code.co_flags)
-    print 'names'
+    print('names')
     pprint.pprint(sys._getframe(v).f_code.co_names)
-    print 'locals'
+    print('locals')
     pprint.pprint(sys._getframe(v).f_code.co_nlocals)
-    print 'cell vars'
+    print('cell vars')
     pprint.pprint(sys._getframe(v).f_code.co_cellvars)
-    print 'free vars'
+    print('free vars')
     pprint.pprint(sys._getframe(v).f_code.co_freevars)
-    print 'constants'
+    print('constants')
     pprint.pprint(sys._getframe(v).f_code.co_consts)      
 def callersname():
     import sys
@@ -1561,61 +1565,61 @@ def callersname():
 def cgmExceptionBAK(etype = None, value = None, localDat = None, func = None, module = None, tb = None):
     #if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
 
-    print _str_hardLine
+    print(_str_hardLine)
     if module:
-        print(_str_headerDiv + " Module: {0} ".format(module) + _str_headerDiv )		        
+        print((_str_headerDiv + " Module: {0} ".format(module) + _str_headerDiv ))		        
     if func:
-        print(_str_headerDiv + " Func: {0} ".format(func) + _str_headerDiv )		    
+        print((_str_headerDiv + " Func: {0} ".format(func) + _str_headerDiv ))		    
     
     if localDat:
-        print _str_subLine        
-        print(_str_headerDiv + " Local " + _str_headerDiv )		
+        print(_str_subLine)        
+        print((_str_headerDiv + " Local " + _str_headerDiv ))		
         pprint.pprint(localDat)
-    print _str_subLine
+    print(_str_subLine)
     #print "caller: " + callersname()
 
-    if etype:raise etype,value
+    if etype:raise etype(value)
 
 def func_snapShot(dat = None):
     import sys    
     if dat is None:        
-        print("[ {0} ]snapShot || No dat provided".format(sys._getframe(1).f_code.co_name))
+        print(("[ {0} ]snapShot || No dat provided".format(sys._getframe(1).f_code.co_name)))
         return
-    print _str_hardLine
-    print(_str_headerDiv + " call: {0}   ".format(sys._getframe(1).f_code.co_name) + _str_headerDiv + _str_subLine)		
-    print(_str_headerDiv + " file: {0}".format(sys._getframe(1).f_code.co_filename))
+    print(_str_hardLine)
+    print((_str_headerDiv + " call: {0}   ".format(sys._getframe(1).f_code.co_name) + _str_headerDiv + _str_subLine))		
+    print((_str_headerDiv + " file: {0}".format(sys._getframe(1).f_code.co_filename)))
     
-    print(_str_headerDiv + " local dat...")
+    print((_str_headerDiv + " local dat..."))
     #sys._getframe(1).f_code.co_name
     pprint.pprint(dat)
-    print("..." + _str_headerDiv)
-    print _str_hardLine
+    print(("..." + _str_headerDiv))
+    print(_str_hardLine)
     
 def test_rawValueError(*args,**kws):
     bye = 'fred'
-    _l = range(12)
-    raise ValueError,"Bob's not home"
+    _l = list(range(12))
+    raise ValueError("Bob's not home")
 
 def testExceptionNested(*args,**kws):
     try:
         hi = 'mike'
         _nestedDictTest = {1:2,3:4}
         return testException()
-    except Exception,err:cgmException(Exception,err)
+    except Exception as err:cgmException(Exception,err)
     
 def test_cgmException(*args,**kws):
     try:
         bye = 'fred'
-        _l = range(12)
-        raise ValueError,"Bob's not home"
-    except Exception,err:cgmException(Exception,err)
+        _l = list(range(12))
+        raise ValueError("Bob's not home")
+    except Exception as err:cgmException(Exception,err)
     
 def test_cgmExceptCB(*args,**kws):
     try:
         bye = 'fred'
-        _l = range(12)
-        raise ValueError,"Bob's not home"
-    except Exception,err:cgmExceptCB(Exception,err)
+        _l = list(range(12))
+        raise ValueError("Bob's not home")
+    except Exception as err:cgmExceptCB(Exception,err)
     
 def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
     if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
@@ -1623,30 +1627,31 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
     try:db_file = tb.tb_frame.f_code.co_filename
     except:db_file = "<maya console>"
     
-    print(_str_headerDiv + " {0}   ".format(tb.tb_frame.f_code.co_name) + _str_headerDiv + _str_subLine)		
-    print(" file: {0}".format(db_file))
+    try:print((_str_headerDiv + " {0}   ".format(tb.tb_frame.f_code.co_name) + _str_headerDiv + _str_subLine))		
+    except:pass
+    print((" file: {0}".format(db_file)))
     
     _d = tb.tb_frame.f_locals
 
-    if 'args' in _d.keys():
+    if 'args' in list(_d.keys()):
         _args = _d.pop('args')
         if _args:
-            print("  Args... " + '-'*80)
+            print(("  Args... " + '-'*80))
             for a in _args:
-                print("      {0}".format(a))
-    if 'kws' in _d.keys():
+                print(("      {0}".format(a)))
+    if 'kws' in list(_d.keys()):
         _kws = _d.pop('kws')
         if _kws:
-            print("  KWS..." + '-'*80)
-            for k,v in _kws.iteritems():
-                print("      {0} : {1}".format(k,v))
+            print(("  KWS..." + '-'*80))
+            for k,v in _kws.items():
+                print(("      {0} : {1}".format(k,v)))
             
     print("  Local dat...")
     pprint.pprint(_d)
     #pprint.pprint(tb.tb_frame.f_locals)
     if msg:
         print (msg)
-    print("..." + _str_headerDiv)
+    print(("..." + _str_headerDiv))
     """
     if value:
         print(_str_headerDiv + " Error log " + _str_headerDiv + _str_subLine)		        
@@ -1654,6 +1659,6 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
             print(" {0} : {1}".format(i,a))
             """
     log.info("Release: "+get_releaseString())
-    if etype:raise etype,value,tb
+    if etype:raise etype(value).with_traceback(tb)
 
 cgmExceptCB = cgmException

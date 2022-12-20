@@ -3,11 +3,11 @@ import os
 
 import maya.cmds as cmd
 
-from baseMelUI import *
+from .baseMelUI import *
 from cgm.lib.zoo.zooPy.path import Path
 
-import poseSym
-import mayaDecorators
+from . import poseSym
+from . import mayaDecorators
 
 
 class PoseSymLayout(MelVSingleStretchLayout):
@@ -96,7 +96,7 @@ class PoseSymWindow(BaseMelWindow):
 
 		cmd.select( nodes )
 	def on_setupSkeletonBuilder( self, *a ):
-		import rigPrimitives
+		from . import rigPrimitives
 		rigPrimitives.setupMirroring()
 
 

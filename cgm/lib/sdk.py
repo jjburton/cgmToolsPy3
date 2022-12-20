@@ -56,7 +56,7 @@ def copySetDrivenKey(sourceDriver,targetDriver,drivenObject,targetObject):
     else:
         # Get drivers
         for attr in drivenAttributes:
-            print attr
+            print(attr)
             drivers = mc.setDrivenKeyframe(attr,q=True, dr=True)
             if not sourceDriver in drivers:
                 guiFactory.warning('%s not found in the sdk drivers' %sourceDriver)
@@ -64,7 +64,7 @@ def copySetDrivenKey(sourceDriver,targetDriver,drivenObject,targetObject):
                 # Get curve info
                 curveInfo = returnSetDrivenCurveInfo(sourceDriver,attr)
                 
-                for key in curveInfo.keys():
+                for key in list(curveInfo.keys()):
                     attrBuffer = attr.split('.')
                     # set the SDK's
                     mc.setDrivenKeyframe(targetObject+'.'+attrBuffer[-1], currentDriver = targetDriver, driverValue = key,value = curveInfo[key])

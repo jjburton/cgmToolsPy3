@@ -79,7 +79,7 @@ def get_lsFromPath(str_path = None,
     result = None 
     
     #>> Check the str_path
-    if not isinstance(str_path, basestring):
+    if not isinstance(str_path, str):
         raise TypeError('path must be string | str_path = {0}'.format(str_path))
     if os.path.isfile(str_path):
         str_path = cgmPath.Path(str_path).up()
@@ -94,7 +94,7 @@ def get_lsFromPath(str_path = None,
             for a in matchArg:
                 _res.extend(find_files(str_path,a))
             return _res
-        elif not isinstance(matchArg, basestring):
+        elif not isinstance(matchArg, str):
             raise TypeError('matchArg must be string | matchArg: {0}'.format(matchArg))        
     
     if matchArg is None or matchArg in ['']:
@@ -239,7 +239,7 @@ def get_module_data(path = None, level = None, mode = 0, cleanPyc = False):
                         
             #log.debug("|{0}| >> found: {1}".format(_str_func,name)) 
             if key:
-                if key not in _d_files.keys():
+                if key not in list(_d_files.keys()):
                     if key != _mod:_l_sub.append(key)                    
                     _d_files[key] = os.path.join(root,f)
                     _d_names[key] = name
@@ -283,18 +283,18 @@ def get_module_data(path = None, level = None, mode = 0, cleanPyc = False):
             #if k in _l_pycd:
             log.debug("|{0}| >> Attempting to clean pyc for: {1} ".format(_str_func,_file))  
             if not _file.endswith('.pyc'):
-                raise ValueError,"Should NOT be here"
+                raise ValueError("Should NOT be here")
             try:
                 os.remove( _file )
-            except WindowsError, e:
+            except WindowsError as e:
                 try:
                     log.info("|{0}| >> Initial delete fail. attempting chmod... ".format(_str_func))                          
                     os.chmod( _file, stat.S_IWRITE )
                     os.remove( _file )                          
-                except Exception,e:
+                except Exception as e:
                     for arg in e.args:
                         log.error(arg)   
-                    raise RuntimeError,"Stop"
+                    raise RuntimeError("Stop")
         _l_pyc = []
         
     
@@ -314,7 +314,7 @@ def get_module_data(path = None, level = None, mode = 0, cleanPyc = False):
         log.error("|{0}| >> DUPLICATE MODULES....")
         for m in _l_duplicates:
             if _b_debug:print(m)
-    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),path))
+    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(list(_d_files.keys())),path))
     
     log.debug(cgmGEN._str_subLine)    
     log.debug("|{0}| >> Ordered MODULES....".format(_str_func))
@@ -365,7 +365,7 @@ def import_file(mFile = None, namespace = None):
                     l_fileString[i] = '/'
             _str = '{0} "{1}";'.format(_str,''.join(l_fileString))
             log.warning("|{0}| >> 2018 import: {1}".format(_str_func,_str))
-            print _str
+            print(_str)
             MEL.eval(_str)
     #Do not use the prompt flag!
     mc.file(mFile, i = True, pr = True, force = True,  gn = _name, gr = True, **kws) 
@@ -397,7 +397,7 @@ def verify_dir_fromDict(root = None, d = {}, case = None):
     _pathRoot = mRoot.asFriendly()
     log.info("|{0}| >> root: {1}".format(_str_func,_pathRoot))
     
-    for k,l in d.iteritems():
+    for k,l in list(d.items()):
         #log.info("|{0}| >> k: {1}".format(_str_func,k))
         if case == 'lower':
             k = k.lower()
@@ -595,28 +595,28 @@ def find_tmpFiles(path = None, level = None, cleanFiles = False,
         
     if cleanFiles:
         _len = 0
-        for f,_path in _d_weirdFiles.iteritems():
+        for f,_path in list(_d_weirdFiles.items()):
             try:
                 log.warning("Remove: {0}".format(_path))
                 os.remove( _path )
                 _len+=1                
-            except WindowsError, e:
+            except WindowsError as e:
                 try:
                     log.info("|{0}| >> Initial delete fail. attempting chmod... ".format(_str_func))                          
                     os.chmod( _path, stat.S_IWRITE )
                     os.remove( _path )
                     _len+=1                    
-                except Exception,e:
+                except Exception as e:
                     for arg in e.args:
                         log.error(arg)   
-                    raise RuntimeError,"Stop"
+                    raise RuntimeError("Stop")
             
                 
         log.warning("|{}| >> deleted [{}] files".format(_str_func,_len))                          
     else:
         if _d_weirdFiles:
             pprint.pprint(_d_weirdFiles)
-            log.warning( cgmGEN.logString_msg(_str_func,"Found {0} files".format(len(_d_weirdFiles.keys()))) )
+            log.warning( cgmGEN.logString_msg(_str_func,"Found {0} files".format(len(list(_d_weirdFiles.keys())))) )
         else:
             log.warning( cgmGEN.logString_msg(_str_func,"No files found.") )
     return
@@ -699,7 +699,7 @@ def dup_filesInPath(path = None, count = 1, level = None, test= True):
             if f.endswith('.meta'):
                 continue
             
-            print f
+            print(f)
             
             _dot_split = f.split('.')
             _extension = _dot_split[1:]
@@ -708,7 +708,7 @@ def dup_filesInPath(path = None, count = 1, level = None, test= True):
             for i in range(count):
                 newFilename = os.path.normpath(_pre + '_{0}'.format(i+1) + '.' + '.'.join(_extension))
                 newFilename = os.path.join(root, newFilename)
-                print newFilename
+                print(newFilename)
                 if not test:copyfile(os.path.normpath(_long), newFilename)
                 
 
@@ -755,7 +755,7 @@ def rename_filesInPath(path = None, search = '', replace = '', test = False):
     #_b_debug = log.isEnabledFor(logging.DEBUG)
     
     if not search and replace:
-        raise ValueError, log_msg(_str_func,"Must have search and replace")
+        raise ValueError(log_msg(_str_func,"Must have search and replace"))
     
     _path = PATH.Path(path)
     _base = _path.split()[-1]
@@ -825,7 +825,7 @@ def dup_dirsBelow(pathSource = None, pathTarget = None,  search = '', replace = 
     #_b_debug = log.isEnabledFor(logging.DEBUG)
     
     if not search and replace:
-        raise ValueError, log_msg(_str_func,"Must have search and replace")
+        raise ValueError(log_msg(_str_func,"Must have search and replace"))
     
     _path = PATH.Path(pathSource)
     _base = _path.split()[-1]
@@ -887,7 +887,7 @@ def dup_structure(pathSource = None, pathTarget = None,  copyFiles = False, sear
     #_b_debug = log.isEnabledFor(logging.DEBUG)
     
     if not search and replace:
-        raise ValueError, log_msg(_str_func,"Must have search and replace")
+        raise ValueError(log_msg(_str_func,"Must have search and replace"))
     
     _path = PATH.Path(pathSource)
     _base = _path.split()[-1]

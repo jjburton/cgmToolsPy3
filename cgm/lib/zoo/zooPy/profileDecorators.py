@@ -34,7 +34,7 @@ def d_profile(f):
 
 		#remove the tmpFile
 		os.remove( tmpFile )
-		print 'LOGGED PROFILING STATS TO', dumpFile
+		print(('LOGGED PROFILING STATS TO', dumpFile))
 
 	newFunc.__name__ = f.__name__
 	newFunc.__doc__ = f.__doc__
@@ -49,7 +49,7 @@ def d_timer(f):
 	def newFunc( *a, **kw ):
 		s = time.clock()
 		ret = f( *a, **kw )
-		print 'Time Taken by %s:  %0.3g' % (f.__name__, time.clock()-s)
+		print(('Time Taken by %s:  %0.3g' % (f.__name__, time.clock()-s)))
 
 		return ret
 

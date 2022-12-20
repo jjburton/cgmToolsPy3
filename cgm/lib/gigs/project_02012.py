@@ -42,7 +42,7 @@ def ObjectFacesToFolicles():
 	guiFactory.report("On %s. %s of %s"%(o,i,number))
 	faceBuffer = "%s.f[4]"%o
 	if not mc.objExists(faceBuffer):
-	    print "'%s' has no face!"%o
+	    print(("'%s' has no face!"%o))
 	    
 	loc = locators.locMeObject(faceBuffer)
 	returnSet.store(loc)	
@@ -86,7 +86,7 @@ def randomizeCubey(nameSpace):
 	
     #set it
     if not mc.objExists(settingsObject):
-	print "'%s' doesn't exist!"%settingsObject
+	print(("'%s' doesn't exist!"%settingsObject))
     attributes.doSetAttr(settingsObject,'Nose', random.randint(1,5))
     attributes.doSetAttr(settingsObject,'Hair', random.randint(0,6))
     beardOptions = [0,1,2,3,4,5,0,0,0,0,0]
@@ -162,7 +162,7 @@ def randomizeCubette(namespace):
 	
     #set it
     if not mc.objExists(settingsObject):
-	print "'%s' doesn't exist!"%settingsObject
+	print(("'%s' doesn't exist!"%settingsObject))
     attributes.doSetAttr(settingsObject,'Tops', random.randint(0,3))
     attributes.doSetAttr(settingsObject,'Hair', random.randint(0,5))
     attributes.doSetAttr(settingsObject,'Bottom', random.randint(0,3))
@@ -322,7 +322,7 @@ def singleObjectVisToggle(obj,chooseAttr = 'switcher', controlObject = None, con
 	if mc.objExists('%s_condNode'%obj):
 	    mc.delete('%s_condNode'%obj)
 	buffer = nodes.createNamedNode('%s_picker'%obj,'condition') #Make our node
-    print buffer
+    print(buffer)
     attributes.doSetAttr(buffer,'secondTerm',1)
     attributes.doSetAttr(buffer,'colorIfTrueR',1)
     attributes.doSetAttr(buffer,'colorIfFalseR',0)
@@ -345,15 +345,15 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
     #Make our attr
     a = AttrFactory.AttrFactory(controlObject,chooseAttr,'enum')
     children.insert(0,'none')
-    print children
+    print(children)
     if len(children) == 2:
 	a.setEnum('off:on')
     else:
 	a.setEnum(':'.join(children))
     
     for i,c in enumerate(children[1:]):
-	print i
-	print c
+	print(i)
+	print(c)
 	#see if the node exists
 	condNodeTest = attributes.returnDriverObject('%s.%s'%(c,connectTo))
 	if condNodeTest:
@@ -362,7 +362,7 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
 	    if mc.objExists('%s_condNode'%c):
 		mc.delete('%s_condNode'%c)
 	    buffer = nodes.createNamedNode('%s_picker'%c,'condition') #Make our node
-	print buffer
+	print(buffer)
 	attributes.doSetAttr(buffer,'secondTerm',i+1)
 	attributes.doSetAttr(buffer,'colorIfTrueR',1)
 	attributes.doSetAttr(buffer,'colorIfFalseR',0)
@@ -394,7 +394,7 @@ def rigMasterCardCharater(doRig = True, doSkinIt = True):
 	
 	jointChains = getSkinJointChains()
 
-	for i,g in enumerate([u'torso_geoGrp', u'armLeft_geoGrp', u'armRight_geoGrp', u'legLeft_geoGrp', u'legRight_geoGrp']):
+	for i,g in enumerate(['torso_geoGrp', 'armLeft_geoGrp', 'armRight_geoGrp', 'legLeft_geoGrp', 'legRight_geoGrp']):
 	    geoGroupObjects = search.returnAllChildrenObjects(g,True) or []
 	
 	    toSkin = []
@@ -407,7 +407,7 @@ def rigMasterCardCharater(doRig = True, doSkinIt = True):
 		    toBind = jointChains[i] + [o]
 		    mc.skinCluster(toBind, tsb = True, normalizeWeights = True, mi = 4, dr = 10)
 	    else:
-		print ("'%s' has nothing to skin!"%g)   
+		print(("'%s' has nothing to skin!"%g))   
 		
 	
     def orientSkeletonTemplate():
@@ -535,13 +535,13 @@ def rigMasterCardCharater(doRig = True, doSkinIt = True):
     mc.scaleConstraint('cubey_neck_IK_Cntrl','head1')
     
     #Sets and Coloring
-    leftArmSetObjects = [u'rig_clavicle_l_IK_Cntrl', u'rig_shoulder_l_twist', u'rig_shoulder_l_Bendy', u'rig_elbow_l_Bendy', u'rig_clavicle_l_FK_Cntrl', u'cubey_finger_Cntrl0_l', u'rig_wrist_l_FK', u'rig_wrist_l_SW', u'rig_shoulder_l_FK', u'rig_elbow_l_FK', u'cubey_arm_IK_Cntrl_l', u'rig_wrist_l_GimbleCntrl_l', u'cubey_arm_PV_Cntrl_l'] # 
-    rightArmSetObjects = [u'rig_clavicle_r_IK_Cntrl', u'rig_shoulder_r_twist', u'rig_shoulder_r_Bendy', u'rig_elbow_r_Bendy', u'rig_clavicle_r_FK_Cntrl', u'cubey_finger_Cntrl0_r', u'rig_wrist_r_FK', u'rig_wrist_r_SW', u'rig_shoulder_r_FK', u'rig_elbow_r_FK', u'cubey_arm_IK_Cntrl_r', u'rig_wrist_r_GimbleCntrl_r', u'cubey_arm_PV_Cntrl_r'] # 
+    leftArmSetObjects = ['rig_clavicle_l_IK_Cntrl', 'rig_shoulder_l_twist', 'rig_shoulder_l_Bendy', 'rig_elbow_l_Bendy', 'rig_clavicle_l_FK_Cntrl', 'cubey_finger_Cntrl0_l', 'rig_wrist_l_FK', 'rig_wrist_l_SW', 'rig_shoulder_l_FK', 'rig_elbow_l_FK', 'cubey_arm_IK_Cntrl_l', 'rig_wrist_l_GimbleCntrl_l', 'cubey_arm_PV_Cntrl_l'] # 
+    rightArmSetObjects = ['rig_clavicle_r_IK_Cntrl', 'rig_shoulder_r_twist', 'rig_shoulder_r_Bendy', 'rig_elbow_r_Bendy', 'rig_clavicle_r_FK_Cntrl', 'cubey_finger_Cntrl0_r', 'rig_wrist_r_FK', 'rig_wrist_r_SW', 'rig_shoulder_r_FK', 'rig_elbow_r_FK', 'cubey_arm_IK_Cntrl_r', 'rig_wrist_r_GimbleCntrl_r', 'cubey_arm_PV_Cntrl_r'] # 
     
-    centerSetObjects = [u'rig_spine1_Shoulders', u'rig_spine1_Hips', u'cubey_spine_Root', u'rig_spine1FK3', u'rig_spine1FK2', u'rig_spine1FK1', u'cubey_neck_FK_Cntrl', u'cubey_neck_IK_Cntrl']
+    centerSetObjects = ['rig_spine1_Shoulders', 'rig_spine1_Hips', 'cubey_spine_Root', 'rig_spine1FK3', 'rig_spine1FK2', 'rig_spine1FK1', 'cubey_neck_FK_Cntrl', 'cubey_neck_IK_Cntrl']
     
-    leftLegSetObjects = [u'rig_ball_l_FK', u'rig_ankle_l_SW', u'rig_hip_l_Bendy', u'rig_knee_l_FK', u'rig_ankle_l_FK', u'rig_hip_l_FK', u'rig_knee_l_Bendy', u'rig_hip_l_twist', u'cubey_leg_GimbleCntrl_l', u'cubey_leg_IKleg_Cntrl_l', u'cubey_leg_PV_Cntrl_l']
-    rightLegSetObjects = [u'rig_ball_r_FK', u'rig_ankle_r_SW', u'rig_hip_r_Bendy', u'rig_knee_r_FK', u'rig_ankle_r_FK', u'rig_hip_r_FK', u'rig_knee_r_Bendy', u'rig_hip_r_twist', u'cubey_leg_GimbleCntrl_r', u'cubey_leg_IKleg_Cntrl_r', u'cubey_leg_PV_Cntrl_r']
+    leftLegSetObjects = ['rig_ball_l_FK', 'rig_ankle_l_SW', 'rig_hip_l_Bendy', 'rig_knee_l_FK', 'rig_ankle_l_FK', 'rig_hip_l_FK', 'rig_knee_l_Bendy', 'rig_hip_l_twist', 'cubey_leg_GimbleCntrl_l', 'cubey_leg_IKleg_Cntrl_l', 'cubey_leg_PV_Cntrl_l']
+    rightLegSetObjects = ['rig_ball_r_FK', 'rig_ankle_r_SW', 'rig_hip_r_Bendy', 'rig_knee_r_FK', 'rig_ankle_r_FK', 'rig_hip_r_FK', 'rig_knee_r_Bendy', 'rig_hip_r_twist', 'cubey_leg_GimbleCntrl_r', 'cubey_leg_IKleg_Cntrl_r', 'cubey_leg_PV_Cntrl_r']
     
     lArmSet = SetFactory.SetFactory('armLeft','animation',True)
     for o in leftArmSetObjects:
@@ -606,7 +606,7 @@ def rigMasterCardCharaterOLD():
 	
 	jointChains = getSkinJointChains()
 
-	for i,g in enumerate([u'torso_geoGrp', u'armLeft_geoGrp', u'armRight_geoGrp', u'legLeft_geoGrp', u'legRight_geoGrp']):
+	for i,g in enumerate(['torso_geoGrp', 'armLeft_geoGrp', 'armRight_geoGrp', 'legLeft_geoGrp', 'legRight_geoGrp']):
 	    geoGroupObjects = search.returnAllChildrenObjects(g,True)	
 	
 	    toSkin = []
@@ -619,7 +619,7 @@ def rigMasterCardCharaterOLD():
 		    toBind = jointChains[i] + [o]
 		    mc.skinCluster(toBind, tsb = True, normalizeWeights = True, mi = 4, dr = 10,polySmoothness = 3)
 	    else:
-		print ("'%s' has nothing to skin!"%g)   
+		print(("'%s' has nothing to skin!"%g))   
 		
 	
     def orientSkeletonTemplate():
@@ -742,13 +742,13 @@ def rigMasterCardCharaterOLD():
     mc.scaleConstraint('cubey_neck_IK_Cntrl','head1')
     
     #Sets and Coloring
-    leftArmSetObjects = [u'rig_clavicle_l_IK_Cntrl', u'rig_shoulder_l_twist', u'rig_shoulder_l_Bendy', u'rig_elbow_l_Bendy', u'rig_clavicle_l_FK_Cntrl', u'cubey_finger_Cntrl0_l', u'rig_wrist_l_FK', u'rig_wrist_l_SW', u'rig_shoulder_l_FK', u'rig_elbow_l_FK', u'cubey_arm_IK_Cntrl_l', u'rig_wrist_l_GimbleCntrl_l', u'cubey_arm_PV_Cntrl_l'] # 
-    rightArmSetObjects = [u'rig_clavicle_r_IK_Cntrl', u'rig_shoulder_r_twist', u'rig_shoulder_r_Bendy', u'rig_elbow_r_Bendy', u'rig_clavicle_r_FK_Cntrl', u'cubey_finger_Cntrl0_r', u'rig_wrist_r_FK', u'rig_wrist_r_SW', u'rig_shoulder_r_FK', u'rig_elbow_r_FK', u'cubey_arm_IK_Cntrl_r', u'rig_wrist_r_GimbleCntrl_r', u'cubey_arm_PV_Cntrl_r'] # 
+    leftArmSetObjects = ['rig_clavicle_l_IK_Cntrl', 'rig_shoulder_l_twist', 'rig_shoulder_l_Bendy', 'rig_elbow_l_Bendy', 'rig_clavicle_l_FK_Cntrl', 'cubey_finger_Cntrl0_l', 'rig_wrist_l_FK', 'rig_wrist_l_SW', 'rig_shoulder_l_FK', 'rig_elbow_l_FK', 'cubey_arm_IK_Cntrl_l', 'rig_wrist_l_GimbleCntrl_l', 'cubey_arm_PV_Cntrl_l'] # 
+    rightArmSetObjects = ['rig_clavicle_r_IK_Cntrl', 'rig_shoulder_r_twist', 'rig_shoulder_r_Bendy', 'rig_elbow_r_Bendy', 'rig_clavicle_r_FK_Cntrl', 'cubey_finger_Cntrl0_r', 'rig_wrist_r_FK', 'rig_wrist_r_SW', 'rig_shoulder_r_FK', 'rig_elbow_r_FK', 'cubey_arm_IK_Cntrl_r', 'rig_wrist_r_GimbleCntrl_r', 'cubey_arm_PV_Cntrl_r'] # 
     
-    centerSetObjects = [u'rig_spine1_Shoulders', u'rig_spine1_Hips', u'cubey_spine_Root', u'rig_spine1FK3', u'rig_spine1FK2', u'rig_spine1FK1', u'cubey_neck_FK_Cntrl', u'cubey_neck_IK_Cntrl']
+    centerSetObjects = ['rig_spine1_Shoulders', 'rig_spine1_Hips', 'cubey_spine_Root', 'rig_spine1FK3', 'rig_spine1FK2', 'rig_spine1FK1', 'cubey_neck_FK_Cntrl', 'cubey_neck_IK_Cntrl']
     
-    leftLegSetObjects = [u'rig_ball_l_FK', u'rig_ankle_l_SW', u'rig_hip_l_Bendy', u'rig_knee_l_FK', u'rig_ankle_l_FK', u'rig_hip_l_FK', u'rig_knee_l_Bendy', u'rig_hip_l_twist', u'cubey_leg_GimbleCntrl_l', u'cubey_leg_IKleg_Cntrl_l', u'cubey_leg_PV_Cntrl_l']
-    rightLegSetObjects = [u'rig_ball_r_FK', u'rig_ankle_r_SW', u'rig_hip_r_Bendy', u'rig_knee_r_FK', u'rig_ankle_r_FK', u'rig_hip_r_FK', u'rig_knee_r_Bendy', u'rig_hip_r_twist', u'cubey_leg_GimbleCntrl_r', u'cubey_leg_IKleg_Cntrl_r', u'cubey_leg_PV_Cntrl_r']
+    leftLegSetObjects = ['rig_ball_l_FK', 'rig_ankle_l_SW', 'rig_hip_l_Bendy', 'rig_knee_l_FK', 'rig_ankle_l_FK', 'rig_hip_l_FK', 'rig_knee_l_Bendy', 'rig_hip_l_twist', 'cubey_leg_GimbleCntrl_l', 'cubey_leg_IKleg_Cntrl_l', 'cubey_leg_PV_Cntrl_l']
+    rightLegSetObjects = ['rig_ball_r_FK', 'rig_ankle_r_SW', 'rig_hip_r_Bendy', 'rig_knee_r_FK', 'rig_ankle_r_FK', 'rig_hip_r_FK', 'rig_knee_r_Bendy', 'rig_hip_r_twist', 'cubey_leg_GimbleCntrl_r', 'cubey_leg_IKleg_Cntrl_r', 'cubey_leg_PV_Cntrl_r']
     
     lArmSet = SetFactory.SetFactory('armLeft','animation',True)
     for o in leftArmSetObjects:

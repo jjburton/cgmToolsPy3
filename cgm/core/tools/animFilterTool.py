@@ -17,6 +17,7 @@ import pprint
 import os
 import logging
 import json
+import importlib
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -43,9 +44,9 @@ from cgm.lib import lists
 from cgm.core.classes import PostBake as PostBake
 from cgm.core.tools import dragger as DRAGGER
 from cgm.core.tools import spring as SPRING
-reload(PostBake)
-reload(DRAGGER)
-reload(SPRING)
+importlib.reload(PostBake)
+importlib.reload(DRAGGER)
+importlib.reload(SPRING)
 from cgm.core.tools import trajectoryAim as TRAJECTORYAIM
 from cgm.core.tools import keyframeToMotionCurve as K2MC
 
@@ -1172,7 +1173,7 @@ class ui_post_dragger_column(ui_post_filter):
         self.update_dict()
         
         pprint.pprint(self._optionDict)
-        reload(DRAGGER)
+        importlib.reload(DRAGGER)
 
         for obj in self._optionDict['objs']:
             mc.select(obj)
@@ -1586,7 +1587,7 @@ class ui_post_spring_column(ui_post_filter):
 
     def run(self):
         self.update_dict()
-        reload(SPRING)
+        importlib.reload(SPRING)
         for obj in self._optionDict['objs']:
             mc.select(obj)
             postInstance = SPRING.Spring(aimFwd = self._optionDict['aimFwd'], aimUp = self._optionDict['aimUp'], damp = self._optionDict['damp'], springForce=self._optionDict['springForce'], angularDamp = self._optionDict['angularDamp'], angularSpringForce = self._optionDict['angularSpringForce'], angularUpDamp = self._optionDict['angularUpDamp'], angularUpSpringForce = self._optionDict['angularUpSpringForce'],objectScale=self._optionDict['objectScale'], translate=self._optionDict['translate'], rotate=self._optionDict['rotate'],debug=self._optionDict['debug'], showBake=self._optionDict['showBake'],

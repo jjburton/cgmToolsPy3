@@ -219,7 +219,7 @@ def createMasterControl(characterName,controlScale,font, controlVis = False, con
         controlsToMake.append('controlSettings')
     if len(controlsToMake) >=1:
         childControls = childControlMaker(RootCurve.nameShort, baseAim = [0,1,0], baseUp = [0,0,-1], offset = 135, controls = controlsToMake, mode = ['incremental',90],distanceMultiplier = .8, zeroGroups = True,lockHide = True)
-        for c in childControls.keys():
+        for c in list(childControls.keys()):
             controlsReturn.append(childControls.get(c))
         
     """ Default groups """
@@ -410,7 +410,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
     distanceFactor = (max(absSize)/2) * distanceMultiplier
     
     runningRotation = 0 + offset
-    for c in controlsMade.keys():
+    for c in list(controlsMade.keys()):
         control = controlsMade.get(c)
         """ move it """
         mc.setAttr((control+'.ty'),distanceFactor)
@@ -453,7 +453,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
         
     position.moveParentSnap(baseControlTransformGroup,baseControl)
     
-    for c in controlsMade.keys():
+    for c in list(controlsMade.keys()):
         control = controlsMade.get(c)
         mc.parent(control,baseControl)
         if color:curves.setColorByIndex(control,controlColor)
@@ -1064,7 +1064,7 @@ def limbControlMaker(moduleNull,controlTypes = ['cog']):
         orientationSegments = lists.parseListToPairs(orientationTemplateObjects)
         """ figure out our second to last segment to do something a bit different """
         secondToLastCheck = (len(controlSegments)-2)
-        print secondToLastCheck  
+        print(secondToLastCheck)  
         cnt = 0
         for segment in controlSegments:
             """ get our orientation segment buffer """

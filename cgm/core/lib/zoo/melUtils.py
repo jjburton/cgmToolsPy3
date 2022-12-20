@@ -17,8 +17,8 @@ mayaVar = float( melEval( 'getApplicationVersionAsFloat()' ) )
 
 def pyArgToMelArg( arg ):
 	#given a python arg, this method will attempt to convert it to a mel arg string
-	if isinstance( arg, basestring ):
-		return u'"%s"' % cmd.encodeString( arg )
+	if isinstance( arg, str ):
+		return '"%s"' % cmd.encodeString( arg )
 
 	#if the object is iterable then turn it into a mel array string
 	elif hasattr( arg, '__iter__' ):
@@ -29,7 +29,7 @@ def pyArgToMelArg( arg ):
 		return str( arg ).lower()
 
 	#otherwise try converting the sucka to a string directly
-	return unicode( arg )
+	return str( arg )
 
 
 class Mel( object ):
@@ -46,16 +46,16 @@ class Mel( object ):
 		#construct the mel cmd execution method
 		echo = self.echo
 		def melExecutor( *args ):
-			strArgs = map( pyArgToMelArg, args )
+			strArgs = list(map( pyArgToMelArg, args ))
 			cmdStr = '%s(%s);' % (attr, ','.join( strArgs ))
 
 			if echo:
-				print cmdStr
+				print(cmdStr)
 
 			try:
 				retVal = melEval( cmdStr )
 			except RuntimeError:
-				print 'cmdStr: %s' % cmdStr
+				print(('cmdStr: %s' % cmdStr))
 				return
 
 			return retVal
@@ -67,13 +67,13 @@ class Mel( object ):
 		return melEval( 'source "%s";' % script )
 	def eval( self, cmdStr ):
 		if self.echo:
-			print cmdStr
+			print(cmdStr)
 
 		try:
 			return melEval( cmdStr )
 		except RuntimeError:
-			print 'ERROR :: trying to execute the cmd:'
-			print cmdStr
+			print('ERROR :: trying to execute the cmd:')
+			print(cmdStr)
 			raise
 
 mel = Mel()
@@ -99,7 +99,7 @@ class CmdQueue(list):
 		f = open( fp, 'w' )
 		f.writelines( '%s;\n' % l for l in self )
 		f.close()
-		print fp
+		print(fp)
 
 		m.source( fp )
 

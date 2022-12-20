@@ -24,7 +24,7 @@ try:
     import maya.cmds as mc
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -60,7 +60,7 @@ class Test_boolArg(unittest.TestCase):
         arg = 3.14
 
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.boolArg,
             arg
         )
@@ -89,7 +89,7 @@ class Test_stringArg(unittest.TestCase):
             "it was passed when noneValid=False")
 
     def test_unicode(self):
-        uArg = u"CGMonks"
+        uArg = "CGMonks"
 
         self.assertEqual(
             validateArgs.stringArg(uArg, noneValid=True), 
@@ -122,7 +122,7 @@ class Test_stringArg(unittest.TestCase):
         arg = 3.141
         type_ = type(arg).__name__
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.stringArg,
             arg, 
             noneValid=False, 
@@ -148,7 +148,7 @@ class Test_objStringUniqueName(unittest.TestCase):
 
     def runTest(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             "child"
         )
@@ -156,20 +156,20 @@ class Test_objStringUniqueName(unittest.TestCase):
 class Test_objStringArguments(unittest.TestCase):
     def test_errorIfArgIsList(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg=[1,2]
         )
 
     def test_errorIfArgIsNoneOrFalse(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg=None
         )
 
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg=False
         )
@@ -178,7 +178,7 @@ class Test_objStringArguments(unittest.TestCase):
 class Test_objStringExists(unittest.TestCase):
     def test_errorIfNotObjExists(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg="does_not_exist"
         )
@@ -200,7 +200,7 @@ class test_objStringMayaType(unittest.TestCase):
 
     def test_errorIfWrongMayaType(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg=self.maya_obj,
             mayaType='plusMinusAverage'
@@ -216,7 +216,7 @@ class test_objStringMayaType(unittest.TestCase):
         )
 
     def test_passIfRightMayaType(self):
-        self.assertEquals(
+        self.assertEqual(
             validateArgs.objString(
                 arg=self.maya_obj,
                 mayaType='multiplyDivide'
@@ -235,14 +235,14 @@ class Test_objStringIsTransform(unittest.TestCase):
 
     def test_errorIfNotTransform(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.objString,
             arg=self.nonTransform, 
             isTransform=True
         )
 
     def test_falseIfNotTransformNoneValid(self):
-        print "test_falseIfNotTransformNoneValid"
+        print("test_falseIfNotTransformNoneValid")
         self.assertFalse(
             validateArgs.objString(
                 arg=self.nonTransform,
@@ -302,7 +302,7 @@ class Test_valueArgs(unittest.TestCase):
     
     def test_numberIsNoneRaisesError(self):
         self.assertRaises(
-            StandardError,
+            Exception,
             validateArgs.valueArg,
             numberToCheck=None,
             noneValid= False,
@@ -412,16 +412,16 @@ class Test_simpleAxis(unittest.TestCase):
     TestCase for validateArgs.stringArgs
     '''
     def test_axisToStrings(self):
-        for k,v in SHARED._d_axis_string_to_vector.iteritems():
+        for k,v in list(SHARED._d_axis_string_to_vector.items()):
             self.assertEqual(validateArgs.simpleAxis(k).p_vector,
                              v)
             
-        for k,v in SHARED._d_axis_string_to_vector.iteritems():
+        for k,v in list(SHARED._d_axis_string_to_vector.items()):
             self.assertEqual(validateArgs.simpleAxis(v).p_string,
                              k)        
             
     def test_vectorToAxis(self):
-        for k,v in SHARED._d_axis_vector_to_string.iteritems():
+        for k,v in list(SHARED._d_axis_vector_to_string.items()):
             self.assertEqual(validateArgs.simpleAxis(k).p_string,
                              v)  
 

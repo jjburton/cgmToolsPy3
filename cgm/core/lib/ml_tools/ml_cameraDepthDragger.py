@@ -45,7 +45,7 @@ import maya.mel as mm
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(27)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -90,7 +90,7 @@ class CameraDepthDragger(utl.Dragger):
         for obj in sel:
             #make sure all translate attributes are settable
             if not mc.getAttr(obj+'.translate', settable=True):
-                print 'not settable'
+                print('not settable')
                 continue
             
             #get the position of the objects as a vector, and subtract the camera vector from that

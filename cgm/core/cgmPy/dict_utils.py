@@ -32,7 +32,7 @@ def blendDat(dPrimary,dBlend):
     Assumes two lists of
     """
     _res  = {}
-    for k,v1 in dPrimary.iteritems():
+    for k,v1 in list(dPrimary.items()):
         v2 = dBlend.get(k)
         v_use = v1
         
@@ -45,7 +45,7 @@ def blendDat(dPrimary,dBlend):
                 v_use = blendDat(v1,v2)
         _res[k] = v_use
                         
-    for k,v2 in dBlend.iteritems():
+    for k,v2 in list(dBlend.items()):
         if not _res.get(k):
             _res[k] = v2
         

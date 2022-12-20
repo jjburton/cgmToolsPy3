@@ -77,7 +77,7 @@ def rigJoint_verify(joints = [], name=True, connect=True):
                 
         return ml_rigJoints
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
         
@@ -97,7 +97,7 @@ def driverGroup_verify(joints = []):
 
         return ml_new
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 
@@ -122,7 +122,7 @@ def rigJoint_connect(joints = []):
             
         return ml_rigJoints
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 
@@ -147,7 +147,7 @@ def rigJoint_connectFromRig(joints = []):
             mc.orientConstraint([mObj.mNode], mDriven.mNode, maintainOffset = True)
         return ml_rigJoints
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 
@@ -221,7 +221,7 @@ def split_blends(driven1 = None,
         normMin = maxValue * .1
         normMax = maxValue - normMin
         
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             mDriven = dat['driven']
             
             d_tmp = {'dist1':{'pos':pos1,
@@ -233,7 +233,7 @@ def split_blends(driven1 = None,
                      }
             
             for mObj in mDriven:
-                for n,d in d_tmp.iteritems():
+                for n,d in list(d_tmp.items()):
                     dTmp = DIST.get_distance_between_points(d['pos'],mObj.p_position)
                     if MATH.is_float_equivalent(dTmp,0.0):
                         dTmp = 0.0
@@ -344,9 +344,9 @@ def split_blends(driven1 = None,
         #pprint.pprint(d_dat)
         #return d_dat
 
-        for idx,dat in d_dat.iteritems():
-            for plugSet,mSet in dat['mPlugs'].iteritems():
-                for n,mPlug in mSet.iteritems():
+        for idx,dat in list(d_dat.items()):
+            for plugSet,mSet in list(dat['mPlugs'].items()):
+                for n,mPlug in list(mSet.items()):
                     mPlug.p_lock=True
                     mPlug.p_hidden = True
                 
@@ -357,7 +357,7 @@ def split_blends(driven1 = None,
         
         
         
-    except Exception,err:
+    except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())    
     
 def ribbon_seal(driven1 = None,
@@ -443,7 +443,7 @@ def ribbon_seal(driven1 = None,
                 if mObj not in ml_missingDrivers:
                     check_msgDriver(mObj)
             if ml_missingDrivers:
-                raise ValueError,"Missing drivers. See errors."
+                raise ValueError("Missing drivers. See errors.")
             log.debug("|{0}| >> msgDriver [Pass]...".format(_str_func))
             
             
@@ -477,7 +477,7 @@ def ribbon_seal(driven1 = None,
         str_secondaryAxis = VALID.stringArg(secondaryAxis,noneValid=True)        
         
         if specialMode and specialMode not in ['noStartEnd','endsToInfluences']:
-            raise ValueError,"Unknown special mode: {0}".format(specialMode)
+            raise ValueError("Unknown special mode: {0}".format(specialMode))
         
 
         #module -----------------------------------------------------------------------------------------------
@@ -498,9 +498,9 @@ def ribbon_seal(driven1 = None,
         d_check = {'driven1':d_dat[1]['int_driven'] ,
                    'driven2':d_dat[2]['int_driven'] }
         
-        for k,i in d_check.iteritems():
+        for k,i in list(d_check.items()):
             if i<3:
-                raise ValueError,"needs at least three driven. Found : {0} | {1}".format(k,i)
+                raise ValueError("needs at least three driven. Found : {0} | {1}".format(k,i))
         
         log.debug("|{0}| >> Group [Check]...".format(_str_func))                    
         if parentGutsTo is None:
@@ -587,7 +587,7 @@ def ribbon_seal(driven1 = None,
                              '2end':{'mObj':d_dat[2]['driven'][-1],
                                      'mDriver':d_dat[2]['mInfluences'][-1]}}
                 
-                for n,dat in d_special.iteritems():
+                for n,dat in list(d_special.items()):
                     mObj = dat['mObj']
                     mDriven = md_drivers[mObj]
                     mDriver = dat['mDriver']
@@ -632,7 +632,7 @@ def ribbon_seal(driven1 = None,
                                    nameSealMid=sealNameMid,
                                    settingsControl = mSettings,
                                    maxValue=maxValue)
-            for k,d in d_split.iteritems():
+            for k,d in list(d_split.items()):
                 d_dat[k]['mPlugs'] = d['mPlugs']
             
         else:
@@ -702,7 +702,7 @@ def ribbon_seal(driven1 = None,
         #>>> Skinning ============================================================================
         log.debug("|{0}| >> Skinning Ribbons...".format(_str_func))
         
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             max_influences = 2
             mode_tighten = 'twoBlend'
             blendLength = int(dat['int_driven']/2)
@@ -745,7 +745,7 @@ def ribbon_seal(driven1 = None,
             
         #>>> Meat ============================================================================
         ml_processed = []
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             idx_seal = 1
             if idx == 1:
                 idx_seal = 2
@@ -787,7 +787,7 @@ def ribbon_seal(driven1 = None,
                                  'mTrack':mTrackSeal},
                          }
                 
-                for n,d in d_tmp.iteritems():
+                for n,d in list(d_tmp.items()):
                     mTrack = d['mTrack']
                     mSurf = d['mSurf']
                     
@@ -853,5 +853,5 @@ def ribbon_seal(driven1 = None,
     
     
             
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())

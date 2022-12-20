@@ -61,7 +61,7 @@ from maya import OpenMaya
 import random
 
 try:
-    import euclid
+    from . import euclid
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
                 message='This tool requires the euclid module, which can be downloaded for free from the internet. Once downloaded you will need to restart Maya.', 
@@ -72,7 +72,7 @@ except ImportError:
         mc.showHelp('http://partiallydisassembled.net/euclid.html',absolute=True)
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(2)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -215,7 +215,7 @@ def traceArc(space='camera'):
         mc.parent(loc,parentGrp)
 
         #frame loop:
-        time = range(int(start),int(end+1))
+        time = list(range(int(start),int(end+1)))
         for t in time:
             mc.currentTime(t, edit=True)
 
@@ -362,7 +362,7 @@ def retraceArc(*args):
         mc.select(ML_TRACE_ARC_PREVIOUS_SELECTION, replace=True)
         traceArc(space=ML_TRACE_ARC_PREVIOUS_SPACE)
         mc.select(sel,replace=True)
-    except StandardError:
+    except Exception:
         pass
 
 
@@ -373,7 +373,7 @@ def clearArcs(*args):
 
     try:
         mc.delete('ml_arcGroup')
-    except StandardError:
+    except Exception:
         pass
 
 

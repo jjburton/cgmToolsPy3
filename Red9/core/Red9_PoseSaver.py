@@ -23,13 +23,13 @@ posePointCloud and the snapping core
 
 '''
 
-from __future__ import print_function
+
 
 import Red9.startup.setup as r9Setup
-import Red9_CoreUtils as r9Core
-import Red9_General as r9General
-import Red9_AnimationUtils as r9Anim
-import Red9_Meta as r9Meta
+from . import Red9_CoreUtils as r9Core
+from . import Red9_General as r9General
+from . import Red9_AnimationUtils as r9Anim
+from . import Red9_Meta as r9Meta
 import maya.OpenMaya as OpenMaya
 
 
@@ -117,7 +117,7 @@ def apply_nodepose_from_clipboad(nodes=None, cb_selection=True, world_space=Fals
 
     import pyperclip
     datamap = pyperclip.paste()
-    if type(datamap) == unicode:
+    if type(datamap) == str:
         try:
             datamap = json.loads(str(datamap))
             if not type(datamap) == dict:
@@ -202,7 +202,7 @@ class DataMap(object):
                 self.settings = filterSettings
                 self.__metaPose = self.settings.metaRig
             else:
-                raise StandardError('filterSettings param requires an r9Core.FilterNode_Settings object')
+                raise Exception('filterSettings param requires an r9Core.FilterNode_Settings object')
             self.settings.printSettings()
         else:
             self.settings = r9Core.FilterNode_Settings()
@@ -613,8 +613,8 @@ class DataMap(object):
             log.debug('Applying Key Block : %s' % key)
             try:
                 if 'attrs' not in self.poseDict[key]:
-                    continue
-                for attr, val in self.poseDict[key]['attrs'].items():
+                    continue 
+                for attr, val in list(self.poseDict[key]['attrs'].items()):
                     if attr in self.skipAttrs:
                         log.debug('Skipping attr as requested : %s' % attr)
                         continue
@@ -622,7 +622,8 @@ class DataMap(object):
                         log.debug('Skipping attr as not in self.loadAttrs_only list: %s' % attr)
                         continue
                     try:
-                        val = eval(val)
+                        val = r9Core.decodeString(val)  # eval causes issues under 2022 Python security management
+#                         val = eval(val)
                     except:
                         pass
                     try:
@@ -634,7 +635,7 @@ class DataMap(object):
                         else:
                             log.debug('node : %s : attr : %s : val %s' % (dest, attr, val))
                             cmds.setAttr('%s.%s' % (dest, attr), val, c=True)
-                    except StandardError, err:
+                    except Exception as err:
                         log.debug(err)
             except:
                 log.debug('Pose Object Key : %s : has no Attr block data' % key)
@@ -706,7 +707,7 @@ class DataMap(object):
                     _mFntrans.setRotation(rots, _mSpace)
                     _mFntrans.setTranslation(trans, _mSpace)
 
-                except StandardError, err:
+                except Exception as err:
                     log.debug(err)
             except:
                 log.debug('Pose Object Key : %s : has no Attr block data' % key)
@@ -785,12 +786,12 @@ class DataMap(object):
                         with open(filename, 'r') as f:
                             data = json.load(f)
                         self.poseDict = data['poseData']
-                        if 'info' in data.keys():
+                        if 'info' in list(data.keys()):
                             self.infoDict = data['info']
-                        if 'skeletonDict' in data.keys():
+                        if 'skeletonDict' in list(data.keys()):
                             self.skeletonDict = data['skeletonDict']
                         self._dataformat_resolved = 'json'
-                    except IOError, err:
+                    except IOError as err:
                         self._dataformat_resolved = 'config'
                         log.info('JSON : DataMap format failed to load, reverting to legacy ConfigObj')
                 # =========================
@@ -812,9 +813,9 @@ class DataMap(object):
                         self.settings_internal.setByDict(data['filterNode_settings'])
                     self._dataformat_resolved = 'config'
             else:
-                raise StandardError('Given filepath doesnt not exist : %s' % filename)
+                raise Exception('Given filepath doesnt not exist : %s' % filename)
         else:
-            raise StandardError('No FilePath given to read the pose from')
+            raise Exception('No FilePath given to read the pose from')
 
     def processPoseFile(self, nodes, read=True):
         '''
@@ -835,14 +836,14 @@ class DataMap(object):
             nodes = [nodes]  # cast to list for consistency
 
         if self.filepath and not os.path.exists(self.filepath):
-            raise StandardError('Given Path does not Exist')
+            raise Exception('Given Path does not Exist')
 
         if self.filepath and self.hasFolderOverload():  # and useFilter:
             self.nodesToLoad = self.getNodesFromFolderConfig(nodes, mode='load')
         else:
             self.nodesToLoad = self.getNodes(nodes)
         if not self.nodesToLoad:
-            raise StandardError('Nothing selected or returned by the filter to load the pose onto')
+            raise Exception('Nothing selected or returned by the filter to load the pose onto')
 
         if self.filepath and read:
             self._readPose(self.filepath)
@@ -899,13 +900,13 @@ class DataMap(object):
         # standard match method logic
         if matchMethod in ['base', 'stripPrefix', 'stripSuffix', 'commonSuffix', 'commonPrefix']:  # == 'stripPrefix' or matchMethod == 'base':
             log.debug('matchMethodStandard : %s' % matchMethod)
-            matchedPairs = r9Core.matchNodeLists([key for key in self.poseDict.keys()], nodes, matchMethod=matchMethod)
+            matchedPairs = r9Core.matchNodeLists([key for key in list(self.poseDict.keys())], nodes, matchMethod=matchMethod)
 
         # pose data specific logic
         if matchMethod == 'index':
             for i, node in enumerate(nodes):
                 matched = False
-                for key in self.poseDict.keys():
+                for key in list(self.poseDict.keys()):
                     if int(self.poseDict[key]['ID']) == i:
                         matchedPairs.append((key, node))
                         log.debug('poseKey : %s %s >> matchedSource : %s %i' % (key, self.poseDict[key]['ID'], node, i))
@@ -921,7 +922,7 @@ class DataMap(object):
                 mirrorID = getMirrorID(node)
                 if not mirrorID:
                     continue
-                for key in self.poseDict.keys():
+                for key in list(self.poseDict.keys()):
                     if 'mirrorID' in self.poseDict[key] and self.poseDict[key]['mirrorID']:
                         poseID = self.poseDict[key]['mirrorID']
                         if poseID == mirrorID:
@@ -940,7 +941,7 @@ class DataMap(object):
                 mirrorID = getMirrorID(node)
                 if not mirrorID:
                     continue
-                for key in self.poseDict.keys():
+                for key in list(self.poseDict.keys()):
                     if 'mirrorID' in self.poseDict[key] and self.poseDict[key]['mirrorID']:
                         poseID = self.poseDict[key]['mirrorID'].split('_')[-1]
                         if not poseID == 'None':
@@ -974,7 +975,7 @@ class DataMap(object):
                             break
                 except:
                     log.info('FAILURE to load MetaData pose blocks - Reverting to Name')
-                    matchedPairs = r9Core.matchNodeLists([key for key in self.poseDict.keys()], nodes)
+                    matchedPairs = r9Core.matchNodeLists([key for key in list(self.poseDict.keys())], nodes)
                 if not matched:
                         unmatched.append(node)
         if returnfails:
@@ -990,7 +991,7 @@ class DataMap(object):
         InternalNodes = []
         if not fromFilter:
             # no filter, we just pass in the longName thats stored
-            for key in self.poseDict.keys():
+            for key in list(self.poseDict.keys()):
                 if cmds.objExists(self.poseDict[key]['longName']):
                     InternalNodes.append(self.poseDict[key]['longName'])
                 elif cmds.objExists(key):
@@ -1005,7 +1006,7 @@ class DataMap(object):
                 if matchedPairs:
                     InternalNodes = [node for _, node in matchedPairs]
         if not InternalNodes:
-            raise StandardError('No Matching Nodes found!!')
+            raise Exception('No Matching Nodes found!!')
         return InternalNodes
 
     # --------------------------------------------------------------------------------
@@ -1073,7 +1074,7 @@ class DataMap(object):
             self.processPoseFile(nodes)
 
             if not self.matchedPairs:
-                raise StandardError('No Matching Nodes found in the PoseFile!')
+                raise Exception('No Matching Nodes found in the PoseFile!')
             else:
                 if self.prioritySnapOnly:
                     # we've already filtered the hierarchy, may as well just filter the results for speed
@@ -1082,7 +1083,7 @@ class DataMap(object):
 
                 # nodes now matched, apply the data in the dataMap
                 self._applyData()
-        except StandardError, err:
+        except Exception as err:
             log.info('Pose Load Failed! : , %s' % err)
         finally:
             self._post_load()
@@ -1250,7 +1251,7 @@ class PoseData(DataMap):
             self.poseCurrentCache[key] = {}
             if 'attrs' not in self.poseDict[key]:
                 continue
-            for attr, _ in self.poseDict[key]['attrs'].items():
+            for attr, _ in list(self.poseDict[key]['attrs'].items()):
                 try:
                     self.poseCurrentCache[key][attr] = cmds.getAttr('%s.%s' % (dest, attr))
                 except:
@@ -1280,7 +1281,7 @@ class PoseData(DataMap):
             try:
                 if 'attrs' not in self.poseDict[key]:
                     continue
-                for attr, val in self.poseDict[key]['attrs'].items():
+                for attr, val in list(self.poseDict[key]['attrs'].items()):
                     if attr in self.skipAttrs:
                         log.debug('Skipping attr as requested : %s' % attr)
                         continue
@@ -1312,7 +1313,7 @@ class PoseData(DataMap):
                             blendVal = ((val - current) / 100) * percent
                             # print 'loading at percent : %s (current=%s , stored=%s' % (percent,current,current+blendVal)
                             cmds.setAttr('%s.%s' % (dest, attr), current + blendVal)
-                    except StandardError, err:
+                    except Exception as err:
                         log.debug(err)
             except:
                 log.debug('Pose Object Key : %s : has no Attr block data' % key)
@@ -1402,7 +1403,7 @@ class PoseData(DataMap):
 
         objs = cmds.ls(sl=True, l=True)
         if relativePose and not objs:
-            raise StandardError('Nothing selected to align Relative Pose too')
+            raise Exception('Nothing selected to align Relative Pose too')
         if not type(nodes) == list:
             nodes = [nodes]  # cast to list for consistency
 
@@ -1425,7 +1426,7 @@ class PoseData(DataMap):
             self.processPoseFile(nodes)
 
             if not self.matchedPairs:
-                raise StandardError('No Matching Nodes found in the PoseFile!')
+                raise Exception('No Matching Nodes found in the PoseFile!')
             else:
                 if self.relativePose:
                     if self.prioritySnapOnly:
@@ -1504,7 +1505,7 @@ class PoseData(DataMap):
                 else:
                     if objs:
                         cmds.select(objs)
-        except StandardError, err:
+        except Exception as err:
             log.info('Pose Load Failed! : , %s' % err)
         finally:
             self._post_load()
@@ -1679,7 +1680,7 @@ class PosePointCloud(object):
 
         if filterSettings:
             if not issubclass(type(filterSettings), r9Core.FilterNode_Settings):
-                raise StandardError('filterSettings param requires an r9Core.FilterNode_Settings object')
+                raise Exception('filterSettings param requires an r9Core.FilterNode_Settings object')
             elif filterSettings.filterIsActive():
                 self.settings = filterSettings
         else:
@@ -1874,13 +1875,19 @@ class PosePointCloud(object):
     def shapeSwapMeshes(self, selectable=True):
         '''
         Swap the mesh Geo so it's a shape under the PPC transform root
+        
+        .. note::
+            this has had to be modified to support 2022+ as the parent -shape flag no
+            longer behaves in the same way
         '''
         currentCount = len(cmds.listRelatives(self.posePointRoot, type='shape'))
-        for i, mesh in enumerate(self.meshes):
-            dupMesh = cmds.duplicate(mesh, rc=True, n=self.refMesh + str(i + currentCount))[0]
+        for i, mesh in enumerate(self.meshes):            
+            dupMesh = cmds.duplicate(mesh, rc=True, n='%s%s_frm%i' % (self.refMesh,
+                                                                    str(i + currentCount),
+                                                                    int(cmds.currentTime(q=True))))[0]
             dupShape = cmds.listRelatives(dupMesh, type='shape')[0]
-            # switched to all_complete in case clients have the compound attrs locked also
-            r9Core.LockChannels().processState(dupMesh, 'all_complete', mode='fullkey', hierarchy=False)
+            dupMesh = r9Meta.MetaClass(dupMesh)
+            _blank_transform = None
             try:
                 if selectable:
                     # turn on the overrides so the duplicate geo can be selected
@@ -1891,13 +1898,50 @@ class PosePointCloud(object):
                     cmds.setAttr("%s.overrideDisplayType" % dupShape, 2)
                     cmds.setAttr("%s.overrideEnabled" % dupShape, 1)
             except:
-                log.debug('Couldnt set the draw overrides for the refGeo')
-            cmds.parent(dupMesh, self.posePointRoot)
-            cmds.makeIdentity(dupMesh, apply=True, t=True, r=True)
-            # for some reason Maya 2022+ isn't respecting the parent -r flag
-            if r9Setup.mayaVersion() < 2022:
-                cmds.parent(dupShape, self.posePointRoot, r=True, s=True)
-                cmds.delete(dupMesh)
+                log.debug("Couldn't set the draw overrides for the refGeo")
+
+            # switched to all_complete in case clients have the compound attrs locked also
+            r9Core.LockChannels().processState(dupMesh.mNode, 'all_complete', mode='fullkey', hierarchy=False)
+
+            # parent to world first to make sure the inheritTransforms flag can be forced on
+            cmds.parent(dupMesh.mNode, w=True)
+            dupMesh.inheritsTransform = 1
+            # parent shape under the PPC root, note: NOT relative
+            cmds.parent(dupShape, self.posePointRoot, s=True)
+
+            # has the above created a transform node, if so freeze it
+            _test_parent = cmds.listRelatives(dupShape, p=True, f=True)[0]
+            if not _test_parent == self.posePointRoot and 'transform' in r9Core.nodeNameStrip(_test_parent):
+                cmds.makeIdentity(_test_parent, apply=True, t=True, r=True, s=True)
+                _blank_transform = _test_parent
+
+            # actual shape parent fix
+            cmds.parent(dupShape, self.posePointRoot, s=True, r=True)
+            cmds.delete(dupMesh.mNode)
+            if _blank_transform:
+                cmds.delete(_blank_transform)
+
+            # BODGE! for some reason in older versions of Maya the shading on the
+            # dupShape gets ignored, this jogs the viewport back to properly shading it
+            if r9Setup.mayaVersion() < 2022.0:
+                try:
+                    cmds.refresh()
+                    v = cmds.getAttr('%s.displaySubdComps' % dupShape)
+                    cmds.setAttr('%s.displaySubdComps' % dupShape, 1)
+                    cmds.setAttr('%s.displaySubdComps' % dupShape, 0)
+                    cmds.setAttr('%s.displaySubdComps' % dupShape, v)
+                except:
+                    pass
+
+#             # previous implementation prior to 2022 changes!
+#             # parent back under the posePointRoot
+#             cmds.parent(dupMesh.mNode, self.posePointRoot)
+#             cmds.makeIdentity(dupMesh.mNode, apply=True, t=True, r=True)
+# 
+#             # for some reason Maya 2022+ isn't respecting the parent -r flag
+#             if r9Setup.mayaVersion() < 2022:
+#                 cmds.parent(dupShape, self.posePointRoot, r=True, s=True)
+#                 cmds.delete(dupMesh.mNode)
 
     def applyPosePointCloud(self):
         self.snapNodestoPosePnts()
@@ -1905,6 +1949,7 @@ class PosePointCloud(object):
     def updatePosePointCloud(self):
         self.snapPosePntstoNodes()
         if self.meshes:
+            # delete the current geo ref shapes
             cmds.delete(cmds.listRelatives(self.posePointRoot, type=['mesh', 'nurbsCurve']))
             self.generateVisualReference()
             cmds.refresh()
@@ -1924,8 +1969,8 @@ class PosePointCloud(object):
         if PPCNodes:
             log.info('Deleting current PPC nodes in the scene')
             for ppc in PPCNodes:
-                cmds.delete(ppc.posePointRoot)
                 try:
+                    cmds.delete(ppc.posePointRoot)
                     ppc.delete()
                 except:
                     pass  # metaNode should be cleared by default when it's only connection is deleted
@@ -2079,12 +2124,12 @@ class PoseCompare(object):
             currentDic = getattr(self.currentPose, self.compareDict)
             referenceDic = getattr(self.referencePose, self.compareDict)
             if not currentDic or not referenceDic:
-                raise StandardError('missing pose section <<%s>> compare aborted' % self.compareDict)
+                raise Exception('missing pose section <<%s>> compare aborted' % self.compareDict)
         else:
             currentDic = self.currentPose
             referenceDic = self.referencePose
 
-        for key, attrBlock in currentDic.items():
+        for key, attrBlock in list(currentDic.items()):
             if self.filterMap and key not in self.filterMap:
                 log.debug('node not in filterMap - skipping key %s' % key)
                 continue
@@ -2148,7 +2193,7 @@ class PoseCompare(object):
                     log.debug('failedAttrs in ignoreblock : attr compare being skipped "%s"' % key)
                     continue
                 # main compare block for attr values
-                for attr, value in attrBlock['attrs'].items():
+                for attr, value in list(attrBlock['attrs'].items()):
 #                 for attr, value in attrBlock['attrs_kWorld'].items():
 #                     if isinstance(value, list):
 #                         pass

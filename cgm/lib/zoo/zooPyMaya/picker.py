@@ -1,5 +1,5 @@
 
-from __future__ import with_statement
+
 
 import re
 
@@ -13,14 +13,14 @@ from cgm.lib.zoo.zooPy import presets
 from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy.vectors import Vector, Colour
 
-from baseMelUI import *
-from melUtils import printErrorStr, printWarningStr
-from mayaDecorators import d_unifyUndo
-from apiExtensions import asMObject, sortByHierarchy
-from cmdStrResolver import resolve
-from triggered import Trigger
+from .baseMelUI import *
+from .melUtils import printErrorStr, printWarningStr
+from .mayaDecorators import d_unifyUndo
+from .apiExtensions import asMObject, sortByHierarchy
+from .cmdStrResolver import resolve
+from .triggered import Trigger
 
-import presetsUI
+from . import presetsUI
 
 eval = __builtins__[ 'eval' ]  #otherwise this gets clobbered by the eval in maya.cmds
 
@@ -88,7 +88,7 @@ def removeRefEdits( objs, cmd=None ):
 			referenceEdit( obj, failedEdits=True, successfulEdits=True, editCommand=cmd, removeEdits=True )
 
 	#now set the refs to their initial load state
-	for node, loadState in refNodeLoadStateDict.iteritems():
+	for node, loadState in list(refNodeLoadStateDict.items()):
 		if loadState:
 			file( loadReference=node )
 
@@ -117,8 +117,8 @@ class Button(object):
 	and can be most easily edited using the editor tab created by the PickerLayout UI.
 	'''
 
-	SELECTION_STATES = NONE, PARTIAL, COMPLETE = range( 3 )
-	CMD_MODES = MODE_SELECTION_FIRST, MODE_CMD_FIRST, MODE_CMD_ONLY = range( 3 )
+	SELECTION_STATES = NONE, PARTIAL, COMPLETE = list(range( 3))
+	CMD_MODES = MODE_SELECTION_FIRST, MODE_CMD_FIRST, MODE_CMD_ONLY = list(range( 3))
 	CMD_MODES_NAMES = 'selection first', 'cmd first', 'cmd only'
 	MIN_SIZE, MAX_SIZE = 5, 100
 	DEFAULT_SIZE = 14, 14
@@ -184,7 +184,7 @@ class Button(object):
 	def __hash__( self ):
 		return hash( self.getNode() )
 	def getNode( self ):
-		return unicode( self.__node )
+		return str( self.__node )
 	def getCharacter( self ):
 		cons = listConnections( self.getNode(), type='objectSet', s=False )
 		if cons:
@@ -208,7 +208,7 @@ class Button(object):
 			return self.DEFAULT_COLOUR
 
 		rgb = rgbStr.split( ',' )
-		rgb = map( float, rgb )
+		rgb = list(map( float, rgb ))
 
 		return Colour( rgb )
 	def getLabel( self ):
@@ -242,8 +242,8 @@ class Button(object):
 	def setPosSize( self, pos, size ):
 
 		#make sure the pos/size values are ints...
-		pos = map( int, map( round, pos ) )
-		size = map( int, map( round, size ) )
+		pos = list(map( int, list(map( round, pos )) ))
+		size = list(map( int, list(map( round, size )) ))
 
 		posStr = ','.join( map( str, pos ) )
 		sizeStr = ','.join( map( str, size ) )
@@ -287,7 +287,7 @@ class Button(object):
 		#this generally happens if the node is referenced...  its no big deal if the rename fails - renaming just happens to make the sets slightly more comprehendible when outliner surfing
 		except RuntimeError: pass
 	def setObjs( self, val ):
-		if isinstance( val, basestring ):
+		if isinstance( val, str ):
 			val = [ val ]
 
 		if not val:
@@ -461,7 +461,7 @@ class Character(object):
 	def __ne__( self, other ):
 		return not self.__eq__( other )
 	def getNode( self ):
-		return unicode( self.__node )
+		return str( self.__node )
 	def getButtons( self ):
 		buttonNodes = sets( self.getNode(), q=True ) or []
 
@@ -613,10 +613,10 @@ class Character(object):
 		with open( filepath ) as fOpen:
 			lineIter = iter( fOpen )
 			try:
-				infoLine = lineIter.next()
+				infoLine = next(lineIter)
 				infoDict = eval( infoLine.strip() )
 				while True:
-					buttonLine = lineIter.next()
+					buttonLine = next(lineIter)
 					buttonDict = eval( buttonLine.strip() )
 					buttonDicts.append( buttonDict )
 			except StopIteration: pass
@@ -691,7 +691,7 @@ def _drop( src, tgt, msgs, x, y, mods ):
 
 	#if dragging an existing button around on the form, interpret it as a move
 	if isinstance( src, ButtonUI ) and isinstance( tgt, DragDroppableFormLayout ):
-		srcX, srcY = map( int, msgs )
+		srcX, srcY = list(map( int, msgs ))
 		x -= srcX
 		y -= srcY
 
@@ -1084,7 +1084,7 @@ class CmdEditorLayout(MelVSingleStretchLayout):
 		presetMenu = MelMenuItem( menu, l='load preset', sm=True )
 
 		presetManager = presets.PresetManager( TOOL_NAME, TOOL_CMD_EXTENSION )
-		for locale, presets in presetManager.listAllPresets().iteritems():
+		for locale, presets in list(presetManager.listAllPresets().items()):
 			for p in presets:
 				MelMenuItem( presetMenu, l=p.name(), c=Callback( self.loadPreset, p ) )
 
@@ -1164,7 +1164,7 @@ class ButtonList(MelObjectScrollList):
 
 
 class EditorLayout(MelVSingleStretchLayout):
-	DIRECTIONS = DIR_H, DIR_V = range( 2 )
+	DIRECTIONS = DIR_H, DIR_V = list(range( 2))
 
 	def __init__( self, parent, pickerUI ):
 		self.pickerUI = pickerUI
@@ -1683,7 +1683,7 @@ class PickerWindow(BaseMelWindow):
 
 		man = presets.PresetManager( TOOL_NAME, TOOL_EXTENSION )
 		presets = man.listAllPresets()
-		for loc, locPresets in presets.iteritems():
+		for loc, locPresets in list(presets.items()):
 			for p in locPresets:
 				pName = p.name()
 				MelMenuItem( menu, l=pName, c=Callback( self.UI_editor.loadPreset, p ) )

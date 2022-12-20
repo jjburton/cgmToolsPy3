@@ -182,8 +182,8 @@ class ui(cgmUI.cgmGUI):
                 
                 self.uiUpdate_topReport()
                 
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
             finally:pass
         else:
             return log.error("|{0}| update cancelled".format(_str_func))
@@ -272,7 +272,7 @@ class ui(cgmUI.cgmGUI):
 
                 
                 self.uiUpdate_topReport()
-            except Exception,err:
+            except Exception as err:
                 pprint.pprint(vars())
             finally:
                 cgm.core._reload()
@@ -483,8 +483,8 @@ def checkBranch():
             var_lastUpdate.setValue([_branch,
                                      _targetHash,
                                      _targetMsg,datetime.datetime.now().__str__()[:-7]])
-        except Exception,err:
-            print err
+        except Exception as err:
+            print(err)
         finally:pass
     else:
         return log.error("|{0}| update cancelled".format(_str_func))

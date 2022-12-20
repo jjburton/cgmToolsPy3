@@ -678,7 +678,7 @@ class AttrFactory():
         Keyword arguments:
         arg(string) -- name you want to use as an alias
         """     
-        assert type(arg) is str or unicode,"Must pass string argument into doAlias"                
+        assert type(arg) is str or str,"Must pass string argument into doAlias"                
         if arg:
             try:
                 if arg != self.nameAlias:
@@ -705,7 +705,7 @@ class AttrFactory():
         Keyword arguments:
         arg(string) -- name you want to use as a nice name
         """    
-        assert type(arg) is str or unicode,"Must pass string argument into doNiceName"        
+        assert type(arg) is str or str,"Must pass string argument into doNiceName"        
         if arg:
             try:
                 mc.addAttr(self.nameCombined,edit = True, niceName = arg)
@@ -722,7 +722,7 @@ class AttrFactory():
         Keyword arguments:
         arg(string) -- name you want to use as a nice name
         """            
-        assert type(arg) is str or unicode,"Must pass string argument into doRename"
+        assert type(arg) is str or str,"Must pass string argument into doRename"
         if arg:
             try:
                 if arg != self.nameLong:
@@ -779,7 +779,7 @@ class AttrFactory():
                 except:
                     guiFactory.warning("'%s' failed to connect to '%s'!"%(self.nameCombined,target))
             else:
-                print "Target object doesn't have this particular attribute"
+                print("Target object doesn't have this particular attribute")
 
  
                 
@@ -809,7 +809,7 @@ class AttrFactory():
                 except:
                     guiFactory.warning("'%s' failed to connect to '%s'!"%(source,self.nameCombined))
             else:
-                print "Source object doesn't have this particular attribute"
+                print("Source object doesn't have this particular attribute")
                 
     def doCopyTo(self,target, targetAttrName = None,  debug = True,*a,**kw):
         """                                     
@@ -834,7 +834,7 @@ class AttrFactory():
         success(bool)
         """
         assert mc.objExists(target),"'%s' doesn't exist"%target
-        assert mc.ls(target,long=True) != [self.obj.nameShort], "Can't transfer to self!"
+        assert mc.ls(target,int=True) != [self.obj.nameShort], "Can't transfer to self!"
         functionName = 'doCopyTo'
         
         convertToMatch = kw.pop('convertToMatch',True)
@@ -905,9 +905,9 @@ class AttrFactory():
         *a, **kw
         """ 
         assert mc.objExists(target),"'%s' doesn't exist"%target
-        assert mc.ls(target,type = 'transform',long = True),"'%s' Doesn't have a transform"%target
+        assert mc.ls(target,type = 'transform',int = True),"'%s' Doesn't have a transform"%target
         assert self.obj.transform is not False,"'%s' Doesn't have a transform. Transferring this attribute is probably a bad idea. Might we suggest doCopyTo along with a connect to source option"%self.obj.nameShort        
-        assert mc.ls(target,long=True) != [self.obj.nameShort], "Can't transfer to self!"
+        assert mc.ls(target,int=True) != [self.obj.nameShort], "Can't transfer to self!"
         assert '.' not in list(target),"'%s' appears to be an attribute. Can't transfer to an attribute."%target
         assert self.dynamic is True,"'%s' is not a dynamic attribute."%self.nameCombined
         

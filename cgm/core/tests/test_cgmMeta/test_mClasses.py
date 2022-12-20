@@ -26,7 +26,7 @@ try:
     from cgm.core.lib import math_utils as MATH
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -550,7 +550,7 @@ class Test_cgmNode(unittest.TestCase):
         
         
         _short = mObj.mNode
-        for t,v in _d_attrTypesToDefaults.iteritems():
+        for t,v in list(_d_attrTypesToDefaults.items()):
             mObj.addAttr("{0}TestFromValue".format(t),v)
             mObj.addAttr("{0}TestNoValue".format(t),attrType=t)
             
@@ -636,7 +636,7 @@ class Test_cgmNode(unittest.TestCase):
         
         self.assertEqual(type(mObj.jsonTest),dict)
         self.assertEqual(mObj.jsonTest,testDict )
-        for k,v in testDict.iteritems():
+        for k,v in list(testDict.items()):
             self.assertEqual(mObj.jsonTest[k],v)
   
         del(mObj.boolTestFromValue)
@@ -697,7 +697,7 @@ class Test_cgmNode(unittest.TestCase):
         for t in _l:
             mNode = cgmMeta.cgmNode(name = t + 'CreateByType', nodeType = t)
             if VALID.get_mayaType(mNode.mNode) != t:
-                raise Exception,"'{0}' nodeType not created. Type is '{1}'".format(t,VALID.get_mayaType(mNode.mNode))
+                raise Exception("'{0}' nodeType not created. Type is '{1}'".format(t,VALID.get_mayaType(mNode.mNode)))
 
         
 # FUNCTIONS ==================================================================       

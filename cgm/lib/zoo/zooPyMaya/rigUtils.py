@@ -12,12 +12,12 @@ from maya import OpenMaya
 from cgm.lib.zoo.zooPy.vectors import *
 from cgm.lib.zoo.zooPy import vectors
 
-from melUtils import mel
+from .melUtils import mel
 
-import apiExtensions
-import meshUtils
+from . import apiExtensions
+from . import meshUtils
 
-SPACES = SPACE_WORLD, SPACE_LOCAL, SPACE_OBJECT = range(3)
+SPACES = SPACE_WORLD, SPACE_LOCAL, SPACE_OBJECT = list(range(3))
 
 ENGINE_FWD   = MAYA_SIDE  = MAYA_X = Vector((1, 0, 0))
 ENGINE_UP    = MAYA_FWD   = MAYA_Z = Vector((0, 0, 1))
@@ -39,7 +39,7 @@ Axis = vectors.Axis
 AXES = Axis.BASE_AXES
 
 #these are the enum values for the rotation orders for transform nodes in maya
-MAYA_ROTATION_ORDERS = ROO_XYZ, ROO_YZX, ROO_ZXY, ROO_XZY, ROO_YXZ, ROO_ZYX = range( 6 )
+MAYA_ROTATION_ORDERS = ROO_XYZ, ROO_YZX, ROO_ZXY, ROO_XZY, ROO_YXZ, ROO_ZYX = list(range( 6))
 MATRIX_ROTATION_ORDER_CONVERSIONS_FROM = Matrix.FromEulerXYZ, Matrix.FromEulerYZX, Matrix.FromEulerZXY, Matrix.FromEulerXZY, Matrix.FromEulerYXZ, Matrix.FromEulerZYX
 MATRIX_ROTATION_ORDER_CONVERSIONS_TO = Matrix.ToEulerXYZ, Matrix.ToEulerYZX, Matrix.ToEulerZXY, Matrix.ToEulerXZY, Matrix.ToEulerYXZ, Matrix.ToEulerZYX
 
@@ -73,7 +73,7 @@ def cleanDelete( node ):
 	connections = listConnections( node, connections=True, plugs=True )
 	connectionsIter = iter( connections )
 	for srcConnection in connectionsIter:
-		tgtConnection = connectionsIter.next()
+		tgtConnection = next(connectionsIter)
 
 		#we need to test if the connection is valid because a previous disconnection may have affected this one
 		if isConnected( srcConnection, tgtConnection ):
@@ -275,10 +275,10 @@ def getWristToWorldRotation( wrist, performRotate=False ):
 	values are returned as euler rotation values in degrees
 	'''
 	worldMatrix, worldScale = Matrix( getAttr( '%s.worldMatrix' % wrist ) ).decompose()
-	bases = x, y, z = map( Vector, worldMatrix.crop( 3 ) )
+	bases = x, y, z = list(map( Vector, worldMatrix.crop( 3 ) ))
 
 	newBases = []
-	allAxes = range( 3 )
+	allAxes = list(range( 3))
 	for basis in bases:
 		largestAxisValue = -2  #values will never be smaller than this, so the code below will always get run
 		largestAxis = 0
@@ -293,7 +293,7 @@ def getWristToWorldRotation( wrist, performRotate=False ):
 		#track the largestAxisValue too - we want to use it as a measure of closeness
 		newBases.append( Axis( largestAxis ).asVector() )
 
-	newBases = map( list, newBases )
+	newBases = list(map( list, newBases ))
 	matrixValues = newBases[0] + newBases[1] + newBases[2]
 	worldRotMatrix = Matrix( matrixValues, 3 )
 	rots = worldRotMatrix.ToEulerXYZ( True )
@@ -488,7 +488,7 @@ def getJointSizeAndCentre( joints, threshold=0.65, space=SPACE_OBJECT, ignoreSki
 
 	centre = (minB + maxB) / 2.0
 
-	return Vector( map( abs, vec ) ), centre
+	return Vector( list(map( abs, vec )) ), centre
 
 getJointSizeAndCenter = getJointSizeAndCentre  #for spelling n00bs
 
@@ -537,7 +537,7 @@ def resetSkinCluster( skinCluster ):
 
 	iterInputMatrices = iter( skinInputMatrices )
 	for dest in iterInputMatrices:
-		src = iterInputMatrices.next()
+		src = next(iterInputMatrices)
 		srcNode = src.split( '.' )[ 0 ]
 		idx = dest[ dest.rfind( '[' )+1:-1 ]
 		matrixAsStr = ' '.join( map( str, cmd.getAttr( '%s.worldInverseMatrix' % srcNode ) ) )
@@ -863,15 +863,15 @@ def dumpNodeAttrs( node ):
 	attrs = listAttr( node )
 	for attr in attrs:
 		try:
-			print attr, getAttr( '%s.%s' % (node, attr) )
+			print((attr, getAttr( '%s.%s' % (node, attr) )))
 			if attributeQuery( attr, n=node, multi=True ):
 				indices = getAttr( '%s.%s' % (node, attr), multiIndices=True ) or []
 				for idx in indices:
-					print '\t%d %s' % (idx, getAttr( '%s.%s[%d]' % (node, attr, idx) ))
+					print(('\t%d %s' % (idx, getAttr( '%s.%s[%d]' % (node, attr, idx) ))))
 		except RuntimeError:
-			print attr
+			print(attr)
 		except TypeError:
-			print attr
+			print(attr)
 
 
 del( control )

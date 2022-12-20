@@ -1,10 +1,10 @@
 import cgm.core.cgm_Meta as cgmMeta
 import cgm.core.cgm_RigMeta as RIGMETA
-from cgm.core.cgmPy import validateArgs as VALID
+from .cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.attribute_utils as ATTR
-from cgm.core.rigger.lib import rig_Utils as rUtils
+from .cgm.core.rigger.lib import rig_Utils as rUtils
 ###reload(rUtils)
-from cgm.core.classes import NodeFactory as NodeF
+from .cgm.core.classes import NodeFactory as NodeF
 import cgm.core.lib.distance_utils as DIST
 
 import maya.cmds as mc
@@ -17,16 +17,16 @@ log.setLevel(logging.INFO)
 #-------------------------------------------------------------------
 
 
-_d_l = {'fkJoints':[u'l_shoulder_fk', u'l_elbow_fk', u'l_wrist_fk'],
-        'ikJoints':[u'l_shoulder_ik', u'l_elbow_ik', u'l_wrist_ik'],
-        'blendJoints':[u'l_shoulder_blend', u'l_elbow_blend', u'l_wrist_blend'],
+_d_l = {'fkJoints':['l_shoulder_fk', 'l_elbow_fk', 'l_wrist_fk'],
+        'ikJoints':['l_shoulder_ik', 'l_elbow_ik', 'l_wrist_ik'],
+        'blendJoints':['l_shoulder_blend', 'l_elbow_blend', 'l_wrist_blend'],
         'settings':'l_arm_root',
         'ikControl':'guardian_arm_l3_IK_anim_grp|guardian_arm_l3_IK_anim',
         'ikMid':'l_elbow_IK_anim'}
 
-_d_r = {'fkJoints':[u'r_shoulder_fk', u'r_elbow_fk', u'r_wrist_fk'],
-        'ikJoints':[u'r_shoulder_ik', u'r_elbow_ik', u'r_wrist_ik'],
-        'blendJoints':[u'r_shoulder_blend', u'r_elbow_blend', u'r_wrist_blend'],
+_d_r = {'fkJoints':['r_shoulder_fk', 'r_elbow_fk', 'r_wrist_fk'],
+        'ikJoints':['r_shoulder_ik', 'r_elbow_ik', 'r_wrist_ik'],
+        'blendJoints':['r_shoulder_blend', 'r_elbow_blend', 'r_wrist_blend'],
         'settings':'r_arm_root',
         'fkGroup':'r_arm_fk_grp',
         'ikGroup':'r_arm_ik_grp',
@@ -186,13 +186,13 @@ def buildFKIK(fkJoints = None,
 #====================================================================================================
 #>>> Twist
 #====================================================================================================
-_dTwistNodes_l = {'blendJoints':[u'l_shoulder_blend', u'l_elbow_blend', u'l_wrist_blend'],
-                  'fkControls':[u'l_shoulder_fk', u'l_elbow_fk', u'l_wrist_fk'],
+_dTwistNodes_l = {'blendJoints':['l_shoulder_blend', 'l_elbow_blend', 'l_wrist_blend'],
+                  'fkControls':['l_shoulder_fk', 'l_elbow_fk', 'l_wrist_fk'],
                   'ikControl':'guardian_arm_l3_IK_anim',
                   'settings':'l_arm_root',
-                  'segmentHandles':[u'l_shoulder_blend|guardian_arm_l1_IK_grp|guardian_arm_l1_IK_anim',
-                                    u'l_elbow_blend|guardian_arm_l2_IK_grp|guardian_arm_l2_IK_anim',
-                                    u'guardian_arm_l3_IK_sub_anim'],
+                  'segmentHandles':['l_shoulder_blend|guardian_arm_l1_IK_grp|guardian_arm_l1_IK_anim',
+                                    'l_elbow_blend|guardian_arm_l2_IK_grp|guardian_arm_l2_IK_anim',
+                                    'guardian_arm_l3_IK_sub_anim'],
                   'rootGroup':'l_arm_root_grp',
                   'curve':'l_arm_crv_splineIKCurve',
                   'baseName':'l_arm'}
@@ -321,7 +321,7 @@ def twist_drivers(settings = None,
 
 
 
-_dshoulderTwist_l = {'blendJoints':[u'l_shoulder_blend', u'l_elbow_blend', u'l_wrist_blend'],
+_dshoulderTwist_l = {'blendJoints':['l_shoulder_blend', 'l_elbow_blend', 'l_wrist_blend'],
                      'settings':'l_arm_root',
                      'segmentHandle':'l_elbow_seg_anim',
                      'rootGroup':'l_arm_root_grp',
@@ -430,7 +430,7 @@ def shoulderTwist(settings = None,
     #self._go.connect_toRigGutsVis(ml_twistObjects)#connect to guts vis switches
     return i_driver
 
-_dwristTwist_l = {'blendJoints':[u'l_shoulder_blend', u'l_elbow_blend', u'l_wrist_blend'],
+_dwristTwist_l = {'blendJoints':['l_shoulder_blend', 'l_elbow_blend', 'l_wrist_blend'],
                   'settings':'l_arm_root',
                   'mirrorDirection':'left',
                   'ikControl':'guardian_arm_l3_IK_anim',
@@ -578,23 +578,23 @@ def matrixTwist(startCon = None,
     mc.connectAttr( '%s.matrixSum' % mult2, '%s.inputMatrix' % decomp2 ) 
     mc.connectAttr( '%s.outputRotate.outputRotateX' % decomp2, '%s.twistEnd' % splineIK )
     
-_d_attach_l = {'joints' : [u'arm1_l2_seg',
-                  u'arm2_l_seg',
-                  u'arm3_l_seg',
-                  u'arm4_l_seg',
-                  u'arm5_l_seg',
-                  u'joint1_seg'],
+_d_attach_l = {'joints' : ['arm1_l2_seg',
+                  'arm2_l_seg',
+                  'arm3_l_seg',
+                  'arm4_l_seg',
+                  'arm5_l_seg',
+                  'joint1_seg'],
       'useCurve' : 'l_arm_crv',
       'baseName' : 'l_armSegment'}
-_d_attach_r = {'joints' : [u'arm1_r1_seg',
-                           u'arm2_r_seg',
-                           u'arm3_r_seg',
-                           u'arm4_r_seg',
-                           u'arm5_r_seg',
-                           u'joint2_seg'],
+_d_attach_r = {'joints' : ['arm1_r1_seg',
+                           'arm2_r_seg',
+                           'arm3_r_seg',
+                           'arm4_r_seg',
+                           'arm5_r_seg',
+                           'joint2_seg'],
                'useCurve' : 'r_arm_crv',
                'baseName' : 'r_armSegment'}
-import cgm.core.lib.curve_Utils as CURVES
+from . import cgm.core.lib.curve_Utils as CURVES
 import cgm.core.cgm_Meta as cgmMeta
 import cgm.core.lib.attribute_utils as ATTR
 def attachToCurve(joints = None,
@@ -644,16 +644,16 @@ def attachToCurve(joints = None,
 # >> SegmentDirect
 #===================================================================================================
 
-_d_segmentDirect_l = {'joints':[u'arm1_l',
-                                u'arm1_l|arm2_l',
-                                u'arm1_l|arm2_l|arm3_l',
-                                u'arm1_l|arm2_l|arm3_l|arm4_l',
-                                u'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l',
-                                u'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1',
-                                u'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1|wrist1_l']}
-_d_segmentDirect_r = {'joints':[u'arm1_r', u'arm2_r', u'arm3_r', u'arm4_r', u'joint2', u'wrist1_r']}
+_d_segmentDirect_l = {'joints':['arm1_l',
+                                'arm1_l|arm2_l',
+                                'arm1_l|arm2_l|arm3_l',
+                                'arm1_l|arm2_l|arm3_l|arm4_l',
+                                'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l',
+                                'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1',
+                                'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1|wrist1_l']}
+_d_segmentDirect_r = {'joints':['arm1_r', 'arm2_r', 'arm3_r', 'arm4_r', 'joint2', 'wrist1_r']}
 
-import cgm.core.lib.rigging_utils as RIG
+from . import cgm.core.lib.rigging_utils as RIG
 def setupDirectOrbs(joints=None):
     ml_joints = cgmMeta.validateObjListArg(joints, 'cgmObject')
 
@@ -667,18 +667,18 @@ def setupDirectOrbs(joints=None):
         mTrans.doGroup(True)
         
         
-_d_connectJointsToHandles = {'joints':[u'arm1_l',
-                                       u'arm1_l|arm2_l',
-                                       u'arm1_l|arm2_l|arm3_l',
-                                       u'arm1_l|arm2_l|arm3_l|arm4_l',
-                                       u'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l',
-                                       u'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1',
-                                       u'arm1_r',
-                                       u'arm2_r',
-                                       u'arm3_r',
-                                       u'arm4_r',
-                                       u'arm5_r',
-                                       u'joint2'] }
+_d_connectJointsToHandles = {'joints':['arm1_l',
+                                       'arm1_l|arm2_l',
+                                       'arm1_l|arm2_l|arm3_l',
+                                       'arm1_l|arm2_l|arm3_l|arm4_l',
+                                       'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l',
+                                       'arm1_l|arm2_l|arm3_l|arm4_l|arm5_l|joint1',
+                                       'arm1_r',
+                                       'arm2_r',
+                                       'arm3_r',
+                                       'arm4_r',
+                                       'arm5_r',
+                                       'joint2'] }
 
 def connectJointsToDirect(joints=None):
     ml_joints = cgmMeta.validateObjListArg(joints, 'cgmObject')
@@ -687,32 +687,32 @@ def connectJointsToDirect(joints=None):
         _source = ATTR.get_message(mJnt.mNode,'cgmSource')
         mc.parentConstraint(_source, mJnt.mNode, maintainOffset = True)
         
-_d_handlesDynP = {'controls':[u'arm1_l_anim',
-                              u'arm2_l_anim',
-                              u'arm3_l_anim',
-                              u'arm4_l_anim',
-                              u'arm5_l_anim',
-                              u'joint1_anim',
+_d_handlesDynP = {'controls':['arm1_l_anim',
+                              'arm2_l_anim',
+                              'arm3_l_anim',
+                              'arm4_l_anim',
+                              'arm5_l_anim',
+                              'joint1_anim',
                               
-                              u'arm1_r_anim',
-                              u'arm2_r_anim',
-                              u'arm3_r_anim',
-                              u'arm4_r_anim',
-                              u'arm5_r_anim',
-                              u'joint2_anim'],
-                    'segmentJoints':[u'arm1_l2_seg',
-                                     u'arm2_l_seg',
-                                     u'arm3_l_seg',
-                                     u'arm4_l_seg',
-                                     u'arm5_l_seg',
-                                     u'joint1_seg',
+                              'arm1_r_anim',
+                              'arm2_r_anim',
+                              'arm3_r_anim',
+                              'arm4_r_anim',
+                              'arm5_r_anim',
+                              'joint2_anim'],
+                    'segmentJoints':['arm1_l2_seg',
+                                     'arm2_l_seg',
+                                     'arm3_l_seg',
+                                     'arm4_l_seg',
+                                     'arm5_l_seg',
+                                     'joint1_seg',
                                      
-                                     u'arm1_r1_seg',
-                                         u'arm2_r_seg',
-                                         u'arm3_r_seg',
-                                         u'arm4_r_seg',
-                                         u'arm5_r_seg',
-                                         u'joint2_seg'],
+                                     'arm1_r1_seg',
+                                         'arm2_r_seg',
+                                         'arm3_r_seg',
+                                         'arm4_r_seg',
+                                         'arm5_r_seg',
+                                         'joint2_seg'],
                     'sharedTargets':['PLACER']
                       } 
         
@@ -723,7 +723,7 @@ def connectDirectToSegment(controls = None,
     ml_segmentJoints = cgmMeta.validateObjListArg(segmentJoints,'cgmObject')
     
     if len(ml_controls) != len(ml_segmentJoints):
-        raise ValueError,'Differing lengths'
+        raise ValueError('Differing lengths')
     
     for i,mCon in enumerate(ml_controls):
         l_targets = [ml_segmentJoints[i].mNode, 'PLACER']
@@ -826,7 +826,7 @@ def setup_fingers(curves=[]):
     return ml_joints
 
 import cgm.core.lib.distance_utils as DIST
-import cgm.core.lib.constraint_utils as CONSTRAINT
+from . import cgm.core.lib.constraint_utils as CONSTRAINT
 
 def setup_linearSegment(joints = [],
                       ):
@@ -932,7 +932,7 @@ def setup_footPivots(pivotToe = None,
         mi_jointToe = mi_jointIKBall.doDuplicate()
         mi_jointToe.doSnapTo(mi_pivotToe.mNode,True,False)
         #SNAP.go(mi_jointToe, mi_pivotToe.mNode,True,False)
-        import cgm.lib.joints as joints
+        from . import cgm.lib.joints as joints
         joints.doCopyJointOrient(mi_jointIKBall.mNode,mi_jointToe.mNode)
         #mi_jointToe.addAttr('cgmName','toe',attrType='string',lock=True)	
         #mi_jointToe.addAttr('cgmTypeModifier','ik',attrType='string',lock=True)
@@ -1236,7 +1236,7 @@ def holder():
         mPlug_lengthUpr= cgmMeta.cgmAttr(mi_controlIK,'lengthUpr',attrType='float',defaultValue = 1,minValue=0,keyable = True)
         mPlug_lengthLwr = cgmMeta.cgmAttr(mi_controlIK,'lengthLwr',attrType='float',defaultValue = 1,minValue=0,keyable = True)
 
-    except Exception,error:raise Exception,"Attr setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Attr setup fail! | error: {0}".format(error))
 
     try:#heel setup
         #Add driven attrs
@@ -1252,7 +1252,7 @@ def holder():
         #NodeF.argsToNodes("%s = -%s"%(mPlug_heelResult.p_combinedShortName,mPlug_heelClampResult.p_combinedShortName)).doBuild()
         mPlug_heelClampResult.doConnectOut("%s.r%s"%(mi_pivHeel.mNode,mi_go._jointOrientation[2].lower()))
 
-    except Exception,error:raise Exception,"Heel setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Heel setup fail! | error: {0}".format(error))
 
 
     try:#ball setup
@@ -1291,7 +1291,7 @@ def holder():
 
         mPlug_all_x_rollResult.doConnectOut("%s.r%s"%(mi_pivBallJoint.mNode,mi_go._jointOrientation[2].lower()))
 
-    except Exception,error:raise Exception,"Ball setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Ball setup fail! | error: {0}".format(error))
 
     try:#toe setup    
         """
@@ -1315,7 +1315,7 @@ def holder():
 
         mPlug_toe_x_rollResult.doConnectOut("%s.r%s"%(mi_pivToe.mNode,mi_go._jointOrientation[2].lower()))
 
-    except Exception,error:raise Exception,"Toe Setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Toe Setup fail! | error: {0}".format(error))
 
 
     try:#bank setup 
@@ -1339,7 +1339,7 @@ def holder():
         mPlug_outerResult.doConnectOut("%s.r%s"%(mi_pivOuter.mNode,mi_go._jointOrientation[0].lower()))
         mPlug_innerResult.doConnectOut("%s.r%s"%(mi_pivInner.mNode,mi_go._jointOrientation[0].lower()))
 
-    except Exception,error:raise Exception,"Bank setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Bank setup fail! | error: {0}".format(error))
 
 
     try:#lean setup 
@@ -1354,7 +1354,7 @@ def holder():
         else:
             mPlug_lean.doConnectOut("%s.r%s"%(mi_pivBallJoint.mNode,mi_go._jointOrientation[0].lower()))
 
-    except Exception,error:raise Exception,"lean setup fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("lean setup fail! | error: {0}".format(error))
 
 
     try:#toe spin setup 
@@ -1369,7 +1369,7 @@ def holder():
         else:
             mPlug_toeSpin.doConnectOut("%s.r%s"%(mi_pivToe.mNode,mi_go._jointOrientation[1].lower()))
 
-    except Exception,error:raise Exception,"Toe spin fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Toe spin fail! | error: {0}".format(error))
 
 
     try:#toe wiggle setup 
@@ -1379,7 +1379,7 @@ def holder():
 		""" 
         mPlug_toeWiggle.doConnectOut("%s.r%s"%(mi_pivBallWiggle.mNode,mi_go._jointOrientation[2].lower()))
 
-    except Exception,error:raise Exception,"Toe wiggle fail! | error: {0}".format(error)
+    except Exception as error:raise Exception("Toe wiggle fail! | error: {0}".format(error))
 
     return True	        
               
@@ -1464,47 +1464,47 @@ def resetCurveTransformsToSource():
         RIG.match_transform(mObj.mNode, mSource[0].mNode)
         
 
-l_fingerJoints = [u'index_l_base_sknj',
-                  u'index_l_mid_sknj',
-                  u'index_l_tip_sknj',
-                  u'index_l_end_sknj',
-                  u'middle_l_base_sknj',
-                  u'middle_l_mid_sknj',
-                  u'middle_l_tip_sknj',
-                  u'middle_l_end_sknj',
-                  u'ring_l_base_sknj',
-                  u'ring_l_mid_sknj',
-                  u'ring_l_tip_sknj',
-                  u'ring_l_end_sknj',
-                  u'thumb_l_base_sknj',
-                  u'thumb_l_mid_sknj',
-                  u'thumb_l_tip_sknj',
-                  u'thumb_l_end_sknj',
-                  u'pinky_l_base_sknj',
-                  u'pinky_l_mid_sknj',
-                  u'pinky_l_tip_sknj',
-                  u'pinky_l_end_sknj',
-                  u'index_r_base_sknj',
-                  u'index_r_mid_sknj',
-                  u'index_r_tip_sknj',
-                  u'index_r_end_sknj',
-                  u'middle_r_base_sknj',
-                  u'middle_r_mid_sknj',
-                  u'middle_r_tip_sknj',
-                  u'middle_r_end_sknj',
-                  u'ring_r_base_sknj',
-                  u'ring_r_mid_sknj',
-                  u'ring_r_tip_sknj',
-                  u'ring_r_end_sknj',
-                  u'thumb_r_base_sknj',
-                  u'thumb_r_mid_sknj',
-                  u'thumb_r_tip_sknj',
-                  u'thumb_r_end_sknj',
-                  u'pinky_r_base_sknj',
-                  u'pinky_r_mid_sknj',
-                  u'pinky_r_tip_sknj',
-                  u'pinky_r_end_sknj'] 
-import cgm.core.lib.constraint_utils as CONSTRAINTS
+l_fingerJoints = ['index_l_base_sknj',
+                  'index_l_mid_sknj',
+                  'index_l_tip_sknj',
+                  'index_l_end_sknj',
+                  'middle_l_base_sknj',
+                  'middle_l_mid_sknj',
+                  'middle_l_tip_sknj',
+                  'middle_l_end_sknj',
+                  'ring_l_base_sknj',
+                  'ring_l_mid_sknj',
+                  'ring_l_tip_sknj',
+                  'ring_l_end_sknj',
+                  'thumb_l_base_sknj',
+                  'thumb_l_mid_sknj',
+                  'thumb_l_tip_sknj',
+                  'thumb_l_end_sknj',
+                  'pinky_l_base_sknj',
+                  'pinky_l_mid_sknj',
+                  'pinky_l_tip_sknj',
+                  'pinky_l_end_sknj',
+                  'index_r_base_sknj',
+                  'index_r_mid_sknj',
+                  'index_r_tip_sknj',
+                  'index_r_end_sknj',
+                  'middle_r_base_sknj',
+                  'middle_r_mid_sknj',
+                  'middle_r_tip_sknj',
+                  'middle_r_end_sknj',
+                  'ring_r_base_sknj',
+                  'ring_r_mid_sknj',
+                  'ring_r_tip_sknj',
+                  'ring_r_end_sknj',
+                  'thumb_r_base_sknj',
+                  'thumb_r_mid_sknj',
+                  'thumb_r_tip_sknj',
+                  'thumb_r_end_sknj',
+                  'pinky_r_base_sknj',
+                  'pinky_r_mid_sknj',
+                  'pinky_r_tip_sknj',
+                  'pinky_r_end_sknj'] 
+from . import cgm.core.lib.constraint_utils as CONSTRAINTS
 #reload(CONSTRAINTS)
 #CONSTRAINTS.copy_constraint('ring_r_base_rigj|OrientConstraint',None,'pointConstraint')
 

@@ -10,8 +10,8 @@ from unittest import TestCase, TestResult
 
 from maya import cmds as cmd
 
-from path import Path
-import moduleUtils
+from .path import Path
+from . import moduleUtils
 
 
 ### POPULATE THE LIST OF TEST SCRIPTS ###
@@ -44,7 +44,7 @@ def _populateTestCases():
 		testModule = __import__( moduleName, globals() )
 
 		scriptTestCases = TEST_SCRIPTS[ scriptFilepath ] = []
-		for name, obj in testModule.__dict__.iteritems():
+		for name, obj in list(testModule.__dict__.items()):
 			if obj is TestCase:
 				continue
 
@@ -73,15 +73,15 @@ def runTestCases( testCases=TEST_CASES ):
 	OK = 'Ok'
 	BUTTONS = (OK,)
 	if testResults.errors:
-		print '------------- THE FOLLOWING ERRORS OCCURRED -------------'
+		print('------------- THE FOLLOWING ERRORS OCCURRED -------------')
 		for error in testResults.errors:
-			print error[0]
-			print error[1]
-			print '--------------------------'
+			print((error[0]))
+			print((error[1]))
+			print('--------------------------')
 
 		cmd.confirmDialog( t='TEST ERRORS OCCURRED!', m='Errors occurred running the tests - see the script editor for details!', b=BUTTONS, db=OK )
 	else:
-		print '------------- %d TESTS WERE RUN SUCCESSFULLY -------------' % len( testCases )
+		print(('------------- %d TESTS WERE RUN SUCCESSFULLY -------------' % len( testCases )))
 		cmd.confirmDialog( t='SUCCESS!', m='All tests were successful!', b=BUTTONS, db=OK )
 
 	return testResults

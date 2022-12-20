@@ -39,8 +39,8 @@ Mac OS X.
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import print_function
-from __future__ import division
+
+
 
 import os
 import sys
@@ -3094,7 +3094,7 @@ class SystemLED(LED):
             try:
                 event_number = chardev.split('input')[1]
             except IndexError:
-                print("Failed with", self.name)
+                print(("Failed with", self.name))
                 raise
             else:
                 self._character_device_path = '/dev/input/event' + event_number

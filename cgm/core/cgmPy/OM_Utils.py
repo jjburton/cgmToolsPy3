@@ -56,7 +56,7 @@ class Point(OM.MPoint, object):
 def mObjectArray_get_list(mArray = None):
     result = []
 
-    for i in xrange(mArray.length()):
+    for i in range(mArray.length()):
         objFn = OM.MFnDagNode( mArray[i])
         result.append( objFn.fullPathName() )
         

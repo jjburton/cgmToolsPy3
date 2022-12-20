@@ -216,7 +216,7 @@ def fncMayaSett_do(self,world=False,anim=False):
                     fnc(_value)
                 else:
                     log.warning("No function found for {0} | {1}".format(k,_name))
-            except Exception,err:
+            except Exception as err:
                 log.error("Failure {0} | {1} | {2}".format(k,_name,err))
     
 def fncMayaSett_query(self):
@@ -262,7 +262,7 @@ def fncMayaSett_query(self):
                     
                 else:
                     log.warning("No function found for {0} | {1}".format(k,_name))
-            except Exception,err:
+            except Exception as err:
                 log.error("Failure {0} | {1} | {2}".format(k,_name,err))
                 
                 

@@ -343,11 +343,11 @@ _d_gui_direction_colors = {'center':(0.971679, 1, 0),
                            'left':(0.305882 ,0.814528, 1),
                            'right':(0.976471 ,0.355012, 0.310173)}
 _d_gui_direction_colors_sub  = {}
-for k,l in _d_gui_direction_colors.iteritems():
+for k,l in list(_d_gui_direction_colors.items()):
     _d_gui_direction_colors_sub[k] = [v * .8 for v in l]
 
 _d_gui_direction_colors_dark  = {}
-for k,l in _d_gui_direction_colors.iteritems():
+for k,l in list(_d_gui_direction_colors.items()):
     _d_gui_direction_colors_dark[k] = [v * .5 for v in l]
 
 

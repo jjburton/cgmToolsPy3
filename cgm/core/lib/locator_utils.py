@@ -108,7 +108,7 @@ def create(target = None, position = None, tag = True, setMatchTarget=True, pivo
         if mode in ['fromTarget','attachPoint']:
             if len(_targets) != 1:
                 log.warning("|{0}| >> mode: {1} | targets: {2} | ".format(_str_func,mode,_targets))
-                raise ValueError,"May only have one target for mode: {0} | targets: {1}".format(mode,_targets)            
+                raise ValueError("May only have one target for mode: {0} | targets: {1}".format(mode,_targets))            
             
             _target = _targets[0]
             
@@ -154,7 +154,7 @@ def create(target = None, position = None, tag = True, setMatchTarget=True, pivo
                                             _set = [m, self.d_meshUV[m][i2], "{0}_u{1}_v{2}".format(coreNames.get_short(m),"{0:.4f}".format(self.d_meshUV[m][i2][0]),"{0:.4f}".format(self.d_meshUV[m][i2][1]))]
                                             self._l_folliclesToMake.append(_set)
                                             log.debug("|{0}|...uv {1}".format(_str_funcName,_set))                                                
-                                        except Exception,err:
+                                        except Exception as err:
                                             log.error("|{0}| >> Failed to query uv for hit {2} on shape {2} | err:{1}".format(_str_funcName,err,pos,m))                
                             if self._l_folliclesToMake:
                                 for f_dat in self._l_folliclesToMake:
@@ -170,11 +170,11 @@ def create(target = None, position = None, tag = True, setMatchTarget=True, pivo
                 
             return _loc
         elif not _targets:
-            raise ValueError,"Must have targets for mode: {0} | targets: {1}".format(mode,_targets)
+            raise ValueError("Must have targets for mode: {0} | targets: {1}".format(mode,_targets))
         else:
             if len(_targets) <= 2 and mode not in ['midPoint']:
                 log.warning("|{0}| >> mode: {1} | targets: {2} | ".format(_str_func,mode,_targets))            
-                raise ValueError,"Must have more than two targets for mode: {0} | targets: {1}".format(mode,_targets)
+                raise ValueError("Must have more than two targets for mode: {0} | targets: {1}".format(mode,_targets))
             
             _name = "{0}_{1}_loc".format('_to_'.join([coreNames.get_base(t) for t in _targets]),mode)
   
@@ -191,10 +191,10 @@ def create(target = None, position = None, tag = True, setMatchTarget=True, pivo
                 return update(_loc)
             return update(_loc, _targets, mode)
         
-    except ValueError,err:
+    except ValueError as err:
         try:mc.delete(_loc)
         except:pass
-        raise ValueError,err
+        raise ValueError(err)
 
 
 def update(loc = None, targets = None, mode = None, forceBBCenter = False):
@@ -212,7 +212,7 @@ def update(loc = None, targets = None, mode = None, forceBBCenter = False):
         
         log.debug("|{0}| >> mode: {1} | targets: {2}".format(_str_func,mode,targets))
         if not targets:
-            raise ValueError,"Must have targets"
+            raise ValueError("Must have targets")
         
         _kws = {'target':loc, 'move':True, 'rotate':True }
         
@@ -226,14 +226,14 @@ def update(loc = None, targets = None, mode = None, forceBBCenter = False):
                 _kws['infoDict'] = _d                
             
             elif not len(targets) >= 2:
-                raise ValueError,"midPoint mode must have at least two targets"
+                raise ValueError("midPoint mode must have at least two targets")
             else:
                 _d = get_midPointDict(targets,forceBBCenter)
                 _kws['infoDict'] = _d
 
         elif mode == 'closestPoint':
             if not len(targets) >= 2:
-                raise ValueError,"midPoint mode must have at least two targets"
+                raise ValueError("midPoint mode must have at least two targets")
             
             _d = {'position':DIST.get_by_dist(targets[0],targets[1:],resMode='pointOnSurface')}
             _kws['infoDict'] = _d
@@ -241,7 +241,7 @@ def update(loc = None, targets = None, mode = None, forceBBCenter = False):
  
         elif mode == 'closestTarget':
             if not len(targets) >= 3:
-                raise ValueError,"midPoint mode must have at least three targets"
+                raise ValueError("midPoint mode must have at least three targets")
             
             _d = POS.get_info(DIST.get_by_dist(targets[0],targets[1:],resMode='object'))
             _d['rotateOrder'] = False
@@ -265,7 +265,7 @@ def update(loc = None, targets = None, mode = None, forceBBCenter = False):
             return False        
             
         try:return position(**_kws)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> loc: {1}".format(_str_func,loc))
             cgmGeneral.log_info_dict(_kws['infoDict'],"{0} >> {1}".format(_str_func,mode)) 
             log.error("|{0}| >> err: {1}".format(_str_func,_err))
@@ -321,10 +321,10 @@ def update(loc = None, targets = None, mode = None, forceBBCenter = False):
                 return False
                 
     else:
-        raise ValueError,"Not a locator. target: {0} | type: {1}".format(_loc,_type)
+        raise ValueError("Not a locator. target: {0} | type: {1}".format(_loc,_type))
 
 
-    raise RuntimeError,"Shouldn't have arrived here. target: {0}".format(_loc)
+    raise RuntimeError("Shouldn't have arrived here. target: {0}".format(_loc))
 
     return False
 

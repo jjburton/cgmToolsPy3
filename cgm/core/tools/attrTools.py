@@ -371,7 +371,7 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'uiFunc_connect'          
         try:
             ATTR.connect(fromAttr,toAttr)
-        except Exception,err:
+        except Exception as err:
             log.info("|{0}| >> fromAttr: {1} | toAttr: {2} || err: {3}".format(_str_func, fromAttr, toAttr, err))
         self.uiFunc_updateScrollAttrList()
     
@@ -379,7 +379,7 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'uiFunc_breakConnection'          
         try:
             ATTR.break_connection(combined)
-        except Exception,err:
+        except Exception as err:
             log.info("|{0}| >> combined: {1} || err: {3}".format(_str_func, combined, err))
         self.uiFunc_updateScrollAttrList()
         
@@ -484,7 +484,7 @@ class ui(cgmUI.cgmGUI):
                                 _l_processed.append(a)
                         else:
                             _l_processed.append(a)"""
-                    except Exception,err:
+                    except Exception as err:
                         log.warning("|{0}| >> Failed to process: {1} : {2} || err:{3}".format(_str_func, _short, a,err))
     
             for a in ['ghostDriver','hyperLayout','attributeAliasList']:
@@ -505,7 +505,7 @@ class ui(cgmUI.cgmGUI):
                 self._l_attrsToLoad = LISTS.get_noDuplicates(_l_good)
                 
             else:
-                for k,l in _d_processed.iteritems():
+                for k,l in list(_d_processed.items()):
                     self._l_attrsToLoad.extend(l)
                     
                 self._l_attrsToLoad = LISTS.get_noDuplicates(self._l_attrsToLoad)
@@ -627,11 +627,11 @@ class ui(cgmUI.cgmGUI):
                         self._l_attrsProcessed.append(a)
                         self._d_attrStrings[a] = " // ".join(_l_report)
                         
-                    except Exception,err:
+                    except Exception as err:
                         log.info("|{0}| >> {1}.{2} | failed to query. Removing. err: {3}".format(_str_func, _short, a, err))  
                         self._l_attrsToLoad.remove(a)
                     log.debug("|{0}| >> {1} : {2}".format(_str_func, _short, a))  
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
             finally:
                 cgmUI.doEndMayaProgressBar(_progressBar)
@@ -653,7 +653,7 @@ class ui(cgmUI.cgmGUI):
                         
                         
             return False
-        except Exception,err:cgmGEN.cgmException(Exception,err)
+        except Exception as err:cgmGEN.cgmException(Exception,err)
 
         
     def uiReport_objects(self):
@@ -920,7 +920,7 @@ class ui(cgmUI.cgmGUI):
         _l_channelbox = _res_context['channelbox']
         _d_prime = None
         
-        print(cgmGEN._str_subLine)
+        print((cgmGEN._str_subLine))
         self._l_attrsSelected = []
         
         
@@ -1297,7 +1297,7 @@ class ui(cgmUI.cgmGUI):
                         c = cgmGEN.Callback(self.uiFunc_attrManage_fromScrollList,**{'mode':'copy{0}'.format(t.capitalize())})) 
         
         
-        for item,a in _d_utils.iteritems():
+        for item,a in list(_d_utils.items()):
             if not _dynamic and item in ['copyTo','copyTo connect back','copyTo connect']:
                 pass
             else:
@@ -1348,23 +1348,23 @@ class ui(cgmUI.cgmGUI):
                     for a,v in d.iteritems():
                         log.info("|{0}| >>  {1}.{2} --> {3}".format(_str_func,o,a,v))"""      
             else:
-                for a,v in _d_values.iteritems():
+                for a,v in list(_d_values.items()):
                     log.debug("|{0}| >>  {1}.{2} --> {3}".format(_str_func,_primeNode,a,v))      
                     for o in _l_targets:
                         try:ATTR.set(o,a,v)
-                        except Exception,err:
+                        except Exception as err:
                             log.error("|{0}| >>  Failed to set: {1}.{2} --> {3} | {4}".format(_str_func,_primeNode,a,v,err))      
                             
         else:
             _d_keys = get_keys(self,_res,_mode)    
             cgmGEN.print_dict(_d_keys,"Processed keys",__name__)
             if _valuesMode == 'each':
-                for o, l_keys in _d_keys.iteritems():
+                for o, l_keys in list(_d_keys.items()):
                     for k in l_keys:
-                        for a,v in _d_values[o].iteritems():
+                        for a,v in list(_d_values[o].items()):
                             log.info("|{0}| >>  f{1} : {2}.{3} --> {4}".format(_str_func,k,o,a,v))
                             try:ATTR.set_keyframe(o,a,v,k)
-                            except Exception,err:
+                            except Exception as err:
                                 log.error("|{0}| >>  failed to set... f{1} : {2}.{3} --> {4} | {5}".format(_str_func,k,o,a,v, err))
                             
             else:
@@ -1372,28 +1372,28 @@ class ui(cgmUI.cgmGUI):
                     log.warning("|{0}| >>  Per mode....".format(_str_func))
                     initialTimeState = mc.currentTime(q=True)
                     
-                    for o,l_keys in _d_keys.iteritems():
+                    for o,l_keys in list(_d_keys.items()):
                         for k in l_keys:       
                             mc.currentTime(k)
                             _d_tmp = get_values(self, _res)
-                            for a,v in _d_tmp.iteritems():
+                            for a,v in list(_d_tmp.items()):
                                 if o in _l_targets:
                                     log.info("|{0}| >>  f{1} : {2}.{3} --> {4}".format(_str_func,k,o,a,v))
                                     try:ATTR.set_keyframe(o,a,v,k)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error("|{0}| >>  failed to set... f{1} : {2}.{3} --> {4} | {5}".format(_str_func,k,o,a,v, err))
                                 
                             
                     mc.currentTime(initialTimeState)
                     
                 else:
-                    for o,l_keys in _d_keys.iteritems():
+                    for o,l_keys in list(_d_keys.items()):
                         for k in l_keys:
-                            for a,v in _d_values.iteritems():
+                            for a,v in list(_d_values.items()):
                                 if o in _l_targets:
                                     log.info("|{0}| >>  f{1} : {2}.{3} --> {4}".format(_str_func,k,o,a,v))
                                     try:ATTR.set_keyframe(o,a,v,k)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error("|{0}| >>  failed to set... f{1} : {2}.{3} --> {4} | {5}".format(_str_func,k,o,a,v, err))
                                         
                                 #try:ATTR.set(o,a,v)
@@ -1415,9 +1415,9 @@ class ui(cgmUI.cgmGUI):
         _l_channelbox = _res_context['channelbox'] 
         
         if not _l_channelbox:
-            raise ValueError,"Must have attributes selected from the channel box"
+            raise ValueError("Must have attributes selected from the channel box")
         if not len(_l_targets) > 1:
-            raise ValueError,"Must have more than one target"
+            raise ValueError("Must have more than one target")
         
         for o in _l_targets[1:]:
             if o == _primeNode:pass
@@ -1440,7 +1440,7 @@ class ui(cgmUI.cgmGUI):
                             continue
                         
                         func(_d,**kws)
-                    except Exception,err:
+                    except Exception as err:
                         log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _short,_a,err))            
         
         _str_func = 'attrManage_fromScrollList'
@@ -1493,7 +1493,7 @@ class ui(cgmUI.cgmGUI):
                     for a in _l_primeAttrs:
                         try:
                             ATTR.connect("{0}.{1}".format(o,a), "{0}.{1}".format(_primeNode,a))
-                        except Exception,err:
+                        except Exception as err:
                             log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                   
                 _done = True
             elif _mode == 'connectToPrimeFromChannelbox':
@@ -1504,14 +1504,14 @@ class ui(cgmUI.cgmGUI):
                         try:
                             for i,a in enumerate(ATTR.get_children(_d_baseAttr)):
                                 ATTR.connect("{0}.{1}".format(o,_l_channelbox[i]),"{0}.{1}".format(_primeNode,a))                        
-                        except Exception,err:
+                        except Exception as err:
                             log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                    
                 else:
                     for o in _driver:
                         for i,a in enumerate(_l_primeAttrs):
                             try:
                                 ATTR.connect("{0}.{1}".format(o,_l_channelbox[i]),"{0}.{1}".format(_primeNode,a))
-                            except Exception,err:
+                            except Exception as err:
                                 log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                   
                 _done = True                
             elif _mode == 'connectFromPrime':
@@ -1520,7 +1520,7 @@ class ui(cgmUI.cgmGUI):
                     for a in _l_primeAttrs:
                         try:
                             ATTR.connect("{0}.{1}".format(_primeNode,a),"{0}.{1}".format(o,a))
-                        except Exception,err:
+                        except Exception as err:
                             log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                   
                 _done = True
             elif _mode == 'connectFromPrimeToChannelbox':
@@ -1531,14 +1531,14 @@ class ui(cgmUI.cgmGUI):
                         try:
                             for i,a in enumerate(ATTR.get_children(_d_baseAttr)):
                                 ATTR.connect( "{0}.{1}".format(_primeNode,a),"{0}.{1}".format(o,_l_channelbox[i]))                        
-                        except Exception,err:
+                        except Exception as err:
                             log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                    
                 else:
                     for o in _driven:
                         for i,a in enumerate(_l_primeAttrs):
                             try:
                                 ATTR.connect("{0}.{1}".format(_primeNode,a),"{0}.{1}".format(o,_l_channelbox[i]))
-                            except Exception,err:
+                            except Exception as err:
                                 log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _primeNode,a,err))                   
                 _done = True                     
             elif _mode in ['alias','nameNice','duplicate','copyTo','copyConnectback','copyConnectto']:
@@ -1625,7 +1625,7 @@ class ui(cgmUI.cgmGUI):
                     log.info("|{0}| >> on...{1}.{2}".format(_str_func, _short,_a))                                                                   
                     
                     if _mode in ['duplicate','copyTo','copyConnectto','copyConnectback']:
-                        if not _fromPrompt:raise ValueError,"Must have new name"
+                        if not _fromPrompt:raise ValueError("Must have new name")
                         if _mode == 'duplicate':ATTR.copy_to(self._ml_nodes[0].mNode,_d['attr'],_d['node'], _fromPrompt,outConnections=False,inConnection = True)                                                 
                         if _mode == 'copyTo':ATTR.copy_to(self._ml_nodes[0].mNode,_d['attr'],_d['node'], _fromPrompt,outConnections=False,inConnection = True)
                         if _mode == 'copyConnectto':ATTR.copy_to(self._ml_nodes[0].mNode,_d['attr'],_d['node'], _fromPrompt,outConnections=False,inConnection = True,driven='target')
@@ -1652,14 +1652,14 @@ class ui(cgmUI.cgmGUI):
                             _v = None
                             try:
                                 _v = ATTR.validate_value(_d,value =_fromPrompt)
-                            except Exception,err:
+                            except Exception as err:
                                 log.error("|{0}| >> {1}.{2} | Mode: {3} | Failed to validate value from prompt: {4} | err: {5}".format(_str_func, _short,_a,_mode,_fromPrompt,err))                                               
                                 continue
                             if _v is not None:
                                 ATTR.set(_d, value = _v)
                         elif _mode == 'enumOptions':
                             if ':' not in _fromPrompt:
-                                raise ValueError,"enumOptions should be separated by ':'"
+                                raise ValueError("enumOptions should be separated by ':'")
                             _v = '"'.split(_fromPrompt)
                             pprint.pprint([_fromPrompt,_v])
                             ATTR.set(_d, value = _fromPrompt)
@@ -1670,7 +1670,7 @@ class ui(cgmUI.cgmGUI):
                             if not _fromPrompt:_fromPrompt=False
                             ATTR.renameNice(_d, _fromPrompt)                            
                         elif _mode == 'rename':
-                            if not _fromPrompt:raise ValueError,"Must have new name"
+                            if not _fromPrompt:raise ValueError("Must have new name")
                             ATTR.rename(_d, _fromPrompt) 
                         elif _mode in ['moveUp','moveDown']:
                             if _mode == 'moveUp':
@@ -1697,7 +1697,7 @@ class ui(cgmUI.cgmGUI):
                         else:
                             log.error("|{0}| >> {1}.{2} | Mode: {3} | Not implented or failed to meet criteria".format(_str_func, _short,_a,_mode))                                               
                             
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> {1}.{2} failed to process: {3}".format(_str_func, _short,_a,err))                                               
         self.uiFunc_updateScrollAttrList()
                     
@@ -1730,14 +1730,14 @@ def uiPrompt_addAttr(attrType = None, nodes = None, title = None, message = None
                 for node in nodes:
                     try:
                         ATTR.add(node, a, attrType,keyable = True, hidden = False)    
-                    except Exception,err:
+                    except Exception as err:
                         _l_fails.append(node)
                         log.error("|{0}| >> Add failure. Node: {1} | Attr: {2} | Type: {3} | err: {4}".format(_str_func,node, a, attrType,err))
         else:
             for node in nodes:
                 try:
                     ATTR.add(node, _v, attrType,keyable = True, hidden = False)
-                except Exception,err:
+                except Exception as err:
                     _l_fails.append(node)
                     log.error("|{0}| >> Add failure. Node: {1} | Attr: {2} | Type: {3} | err: {4}".format(_str_func,node, _v, attrType,err))
                     
@@ -1745,7 +1745,7 @@ def uiPrompt_addAttr(attrType = None, nodes = None, title = None, message = None
             mc.select(_l_fails)
 
             try:ui()
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
     else:
         log.info("|{2}| >> Add {0} attr cancelled. Nodes: {1}".format(attrType,_str_nodes,_str_func))
@@ -1929,7 +1929,7 @@ def get_keys(self, context = None, mode = 'all', report = False):
         log.info(cgmGEN._str_hardLine)
         cgmGEN.print_dict(_d_keys,"Keys",__name__)
         
-    for o,keys in _d_keys.iteritems():
+    for o,keys in list(_d_keys.items()):
         if not keys:log.error("|{0}| >> Failed to find keys for: {1} | mode: {2} ".format(_str_func,o,_mode))       
         
     return _d_keys
@@ -2090,7 +2090,7 @@ def contextual_set(attr = None, value = None, context = 'selection', mType = Non
     for o in _l_context:
         try:
             ATTR.set(o,attr,value)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> set fail. obj:{1} | attr:{2} | value:{3} | error: {4} | {5}".format(_str_func,NAMES.get_short(o),attr,value,err,Exception))
     
     mc.select(_l_context)

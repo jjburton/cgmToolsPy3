@@ -16,7 +16,7 @@ class Keyboard(threading.Thread):
             while True: 
                 events = inputs.get_mouse()
                 for event in events:
-                    print(event.ev_type, event.code, event.state)
+                    print((event.ev_type, event.code, event.state))
 
         finally: 
             print('ended') 
@@ -26,7 +26,7 @@ class Keyboard(threading.Thread):
         # returns id of the respective thread 
         if hasattr(self, '_thread_id'): 
             return self._thread_id 
-        for id, thread in threading._active.items(): 
+        for id, thread in list(threading._active.items()): 
             if thread is self: 
                 return id
 

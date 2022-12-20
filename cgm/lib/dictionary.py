@@ -79,11 +79,11 @@ def validateDirectionVector(direction):
     direction(string/list)        
     """
     if type(direction) is list:
-        for option in stringToVectorDict.keys():
+        for option in list(stringToVectorDict.keys()):
             if direction == stringToVectorDict[option]: 
                 return stringToVectorDict[option]
     else:
-        for option in stringToVectorDict.keys():
+        for option in list(stringToVectorDict.keys()):
             if direction.lower() == option: 
                 return stringToVectorDict[option]
     
@@ -91,7 +91,7 @@ def validateDirectionVector(direction):
     
 
 def returnStringToVectors(direction):
-    if direction in stringToVectorDict.keys():
+    if direction in list(stringToVectorDict.keys()):
         return stringToVectorDict.get(direction)
     else:
         return False
@@ -146,13 +146,13 @@ def returnColorIndex(color):
         return None
     
 def returnStateColor(newState):
-    if newState in stateColors.keys():
+    if newState in list(stateColors.keys()):
         return stateColors.get(newState)
     else:
         return False
     
 def returnGuiDirectionColor(key):
-    if key in guiDirectionColors.keys():
+    if key in list(guiDirectionColors.keys()):
         return guiDirectionColors.get(key)
     else:
         return False
@@ -176,11 +176,11 @@ def returnRotateOrderIndex(ro):
     
 def validateRotateOrderString(ro):
     if type(ro) is int:
-        for k in rotateOrderDictionary.keys():
+        for k in list(rotateOrderDictionary.keys()):
             if rotateOrderDictionary.get(k) == ro:
                 return k
         return False
-    elif ro in rotateOrderDictionary.keys():
+    elif ro in list(rotateOrderDictionary.keys()):
         return ro
     return False
 
@@ -188,7 +188,7 @@ def validateRotateOrderInt(ro):
     if type(ro) is int:
         if ro <= 5:return ro
         else:return False
-    elif ro in rotateOrderDictionary.keys():
+    elif ro in list(rotateOrderDictionary.keys()):
         return rotateOrderDictionary.get(ro)
     return False
 
@@ -229,7 +229,7 @@ def initializeDictionaryScott(file):
         for line in f: # this is more efficient because we are not dumping the whole file into a list
             key, sep, value = line.partition(':')
             if ',' in value:
-                value = map(str.strip, value.split(','))
+                value = list(map(str.strip, value.split(',')))
             else:
                 dictionary[colonSplit[0]] = colonSplit[1]
                 value = value.strip()
@@ -271,7 +271,7 @@ def returnDictionarySortedToList (dictToSort,sortByValues=True):
     sortedList(list)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """   
-    return sorted(dictToSort.iteritems(), key=operator.itemgetter(sortByValues))    
+    return sorted(iter(list(dictToSort.items())), key=operator.itemgetter(sortByValues))    
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Direction stuff
@@ -287,7 +287,7 @@ def validateStringDirection(direction):
     attrType(string)        
     """          
     dType = False
-    for option in directionsDict.keys():
+    for option in list(directionsDict.keys()):
         if direction.lower() in directionsDict.get(option): 
             dType = option
             break

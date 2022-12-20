@@ -23,7 +23,7 @@ try:
     from cgm.core.cgmPy import validateArgs as VALID
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])

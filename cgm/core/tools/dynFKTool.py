@@ -383,7 +383,7 @@ def uiFunc_process_preset_change(obj, optionMenu):
 
                 optionMenu.setValue(text)
             else:
-                print "Invalid name, try again"
+                print("Invalid name, try again")
                 optionMenu.setValue("Load Preset")
     elif mc.nodePreset(isValidName=val):
         if mc.nodePreset(exists=(obj, val)):

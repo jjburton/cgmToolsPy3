@@ -285,7 +285,7 @@ def formLayoutGrid(form, controls, offset=1):
         for c,ctrl in enumerate(row):
             position['left'] = c*colInc
             position['right'] = (c+1)*colInc
-            for k in position.keys():
+            for k in list(position.keys()):
                 kwargs['attachPosition'].append((ctrl, k, offset, position[k]))
 
     mc.formLayout(form, **kwargs)
@@ -776,9 +776,9 @@ class KeySelection(object):
     
         #if args are passed in, this has been called from and out of date script. Warn and fail.
         if args:
-            print ''
-            print "Because of an update to ml_utilities, the tool you're trying to run is deprecated and needs to be updated as well."
-            print "Please visit http://morganloomis.com/downloads and download the latest version of this tool."
+            print('')
+            print("Because of an update to ml_utilities, the tool you're trying to run is deprecated and needs to be updated as well.")
+            print("Please visit http://morganloomis.com/downloads and download the latest version of this tool.")
             OpenMaya.MGlobal.displayError('Tool out of date. See script editor for details.')
             return
         
@@ -1026,7 +1026,7 @@ class KeySelection(object):
         for each in graphVis:
             try:
                 self._curves.extend(mc.keyframe(each, query=True, name=True))
-            except StandardError:
+            except Exception:
                 pass
                 
         
@@ -1085,7 +1085,7 @@ class KeySelection(object):
         if not self.nodeSelection:
             return False
         
-        objs = mc.ls(self.nodeSelection, long=True)
+        objs = mc.ls(self.nodeSelection, int=True)
         tops = list()
         namespaces = list()
         for obj in objs:
@@ -1586,11 +1586,11 @@ class MlUi():
             __import__(self.module)
             module = sys.modules[self.module]
             text = text+'Revision: '+str(module.__revision__)+'\n'
-        except StandardError:
+        except Exception:
             pass
         try:
             text = text+'ml_utilities Rev: '+str(__revision__)+'\n'
-        except StandardError:
+        except Exception:
             pass
         
         mc.confirmDialog(title=self.name, message=text, button='Close')
@@ -1676,7 +1676,7 @@ class MlUi():
                 #this is some fanciness to read the values of UI elements and generate or run the resulting command
                 #keys represent the argument names, the values are UI elements
                 
-                for k in self.uiArgDict.keys():
+                for k in list(self.uiArgDict.keys()):
                     
                     uiType = mc.objectTypeUI(self.uiArgDict[k])
                     value = None
@@ -1691,12 +1691,12 @@ class MlUi():
                             try:
                                 value = mc.floatSliderGrp(self.uiArgDict[k], query=True, value=True)
                                 continue
-                            except StandardError:
+                            except Exception:
                                 pass
                             try:
                                 value = mc.intSliderGrp(self.uiArgDict[k], query=True, value=True)
                                 continue
-                            except StandardError:
+                            except Exception:
                                 pass
                         elif 'field1' in controls:
                             value = mc.floatFieldGrp(self.uiArgDict[k], query=True, value1=True)
@@ -1723,7 +1723,7 @@ class MlUi():
             cmd = 'import '+self.name+';'+self.name+'.'+self.command.__name__+'('
             
             comma = False
-            for k,v in self.kwargs.items():
+            for k,v in list(self.kwargs.items()):
                 
                 value = v
                 if isinstance(v, str):

@@ -127,7 +127,7 @@ def get(obj = None, pivot = 'rp', space = 'ws', targets = None, mode = 'xform', 
                 _res = mc.pointPosition (_OBJ,**kws_pp)
                 #_res =  mc.pointPosition(_OBJ)            
             else:
-                raise RuntimeError,"|{0}| >> Shouldn't have gotten here. Need another check for component type. '{1}'".format(_str_func,_cType)
+                raise RuntimeError("|{0}| >> Shouldn't have gotten here. Need another check for component type. '{1}'".format(_str_func,_cType))
     
         else:
             log.debug("|{0}| >> obj: {1} | pivot: {2} | space: {3} | mode: {4} | asEuclid: {5}".format(_str_func,_obj,_pivot,_space,_mode,asEuclid))             
@@ -155,8 +155,8 @@ def get(obj = None, pivot = 'rp', space = 'ws', targets = None, mode = 'xform', 
                 log.debug("|{0}| >> asEuclid...".format(_str_func))             
                 return EUCLID.Vector3(_res[0], _res[1], _res[2])
             return _res
-        raise RuntimeError,"|{0}| >> Shouldn't have gotten here: obj: {1}".format(_str_func,_obj)
-    except Exception,err:cgmGen.cgmExceptCB(Exception,err)
+        raise RuntimeError("|{0}| >> Shouldn't have gotten here: obj: {1}".format(_str_func,_obj))
+    except Exception as err:cgmGen.cgmExceptCB(Exception,err)
     
 def set(obj = None, pos = None, pivot = 'rp', space = 'ws', relative = False):
     """
@@ -209,7 +209,7 @@ def set(obj = None, pos = None, pivot = 'rp', space = 'ws', relative = False):
                 log.debug("|{0}| >> xform kws: {1}".format(_str_func, kws)) 
             
                 return mc.move(_pos[0],_pos[1],_pos[2], _obj,**kws)#mc.xform(_obj,**kws )  
-    except Exception,err:cgmGen.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGen.cgmExceptCB(Exception,err)
     
 def get_local(obj = None, asEuclid = False):
     """
@@ -304,7 +304,7 @@ def get_bb_pos(arg = None, shapes = False, mode = 'center', mark = False, asEucl
         log.debug("|{0}| >> Right mode".format(_str_func))
         _res = [bb_raw[0] ,((bb_raw[4] + bb_raw[1])/2), ((bb_raw[5] + bb_raw[2])/2)]                
     else:
-        raise ValueError,"|{0}| >> Unknown mode: {1}".format(_str_func,_mode)
+        raise ValueError("|{0}| >> Unknown mode: {1}".format(_str_func,_mode))
 
             
     if mark:
@@ -399,7 +399,7 @@ def get_axisBox_size(arg = None, children = False, mode = None, asEuclid = False
         
         _dag = VALID.getTransform(arg[0])
         if not _dag:
-            raise ValueError,"Must have a dag node. Obj: {0}".format(_dag)
+            raise ValueError("Must have a dag node. Obj: {0}".format(_dag))
         if VALID.is_shape(_dag):
             l_shapes = [_dag]
         else:
@@ -432,7 +432,7 @@ def get_axisBox_size(arg = None, children = False, mode = None, asEuclid = False
         else:
             log.error("|{0}| >> Unknown mode. Returning default. {1} ".format(_str_func,mode))
         return _res            
-    except Exception,err:
+    except Exception as err:
         cgmGen.cgmExceptCB(Exception,err,msg=vars())
 
 def get_uv_position(mesh, uvValue,asEuclid = False):
@@ -547,7 +547,7 @@ def layout_byColumn(objList = None,columns=3,startPos = [0,0,0]):
         objList = mc.ls(sl=True)
     
     if not objList:
-        raise ValueError,"|{0}| >> No objList'".format(_str_func)
+        raise ValueError("|{0}| >> No objList'".format(_str_func))
     
     _l_x = []
     _l_y = []

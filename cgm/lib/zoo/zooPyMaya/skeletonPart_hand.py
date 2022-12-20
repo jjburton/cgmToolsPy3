@@ -1,5 +1,5 @@
 
-from baseSkeletonBuilder import *
+from .baseSkeletonBuilder import *
 
 
 class Hand(SkeletonPart):

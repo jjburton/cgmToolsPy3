@@ -82,14 +82,14 @@ def dirCreateList_get2(projectType,dirSet=None,key = None):
         if issubclass(type(_dDir),list):
             return _dDir
         return _dDir.get(key,[])
-    except Exception,err:
+    except Exception as err:
         log.error(err)
         
 
 def dirCreateList_get(projectType,dirSet=None,key = None):
     l_assets = d_projType.get(projectType,False)
     if not l_assets:
-        raise ValueError,"Invalid projectType: {0}".format(projectType)
+        raise ValueError("Invalid projectType: {0}".format(projectType))
     
     if not dirSet:
         return l_assets

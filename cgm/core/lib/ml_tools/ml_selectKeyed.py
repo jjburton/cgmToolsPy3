@@ -45,7 +45,7 @@ __revision__ = 5
 import maya.cmds as mc
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(9)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 

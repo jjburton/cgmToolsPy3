@@ -121,12 +121,12 @@ def compare_points(sourceObj = None,targetList = None, shouldMatch = True):
         morphPoints = OM.MFloatPointArray()#...data array
         targets = OM.MSelectionList()#...new list for found matches
 
-        for i in xrange(sel.length()):
+        for i in range(sel.length()):
             sel.getDagPath(i, morph)#...get the target
             fnMesh.setObject(morph)#...get it to our fnMesh obj
             fnMesh.getPoints(morphPoints)#...get comparing data
             _match = True                    
-            for j in xrange(morphPoints.length()):
+            for j in range(morphPoints.length()):
                 if (morphPoints[j] - basePoints[j]).length() > 0.0001:#...if they're different   
                     _match = False
                     if not shouldMatch:
@@ -153,11 +153,11 @@ def compare_points(sourceObj = None,targetList = None, shouldMatch = True):
         count = sel.length()
         targets = OM2.MSelectionList()#...target selection list
 
-        for i in xrange(count):
+        for i in range(count):
             comparable = OM2.MFnMesh(sel.getDagPath(i)).getPoints()#...target points data
             compareMesh = sel.getDagPath(i)#...dag path for target
             _match = True
-            for ii in xrange(basePoints.__len__()):
+            for ii in range(basePoints.__len__()):
                 if (basePoints[ii] - comparable[ii]).length() > 0.0001:#...if they're different
                     _match = False
                     if not shouldMatch:
@@ -212,12 +212,12 @@ def is_equivalent(sourceObj = None, target = None, tolerance = .0001):
         morphPoints = OM.MFloatPointArray()#...data array
         targets = OM.MSelectionList()#...new list for found matches
 
-        for i in xrange(sel.length()):
+        for i in range(sel.length()):
             sel.getDagPath(i, morph)#...get the target
             fnMesh.setObject(morph)#...get it to our fnMesh obj
             fnMesh.getPoints(morphPoints)#...get comparing data
             _match = True                    
-            for j in xrange(morphPoints.length()):
+            for j in range(morphPoints.length()):
                 if (morphPoints[j] - basePoints[j]).length() > tolerance:#...if they're different   
                     return False 
         return True
@@ -235,11 +235,11 @@ def is_equivalent(sourceObj = None, target = None, tolerance = .0001):
         count = sel.length()
         targets = OM2.MSelectionList()#...target selection list
 
-        for i in xrange(count):
+        for i in range(count):
             comparable = OM2.MFnMesh(sel.getDagPath(i)).getPoints()#...target points data
             compareMesh = sel.getDagPath(i)#...dag path for target
             _match = True
-            for ii in xrange(basePoints.__len__()):
+            for ii in range(basePoints.__len__()):
                 if (basePoints[ii] - comparable[ii]).length() > 0.0001:#...if they're different
                     return False
 
@@ -322,8 +322,8 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
     for i,o in enumerate([sourceObj] + targets):
         try:
             sel.add(o)#...add objs
-        except Exception,err:   
-            raise Exception,"{0} fail. {1}".format(o,err)
+        except Exception as err:   
+            raise Exception("{0} fail. {1}".format(o,err))
 
     _dagPath = OM.MDagPath()#...mesh path holder
     matching = []#...our match holder
@@ -345,10 +345,10 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
 
             sel.remove(0)#...remove the source
 
-        except Exception,err:
-            raise Exception,"Source validation fail | {0}".format(err)
+        except Exception as err:
+            raise Exception("Source validation fail | {0}".format(err))
 
-        for i in xrange(sel.length()):
+        for i in range(sel.length()):
             _tar = targets[i]
             _vtxCount = l_targetCounts[i]
             log.info("Checking '{0}'".format(_tar))
@@ -378,12 +378,12 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                 vert = iter.position(OM.MSpace.kWorld)
                 if bb_source.contains(vert):
                     _l_found.add(_dagPath, iter.currentItem())
-                iter.next()                
+                next(iter)                
 
     elif _mode is 'raycast interior':
         log.info('Ray cast Mode...')
         sel.remove(0)#...remove the source        
-        for i in xrange(sel.length()):
+        for i in range(sel.length()):
             _tar = targets[i]
             _vtxCount = l_targetCounts[i]            
             log.info("Checking '{0}'".format(_tar))
@@ -406,7 +406,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                     _cnt +=1
                     vert = iter.position(OM.MSpace.kWorld)
                     _inside = True                           
-                    for v in VALID.d_stringToVector.itervalues():
+                    for v in list(VALID.d_stringToVector.values()):
                         d_return = cgmRAYS.findMeshIntersection(sourceObj, vert, 
                                                                 v, 
                                                                 maxDistance=10000, 
@@ -416,7 +416,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                     if _inside:
                         _l_found.add(_dagPath)
                         _found = True
-                    iter.next()                              
+                    next(iter)                              
             else:#...vert/edge/face mode...
                 while not iter.isDone():
                     guiFactory.doUpdateProgressWindow("Checking vtx[{0}]".format(_cnt), _cnt,  
@@ -426,7 +426,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                     vert = iter.position(OM.MSpace.kWorld)
                     _good = True                           
                     p = cgmOM.Point(vert)
-                    for v in VALID.d_stringToVector.itervalues():
+                    for v in list(VALID.d_stringToVector.values()):
                         d_return = cgmRAYS.findMeshIntersection(sourceObj, vert, 
                                                                 v, 
                                                                 maxDistance=10000, 
@@ -435,10 +435,10 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                             _good = False
                     if _good:
                         _l_found.add(_dagPath, iter.currentItem())
-                    iter.next()  
+                    next(iter)  
 
     else:
-        raise ValueError,"Bad mode {0}".format(_mode)
+        raise ValueError("Bad mode {0}".format(_mode))
     guiFactory.doCloseProgressWindow()
 
     #Post processing =============================================================================
@@ -482,12 +482,12 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
             #d[obj] = [list of .f entries]
             for o in matching:
                 _split = o.split('.')#...split our obj from the f data obj.f[1] format
-                if _split[0] not in _d_sort.keys():
+                if _split[0] not in list(_d_sort.keys()):
                     _d_sort[_split[0]] = []
                 _d_sort[_split[0]].append( _split[1] )
 
             _l_created = []
-            for o,l in _d_sort.iteritems():
+            for o,l in list(_d_sort.items()):
                 #Dupliate the mesh =======================================================================================================
                 _dup = mc.duplicate(o, po = False, n = "{0}_to_{1}_proximesh".format(names.getBaseName(o),
                                                                                      names.getBaseName(sourceObj)))[0]
@@ -534,7 +534,7 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
         New Mesh
 
     """
-    raise DeprecationWarning, "Not gonna use this"
+    raise DeprecationWarning("Not gonna use this")
     _result = []
 
     #Get our objects if we don't have them
@@ -553,7 +553,7 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
     _dat = get_contained(sourceObj, target, mode = mode, returnMode = 1, expandBy = expandBy, expandAmount = _expandAmount)
 
     if not _dat:
-        raise ValueError,"No data found on get_contained call!"
+        raise ValueError("No data found on get_contained call!")
 
     #Dupliate the mesh =======================================================================================================
     _dup = mc.duplicate(target, po = False, n = "{0}_proximesh".format(names.getBaseName(target)))[0]
@@ -619,7 +619,7 @@ def get_deltaBaseLine(mNode = None, excludeDeformers = True):
         _result.append(mc.xform("{0}.vtx[{1}]".format(mNode.mNode,i), t = True, os = True, q=True))
 
     #...rewire
-    for mDef in _d_wiring.keys():
+    for mDef in list(_d_wiring.keys()):
         _d = _d_wiring[mDef]
         if _d.get('plug'):
             attributes.doConnectAttr( _d.get('plug'),_d['attr'])
@@ -733,7 +733,7 @@ def meshMath_OLD(sourceObj = None, target = None, mode = 'blend', space = 'objec
     if sourceObj is None or target is None:
         _sel = mc.ls(sl=True)
         if not _sel:
-            raise ValueError,"{0} must have a sourceObj or selection".format(_str_funcName)
+            raise ValueError("{0} must have a sourceObj or selection".format(_str_funcName))
 
         if sourceObj is None:
             sourceObj = _sel[0]
@@ -742,14 +742,14 @@ def meshMath_OLD(sourceObj = None, target = None, mode = 'blend', space = 'objec
             try:
                 target = _sel[1]
             except:
-                raise ValueError,"{0} must have a target".format(_sel)
+                raise ValueError("{0} must have a target".format(_sel))
 
     _d_source = VALID.MeshDict(sourceObj,False, calledFrom=_str_funcName)
     _d_target = VALID.MeshDict(target,False, calledFrom=_str_funcName)
 
     for k in ['meshType']:
         if _d_source[k] != _d_target[k]:
-            raise ValueError,"{0} Mesh dicts keys must match. {1} failed".format(_str_funcName,k)
+            raise ValueError("{0} Mesh dicts keys must match. {1} failed".format(_str_funcName,k))
 
     log.debug(cgmGEN._str_subLine)	
     log.debug("{0}...".format(_str_funcName))
@@ -782,7 +782,7 @@ def meshMath_OLD(sourceObj = None, target = None, mode = 'blend', space = 'objec
         else:
             _symDict = get_symmetryDict(target,center,axis,tolerance,returnMode = 'indices')
         if _symDict['asymmetrical']:
-            raise ValueError,"{0}>> Must have symmetrical target for mode: '{1}' | mode: {2}".format(_str_funcName,target,_mode)
+            raise ValueError("{0}>> Must have symmetrical target for mode: '{1}' | mode: {2}".format(_str_funcName,target,_mode))
 
         #_l_toEvaluate = meshMath_values(_l_pos_obj,_l_pos_targ,'diff',_multiplier)
         _l_toApply = copy.copy(_l_pos_obj)
@@ -940,7 +940,7 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
     #>> Get our objects if we don't have them...
     if targets is None:
         if not _sel:
-            raise ValueError,"{0}>> must have a targets arg or selection".format(_str_funcName)
+            raise ValueError("{0}>> must have a targets arg or selection".format(_str_funcName))
         else:
             targets = _sel
 
@@ -951,14 +951,14 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
             _l_targets.append(o)
             _l_posData.append(_l_pos)
             _l_meshDicts.append(_d_mesh)
-        except Exception,err:
+        except Exception as err:
             #pprint.pprint(vars())
             log.error("{0}>> Target: {1} failed to resolve. | {2}".format(_str_funcName,o,err))
 
     try:
         _baseObj = _l_targets[_baseIndex]
     except:
-        raise ValueError,"{0}>> Base index failed to resolve. index:{1} | targets:{2}".format(_str_funcName,_baseIndex,_l_targets)
+        raise ValueError("{0}>> Base index failed to resolve. index:{1} | targets:{2}".format(_str_funcName,_baseIndex,_l_targets))
 
 
 
@@ -974,7 +974,7 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
             log.debug("{0} | {1}".format(i,o))	
 
     if len(_l_targetsGood) < 2:
-        raise ValueError,"{0}>> must have at least two good targets".format(_str_funcName)
+        raise ValueError("{0}>> must have at least two good targets".format(_str_funcName))
 
     log.debug(cgmGEN._str_subLine)	
     log.debug("{0}...".format(_str_funcName))
@@ -1170,7 +1170,7 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
                             _d = _d_softSelect.get(_l_longNames[i],{}) 
                             log.info("soft dict...")
                             #pprint.pprint(_d)                                
-                            if not _d:raise ValueError,"No soft selection"
+                            if not _d:raise ValueError("No soft selection")
                             
                         #_d = _d_softSelect.get(_l_longNames[_b_idx],{})                        
                         #log.info(_l_longNames[i])
@@ -1390,7 +1390,7 @@ def meshMath_values(sourceValues = None, targetValues = None, mode = 'blend', mu
                         _nPos.append(p - (_diff[ii] * -1) * _multiplier)
                         
             else:
-                raise NotImplementedError,"{0} mode not implemented: '{1}'".format(_str_funcName,_mode)
+                raise NotImplementedError("{0} mode not implemented: '{1}'".format(_str_funcName,_mode))
             _result.append(_nPos)
 
     if _multiplyDict:
@@ -1450,7 +1450,7 @@ def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',
 
     _axis = str(axis).lower()
     if len(_axis) != 1 or _axis not in 'xyz':
-        raise ValueError,"{0} not a valid axis: {1}".format(_str_funcName,axis)
+        raise ValueError("{0} not a valid axis: {1}".format(_str_funcName,axis))
     _indexAxis = 'xyz'.index(_axis)
     if _indexAxis == 0:
         _ax = 0
@@ -1597,7 +1597,7 @@ def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',
 
     log.debug("Assymetrical: {0}".format(_l_assym))        
     log.debug("Center: {0}".format(_l_center))  
-    log.debug("SymMatches: {0}".format(len(_d_matches.keys())))  
+    log.debug("SymMatches: {0}".format(len(list(_d_matches.keys()))))  
 
     if returnMode == 'names':
         return {'center':_l_center,
@@ -1608,7 +1608,7 @@ def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',
                 'asymmetrical':_l_assym}
 
     _d_convert = {}
-    for k in _d_matches.keys():
+    for k in list(_d_matches.keys()):
         _buffer = _d_matches[k]
         _d_convert[_d_vtxToID[k]] = []
         for v in _buffer:
@@ -1676,7 +1676,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
         _cap = _check * threshold
         
         
-        l_seed = random.sample(xrange(_max-1), _check)
+        l_seed = random.sample(list(range(_max-1)), _check)
         
         #print l_seed
         
@@ -1702,9 +1702,9 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
             try:
                 mNormal = fnMesh.getClosestNormal(mPoint_hit,OM2.MSpace.kWorld)
                 #normal = fnMesh.getFaceVertexNormals (index,om.MSpace.kWorld)
-            except Exception, err:
-                print('error while processing getFaceVertexNormal | {0}'.format( err))        
-                raise Exception,err
+            except Exception as err:
+                print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
+                raise Exception(err)
             
             _vec = [v for v in mNormal[0]]
             #_vec = MATH.normalizeList(_vec)
@@ -1751,7 +1751,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
         return 
         while not iter.isDone():
             if _hit > _cap:
-                print "Hit cap"
+                print("Hit cap")
                 return True
             guiFactory.doUpdateProgressWindow("Checking vtx[{0}]".format(_cnt), _cnt, 
                                               _max, 
@@ -1769,9 +1769,9 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
             try:
                 mNormal = fnMesh.getClosestNormal(mPoint_hit,OM2.MSpace.kWorld)
                 #normal = fnMesh.getFaceVertexNormals (index,om.MSpace.kWorld)
-            except Exception, err:
-                print('error while processing getFaceVertexNormal | {0}'.format( err))        
-                raise Exception,err
+            except Exception as err:
+                print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
+                raise Exception(err)
             _vec = [v for v in mNormal[0]]
             DIST.create_vectorCurve([vert.x,vert.y,vert.z],_vec ,10)
             
@@ -1782,11 +1782,11 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
             #print "[{0}] | hits: {1} | {2}".format(_cnt,_hit,  mNormal[0])
                 
             #pprint.pprint(d)
-            iter.next()
+            next(iter)
         
         return False
             
-    except Exception,err:
+    except Exception as err:
         #guiFactory.doCloseProgressWindow()
         cgmGEN.cgmException(Exception,err)
     finally:

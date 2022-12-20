@@ -160,7 +160,7 @@ def set_attrs(self, attr = None, value = None, context = 'selection', mType = No
             #log.debug("|{0}| >>  obj:{1} | attr:{2} | value:{3} ".format(_str_func,o,attr,value))
             ATTR.set(o,attr,value)
             #cgmMeta.cgmNode(o).__setattr__(attr,value)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> set fail. obj:{1} | attr:{2} | value:{3} | error: {4} | {5}".format(_str_func,NAMES.get_short(o),attr,value,err,Exception))
     
     if select == 'reselect':
@@ -189,12 +189,12 @@ def color_override(value = None, context = 'selection', mType = None):
     
     log.debug("|{0}| >> value: {1} | mType: {2} | context: {3}".format(_str_func,value,mType,_context))             
     if not _l_context:
-        raise ValueError,"|{0}| >> Nothing found in context. {1}".format(_str_func,context)
+        raise ValueError("|{0}| >> Nothing found in context. {1}".format(_str_func,context))
     
     for o in _l_context:
         try:
             RIGGING.override_color(o,value)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> set fail. obj:{1} | value:{2} | error: {3} | {4}".format(_str_func,NAMES.get_short(o),value,err,Exception))
     
     mc.select(mc.ls(_l_context,type = 'transform', shortNames = False))
@@ -246,7 +246,7 @@ def func_enumrate_all_to_last(func,objects= None, mode = 'toFrom',**kws):
                 func(objects[-1],o,**kws)
             else:
                 func(o,objects[-1],**kws)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} : {2} failed! | err: {3}".format(_str_func,i,o,err))  
             
     #mc.select(objects[-1])
@@ -274,7 +274,7 @@ def func_all_to_last(func,objects = None, mode = 'toFrom',**kws):
             func(objects[-1],objects[:-1],**kws)
         else:
             func(objects[:-1],objects[-1],**kws)
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| >> err: {2}".format(_str_func,err))  
         
     #mc.select(objects)
@@ -358,9 +358,9 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
                     _res = func(o,objects[-1],**kws)
                 
                 if _res:
-                    print( "|{0}| >> {1}".format( _str_func, _res ))
+                    print(( "|{0}| >> {1}".format( _str_func, _res )))
                     pprint.pprint(_res)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> {1} : {2} failed! | processMode:{4} | err: {3}".format(_str_func,i,o,err,processMode))
     elif processMode in ['firstToEach','eachToFirst','eachToPrevious','previousToEach']:
             for i,o in enumerate(objects[1:]):
@@ -377,9 +377,9 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
                     elif processMode == 'previousToEach':
                         _res = func(objects[i],o,**kws)                       
                     if _res:
-                        print( "|{0}| >> {1}".format( _str_func, _res ))
+                        print(( "|{0}| >> {1}".format( _str_func, _res )))
                         pprint.pprint(_res)                        
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> {1} : {2} failed! | processMode:{4} | err: {3}".format(_str_func,i,o,err,processMode))                 
     elif processMode in ['lastFromRest','restFromLast','firstToRest','restFromFirst','all']:
         if processMode == 'lastFromRest':
@@ -392,7 +392,7 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
             _res = func(objects[0],objects[1:],**kws)
         elif processMode == 'restFromFirst':
             _res = func(objects[1:],objects[0],**kws)               
-        if _res:print( "|{0}| >> {1}".format( _str_func, _res ))
+        if _res:print(( "|{0}| >> {1}".format( _str_func, _res )))
     elif processMode in ['eachToNextReverse']:
         #reload(LISTS)
         l_sets = LISTS.get_listPairs(objects)
@@ -402,14 +402,14 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
             _res = func(pair[0],pair[1],**kws)
                 
             if _res:
-                print( "|{0}| >> {1}".format( _str_func, _res ))            
+                print(( "|{0}| >> {1}".format( _str_func, _res )))            
                 pprint.pprint(_res)                
     else:
-        raise ValueError,"|{0}.{1}| Unkown processMode: {2}".format(__name__,_str_func,processMode)
+        raise ValueError("|{0}.{1}| Unkown processMode: {2}".format(__name__,_str_func,processMode))
     
     if not noSelect:
         try:mc.select(objects)
-        except Exception,err:log.error("|{0}.{1}| Select fail: {2}".format(__name__,_str_func,err))
+        except Exception as err:log.error("|{0}.{1}| Select fail: {2}".format(__name__,_str_func,err))
 
         
 def func_context_all(func,context = 'selection',mType = None, **kws):
@@ -436,7 +436,7 @@ def func_context_all(func,context = 'selection',mType = None, **kws):
         log.debug("|{0}| >> {1} : {2}".format(_str_func,i,o))  
         try:
             func(o,**kws)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> {1} : {2} failed! | err: {3}".format(_str_func,i,o,err))
             
     try:mc.select(_l_context)

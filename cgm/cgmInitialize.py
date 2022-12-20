@@ -31,9 +31,9 @@ def setupContributorPaths():
                 try:
                     sys.path.append("%s" %bufferFolderPath)
                 except:
-                    print ('%s Failed to append' %bufferFolderPath)
-    except Exception,err:
-        raise Exception,"setupContributorPaths FAILURE || {0}".format(err)
+                    print(('%s Failed to append' %bufferFolderPath))
+    except Exception as err:
+        raise Exception("setupContributorPaths FAILURE || {0}".format(err))
 
 
 def devPaths():
@@ -46,7 +46,7 @@ def devPaths():
             try:
                 sys.path.insert(0,dirPath)
             except:
-                print ('%s Failed to append' %dirPath)
+                print(('%s Failed to append' %dirPath))
 
 
 def returnPyFilesFromFolder():
@@ -59,7 +59,7 @@ def returnPyFilesFromFolder():
     returnList = []
 
     for file in bufferList:
-        print file
+        print(file)
         if '__' not in file:
             splitBuffer = file.split('.')
             returnList.append(splitBuffer[0])

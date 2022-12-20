@@ -130,7 +130,7 @@ def snap_action(objects = None, snapMode = 'point',selectionMode = 'eachToLast',
             elif snapMode == 'aim':
                 subKWS['rotation'] = True
             else:
-                raise ValueError,"Unknown mode!"
+                raise ValueError("Unknown mode!")
             
             _pivotMode = var_snapPivotMode.value
             
@@ -143,13 +143,13 @@ def snap_action(objects = None, snapMode = 'point',selectionMode = 'eachToLast',
                 elif _pivotMode == 2:
                     subKWS['pivot'] = 'boundingBox'
                 else:
-                    raise ValueError,"Uknown pivotMode: {0}".format(_pivotMode)        
+                    raise ValueError("Uknown pivotMode: {0}".format(_pivotMode))        
         
             MMCONTEXT.func_process(SNAP.go, objects ,selectionMode, 'Snap', **subKWS)
         
         mc.select(objects)
         return
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 from cgm.core.classes import DraggerContextFactory as cgmDrag
@@ -333,7 +333,7 @@ def specialSnap(obj = None, targets = None,
             return
             
         POS.set(_obj,p)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
@@ -529,7 +529,7 @@ def snap(obj = None, targets = None,
         if scalePivot:
             log.debug("|{0}|...scalePivot...".format(_str_func))
             mc.xform(obj,sp = pos_target, p=True, **kws_xform)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 def get_axisBox_size(targets = None, maxDistance = 10000000, mark=False):
@@ -541,7 +541,7 @@ def get_axisBox_size(targets = None, maxDistance = 10000000, mark=False):
         _targets = VALID.mNodeStringList(targets)
     
         if not _targets:
-            raise ValueError,"Must have targets!"
+            raise ValueError("Must have targets!")
         
         d_res = {'x':[],'y':[],'z':[]}
         
@@ -549,7 +549,7 @@ def get_axisBox_size(targets = None, maxDistance = 10000000, mark=False):
             log.debug("|{0}| >> On t: {1}".format(_str_func,t))
             _proxy = CORERIG.create_axisProxy(t)
             _startPoint = POS.get(_proxy,'bb')
-            for k in d_res.keys():
+            for k in list(d_res.keys()):
                 log.debug("|{0}| >> On t: {1} | {2}".format(_str_func,t,k))
                 
                 pos_positive = RAYS.get_cast_pos(t, k+'+','near', _proxy, startPoint= _startPoint ,
@@ -565,12 +565,12 @@ def get_axisBox_size(targets = None, maxDistance = 10000000, mark=False):
                 d_res[k].append(dist)
             mc.delete(_proxy)            
         
-        for k,v in d_res.iteritems():
+        for k,v in list(d_res.items()):
             d_res[k] = COREMATH.average(v)
             
         return [d_res['x'],d_res['y'],d_res['z']]
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 
@@ -610,7 +610,7 @@ def get_special_pos(targets = None,
         _targets = VALID.mNodeStringList(targets)
 
         if not _targets:
-            raise ValueError,"Must have targets!"
+            raise ValueError("Must have targets!")
 
         _arg = VALID.kw_fromDict(arg, SHARED._d_pivotArgs, noneValid=True,calledFrom= __name__ + _str_func + ">> validate pivot")
         if _arg is None:
@@ -665,7 +665,7 @@ def get_special_pos(targets = None,
         elif _arg == 'axisBox':
             log.warning("|{0}| >> axisBox mode is still wip".format(_str_func))
             if not targets:
-                raise ValueError,"No targets in axisBox cast!"
+                raise ValueError("No targets in axisBox cast!")
             for t in targets:
                 log.debug("|{0}| >> AxisBox cast: {1} ".format(_str_func,t))
                 _proxy = CORERIG.create_axisProxy(t)
@@ -680,7 +680,7 @@ def get_special_pos(targets = None,
                 l_res.append(pos)
                 mc.delete(_proxy)
         else:
-            raise ValueError,"|{0}| >> Unknown mode: {1}".format(_str_func,_arg)
+            raise ValueError("|{0}| >> Unknown mode: {1}".format(_str_func,_arg))
 
         #cgmGEN.func_snapShot(vars())
         
@@ -696,4 +696,4 @@ def get_special_pos(targets = None,
         if _sel and not mark:
             mc.select(_sel)
         return _res
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)

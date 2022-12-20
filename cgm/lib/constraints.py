@@ -153,7 +153,7 @@ def returnConstraintTargets(constraint):
                         'scaleConstraint':mc.scaleConstraint,
                         'aimConstraint':mc.aimConstraint}
     
-    if objType in constaintCmdDict.keys():
+    if objType in list(constaintCmdDict.keys()):
         cmd = constaintCmdDict.get(objType)
         #>>> Get targets
         targetList = cmd(constraint,q=True,targetList=True)
@@ -176,7 +176,7 @@ def returnConstraintTargetWeights(constraint):
                         'pointConstraint':mc.pointConstraint,
                         'aimConstraint':mc.aimConstraint}
     
-    if objType in constaintCmdDict.keys():
+    if objType in list(constaintCmdDict.keys()):
         cmd = constaintCmdDict.get(objType)
         aliasList = mc.parentConstraint(constraint,q=True, weightAliasList=True)
         if aliasList:
@@ -287,7 +287,7 @@ def doSegmentAimPointConstraint(objList):
         return 'Not enough items to make this tool worthwhile'
     # check to see if we have at least 3 items
     if len(objList) == 3:
-        print 'Three!'
+        print('Three!')
         constraintGroups.append(doPointAimConstraintObjectGroup([objList[0],objList[2]],objList[1],mode=0))
     elif len(objList) == 4:
         constraintGroups.append(doPointAimConstraintObjectGroup([objList[0],objList[3]],objList[1],mode=1))

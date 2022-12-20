@@ -62,12 +62,12 @@ def sortChildrenByName(obj):
     _d = {}
     for i,o in enumerate(_l):
         _bfr = names.getBaseName(o)
-        if _bfr not in _d.keys():
+        if _bfr not in list(_d.keys()):
             _d[_bfr] = o
         else:
             _d[names.getShortName(o)] = o
     
-    l_keys = _d.keys()
+    l_keys = list(_d.keys())
     l_keys.sort()
     
     for k in l_keys:
@@ -181,7 +181,7 @@ def doParentReturnName(obj,parentObj):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     #assert mc.objExists(parentObj),"Parent object doesn't exist: %s"%str(parentObj)
-    if parentObj in str(mc.ls(obj,long=True)):
+    if parentObj in str(mc.ls(obj,int=True)):
         return obj
     else:
         returnBuffer = mc.parent(obj,parentObj)

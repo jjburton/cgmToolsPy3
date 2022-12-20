@@ -339,7 +339,7 @@ class AnimDraw(LiveRecord):
                 try:
                     if self.onUpdate != None:
                         self.onUpdate(self.fixedDeltaTime)
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> onUpdate function failed: | err: {1}".format(_str_func, err))
 
                 currentFrame = currentFrame + 1
@@ -447,5 +447,5 @@ class AnimDraw(LiveRecord):
 
 def makePlaneCurve(size = 10.0):
     p = [(-size, 0, size), (size, 0, size), (size, 0, -size), (-size, 0, -size), (-size, 0, size), (0, 0, size), (0, 0, -size), (-size, 0, -size), (-size, 0, 0), (size, 0, 0)]
-    k = range(10)
+    k = list(range(10))
     return cgmMeta.asMeta( mc.curve(name='planeCrv', d=1, p=p, k=k) )

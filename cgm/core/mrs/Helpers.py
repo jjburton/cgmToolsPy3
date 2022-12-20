@@ -27,6 +27,7 @@ import Red9.core.Red9_CoreUtils as r9Core
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -42,7 +43,7 @@ import cgm.core.lib.transform_utils as TRANS
 
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_RigMeta as RIGMETA
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+#from cgm.core import cgm_PuppetMeta as PUPPETMETA
 from cgm.core.classes import GuiFactory as CGMUI
 from cgm.core.lib import curve_Utils as CURVES
 from cgm.core.lib import attribute_utils as ATTR
@@ -97,13 +98,13 @@ d_state_colors = {'define':[1,.3,.3],
                   }
 
 d_uiStateSubColors = {}
-for k,color in d_state_colors.iteritems():
+for k,color in list(d_state_colors.items()):
     d_uiStateSubColors[k] = [v *.95 for v in color ]
     
 #Generate our ui colors
 d_uiStateUIColors = {}
 
-for k,color in d_state_colors.iteritems():
+for k,color in list(d_state_colors.items()):
     _d = {}
     d_uiStateUIColors[k] = _d
     _d['base'] = [v *.95 for v in color ]
@@ -169,7 +170,7 @@ def uiFunc_helper_build(self):
     
     for i,mObj in enumerate(ml_helpers):
         mBlock = self.ml_blocksMade[i]
-        reload(SNAPCALLS)
+        importlib.reload(SNAPCALLS)
         
         
         _shapeDirection = self.d_blockCreate.get('shapeDirection','y+')
@@ -381,8 +382,8 @@ def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1]
                                toCreate = ['block_{}_helper'.format(i) for i in range(count)])"""          
         
         
-    print (self.ml_helpers)
-    print self.mDag
+    print((self.ml_helpers))
+    print((self.mDag))
     if self.ml_helpers:
         self.mButton_helpersBuild(edit=True, en=True)
         self.mDag.helpers = self.ml_helpers
@@ -393,7 +394,7 @@ def helpers_raycast(self = None, targets = [], create = None, drag = False, snap
     '''
     self = data storage
     '''
-    reload(dragFactory)
+    importlib.reload(dragFactory)
     class helperRayCaster(dragFactory.clickMesh):
         """Sublass to get the functs we need in there"""
         def __init__(self,mStorage = None,**kws):

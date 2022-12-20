@@ -91,7 +91,7 @@ def doConnectScaleToCGMTagOnObject(objectList, cgmTag, storageObject):
     for obj in objectList:
         userAttrsData = attributes.returnUserAttrsToDict(obj)
         success = False
-        for key in userAttrsData.keys():
+        for key in list(userAttrsData.keys()):
             if key == cgmTag:
                 success = True
                 buffer = attributes.addFloatAttributeToObject (storageObject, userAttrsData.get(key), dv = 1 )
@@ -107,10 +107,10 @@ def updatePhosphorFaceJointSDKs (jOhJoints):
     for o in jOhJoints:
         #Find our match
         buffer = o.strip('jOH_')
-        print buffer
+        print(buffer)
         if mc.objExists(buffer):
-            print True
-            print ("'%s' matches '%s'"%(o,buffer))
+            print(True)
+            print(("'%s' matches '%s'"%(o,buffer)))
             position.movePointSnap(o,buffer)
             sdk.updateSDKWithCurrentObjectInfo (o, 'rest_txtCrv.rest')
 
@@ -122,10 +122,10 @@ def connectPhosphorJointsToDirectControls (qssJointsToProcess):
     for o in objectsToFix:
         #Find our match
         buffer = 'jOH_'+o+'_crv'
-        print buffer
+        print(buffer)
         if mc.objExists(buffer):
-            print True
-            print ("'%s' matches '%s'"%(o,buffer))
+            print(True)
+            print(("'%s' matches '%s'"%(o,buffer)))
 
             pntConstBuffer = mc.pointConstraint(buffer,o,maintainOffset=True,weight=1)
             orConstBuffer = mc.orientConstraint(buffer,o,maintainOffset=True,weight=1)
@@ -154,10 +154,10 @@ def connectPhosphorJoints (qssJointsToProcess):
     for o in objectsToFix:
         #Find our match
         buffer = 'jOH_'+o
-        print buffer
+        print(buffer)
         if mc.objExists(buffer):
-            print True
-            print ("'%s' matches '%s'"%(o,buffer))
+            print(True)
+            print(("'%s' matches '%s'"%(o,buffer)))
 
             pntConstBuffer = mc.pointConstraint(buffer,o,maintainOffset=True,weight=1)
             orConstBuffer = mc.orientConstraint(buffer,o,maintainOffset=True,weight=1)
@@ -198,7 +198,7 @@ def copyMouthSDKsPhosphor(sourceJoint,targetJoint):
                   'frown_txtCrv.frown']
     for attr in attributes:
         if mc.objExists(attr):
-            print ("on '%s'"%attr)
+            print(("on '%s'"%attr))
             sdk.copySetDrivenKey(attr,attr,sourceJoint,targetJoint)
             
 def parentObjectToNameObject(object):
@@ -212,7 +212,7 @@ def copyMouthSDKs2Phosphor(sourceJoint,targetJoint):
                   'mouthFB_txtCrv.mouthBack']
     for attr in attributes:
         if mc.objExists(attr):
-            print ("on '%s'"%attr)
+            print(("on '%s'"%attr))
             sdk.copySetDrivenKey(attr,attr,sourceJoint,targetJoint)
             
 def copyBrowSDKsPhosphor(sourceJoint,targetJoint):
@@ -223,7 +223,7 @@ def copyBrowSDKsPhosphor(sourceJoint,targetJoint):
                   'browSqueeze_txtCrv.browSqueeze']
     for attr in attributes:
         if mc.objExists(attr):
-            print ("on '%s'"%attr)
+            print(("on '%s'"%attr))
             sdk.copySetDrivenKey(attr,attr,sourceJoint,targetJoint)
             
 def copySelectedJointToOtherSDKsPhosphor(): 
@@ -254,7 +254,7 @@ def attachQSSSkinJointsToRigJoints (qssSkinJoints,qssRigJoints):
     rigHeirarchy = mc.ls(sl=True)
     constraintsList = []
     for obj in rigHeirarchy:
-        print ('On '+obj)
+        print(('On '+obj))
         attachJoint = distance.returnClosestObject(obj,skinnedHeirarchy)
         pntConstBuffer = mc.pointConstraint(obj,attachJoint,maintainOffset=True,weight=1)
         orConstBuffer = mc.orientConstraint(obj,attachJoint,maintainOffset=True,weight=1)

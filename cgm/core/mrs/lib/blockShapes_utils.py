@@ -193,7 +193,7 @@ class handleFactory(object):
     def setRigBlock(self,arg = None):
         mBlock = cgmMeta.validateObjArg(arg)
         if mBlock.mClass != 'cgmRigBlock':
-            raise ValueError,"Not a rigBlock: {0}".format(arg)
+            raise ValueError("Not a rigBlock: {0}".format(arg))
         self.mBlock = mBlock
 
                 #ATTR.set_hidden(self._mTransform.mNode,'baseSize',False)
@@ -253,7 +253,7 @@ class handleFactory(object):
         log.info("|{0}| >> ".format(_str_func)+ '-'*80)
         
         if not self.mBlock:
-            raise ValueError,"Must have rigBlock loaded"
+            raise ValueError("Must have rigBlock loaded")
         mBlock = self.mBlock
         
         #_targets = VALID.listArg(target)
@@ -523,7 +523,7 @@ class handleFactory(object):
                 SNAPCALLS.snap(mPivotRootHandle.mNode,self._mTransform.mNode,rotation=False,targetPivot='axisBox',targetMode='y-')
 
             return mPivotRootHandle
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
             
     def addFootHelper(self,baseShape=None, baseSize = None, upAxis = 'y+', setAttrs = {}):
@@ -743,7 +743,7 @@ class handleFactory(object):
                          #worldSpace = True, absolute = True)
                 
                 return mPivotRootHandle,mTopLoft
-            except Exception,err:
+            except Exception as err:
                 cgmGEN.cgmExceptCB(Exception,err,msg=vars())
                 
     def add_lidsHelper(self,upAxis = 'y+', setAttrs = {}):
@@ -755,7 +755,7 @@ class handleFactory(object):
             _side = self.get_side()
             
             if not mBlock.setupLid:
-                raise ValueError,"No setupLid option detected"
+                raise ValueError("No setupLid option detected")
                 return False
             
             _setup = mBlock.getEnumValueString('setupLid')
@@ -876,7 +876,7 @@ class handleFactory(object):
                                       'lwrRight':['right','lwr'],
                                       }
                 
-                for a,pair in d_handleDirections.iteritems():
+                for a,pair in list(d_handleDirections.items()):
                     log.info("|{0}| >> Adding sub handle helper: {1}".format(_str_func,a))
                                     
                     handle = CURVES.create_fromName('cube',
@@ -916,7 +916,7 @@ class handleFactory(object):
                 
 
             return mLidHandle
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def addScalePivotHelper(self,baseShape=None, baseSize = None, shapeDirection = 'z+', setAttrs = {}):
@@ -944,7 +944,7 @@ class handleFactory(object):
 
         mCurve.p_parent = mHandle
 
-        for a,v in setAttrs.iteritems():
+        for a,v in list(setAttrs.items()):
             ATTR.set(mCurve.mNode, a, v)
 
         CORERIG.match_transform(mCurve.mNode, mHandle)
@@ -995,7 +995,7 @@ class handleFactory(object):
                                  }
             _d_shapeDirection = _d_shapeDirectionOptions.get(shapeDirection)
             if not _d_shapeDirection:
-                raise ValueError,"shapeDirection {0} not setup".format(shapeDirection)
+                raise ValueError("shapeDirection {0} not setup".format(shapeDirection))
 
             mHandle = self._mTransform
             mBlock = self.mBlock
@@ -1019,7 +1019,7 @@ class handleFactory(object):
             d_shapeDirections = _d_shapeDirection['directions']
             
             ml_shapes = []
-            for d,axis in d_shapeDirections.iteritems():
+            for d,axis in list(d_shapeDirections.items()):
                 mAxis = VALID.simpleAxis(axis)
                 _inverse = mAxis.inverse.p_string
                 shape = CURVES.create_controlCurve(mHandle.mNode, shape='pyramid',
@@ -1054,7 +1054,7 @@ class handleFactory(object):
 
             mCurve.p_parent = mHandle
 
-            for a,v in setAttrs.iteritems():
+            for a,v in list(setAttrs.items()):
                 ATTR.set(mCurve.mNode, a, v)
 
 
@@ -1092,7 +1092,7 @@ class handleFactory(object):
             #mBlock.msgList_append('prerigHandles',mCurve.mNode)
             
             return mTrans
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def setAttrs_fromDict(self, setAttrs={}):
@@ -1100,9 +1100,9 @@ class handleFactory(object):
             mHandle = self._mTransform   
             _short = mHandle.mNode
 
-            for a,v in setAttrs.iteritems():
+            for a,v in list(setAttrs.items()):
                 ATTR.set(_short, a, v)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def addOrientHelper(self,baseShape=None, baseSize = None, shapeDirection = 'z-', setAttrs = {}):
@@ -1136,7 +1136,7 @@ class handleFactory(object):
 
             mCurve.p_parent = mHandle
 
-            for a,v in setAttrs.iteritems():
+            for a,v in list(setAttrs.items()):
                 ATTR.set(mCurve.mNode, a, v)
 
             CORERIG.match_transform(mCurve.mNode, mHandle)
@@ -1144,7 +1144,7 @@ class handleFactory(object):
             self.color(mCurve.mNode)
 
             return mCurve
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def addProxyHelper(self,baseShape=None, baseSize = None, shapeDirection = 'z+', setAttrs = {}):
@@ -1188,7 +1188,7 @@ class handleFactory(object):
                 mHandle.doConnectOut('proxyVis',"{0}.v".format(mProxy.mNode))
 
             return mProxy
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def addRootMotionHelper(self,baseShape='pivotLocator', baseSize = None, shapeDirection = 'z+'):
@@ -1228,7 +1228,7 @@ class handleFactory(object):
 
             self.mBlock.msgList_append('prerigHandles',mCurve.mNode)
             return mCurve
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def addJointLabel(self,mHandle = None, label = None):
@@ -1336,7 +1336,7 @@ class handleFactory(object):
                 mLoft.connectParentNode(mJointCurve,'handle','loftCurve')        
 
             return mJointCurve
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def rebuildAsLoftTarget(self, baseShape = None, baseSize = None, shapeDirection = 'z+', rebuildHandle = True):
@@ -1345,7 +1345,7 @@ class handleFactory(object):
         _baseSize = _baseDat[1]   
 
 
-        if baseShape is not 'self':
+        if baseShape != 'self':
             if rebuildHandle:
                 self.cleanShapes()      
                 _offsetSize = _baseSize * 1.3
@@ -1498,7 +1498,7 @@ def rootMotionHelper(self,mHandle=None,
 
         self.msgList_append('prerigHandles',mDag.mNode)
         return mDag
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 def get_sizeVector(value):
@@ -1635,7 +1635,7 @@ def addJointHelper(self,mHandle=None,
         mJointCurve.connectParentNode(mHandle.mNode,'handle','jointHelper')
     else:
         if d_nameTags:
-            for t,tag in d_nameTags.iteritems():
+            for t,tag in list(d_nameTags.items()):
                 if tag not in [None,False]:
                     mJointCurve.doStore(t,tag)
             mJointCurve.doName()                                
@@ -1918,7 +1918,7 @@ def pivotHelper(self,mHandle=None,
             return mPivotRootHandle,mTopLoft
         return mPivotRootHandle
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
@@ -1933,8 +1933,8 @@ def backup(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+            raise ValueError("{0} | ml_handles required".format(_str_func))
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 
 def create_face_anchor(self, pos, mSurface,tag,k,side=None,controlType = 'main',orientToSurf = False,
@@ -2347,8 +2347,8 @@ def backup(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+            raise ValueError("{0} | ml_handles required".format(_str_func))
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
 def settings(self,settingsPlace = None,ml_targets = None, mPrerigNull = None):
@@ -2450,10 +2450,10 @@ def settings(self,settingsPlace = None,ml_targets = None, mPrerigNull = None):
                 mSettings.p_parent = mPrerigNull
 
         else:
-            raise ValueError,"Unknown settingsPlace: {1}".format(settingsPlace)
+            raise ValueError("Unknown settingsPlace: {1}".format(settingsPlace))
         
         return mSettings
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
 
 #...for tracking to a curve

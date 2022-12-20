@@ -5,12 +5,12 @@ from cgm.lib.zoo.zooPy.misc import removeDupes
 from cgm.lib.zoo.zooPy.binarySearchTree import BinarySearchTree
 from cgm.lib.zoo.zooPy import presets
 
-from skinWeightsBase import *
-from mayaDecorators import d_unifyUndo, d_progress, d_showWaitCursor
-from melUtils import mel, printWarningStr
+from .skinWeightsBase import *
+from .mayaDecorators import d_unifyUndo, d_progress, d_showWaitCursor
+from .melUtils import mel, printWarningStr
 
 import maya.cmds as cmd
-import apiExtensions
+from . import apiExtensions
 
 iterParents = apiExtensions.iterParents
 VertSkinWeight = MayaVertSkinWeight
@@ -123,14 +123,14 @@ def saveWeights( geos, filepath=None ):
 
 	#generate joint hierarchy data - so if joints are missing on load we can find the best match
 	jointHierarchies = {}
-	for n, j in joints.iteritems():
+	for n, j in list(joints.items()):
 		jointHierarchies[ n ] = getAllParents( j )
 
 	toWrite = miscData, joints, jointHierarchies, weightData
 
 	filepath = Path( filepath )
 	filepath.pickle( toWrite)
-	print 'Weights Successfully Saved to %s: time taken %.02f seconds' % (filepath, time.clock()-start)
+	print(('Weights Successfully Saved to %s: time taken %.02f seconds' % (filepath, time.clock()-start)))
 
 	return filepath
 
@@ -144,14 +144,14 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 
 	#nothing to do...
 	if not objects:
-		print 'No objects given...'
+		print('No objects given...')
 		return
 
 	if filepath is None:
 		filepath = getDefaultPath()
 
 	if not filepath.exists():
-		print 'File does not exist %s' % filepath
+		print(('File does not exist %s' % filepath))
 		return
 
 	start = time.clock()
@@ -202,7 +202,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 
 	#remap joint names in the saved file to joint names that are in the scene - they may be namespace differences...
 	missingJoints = set()
-	for n, j in joints.iteritems():
+	for n, j in list(joints.items()):
 		if not cmd.objExists(j):
 			#see if the joint with the same leaf name exists in the scene
 			idxA = j.rfind(':')
@@ -216,12 +216,12 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 					search = cmd.ls('%s*' % leafName, r=True, type='joint')
 					if search:
 						joints[n] = search[0]
-						print '%s remapped to %s' % (j, search[0])
+						print(('%s remapped to %s' % (j, search[0])))
 
 
 	#now that we've remapped joint names, we go through the joints again and remap missing joints to their nearest parent
 	#joint in the scene - NOTE: this needs to be done after the name remap so that parent joint names have also been remapped
-	for n, j in joints.iteritems():
+	for n, j in list(joints.items()):
 		if not cmd.objExists(j):
 			dealtWith = False
 			for jp in jointHierarchies[n]:
@@ -231,7 +231,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 					break
 
 			if dealtWith:
-				print '%s remapped to %s' % (j, jp)
+				print(('%s remapped to %s' % (j, jp)))
 				continue
 
 			missingJoints.add(n)
@@ -254,13 +254,13 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 		#using axisMult for mirroring also often means you want to swap parity tokens on joint names - if so, do that now.
 		#parity needs to be swapped in both joints and jointHierarchies
 		if swapParity:
-			for joint, target in joints.iteritems():
+			for joint, target in list(joints.items()):
 				joints[joint] = str( names.Name(target).swap_parity() )
-			for joint, parents in jointHierarchies.iteritems():
+			for joint, parents in list(jointHierarchies.items()):
 				jointHierarchies[joint] = [str( names.Name(p).swap_parity() ) for p in parents]
 
 
-	for geo, items in objItemsDict.iteritems():
+	for geo, items in list(objItemsDict.items()):
 		#if the geo is None, then check for data in the verts arg - the user may just want weights
 		#loaded on a specific list of verts - we can get the geo name from those verts
 		skinCluster = ''
@@ -270,7 +270,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 		#do we have a skinCluster on the geo already?  if not, build one
 		skinCluster = cmd.ls(cmd.listHistory(geo), type='skinCluster')
 		if not skinCluster:
-			skinCluster = cmd.skinCluster(geo,joints.values())[0]
+			skinCluster = cmd.skinCluster(geo,list(joints.values()))[0]
 			verts = cmd.ls(cmd.polyListComponentConversion(geo, toVertex=True), fl=True)
 		else: skinCluster = skinCluster[0]
 
@@ -299,12 +299,12 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 				#normalize the weights
 				weightSum = float( sum( jointWeightDict.values() ) )
 				if weightSum != 1:
-					for joint, weight in jointWeightDict.iteritems():
+					for joint, weight in list(jointWeightDict.items()):
 						jointWeightDict[ joint ] = weight / weightSum
 
 
 				#append the data
-				vertJointWeightData.append( (vert, jointWeightDict.items()) )
+				vertJointWeightData.append( (vert, list(jointWeightDict.items())) )
 
 
 				#deal with the progress window - this isn't done EVERY vert because its kinda slow...
@@ -338,11 +338,11 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 					jointList, weightList = weightDataById[vert]
 				except KeyError:
 					#in this case, the vert doesn't exist in teh file...
-					print '### no point found for %s' % vert
+					print(('### no point found for %s' % vert))
 					continue
 				else:
 					jointList = [ joints[ j ] for j in jointList ]
-					jointsAndWeights = zip(jointList, weightList)
+					jointsAndWeights = list(zip(jointList, weightList))
 					skinPercent(skinCluster, vert, tv=jointsAndWeights)
 
 		#remove unused influences from the skin cluster
@@ -350,7 +350,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 		curItem += 1
 
 	end = time.clock()
-	print 'time for weight load %.02f secs' % (end-start)
+	print(('time for weight load %.02f secs' % (end-start)))
 
 
 from maya.OpenMayaAnim import MFnSkinCluster
@@ -447,7 +447,7 @@ def autoSkinToVolumeMesh( mesh, skeletonMeshRoot ):
 		jointRemap[ t ] = j
 
 	#now do parenting
-	for t, j in jointRemap.iteritems():
+	for t, j in list(jointRemap.items()):
 		tParent = listRelatives( t, p=True, pa=True )
 		if tParent:
 			tParent = tParent[0]
@@ -466,7 +466,7 @@ def autoSkinToVolumeMesh( mesh, skeletonMeshRoot ):
 
 	#duplicate the geometry and parent the geo to the joints in the skeleton we just created - store the duplicates so we can delete them later
 	dupes = []
-	for t, j in jointRemap.iteritems():
+	for t, j in list(jointRemap.items()):
 		dupe = apiExtensions.asMObject( duplicate( t, returnRootsOnly=True, renameChildren=True )[0] )
 		children = listRelatives( dupe, type='transform', pa=True ) or []
 		if children:
@@ -475,7 +475,7 @@ def autoSkinToVolumeMesh( mesh, skeletonMeshRoot ):
 		parent( dupe, j )
 		dupes.append( dupe )
 
-	f = saveWeights( map( str, dupes ) )
+	f = saveWeights( list(map( str, dupes )) )
 
 	loadWeights( [mesh], f, usePosition=True, tolerance=0.5, averageVerts=True, jointNameRemapDict=jointRemap )
 

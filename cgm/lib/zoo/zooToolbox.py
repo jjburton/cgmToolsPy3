@@ -1,5 +1,5 @@
 
-from __future__ import with_statement
+
 
 import os
 import re
@@ -23,7 +23,7 @@ def setupZooScriptPaths():
 	thisFile = Path( __file__ )
 	thisPath = thisFile.up()
 
-	mayaScriptPaths = map( Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) )
+	mayaScriptPaths = list(map( Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) ))
 	mayaScriptPathsSet = set( mayaScriptPaths )
 	zooMelPath = thisPath / 'zooMel'
 
@@ -42,7 +42,7 @@ def setupZooPlugins():
 	thisPath = thisFile.up()
 
 	existingPlugPathStr = maya.mel.eval( 'getenv MAYA_PLUG_IN_PATH;' )
-	existingPlugPaths = map( Path, existingPlugPathStr.split( os.pathsep ) )
+	existingPlugPaths = list(map( Path, existingPlugPathStr.split( os.pathsep ) ))
 	existingPlugPathsSet = set( existingPlugPaths )
 
 	zooPyPath = thisPath / 'zooPyMaya'
@@ -126,7 +126,7 @@ def setupZooMenu():
 
 	if not hasattr( maya, '_zooToolboxMenu' ):
 		def cb( *a ):
-			import zooToolbox
+			from . import zooToolbox
 			zooToolbox.buildZooMenu( *a )
 
 		menu = MelMainMenu( l='Zoo Tools', pmc=cb, tearOff=True )
@@ -183,7 +183,7 @@ class AutoStartInstaller(object):
 				try:
 					self.installMel( melUserSetup )
 					success = True
-				except self.AutoSetupError, x:
+				except self.AutoSetupError as x:
 					errors.append( x )
 
 		if not success:

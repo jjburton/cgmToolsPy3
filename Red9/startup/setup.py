@@ -96,8 +96,9 @@ def __formatPath_join(path, *paths):
     return __formatPath(os.path.join(path, *paths))
 
 
-import language_packs.language_english
-LANGUAGE_MAP = language_packs.language_english
+from .language_packs import language_english
+print(language_english)
+LANGUAGE_MAP = language_english
 
 def get_language_maps():
     '''
@@ -120,7 +121,7 @@ def set_language(language='language_english', *args):
     language_path = __formatPath_join(os.path.dirname(__file__), 'language_packs')
     packs = get_language_maps()
     if language in packs:
-        print 'Red9 : Importing Language Map : %s' % language
+        print('Red9 : Importing Language Map : %s' % language)
         LANGUAGE_MAP = imp.load_source('language', __formatPath_join(language_path, language + '.py'))
 
 set_language()
@@ -138,14 +139,14 @@ def mayaIsBatch():
 
 def mayaFullSpecs():
     ''' return standard Maya build info '''
-    print 'Maya version : ', mayaVersion()
-    print 'Maya API version: ', mayaVersionRelease()
-    print 'Maya Release: ', cmds.about(v=True)
-    print 'QT build: ', mayaVersionQT()
-    print 'Prefs folder: ', mayaPrefs()
-    print 'OS build: ', osBuild()
+    print('Maya version : ', mayaVersion())
+    print('Maya API version: ', mayaVersionRelease())
+    print('Maya Release: ', cmds.about(v=True))
+    print('QT build: ', mayaVersionQT())
+    print('Prefs folder: ', mayaPrefs())
+    print('OS build: ', osBuild())
 
-    print MAYA_INTERNAL_DATA
+    print(MAYA_INTERNAL_DATA)
 
 def maya_QT_mainWindow():
     '''
@@ -157,11 +158,11 @@ def maya_QT_mainWindow():
         try:
             from PySide2 import QtWidgets
             import shiboken2
-            return shiboken2.wrapInstance(long(mayaWindow), QtWidgets.QWidget)
+            return shiboken2.wrapInstance(int(mayaWindow), QtWidgets.QWidget)
         except:
             from PySide import QtGui
             import shiboken
-            return shiboken.wrapInstance(long(mayaWindow), QtGui.QWidget)
+            return shiboken.wrapInstance(int(mayaWindow), QtGui.QWidget)
     except:
         log.warning('failed to return Maya main QT Widget')
 
@@ -401,7 +402,7 @@ def framerate_mapping(value=None, asAPI=False, truncate_float=False):
 
     # now in a try loop so that when the API bails due to MTime differences
     # between Maya versions we're still ok
-    for fps, data in _bases.items():
+    for fps, data in list(_bases.items()):
         try:
             api = getattr(OpenMaya.MTime, data[1])
             if not truncate_float:
@@ -416,12 +417,12 @@ def framerate_mapping(value=None, asAPI=False, truncate_float=False):
 
     # value comparison and conversion
     if type(value) in [int, float]:
-        for k, v in fpsDict.items():
+        for k, v in list(fpsDict.items()):
             if abs(float(v[0]) - float(value)) < 0.001:
                 if not asAPI:
                     return k
                 return v[1]
-    elif type(value) in [str, unicode]:
+    elif type(value) in [str, str]:
         if not asAPI:
             return fpsDict[value][0]
         return fpsDict[value][1]
@@ -440,7 +441,7 @@ def getCurrentFPS(return_full_map=False):
     else:
         # why remap? this is purely for consistency on older calls
         data = {}
-        for k, v in framerate_mapping().items():
+        for k, v in list(framerate_mapping().items()):
             data[k] = v[0]
         return data
 
@@ -461,7 +462,7 @@ def menuSetup(parent='MayaWindow'):
     # parent is an existing window with an existing menuBar?
     if cmds.window(parent, exists=True):
         if not cmds.window(parent, q=True, menuBar=True):
-            raise StandardError('given parent for Red9 Menu has no menuBarlayout %s' % parent)
+            raise Exception('given parent for Red9 Menu has no menuBarlayout %s' % parent)
         else:
             cmds.menu('redNineMenuItemRoot', l="RedNine", p=parent, tearOff=True, allowOptionBoxes=True)
             log.info('New Red9 Menu added to current window : %s' % parent)
@@ -474,7 +475,7 @@ def menuSetup(parent='MayaWindow'):
         cmds.menuItem('redNineMenuItemRoot', l='RedNine', sm=True, p=parent)
         log.info('new Red9 subMenu added to current Menu : %s' % parent)
     else:
-        raise StandardError('given parent for Red9 Menu is invalid %s' % parent)
+        raise Exception('given parent for Red9 Menu is invalid %s' % parent)
     try:
         cmds.menuItem('redNineProRootItem',
                       l='PRO : PACK', sm=True, p='redNineMenuItemRoot', tearOff=True, i='red9.png')
@@ -688,7 +689,7 @@ def menuSetup(parent='MayaWindow'):
         for language in get_language_maps():
             cmds.menuItem(l=LANGUAGE_MAP._MainMenus_.language + " : %s" % language, c=partial(set_language, language), p='redNineDebuggerItem')
     except:
-        raise StandardError('Unable to parent Red9 Menu to given parent %s' % parent)
+        raise Exception('Unable to parent Red9 Menu to given parent %s' % parent)
 
 def addToMayaMenus():
     '''
@@ -808,15 +809,15 @@ def addAudioMenu(parent=None, rootMenu='redNineTraxRoot', prefix=''):
     :param parent: parent UI to add the items too
     :param rootMenu: name of the new rootMenu built
     '''
-    print 'AudioMenu: given parent : ', parent
+    print('AudioMenu: given parent : ', parent)
     if not parent:
         cmds.menu(rootMenu, l=LANGUAGE_MAP._MainMenus_.sound_red9_sound, tearOff=True, allowOptionBoxes=True)
-        print 'New r9Sound Menu added - no specific parent given so adding to whatever menu is currently being built!'
+        print('New r9Sound Menu added - no specific parent given so adding to whatever menu is currently being built!')
     else:
         # parent is a window containing a menuBar?
         if cmds.window(parent, exists=True):
             if not cmds.window(parent, q=True, menuBar=True):
-                raise StandardError('given parent for Red9 Sound Menu has no menuBarlayout %s' % parent)
+                raise Exception('given parent for Red9 Sound Menu has no menuBarlayout %s' % parent)
             else:
                 cmds.menu(rootMenu, l=LANGUAGE_MAP._MainMenus_.sound_red9_sound, p=parent, tearOff=True, allowOptionBoxes=True)
                 log.info('New Red9 Sound Menu added to current windows menuBar : %s' % parent)
@@ -830,7 +831,7 @@ def addAudioMenu(parent=None, rootMenu='redNineTraxRoot', prefix=''):
                           allowOptionBoxes=True, tearOff=True, i='sound_30.png')
             log.info('New Red9 Sound subMenu added to current Menu : %s' % parent)
         else:
-            raise StandardError('given parent for Red9 Sound Menu is invalid %s' % parent)
+            raise Exception('given parent for Red9 Sound Menu is invalid %s' % parent)
 
     cmds.menuItem(l=LANGUAGE_MAP._MainMenus_.sound_offset_manager, p=rootMenu,
                   ann=LANGUAGE_MAP._MainMenus_.sound_offset_manager_ann,
@@ -1176,7 +1177,7 @@ class Red9_Video_Mappings(object):
                 try:
                     cls.data = json.load(name)
                     return cls.data  # json.load(name)
-                except ValueError, err:
+                except ValueError as err:
                     log.warning('Failed to read JSON file %s' % video_db)
                     raise ValueError(err)
 
@@ -1258,7 +1259,7 @@ class Red9_Video_Mappings(object):
         keys = {}
         urls = []
 
-        for video, val in cls.read_video_db().items():
+        for video, val in list(cls.read_video_db().items()):
 #             for tag in tags:
 #                 if 'tags' in val:
 #                     for t in val['tags']:
@@ -1488,7 +1489,7 @@ def delete_shelf(shelf_name):
             os.remove(pref_file)
         mel.eval("shelfTabChange")
         log.info('Shelf deleted: % s' % shelf_name)
-    except StandardError, err:
+    except Exception as err:
         log.warning('shelf management failed : %s' % err)
 
 def load_shelf(shelf_path):
@@ -1545,7 +1546,7 @@ def has_pro_pack():
                 return True
             else:
                 return False
-        except StandardError, err:
+        except Exception as err:
 #             import traceback
             # we have the pro-pack folder so assume we're running legacy build
             log.info('r9Pro : checkr9User : failed validation! : %s' % err)
@@ -1840,7 +1841,7 @@ def boot_client_projects(batchclients=None, clientsToBoot=[]):
 
             cm=Client_Manager()
             cmds.layoutDialog(ui=cm.show)
-            print('clients booting : ', cm.returned)
+            print(('clients booting : ', cm.returned))
             clientsToBoot = cm.returned
 
 #             options = ['ALL', 'NONE']
@@ -1970,7 +1971,7 @@ def start(Menu=True, MayaUIHooks=True, MayaOverloads=True, parentMenu='MayaWindo
                 try:
                     mel.eval('source Red9_MelCore')
                     sourceMelFolderContents(hacked)
-                except StandardError, error:
+                except Exception as error:
                     log.info(error)
 
             # Add custom items to standard built Maya menus
@@ -2044,20 +2045,20 @@ def reload_Red9(*args):
     Red9.core._reload()
 
     if has_pro_pack():
-        print '\nReloading ProPack Systems (INTERNAL USE)'
-        print '=' * 40
+        print('\nReloading ProPack Systems (INTERNAL USE)')
+        print('=' * 40)
         import Red9.pro_pack.core
         Red9.pro_pack.core._reload()
 
     if has_internal_systems():
-        print '\nReloading Internal Codebase'
-        print '=' * 40
+        print('\nReloading Internal Codebase')
+        print('=' * 40)
         import Red9_Internals
         Red9_Internals._reload()
 
     if has_client_modules():
-        print '\nReloading Client Codebase'
-        print '=' * 40
+        print('\nReloading Client Codebase')
+        print('=' * 40)
         __reload_clients__()
 
 

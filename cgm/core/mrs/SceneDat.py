@@ -78,22 +78,22 @@ log_start = cgmGEN.logString_start
 
 
 
-d_sample = {'data':[{'asset': u'punk_02',
+d_sample = {'data':[{'asset': 'punk_02',
              'category': 'character',
              'exportMode': 'export',
-             'path': u'D:\\Dropbox\\Art\\Assets\\Animation\\Playspace\\content\\character\\punk_02\\animation\\throw\\base\\punk_02_throw_base_02.mb',
-             'set': u'throw',
-             'subType': u'animation',
-             'variation': u'base',
-             'version': u'punk_02_throw_base_02.mb'},
-            {'asset': u'punk_02',
+             'path': 'D:\\Dropbox\\Art\\Assets\\Animation\\Playspace\\content\\character\\punk_02\\animation\\throw\\base\\punk_02_throw_base_02.mb',
+             'set': 'throw',
+             'subType': 'animation',
+             'variation': 'base',
+             'version': 'punk_02_throw_base_02.mb'},
+            {'asset': 'punk_02',
              'category': 'character',
              'exportMode': 'export',
-             'path': u'D:\\Dropbox\\Art\\Assets\\Animation\\Playspace\\content\\character\\punk_02\\animation\\tube\\base\\punk_02_tube_base_03.mb',
-             'set': u'tube',
-             'subType': u'animation',
-             'variation': u'base',
-             'version': u'punk_02_tube_base_03.mb'}]}
+             'path': 'D:\\Dropbox\\Art\\Assets\\Animation\\Playspace\\content\\character\\punk_02\\animation\\tube\\base\\punk_02_tube_base_03.mb',
+             'set': 'tube',
+             'subType': 'animation',
+             'variation': 'base',
+             'version': 'punk_02_tube_base_03.mb'}]}
 
 
 class BaseDat(CGMDAT.data):

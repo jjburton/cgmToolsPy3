@@ -105,13 +105,13 @@ example:
         self.sortType = args[0]
 
         if self.sortType == 0:
-            self.animList = sorted(self.animDict.items(), key=operator.itemgetter(0))
+            self.animList = sorted(list(self.animDict.items()), key=operator.itemgetter(0))
         elif self.sortType == 1:
-            self.animList = sorted(self.animDict.items(), key=lambda x: x[1][0])
+            self.animList = sorted(list(self.animDict.items()), key=lambda x: x[1][0])
         elif self.sortType == 2:
-            self.animList = sorted(self.animDict.items(), key=lambda x: x[1][1]) 
+            self.animList = sorted(list(self.animDict.items()), key=lambda x: x[1][1]) 
         elif self.sortType == 3:
-            self.animList = sorted(self.animDict.items(), key=lambda x: x[1][2])
+            self.animList = sorted(list(self.animDict.items()), key=lambda x: x[1][2])
 
         self.RefreshShotList()     
 
@@ -171,7 +171,7 @@ example:
         
         _dTmp = self.animDict
         _done = False
-        for k,l in _dTmp.iteritems():
+        for k,l in list(_dTmp.items()):
             if find in k:
                 _new = k.replace(find,replace)
                 log.info("Replacing: {} | {}".format(k,_new))
@@ -437,12 +437,12 @@ class AnimList(object):
 
     def SortedList(self, sortType = 1):
         if sortType == 0:
-            self.shotList = sorted(self.shotDict.items(), key=operator.itemgetter(0))
+            self.shotList = sorted(list(self.shotDict.items()), key=operator.itemgetter(0))
         elif sortType == 1:
-            self.shotList = sorted(self.shotDict.items(), key=lambda x: x[1][0])
+            self.shotList = sorted(list(self.shotDict.items()), key=lambda x: x[1][0])
         elif sortType == 2:
-            self.shotList = sorted(self.shotDict.items(), key=lambda x: x[1][1]) 
+            self.shotList = sorted(list(self.shotDict.items()), key=lambda x: x[1][1]) 
         elif sortType == 3:
-            self.shotList = sorted(self.shotDict.items(), key=lambda x: x[1][2])
+            self.shotList = sorted(list(self.shotDict.items()), key=lambda x: x[1][2])
 
         return self.shotList

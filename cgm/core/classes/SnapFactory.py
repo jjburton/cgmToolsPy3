@@ -33,20 +33,13 @@ from cgm.core.lib import rayCaster as RayCast
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.classes import GuiFactory as gui
-from cgm.lib import (lists,
+from cgm.lib import (
                      search,
-                     curves,#tmp
-                     modules,#tmp
                      distance,#tmp
                      dictionary,
-                     controlBuilder,
-                     attributes,
                      locators,
                      dictionary,
-                     position,
-                     rigging,
-                     settings,
-                     guiFactory)
+                     position)
 
 #>>>>>>>>>>>>>>>>>>>>>>>      
 class go(object):
@@ -145,7 +138,7 @@ class go(object):
 
             if self.b_snapComponents:
                 components = self.i_obj.getComponents()
-                if not components:raise StandardError,"This objects has no components to snap: '%s'"%self.i_obj.getShortName()
+                if not components:raise Exception("This objects has no components to snap: '%s'"%self.i_obj.getShortName())
                 #>>>Progress bar
                 mayaMainProgressBar = gui.doStartMayaProgressBar(len(components))		
 
@@ -181,7 +174,7 @@ class go(object):
                             try:
                                 self.doOrientObjToSurface(i_target.mNode,i_locTarget.mNode)
                                 mc.move (self._posOffset[0],self._posOffset[1],self._posOffset[2], [i_locTarget.mNode], r=True, rpr = True, os = True, wd = True)								
-                            except StandardError,error:
+                            except Exception as error:
                                 log.warn("self._posOffset failure!")
                                 log.error(error)
 
@@ -199,12 +192,12 @@ class go(object):
                         axisToCheck = []		    
                         up = dictionary.returnVectorToString(self._upVector) or False
                         if not up:
-                            raise StandardError,"SnapFactory>>> must have up vector for midSurfaceSnap: %s"%self._upVector
+                            raise Exception("SnapFactory>>> must have up vector for midSurfaceSnap: %s"%self._upVector)
                         for a in ['x','y','z']:
                             if a != up[0]:
                                 axisToCheck.append(a)
                         if not axisToCheck:
-                            raise StandardError,"SnapFactory>>> couldn't find any axis to do"
+                            raise Exception("SnapFactory>>> couldn't find any axis to do")
                     #i_locObj = self.i_obj.doLoc()#Get our position loc		
                     #log.debug(axisToCheck)
                     pos = RayCast.findMeshMidPointFromObject(i_target.mNode, self.i_obj.mNode, axisToCheck=axisToCheck,**kws)
@@ -224,7 +217,7 @@ class go(object):
                     else:
                         mc.move (pos[0],pos[1],pos[2], self.i_obj.mNode, rpr=True)	    
         else:
-            raise NotImplementedError,"Haven't set up: doMove multi"
+            raise NotImplementedError("Haven't set up: doMove multi")
 
     def doOrient(self,**kws):
         if len(self.l_targets) == 1:
@@ -235,7 +228,7 @@ class go(object):
                 if 'poly' in i_target.getMayaType():
                     self.doOrientObjToSurface(i_target.mNode,self.i_obj.mNode)
                 else:
-                    raise NotImplementedError,"Haven't set orient for type: %s"%i_target.getMayaType()			   
+                    raise NotImplementedError("Haven't set orient for type: %s"%i_target.getMayaType())			   
             elif i_target.getMayaType() == 'mesh':
                 self.doOrientObjToSurface(i_target.mNode,self.i_obj.mNode)		
 
@@ -244,7 +237,7 @@ class go(object):
                 #objRot = mc.xform (i_target.mNode, q=True, ws=True, ro=True)		
                 #mc.rotate (objRot[0], objRot[1], objRot[2], [self.i_obj.mNode], ws=True)    
         else:
-            raise NotImplementedError,"Haven't set up: doOrient multi"	
+            raise NotImplementedError("Haven't set up: doOrient multi")	
 
     def doOrientObjToSurface(self,l_targets,obj,deleteConstraint = True):
         """
@@ -261,7 +254,7 @@ class go(object):
                 return True
             return constBuffer
 
-        except StandardError,error:
+        except Exception as error:
             log.error(error)	
             return False
 
@@ -270,7 +263,7 @@ class go(object):
         constraint
         """
         if not self.l_targets:
-            raise StandardError, "doAim>> must have targets"
+            raise Exception("doAim>> must have targets")
         try:
             constBuffer = mc.aimConstraint(self.l_targets,self.i_obj.mNode,
                                            maintainOffset = False, weight = 1,
@@ -281,7 +274,7 @@ class go(object):
             mc.delete(constBuffer)
             return True
 
-        except StandardError,error:
+        except Exception as error:
             log.error(error)	
             return False
 

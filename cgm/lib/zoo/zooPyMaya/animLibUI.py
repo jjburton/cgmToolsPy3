@@ -2,12 +2,12 @@
 import maya.cmds as cmd
 from cgm.lib.zoo.zooPy import presets
 
-from baseMelUI import *
+from .baseMelUI import *
 
-import animLib
-import animClip
-import mappingUtils
-import xferAnimUI
+from . import animLib
+from . import animClip
+from . import mappingUtils
+from . import xferAnimUI
 
 
 def getSelectedChannelBoxAttrNames():
@@ -64,7 +64,7 @@ class AnimClipChannelEditorLayout(MelVSingleStretchLayout):
 			attrsAlreadyAdded = set()
 			for obj in objs:
 				attrDict = clipDict[ obj ]
-				for attrName, attrValue in attrDict.iteritems():
+				for attrName, attrValue in list(attrDict.items()):
 					if attrName in attrsAlreadyAdded:
 						continue
 
@@ -279,7 +279,7 @@ class ClipsLayout(MelShelfLayout):
 		if self._showAnim: clipTypesToShow.append( animLib.AnimClipPreset )
 		if self._showPose: clipTypesToShow.append( animLib.PoseClipPreset )
 
-		for library, clips in clips.iteritems():
+		for library, clips in list(clips.items()):
 			for clip in clips:
 				if type( clip ) not in clipTypesToShow:
 					continue

@@ -18,7 +18,7 @@ import re
 import copy
 import time
 import os
-import cPickle as pickle
+import pickle as pickle
 import pprint
 
 # From Red9 =============================================================
@@ -27,6 +27,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -36,7 +37,7 @@ log.setLevel(logging.INFO)
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.cgm_RigMeta as RIGMETA
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+##from cgm.core import cgm_PuppetMeta as PUPPETMETA
 
 from cgm.core.lib import curve_Utils as CURVES
 import cgm.core.lib.shape_utils as SHAPES
@@ -125,7 +126,7 @@ def get_callSize(mode = None, arg = None, blockType = None, blockProfile = None,
 
         if arg is None and mode is None:
             if not _sel:
-                raise ValueError,"|{0}| >> No obj arg and no selection".format(_str_func)
+                raise ValueError("|{0}| >> No obj arg and no selection".format(_str_func))
             arg = _sel[0]
 
     
@@ -133,7 +134,7 @@ def get_callSize(mode = None, arg = None, blockType = None, blockProfile = None,
             arg =  _sel
             #if mode == 'selection':
             if not arg:
-                raise ValueError,"|{0}| >> No obj arg and no selection".format(_str_func)
+                raise ValueError("|{0}| >> No obj arg and no selection".format(_str_func))
             
         #Checking mode for values, strings and the like --------------------------------------------------
         if VALID.valueArg(mode):
@@ -174,13 +175,13 @@ def get_callSize(mode = None, arg = None, blockType = None, blockProfile = None,
             size = 1,1,1
         
         if not size:
-            raise ValueError,"No size found"
+            raise ValueError("No size found")
         
         _res = floatValues(size)
         
         log.info("|{0}| >>  mode: {1} | arg: '{2}' | size: {3}".format(_str_func,mode,arg,_res))        
         return _res
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 class cgmRigBlock(cgmMeta.cgmControl):
@@ -202,7 +203,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
 
 
         if node is None and blockType is None:
-            raise ValueError,"|{0}| >> Must have either a node or a blockType specified.".format(_str_func)
+            raise ValueError("|{0}| >> Must have either a node or a blockType specified.".format(_str_func))
 
         #if blockType and not is_buildable(blockType):
             #log.warning("|{0}| >> Unbuildable blockType specified".format(_str_func))
@@ -266,7 +267,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         if _doVerify:
             if blockType:
                 _blockModule =  get_blockModule(blockType)
-                reload(_blockModule)
+                importlib.reload(_blockModule)
                 self.doStore('blockType',blockType,attrType='string')
             else:
                 _blockModule = False
@@ -295,7 +296,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                 log.error("|{0}| >> Cannot verify referenced nodes".format(_str_func))
                 return
             elif not self.verify(blockType,side= _side):
-                raise RuntimeError,"|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode)
+                raise RuntimeError("|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode))
             
             #Profiles --------------------------------------------------------------------------
             
@@ -309,7 +310,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                 
             #On call attrs -------------------------------------------------------------------------
             #These need to be set after profiles so as to keep
-            for a,v in kws.iteritems():
+            for a,v in list(kws.items()):
                 if issubclass(type(v),list):
                     mc.select(cl=True)
                     if VALID.stringArg(v[0]):
@@ -323,7 +324,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                             v = 0
                         log.debug("|{0}| On call set attr  >> '{1}' | value: {2}".format(_str_func,a,v))
                         ATTR.set(self.mNode,a,v)
-                    except Exception,err:
+                    except Exception as err:
                         log.error("|{0}| On call set attr Failure >> '{1}' | value: {2} | err: {3}".format(_str_func,a,v,err)) 
             
             
@@ -357,12 +358,12 @@ class cgmRigBlock(cgmMeta.cgmControl):
                 if _baseSize:
                     log.info("|{0}| >> on call base size: {1}".format(_str_func,_baseSize))
                     self.baseSize = _baseSize
-                if 'define' in _blockModule.__dict__.keys():
+                if 'define' in list(_blockModule.__dict__.keys()):
                     log.debug("|{0}| >> BlockModule define call found...".format(_str_func))            
                     _blockModule.define(self)
                     
                 try:BLOCKUTILS.attrMask_getBaseMask(self)
-                except Exception,err:
+                except Exception as err:
                     log.info(cgmGEN.logString_msg(_str_func,'attrMask fail | {0}'.format(err)))
                     
                     
@@ -384,7 +385,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         if blockParent is not None:
             try:
                 self.p_blockParent = blockParent
-            except Exception,err:
+            except Exception as err:
                 log.warning("|{0}| >> blockParent on call failure.".format(_str_func))
                 for arg in err.args:
                     log.error(arg)
@@ -584,7 +585,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         _blockState_int = self.blockState
 
         if not _blockState_int:
-            raise ValueError,'[{0}] not formd yet'.format(_short)
+            raise ValueError('[{0}] not formd yet'.format(_short))
             #_ml_formHandles = self.msgList_get('formHandles',asMeta = True)
         _ml_formHandles = self.atUtils('controls_get',True,False)
             
@@ -678,7 +679,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
     def getBlockModule(self,update = False,reloadMod=False):
         def ret(mod,reloadMod=False):
             if reloadMod:
-                reload(mod)
+                importlib.reload(mod)
                 log.info("Reloaded: {0}".format(mod))
             return mod
         
@@ -689,11 +690,11 @@ class cgmRigBlock(cgmMeta.cgmControl):
         blockType = self.getMayaAttr('blockType')
         blockModule = get_blockModule(blockType)
         if not blockModule:
-            raise ValueError,"No blockModule found. blockType: {0}".format(self.blockType)
+            raise ValueError("No blockModule found. blockType: {0}".format(self.blockType))
         return ret(blockModule,reloadMod)
 
     try:p_blockModule = property(getBlockModule)
-    except Exception,err:
+    except Exception as err:
         log.error("Failed to load block module. Check it. {0}".format(self))        
         log.error(err)
         
@@ -725,18 +726,18 @@ class cgmRigBlock(cgmMeta.cgmControl):
             blockDat = self.blockDat
 
         if not issubclass(type(blockDat),dict):
-            raise ValueError,"|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat) 
+            raise ValueError("|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat)) 
 
         _blockType = blockDat.get('blockType')
         if _blockType != self.blockType:
-            raise ValueError,"|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType) 
+            raise ValueError("|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType)) 
 
         #.>>>..UD ====================================================================================
         log.debug("|{0}| >> ud...".format(_str_func)+ '-'*80)
         _ud = blockDat.get('ud')
         if not blockDat.get('ud'):
-            raise ValueError,"|{0}| >> No ud data found".format(_str_func) 
-        for a,v in _ud.iteritems():
+            raise ValueError("|{0}| >> No ud data found".format(_str_func)) 
+        for a,v in list(_ud.items()):
             _current = ATTR.get(_short,a)
             if _current != v:
                 try:
@@ -745,7 +746,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                     else:
                         log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     r9Meta.printMetaCacheRegistry()                
                     for arg in err.args:
@@ -880,7 +881,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         log.debug("|{0}| >> Generators".format(_str_func)+ '-'*80)
         _d = {"isSkeletonized":[self.isSkeletonized,self.doSkeletonize,self.deleteSkeleton]}
 
-        for k,calls in _d.iteritems():
+        for k,calls in list(_d.items()):
             _block = bool(blockDat.get(k))
             _current = calls[0]()
             if _state != _current:
@@ -900,7 +901,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
     #>>> States 
     #==================================================================================================
     def rebuild(self,*args,**kws):
-        raise NotImplementedError,"Not done"
+        raise NotImplementedError("Not done")
         return self._factory.rebuild_rigBlock(*args,**kws)
 
     def getState(self, asString = True):
@@ -1001,18 +1002,18 @@ class cgmRigBlock(cgmMeta.cgmControl):
             rootReflectionVector = TRANS.transformDirection(rootTransform,reflectionVector).normalized()
             #rootReflectionVector = rootTransform.formPositions[0].TransformDirection(reflectionVector).normalized()
             
-            print("|{0}| >> Root: {1}".format(_str_func, rootTransform.p_nameShort))                                            
+            print(("|{0}| >> Root: {1}".format(_str_func, rootTransform.p_nameShort)))                                            
             
             
             if mirrorBlock:
-                print ("|{0}| >> Target: {1} ...".format(_str_func, mirrorBlock.p_nameShort))
+                print(("|{0}| >> Target: {1} ...".format(_str_func, mirrorBlock.p_nameShort)))
                 
                 _blockState = rootBlock.blockState
                 _mirrorState = mirrorBlock.blockState
                 if _blockState > _mirrorState or _blockState < _mirrorState:
-                    print ("|{0}| >> root state greater. Matching root: {1} to mirror:{2}".format(_str_func, _blockState,_mirrorState))
+                    print(("|{0}| >> root state greater. Matching root: {1} to mirror:{2}".format(_str_func, _blockState,_mirrorState)))
                 else:
-                    print ("|{0}| >> blockStates match....".format(_str_func, mirrorBlock.p_nameShort))
+                    print(("|{0}| >> blockStates match....".format(_str_func, mirrorBlock.p_nameShort)))
                     
                 #if rootBlock.blockState != BlockState.TEMPLATE or mirrorBlock.blockState != BlockState.TEMPLATE:
                     #print "Can only mirror blocks in Form state"
@@ -1026,7 +1027,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                 for i,p in enumerate(currentFormObjects):
                     formHeirarchyDict[i] = p.fullPath.count('|')
     
-                formObjectsSortedByHeirarchy = sorted(formHeirarchyDict.items(), key=operator.itemgetter(1))
+                formObjectsSortedByHeirarchy = sorted(list(formHeirarchyDict.items()), key=operator.itemgetter(1))
     
                 for x in range(2):
                     # do this twice in case there are any stragglers 
@@ -1071,7 +1072,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
                     childBlock = Block.LoadRigBlock( child )
                     if childBlock:
                         Block.MirrorBlockPush(childBlock)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     @staticmethod
     def MirrorSelectedBlocks( reflectionVector = MATH.Vector3(1,0,0) ):
@@ -1197,15 +1198,15 @@ class cgmRigBlock(cgmMeta.cgmControl):
             _kwString = ''  
         else:
             _l = []
-            for k,v in kws.iteritems():
+            for k,v in list(kws.items()):
                 _l.append("{0}={1}".format(k,v))
             _kwString = ','.join(_l)  
 
         try:
             log.debug("|{0}| >> On: {1}".format(_str_func,_short))     
-            print("|{0}| >> {1}.{2}({3}{4})...".format(_str_func,_short,func,_str_args,_kwString))                                    
+            print(("|{0}| >> {1}.{2}({3}{4})...".format(_str_func,_short,func,_str_args,_kwString)))                                    
             res = getattr(self,func)(*args,**kws)
-        except Exception,err:
+        except Exception as err:
             """
             log.error(cgmGEN._str_hardLine)
             log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
@@ -1225,7 +1226,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         return res
 
-        print res
+        print(res)
         return res
     
     @cgmGEN.Timer
@@ -1237,7 +1238,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         if self.getState() != 'rig':
             log.error("|{0}| >> Block must be rigged. {1}".format(_str_func, self.mNode))            
             return False
-        if not 'build_proxyMesh' in self.p_blockModule.__dict__.keys():
+        if not 'build_proxyMesh' in list(self.p_blockModule.__dict__.keys()):
             log.error("|{0}| >> [{1}] Block module lacks 'build_proxyMesh' call.".format(_str_func, self.blockType))                        
             return False
         
@@ -1278,7 +1279,7 @@ class cgmRigBlockHandle(cgmMeta.cgmControl):
 
         if node is None:
             if baseShape is None:
-                raise ValueError,"|{0}| >> Must have either a node or a baseShape specified.".format(_str_func)
+                raise ValueError("|{0}| >> Must have either a node or a baseShape specified.".format(_str_func))
 
         #>>Verify or Initialize
         super(cgmRigBlockHandle, self).__init__(node = node, name = baseShape, nodeType = 'transform') 
@@ -1304,7 +1305,7 @@ class cgmRigBlockHandle(cgmMeta.cgmControl):
                 log.error("|{0}| >> Cannot verify referenced nodes".format(_str_func))
                 return
             elif not self.verify(baseShape, baseSize, shapeDirection):
-                raise RuntimeError,"|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode)
+                raise RuntimeError("|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode))
 
     def verify(self, baseShape = None, baseSize = None, shapeDirection = 'z+'):
         self.cleanShapes()
@@ -1525,11 +1526,11 @@ class factory(object):
         _l_standard = _mod.__dict__.get('l_attrsStandard',[])
         log.debug("|{0}| >> standard: {1} ".format(_str_func,_l_standard))                        
         for k in _l_standard:
-            if k in BLOCKSHARE._d_attrsTo_make.keys():
+            if k in list(BLOCKSHARE._d_attrsTo_make.keys()):
                 _d[k] = BLOCKSHARE._d_attrsTo_make[k]
 
-        for k,v in d_attrsFromModule.iteritems():
-            if k in _d.keys():
+        for k,v in list(d_attrsFromModule.items()):
+            if k in list(_d.keys()):
                 log.warning("|{0}| >> key: {1} already in to create list of attributes from default. | blockType: {2}".format(_str_func,k,blockType))                
             else:
                 _d[k] = v
@@ -1563,14 +1564,14 @@ class factory(object):
         _str_func = 'is_valid'
 
         if not obj:
-            raise ValueError,"|{0}| >> no obj provided".format(_str_func)
+            raise ValueError("|{0}| >> no obj provided".format(_str_func))
 
         _mObj = cgmMeta.cgmNode(obj)
         log.debug("|{0}| >> obj: {1}".format(_str_func,obj))        
 
         try:_blockType = _mObj.blockType
-        except Exception,err:
-            raise Exception,"blockType attr not detected or failed. err: {0}".format(err)
+        except Exception as err:
+            raise Exception("blockType attr not detected or failed. err: {0}".format(err))
         log.debug("|{0}| >> blockType: {1}".format(_str_func,_blockType))        
 
         _mod = _d_blockTypes.get(_blockType,False)
@@ -1597,12 +1598,12 @@ class factory(object):
         _l_missing = []
         self.get_attrCreateDict(_blockType)
         if not self._d_attrsToVerify:
-            raise ValueError,"|{0}| >> Failed to get attr create dict".format(_str_func)            
-        for a in self._d_attrsToVerify.keys():
+            raise ValueError("|{0}| >> Failed to get attr create dict".format(_str_func))            
+        for a in list(self._d_attrsToVerify.keys()):
             if not _mObj.hasAttr(a):
                 _l_missing.append(a)
         if _l_missing:
-            raise ValueError,"|{0}| >> Missing the following attributes: {1}".format(_str_func,_l_missing)
+            raise ValueError("|{0}| >> Missing the following attributes: {1}".format(_str_func,_l_missing))
 
 
         #>> Messages -------------------------------------------------------------------------
@@ -1631,7 +1632,7 @@ class factory(object):
 
                 for m in _l_missingMsgLists:
                     log.warning("|{0}| >> {1}".format(_str_func,m))  
-            raise ValueError,"|{0}| >> See missing links above...".format(_str_func,_l_missing)
+            raise ValueError("|{0}| >> See missing links above...".format(_str_func,_l_missing))
 
         return True
 
@@ -1653,7 +1654,7 @@ class factory(object):
             return False       
 
         if self._mi_block is None:
-            raise ValueError,"|{0}| >> No root loaded.".format(_str_func)
+            raise ValueError("|{0}| >> No root loaded.".format(_str_func))
 
         _root = self._mi_block.mNode
 
@@ -1676,7 +1677,7 @@ class factory(object):
         elif _targetsMode == 'self':
             _l_targets = [self._mi_block.mNode]
         else:
-            raise ValueError,"targetsMode: {0} is not implemented".format(_targetsMode)
+            raise ValueError("targetsMode: {0} is not implemented".format(_targetsMode))
 
         log.debug("|{0}| >> Targets: {1}".format(_str_func,_l_targets))            
 
@@ -1713,7 +1714,7 @@ class factory(object):
             _l_pos = [POS.get(_l_targets[0])]
             _d_res['targets'] = _l_targets           
         else:
-            raise ValueError,"mode: {0} is not implemented".format(_mode)                
+            raise ValueError("mode: {0} is not implemented".format(_mode))                
 
         _d_res['positions'] = _l_pos
         _d_res['mode'] = _mode
@@ -1735,28 +1736,28 @@ class factory(object):
         """        
 
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
 
         _mBlock = self._mi_block
         _str_func = '[{0}] factory.verify'.format(_mBlock.p_nameShort)
         _short = _mBlock.mNode
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node. Cannot verify"
+            raise ValueError("Referenced node. Cannot verify")
 
         if blockType == None:
             blockType = ATTR.get(_short,'blockType')
         if not blockType:
-            raise ValueError,"No blockType specified or found."
+            raise ValueError("No blockType specified or found.")
 
         if not self.get_attrCreateDict(blockType):
-            raise ValueError, "|{0}| >> Failed to get attr dict. blockType:{1}".format(_str_func,blockType)
+            raise ValueError("|{0}| >> Failed to get attr dict. blockType:{1}".format(_str_func,blockType))
 
         #Need to get the type, the get the attribute lists and data from the module
 
         #_mBlock.verifyAttrDict(self._d_attrsToVerify,keyable = False, hidden = False)
         #_mBlock.verifyAttrDict(self._d_attrsToVerify)
 
-        _keys = self._d_attrsToVerify.keys()
+        _keys = list(self._d_attrsToVerify.keys())
         _keys.sort()
         #for a,t in self._d_attrsToVerify.iteritems():
         for a in _keys:
@@ -1787,11 +1788,11 @@ class factory(object):
                         _mBlock.addAttr(a, v, attrType = t,lock=_l, keyable = False)                                
                     else:
                         _mBlock.addAttr(a,initialValue = v, attrType = t,lock=_l, keyable = False)            
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| Add attr Failure >> '{1}' | defaultValue: {2} ".format(_str_func,a,v,blockType)) 
                 cgmGEN.cgmExceptCB(Exception,err,msg=vars())
                 if not forceReset:                
-                    raise Exception,err
+                    raise Exception(err)
 
         _mBlock.addAttr('blockType', value = blockType,lock=True)	
         #_mBlock.blockState = 'base'
@@ -1813,12 +1814,12 @@ class factory(object):
         """        
 
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
 
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node. Cannot verify"
+            raise ValueError("Referenced node. Cannot verify")
 
         _str_func = '[{0}] factory.changeState'.format(_mBlock.p_nameBase)
 
@@ -1903,17 +1904,17 @@ class factory(object):
             return True
         else:
             log.error('Forcing recreate')
-            if _state_target in d_upStateFunctions.keys():
+            if _state_target in list(d_upStateFunctions.keys()):
                 if not d_upStateFunctions[_state_target]():return False
                 return True	            
 
     def form(self):
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.form'.format(_mBlock.p_nameBase)
 
@@ -1921,7 +1922,7 @@ class factory(object):
         
 
         if _str_state != 'define':
-            raise ValueError,"{0} is not in define state. state: {1}".format(_str_func, _str_state)
+            raise ValueError("{0} is not in define state. state: {1}".format(_str_func, _str_state))
 
         #>>>Children ------------------------------------------------------------------------------------
 
@@ -1931,7 +1932,7 @@ class factory(object):
 
         _mBlockModule = get_blockModule(_mBlock.blockType)
 
-        if 'form' in _mBlockModule.__dict__.keys():
+        if 'form' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule call found...".format(_str_func))            
             _mBlockModule.form(_mBlock)
 
@@ -1944,11 +1945,11 @@ class factory(object):
 
     def formDelete(self):
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.formDelete'.format(_mBlock.p_nameBase)
 
@@ -1971,12 +1972,12 @@ class factory(object):
         if _mBlock.getMessage('formNull'):
             _mBlock.formNull.delete()
 
-        if 'formDelete' in _mBlockModule.__dict__.keys():
+        if 'formDelete' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule formDelete call found...".format(_str_func))            
             _mBlockCall = _mBlockModule.formDelete    
             _mBlockCall(_mBlock)
 
-        if 'define' in _mBlockModule.__dict__.keys():
+        if 'define' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule define call found...".format(_str_func))            
             _mBlockCall = _mBlockModule.define   
             _mBlockCall(_mBlock)
@@ -1990,17 +1991,17 @@ class factory(object):
 
     def prerig(self):
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.prerig'.format(_mBlock.p_nameBase)
         _str_state = _mBlock.blockState
 
         if _mBlock.blockState != 'form':
-            raise ValueError,"{0} is not in form state. state: {1}".format(_str_func, _str_state)
+            raise ValueError("{0} is not in form state. state: {1}".format(_str_func, _str_state))
 
         #>>>Children ------------------------------------------------------------------------------------
 
@@ -2010,7 +2011,7 @@ class factory(object):
 
         _mBlockModule = get_blockModule(_mBlock.blockType)
 
-        if 'prerig' in _mBlockModule.__dict__.keys():
+        if 'prerig' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule prerig call found...".format(_str_func))            
             _mBlockModule.prerig(_mBlock)
 
@@ -2019,17 +2020,17 @@ class factory(object):
 
     def prerigDelete(self):
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.prerigDelete'.format(_mBlock.p_nameBase)
         _str_state = _mBlock.getEnumValueString('blockState')
 
         if _str_state != 'prerig':
-            raise ValueError,"{0} is not in prerig state. state: {1}".format(_str_func, _str_state)
+            raise ValueError("{0} is not in prerig state. state: {1}".format(_str_func, _str_state))
 
 
         #>>>Children ------------------------------------------------------------------------------------
@@ -2040,7 +2041,7 @@ class factory(object):
 
         _mBlockModule = get_blockModule(_mBlock.blockType)
         _mBlockCall = False
-        if 'prerigDelete' in _mBlockModule.__dict__.keys():
+        if 'prerigDelete' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule prerigDelete call found...".format(_str_func))            
             _mBlockCall = _mBlockModule.prerigDelete    
 
@@ -2055,18 +2056,18 @@ class factory(object):
     def rig(self,**kws):
         #Master control
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
         _short = _mBlock.mNode
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.rig'.format(_mBlock.p_nameBase)
         _str_state = _mBlock.getEnumValueString('blockState')
 
 
         if _str_state != 'prerig':
-            raise ValueError,"{0} is not in prerig state. state: {1}".format(_str_func, _str_state)      
+            raise ValueError("{0} is not in prerig state. state: {1}".format(_str_func, _str_state))      
 
         #>>>Children ------------------------------------------------------------------------------------
 
@@ -2084,17 +2085,17 @@ class factory(object):
 
     def rigDelete(self):
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
         _mBlock = self._mi_block
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
 
         _str_func = '[{0}] factory.rigDelete'.format(_mBlock.p_nameBase)
         _str_state = _mBlock.getEnumValueString('blockState')
 
         if _str_state != 'rig':
-            raise ValueError,"{0} is not in rig state. state: {1}".format(_str_func, _str_state)
+            raise ValueError("{0} is not in rig state. state: {1}".format(_str_func, _str_state))
 
         #_mBlock.blockState = 'rig>prerig'        
 
@@ -2123,7 +2124,7 @@ class factory(object):
                 
   
         
-        if 'rigDelete' in _mBlockModule.__dict__.keys():
+        if 'rigDelete' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule rigDelete call found...".format(_str_func))            
             _mBlockModule.rigDelete(_mBlock)        
             
@@ -2162,7 +2163,7 @@ class factory(object):
         _str_func = 'get_rigBlockData'
 
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
 
         _mBlock = self._mi_block
         _short = _mBlock.p_nameShort
@@ -2203,7 +2204,7 @@ class factory(object):
             success(bool)
         """ 
         if self._mi_block is None:
-            raise ValueError,"No root loaded."
+            raise ValueError("No root loaded.")
 
         _mBlock = self._mi_block
         _short = _mBlock.p_nameShort
@@ -2212,7 +2213,7 @@ class factory(object):
         _blockType = _mBlock.blockType
 
         if _mBlock.isReferenced():
-            raise ValueError,"Referenced node. Cannot rebuild"        
+            raise ValueError("Referenced node. Cannot rebuild")        
 
         _blockParent = _mBlock.p_blockParent
 
@@ -2337,7 +2338,7 @@ class factory(object):
         _castMesh = castMesh
 
         if self._mi_block is None:
-            raise ValueError,"|{0}| >> No root loaded.".format(_str_func)
+            raise ValueError("|{0}| >> No root loaded.".format(_str_func))
         _root = self._mi_block.mNode    
 
         _joints = ATTR.get(_root,'joints')
@@ -2348,13 +2349,13 @@ class factory(object):
             return build_loftMesh(_root,_joints)
         elif _mode in ['jointProxy','recast']:
             if not self.module_verify():
-                raise ValueError,"|{0}| >> Module necessary for mode: {1}.".format(_str_func,_mode)
+                raise ValueError("|{0}| >> Module necessary for mode: {1}.".format(_str_func,_mode))
 
             if _mode == 'jointProxy':
                 log.debug(_root)
                 return build_jointProxyMesh(_root)
         #else:
-        raise NotImplementedError,"|{0}| >> mode not implemented: {1}".format(_str_func,_mode)
+        raise NotImplementedError("|{0}| >> mode not implemented: {1}".format(_str_func,_mode))
 
 
         #Get our cast curves
@@ -2375,7 +2376,7 @@ class factory(object):
         self._mi_module = False
 
         if self._mi_block is None:
-            raise ValueError,"|{0}| >> No root loaded.".format(_str_func)
+            raise ValueError("|{0}| >> No root loaded.".format(_str_func))
         _mBlock = self._mi_block        
 
         if self._mi_block.blockType == 'master':
@@ -2411,7 +2412,7 @@ class factory(object):
         _str_func = 'module_getBuildKWS'
 
         if self._mi_block is None:
-            raise ValueError,"|{0}| >> No root loaded.".format(_str_func)
+            raise ValueError("|{0}| >> No root loaded.".format(_str_func))
         _mBlock = self._mi_block
 
         d_kws = {}
@@ -2446,7 +2447,7 @@ class factory(object):
         self._mi_puppet = False
 
         if self._mi_block is None:
-            raise ValueError,"|{0}| >> No root loaded.".format(_str_func)
+            raise ValueError("|{0}| >> No root loaded.".format(_str_func))
         _mBlock = self._mi_block     
         mi_puppet = False
         if _mBlock.blockType == 'master':
@@ -2534,10 +2535,13 @@ def get_modules_dat(update = False):
     _b_debug = log.isEnabledFor(logging.DEBUG)
 
     import cgm.core.mrs.blocks as blocks
-    _path = PATH.Path(blocks.__path__[0])
+    #_path = PATH.Path(blocks.__path__[0])
+    _path = blocks.__path__[0]
+    
     _l_duplicates = []
     _l_unbuildable = []
-    _base = _path.split()[-1]
+    #_base = _path.split()[-1]
+    _base = os.path.split(_path)[-1]
     _d_files =  {}
     _d_modules = {}
     _d_import = {}
@@ -2579,19 +2583,21 @@ def get_modules_dat(update = False):
                 key = '.'.join(_splitUp + [name])    
                 if key:
                     log.debug("|{0}| >> ... {1}".format(_str_func,key))                      
-                    if name not in _d_modules.keys():
+                    if name not in list(_d_modules.keys()):
                         _d_files[key] = os.path.join(root,f)
-                        _d_import[name] = key
+                        _d_import[name] = "cgm.core.mrs.{}".format(key)
                         _l_cat.append(name)
+                        #pprint.pprint(vars())                        
                         try:
-                            module = __import__(key, globals(), locals(), ['*'], -1)
+                            module = __import__(_d_import[name], globals(), locals(), ['*'])
                             #reload(module) 
                             _d_modules[name] = module
                             #if not is_buildable(module):
                                 #_l_unbuildable.append(name)
-                        except Exception, e:
-                            log.warning("|{0}| >> Module failed: {1}".format(_str_func,key))                               
-                            cgmGEN.cgmExceptCB(Exception,e,msg=vars())
+                        except Exception as e:
+                            log.warning("|{0}| >> Module failed: {1}".format(_str_func,key))
+                            raise e
+                            #cgmGEN.cgmExceptCB(Exception,e,msg=vars())
 
                     else:
                         _l_duplicates.append("{0} >> {1} ".format(key, os.path.join(root,f)))
@@ -2608,13 +2614,13 @@ def get_modules_dat(update = False):
         log.debug("|{0}| >> DUPLICATE MODULES....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
-    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),_path))     
+        raise Exception("Must resolve")
+    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(list(_d_files.keys())),_path))     
     if _l_unbuildable and _b_debug:
         log.debug(cgmGEN._str_subLine)
         log.debug("|{0}| >> ({1}) Unbuildable modules....".format(_str_func,len(_l_unbuildable)))
         for m in _l_unbuildable:
-            print(">>>    " + m) 
+            print((">>>    " + m)) 
             
     CGM_RIGBLOCK_DAT = _d_modules, _d_categories, _l_unbuildable
     return _d_modules, _d_categories, _l_unbuildable
@@ -2630,7 +2636,7 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
 
     
     mBlockModule = get_blockModule(blockType)
-    reload(mBlockModule)
+    importlib.reload(mBlockModule)
     
     
     try:d_attrsFromModule = mBlockModule.d_attrsToMake
@@ -2642,7 +2648,7 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
     except:pass
     
     try:d_defaultSettings.update(mBlockModule.d_block_profiles[blockProfile])
-    except Exception,err:
+    except Exception as err:
         log.debug(cgmGEN.logString_msg(_str_func,'Failed to query blockProfile defaults | {0}'.format(err)))
         pass
     
@@ -2654,7 +2660,7 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
             if _d_shared:d_defaultSettings.update(_d_shared)
             if _d_specific:d_defaultSettings.update(_d_specific)
             
-        except Exception,err:
+        except Exception as err:
             log.warning("|{}| >>  Failed to query profile: {} | {} ".format(_str_func,err, Exception))    
 
     try:_l_msgLinks = mBlockModule._l_controlLinks
@@ -2665,7 +2671,7 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
     _l_standard = mBlockModule.__dict__.get('l_attrsStandard',[])
     log.debug("|{0}| >> standard: {1} ".format(_str_func,_l_standard))                        
     for k in _l_standard:
-        if k in BLOCKSHARE._d_attrsTo_make.keys():
+        if k in list(BLOCKSHARE._d_attrsTo_make.keys()):
             _d[k] = BLOCKSHARE._d_attrsTo_make[k]
         else:
             log.warning("|{0}| >> standard attr missing def: {1} ".format(_str_func,k))                        
@@ -2673,8 +2679,8 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
     if extraAttrs is not None:
         _d.update(extraAttrs)
 
-    for k,v in d_attrsFromModule.iteritems():
-        if k in _d.keys():
+    for k,v in list(d_attrsFromModule.items()):
+        if k in list(_d.keys()):
             log.warning("|{0}| >> key: {1} already in to create list of attributes from default. | blockType: {2}".format(_str_func,k,blockType))                
         else:
             _d[k] = v
@@ -2741,7 +2747,7 @@ def is_buildable(blockModule):
         return False
     
     _d = get_blockModule_status(_blockType)
-    for k,v in _d.iteritems():
+    for k,v in list(_d.items()):
         if not v:
             return False
     
@@ -2761,7 +2767,7 @@ def is_blockModule_valid(blockType):
     if not _buildModule:
         return False
 
-    _keys = _buildModule.__dict__.keys()
+    _keys = list(_buildModule.__dict__.keys())
 
     for a in BLOCKSHARE._l_requiredModuleDat:
         if a not in _keys:
@@ -2848,13 +2854,13 @@ def get_blockModule_status(blockModule, state = None):
                         _good = False  
                     else:
                         log.debug("|{0}| >> [{1}] Pass: {2}".format(_str_func,_blockType,test))
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> [{1}] FAIL: {2} | {3}".format(_str_func,_blockType,test,err))
             for test in l_functionTests:
                 try:
                     if not test(_blockType):
                         _good = False
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> [{1}] FAIL: {2} | {3}".format(_str_func,_blockType,test,err))   
             _res[state] = _good
 
@@ -2874,7 +2880,7 @@ def get_blockModule_status(blockModule, state = None):
                 if not test(_blockType):
                     #print("|{0}| >> [{1}] Missing {3} data: {2}".format(_str_func,_blockType,test,state))
                     _res = False                
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> [{1}] FAIL: {2} | {3}".format(_str_func,_blockType,test,err))   
         if state == 'define':
             log.debug("|{0}| >> [{1}] version: {2}".format(_str_func,_blockType,_buildModule.__dict__.get('__version__',False)))                    
@@ -2907,8 +2913,8 @@ def is_blockType_valid(blockType):
     _res = True
 
     _d = get_modules_dict()
-    if blockType not in _d.keys():
-        log.warning("|{0}| >> [{1}] Not found. | {2}".format(_str_func,blockType,_d.keys()))
+    if blockType not in list(_d.keys()):
+        log.warning("|{0}| >> [{1}] Not found. | {2}".format(_str_func,blockType,list(_d.keys())))
         return False
     return True
 
@@ -2950,7 +2956,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
         _kwString = None  
     else:
         _l = []
-        for k,v in kws.iteritems():
+        for k,v in list(kws.items()):
             _l.append("{0}={1}".format(k,v))
         _kwString = ','.join(_l)
 
@@ -2963,7 +2969,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
         return
     
     if _progressBar:
-        print 'progressBar !!!! | {0}'.format(_progressBar)
+        print(('progressBar !!!! | {0}'.format(_progressBar)))
         int_len = len(_l_context)
         
     l_timeReports = []
@@ -2979,16 +2985,16 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
                                           progress=i, vis=True)                
                 log.debug("|{0}| >> On: {1}".format(_str_func,_short))
                 res = getattr(mBlock,func)(*args,**kws) or None
-                print("|{0}| >> {1}.{2}({3},{4})".format(_str_func,_short,func,','.join(str(a) for a in args),
-                                                               _kwString,))
+                print(("|{0}| >> {1}.{2}({3},{4})".format(_str_func,_short,func,','.join(str(a) for a in args),
+                                                               _kwString,)))
                 if res not in [True,None,False]:print(res)
                 _res.append(res)
                 t2 = time.clock()
                 
                 l_timeReports.append([_short, cgmGEN.get_timeString(t2-t1)])
                 
-            except Exception,err:
-                raise Exception,err
+            except Exception as err:
+                raise Exception(err)
                 cgmGEN.cgmExceptCB(Exception,err)
                 log.error(cgmGEN._str_hardLine)
                 log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
@@ -2999,7 +3005,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
                         log.error("      {0}".format(a))
                 if kws:
                     log.error(" KWS...".format(_str_func))
-                    for k,v in kws.iteritems():
+                    for k,v in list(kws.items()):
                         log.error("      {0} : {1}".format(k,v))   
                 log.error("Errors...")
                 for a in err.args:
@@ -3011,13 +3017,13 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
         if _progressBar:cgmUI.progressBar_end(_progressBar)
         
         if l_timeReports:
-            print(cgmGEN._str_hardBreak)            
+            print((cgmGEN._str_hardBreak))            
             log.info(cgmGEN.logString_sub("contextual rigBlock call",'Times'))
             for i,pair_time in enumerate(l_timeReports):
-                print(" [{0} | '{1}'] : {2} ".format(i,pair_time[0],pair_time[1]))
-            print(cgmGEN._str_hardBreak)
-            print(cgmGEN._str_hardBreak)
-            print(cgmGEN._str_hardBreak)
+                print((" [{0} | '{1}'] : {2} ".format(i,pair_time[0],pair_time[1])))
+            print((cgmGEN._str_hardBreak))
+            print((cgmGEN._str_hardBreak))
+            print((cgmGEN._str_hardBreak))
                 
             
         
@@ -3055,7 +3061,7 @@ def contextual_module_method_call(mBlock, context = 'self', func = 'getShortName
         _kwString = None  
     else:
         _l = []
-        for k,v in kws.iteritems():
+        for k,v in list(kws.items()):
             _l.append("{0}={1}".format(k,v))
         _kwString = ','.join(_l)
 
@@ -3073,9 +3079,9 @@ def contextual_module_method_call(mBlock, context = 'self', func = 'getShortName
             log.debug("|{0}| >> On: {1}".format(_str_func,_short))
             mModule = mBlock.UTILS.get_module(mBlock)
             res = getattr(mModule,func)(*args,**kws) or None
-            print("|{0}| >> {1}.{2}({3},{4}) = {5}".format(_str_func,_short,func,','.join(str(a) for a in args),_kwString, res))                        
+            print(("|{0}| >> {1}.{2}({3},{4}) = {5}".format(_str_func,_short,func,','.join(str(a) for a in args),_kwString, res)))                        
             _res.append(res)
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN._str_hardLine)
             log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
             log.error("block: {0} | func: {1}".format(_short,func))            
@@ -3085,7 +3091,7 @@ def contextual_module_method_call(mBlock, context = 'self', func = 'getShortName
                     log.error("      {0}".format(a))
             if kws:
                 log.error(" KWS...".format(_str_func))
-                for k,v in kws.iteritems():
+                for k,v in list(kws.items()):
                     log.error("      {0} : {1}".format(k,v))   
             log.error("Errors...")
             for a in err.args:
@@ -3146,7 +3152,7 @@ class rigFactory(object):
         #except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
         _prechecks = self.prechecks()
         if not _prechecks and mode not in ['prechecks']:
-            raise ValueError,cgmGEN.logString_start("FAIL || [ {0} ]".format(self.mBlock.p_nameShort))
+            raise ValueError(cgmGEN.logString_start("FAIL || [ {0} ]".format(self.mBlock.p_nameShort)))
             
         
         if mode == 'prechecks':
@@ -3154,10 +3160,10 @@ class rigFactory(object):
                                                                     self.mBlock.blockType,
                                                                     self.mBlock.getMayaAttr('blockProfile'))
             if _prechecks:
-                print(cgmGEN.logString_start("PASS || {0}".format(_strBlock)))
+                print((cgmGEN.logString_start("PASS || {0}".format(_strBlock))))
             else:
-                print(cgmGEN.logString_start("FAIL || {0} ".format(_strBlock)))
-                print(cgmGEN._str_hardLine)
+                print((cgmGEN.logString_start("FAIL || {0} ".format(_strBlock))))
+                print((cgmGEN._str_hardLine))
             
             return
         
@@ -3171,15 +3177,15 @@ class rigFactory(object):
 
         if not self.fnc_moduleRigChecks():
             pprint.pprint(self.__dict__)            
-            raise RuntimeError,"|{0}| >> Failed to process module rig Checks. See warnings and errors.".format(_str_func)
+            raise RuntimeError("|{0}| >> Failed to process module rig Checks. See warnings and errors.".format(_str_func))
 
         self.fnc_deformConstrainNulls()
         
         if self.l_precheckWarnings:
-            print("|{0}| >> Block: {1} ".format(_str_func, _short))            
-            print("|{0}| >> Prechecks Warnings! ".format(_str_func))
+            print(("|{0}| >> Block: {1} ".format(_str_func, _short)))            
+            print(("|{0}| >> Prechecks Warnings! ".format(_str_func)))
             for i,e in enumerate(self.l_precheckWarnings):
-                print("{0} | {1}".format(i,e))
+                print(("{0} | {1}".format(i,e)))
             #print(cgmGEN._str_hardLine)                            
         self.fnc_processBuild(**kws)
         
@@ -3208,12 +3214,12 @@ class rigFactory(object):
                 
         
         if self.l_precheckErrors:
-            print(cgmGEN._str_hardBreak)                            
+            print((cgmGEN._str_hardBreak))                            
             
             _short = self.mBlock.mNode
             #print("|{0}| >> Block: {1} ".format(_str_func, _short))            
             for i,e in enumerate(self.l_precheckErrors):
-                print("   {0} | {1}".format(i,e))
+                print(("   {0} | {1}".format(i,e)))
             
             self.b_prechecks  = False
             return False
@@ -3280,7 +3286,7 @@ class rigFactory(object):
         _res = True
 
         if not self.call_kws['rigBlock']:
-            raise RuntimeError,'No rigBlock stored in call kws'
+            raise RuntimeError('No rigBlock stored in call kws')
 
         #BlockFactory = factory(self.call_kws['rigBlock'])
         mBlock = self.mBlock
@@ -3314,7 +3320,7 @@ class rigFactory(object):
         #Build order --------------------------------------------------------------------------------
         _d['buildOrder'] = valid_blockModule_rigBuildOrder(_buildModule)
         if not _d['buildOrder']:
-            raise RuntimeError,'Failed to validate build order'
+            raise RuntimeError('Failed to validate build order')
 
         
         self.buildModule = _buildModule
@@ -3424,14 +3430,14 @@ class rigFactory(object):
         try:NODEFAC.argsToNodes("{0}.gutsVis = if {1}.{2} > 0".format(_str_moduleRigNull,
                                                                       _str_settings,
                                                                       _str_partBase)).doBuild()
-        except Exception,err:
-            raise Exception,"|{0}| >> visArg failed [{1}]".format(_str_func,err)
+        except Exception as err:
+            raise Exception("|{0}| >> visArg failed [{1}]".format(_str_func,err))
 
         try:NODEFAC.argsToNodes("{0}.gutsLock = if {1}.{2} == 2:0 else 2".format(_str_moduleRigNull,
                                                                                  _str_settings,
                                                                                  _str_partBase)).doBuild()
-        except Exception,err:
-            raise Exception,"|{0}| >> lock arg failed [{1}]".format(_str_func,err)
+        except Exception as err:
+            raise Exception("|{0}| >> lock arg failed [{1}]".format(_str_func,err))
 
         self.d_module['mRigNull'].overrideEnabled = 1		
         cgmMeta.cgmAttr(_str_moduleRigNull,'gutsVis',lock=False).doConnectOut("%s.%s"%(_str_moduleRigNull,'overrideVisibility'))
@@ -3538,14 +3544,14 @@ class rigFactory(object):
             _kwString = ''  
         else:
             _l = []
-            for k,v in kws.iteritems():
+            for k,v in list(kws.items()):
                 _l.append("{0}={1}".format(k,v))
             _kwString = ','.join(_l)  
 
         try:
             log.debug("|{0}| >> {1}.{2}({3}{4})...".format(_str_func,_short,func,_str_args,_kwString))                                    
             _res = getattr(_module,func)(*args,**kws)
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN._str_hardLine)
             log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
             log.error("rigBlock: {0} | func: {1}".format(_short,func))
@@ -3557,7 +3563,7 @@ class rigFactory(object):
                     log.error("      {0}".format(a))
             if kws:
                 log.error(" KWS...".format(_str_func))
-                for k,v in kws.iteritems():
+                for k,v in list(kws.items()):
                     log.error("      {0} : {1}".format(k,v))   
             log.error("Errors...")
             for a in err.args:
@@ -3566,7 +3572,7 @@ class rigFactory(object):
 
             #cgmGEN.log_info_dict(self.__dict__,'rigFactory')
 
-            raise Exception,err
+            raise Exception(err)
         return _res
 
     #@cgmGEN.Timer
@@ -3679,9 +3685,9 @@ class rigFactory(object):
             #log.info(cgmGEN._str_subLine)    
 
             return True
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception,err
+            raise Exception(err)
 
 
     def fnc_deformConstrainNulls(self):
@@ -3831,7 +3837,7 @@ class rigFactory(object):
         try:
             _l_buildOrder = self.d_block['buildModule'].__dict__.get('__l_rigBuildOrder__')
             if not _l_buildOrder:
-                raise ValueError,"No build order found"
+                raise ValueError("No build order found")
             _len = len(_l_buildOrder)
 
             if not _len:
@@ -3855,7 +3861,7 @@ class rigFactory(object):
                 try:
                     getattr(self.d_block['buildModule'],fnc)(self)
                     self.step_complete = fnc                    
-                except Exception,err:
+                except Exception as err:
                     log.error(err)
                     self.step_fail = fnc                    
                     
@@ -3883,10 +3889,10 @@ class rigFactory(object):
             #self.mBlock.addAttr('rigNodeBuffer','message',l_diff)
             
             if mayaMainProgressBar:CGMUI.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
-        except Exception,err:
+        except Exception as err:
             log.error("|{}| >> {} | step: {} | err: {}".format(_str_func,self.mBlock.p_nameBase, fnc, err))
             CGMUI.doEndMayaProgressBar()#Close out this progress bar
-            raise Exception,err
+            raise Exception(err)
         
         #finally:CGMUI.doEndMayaProgressBar()#Close out this progress bar
 
@@ -3972,8 +3978,8 @@ class cgmRigPuppet(cgmMeta.cgmNode):
                     log.error("|{0}| >> Cannot verify referenced nodes".format(_str_func))
                     return
                 elif not self.__verify__(name = name,**kws):
-                    raise RuntimeError,"|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode)
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+                    raise RuntimeError("|{0}| >> Failed to verify: {1}".format(_str_func,self.mNode))
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     #====================================================================================
     def __verify__(self,name = None,**kws):
@@ -4052,7 +4058,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             self.atUtils('groups_verify')
             
             return True
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def atUtils(self, func = '', *args,**kws):
         """
@@ -4080,7 +4086,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
                 
             #self.masterNull.displayLayer.doName()
 
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def doName(self):
         try:
@@ -4108,7 +4114,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             
             try:self.displayLayer.doName()
             except:pass
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def controller_get(self,verify=False):
         return cgmMeta.controller_get(self,verify)
@@ -4133,7 +4139,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             ATTR.copy_to(self.mNode,'cgmName',mMasterNull.mNode,driven='target')
             mMasterNull.addAttr('puppet',attrType = 'messageSimple')
             if not mMasterNull.connectParentNode(self.mNode,'puppet','masterNull'):
-                raise StandardError,"Failed to connect masterNull to puppet network!"
+                raise Exception("Failed to connect masterNull to puppet network!")
 
             mMasterNull.addAttr('mClass',value = 'cgmMasterNull',lock=True)
             mMasterNull.addAttr('cgmModuleType',value = 'master',lock=True)   
@@ -4150,7 +4156,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
 
             
             return True
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     #=================================================================================================
     # Puppet Utilities
@@ -4161,11 +4167,11 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             _str_func = "cgmRigPuppet.verify_groups".format()
             log.debug("|{0}| >> ...".format(_str_func))
             
-            raise ValueError,'NO. Go back!'
+            raise ValueError('NO. Go back!')
             mMasterNull = self.masterNull
 
             if not mMasterNull:
-                raise ValueError, "No masterNull"
+                raise ValueError("No masterNull")
 
             for attr in 'rig','deform','noTransform','geo','skeleton','parts','worldSpaceObjects','puppetSpaceObjects':
                 _link = attr+'Group'
@@ -4195,7 +4201,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
                     mGroup.addAttr('cgmAlias','world')
                 elif attr == 'puppetSpaceObjects':
                     mGroup.addAttr('cgmAlias','puppet')
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
     def verify_objectSet(self):
@@ -4237,7 +4243,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             mc.delete(self.masterNull.mNode)
             mc.delete(self.mNode)
             #del(self)
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     #=================================================================================================
     # Modules
@@ -4431,7 +4437,7 @@ class cgmRigPuppet(cgmMeta.cgmNode):
             
             
             return True
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 class cgmRigMaster(cgmMeta.cgmObject):
     """
@@ -4464,8 +4470,8 @@ class cgmRigMaster(cgmMeta.cgmObject):
             
             if self.__justCreatedState__ or doVerify:
                 if not self.__verify__(*args,**kws):
-                    raise StandardError,"Failed to verify!"	
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+                    raise Exception("Failed to verify!")	
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def __verify__(self,*args,**kws):
         try:
@@ -4485,7 +4491,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
             #self.color =  modules.returnSettingsData('colorMaster',True)
     
             #>>> Attributes -------------------------------------------------
-            if kws and 'name' in kws.keys():
+            if kws and 'name' in list(kws.keys()):
                 self.addAttr('cgmName', kws.get('name'), attrType = 'string')
     
             self.addAttr('cgmType','controlMaster',attrType = 'string')
@@ -4512,7 +4518,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
             self.doName()
             return True
         
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     def rebuildMasterShapes(self,**kws):
         """
@@ -4552,7 +4558,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
                     
             #>>> Figure out font------------------------------------------------------------------
             if font == None:#
-                if kws and 'font' in kws.keys():font = kws.get('font')		
+                if kws and 'font' in list(kws.keys()):font = kws.get('font')		
                 else:font = 'arial'
                 
             #>>> Main shape ----------------------------------------------------------------------
@@ -4597,7 +4603,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
             
             #cgmGEN.func_snapShot(vars())
             
-            for k in _d.keys():
+            for k in list(_d.keys()):
                 #Make our node ------------------------------------------
                 mHelper = self.getMessageAsMeta(k)
                 newShape = CURVES.create_fromName(_d[k][0],_subSize,'y+')
@@ -4639,7 +4645,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
                 mShape.doName()
             return True
         
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def rebuildControlCurveBAK(self,**kws):
         """
@@ -4668,7 +4674,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
                     
             #>>> Figure out font	
             if font == None:#
-                if kws and 'font' in kws.keys():font = kws.get('font')		
+                if kws and 'font' in list(kws.keys()):font = kws.get('font')		
                 else:font = 'arial'
                 
             #>>> Delete shapes
@@ -4698,7 +4704,7 @@ class cgmRigMaster(cgmMeta.cgmObject):
     
     
             self.doName()    
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def getBlockModule(self,update = False):
         if self._blockModule and not update:
@@ -4776,10 +4782,10 @@ class cgmRigModule(cgmMeta.cgmObject):
             doVerify = kws.get('doVerify') or False
             if self.__justCreatedState__ or doVerify:
                 if not self.__verify__(*args,**kws):
-                    raise StandardError,"Failed to verify!"
+                    raise Exception("Failed to verify!")
                 
                 
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def doName(self):
         return self.atUtils('doName')
@@ -4823,7 +4829,7 @@ class cgmRigModule(cgmMeta.cgmObject):
                     #self.addAttr('cgmName',kws.get('name'),attrType='string',lock=True)
 
             if self.getMayaAttr('cgmType') != 'module':
-                raise ValueError,"not a module: {0}".format(self)
+                raise ValueError("not a module: {0}".format(self))
             
             #kws
             #-------------------------------------------------------------------
@@ -4833,7 +4839,7 @@ class cgmRigModule(cgmMeta.cgmObject):
                     except Exception,err:
                         log.error("|{0}| Failed to set: {1}|{2}".format(_str_func,k,v,err))"""
 
-            for k,v in kws.iteritems():
+            for k,v in list(kws.items()):
                 if k in ['position','direction','directionModifier','nameModifier','iterator']:
                     if kws.get(k):
                         log.debug("|{0}| >> kw key: {1}".format(_str_func,k))
@@ -4841,7 +4847,7 @@ class cgmRigModule(cgmMeta.cgmObject):
                         #self.addAttr('cgm'+k.capitalize(),value = kws.get(k),lock = True)                
                 elif self.hasAttr(k):
                     try:self.k = v
-                    except Exception,err:
+                    except Exception as err:
                         log.error("|{0}| Failed to set: {1}|{2}".format(_str_func,k,v,err))
                         
                         
@@ -4871,7 +4877,7 @@ class cgmRigModule(cgmMeta.cgmObject):
                     log.debug("|{0}| >> rigBlock side: {1}".format(_str_func,_side))
                     _nameDict['cgmDirection'] = _side
             
-            for k,v in _nameDict.iteritems():
+            for k,v in list(_nameDict.items()):
                 if v:
                     log.debug("|{0}| >> Name dat k: {1} | v:{2}".format(_str_func,k,v))                
                     self.addAttr(k,value = v,lock = True)
@@ -4915,7 +4921,7 @@ class cgmRigModule(cgmMeta.cgmObject):
 
             #Attrbute checking
             #--------------------------------------------------------------------------------
-            for a,t in rigNullAttrs_toMake.iteritems():
+            for a,t in list(rigNullAttrs_toMake.items()):
                 mRigNull.addAttr(a,attrType=t)
             #self.__verifyAttributesOn__(self.i_rigNull,rigNullAttrs_toMake)
             #self.__verifyAttributesOn__(self.i_formNull,formNullAttrs_toMake)
@@ -4925,12 +4931,12 @@ class cgmRigModule(cgmMeta.cgmObject):
             if kws.get('moduleParent'):
                 _target = kws.get('moduleParent')
                 log.debug("|{0}| >> moduleParent: {1}".format(_str_func,_target))                            
-                raise NotImplemented,'Not finished moduleParent on call yet...'
+                raise NotImplemented('Not finished moduleParent on call yet...')
                 self.doSetParentModule(self.kw_moduleParent)
  
             self.doName()  
             return True
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def controller_get(self,verify=False):
         return cgmMeta.controller_get(self,verify)
@@ -4991,14 +4997,14 @@ def get_blockProfile_options(arg):
         #if mBlockModule:reload(mBlockModule)
         
         try:
-            _keys =  mBlockModule.d_block_profiles.keys()
+            _keys =  list(mBlockModule.d_block_profiles.keys())
             _keys.sort()
             return _keys
-        except Exception,err:
+        except Exception as err:
             log.debug("|{0}| >>  [{2}] Failed to query. | {1} ".format(_str_func,err,arg))
         return []
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 #=========================================================================      

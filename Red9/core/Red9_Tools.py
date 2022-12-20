@@ -13,8 +13,6 @@
 
 '''
 
-from __future__ import print_function
-
 import maya.cmds as cmds
 
 from functools import partial
@@ -23,9 +21,9 @@ import getpass
 import os
 
 import Red9.startup.setup as r9Setup
-import Red9_Meta as r9Meta
+from . import Red9_Meta as r9Meta
 # import Red9_CoreUtils as r9Core
-import Red9_AnimationUtils as r9Anim
+from . import Red9_AnimationUtils as r9Anim
 
 import logging
 logging.basicConfig()
@@ -48,7 +46,7 @@ class SceneReviewerUI(object):
     @classmethod
     def show(cls):
         if r9Setup.mayaVersion() < 2010:
-            raise StandardError('This tool is not supported in versions of Maya running Python2.5')
+            raise Exception('This tool is not supported in versions of Maya running Python2.5')
         cls()._showUI()
 
     def close(self):
@@ -306,7 +304,7 @@ class RecordAttrs(object):
                 cmds.currentUnit(angle=self.currAngularUnits)
                 log.info('setting AngularUnits back to Degrees')
         else:
-            raise StandardError('No Channels selected in the ChannelBox to Set')
+            raise Exception('No Channels selected in the ChannelBox to Set')
 
     def removeAttrsToRecord(self, attrs=None, *args):
         node = cmds.ls(sl=True, l=True)[0]
@@ -315,7 +313,7 @@ class RecordAttrs(object):
         if attrs:
             cmds.recordAttr(node, at=attrs, delete=True)
         else:
-            raise StandardError('No Channels selected in the ChannelBox to Set')
+            raise Exception('No Channels selected in the ChannelBox to Set')
 
     def recordStart(self):
         cmds.play(record=True)

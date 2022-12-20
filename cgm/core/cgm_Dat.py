@@ -15,6 +15,7 @@ import getpass
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -93,14 +94,14 @@ def startDir_getBase(mode = 'workspace', devList = []):
         return _cgmPath
         
     else:
-        raise ValueError,"Unknown mode: {}".format(mode)
+        raise ValueError("Unknown mode: {}".format(mode))
 
 class batch(object):
     def __init__(self, mNodes, dataClass = None, mode = None):
         if not mNodes:
-            raise ValueError,"Must have mNodes passed"        
+            raise ValueError("Must have mNodes passed")        
         if not dataClass:
-            raise ValueError,"Must have dataClass"
+            raise ValueError("Must have dataClass")
         
         self.dataclass = dataClass 
         self.mNodes = cgmValid.listArg(mNodes)
@@ -129,8 +130,8 @@ class batch(object):
         if not startDir:
             
             startDir = self.dataclass().startDir_get(startDirMode = startDirMode)
-            print self.dataclass
-            print startDir
+            print((self.dataclass))
+            print(startDir)
             if not os.path.exists(startDir):
                 CGMOS.mkdir_recursive(startDir)            
             """
@@ -292,12 +293,12 @@ class data(object):
         return mFile
 
     def fillDatHolder(self, dataHolder = {}):
-        for k,d in self.dat.iteritems():
-            print k
+        for k,d in list(self.dat.items()):
+            print(k)
             dataHolder[k] = d
             
     def fillDat(self, dataHolder = {}):
-        for k,d in dataHolder.iteritems():
+        for k,d in list(dataHolder.items()):
             self.dat[k] = d
 
             
@@ -326,7 +327,7 @@ class data(object):
         # write to ConfigObject
         # =========================
         if self.dataformat == 'config':
-            reload(configobj)
+            importlib.reload(configobj)
             ConfigObj = configobj.ConfigObj(indent_type='\t', encoding='utf-8')
             self.fillDatHolder(ConfigObj)
             """
@@ -354,7 +355,7 @@ class data(object):
             self._dataformat_resolved = 'json'        
             
         else:
-            raise ValueError,"Unknown mode: {}".format(self.mode)
+            raise ValueError("Unknown mode: {}".format(self.mode))
         
         #if update:
         self.str_filepath = filepath
@@ -389,10 +390,10 @@ class data(object):
                 if 'skeletonDict' in data.keys():
                     self.skeletonDict = data['skeletonDict']
                 self._dataformat_resolved = 'json'"""
-            except IOError, err:
+            except IOError as err:
                 self._dataformat_resolved = 'config'
                 log.info('JSON : DataMap format failed to load, reverting to legacy ConfigObj')
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 return False                
         # =========================
@@ -417,7 +418,7 @@ class data(object):
                     self.settings_internal = r9Core.FilterNode_Settings()
                     self.settings_internal.setByDict(data['filterNode_settings'])
                 self._dataformat_resolved = 'config'"""
-            except Exception,err:
+            except Exception as err:
                 log.error("Read Fail: {}".format(str(mPath)))                                
                 log.error(err)
                 return False
@@ -433,7 +434,7 @@ def decodeDat(self,dat = None):
         dat = self.dat
     
     def processDict(dArg):
-        for k,d in dArg.iteritems():
+        for k,d in list(dArg.items()):
             _type = type(d)
             log.debug(log_msg(str_func, "{} | {}").format(k,_type))            
             if issubclass(_type,list):
@@ -443,14 +444,14 @@ def decodeDat(self,dat = None):
             elif issubclass(_type,dict):
                 log.debug(log_msg(str_func, "...subdict"))                                        
                 dArg[k] = processDict(d)
-            elif issubclass(_type,str) or issubclass(_type,unicode):
+            elif issubclass(_type,str) or issubclass(_type,str):
                 log.debug(log_msg(str_func, "...str"))                                                        
                 dArg[k] = r9Core.decodeString(d)
         
         #pprint.pprint(dArg)
         return dArg
                 
-    for k,d in dat.iteritems():
+    for k,d in list(dat.items()):
         _type = type(d)
         log.debug(log_msg(str_func, "{} | {}").format(k,_type))
         if issubclass(_type,list):
@@ -460,7 +461,7 @@ def decodeDat(self,dat = None):
         elif issubclass(_type,dict):
             log.debug(log_msg(str_func, "...dict"))            
             dat[k] = processDict(d)
-        elif issubclass(_type,str) or issubclass(_type,unicode):
+        elif issubclass(_type,str) or issubclass(_type,str):
             dat[k] = r9Core.decodeString(d)
         
     #pprint.pprint(dat)
@@ -696,7 +697,7 @@ class ui(CGMUI.cgmGUI):
         mUI.MelLabel(self.uiFrame_data, label = "PPRINT", h = 13, 
                      ut='cgmUIHeaderTemplate',align = 'center')
         
-        for a in self.uiDat.dat.keys():
+        for a in list(self.uiDat.dat.keys()):
             mUI.MelButton(self.uiFrame_data,
                           c = cgmGEN.Callback(self.uiFunc_printDat,a),
                           ann="...",
@@ -734,7 +735,7 @@ class ui(CGMUI.cgmGUI):
         
         sDat = self.uiDat.dat
         
-        print(log_sub(_str_func,mode))
+        print((log_sub(_str_func,mode)))
         if mode == 'all':
             pprint.pprint(sDat)
         elif mode == 'settings':
@@ -893,7 +894,7 @@ def get_ext_options(update = False,debug=None, path= None, skipRoot = True, exte
                     if not _d_types.get(t):
                         _d_types[t] = []
                         
-                    if name not in _d_modules.keys():
+                    if name not in list(_d_modules.keys()):
                         _d_files[key] = os.path.join(root,f)
                         _d_types[t].append(key)
                         
@@ -920,7 +921,7 @@ def get_ext_options(update = False,debug=None, path= None, skipRoot = True, exte
         log.debug("|{0}| >> DUPLICATE MODULES....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
+        raise Exception("Must resolve")
             
     #CGM_RIGBLOCK_DAT = _d_modules, _d_categories, _l_unbuildable
     return _d_files, _d_types

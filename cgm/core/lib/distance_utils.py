@@ -92,7 +92,7 @@ def get_axisSize(arg):
             _res.append(dist)
             
         return (_res)
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
 
 
 
@@ -157,7 +157,7 @@ def get_size_byShapes(arg, mode = 'max'):
         if VALID.is_shape(arg):
             _shapes = [arg]
         else:
-            raise ValueError,"|{0}| >> '{1}' has no shapes.".format(_str_func,_arg)
+            raise ValueError("|{0}| >> '{1}' has no shapes.".format(_str_func,_arg))
     for s in _shapes:
         _bfr = get_bb_size(s)
         _l_bb.append(_bfr)
@@ -175,7 +175,7 @@ def get_size_byShapes(arg, mode = 'max'):
     elif mode == 'bb':
         return [max(_sizeX), max(_sizeY), max(_sizeZ)]       
     else:
-        raise ValueError,"|{0}| >> unknown mode: {1}".format(_str_func,mode)
+        raise ValueError("|{0}| >> unknown mode: {1}".format(_str_func,mode))
         
 def get_arcLen(arg):
     shapes = mc.listRelatives(arg,shapes=True,path = 1)
@@ -230,7 +230,7 @@ def get_createSize(arg = None, mode = None):
             return _res        
         log.debug("|{0}| >> Parent mode fail...".format(_str_func))
         
-    raise RuntimeError,"Shouldn't have gotten here. Failed at finding value"
+    raise RuntimeError("Shouldn't have gotten here. Failed at finding value")
         
     
     
@@ -309,7 +309,7 @@ def get_by_dist(source = None, targets = None, mode = 'close', resMode = 'point'
             return _res[0]
         return _res[0]
     elif _resMode == 'component':
-        raise NotImplementedError,"component mode"
+        raise NotImplementedError("component mode")
     elif _resMode in ['pointOnSurface','shape','pointOnSurfaceLoc']:
         log.debug("|{0}| >> Shape processing...".format(_str_func))        
         #Targets=============================================================
@@ -485,7 +485,7 @@ def offsetShape_byVector(dag=None, distance = 1, origin = None, component = 'cv'
         else:
             _origin = _originUse
     
-        _l_source = mc.ls("{0}.{1}[*]".format(s,component),flatten=True,long=True)
+        _l_source = mc.ls("{0}.{1}[*]".format(s,component),flatten=True,int=True)
         
         for ii,c in enumerate(_l_source):
             log.debug("|{0}| >> Shape {1} | Comp: {2} | {3}".format(_str_func, i, ii, c))
@@ -637,7 +637,7 @@ def get_closestTarget(source = None, objects = None):
     elif mc.objExists(source):
         _point = POS.get(source)
 
-    if not _point:raise ValueError,"Must have point of reference"
+    if not _point:raise ValueError("Must have point of reference")
     
     l_dists = []
     for obj in objects:
@@ -664,7 +664,7 @@ def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
     elif mc.objExists(source):
         _point = POS.get(source)
 
-    if not _point:raise ValueError,"Must have point of reference"
+    if not _point:raise ValueError("Must have point of reference")
     
     l_dists = []
     d_dists = {}
@@ -674,7 +674,7 @@ def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
         _d = get_distance_between_points(_point, pos)
         if _d in l_dists and not allowDups:
             pprint.pprint(objects)
-            raise ValueError,"Cannot handle matching distances. {0}".format(_str_func)
+            raise ValueError("Cannot handle matching distances. {0}".format(_str_func))
         l_dists.append(_d)
         if not d_dists.get(_d):
             d_dists[_d] = []
@@ -708,7 +708,7 @@ def get_closest_point(source = None, targetSurface = None, loc = False):
     elif mc.objExists(source):
         _point = POS.get(source)
 
-    if not _point:raise ValueError,"Must have point of reference"
+    if not _point:raise ValueError("Must have point of reference")
     _loc = mc.spaceLocator(n='get_closest_point_loc')[0]
     POS.set(_loc,_point)
     
@@ -775,7 +775,7 @@ def get_closest_point(source = None, targetSurface = None, loc = False):
     mc.delete(_loc)
     
     if not _l_res_positions:
-        raise ValueError,"No positions found"
+        raise ValueError("No positions found")
     
     for p in _l_res_positions:
         if p:
@@ -850,7 +850,7 @@ def create_distanceMeasure(start = None, end = None, baseName = 'measure'):
     
 
         return _res
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def create_closest_point_node(source = None, targetSurface = None, singleReturn = False):
     """
@@ -879,7 +879,7 @@ def create_closest_point_node(source = None, targetSurface = None, singleReturn 
             else:
                 _transform = SEARCH.get_transform(source)
     
-        if not _transform:raise ValueError,"Must have a transform"
+        if not _transform:raise ValueError("Must have a transform")
         
         if SEARCH.is_shape(targetSurface):
             l_shapes = [targetSurface]
@@ -887,7 +887,7 @@ def create_closest_point_node(source = None, targetSurface = None, singleReturn 
             l_shapes = mc.listRelatives(targetSurface, s=True, fullPath = True)
         
         if not l_shapes:
-            raise ValueError,"Must have shapes to check."
+            raise ValueError("Must have shapes to check.")
         
         _nodes = []
         _locs = []
@@ -958,7 +958,7 @@ def create_closest_point_node(source = None, targetSurface = None, singleReturn 
             _l_distances.append(get_distance_between_points(pos_base, p2))
         
         if not _l_distances:
-            raise ValueError,"No distance value found"
+            raise ValueError("No distance value found")
         closest = min(_l_distances)
         _idx = _l_distances.index(closest)
         
@@ -967,7 +967,7 @@ def create_closest_point_node(source = None, targetSurface = None, singleReturn 
                 mc.delete(n, _locs[i])
         
         return _locs[_idx], _nodes[_idx], _shapes[_idx], _types[_idx]
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
     
@@ -993,7 +993,7 @@ def get_closest_point_data_from_mesh(mesh = None, targetObj = None, targetPoint 
         _point = POS.get(targetObj)
     elif targetPoint:
         _point = targetPoint
-    if not _point:raise ValueError,"Must have point of reference"
+    if not _point:raise ValueError("Must have point of reference")
     
     _loc = mc.spaceLocator()[0]
     POS.set(_loc,_point)  
@@ -1002,7 +1002,7 @@ def get_closest_point_data_from_mesh(mesh = None, targetObj = None, targetPoint 
     if SEARCH.is_shape(mesh):
         if VALID.get_mayaType(mesh) == 'mesh':
             _shape = mesh
-        else:raise ValueError,"Must be a mesh shape"
+        else:raise ValueError("Must be a mesh shape")
     else:
         _shape = SEARCH.get_nonintermediateShape(mesh)
         _shapes = mc.listRelatives(mesh, s=True, fullPath = True)
@@ -1015,8 +1015,8 @@ def get_closest_point_data_from_mesh(mesh = None, targetObj = None, targetPoint 
     if not _shape:
         log.error("|{0}| >> Shapes...".format(_str_func))
         for s in _shapes:
-            print "{0} : {1}".format(s,VALID.get_mayaType(s))
-        raise ValueError,"Must have a mesh shape by now"
+            print(("{0} : {1}".format(s,VALID.get_mayaType(s))))
+        raise ValueError("Must have a mesh shape by now")
         
         
     """ make the closest point node """
@@ -1069,7 +1069,7 @@ def get_closest_point_data(targetSurface = None, targetObj = None, targetPoint =
             _point = POS.get(targetObj)
         elif targetPoint:
             _point = targetPoint
-        if not _point:raise ValueError,"Must have point of reference"
+        if not _point:raise ValueError("Must have point of reference")
         
         _loc = mc.spaceLocator()[0]
         POS.set(_loc,_point)  
@@ -1111,7 +1111,7 @@ def get_closest_point_data(targetSurface = None, targetObj = None, targetPoint =
                 _res['closestVertexIndex']=mc.getAttr(_node+'.closestVertexIndex')
         mc.delete([_loc],_created[0],_node)
         return _res
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def get_normalizedWeightsByDistance(obj,targets,normalizeTo=1.0):
     _str_func = 'get_normalizedWeightsByDistance'
@@ -1223,7 +1223,7 @@ def get_normalized_uv(mesh, uValue, vValue):
             vMin = mi_shape.mnv
             vMax = mi_shape.mxv"""
 
-        except Exception,error:raise Exception,"Validation failure | {0}".format(error) 		
+        except Exception as error:raise Exception("Validation failure | {0}".format(error)) 		
 
         try:#Calculation ----------------------------------------------------------------
             uSize = uMax - uMin
@@ -1234,14 +1234,14 @@ def get_normalized_uv(mesh, uValue, vValue):
 
             uNormal = uSum / uSize
             vNormal = vSum / vSize
-        except Exception,error:raise Exception,"Calculation |{0}".format(error) 		
+        except Exception as error:raise Exception("Calculation |{0}".format(error)) 		
 
         try:
             d_return = {'uv':[uNormal,vNormal],'uValue':uNormal,'vValue':vNormal}
             return d_return 
-        except Exception,error:raise Exception,"Return prep |{0}".format(error) 		
+        except Exception as error:raise Exception("Return prep |{0}".format(error)) 		
 
-    except Exception,error:
+    except Exception as error:
         log.error(">>> {0} >> Failure! mesh: '{1}' | uValue: {2} | vValue {3}".format(_str_func,mesh,uValue,vValue))
         log.error(">>> {0} >> error: {1}".format(_str_func,error))        
         return None
@@ -1277,7 +1277,7 @@ def returnNormalizedUV(mesh, uValue, vValue):
         try:#Validation ----------------------------------------------------------------
             mesh = cgmValid.objString(mesh,'nurbsSurface', calledFrom = _str_funcName)
             if len(mc.ls(mesh))>1:
-                raise StandardError,"{0}>>> More than one mesh named: {1}".format(_str_funcName,mesh)
+                raise Exception("{0}>>> More than one mesh named: {1}".format(_str_funcName,mesh))
             _str_objType = search.returnObjectType(mesh)
 
             l_shapes = mc.listRelatives(mesh, shapes=True)
@@ -1294,7 +1294,7 @@ def returnNormalizedUV(mesh, uValue, vValue):
             vMin = mi_shape.mnv
             vMax = mi_shape.mxv"""
 
-        except Exception,error:raise Exception,"Validation failure | {0}".format(error) 		
+        except Exception as error:raise Exception("Validation failure | {0}".format(error)) 		
 
         try:#Calculation ----------------------------------------------------------------
             uSize = uMax - uMin
@@ -1305,14 +1305,14 @@ def returnNormalizedUV(mesh, uValue, vValue):
 
             uNormal = uSum / uSize
             vNormal = vSum / vSize
-        except Exception,error:raise Exception,"Calculation |{0}".format(error) 		
+        except Exception as error:raise Exception("Calculation |{0}".format(error)) 		
 
         try:
             d_return = {'uv':[uNormal,vNormal],'uValue':uNormal,'vValue':vNormal}
             return d_return 
-        except Exception,error:raise Exception,"Return prep |{0}".format(error) 		
+        except Exception as error:raise Exception("Return prep |{0}".format(error)) 		
 
-    except Exception,error:
+    except Exception as error:
         log.error(">>> {0} >> Failure! mesh: '{1}' | uValue: {2} | vValue {3}".format(_str_funcName,mesh,uValue,vValue))
         log.error(">>> {0} >> error: {1}".format(_str_funcName,error))        
         return None

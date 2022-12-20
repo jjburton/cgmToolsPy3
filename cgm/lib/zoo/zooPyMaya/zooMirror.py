@@ -51,7 +51,7 @@ class MirrorNode(MPxNode):
 	outRotateY = MObject()
 	outRotateZ = MObject()
 
-	MIRROR_MODES = M_COPY, M_INVERT, M_MIRROR = range( 3 )
+	MIRROR_MODES = M_COPY, M_INVERT, M_MIRROR = list(range( 3))
 	MIRROR_MODE_NAMES = 'copy', 'invert', 'mirror'
 	MIRROR_DEFAULT = M_MIRROR
 

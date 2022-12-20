@@ -292,15 +292,15 @@ def get_splitValues(surface = None,
                         _l = d_epPos[ii]
                         _l.append(p)
         
-                for k,points in d_epPos.iteritems():
+                for k,points in list(d_epPos.items()):
                     log.debug("|{0}| >> {1} | k: {1} | points: {2}".format(_str_func,k,points))
                     try:
                         crv_connect = mc.curve (d=1, ep = points, os=True) 
     
                         #CURVES.create_fromList(posList=points)
                         l_mainCurves.append(crv_connect)
-                    except Exception,err:
-                        print err
+                    except Exception as err:
+                        print(err)
 
         for crv in l_mainCurves[1:]:
             CORERIG.shapeParent_in_place(l_mainCurves[0], crv, False)
@@ -339,7 +339,7 @@ def get_uvNormal(surface = None,u = .5, v= .5):
     try:
         _res = surfaceFn.normal( u, v,om.MSpace.kWorld)
         return [_res.x, _res.y, _res.z]
-    except Exception,err:
+    except Exception as err:
         log.warning(">>> {0} >> Failed to process normal: {1}".format(_str_func,err))
         return [0,0,0]
     
@@ -463,7 +463,7 @@ def attachObjToSurface(*args,**kws):
                     self.mi_obj.connectChildNode(mi_follicleAttachTrans,"follicleAttach","targetObject")
                     self.md_return["follicleAttach"] = mi_follicleAttachTrans
                     self.md_return["follicleAttachShape"] = mi_follicleAttachShape
-                except Exception,error:raise StandardError,"!Attach Follicle! | %s"%(error)
+                except Exception as error:raise Exception("!Attach Follicle! | %s"%(error))
 
             if not self.b_createControlLoc:#If we don't have a control loc setup, we're just attaching to the surface
                 try:#Groups =======================================================================================
@@ -496,7 +496,7 @@ def attachObjToSurface(*args,**kws):
                         else:
                             mc.parentConstraint(self.mi_driverLoc.mNode, self.mi_obj.mNode, maintainOffset = True)
 
-                except Exception,error:raise StandardError,"!Groups - no control Loc setup! | %s"%(error)
+                except Exception as error:raise Exception("!Groups - no control Loc setup! | %s"%(error))
 
 
             else:#Setup control loc stuff
@@ -530,7 +530,7 @@ def attachObjToSurface(*args,**kws):
                     self.mi_followGroup.parent = mi_follicleFollowTrans
                     self.md_return["followGroup"] = mi_followGroup	
 
-                except Exception,error:raise StandardError,"!Follicle - attach Loc setup! | %s"%(error)
+                except Exception as error:raise Exception("!Follicle - attach Loc setup! | %s"%(error))
 
                 mi_offsetGroup = self.mi_obj.duplicateTransform()
                 mi_offsetGroup.doStore('cgmName',self.mi_obj)
@@ -697,8 +697,8 @@ def create_radialCurveLoft(*args,**kws):
                     self.d_info['l_locPos'].append(mi_loc.getPosition())
                     mi_loc.delete()
 
-                except Exception,error:
-                    raise StandardError,"Loc creation %s | %s"%(cv,error)
+                except Exception as error:
+                    raise Exception("Loc creation %s | %s"%(cv,error))
 
             #create new rail crv
             str_newRailCrv = mc.curve(d = 2,p = self.d_info['l_locPos'], os = True)

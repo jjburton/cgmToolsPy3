@@ -185,7 +185,7 @@ def setDefaultsForAttrs(attrs):
         pm.warning('cannot store defaults, {0} is locked'.format(dattr))
     else:
         dattr.set(str(defaults))
-        LOG.debug('stored {0} default(s) for {1}: {2}'.format(len(defaults.keys()), node, defaults.keys()))
+        LOG.debug('stored {0} default(s) for {1}: {2}'.format(len(list(defaults.keys())), node, list(defaults.keys())))
 
 
 
@@ -232,7 +232,7 @@ def getDefaults(node):
             return {}
         # process defaults
         defaults = {}
-        for k, v in defaultsRaw.items():
+        for k, v in list(defaultsRaw.items()):
             # skip the defaults attribute itself, if it somehow got in there
             if k == DEFAULTS_ATTR:
                 pm.warning('skipping attribute {0}. it stores defaults and is therefore unable to have a default'.format(k))
@@ -315,7 +315,7 @@ def reset(nodes=None, useDefaults=True, useStandards=False, useCBSelection=True)
         nodes = pm.selected()
     else:
         if not isinstance(nodes, (list, tuple)):
-            if not isinstance(nodes, (str, unicode, pm.nt.DependNode)):
+            if not isinstance(nodes, (str, pm.nt.DependNode)):
                 raise TypeError('expected node, node name, or list of nodes; got {0}'.format(type(nodes).__name__))
             nodes = [nodes]
         nodes = [pm.PyNode(n) for n in nodes]
@@ -335,12 +335,12 @@ def reset(nodes=None, useDefaults=True, useStandards=False, useCBSelection=True)
                     settings[n.attr(a)] = 1 if 's' in a else 0
         # trim using cb selection
         if useCBSelection and len(selAttrs) > 0:
-            nodeSelAttrs = {} if not selAttrs.has_key(n) else selAttrs[n]
-            delAttrs = [a for a in settings.keys() if a not in nodeSelAttrs]
+            nodeSelAttrs = {} if n not in selAttrs else selAttrs[n]
+            delAttrs = [a for a in list(settings.keys()) if a not in nodeSelAttrs]
             for a in delAttrs:
                 del settings[a]
                 
-        for attr, value in settings.items():
+        for attr, value in list(settings.items()):
             if attr.isSettable():
                 try:
                     attr.set(value)
@@ -396,7 +396,7 @@ def getChannelBoxSelection(main=True, shape=True, out=True, hist=True):
     # for all flags {0} = m, s, o, or h (main, selected, out, history)
     # see channelBox documentation for flag specifications
     opts = {'m':main, 's':shape, 'o':out, 'h':hist}
-    modes = [i[0] for i in opts.items() if i[1]]
+    modes = [i[0] for i in list(opts.items()) if i[1]]
     objFlag = '{0}ol' # o=object l=list
     attrFlag = 's{0}a' # s=selected, a=attrs
     
@@ -407,7 +407,7 @@ def getChannelBoxSelection(main=True, shape=True, out=True, hist=True):
         if objs is not None and attrs is not None:
             for obj in objs:
                 pyobj = pm.PyNode(obj)
-                if not result.has_key(pyobj):
+                if pyobj not in result:
                     result[pyobj] = []
                 thisObjsAttrs = [pyobj.attr(a) for a in attrs if pyobj.hasAttr(a)]
                 result[pyobj].extend(thisObjsAttrs)

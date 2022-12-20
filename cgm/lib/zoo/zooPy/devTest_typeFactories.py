@@ -1,12 +1,11 @@
 
 import unittest
-import typeFactories
+from . import typeFactories
 
 
 class TestTypeFactories(unittest.TestCase):
 	def runTest( self ):
-		class ITest(object):
-			__metaclass__ = typeFactories.interfaceTypeFactory()
+		class ITest(object, metaclass=typeFactories.interfaceTypeFactory()):
 			def something( self, other, thing=None, *a, **kw ): pass
 			def otherThing( self ): pass
 			attribute = None

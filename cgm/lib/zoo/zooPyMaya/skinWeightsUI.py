@@ -6,14 +6,14 @@ from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy.misc import removeDupes, Callback
 from cgm.lib.zoo.zooPy.names import getCommonPrefix
 
-from melUtils import mel
-from baseMelUI import *
-from presetsUI import addExploreToMenuItems
+from .melUtils import mel
+from .baseMelUI import *
+from .presetsUI import addExploreToMenuItems
 
-import mappingEditor
-import skinWeights
-import meshUtils
-import rigUtils
+from . import mappingEditor
+from . import skinWeights
+from . import meshUtils
+from . import rigUtils
 
 
 def isMesh( item ):
@@ -118,7 +118,7 @@ class LockJointsLayout(MelFormLayout):
 
 		#perform the smooth
 		cmd.artAttrSkinPaintCtx( cmd.currentCtx(), e=True, sao='smooth' )
-		j = self.iterSelected().next()
+		j = next(self.iterSelected())
 		if j is not None:
 			cmd.artAttrSkinPaintCtx( cmd.currentCtx(), e=True, value=1, opacity=1, clear=True )
 
@@ -178,7 +178,7 @@ class LockJointsLayout(MelFormLayout):
 		self.UI_tsl.update()
 	def on_selectJoint( self, *a ):
 		if cmd.currentCtx() == 'artAttrSkinContext':
-			selJ = self.iterSelected().next()
+			selJ = next(self.iterSelected())
 			if selJ is None:
 				return
 
@@ -223,7 +223,7 @@ class LockJointsLayout(MelFormLayout):
 		allVerts = set( allVerts )
 
 		commonVerts = []
-		for j, jVerts in jointVerts.iteritems():
+		for j, jVerts in list(jointVerts.items()):
 			commonVerts += allVerts.intersection( set( jVerts ) )
 
 		if commonVerts:

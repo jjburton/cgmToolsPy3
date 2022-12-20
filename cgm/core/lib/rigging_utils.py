@@ -63,7 +63,7 @@ def valid_arg_single(arg = None, tag = None, calledFrom = None):
         arg
     """ 
     if not arg:
-        raise ValueError,"|{0}| >> Must have a {1}. | {1}: {2}".format(calledFrom,tag,arg) 
+        raise ValueError("|{0}| >> Must have a {1}. | {1}: {2}".format(calledFrom,tag,arg)) 
     if issubclass(type(arg),list or tuple):
         arg = arg[0]
     return arg
@@ -81,7 +81,7 @@ def valid_arg_multi(arg = None, tag = None, calledFrom = None):
         arg
     """ 
     if not arg:
-        raise ValueError,"|{0}| >> Must have a {1}. | {1}: {2}".format(calledFrom,tag,arg) 
+        raise ValueError("|{0}| >> Must have a {1}. | {1}: {2}".format(calledFrom,tag,arg)) 
     if not issubclass(type(arg),list or tuple):
         arg = [arg]
     return arg
@@ -116,7 +116,7 @@ def match_orientation(obj = None, source = None,
     log.debug("|{0}| >> rotateAxis:{1}".format(_str_func,rotateAxis))
     
     if not rotateOrder and not rotateAxis:
-        raise ValueError,"|{0}| >> Both rotateOrder and rotateAxis are False. Nothing to do...".format(_str_func) 
+        raise ValueError("|{0}| >> Both rotateOrder and rotateAxis are False. Nothing to do...".format(_str_func)) 
     
     #First gather children to parent away and shapes so they don't get messed up either
     _l_children = mc.listRelatives (obj, children = True,type='transform') or []
@@ -299,7 +299,7 @@ def combineShapes(targets = [], keepSource = True, replaceShapes = False, snapFi
         for o in targets[:-1]:
             shapeParent_in_place(targets[-1],o,keepSource,replaceShapes,snapFirst)
         return targets[-1]
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 @cgmGEN.Timer
@@ -335,9 +335,9 @@ def shapeParent_in_placeBAK(obj, shapeSource, keepSource = True, replaceShapes =
         try:
             _shapeCheck = SEARCH.is_shape(c)
             if not _shapeCheck and not mc.listRelatives(c, f= True,shapes=True, fullPath = True):
-                raise ValueError,"Has no shapes"
+                raise ValueError("Has no shapes")
             if coreNames.get_long(obj) == coreNames.get_long(c):
-                raise ValueError,"Cannot parentShape self"
+                raise ValueError("Cannot parentShape self")
             
             if VALID.get_mayaType(c) == 'nurbsCurve':
                 mc.ls(['%s.ep[*]'%(c)],flatten=True)
@@ -422,7 +422,7 @@ def shapeParent_in_placeBAK(obj, shapeSource, keepSource = True, replaceShapes =
             mc.delete(_dup_curve)
             if not keepSource:
                 mc.delete(c)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     return True
 
@@ -492,7 +492,7 @@ def shapeParent_in_place_matrix(obj, shapeSource, keepSource = True, replaceShap
             #mc.delete(obj,ch=True)
             if not keepSource:
                 mc.delete(c)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmException(Exception,err)
     return True
 
@@ -590,7 +590,7 @@ def shapeParent_in_place(obj, shapeSource, keepSource = True, replaceShapes = Fa
             
             if not keepSource:
                 mc.delete(c)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmException(Exception,err)
     return True
 
@@ -604,7 +604,7 @@ def create_axisProxy(obj=None):
         _str_func = 'create_axisProxy'
         _dag = VALID.getTransform(obj)
         if not _dag:
-            raise ValueError,"Must have a dag node. Obj: {0}".format(obj)
+            raise ValueError("Must have a dag node. Obj: {0}".format(obj))
         if VALID.is_shape(obj):
             l_shapes = [obj]
         else:
@@ -660,7 +660,7 @@ def create_axisProxy(obj=None):
         mc.delete(_dup)
         #match_transform(_proxy,_dag)
         return mc.rename(_proxy, "{0}_localAxisProxy".format(NAMES.get_base(_dag)))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 def create_localAxisProxyBAK(obj=None):
@@ -672,7 +672,7 @@ def create_localAxisProxyBAK(obj=None):
         _str_func = 'create_localAxisProxy'
         _dag = VALID.getTransform(obj)
         if not _dag:
-            raise ValueError,"Must have a dag node"
+            raise ValueError("Must have a dag node")
         l_shapes = TRANS.shapes_get(_dag)
         
         _dup = mc.duplicate(l_shapes,po=False,rc=True)[0]
@@ -727,7 +727,7 @@ def create_localAxisProxyBAK(obj=None):
         #ATTR.set(_dup,'scale',s)
 
         return mc.rename(_proxy, "{0}_localAxisProxy".format(NAMES.get_base(_dag)))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
         
@@ -746,7 +746,7 @@ def create_proxyGeo(proxyShape = 'cube', size = [1,1,1], direction = 'z+',ch=Tru
         _proxyShape = _d_proxyCreate.get(proxyShape,proxyShape)
         _call = getattr(mc,_proxyShape,None)
         if not _call:
-            raise ValueError,"Failed to find maya.cmds call {0}".format(_proxyShape)
+            raise ValueError("Failed to find maya.cmds call {0}".format(_proxyShape))
         #if proxyShape not in _d_create.keys():
             #raise ValueError,"Unknown shape: {0}".format(proxyShape)
         
@@ -791,7 +791,7 @@ def create_proxyGeo(proxyShape = 'cube', size = [1,1,1], direction = 'z+',ch=Tru
 
         
         return _res
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
@@ -880,7 +880,7 @@ def create_at(obj = None, create = 'null',midPoint = False, l_pos = [], baseName
                         l_use.append(p)
             
             if len(l_use) <= 1:
-                raise ValueError,"Must have more than one position to create curve"
+                raise ValueError("Must have more than one position to create curve")
             if _create in ['linearTrack','cubicTrack']:
                 _d = 1
                 _trackCurve = mc.curve(d=1,p=l_use)
@@ -917,13 +917,13 @@ def create_at(obj = None, create = 'null',midPoint = False, l_pos = [], baseName
             log.debug("|{0}| >> created: {1}".format(_str_func,_created))  
             
         elif _create == 'locator':
-            raise NotImplementedError,"locators not done yet"
+            raise NotImplementedError("locators not done yet")
         else: 
-            raise NotImplementedError,"|{0}| >> unknown mode: {1}".format(_str_func,_create)  
+            raise NotImplementedError("|{0}| >> unknown mode: {1}".format(_str_func,_create))  
     
         mc.select(_created)
         return _created
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     
 def create_joint_at(obj = None):
@@ -950,8 +950,8 @@ def mirror_controlShape(source = None, target=None, colorDirection = 'right',con
         if len(_sel) == 2:
             return mirror_controlShape(_sel[0],_sel[1])
 
-    if not source:raise ValueError,"|{0}|  >> Must have a source".format(_str_func)
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)    
+    if not source:raise ValueError("|{0}|  >> Must have a source".format(_str_func))
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))    
     _dup_curve =  mc.duplicate(source)[0]
     for child in TRANS.children_get(_dup_curve,True):
         mc.delete(child)
@@ -980,12 +980,12 @@ def push_controlResizeObj(target = None):
                 _res.append(push_controlResizeObj(t))
             mc.select(_res)
             return _res   
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
     
     if ATTR.has_attr(target, 'cgmControlResizerSource'):
         source = ATTR.get_message(target,'cgmControlResizerSource')
         if not source:
-            raise ValueError,"|{0}|  >> no cgmControlResizerSource data on target: {1}".format(_str_func,target)
+            raise ValueError("|{0}|  >> no cgmControlResizerSource data on target: {1}".format(_str_func,target))
         source = source[0]
         shapeParent_in_place(source,target,keepSource=False,replaceShapes=True)
         if ATTR.has_attr(source,'cgmControlResizer'):
@@ -996,7 +996,7 @@ def push_controlResizeObj(target = None):
 
         
     else:
-        raise ValueError,"|{0}|  >> no cgmControlResizerSource attr on target: {1}".format(_str_func,target)
+        raise ValueError("|{0}|  >> no cgmControlResizerSource attr on target: {1}".format(_str_func,target))
     
 
 
@@ -1011,7 +1011,7 @@ def create_controlResizeObj(target=None):
                 _res.append(create_controlResizeObj(t))
             return _res
                 
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
     
     if ATTR.get_message(target,'cgmControlResizer'):
         return ATTR.get_message(target,'cgmControlResizer')
@@ -1046,7 +1046,7 @@ def override_color(target = None, key = None, index = None, rgb = None, pushToSh
         info(dict)
     """   
     _str_func = "set_color"
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
     
     l_targets = VALID.listArg(target)
     
@@ -1065,19 +1065,19 @@ def override_color(target = None, key = None, index = None, rgb = None, pushToSh
                 _shapes.extend(_bfr)
                 
         if not _shapes:
-            raise ValueError,"|{0}|  >> Not a shape and has no shapes: '{1}'".format(_str_func,t)        
+            raise ValueError("|{0}|  >> Not a shape and has no shapes: '{1}'".format(_str_func,t))        
         
         #log.debug(key)
         #log.debug(index)
         #log.debug(rgb)
         if index is None and rgb is None and key is None:
-            raise ValueError,"|{0}|  >> Must have a value for index,rgb or key".format(_str_func)
+            raise ValueError("|{0}|  >> Must have a value for index,rgb or key".format(_str_func))
         
         #...little dummy proofing..
         if key:
             _type = type(key)
             
-            if _type not in [str,unicode] :
+            if _type not in [str,str] :
                 log.debug("|{0}|  >> Not a string arg for key...".format(_str_func))
                 
                 if rgb is None and issubclass(_type,list) or issubclass(_type,tuple):
@@ -1089,7 +1089,7 @@ def override_color(target = None, key = None, index = None, rgb = None, pushToSh
                     index = key
                     key = None
                 else:
-                    raise ValueError,"|{0}|  >> Not sure what to do with this key arg: {1}".format(_str_func,key)
+                    raise ValueError("|{0}|  >> Not sure what to do with this key arg: {1}".format(_str_func,key))
         
         _b_RBGMode = False
         _b_2016Plus = False
@@ -1109,17 +1109,17 @@ def override_color(target = None, key = None, index = None, rgb = None, pushToSh
                 log.debug("|{0}|  >> Color key not found in rgb dict checking index...".format(_str_func))
                 _color = SHARED._d_colors_to_index.get(key,False)
                 if _color is False:
-                    raise ValueError,"|{0}|  >> Unknown color key: '{1}'".format(_str_func,key) 
+                    raise ValueError("|{0}|  >> Unknown color key: '{1}'".format(_str_func,key)) 
                     
         if rgb is not None:
             if not _b_2016Plus:
-                raise ValueError,"|{0}|  >> RGB values introduced in maya 2016. Current version: {1}".format(_str_func,cgmGEN.__mayaVersion__) 
+                raise ValueError("|{0}|  >> RGB values introduced in maya 2016. Current version: {1}".format(_str_func,cgmGEN.__mayaVersion__)) 
             
             _b_RBGMode = True        
             if len(rgb) == 3:
                 _color = rgb
             else:
-                raise ValueError,"|{0}|  >> Too many rgb values: '{1}'".format(_str_func,rgb) 
+                raise ValueError("|{0}|  >> Too many rgb values: '{1}'".format(_str_func,rgb)) 
             
         if index is not None:
             _color = index
@@ -1157,7 +1157,7 @@ def override_clear(target = None, pushToShapes = True):
         info(dict)
     """   
     _str_func = "override_clear"
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
 
     _shapes = []
     
@@ -1173,13 +1173,13 @@ def override_clear(target = None, pushToShapes = True):
             _shapes.extend(_bfr)
             
     if not _shapes:
-        raise ValueError,"|{0}|  >> Not a shape and has no shapes: '{1}'".format(_str_func,target)        
+        raise ValueError("|{0}|  >> Not a shape and has no shapes: '{1}'".format(_str_func,target))        
 
     for i,s in enumerate(_shapes):
         mShape = r9Meta.MetaClass(s)
         try:
             mShape.overrideEnabled = False
-        except Exception,err:
+        except Exception as err:
             log.warning("|{0}|  >> target failed: {1} | err: {2}".format(_str_func,s,err))        
             
     return True
@@ -1226,10 +1226,10 @@ def getControlShader(direction = 'center', controlType = 'main',
                 
                 _d = {'diffuse':.65,
                       'specularColor':[0.142857,0.142857,0.142857]}
-                for a,v in _d.iteritems():
+                for a,v in list(_d.items()):
                     try:
                         ATTR.set(_node,a,v)
-                    except Exception,err:
+                    except Exception as err:
                         log.error(err)
             else:
                 _color = SHARED._d_side_colors[direction][controlType]
@@ -1269,10 +1269,10 @@ def getControlShader(direction = 'center', controlType = 'main',
                       'reflectivity':0
                       }
                 
-                for a,v in _d.iteritems():
+                for a,v in list(_d.items()):
                     try:
                         ATTR.set(_node,a,v)
-                    except Exception,err:
+                    except Exception as err:
                         log.error(cgmGEN.logString_msg(_str_func, "Failed to set: {0} | {1} | {2}".format(a,v,err)))
 
 
@@ -1336,7 +1336,7 @@ def colorControl(target = None, direction = 'center', controlType = 'main', push
     """   
     
     _str_func = "color_control"
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
     l_targets = VALID.listArg(target)
     
     if rgb:
@@ -1390,7 +1390,7 @@ def colorControl(target = None, direction = 'center', controlType = 'main', push
 
 def color_mesh(target=None, direction = 'center', controlType = 'main', transparent = False,proxy=False, directProxy=False):
     _str_func = "color_mesh"    
-    if not target:raise ValueError,"|{0}|  >> Must have a target".format(_str_func)
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
     l_targets = VALID.listArg(target)
     
     _shader, _set = getControlShader(direction,controlType,transparent,proxy,directProxy)    
@@ -1462,11 +1462,11 @@ def duplicate_shape(shape):
             return [_bfr[0],_dupShape]
             
         
-    except Exception,err:
+    except Exception as err:
         pprint.pprint(vars())
         if not SEARCH.is_shape(shape):
             log.error("|{0}|  >> Failure >> Not a shape: {1}".format(_str_func,shape))
-        raise Exception,"|{0}|  >> failed! | err: {1}".format(_str_func,err)  
+        raise Exception("|{0}|  >> failed! | err: {1}".format(_str_func,err))  
     
 def is_mirrorable(obj = None):
     """
@@ -1498,7 +1498,7 @@ def mirror(obj = None, mode = ''):
     obj = valid_arg_single(obj, 'obj', _str_func)
     try:    
         r9Anim.MirrorHierarchy([obj]).mirrorData(mode = mode)
-    except Exception,err:
+    except Exception as err:
         _mirrorable = is_mirrorable(obj)
         log.error("|{0}| >> failure. obj: {1} | mirrorable: {2} | mode: {3} | err: {4}".format(_str_func,obj,_mirrorable,mode,err))
 

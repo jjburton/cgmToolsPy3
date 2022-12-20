@@ -181,7 +181,7 @@ class puppetBoxClass(BaseMelWindow):
 
     def updateModulesUI(self):
         def optionMenuSet(item):
-            print item
+            print(item)
             #puppetBoxLib.uiModuleSetCGMTag(self,tag,item,index)
             """
 			i =  self.setModes.index(item)

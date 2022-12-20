@@ -146,7 +146,7 @@ class go(cgmUI.cgmGUI):
                                                                          ann = _ann,
                                                                          c = mUI.Callback(self.var_SpaceMode.setValue,i),
                                                                          rb = _rb))            
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
 
@@ -168,7 +168,7 @@ class go(cgmUI.cgmGUI):
                                                                            ann = _ann,
                                                                            c = mUI.Callback(self.var_ClickCreate.setValue,i),
                                                                            rb = _rb))   
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         """try:#>>> Sym Axis....
@@ -210,7 +210,7 @@ class go(cgmUI.cgmGUI):
                                                                                  ann = _ann,
                                                                                  c = mUI.Callback(self.var_CastLatheAxis.setValue,i),
                                                                                  rb = _rb))      
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#>>> Aim Axis....
@@ -231,7 +231,7 @@ class go(cgmUI.cgmGUI):
                                                                              ann = _ann,
                                                                              c = mUI.Callback(self.var_CastAimAxis.setValue,i),
                                                                              rb = _rb))      
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#>>> Object Up Axis....
@@ -252,7 +252,7 @@ class go(cgmUI.cgmGUI):
                                                                                  ann = _ann,
                                                                                  c = mUI.Callback(self.var_CastObjectUp.setValue,i),
                                                                                  rb = _rb))      
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#>>> Extend Mode....
@@ -273,7 +273,7 @@ class go(cgmUI.cgmGUI):
                                                                                    ann = _ann,
                                                                                    c = mUI.Callback(self.var_CastExtendMode.setValue,i),
                                                                                    rb = _rb))      
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         #>>> Reset Options
@@ -335,8 +335,8 @@ class go(cgmUI.cgmGUI):
                       ac = [(uiColumn_main,"bottom",2,_row_cgm),
                             ],
                       attachNone = [(_row_cgm,"top")])            
-        except Exception,error:
-            raise Exception,"{0} build_layoutWrapper failed | {1}".format(self._str_reportStart,error)
+        except Exception as error:
+            raise Exception("{0} build_layoutWrapper failed | {1}".format(self._str_reportStart,error))
     #@cgmGeneral.Timer
     def setup_Variables(self):
         #cgmUI.cgmGUI.setup_Variables(self)#Initialize parent ones, then add our own
@@ -428,7 +428,7 @@ class go(cgmUI.cgmGUI):
                              lambda *a:self.castTargets_clearAll(),
                              annotationText='Select negative vertices')
             _uiRow_castTargets.layout()      
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         #>>>CLICK MESH ========================================================================
@@ -463,7 +463,7 @@ class go(cgmUI.cgmGUI):
             _uiRow_clickMeshMode.layout()      
 
             mc.radioCollection(self.uiRadioCollection_clickMesh ,edit=True,sl= (self.uiOptions_clickMesh[ (self.var_ClickMode.value) ]))
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#Click Mesh Buttons ---------------------------------------------------------------------------------------
@@ -499,7 +499,7 @@ class go(cgmUI.cgmGUI):
             _uiRow_clickMeshButtons.layout()      
 
             #mc.radioCollection(self.ClickMeshCreateModeCollection ,edit=True,sl= (self.ClickMeshCreateModeCollectionChoices[ (self.ClickMeshModeOptionVar.value) ]))
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         mc.setParent(containerName)	
@@ -560,7 +560,7 @@ class go(cgmUI.cgmGUI):
 
             mUI.MelSpacer(_uiRow_slice,w=2)		    
             _uiRow_slice.layout()    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#Curve Slice Row 2 ---------------------------------------------------------------------------------------
@@ -610,7 +610,7 @@ class go(cgmUI.cgmGUI):
             _uiRow_slice.layout()    
             mc.setParent(containerName)
             cgmUI.add_LineSubBreak()	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
 
@@ -646,7 +646,7 @@ class go(cgmUI.cgmGUI):
             _uiRow_slice.layout()  
             mc.setParent(containerName)
             cgmUI.add_LineSubBreak()	  
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         try:#Wrap Row 1 ---------------------------------------------------------------------------------------
@@ -696,7 +696,7 @@ class go(cgmUI.cgmGUI):
             _uiRow_wrap.layout()  
             mc.setParent(containerName)
             cgmUI.add_SectionBreak()
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))  
 
         try:#Wrap Slice Row 2 ---------------------------------------------------------------------------------------
@@ -739,7 +739,7 @@ class go(cgmUI.cgmGUI):
 
             mUI.MelSpacer(_uiRow_slice,w=2)		    
             _uiRow_slice.layout()    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
 
         """
@@ -805,7 +805,7 @@ class go(cgmUI.cgmGUI):
             #mUI.MelSpacer(self.uiRow_baseValues,w = 5)       
             mUI.MelSpacer(self.uiRow_ProxiExpandMode,w=5)                 
             self.uiRow_ProxiExpandMode.layout()          
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {12}".format(self._str_reportStart,_str_section,err))
 
         try:#        
@@ -836,7 +836,7 @@ class go(cgmUI.cgmGUI):
             mc.radioCollection(self.uiRadioCollection_result, edit=True, sl=self.uiOptions_proximityMode[self.var_ProxiResult.value])
             mUI.MelSpacer(self.uiRow_ProxiResult,w=5)                 
             self.uiRow_ProxiResult.layout()          
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {12}".format(self._str_reportStart,_str_section,err))
 
         try:#        
@@ -866,7 +866,7 @@ class go(cgmUI.cgmGUI):
                              lambda *a:self.targets_proxiMesh())
             mUI.MelSpacer(self.uiRow_ProxiMode,w=5)                 
             self.uiRow_ProxiMode.layout()          
-        except Exception,err:
+        except Exception as err:
             log.error("{0} {1} failed to load. err: {12}".format(self._str_reportStart,_str_section,err))
 
 
@@ -1029,7 +1029,7 @@ class go(cgmUI.cgmGUI):
                                  lambda *a:self.baseObject_select('asymmetrical'),
                                  annotationText='Select asymmetrical vertices')
                 self.uiRow_baseSelect.layout()
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
             
             try:#>>> Select
@@ -1061,7 +1061,7 @@ class go(cgmUI.cgmGUI):
                                  lambda *a:self.tarObject_select('moved'),
                                  annotationText='Select vertices that move')
                 self.uiRow_targetSelect2.layout()                       
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
                 
             #>>> Targets
@@ -1257,8 +1257,8 @@ class go(cgmUI.cgmGUI):
             uiRow_blendTargets.setStretchWidget(self.uiSlider_targetsBlend)#Set stretch              
 
             return containerName
-        except Exception,error:
-            raise Exception,"{0} buildTab_Asset failed | {1}".format(self._str_reportStart,error)
+        except Exception as error:
+            raise Exception("{0} buildTab_Asset failed | {1}".format(self._str_reportStart,error))
 
     def valid_tf_tolerance(self):
         _buffer = self.uiTF_tolerance.getValue()
@@ -1292,7 +1292,7 @@ class go(cgmUI.cgmGUI):
                 self.uiTF_ClickClamp.setValue(_buffer)
             else:self.uiTF_ClickClamp.setValue(self.var_ClickClamp.value)	    
 
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_tf_clickClamp failed! err: {1}".format(self._str_reportStart,err))
 
     def valid_intf_castPoints(self):
@@ -1305,7 +1305,7 @@ class go(cgmUI.cgmGUI):
                 self.uiIF_CastPoints.setValue(_buffer)
             else:self.uiIF_CastPoints.setValue(self.var_CastPoints.value)	    
 
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_intf_castPoints failed! err: {1}".format(self._str_reportStart,err))
 
     def valid_intf_castDegree(self):
@@ -1318,7 +1318,7 @@ class go(cgmUI.cgmGUI):
                 self.uiIF_CastDegree.setValue(_buffer)
             else:self.uiIF_CastDegree.setValue(self.var_CastDegree.value)	    
 
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_intf_castDegree failed! err: {1}".format(self._str_reportStart,err))   
 
     def valid_ff_CastXOffset(self):
@@ -1328,7 +1328,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastXOffset.value == _buffer:
                 self.uiFF_CastXOffset.setValue(_buffer)
             else:self.uiFF_CastXOffset.setValue(self.var_CastXOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastXOffset failed! err: {1}".format(self._str_reportStart,err))  
 
 
@@ -1339,7 +1339,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastXRootOffset.value == _buffer:
                 self.uiFF_CastXRoot.setValue(_buffer)
             else:self.uiFF_CastXRoot.setValue(self.var_CastXRootOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastXRootOffset failed! err: {1}".format(self._str_reportStart,err)) 
     def valid_ff_CastYRootOffset(self):
         try:
@@ -1348,7 +1348,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastYRootOffset.value == _buffer:
                 self.uiFF_CastYRoot.setValue(_buffer)
             else:self.uiFF_CastYRoot.setValue(self.var_CastYRootOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastYRootOffset failed! err: {1}".format(self._str_reportStart,err)) 
     def valid_ff_CastZRootOffset(self):
         try:
@@ -1357,7 +1357,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastZRootOffset.value == _buffer:
                 self.uiFF_CastZRoot.setValue(_buffer)
             else:self.uiFF_CastZRoot.setValue(self.var_CastZRootOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastZRootOffset failed! err: {1}".format(self._str_reportStart,err)) 
 
     def valid_ff_CastXOffset(self):
@@ -1367,7 +1367,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastXOffset.value == _buffer:
                 self.uiFF_CastXOffset.setValue(_buffer)
             else:self.uiFF_CastXOffset.setValue(self.var_CastXOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastXOffset failed! err: {1}".format(self._str_reportStart,err))  
     def valid_ff_CastYOffset(self):
         try:
@@ -1376,7 +1376,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastYOffset.value == _buffer:
                 self.uiFF_CastYOffset.setValue(_buffer)
             else:self.uiFF_CastYOffset.setValue(self.var_CastYOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastYOffset failed! err: {1}".format(self._str_reportStart,err))  	    
     def valid_ff_CastZOffset(self):
         try:
@@ -1385,7 +1385,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastZOffset.value == _buffer:
                 self.uiFF_CastZOffset.setValue(_buffer)
             else:self.uiFF_CastZOffset.setValue(self.var_CastZOffset.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastZOffset failed! err: {1}".format(self._str_reportStart,err)) 
 
     def valid_ff_CastInsetMult(self):
@@ -1395,7 +1395,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastInsetMult.value == _buffer:
                 self.uiFF_CastInsetMult.setValue(_buffer)
             else:self.uiFF_CastInsetMult.setValue(self.var_CastInsetMult.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastInsetMult failed! err: {1}".format(self._str_reportStart,err))
 
     def valid_ff_CastMinRotate(self):
@@ -1405,7 +1405,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastMinRotate.value == _buffer:
                 self.uiFF_CastMinRotate.setValue(_buffer)
             else:self.uiFF_CastMinRotate.setValue(self.var_CastMinRotate.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastMinRotate failed! err: {1}".format(self._str_reportStart,err))  
 
     def valid_ff_CastMaxRotate(self):
@@ -1415,7 +1415,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastMaxRotate.value == _buffer:
                 self.uiFF_CastMaxRotate.setValue(_buffer)
             else:self.uiFF_CastMaxRotate.setValue(self.var_CastMaxRotate.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastMaxRotate failed! err: {1}".format(self._str_reportStart,err))  
 
     def valid_ff_CastRange(self):
@@ -1425,7 +1425,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastRange.value == _buffer:
                 self.uiFF_CastRange.setValue(_buffer)
             else:self.uiFF_CastRange.setValue(self.var_CastRange.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastMaxRotate failed! err: {1}".format(self._str_reportStart,err)) 
 
     def valid_ff_CastRotateBank(self):
@@ -1435,7 +1435,7 @@ class go(cgmUI.cgmGUI):
             if self.var_CastRotateBank.value == _buffer:
                 self.uiFF_CastRotateBank.setValue(_buffer)
             else:self.uiFF_CastRotateBank.setValue(self.var_CastRotateBank.value)	    
-        except Exception,err:
+        except Exception as err:
             log.error("{0} valid_ff_CastRotateBank failed! err: {1}".format(self._str_reportStart,err))     
 
     def baseObject_set(self, base = None):
@@ -1453,7 +1453,7 @@ class go(cgmUI.cgmGUI):
                 self.uiTextField_baseObject.setValue(_base)
                 self.var_BaseObject.value = _base
                 self.baseObject_reprocessSym()
-            except Exception,err:
+            except Exception as err:
                 log.warning("{0} No base found: {1}".format(self._str_reportStart, err))
                 self._mi_baseObject = False
                 self.uiTextField_baseObject.setValue('')
@@ -1499,7 +1499,7 @@ class go(cgmUI.cgmGUI):
                                   resultMode=_d['resultMode'],
                                   multiplier=_multiplier,
                                   symDict=self._d_baseSym))  
-        except Exception,err:
+        except Exception as err:
             log.error("{0}: meshMath(targets) fail. err:{1}".format(self._str_reportStart,err))                
 
     def targets_proxiMesh(self):
@@ -1520,7 +1520,7 @@ class go(cgmUI.cgmGUI):
             log.info(GEO.get_proximityGeo(_base.mNode,[mObj.mNode for mObj in _ml_objs[1:]],
                                           self.var_ProxiMode.value, returnMode= self.var_ProxiResult.value,
                                           expandBy=self.var_ProxiExpand.value, expandAmount=self.var_ProxiAmount.value)) 
-        except Exception,err:
+        except Exception as err:
             log.error("{0}: create_proximityMeshFromTarget() fail. | err:{1}".format(self._str_reportStart,err))                
 
 
@@ -1532,7 +1532,7 @@ class go(cgmUI.cgmGUI):
             _d = {}
             for mObj in self._ml_castTargets:
                 _d[mObj.mNode] = mObj    
-            _keys = _d.keys()
+            _keys = list(_d.keys())
             _keys.sort()
             self._ml_castTargets = [_d[k] for k in _keys]
 
@@ -1557,8 +1557,8 @@ class go(cgmUI.cgmGUI):
                                 label = "Remove nonselected",
                                 annotation = 'Remove the non-indicated objects as targets',                                                                
                                 c = lambda *a: self.castTargets_removeNonselected())                
-        except Exception,err:
-            raise Exception,"{0} uiList_updateCastTargets failed | {1}".format(self._str_reportStart,err)
+        except Exception as err:
+            raise Exception("{0} uiList_updateCastTargets failed | {1}".format(self._str_reportStart,err))
 
     def baseObject_blendSlider(self):
         _multiplier = self.uiSlider_baseBlend(q=True, value=True)
@@ -1811,7 +1811,7 @@ class go(cgmUI.cgmGUI):
 
         if _extendMode in ['segment']:
             if len(_ml_objs) == 1:
-                raise ValueError,"Must have two objects selected for segment casting"
+                raise ValueError("Must have two objects selected for segment casting")
             log.info(_ml_pairs)
             _ml_pairs = lists.parseListToPairs(_ml_objs)
             for p in _ml_pairs:
@@ -1919,7 +1919,7 @@ class go(cgmUI.cgmGUI):
         _toSnap = mc.ls(sl=True) or []
         log.info("clickMesh_snap | targets: {0}".format(_toSnap))
         if not _toSnap:
-            raise ValueError,"clickMesh_snap >> Must have targets!"
+            raise ValueError("clickMesh_snap >> Must have targets!")
         DraggerContextFactory.clickMesh( mode = self.var_ClickMode.value,
                                          mesh = _l_mesh,
                                          closestOnly = True,
@@ -1979,7 +1979,7 @@ class go(cgmUI.cgmGUI):
 
             self.uiReport_base(edit = True, label = '||'.join(_report) )
 
-        except Exception,err:
+        except Exception as err:
             log.error("{0} failed to reprocessSym: {1}".format(self._str_reportStart,err))
             self._d_baseSym = {}
             self.uiReport_base(edit = True, label = "..." )
@@ -2136,8 +2136,8 @@ class EXMAPLE(cgmUI.cgmGUI):
             #self.create_guiOptionVar('FaceBuildOption',defaultValue = False, varType = 'bool')	    
             #self.create_guiOptionVar('BlendShapesOption',defaultValue = 0, varType = 'int')	    
             #self.create_guiOptionVar('FaceSetupTypeOption',defaultValue = 0, varType = 'int')	    
-        except Exception,error:
-            raise Exception,"{0} setup_Variables failed | {1}".format(self._str_reportStart,error)  
+        except Exception as error:
+            raise Exception("{0} setup_Variables failed | {1}".format(self._str_reportStart,error))  
 
     def reload(self):
         """

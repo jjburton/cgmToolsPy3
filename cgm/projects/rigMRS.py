@@ -20,12 +20,12 @@ from cgm.core import cgm_General as cgmGEN
 @cgmGEN.Timer
 '''
 from Red9.core import Red9_Meta as r9Meta
-import cgm
+from . import cgm
 
-from cgm.core.mrs import RigBlocks as RIGBLOCKS
+from .cgm.core.mrs import RigBlocks as RIGBLOCKS
 
-import cgm.core.cgm_General as cgmGEN
-from cgm.core.mrs.lib import general_utils as BLOCKGEN
+from . import cgm.core.cgm_General as cgmGEN
+from .cgm.core.mrs.lib import general_utils as BLOCKGEN
 
 
 @cgmGEN.Timer
@@ -86,7 +86,7 @@ def createMRSRig(folderPath):
                     if l_fails:
                         log.info('The following failed...')
                         pprint.pprint(l_fails)
-                        raise ValueError,"Modules failed to rig: {0}".format(l_fails)
+                        raise ValueError("Modules failed to rig: {0}".format(l_fails))
 
 
                     log.info("Begin Rig Prep cleanup...")
@@ -123,7 +123,7 @@ def createMRSRig(folderPath):
 
             else :
                 log.info("There was an error creating new file...")
-        except Exception,err:
+        except Exception as err:
             log.error("File failed: {0}".format(_file))
             cgmGEN.cgmException(Exception,err)
                 

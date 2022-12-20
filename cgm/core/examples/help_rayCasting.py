@@ -20,6 +20,7 @@ from cgm.lib import curves,locators
 from cgm.core import cgm_Meta as cgmMeta
 import maya.cmds as mc
 import copy
+import importlib
 
 #>>Setup ==================================================================================== 
 '''
@@ -38,8 +39,8 @@ mi_aimObj = cgmMeta.cgmObject(curves.createControlCurve('arrowSingleFat3d',5,'y-
 
 #This is gonna be our dict reporter
 def report_dict(d):
-    for k in d.keys():
-        print ("# {0} | {1}".format(k,d[k]))    
+    for k in list(d.keys()):
+        print(("# {0} | {1}".format(k,d[k])))    
 #===============================================================================================
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -128,8 +129,8 @@ mi_aimObj.translate = 0,0,0#...let's reset
 mi_aimObj.rotate = 0,0,0#...let's reset 
 str_castTo = str_mesh #...Link our mesh as our current cast to object
 
-reload(ShapeCast)
-reload(cgmGeneral)
+importlib.reload(ShapeCast)
+importlib.reload(cgmGeneral)
 
 #We're gonna setup up some options here so we can easily change them 
 latheAxis = 'z'

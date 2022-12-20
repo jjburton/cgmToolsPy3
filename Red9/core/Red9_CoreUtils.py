@@ -16,7 +16,7 @@
     Setup : Follow the Install instructions in the Modules package
 '''
 
-from __future__ import print_function
+
 
 import maya.cmds as cmds
 import maya.OpenMaya as OpenMaya
@@ -30,10 +30,10 @@ import os
 import Red9.packages.configobj as configobj
 import Red9.startup.setup as r9Setup
 
-import Red9_General as r9General
-import Red9_Audio as r9Audio
-import Red9_AnimationUtils as r9Anim
-import Red9_Meta as r9Meta
+from . import Red9_General as r9General
+from . import Red9_Audio as r9Audio
+from . import Red9_AnimationUtils as r9Anim
+from . import Red9_Meta as r9Meta
 
 import logging
 logging.basicConfig()
@@ -270,7 +270,7 @@ def decodeString(val):
         except:
             log.debug('failed to convert configObj section %s' % val)
 
-        if not issubclass(type(val), str) and not type(val) == unicode:
+        if not issubclass(type(val), str) and not type(val) == str:
             # log.debug('Val : %s : is not a string / unicode' % val)
             # log.debug('ValType : %s > left undecoded' % type(val))
             return val
@@ -296,15 +296,13 @@ def decodeString(val):
             # log.debug('Decoded as type(dict)')
             return eval(val)
         try:
-            encoded = int(val)
             # log.debug('Decoded as type(int)')
-            return encoded
+            return int(val)
         except:
             pass
         try:
-            encoded = float(val)
             # log.debug('Decoded as type(float)')
-            return encoded
+            return float(val)
         except:
             pass
     except:
@@ -633,7 +631,7 @@ class FilterNode_Settings(object):
             this is a new function allowing a dict of data to be passed into the
             object from a config file or mNode directly
         '''
-        for key, val in data.items():
+        for key, val in list(data.items()):
             try:
                 self.__dict__[key] = decodeString(val)
             except:
@@ -667,7 +665,7 @@ class FilterNode_Settings(object):
             if os.path.exists(os.path.join(r9Setup.red9Presets(), filepath)):
                 filepath = os.path.join(r9Setup.red9Presets(), filepath)
 
-        for key, val in configobj.ConfigObj(filepath)['filterNode_settings'].items():
+        for key, val in list(configobj.ConfigObj(filepath)['filterNode_settings'].items()):
             # because config is built from string data
             # we need to deal with specific types here
             try:
@@ -819,7 +817,7 @@ class FilterNode_UI(object):
             if cmds.checkBox(self.uiCbFromSelected, q=True, v=True):
                 self._filterNode.rootNodes = cmds.ls(sl=True, l=True)
                 if not self._filterNode.rootNodes:
-                    raise StandardError('No Root Nodes Given for Filtering')
+                    raise Exception('No Root Nodes Given for Filtering')
             else:
                 self._filterNode.rootNodes = None
                 self._filterNode.processMode = 'Scene'
@@ -830,7 +828,7 @@ class FilterNode_UI(object):
         elif mode == 'FullHierarchy':
             self._filterNode.rootNodes = cmds.ls(sl=True, l=True)
             if not self._filterNode.rootNodes:
-                raise StandardError('No Root Objects selected to process')
+                raise Exception('No Root Objects selected to process')
             nodes = self._filterNode.lsHierarchy(self._filterNode.settings.incRoots)
 
         log.info('RootNodes : %s', self._filterNode.rootNodes)
@@ -886,7 +884,7 @@ class FilterNode(object):
             if issubclass(type(filterSettings), FilterNode_Settings):
                 self.settings = filterSettings
             else:
-                raise StandardError('filterSettings param requires an r9Core.FilterNode_Settings object')
+                raise Exception('filterSettings param requires an r9Core.FilterNode_Settings object')
         else:
             self.settings = FilterNode_Settings()
 
@@ -964,7 +962,7 @@ class FilterNode(object):
                             self.settings.rigData['snapPriority'] = True
                         self.settings.printSettings()
                         # log.info('==============================================================')
-                    except StandardError, err:
+                    except Exception as err:
                         log.info('mRig has FilterSettings data but is NOT a Pro_MetaRig - settings aborted')
                         log.info(err)
                 else:
@@ -1046,7 +1044,7 @@ class FilterNode(object):
                         self.hierarchy.extend(cmds.listRelatives(node, ad=True, f=True, type='transform') or [])
             return self.hierarchy
         else:
-            raise StandardError('rootNodes not given to class - processing at SceneLevel Only - lsHierarchy is therefore invalid')
+            raise Exception('rootNodes not given to class - processing at SceneLevel Only - lsHierarchy is therefore invalid')
 
     # Node Management Block
     # ---------------------------------------------------------------------------------
@@ -1131,7 +1129,7 @@ class FilterNode(object):
                                 blendShapes = [node for node in cmds.listHistory(mesh) if cmds.nodeType(node) == 'blendShape']
                                 if blendShapes:
                                     typeMatched.extend(blendShapes)
-            except StandardError, error:
+            except Exception as error:
                 log.debug(error)
                 log.warning('UnknownDataType Given in sublist : %s', nodeTypes)
 
@@ -1355,8 +1353,8 @@ class FilterNode(object):
                 includeAttrs[attr] = val
 
         if logging_is_debug():
-            log.debug('includes : %s' % includeAttrs.items())
-            log.debug('excludes : %s' % excludeAttrs.items())
+            log.debug('includes : %s' % list(includeAttrs.items()))
+            log.debug('excludes : %s' % list(excludeAttrs.items()))
 
         # Node block
         if not nodes:
@@ -1365,7 +1363,7 @@ class FilterNode(object):
             else:
                 nodes = self.lsHierarchy(incRoots=incRoots)
             if not nodes:
-                raise StandardError('No nodes found to process')
+                raise Exception('No nodes found to process')
 
         # Search block
         for node in nodes:
@@ -1377,7 +1375,7 @@ class FilterNode(object):
                 add = True
 
             # Main test block, does the node get through the filter?
-            for attr, val in includeAttrs.items():  # INCLUDE TESTS
+            for attr, val in list(includeAttrs.items()):  # INCLUDE TESTS
                 if cmds.attributeQuery(attr, exists=True, node=node):
                     if val[0]:  # value test
                         if not type(val[1]) == float:
@@ -1409,7 +1407,7 @@ class FilterNode(object):
                         log.debug('attr Include : Value Mismatch found : <BREAKOUT>')
                         break
 
-            for attr, val in excludeAttrs.items():  # EXCLUDE TESTS ('NOT:' operator)
+            for attr, val in list(excludeAttrs.items()):  # EXCLUDE TESTS ('NOT:' operator)
                 if cmds.attributeQuery(attr, exists=True, node=node):
                     if val[0]:  # value Test
                         if not type(val[1]) == float:
@@ -1495,7 +1493,7 @@ class FilterNode(object):
             else:
                 nodes = self.lsHierarchy(incRoots=incRoots)
             if not nodes:
-                raise StandardError('No nodes found to process')
+                raise Exception('No nodes found to process')
 
         # Actual Search calls
         if exclude:
@@ -1531,13 +1529,13 @@ class FilterNode(object):
                 # Test the full hierarchy for characterSet memberships
                 hierarchy = self.lsHierarchy(incRoots=True)
                 if not hierarchy:
-                    raise StandardError('Roots have no children to process')
+                    raise Exception('Roots have no children to process')
                 for f in hierarchy:
                     linked = cmds.listConnections(f, type='character')
                     if linked:
                         [cSets.append(cSet) for cSet in linked if cSet not in cSets]
         else:
-            raise StandardError('rootNodes not given to class - processing at SceneLevel Only')
+            raise Exception('rootNodes not given to class - processing at SceneLevel Only')
         return cSets
 
     def lsCharacterMembers(self):
@@ -1731,7 +1729,7 @@ def getBlendTargetsFromMesh(node, asList=True, returnAll=False, levels=4, indexe
             weights = cmds.aliasAttr(blend, q=True)
             # print weights
             if weights:
-                data = zip(weights[1::2], weights[0::2])
+                data = list(zip(weights[1::2], weights[0::2]))
                 weightKey = lambda x: int(x[0].replace('weight[', '').replace(']', ''))
                 weightSorted = sorted(data, key=weightKey)
                 if asList:
@@ -1832,11 +1830,11 @@ def matchNodeLists(nodeListA, nodeListB, matchMethod='stripPrefix', returnfails=
         _B_prefix = '^%s' %_B_prefix.upper()
 
     if matchMethod == 'index':
-        matchedData = zip(nodeListA, nodeListB)
+        matchedData = list(zip(nodeListA, nodeListB))
     elif matchMethod == 'indexReversed':
         nodeListA.reverse()
         nodeListB.reverse()
-        matchedData = zip(nodeListA, nodeListB)
+        matchedData = list(zip(nodeListA, nodeListB))
     else:
         for nodeA in nodeListA:
             if matchMethod == 'mirrorIndex':
@@ -1928,7 +1926,7 @@ def matchNodeLists(nodeListA, nodeListB, matchMethod='stripPrefix', returnfails=
 
                     # straight metaData wire compare
                     elif matchMethod == 'metaData':
-                        if nodeB not in metaDictB.keys():
+                        if nodeB not in list(metaDictB.keys()):
                             metaDictB[nodeB] = getMetaDict(nodeB)
                         if metaDictA and metaDictA == metaDictB[nodeB]:  # getMetaDict(nodeB):
                             if logging_is_debug():
@@ -1996,7 +1994,7 @@ def processMatchedNodes(nodes=None, filterSettings=None, toMany=False, matchMeth
         nodeList.MatchedPairs = [(nodes[0], node) for node in nodes]
 
     if not nodeList.MatchedPairs:
-        raise StandardError('ProcessNodes returned no Nodes to process')
+        raise Exception('ProcessNodes returned no Nodes to process')
 
     return nodeList
 
@@ -2040,7 +2038,7 @@ class MatchedNodeInputs(object):
             if issubclass(type(filterSettings), FilterNode_Settings):
                 self.settings = filterSettings
             else:
-                raise StandardError('settings param requires an FilterNode_Settings object')
+                raise Exception('settings param requires an FilterNode_Settings object')
         else:
             self.settings = FilterNode_Settings()
 
@@ -2056,7 +2054,7 @@ class MatchedNodeInputs(object):
         '''
         if self.settings.filterIsActive():
             if not len(self.roots) == 2:
-                raise StandardError('Please select ONLY 2 base objects for hierarchy comparison')
+                raise Exception('Please select ONLY 2 base objects for hierarchy comparison')
 
             # take a single instance of a FilterNode and process both root hierarchies
             filterNode = FilterNode(filterSettings=self.settings)
@@ -2087,7 +2085,7 @@ class MatchedNodeInputs(object):
                     self.unmatched = [node for node in rematched if node in self.unmatched]
         else:
             if not len(self.roots) >= 2:
-                raise StandardError('Please select 2 or more matching base objects')
+                raise Exception('Please select 2 or more matching base objects')
             if len(self.roots) == 2 and type(self.roots[0]) == list and type(self.roots[1]) == list:
                 log.debug('<<2 lists passed in as roots - Assuming these are 2 hierarchies to process>>')
                 self.MatchedPairs = matchNodeLists(self.roots[0], self.roots[1],
@@ -2097,7 +2095,7 @@ class MatchedNodeInputs(object):
             else:
                 # No matching, just take roots as selected and substring them with step
                 # so that (roots[0],roots[1])(roots[2],roots[3])
-                self.MatchedPairs = zip(self.roots[0::2], self.roots[1::2])
+                self.MatchedPairs = list(zip(self.roots[0::2], self.roots[1::2]))
                 for a, b in self.MatchedPairs:
                     log.debug('Blind Selection Matched  : %s == %s' % (a, b))
 
@@ -2300,11 +2298,11 @@ class LockChannels(object):
             nodes = cmds.ls(sl=True, l=True)
 
             if hierarchy and not nodes:
-                raise StandardError('No Root of hierarchy selected to Process')
+                raise Exception('No Root of hierarchy selected to Process')
             if hierarchy and nodes and r9Meta.isMetaNode(nodes[0]):
-                raise StandardError('MetaData node can not be the Root for hierarchy processing')
+                raise Exception('MetaData node can not be the Root for hierarchy processing')
             if not hierarchy and not nodes:
-                raise StandardError('No nodes selected to Process')
+                raise Exception('No nodes selected to Process')
 
             if not cmds.checkBox('serializeToNode', q=True, v=True):
                 if mode == 'load':
@@ -2316,7 +2314,7 @@ class LockChannels(object):
             else:
                 serializerNode = cmds.textFieldButtonGrp('uitfbg_serializeNode', q=True, text=True)
                 if not cmds.objExists(serializerNode):
-                    raise StandardError('No VALID MayaNode given to save/load the attrMaps to/From')
+                    raise Exception('No VALID MayaNode given to save/load the attrMaps to/From')
                 if mode == 'load':
                     LockChannels().loadChannelMap(filepath=None, nodes=nodes, hierarchy=hierarchy, serializeNode=serializerNode)
                 elif mode == 'save':
@@ -2386,9 +2384,9 @@ class LockChannels(object):
             try:
                 node.attrSetLocked('attrMap', True)
                 # cmds.setAttr('%s.attrMap' % serializeNode, l=True)
-            except StandardError, error:
+            except Exception as error:
                 # referenced attrs, even though we've just added it, can't be locked!
-                raise StandardError(error)
+                raise Exception(error)
         log.info('<< AttrMap Processed >>')
 
     def loadChannelMap(self, filepath=None, nodes=None, hierarchy=True, serializeNode=None):
@@ -2420,7 +2418,7 @@ class LockChannels(object):
                 self.statusDict = serializeNode.attrMap
                 # print type(self.statusDict), self.statusDict
             else:
-                raise StandardError('attrMap not found on given node')
+                raise Exception('attrMap not found on given node')
 
         for node in nodes:
             key = nodeNameStrip(node)
@@ -2565,7 +2563,7 @@ class LockChannels(object):
                         else:
                             cmds.setAttr(attrString, **attrKws)
 
-                except StandardError, error:
+                except Exception as error:
                     log.info(error)
 
 #                 try:
@@ -2651,7 +2649,7 @@ def timeOffset_collapse(scene=False, timerange=None, mRigs=False):
         timerange = r9Anim.timeLineRangeGet(always=True)
     nodes = None
     if not timerange:
-        raise StandardError('No timeRange selected to Compress')
+        raise Exception('No timeRange selected to Compress')
     offset = -(timerange[1] - timerange[0])
     if not scene:
         nodes = cmds.ls(sl=True, l=True)
@@ -2900,7 +2898,7 @@ class TimeOffset(object):
 
                 return cls._processed
         else:
-            raise StandardError('Nothing selected or returned from the Hierarchy filter to offset')
+            raise Exception('Nothing selected or returned from the Hierarchy filter to offset')
 
     @classmethod
     def animCurves(cls, offset, nodes=None, timerange=None, ripple=True, safe=True, allow_ref=False):
@@ -2959,7 +2957,7 @@ class TimeOffset(object):
                         cmds.keyframe(curve, edit=True, r=True, timeChange=offset)
                     log.debug('offsetting: %s' % curve)
                     curves_moved.append(curve)
-                except StandardError, err:
+                except Exception as err:
                     log.info('Failed to offset curves fully : %s' % curve)
                     log.debug(err)
             log.info('%i : AnimCurves were offset' % len(curves_moved))
@@ -3251,6 +3249,18 @@ def distanceBetween(nodeA, nodeB):
     x1, y1, z1, _, _, _ = cmds.xform(nodeA, q=True, ws=True, piv=True)
     x2, y2, z2, _, _, _ = cmds.xform(nodeB, q=True, ws=True, piv=True)
     return math.sqrt(math.pow((x1 - x2), 2) + math.pow((y1 - y2), 2) + math.pow((z1 - z2), 2))
+
+def getClosestNode(target, nodelist):
+    '''
+    From a list of transforms find the node that is closest to the target node and return
+    
+    :param target: the node we're trying to find the closest match too
+    :param nodelist: list of nodes we're going to test against
+    '''
+    distances = {}
+    for node in nodelist:
+        distances[distanceBetween(node, target)] = node
+    return distances[sorted(distances)[0]]
 
 def convertUnits_internalToUI(value, unit):
     '''

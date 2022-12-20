@@ -4,10 +4,10 @@ from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy import presets
 from cgm.lib.zoo.zooPy.strUtils import Mapping
 
-import presetsUI
+from . import presetsUI
 
-from baseMelUI import *
-from mappingUtils import findItem
+from .baseMelUI import *
+from .mappingUtils import findItem
 
 TOOL_NAME = 'zoo'
 TOOL_VER = 1
@@ -127,7 +127,7 @@ class MappingLayout(MelHLayout):
 		elif isinstance( mapping, Mapping ):
 			self._srcToTgtDict = mapping.asDict()
 		else:
-			raise TypeError, "unsupported mapping type %s" % type( mapping )
+			raise TypeError("unsupported mapping type %s" % type( mapping ))
 
 		self.refresh()
 	def getSelectedSrc( self ):
@@ -311,7 +311,7 @@ class MappingLayout(MelHLayout):
 		self.mapAllSrcItems()
 	def on_removeTgtItem( self, *a ):
 		selTgts = self.getSelectedTgts()
-		for aSrc, tgts in self._srcToTgtDict.iteritems():
+		for aSrc, tgts in list(self._srcToTgtDict.items()):
 			newTgts = [ tgt for tgt in tgts if tgt not in selTgts ]
 			self._srcToTgtDict[ aSrc ] = newTgts
 

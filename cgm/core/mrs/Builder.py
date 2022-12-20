@@ -27,6 +27,7 @@ import Red9.core.Red9_CoreUtils as r9Core
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -41,7 +42,7 @@ import cgm.core.cgmPy.path_Utils as PATHS
 
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_RigMeta as RIGMETA
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+#from cgm.core import cgm_PuppetMeta as PUPPETMETA
 import cgm.core.cgm_Dat as CGMDAT
 #import cgm.core.mrs.ShapeDat as SHAPEDAT
 import cgm.core.mrs.MRSDat as MRSDAT
@@ -114,14 +115,14 @@ d_keyColors = {'profile':'define',
                'post':'rig'}        
 
 d_uiStateSubColors = {}
-for k,color in d_state_colors.iteritems():
+for k,color in list(d_state_colors.items()):
     d_uiStateSubColors[k] = [v *.95 for v in color ]
     
 
 #Generate our ui colors
 d_uiStateUIColors = {}
 
-for k,color in d_state_colors.iteritems():
+for k,color in list(d_state_colors.items()):
     _d = {}
     d_uiStateUIColors[k] = _d
     _d['base'] = [v *.95 for v in color ]
@@ -144,8 +145,8 @@ def reloadMRSStuff():
     for m in [BUILDERUTILS,BLOCKUTILS,BLOCKSHARE,SHARED,RIGFRAME,cgmGEN,IK,
               BLOCKGEN,CONTEXT,BLOCKSHAPES,NAMETOOLS,CGMUI,RIGSHAPES,MRSPOST,MODULEUTILS,PUPPETUTILS,
               MODULECONTROLFACTORY,MODULESHAPECASTER]:
-        print m
-        reload(m)
+        print(m)
+        importlib.reload(m)
     log.info(cgmGEN._str_subLine)
     
 
@@ -185,7 +186,7 @@ def blockEditor_get(mBlock=None):
             if not BLOCKEDITOR(q=1, visible=True):
                 BLOCKEDITOR.show()
             return  BLOCKEDITOR
-        except Exception,err:
+        except Exception as err:
             log.error(err)
     return ui_blockEditor(mBlock)
 
@@ -460,7 +461,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
@@ -498,11 +499,11 @@ class ui_blockPicker(cgmUI.cgmGUI):
             
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -596,7 +597,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
                 
         for s in l_keys:
@@ -611,11 +612,11 @@ class ui_blockPicker(cgmUI.cgmGUI):
 
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -840,7 +841,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
             mBlock = self.mBlock        
             try:
                 mUI.uiScrollList_blocks.selectByObj(self.mBlock)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         self.mUI_builder = mUI
         
@@ -1359,7 +1360,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
         
         _short = mBlock.mNode
         
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order =['define','profile','basic','name',
                   'form','proxySurface','prerig',
@@ -1490,7 +1491,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                                                          'atUtils','set_nameListFromName',
                                                                          **{})}}
                 
-                    for k2,d2 in _d_nameList.iteritems():
+                    for k2,d2 in list(_d_nameList.items()):
                         mUI.MelButton(_mRow,
                                      label=k2,ut='cgmUITemplate',
                                      ann = d2.get('ann',''),
@@ -1535,7 +1536,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                          'current':str(mBlock.getMayaAttr('buildProfile'))}}
                 
                 
-                for k2,d2 in d_profileDat.iteritems():
+                for k2,d2 in list(d_profileDat.items()):
                     _en = True
                     _defineOff = False
                     if k2 == 'block':
@@ -1758,7 +1759,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                         
                     #mUI.MelSpacer(_hlayout,w=_sidePadding)                
                     _hlayout.layout()
-                except Exception,err:
+                except Exception as err:
                     log.warning("Attr {0} failed. err: {1}".format(a,err))            
 
     def uiFunc_loadBlock(self,mBlock = None):
@@ -2145,7 +2146,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
@@ -2183,11 +2184,11 @@ class ui_blockEditor(cgmUI.cgmGUI):
             
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -2281,7 +2282,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
                 
         for s in l_keys:
@@ -2296,11 +2297,11 @@ class ui_blockEditor(cgmUI.cgmGUI):
 
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -2523,7 +2524,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
             mBlock = self.mBlock        
             try:
                 mUI.uiScrollList_blocks.selectByObj(self.mBlock)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         self.mUI_builder = mUI
         
@@ -2823,7 +2824,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
         
         _short = mBlock.mNode
         
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order =['define','profile','basic','name',
                   'form','proxySurface','prerig',
@@ -2955,7 +2956,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                                                          'atUtils','set_nameListFromName',
                                                                          **{})}}
                 
-                    for k2,d2 in _d_nameList.iteritems():
+                    for k2,d2 in list(_d_nameList.items()):
                         mUI.MelButton(_mRow,
                                      label=k2,ut='cgmUITemplate',
                                      ann = d2.get('ann',''),
@@ -3000,7 +3001,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                          'current':str(mBlock.getMayaAttr('buildProfile'))}}
                 
                 
-                for k2,d2 in d_profileDat.iteritems():
+                for k2,d2 in list(d_profileDat.items()):
                     _en = True
                     _defineOff = False
                     if k2 == 'block':
@@ -3228,7 +3229,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                         
                     #mUI.MelSpacer(_hlayout,w=_sidePadding)                
                     _hlayout.layout()
-                except Exception,err:
+                except Exception as err:
                     log.warning("Attr {0} failed. err: {1}".format(a,err))            
 
     def uiFunc_loadBlock(self,mBlock = None):
@@ -3496,7 +3497,7 @@ class ui_stepBuild(cgmUI.cgmGUI):
             ATTR.store_info(_short, 'rigStepBuffer',_fncShort )
         try:
             getattr(self.mRigFac.d_block['buildModule'],fnc)(self.mRigFac)            
-        except Exception,err:
+        except Exception as err:
             log.error(err)
         
         finally:
@@ -3573,12 +3574,12 @@ class ui_stepBuild(cgmUI.cgmGUI):
         
         
         def reloadStuff():
-            reload(mModule)
-            reload(BUILDERUTILS)
-            reload(BLOCKGEN)
-            reload(BLOCKSHARE)
-            reload(BLOCKUTILS)
-            reload(RIGFRAME)
+            importlib.reload(mModule)
+            importlib.reload(BUILDERUTILS)
+            importlib.reload(BLOCKGEN)
+            importlib.reload(BLOCKSHARE)
+            importlib.reload(BLOCKUTILS)
+            importlib.reload(RIGFRAME)
         
         #SingleChecks======================================================================
         mRow_buttons = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 2)
@@ -3607,7 +3608,7 @@ class ui_stepBuild(cgmUI.cgmGUI):
         
         _l_buildOrder = mRigFac.d_block['buildModule'].__dict__.get('__l_rigBuildOrder__')
         if not _l_buildOrder:
-            raise ValueError,"No build order found"
+            raise ValueError("No build order found")
         _len = len(_l_buildOrder)
         self.d_funcToShort = {}
         self.l_buildOrder = _l_buildOrder
@@ -3933,7 +3934,7 @@ class ui_post(cgmUI.cgmGUI):
         
         
 import cgm.core.mrs.lib.batch_utils as MRSBATCH
-reload(MRSBATCH)
+importlib.reload(MRSBATCH)
 _l_post_order = MRSBATCH.l_mrsPost_order
 
 
@@ -3974,7 +3975,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
     def insert_init(self,*args,**kws):
         self.l_files = []
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        reload(MRSBATCH)        
+        importlib.reload(MRSBATCH)        
         #global UISTANDALONE
         #UISTANDALONE = self
         
@@ -4026,7 +4027,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         log.info("Batch file creating...")
     
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        reload(MRSBATCH)
+        importlib.reload(MRSBATCH)
         MRSBATCH.create_MRS_batchFile(process=True)
 
     @cgmGEN.Timer
@@ -4037,7 +4038,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         
         _str_func = 'uiFunc_process[{0}]'.format(self.__class__.TOOLNAME)
         log.debug("|{0}| >>...".format(_str_func))
-        reload(MRSBATCH)
+        importlib.reload(MRSBATCH)
                 
         ml_masters = r9Meta.getMetaNodes(mTypes = 'cgmRigBlock',
                                          nTypes=['transform','network'],
@@ -4132,7 +4133,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
             mTar = PATHS.Path(_batchPath)
             l_join = ["try:MRSBATCH.process_blocks_rig('{0}',**".format(mFile.asString()),'{','})']
             if gatherOptionVars:
-                for d,l in MRSBATCH.d_mrsPost_calls.iteritems():
+                for d,l in list(MRSBATCH.d_mrsPost_calls.items()):
                     for k in l:# _l_post_order:
                         log.debug("|{0}| >> {1}...".format(_str_func,k)+'-'*20)
                         
@@ -4145,7 +4146,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
             else:
                 _l = "try:MRSBATCH.process_blocks_rig('{0}',postProcesses = {1})".format(mFile.asString(),postProcesses)
             
-            print _l
+            print(_l)
             
             if mTar.getWritable():
                 if mTar.exists():
@@ -4203,7 +4204,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
 
         
         self._dCB_reg = {}
-        for d,l in MRSBATCH.d_mrsPost_calls.iteritems():
+        for d,l in list(MRSBATCH.d_mrsPost_calls.items()):
             mUI.MelLabel(_inside, label = '{0}'.format(d.upper()), h = 13, 
                          ut='cgmUIHeaderTemplate',align = 'center')
             #mc.setParent(_inside)
@@ -4578,7 +4579,7 @@ class ui(cgmUI.cgmGUI):
             
     def buildMenu_picker(self,*args,**kws):
         _menu = self.uiMenu_picker
-        print _menu
+        print(_menu)
 
         return
         try:
@@ -5239,7 +5240,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItemDiv(_menu)                
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
         l_check = ['Define','Form','Prerig','Skeleton','Rig','General','Mirror','Blockdat']
         l_check.reverse()
@@ -5277,11 +5278,11 @@ class ui(cgmUI.cgmGUI):
             
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -5343,7 +5344,7 @@ class ui(cgmUI.cgmGUI):
         self.d_multiSet_d = _d
         self.d_multiSet_types = _dTypes        
 
-        _states = _d.keys()
+        _states = list(_d.keys())
         _states.sort()
         
         for state in _states:
@@ -5381,7 +5382,7 @@ class ui(cgmUI.cgmGUI):
                   
                     
         return
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order =['define','profile','basic','name',
                   'form','proxySurface','prerig',
@@ -5442,7 +5443,7 @@ class ui(cgmUI.cgmGUI):
                                            **{'updateUI':0})},},
                    }
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
                 
         for s in l_keys:
@@ -5457,11 +5458,11 @@ class ui(cgmUI.cgmGUI):
 
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -5590,7 +5591,7 @@ class ui(cgmUI.cgmGUI):
         log.info("Batch file creating...")
     
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        reload(MRSBATCH)
+        importlib.reload(MRSBATCH)
         
         MRSBATCH.create_MRS_batchFile(process=True)
         
@@ -5741,7 +5742,7 @@ class ui(cgmUI.cgmGUI):
                  }}
         
         
-        l_keys = d_s.keys()
+        l_keys = list(d_s.keys())
         l_keys.sort()
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
@@ -5774,11 +5775,11 @@ class ui(cgmUI.cgmGUI):
             
             l_keys2 = d.get('order',False)
             if l_keys2:
-                for k in d.keys():
+                for k in list(d.keys()):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = d.keys()
+                l_keys2 = list(d.keys())
                 l_keys2.sort()
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
@@ -5837,7 +5838,7 @@ class ui(cgmUI.cgmGUI):
                                     label="{0} ".format(self._func.__name__))
 
             try:return self._func( *self._args, **self._kwargs )
-            except Exception,err:
+            except Exception as err:
                 try:log.info("Func: {0}".format(self._func.__name__))
                 except:log.info("Func: {0}".format(self._func))
                 if self._args:
@@ -5848,7 +5849,7 @@ class ui(cgmUI.cgmGUI):
                     log.info(a)
                     
                 cgmGEN.cgmExceptCB(Exception,err)
-                raise Exception,err
+                raise Exception(err)
             finally:
                 self._ui.uiRow_progress(edit=1,vis=0)
                 self._ui.uiProgressText(edit=True,label='...')
@@ -5885,7 +5886,7 @@ class ui(cgmUI.cgmGUI):
                                         ann="{0} : {1}".format(b, self.uiFunc_block_create))
 
         
-        for c in _d[1].keys():
+        for c in list(_d[1].keys()):
             #d_sections[c] = []
             if c == 'blocks':continue
             for b in _d[1][c]:
@@ -6005,8 +6006,8 @@ class ui(cgmUI.cgmGUI):
             _fromPrompt = None
 
             try:_mBlock = self.uiScrollList_blocks.getSelectedObjs()[0]
-            except Exception,err:
-                print err                                                        
+            except Exception as err:
+                print(err)                                                        
                 return log.error("|{0}| >> Failed to get _mBlock".format(_str_func))
             log.info(_mBlock)
             
@@ -6035,11 +6036,11 @@ class ui(cgmUI.cgmGUI):
                 elif _mode == 'toScriptEditorRigFactory':
                     _mBlock.atUtils('to_scriptEditor','rigFactory')
                 else:
-                    raise ValueError,"Mode not setup: {0}".format(_mode)
+                    raise ValueError("Mode not setup: {0}".format(_mode))
                 
             self.uiScrollList_blocks.rebuild()
             #mc.evalDeferred('self.uiScrollList_blocks.rebuild()',lp=True)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmException(Exception,err)
 
     #@cgmGEN.Timer
@@ -6507,7 +6508,7 @@ class ui(cgmUI.cgmGUI):
                             label = "Picker UI")            
             
             mBlockModule = _mBlock.getBlockModule()
-            if 'uiBuilderMenu' in mBlockModule.__dict__.keys():
+            if 'uiBuilderMenu' in list(mBlockModule.__dict__.keys()):
                 mBlockModule.uiBuilderMenu(_mBlock,_popUp)
                 #_mBlock.atBlockModule('uiBuilderMenu', _popUp)
                 mUI.MelMenuItemDiv(_popUp)
@@ -6696,7 +6697,7 @@ class ui(cgmUI.cgmGUI):
 
             return
             
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     def uiFunc_block_clearActive(self):
         #self.uiField_inspector(edit=True, label = '')
         self.uiField_report(edit=True, label = '...', en=False)        
@@ -6751,7 +6752,7 @@ class ui(cgmUI.cgmGUI):
                 if index in ml_sceneBlocks:
                     #index = ml_sceneBlocks.index(index)
                     mBlockUse = index
-                elif index not in range(len(ml_sceneBlocks)):
+                elif index not in list(range(len(ml_sceneBlocks))):
                     log.warning("|{0}| >> Invalid index: {1}".format(_str_func, index))    
                     return
                 else:
@@ -6814,7 +6815,7 @@ class ui(cgmUI.cgmGUI):
             
             return
            
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
              
     def uiCallback_setAttrFromField(self, obj, attr, attrType, field):
         _v = field.getValue()
@@ -7110,7 +7111,7 @@ class ui(cgmUI.cgmGUI):
         for i in range(4):
             d_attrDat['rollCount_{0}'.format(i)] = 'int'
         
-        _keys = d_attrDat.keys()
+        _keys = list(d_attrDat.keys())
         _keys.sort()
         
         l_mask = ['baseAim','basePoint','baseUp','controlOffset','moduleTarget','nameIter','nameList',
@@ -7168,7 +7169,7 @@ class ui(cgmUI.cgmGUI):
  
                 mUI.MelSpacer(_row,w=_sidePadding)                
                 _row.layout()
-            except Exception,err:
+            except Exception as err:
                 log.info("Attr {0} failed. err: {1}".format(a,err))            
             
             
@@ -7324,7 +7325,7 @@ class ui(cgmUI.cgmGUI):
         
                 mUI.MelSpacer(_hlayout,w=_sidePadding)                
                 _hlayout.layout()
-            except Exception,err:
+            except Exception as err:
                 log.info("Attr {0} failed. err: {1}".format(a,err))
                 
     
@@ -7982,7 +7983,7 @@ def uiOptionMenu_blockSizeMode(self, parent, callback = cgmGEN.Callback):
                         label=item,
                         c = callback(self.var_rigBlockCreateSizeMode.setValue,item),                                  
                         rb = _rb)
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
         cgmGEN.cgmExceptCB(Exception,err)
 
@@ -8004,7 +8005,7 @@ def uiOptionMenu_devMode(self, parent, callback = cgmGEN.Callback):
                         label=item,
                         c = callback(self.var_mrsDevMode.setValue,i),                                  
                         rb = _rb)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
     
 
@@ -8020,7 +8021,7 @@ class uiCallback_withUpdate(object):
         self._mBlock = mBlock
     def __call__( self, *args ):
         try:self._func( *self._args, **self._kwargs )
-        except Exception,err:
+        except Exception as err:
             try:log.debug("Func: {0}".format(self._func.__name__))
             except:log.debug("Func: {0}".format(self._func))
             if self._ui:
@@ -8032,7 +8033,7 @@ class uiCallback_withUpdate(object):
                 log.debug("kws: {0}".format(self._kwargs))
             for a in err.args:
                 log.debug(a)
-            raise Exception,err
+            raise Exception(err)
         
         #if self._mBlock == self._ui._blockCurrent:
             #log.debug("|{0}| resetting active block".format('uiCallback_withUpdate'))            
@@ -8137,11 +8138,11 @@ class cgmScrollList(mUI.BaseMelWidget):
         log.debug(cgmGEN.logString_start('report'))                
         log.info("Scene: "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_scene):
-            print ("{0} | {1} | {2}".format(i,self._l_strings[i],mObj))
+            print(("{0} | {1} | {2}".format(i,self._l_strings[i],mObj)))
             
         log.info("Loaded "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_loaded):
-            print("{0} | {1}".format(i, mObj))
+            print(("{0} | {1}".format(i, mObj)))
             
         pprint.pprint(self._ml_scene)
         
@@ -8194,7 +8195,7 @@ class cgmScrollList(mUI.BaseMelWidget):
             for mObj in self.getSelectedObjs():
                 try:
                     res = func( *args, **kws )
-                except Exception,err:
+                except Exception as err:
                     try:log.debug("Func: {0}".format(_func.__name__))
                     except:log.debug("Func: {0}".format(_func))
       
@@ -8204,13 +8205,13 @@ class cgmScrollList(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception,err
+                    raise Exception(err)
         except:pass
         finally:
             self.rebuild()
             
     def selectCallBack(self,func=None,*args,**kws):
-        print self.getSelectedObjs()
+        print((self.getSelectedObjs()))
 
 
 class BlockScrollListBAK(mUI.BaseMelWidget):
@@ -8309,11 +8310,11 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
         log.debug(cgmGEN.logString_start('report'))                
         log.info("Scene: "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_scene):
-            print ("{0} | {1} | {2}".format(i,self._l_strings[i],mObj))
+            print(("{0} | {1} | {2}".format(i,self._l_strings[i],mObj)))
             
         log.info("Loaded "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_loaded):
-            print("{0} | {1}".format(i, mObj))
+            print(("{0} | {1}".format(i, mObj)))
             
         pprint.pprint(self._ml_scene)
         
@@ -8393,8 +8394,8 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
         
         if ml_sel:
             try:self.selectByBlock(ml_sel)
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
                 
         self.b_selCommandOn = True
 
@@ -8435,7 +8436,7 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
                 try:self(e=1, itc = [(i+1,_color[0],_color[1],_color[2])])
                 except:pass
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
@@ -8450,7 +8451,7 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
             for mBlock in self.getSelectedBlocks():
                 try:
                     res = func( *args, **kws )
-                except Exception,err:
+                except Exception as err:
                     try:log.debug("Func: {0}".format(_func.__name__))
                     except:log.debug("Func: {0}".format(_func))
       
@@ -8460,13 +8461,13 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception,err
+                    raise Exception(err)
         except:pass
         finally:
             self.rebuild()
             
     def selectCallBack(self,func=None,*args,**kws):
-        print self.getSelectedBlocks()
+        print((self.getSelectedBlocks()))
         
         
         
@@ -8547,8 +8548,8 @@ class BlockScrollList(cgmScrollList):
         
         if ml_sel:
             try:self.selectByObj(ml_sel)
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
                 
         self.b_selCommandOn = True
         
@@ -8578,7 +8579,7 @@ class BlockScrollList(cgmScrollList):
                 try:self(e=1, itc = [(i+1,_color[0],_color[1],_color[2])])
                 except:pass
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
@@ -8876,7 +8877,7 @@ def uiFunc_updateBlock(self):
     self._d_attrFields = {}
     
     
-    _keys = _d.keys()
+    _keys = list(_d.keys())
     _keys.sort()
     l_order =['define','profile','basic','name',
               'form','proxySurface','prerig',
@@ -9033,7 +9034,7 @@ def uiFunc_updateBlock(self):
                                                                      'atUtils','set_nameListFromName',
                                                                      **{})}}
             
-                for k2,d2 in _d_nameList.iteritems():
+                for k2,d2 in list(_d_nameList.items()):
                     mUI.MelButton(_mRow,
                                  label=k2,bgc = _clr_button,#ut='cgmUITemplate',
                                  ann = d2.get('ann',''),
@@ -9078,7 +9079,7 @@ def uiFunc_updateBlock(self):
                                      'current':str(mBlock.getMayaAttr('buildProfile'))}}
             
             
-            for k2,d2 in d_profileDat.iteritems():
+            for k2,d2 in list(d_profileDat.items()):
                 _en = True
                 _defineOff = False
                 if k2 == 'block':
@@ -9268,7 +9269,7 @@ def uiFunc_updateBlock(self):
                     
                 #mUI.MelSpacer(_hlayout,w=_sidePadding)                
                 _hlayout.layout()
-            except Exception,err:
+            except Exception as err:
                 log.warning("Attr {0} | {1} | failed. err: {2}".format(a,_type, err))
                 
                 
@@ -9475,7 +9476,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         sDat = self.dat
         
-        print(log_sub(_str_func,mode))
+        print((log_sub(_str_func,mode)))
         if mode == 'all':
             pprint.pprint(self.dat)
         elif mode == 'settings':
@@ -9539,7 +9540,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
 
         #Get Field data
-        for a,ui in self.d_uiAttrs.iteritems():
+        for a,ui in list(self.d_uiAttrs.items()):
             if not self.d_uiAttrRow[a](q=True,vis=True):
                 continue
             
@@ -9563,7 +9564,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         except:
             ml_helpers = []
             
-        for i in xrange(count):
+        for i in range(count):
             mHelper = ml_helpers[i]
 
             
@@ -9830,7 +9831,7 @@ class ui_createBlock(CGMUI.cgmGUI):
             _d['cgmName'] = _profile #self.blockType
         pprint.pprint(_d)
         
-        for a in self.d_uiAttrs.keys():
+        for a in list(self.d_uiAttrs.keys()):
             _v = _d.get(a,None)
             log.debug("Checking: {} | {} | {}".format(a,_v,self.d_uiAttrRow[a]))
             
@@ -9854,9 +9855,9 @@ class ui_createBlock(CGMUI.cgmGUI):
             self.d_uiAttrRow[a](edit=True,vis=True)
             try:
                 try:self.d_uiAttrs[a].setValue( _v)
-                except Exception,err:
+                except Exception as err:
                     self.d_uiAttrs[a].selectByIdx(_v)
-            except Exception,err:
+            except Exception as err:
                 log.error("attr: {} | value: {} | {}".format(a,_v,err))
             if a in ['numShapers']:
                 if _lock:
@@ -9931,7 +9932,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         
         #Helpers Frame -------------------------------------------------------------------------------
-        reload(HELPERS)
+        importlib.reload(HELPERS)
         HELPERS.buildFrame_helpers(self,_inside)
         
         

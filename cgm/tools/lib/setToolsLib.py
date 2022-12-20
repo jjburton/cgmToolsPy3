@@ -38,57 +38,57 @@ def printReport(self):
     Generates a report for the objectSets as the tool sees them.    
     """    
     guiFactory.doPrintReportStart()
-    print self.refSetsDict
-    print "# %i Object Sets found: "%len(self.objectSetsRaw['all'])
+    print((self.refSetsDict))
+    print(("# %i Object Sets found: "%len(self.objectSetsRaw['all'])))
     for o in self.objectSetsRaw['all']:
-        print "#    '%s'"%o
+        print(("#    '%s'"%o))
     
-    print "# Loaded Sets: "  
+    print("# Loaded Sets: ")  
     if self.objectSets:
 	for o in self.objectSets:
-	    print "#    '%s'"%o  
+	    print(("#    '%s'"%o))  
     else:
 	"No loaded sets. Check your hiding flags"
 	
-    print "# Qss Sets: "
+    print("# Qss Sets: ")
     if self.qssSets:
-	print "#     '%s'"%("','".join(self.qssSets))  
+	print(("#     '%s'"%("','".join(self.qssSets))))  
     else:
 	print ("#     None")
 		
     if self.ActiveObjectSetsOptionVar.value:
-        print "# Active Sets: "
+        print("# Active Sets: ")
         for o in self.ActiveObjectSetsOptionVar.value:
             if o:
-                print "#    '%s'"%o 
+                print(("#    '%s'"%o)) 
     if self.refSetsDict:
-        print "# Refs and sets: "
-        for r in self.refSetsDict.keys():
-            print "#     '%s':'%s'"%(r,"','".join(self.refSetsDict.get(r)))           
+        print("# Refs and sets: ")
+        for r in list(self.refSetsDict.keys()):
+            print(("#     '%s':'%s'"%(r,"','".join(self.refSetsDict.get(r)))))           
     
-    print "# Active Refs: "
+    print("# Active Refs: ")
     if self.ActiveRefsOptionVar.value:   
         for o in self.ActiveRefsOptionVar.value:
             if o:
-                print ("#    '%s'"%o)
+                print(("#    '%s'"%o))
     else:
         print ("#    None")
                   
-    print "# Active Types: "
+    print("# Active Types: ")
     if self.ActiveTypesOptionVar.value:    
         for o in self.ActiveTypesOptionVar.value:
             if o:
-                print "#    '%s'"%o 
+                print(("#    '%s'"%o)) 
     else:
-        print "#    None"
+        print("#    None")
 	
-    print "# Maya Sets: "
+    print("# Maya Sets: ")
     if self.mayaSets:    
 	for o in self.mayaSets:
 	    if o:
-		print "#    '%s'"%o 
+		print(("#    '%s'"%o)) 
     else:
-	print "#    None"
+	print("#    None")
                 
     guiFactory.doPrintReportEnd()
 
@@ -99,7 +99,7 @@ def updateObjectSets(self):
     """  
     self.objectSetsRaw = search.returnObjectSets()
     
-    self.refPrefixes = self.objectSetsRaw['referenced'].keys()
+    self.refPrefixes = list(self.objectSetsRaw['referenced'].keys())
     self.refSetsDict = self.objectSetsRaw['referenced'] or {}
     self.setTypesDict = self.objectSetsRaw['cgmTypes'] or {}
     self.setGroups = self.objectSetsRaw['objectSetGroups'] or []
@@ -132,8 +132,8 @@ def updateObjectSets(self):
 			   
     #Sort for active types  
     tmpActiveTypeSets = []
-    if self.setTypesDict.keys() and self.ActiveTypesOptionVar.value:
-	for t in self.setTypesDict.keys():
+    if list(self.setTypesDict.keys()) and self.ActiveTypesOptionVar.value:
+	for t in list(self.setTypesDict.keys()):
 	    if t in self.ActiveTypesOptionVar.value and self.setTypesDict.get(t):	    
 		tmpActiveTypeSets.extend(self.setTypesDict.get(t))
 
@@ -345,8 +345,8 @@ def doDeleteSet(self,nameIndex):
     nameIndex(int) -- index of an objectSet dictionary
     """   	
     setName = self.setInstances[nameIndex].nameLong
-    print self.setInstances[nameIndex].mayaSetState 
-    print self.setInstances[nameIndex].refState 
+    print((self.setInstances[nameIndex].mayaSetState)) 
+    print((self.setInstances[nameIndex].refState)) 
     if mc.objExists(setName):
 	if not self.setInstances[nameIndex].mayaSetState and not self.setInstances[nameIndex].refState:
 	    mc.delete(setName)
@@ -366,7 +366,7 @@ def doCopySet(self,nameIndex):
     """  
     try:
 	buffer = self.setInstances[nameIndex].copy()
-	print buffer
+	print(buffer)
         self.reload()	
     except:
         guiFactory.warning("Set not found.Reloading Gui")
@@ -586,7 +586,7 @@ def doGroupLocal(self):
 	
     buffer = self.refSetsDict.get('From Scene')
     for s in buffer:
-	if s in self.setInstancesFastIndex.keys():
+	if s in list(self.setInstancesFastIndex.keys()):
 	    index = self.setInstancesFastIndex[s] 
 	    sInstance = self.setInstances[index]
 	else:
@@ -612,7 +612,7 @@ def doMultiSetType(self,setMode,typeName):
     if setMode:
         if self.ActiveObjectSetsOptionVar.value:
             for s in self.ActiveObjectSetsOptionVar.value:
-		print "Setting Type on %s"%s		
+		print(("Setting Type on %s"%s))		
                 if s in self.objectSets:
 		    index = self.setInstancesFastIndex[s]
 		    bufferName = self.setInstances[index].nameShort #store old name
@@ -641,7 +641,7 @@ def doSetAllSetsAsActive(self):
     Activates the active state for mutliple sets
     """ 
     if self.activeSetsCBDict:
-        for i in self.activeSetsCBDict.keys(): # for each key
+        for i in list(self.activeSetsCBDict.keys()): # for each key
             if self.setInstances[i].nameShort in self.objectSets: #if that indexed set is in our loaded sets
                 tmp = self.activeSetsCBDict.get(i) #get the checkbox
                 mc.checkBox(tmp, edit = True,
@@ -653,7 +653,7 @@ def doSetAllSetsAsInactive(self):
     Deactivates the active state for mutliple sets
     """   
     if self.activeSetsCBDict:
-        for i in self.activeSetsCBDict.keys(): # for each key
+        for i in list(self.activeSetsCBDict.keys()): # for each key
             if self.setInstances[i].nameShort in self.objectSets: #if that indexed set is in our loaded sets
                 tmp = self.activeSetsCBDict.get(i) #get the checkbox
                 mc.checkBox(tmp, edit = True,
@@ -806,7 +806,7 @@ def doSetAllRefState(self,value):
     value(int) -- on or off
     """     
     if self.activeRefsCBDict:
-        for i in self.activeRefsCBDict.keys():
+        for i in list(self.activeRefsCBDict.keys()):
             tmp = self.activeRefsCBDict.get(i)
             mc.menuItem(tmp,edit = True,cb=value)
             doSetRefState(self,i,value,False)
@@ -820,7 +820,7 @@ def doSetAllTypeState(self,value):
     value(int) -- on or off
     """  
     if self.activeTypesCBDict:
-        for i in self.activeTypesCBDict.keys():
+        for i in list(self.activeTypesCBDict.keys()):
             tmp = self.activeTypesCBDict.get(i)
             mc.menuItem(tmp,edit = True,cb=value)
             doSetTypeState(self,i,value,False)

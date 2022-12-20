@@ -45,7 +45,7 @@ class Vector(list):
 		return '<%s>' % ', '.join( '%0.3g' % v for v in self )
 	def setIndex( self, idx, value ):
 		self[ idx ] = value
-	def __nonzero__( self ):
+	def __bool__( self ):
 		for item in self:
 			if item:
 				return True
@@ -287,7 +287,7 @@ class Colour(Vector):
 		if r, g, b or a are missing, they're assumed to be 0
 		a 4 float, RGBA array is returned
 		'''
-		if isinstance( colour, basestring ):
+		if isinstance( colour, str ):
 			alpha = self.DEFAULT_ALPHA
 			toks = colour.lower().split( ' ' )[ :4 ]
 
@@ -343,7 +343,7 @@ class Colour(Vector):
 
 		theColour = Vector( theColour[ :3 ] )  #make sure its a 3 vector
 		matches = []
-		for name, colour in cls.NAMED_PRESETS.iteritems():
+		for name, colour in list(cls.NAMED_PRESETS.items()):
 			colour = Vector( colour )
 			diff = (colour - theColour).magnitude()
 			matches.append( (diff, name) )
@@ -361,7 +361,7 @@ class Axis(int):
 	         '-x', '-y', '-z' )
 
 	def __new__( cls, idx ):
-		if isinstance( idx, basestring ):
+		if isinstance( idx, str ):
 			return cls.FromName( idx )
 
 		return int.__new__( cls, idx % 6 )
@@ -417,7 +417,7 @@ class Axis(int):
 
 		return list( map( Axis, allAxes ) )
 
-AX_X, AX_Y, AX_Z = map( Axis, range( 3 ) )
+AX_X, AX_Y, AX_Z = list(map( Axis, list(range( 3)) ))
 
 
 class Quaternion(Vector):
@@ -470,11 +470,11 @@ class Quaternion(Vector):
 			newZ = w1*z2 + x1*y2 - y1*x2 + z1*w2
 
 			return self.__class__( [newX, newY, newZ, newW] )
-		elif isinstance( other, (float, int, long) ):
+		elif isinstance( other, (float, int) ):
 			return self.__class__( [i * other for i in self] )
 	__rmul__ = __mul__
 	def __div__( self, other ):
-		assert isinstance( other, (float, int, long) )
+		assert isinstance( other, (float, int) )
 		return self.__class__( [i / other for i in self] )
 	def copy( self ):
 		return self.__class__(self)
@@ -535,7 +535,7 @@ class Quaternion(Vector):
 		res = self.__class__()
 		if abs( b ) <= zeroThreshold:
 			if self.w <= zeroThreshold:
-				raise ValueError, "math domain error"
+				raise ValueError("math domain error")
 
 			res.w = math.log( w )
 		else:
@@ -546,11 +546,11 @@ class Quaternion(Vector):
 			res.z = f * z
 			ct = cos( t )
 			if abs( ct ) <= zeroThreshold:
-				raise ValueError, "math domain error"
+				raise ValueError("math domain error")
 
 			r = w / ct
 			if r <= zeroThreshold:
-				raise ValueError, "math domain error"
+				raise ValueError("math domain error")
 
 			res.w = math.log( r )
 
@@ -611,8 +611,8 @@ class Matrix(list):
 		return self.__repr__()
 	def __add__( self, other ):
 		new = self.__class__.Zero(self.size)
-		for i in xrange(self.size):
-			for j in xrange(self.size):
+		for i in range(self.size):
+			for j in range(self.size):
 				new[i][j] = self[i][j] + other[i][j]
 
 		return new
@@ -625,8 +625,8 @@ class Matrix(list):
 		new = None
 		if isinstance( other, (float, int) ):
 			new = self.__class__.Zero(self.size)
-			for i in xrange(self.size):
-				for j in xrange(self.size):
+			for i in range(self.size):
+				for j in range(self.size):
 					new[i][j] = self[i][j] * other
 
 		elif isinstance( other, Vector ):
@@ -656,8 +656,8 @@ class Matrix(list):
 	def isEqual( self, other, tolerance=1e-5 ):
 		if self.size != other.size:
 			return False
-		for i in xrange(self.size):
-			for j in xrange(self.size):
+		for i in range(self.size):
+			for j in range(self.size):
 				if abs( self[i][j] - other[i][j] ) > tolerance:
 					return False
 
@@ -685,7 +685,7 @@ class Matrix(list):
 	@classmethod
 	def Identity( cls, size=4 ):
 		rows = [0]*size*size
-		for n in xrange(size):
+		for n in range(size):
 			rows[n+(n*size)] = 1
 
 		return cls(rows,size)
@@ -693,7 +693,7 @@ class Matrix(list):
 	def Random( cls, size=4, range=(0,1) ):
 		rows = []
 		import random
-		for n in xrange(size*size):
+		for n in range(size*size):
 			rows.append(random.uniform(*range))
 
 		return cls(rows,size)
@@ -727,8 +727,8 @@ class Matrix(list):
 			c3 = c1*c2*u*v
 
 			res = cls(size=3)
-			for i in xrange(3):
-				for j in xrange(3):
+			for i in range(3):
+				for j in range(3):
 					res[i][j] =  - c1*u[i]*u[j] - c2*v[i]*v[j] + c3*v[i]*u[j]
 				res[i][i] += 1.0
 
@@ -750,7 +750,7 @@ class Matrix(list):
 			return cls( row0+row1+row2 )
 	@classmethod
 	def FromEulerXYZ( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 
 		cx = cos(x)
 		sx = sin(x)
@@ -766,7 +766,7 @@ class Matrix(list):
 		return cls( row0+row1+row2, 3 )
 	@classmethod
 	def FromEulerXZY( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 		cx = cos(x)
 		sx = sin(x)
 		cy = cos(y)
@@ -781,7 +781,7 @@ class Matrix(list):
 		return cls( row0+row1+row2, 3 )
 	@classmethod
 	def FromEulerYXZ( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 		cx = cos(x)
 		sx = sin(x)
 		cy = cos(y)
@@ -796,7 +796,7 @@ class Matrix(list):
 		return cls( row0+row1+row2, 3 )
 	@classmethod
 	def FromEulerYZX( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 		cx = cos(x)
 		sx = sin(x)
 		cy = cos(y)
@@ -811,7 +811,7 @@ class Matrix(list):
 		return cls( row0+row1+row2, 3 )
 	@classmethod
 	def FromEulerZXY( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 		cx = cos(x)
 		sx = sin(x)
 		cy = cos(y)
@@ -826,7 +826,7 @@ class Matrix(list):
 		return cls( row0+row1+row2, 3 )
 	@classmethod
 	def FromEulerZYX( cls, x, y, z, degrees=False ):
-		if degrees: x,y,z = map(math.radians,(x,y,z))
+		if degrees: x,y,z = list(map(math.radians,(x,y,z)))
 		cx = cos(x)
 		sx = sin(x)
 		cy = cos(y)
@@ -858,7 +858,7 @@ class Matrix(list):
 		return newRow
 	def getCol( self, col ):
 		column = [0]*self.size
-		for n in xrange(self.size):
+		for n in range(self.size):
 			column[n] = self[n][col]
 
 		return column
@@ -868,11 +868,11 @@ class Matrix(list):
 			row[ col ] = newVal
 	def getDiag( self ):
 		diag = []
-		for i in xrange(self.size):
+		for i in range(self.size):
 			diag.append( self[i][i] )
 		return diag
 	def setDiag( self, diag ):
-		for i in xrange(self.size):
+		for i in range(self.size):
 			self[i][i] = diag[i]
 		return diag
 	def swapRow( self, nRowA, nRowB ):
@@ -889,15 +889,15 @@ class Matrix(list):
 		self.setCol(nColB,tmp)
 	def transpose( self ):
 		new = self.__class__.Zero(self.size)
-		for i in xrange(self.size):
-			for j in xrange(self.size):
+		for i in range(self.size):
+			for j in range(self.size):
 				new[i][j] = self[j][i]
 
 		return new
 	def transpose3by3( self ):
 		new = self.copy()
-		for i in xrange(3):
-			for j in xrange(3):
+		for i in range(3):
+			for j in range(3):
 				new[i][j] = self[j][i]
 
 		return new
@@ -957,8 +957,8 @@ class Matrix(list):
 		if isSingular: return self.copy()
 
 		new = self.__class__.Zero(self.size)
-		for i in xrange(self.size):
-			for j in xrange(self.size):
+		for i in range(self.size):
+			for j in range(self.size):
 				sign = (1,-1)[ (i+j) % 2 ]
 				new[i][j] = sign * self.cofactor(i,j).det()
 
@@ -1001,8 +1001,8 @@ class Matrix(list):
 		return R
 	def adjoint( self ):
 		new = self.__class__.Zero(self.size)
-		for i in xrange(self.size):
-			for j in xrange(self.size):
+		for i in range(self.size):
+			for j in range(self.size):
 				new[i][j] = (1,-1)[(i+j)%2] * self.cofactor(i,j).det()
 
 		return new.transpose()
@@ -1068,7 +1068,7 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 	def ToEulerXZY( self, degrees=False ):
@@ -1082,7 +1082,7 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 	def ToEulerYXZ( self, degrees=False ):
@@ -1096,7 +1096,7 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 	def ToEulerYZX( self, degrees=False ):
@@ -1110,7 +1110,7 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 	def ToEulerZXY( self, degrees=False ):
@@ -1124,7 +1124,7 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 	def ToEulerZYX( self, degrees=False ):
@@ -1138,14 +1138,14 @@ class Matrix(list):
 		angles = x, y, z
 
 		if degrees:
-			return map( math.degrees, angles )
+			return list(map( math.degrees, angles ))
 
 		return angles
 
 	#some conversion routines
 	def as_list( self ):
 		list = []
-		for i in xrange(self.size):
+		for i in range(self.size):
 			list.extend(self[i])
 
 		return list

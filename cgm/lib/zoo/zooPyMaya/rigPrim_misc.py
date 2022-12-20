@@ -1,6 +1,6 @@
 
-from baseRigPrimitive import *
-from skeletonPart_arbitraryChain import ArbitraryChain
+from .baseRigPrimitive import *
+from .skeletonPart_arbitraryChain import ArbitraryChain
 
 
 class ControlHierarchy(PrimaryRigPart):

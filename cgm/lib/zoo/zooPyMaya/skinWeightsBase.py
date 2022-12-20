@@ -114,7 +114,7 @@ def regatherWeights( actualJointNames, weightList ):
 	for j, w in zip( actualJointNames, weightList ):
 		new[ j ] += w
 
-	return new.keys(), new.values()
+	return list(new.keys()), list(new.values())
 
 
 #end

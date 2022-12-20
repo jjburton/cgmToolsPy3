@@ -24,6 +24,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -34,7 +35,7 @@ import maya.cmds as mc
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+##from cgm.core import cgm_PuppetMeta as PUPPETMETA
 import cgm.core.cgm_RigMeta as cgmRIGMETA
 import cgm.core.lib.geo_Utils as GEO
 #reload(GEO)
@@ -96,7 +97,7 @@ def eyeLook_get(self,autoBuild=False):
         if len(ml_puppetEyelooks) == 1 and ml_puppetEyelooks[0]:
             return ml_puppetEyelooks[0]
         else:
-            raise StandardError,"More than one puppet eye look"
+            raise Exception("More than one puppet eye look")
         
     if autoBuild:
         return eyeLook_verify(self)
@@ -140,7 +141,7 @@ def eyeLook_verify(self):
         
         
         if mBlock.blockType not in ['eye']:
-            raise ValueError,"blocktype must be eye. Found {0} | {1}".format(mBlock.blockType,mBlock)
+            raise ValueError("blocktype must be eye. Found {0} | {1}".format(mBlock.blockType,mBlock))
         
         
         #Data... -----------------------------------------------------------------------
@@ -251,7 +252,7 @@ def eyeLook_verify(self):
         mCrv.cgmControlDat = {'tags':['ik']}                
         return mCrv
     
-    except Exception,error:
+    except Exception as error:
         cgmGEN.cgmExceptCB(Exception,error,msg=vars())
 
    
@@ -262,10 +263,10 @@ def eyeLook_verify(self):
             try:
                 for mCtrl in self.ml_controlsAll:
                     mi_parentRigNull.msgList_append('controlsAll',mCtrl)
-            except Exception,error: raise Exception,"!Controls all connect!| %s"%error	    
+            except Exception as error: raise Exception("!Controls all connect!| %s"%error)	    
             try:mi_parentRigNull.moduleSet.extend(self.ml_controlsAll)
-            except Exception,error: raise Exception,"!Failed to set module objectSet! | %s"%error
-    except Exception,error:raise Exception,"!Module Parent registration! | %s"%(error)	    
+            except Exception as error: raise Exception("!Failed to set module objectSet! | %s"%error)
+    except Exception as error:raise Exception("!Module Parent registration! | %s"%(error))	    
 
 
 
@@ -315,13 +316,13 @@ def gather_rigBlocks(progressBar=False):
                         log.info("|{0}| >> {1} | {2}".format(_str_func,link,mLink))            
                         mLink.parent = mGroup
                         ml_gathered.append(mLink)
-                except Exception,err:
+                except Exception as err:
                     log.error("{0} | {1}".format(link,err))
                     
         log.info("|{0}| >> Gathered {1} dags".format(_str_func,len(ml_gathered)))
         return mGroup
-    except Exception,err:
-        raise Exception,err
+    except Exception as err:
+        raise Exception(err)
     finally:
         if progressBar:cgmUI.progressBar_end(progressBar)
 
@@ -409,20 +410,20 @@ def get_block_lib_dat():
                 key = '.'.join(_splitUp + [name])    
                 if key:
                     log.debug("|{0}| >> ... {1}".format(_str_func,key))                      
-                    if name not in _d_modules.keys():
+                    if name not in list(_d_modules.keys()):
                         _d_files[key] = os.path.join(root,f)
                         _d_import[name] = key
                         _l_cat.append(name)
                         try:
                             module = __import__(key, globals(), locals(), ['*'], -1)
-                            reload(module) 
+                            importlib.reload(module) 
                             _d_modules[name] = module
                             if not is_buildable(module):
                                 _l_unbuildable.append(name)
-                        except Exception, e:
+                        except Exception as e:
                             for arg in e.args:
                                 log.error(arg)
-                            raise RuntimeError,"Stop"  
+                            raise RuntimeError("Stop")  
                                           
                     else:
                         _l_duplicates.append("{0} >> {1} ".format(key, os.path.join(root,f)))
@@ -439,13 +440,13 @@ def get_block_lib_dat():
         log.debug("|{0}| >> DUPLICATE MODULES....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
-    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),_path))     
+        raise Exception("Must resolve")
+    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(list(_d_files.keys())),_path))     
     if _l_unbuildable:
         log.debug(cgmGEN._str_subLine)
         log.error("|{0}| >> ({1}) Unbuildable modules....".format(_str_func,len(_l_unbuildable)))
         for m in _l_unbuildable:
-            print(">>>    " + m) 
+            print((">>>    " + m)) 
     return _d_modules, _d_categories, _l_unbuildable
 
 def get_posList_fromStartEnd(start=[0,0,0],end=[0,1,0],split = 1):
@@ -478,7 +479,7 @@ def get_midIK_basePosOrient(self,ml_handles = [], markPos = False, forceMidToHan
     """
     
     """
-    raise DeprecationWarning,"Change to BLOCKUTILS.prerig_get_rpBasePos"
+    raise DeprecationWarning("Change to BLOCKUTILS.prerig_get_rpBasePos")
     try:
         _str_func = 'get_midIK_basePosOrient'
         log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
@@ -579,7 +580,7 @@ def get_midIK_basePosOrient(self,ml_handles = [], markPos = False, forceMidToHan
     
     
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 def build_skeleton(positionList = [], joints = 1, axisAim = 'z+', axisUp = 'y+', worldUpAxis = [0,1,0],asMeta = True):
@@ -781,7 +782,7 @@ def build_loftMesh(root, jointCount = 3, degree = 3, cap = True, merge = True,re
     _d = {'format':2,#General
           'polygonType':1,#'quads',
           'uNumber': 1 + jointCount}
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)
 
     
@@ -796,7 +797,7 @@ def build_loftMesh(root, jointCount = 3, degree = 3, cap = True, merge = True,re
                   'polygonType':1,#'quads',
                   'vNumber':1,
                   'uNumber':1}
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_tessellate,a,v)
             _l_combine.append(_res[0])
             
@@ -885,7 +886,7 @@ def create_loftMesh(targets = None, name = 'test', degree = 2, uSplit = 0,vSplit
     if targets == None:
         targets = mc.ls(sl=True)
     if not targets:
-        raise ValueError, "|{0}| >> No targets provided".format(_str_func)
+        raise ValueError("|{0}| >> No targets provided".format(_str_func))
     
     mc.select(cl=True)
     log.debug("|{0}| >> targets: {1}".format(_str_func,targets))
@@ -1015,7 +1016,7 @@ def create_loftMesh(targets = None, name = 'test', degree = 2, uSplit = 0,vSplit
     if d_tess:
         _d.update(d_tess)
         
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)
         
     
@@ -1114,7 +1115,7 @@ def build_visSub(self):
         
     mSettings = self.mRigNull.settings
     if not mSettings:
-        raise ValueError,"Not settings found"
+        raise ValueError("Not settings found")
     mMasterControl = self.d_module['mMasterControl']
 
     #Add our attrs
@@ -1145,7 +1146,7 @@ def build_visModuleProxy(self):
         
     mRigNull = self.mRigNull
     if not mRigNull:
-        raise ValueError,"Not settings found"
+        raise ValueError("Not settings found")
     
     mMasterControl = self.d_module['mMasterControl']
     mMasterVis = self.d_module['mMasterVis']
@@ -1168,7 +1169,7 @@ def build_visModuleMD(self,plug = '',defaultValue = True):
         
     mSettings = self.mRigNull.settings
     if not mSettings:
-        raise ValueError,"Not settings found"
+        raise ValueError("Not settings found")
     
     
     self.mPlug_visModule
@@ -1273,7 +1274,7 @@ def get_switchTarget(self,mControl,parentTo=False):
 
 
 def register_mirrorIndices(self, ml_controls = []):
-    raise ValueError,"Don't use this"
+    raise ValueError("Don't use this")
     _start = time.clock()    
     _str_func = 'register_mirrorIndices'
     
@@ -1289,7 +1290,7 @@ def register_mirrorIndices(self, ml_controls = []):
                 if buffer:
                     ml_extraControls.extend(buffer)
                     log.debug("Extra controls : {0}".format(buffer))
-        except Exception,error:
+        except Exception as error:
             log.error("mCtrl failed to search for msgList : {0}".format(mCtrl))
             log.error(error)
             log.error(cgmGEN._str_subLine)
@@ -1338,7 +1339,7 @@ def rigNodes_store(self,report=False):
     else:
         self.mPuppet.connectChildrenNodes(_res,'rigNodes','cgmOwner')
         
-    if report:print _res
+    if report:print(_res)
 
 
 #@cgmGEN.Timer
@@ -1503,7 +1504,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
             if targets is None:
                 ml_targets = self.mBlock.msgList_get('prerigHandles',asMeta = True)
                 if not ml_targets:
-                    raise ValueError,"No prerigHandles connected. NO targets offered"
+                    raise ValueError("No prerigHandles connected. NO targets offered")
             else:
                 ml_targets = cgmMeta.validateObjListArg(targets,'cgmObject')
         
@@ -1609,7 +1610,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                 if mode == 'segmentHandleBAK':
                     log.debug("|{0}| >> segmentHandle cast...".format(_str_func))                        
                     
-                    if not uValues: raise ValueError,"Must have uValues with segmentHandle mode"
+                    if not uValues: raise ValueError("Must have uValues with segmentHandle mode")
                     
                     l_vectors = []
                     for i,mObj in enumerate(ml_targets[:-1]):
@@ -1619,7 +1620,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     for i,u in enumerate(uValues):
                         uValue = MATH.Lerp(minU,maxU,u)
                         if u < minU or u > maxU:
-                            raise ValueError, "uValue not in range. {0}. min: {1} | max: {2}".format(uValue,minU,maxU)
+                            raise ValueError("uValue not in range. {0}. min: {1} | max: {2}".format(uValue,minU,maxU))
                         
                         l_mainCurves = []
                         for ii,v in enumerate([uValue+f_factor, uValue, uValue-f_factor]):
@@ -1710,7 +1711,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                             _l = d_epPos[ii]
                             _l.append(POS.get(ep))
                             
-                    for k,points in d_epPos.iteritems():
+                    for k,points in list(d_epPos.items()):
                         crv_connect = CURVES.create_fromList(posList=points)
                         l_mainCurves.append(crv_connect)
                         
@@ -1882,7 +1883,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                                 _l = d_epPos[ii]
                                 _l.append(POS.get(ep))
                                 
-                        for k,points in d_epPos.iteritems():
+                        for k,points in list(d_epPos.items()):
                             crv_connect = CURVES.create_fromList(posList=points)
                             l_mainCurves.append(crv_connect)
                             
@@ -1961,12 +1962,12 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                                 _l = d_epPos[ii]
                                 _l.append(p)
                     
-                        for k,points in d_epPos.iteritems():
+                        for k,points in list(d_epPos.items()):
                             try:
                                 crv_connect = CURVES.create_fromList(posList=points)
                                 l_mainCurves.append(crv_connect)
-                            except Exception,err:
-                                print err
+                            except Exception as err:
+                                print(err)
 
                         for crv in l_mainCurves[1:]:
                             CORERIG.shapeParent_in_place(l_mainCurves[0], crv, False)
@@ -2239,7 +2240,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                             _l = d_epPos[ii]
                             _l.append(POS.get(ep))
                             
-                    for k,points in d_epPos.iteritems():
+                    for k,points in list(d_epPos.items()):
                         crv_connect = CURVES.create_fromList(posList=points)
                         l_mainCurves.append(crv_connect)
                         
@@ -2264,13 +2265,13 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                 ml_shapes.append(cgmMeta.validateObjArg(crv))
             
         else:
-            raise ValueError,"unknown mode: {0}".format(mode)
+            raise ValueError("unknown mode: {0}".format(mode))
         #Process
         
         
         if mMesh_tmp:mMesh_tmp.delete()
         return ml_shapes
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
 
@@ -2347,7 +2348,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
         if targets is None:
             ml_targets = self.mRigNull.msgList_get('rigJoints',asMeta = True)
             if not ml_targets:
-                raise ValueError,"No rigJoints connected. NO targets offered"
+                raise ValueError("No rigJoints connected. NO targets offered")
         else:
             ml_targets = cgmMeta.validateObjListArg(targets,'cgmObject')
         
@@ -2518,7 +2519,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
                         vec = [-v for v in vecRaw]
                         log.debug("|{0}| >> vector: {1}".format(_str_func,vec))                                        
                         p1 = mc.pointOnSurface(_planar,parameterU=.5,parameterV=.5,position=True)#l_pos[i]                    
-                    except Exception,err:
+                    except Exception as err:
                         log.debug(err)
                         try:
                             vec
@@ -2668,7 +2669,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
             mc.delete(str_start)
         #>>Parent to the joints ----------------------------------------------------------------- 
         return l_new
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 
@@ -2685,7 +2686,7 @@ def joints_connectToParent(self):
     
         ml_joints = mRigNull.msgList_get('moduleJoints')
         if not ml_joints:
-            raise ValueError,"|{0}| >> No moduleJoints found".format(_str_func)
+            raise ValueError("|{0}| >> No moduleJoints found".format(_str_func))
         
         if mModuleParent:
             log.debug("|{0}| >> ModuleParent setup...".format(_str_func))
@@ -2696,7 +2697,7 @@ def joints_connectToParent(self):
             
         
         log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start))) 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 check_nameMatches = RIGGEN.check_nameMatches
@@ -2770,7 +2771,7 @@ def uiQuery_getAttrDict(report = True, unknown = True):
     _d = copy.deepcopy(BLOCKSHARE.d_uiAttrDict)
     _d_byBlock = {}
     
-    for b,mBlockModule in BLOCKGEN.get_modules_dict().iteritems():
+    for b,mBlockModule in list(BLOCKGEN.get_modules_dict().items()):
         log.debug(cgmGEN.logString_sub(_str_func, b))
         if mBlockModule.__dict__.get('__menuVisible__') == False:
             continue
@@ -2781,10 +2782,10 @@ def uiQuery_getAttrDict(report = True, unknown = True):
                 _dModule = {}
             #_d = CGMDICT.blendDat(_d,_dModule)
             _dicts.append(mBlockModule.d_attrsToMake)
-        except Exception,err:
+        except Exception as err:
             log.error(err)
             
-    for t,l in _d.iteritems():
+    for t,l in list(_d.items()):
         l.sort()
         _d[t] = l
         

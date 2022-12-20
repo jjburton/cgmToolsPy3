@@ -105,7 +105,7 @@ class ControlFactory(ObjectFactory):
         assert i < 6,"%i isn't a viable up axis integer"%i
 	assert self.aimable,"'%s' lacks this attribute"%self.nameShort
 	
-        axisBuffer = range(6)
+        axisBuffer = list(range(6))
         axisBuffer.remove(self.optionAimAxis.get())
         
         if i != self.optionAimAxis.get():
@@ -130,7 +130,7 @@ class ControlFactory(ObjectFactory):
         if i not in [self.optionAimAxis.get(),self.optionUpAxis.get()]:
             self.optionOutAxis.set(i)
         else:
-            axisBuffer = range(6)
+            axisBuffer = list(range(6))
             axisBuffer.remove(self.optionAimAxis.get())
             axisBuffer.remove(self.optionUpAxis.get())
             self.optionOutAxis.set(axisBuffer[0]) 
@@ -145,7 +145,7 @@ class ControlFactory(ObjectFactory):
 	try:
 	    self.RotateOrderControl = AttrFactory(self,'setRO','enum',enum = 'xyz:yzx:zxy:xzy:yxz:zyx',initialValue=initialValue) 
 	except:
-	    raise StandardError("Failed to add rotate order control")
+	    raise Exception("Failed to add rotate order control")
 	
 	self.stateControlRO == True
 	self.RotateOrderControl.doConnectOut(self.nameShort+'.rotateOrder')

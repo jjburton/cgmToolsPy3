@@ -54,9 +54,9 @@ def connectToWing():
       WING.debugger.StopDebug()
       import time; time.sleep(1)
       WING.debugger.StartDebug()
-      print 'Connected to WingIDE' 
+      print('Connected to WingIDE') 
    else:
-      print 'Could not connect to WingIDE'
+      print('Could not connect to WingIDE')
 
 
     

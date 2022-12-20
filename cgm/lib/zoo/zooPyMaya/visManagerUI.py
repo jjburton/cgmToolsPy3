@@ -3,11 +3,11 @@ from cgm.lib.zoo.zooPy.misc import Callback
 
 import maya.cmds as cmd
 
-import skinCluster
-import visManager
-import baseMelUI
-import presetsUI
-import melUtils
+from . import skinCluster
+from . import visManager
+from . import baseMelUI
+from . import presetsUI
+from . import melUtils
 
 mel = melUtils.mel
 melecho = melUtils.melecho
@@ -218,13 +218,13 @@ class VisManagerUI(baseMelUI.BaseMelWindow):
 		#build the preset list...
 		visPresets = presetsUI.listAllPresets( visManager.TOOL_NAME, visManager.EXTENSION, True )
 		cmd.menuItem(l="build sets from preset", sm=True)
-		for locale, pList in visPresets.iteritems():
+		for locale, pList in list(visPresets.items()):
 			for p in pList:
 				cmd.menuItem(l=p.name(), c=Callback(self.import_preset, p.name(), locale, True, True))
 		cmd.setParent('..', m=True)
 
 		cmd.menuItem(l="import preset volumes", sm=True)
-		for locale, pList in visPresets.iteritems():
+		for locale, pList in list(visPresets.items()):
 			for p in pList:
 				cmd.menuItem(l=p.name(), c=Callback(self.import_preset, p.name(), locale, False, False))
 		cmd.setParent('..', m=True)

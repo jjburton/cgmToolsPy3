@@ -384,7 +384,7 @@ def buildSection_objDefaults(self,parent,frame=True):
           'up':self.var_objDefaultUpAxis,
           'out':self.var_objDefaultOutAxis}
 
-    for k in _d.keys():
+    for k in list(_d.keys()):
         _var = _d[k]
 
         _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
@@ -688,7 +688,7 @@ def uiFunc_createLoc(self,selfMode = False):
         #cgmGEN.func_snapShot(vars())
         SNAPCALLS.snap( obj,targets, **_d)
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def uiFunc_snap(self):
@@ -705,7 +705,7 @@ def uiFunc_snap(self):
         obj = _sel[0]
         SNAPCALLS.snap( obj,targets, **_d)
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def uiFunc_snapOrdered(self):
@@ -725,7 +725,7 @@ def uiFunc_snapOrdered(self):
         #targets.reverse()
         #reload(MMCONTEXT)
         MMCONTEXT.func_process(SNAPCALLS.snap,targets,'eachToNextReverse',**_d)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def uiFunc_load_selected(self, bypassAttrCheck = False):

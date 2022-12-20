@@ -67,12 +67,12 @@ def transfer_fromTo(source = None, targets = None):
         source = _sel[0]
         
     if not source or not targets:
-        raise ValueError,"|{0}| >> Missing data. source: {1} | targets: {2}".format(_str_func,source,targets)
+        raise ValueError("|{0}| >> Missing data. source: {1} | targets: {2}".format(_str_func,source,targets))
 
     for obj in targets:
         try:
             skinWeights.transferSkinning( source, obj )
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Target failure: {1} |  {2}".format(_str_func,obj,err))
 
 def get_influences_fromSelected(nodes = []):

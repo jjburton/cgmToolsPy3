@@ -19,7 +19,7 @@
 
 '''
 
-from __future__ import print_function
+
 
 from functools import wraps
 import maya.cmds as cmds
@@ -144,7 +144,7 @@ def inspectFunctionSource(value):
         elif path == "Command":
             cmds.warning('%s : is a Command not a script' % value)
             return False
-    except StandardError, error:
+    except Exception as error:
         log.info(error)
     # Inspect for Python
     if not path or not os.path.exists(path):
@@ -162,7 +162,7 @@ def inspectFunctionSource(value):
             if path:
                 # sourceType='python'
                 log.info('path : %s' % path)
-        except StandardError, error:
+        except Exception as error:
             log.exception(error)
 
     # Open the file with the default editor
@@ -235,7 +235,7 @@ def is_basestring(value):
     if isinstance(value, str):
         return True
     if sys.version_info[0] == 2:
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return True
     return False
 
@@ -315,7 +315,7 @@ def gpu_toggle(func):
         res = func(*args, **kwargs)
         try:
             mel.eval('toggleOpenCLEvaluator')
-        except StandardError, err:
+        except Exception as err:
             log.debug(err)
         return res
     return wrapper
@@ -488,7 +488,7 @@ def suppressScriptEditor(func):
             cmds.scriptEditorInfo(suppressInfo=True)
             cmds.scriptEditorInfo(suppressResults=True)
             res = func(*args, **kwargs)
-        except StandardError, err:
+        except Exception as err:
             log.exception(err)
             log.info('Failed on SuppressScriptEditor decorator')
         finally:
@@ -1023,7 +1023,7 @@ class SceneRestoreContext(object):
         cmds.displayColor("curve", self.dataStore['curvecolor'], dormant=True)
 
         # panel management
-        for panel, data in self.dataStore['panelStore'].items():
+        for panel, data in list(self.dataStore['panelStore'].items()):
             try:
                 cmdString = data['settings'].replace('$editorName', panel)
                 mel.eval(cmdString)
@@ -1034,7 +1034,7 @@ class SceneRestoreContext(object):
                 log.debug("Failed to fully Restore ActiveCamera Data >> %s >> cam : %s" % (panel, data['activeCam']))
 
         # camera management
-        for cam, settings in self.dataStore['cameraTransforms'].items():
+        for cam, settings in list(self.dataStore['cameraTransforms'].items()):
             try:
                 cmds.setAttr('%s.translate' % cam, settings[0][0][0], settings[0][0][1], settings[0][0][2])
                 cmds.setAttr('%s.rotate' % cam, settings[1][0][0], settings[1][0][1], settings[1][0][2])
@@ -1169,7 +1169,7 @@ def thumbnailApiFromView(filename, width, height, modelPanel=None, compression='
     image.resize(width, height, True)
     try:
         image.writeToFile(filename, compression)
-    except StandardError, err:
+    except Exception as err:
         log.debug(err)
     log.info('API Thumbnail call path : %s' % filename)
 
@@ -1245,7 +1245,7 @@ class Clipboard:
         import ctypes
         if not value:
             raise IOError('No text passed to the clipboard')
-        if isinstance(value, unicode):
+        if isinstance(value, str):
             value = str(value)
         if not isinstance(value, str):
             raise TypeError('value should be of str type')
@@ -1425,7 +1425,7 @@ def readJson(filepath=None):
         name = open(filepath, 'r')
         try:
             return json.load(name)
-        except ValueError, err:
+        except ValueError as err:
             log.warning('Failed to read JSON file %s' % filepath)
             raise ValueError(err)
 
@@ -1449,13 +1449,13 @@ class abcIndex(object):
         self.__iter += 1
         self.__iterator = itertools.permutations(self.__abc, self.__iter)
 
-    def next(self):
+    def __next__(self):
         '''
         Return and Alphabetic index
         '''
         try:
-            temp = ''.join([x for x in self.__iterator.next()])
+            temp = ''.join([x for x in next(self.__iterator)])
         except StopIteration:
             self.__Iterate()
-            temp = ''.join([x for x in self.__iterator.next()])
+            temp = ''.join([x for x in next(self.__iterator)])
         return '%s' % temp

@@ -106,8 +106,8 @@ class setToolsClass(BaseMelWindow):
             #'Maya2011 dock delete'
             if mc.dockControl(self.dockCnt, exists=True):
                 mc.deleteUI(self.dockCnt, control=True)  
-        except StandardError,error:
-            raise StandardError(error)
+        except Exception as error:
+            raise Exception(error)
 
         if self.dockOptionVar.value:
             try:
@@ -442,7 +442,7 @@ class setToolsClass(BaseMelWindow):
                 i = self.setInstancesFastIndex[b] # get the index
                 sInstance = self.setInstances[i] # fast link to the instance
             except:
-                raise StandardError("'%s' failed to query an active instance"%b)
+                raise Exception("'%s' failed to query an active instance"%b)
 
             #see if the no no fields are enabled
             enabledMenuLogic = True

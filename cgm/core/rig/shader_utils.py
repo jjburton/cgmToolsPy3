@@ -53,7 +53,7 @@ def create_uvPickerNetwork(target = None,
     log.debug("|{0}| >> ".format(_str_func)+ '-'*80)
 
     if count/split != split:
-        raise ValueError,"{0} || Split must divide evently to count. count: {1} | split: {2}".format(_str_func,count,split)
+        raise ValueError("{0} || Split must divide evently to count. count: {1} | split: {2}".format(_str_func,count,split))
     
     if not target:
         target = mc.group(em=True,name='uvPickerDefault')
@@ -100,7 +100,7 @@ def create_uvPickerNetwork(target = None,
             for i2 in range(split):
                 d_dat[i].append([l_base[i2], l_base[i]])
                 
-        l_keys = d_dat.keys()
+        l_keys = list(d_dat.keys())
         l_keys.sort()
         l_set = l_keys[1:]
         l_set.reverse()
@@ -170,7 +170,7 @@ def create_uvPickerNetwork(target = None,
         
         l_dat = _d_values.get(count)
         if not l_dat:
-            raise ValueError,"{0} | count {1} not supported".format(_str_func,count)
+            raise ValueError("{0} | count {1} not supported".format(_str_func,count))
     
         
         
@@ -231,7 +231,7 @@ def create_uvPickerNetworkBAK(target = None, name = 'iris', split = 9):
     
     l_dat = _d_values.get(split)
     if not l_dat:
-        raise ValueError,"{0} | split {1} not supported".format(_str_func,split)
+        raise ValueError("{0} | split {1} not supported".format(_str_func,split))
     
     if not target:
         target = mc.group(em=True,name='uvPickerDefault')
@@ -391,12 +391,12 @@ def shaderDat_get(nodes = []):
                     if ATTR.get_driver(_node,a):
                         continue
                     _d[a] = mNode.getMayaAttr(a)
-                except Exception,err:
+                except Exception as err:
                     log.error("{0} | {1}".format(mNode,err))
             
             _res[mNode.mNode] = _d
             
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mNode,err))
     pprint.pprint(_res)
     return _res
@@ -412,14 +412,14 @@ def shaderDat_set(dat = {},  key = None, nodes = []):
     mNodes = cgmMeta.asMeta(nodes)
     
     for node in nodes:
-        for a,v in _d.iteritems():
+        for a,v in list(_d.items()):
             if a  in ['color']:
                 continue
             log.info(node)
             try:
                 log.info('{0} --> {1}'.format(a,v))
                 ATTR.set(node,a,v)
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} | {1}".format(node,err))
             
             

@@ -62,7 +62,7 @@ def stripInvalidChars(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?>
         str_Clean = cgmValid.stringArg(arg,False,_str_funcName)
 
         for char in invalidChars:
-            if functionSwap and char in d_functionStringSwaps.keys():
+            if functionSwap and char in list(d_functionStringSwaps.keys()):
                 str_Clean = str_Clean.replace( char, d_functionStringSwaps.get(char) )
             else:
                 str_Clean = str_Clean.replace( char, replaceChar )
@@ -81,7 +81,7 @@ def stripInvalidChars(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?>
             while str_Clean.endswith( '_' ):
                 str_Clean = str_Clean[ :-1 ]
         return str_Clean		
-    except Exception,err:
+    except Exception as err:
         cgmGeneral.cgmException(Exception,err)
 
 

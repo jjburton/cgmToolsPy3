@@ -87,7 +87,7 @@ def kill_rendererNodes():
     for o in ['TurtleDefaultBakeLayer']:
         if mc.objExists(o):
             cgmMeta.asMeta(o).delete()
-            print "killed node: " + o
+            print(("killed node: " + o))
             
 def kill_outlinerSelectCommands():
     #https://forums.autodesk.com/t5/maya-forum/error-lt-function-selcom-at-0x7f29c5c04aa0-gt/td-p/9052236
@@ -97,7 +97,7 @@ def kill_outlinerSelectCommands():
         _sel_cmd = mc.outlinerEditor(_editor, query=True, selectCommand=True)
         if not _sel_cmd:
             continue
-        print _editor, _sel_cmd
+        print((_editor, _sel_cmd))
         mc.outlinerEditor(_editor, edit=True, selectCommand='print "";')
         
 def mayaScanner_path(path = None):
@@ -110,7 +110,7 @@ def mayaScanner_path(path = None):
     cleanList = []
     d_exeptions = {}
     counter = 0
-    print ("Checking: {}".format(path))
+    print(("Checking: {}".format(path)))
     
     for root, _, files in os.walk(path):
         for mayafile in files:
@@ -124,7 +124,7 @@ def mayaScanner_path(path = None):
                 try:
                     mc.file(abspath, open=True, f=True, iv=True)
                     mc.MayaScan(scanType=0)
-                except Exception,err:
+                except Exception as err:
                     d_exeptions[abspath] = '{}'.format(err)
                     continue
                 
@@ -147,24 +147,24 @@ def mayaScanner_path(path = None):
                 else:
                     cleanList.append(abspath)
     
-    print(cgmGEN._str_hardBreak)
-    print("scanned {} files".format(counter))
+    print((cgmGEN._str_hardBreak))
+    print(("scanned {} files".format(counter)))
 
     if cleanList:
         print("No script nodes:")
         for i,f in enumerate(cleanList):
-            print("{} | {}".format(i,f))
+            print(("{} | {}".format(i,f)))
     if file_list:
         log.warning ("=" * 72)
         log.warning ("filenodes found in the following. Might be worth a look:")
         for i,f in enumerate(file_list):
-            print("{} | {}".format(i,f))
+            print(("{} | {}".format(i,f)))
     if d_exeptions:
         log.error ("=" * 72)
         log.error ("Exceptions")
-        for f,e in d_exeptions.iteritems():
-            print("{} | {}".format(f,e))           
-    print(cgmGEN._str_hardBreak)
+        for f,e in list(d_exeptions.items()):
+            print(("{} | {}".format(f,e)))           
+    print((cgmGEN._str_hardBreak))
 
             
 def mayaScanner_batch(path= None, process=True):

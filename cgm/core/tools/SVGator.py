@@ -179,7 +179,7 @@ class ui(cgmUI.cgmGUI):
                 log.info(log_sub(str_func,"File: {}".format(f)))                        
                 _res = svg_import(os.path.join(_startDir,f),**d_options)
                 pprint.pprint(_res)                  
-            except Exception,err:
+            except Exception as err:
                 log.error(err)            
             
         return
@@ -219,7 +219,7 @@ class ui(cgmUI.cgmGUI):
                 _res = svg_import(os.path.join(_startDir,f),**d_options)
                 ml_mesh.append(_res[0])
                 pprint.pprint(_res)                  
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         if ml_mesh:
             self.uiFunc_exportSVG(ml_mesh)
@@ -256,7 +256,7 @@ class ui(cgmUI.cgmGUI):
                 _nameBase = mObj.p_nameBase
                 _nameStrip = mObj.p_nameBase.split('_')[:-1]
                 _nameStrip = '_'.join(_nameStrip)
-                print _nameStrip
+                print(_nameStrip)
                 
                 mObj.rename("{}_ORIGINAL".format(_nameBase))
                 mExport = mObj.doDuplicate(po=False)
@@ -267,13 +267,13 @@ class ui(cgmUI.cgmGUI):
                 mExport.select()            
                 
                 _exportPath = os.path.normpath( os.path.join(_export, "{}.fbx".format(_nameStrip)) )
-                print _exportPath
+                print(_exportPath)
                 
                 mel.eval('FBXExport -f \"{}\" -s'.format(_exportPath.replace('\\', '/')))
                 mExport.delete()
                 
                 mObj.rename(_nameBase)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         
 
@@ -351,7 +351,7 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelLabel(_row,l="  Options:")
     _row.setStretchWidget(mUI.MelSeparator(_row,w=10))
     
-    for o,d in d_importOptions.iteritems():
+    for o,d in list(d_importOptions.items()):
         _plug = 'var_{0}'.format(o)
         try:self.__dict__[_plug]
         except:self.create_guiOptionVar('{0}'.format(o),defaultValue = 1)
@@ -637,7 +637,7 @@ def uiButton_setPathToTextField(self,key,d_fields, mode='project'):
         mField = d_fields[key]
         if not os.path.exists(x[0]):
             mField(edit=True,bgc = _colorBad)
-            raise ValueError,"Invalid path: {0}".format(x[0])
+            raise ValueError("Invalid path: {0}".format(x[0]))
         
         mField.setValue( x[0] )
         mField(edit=True,bgc = _colorGood) 
@@ -647,7 +647,7 @@ def uiButton_openPath(self,key,d_fields):
     mField = d_fields[key]
     _path = mField.getValue()
     if not os.path.exists(_path):
-        raise ValueError,"Invalid path: {0}".format(_path)
+        raise ValueError("Invalid path: {0}".format(_path))
     os.startfile(_path)
     
 
@@ -668,6 +668,6 @@ def uiButton_setViewportShading():
         #print  mc.modelEditor( _panel, q = True, interactiveBackFaceCull = True)
         #mc.modelEditor( _panel, edit = True, dl = 'flat',activeOnly = False)
         #print  mc.modelEditor( _panel, q = True, dl = True)        
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     

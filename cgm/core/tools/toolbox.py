@@ -90,7 +90,7 @@ def uiSetupOptionVars_curveCreation(self):
 def uiFunc_distanceMeastureToField(self):
     _res = DIST.get_distance_between_targets()
     if not _res:
-        raise ValueError,"Found no distance data."
+        raise ValueError("Found no distance data.")
     
     self.uiFF_distance.setValue(_res)
     
@@ -98,7 +98,7 @@ def uiFunc_vectorMeasureToField(self):
     _res = DIST.get_vector_between_targets()
     
     if not _res:
-        raise ValueError,"Found no vector data."
+        raise ValueError("Found no vector data.")
     
     self.uiFF_vecX.setValue(_res[0][0])
     self.uiFF_vecY.setValue(_res[0][1])
@@ -368,7 +368,7 @@ class ui(cgmUI.cgmGUI):
         _d = {'RayCast':self.var_rayCastTargetsBuffer,
               'Match':self.var_locinatorTargetsBuffer}
 
-        for k in _d.keys():
+        for k in list(_d.keys()):
             var = _d[k]
             _ui = mc.menuItem(p=uiMenu, subMenu = True,
                               l = k)
@@ -1268,7 +1268,7 @@ def buildSection_objDefaults(self,parent,frame=True):
           'up':self.var_objDefaultUpAxis,
           'out':self.var_objDefaultOutAxis}
 
-    for k in _d.keys():
+    for k in list(_d.keys()):
         _var = _d[k]
 
         _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
@@ -1353,7 +1353,7 @@ def buildSection_shape(self,parent):
     _d = {'aim':self.var_createAimAxis,
           }
 
-    for k in _d.keys():
+    for k in list(_d.keys()):
         _var = _d[k]
 
         _row = mUI.MelHSingleStretchLayout(_shape_inside,ut='cgmUISubTemplate',padding = 5)
@@ -1816,7 +1816,7 @@ def buildRow_attachBy(self,parent):
                'conPointOrientGroup':'pntOrntCon',
                'conParentGroup':'prntCon'}
 
-    for m,l in d_modes.iteritems():
+    for m,l in list(d_modes.items()):
         mc.button(parent=_row,
                   l= l,
                   ut = 'cgmUITemplate',
@@ -2014,7 +2014,7 @@ def buildRow_color(self,parent):
 
         mUI.MelGridLayout(parent,aec = False, numberOfRowsColumns=(2,10), cwh = (27,14),cr=True)
 
-        _IndexKeys = SHARED._d_colorSetsRGB.keys()
+        _IndexKeys = list(SHARED._d_colorSetsRGB.keys())
         i = 0
         for k1 in _IndexKeys:
             _keys2 = SHARED._d_colorSetsRGB.get(k1,[])
@@ -2107,7 +2107,7 @@ def uiPopup_createColor(self):
                     en=False)     
     mUI.MelMenuItemDiv(_popUp)
 
-    for k,l in SHARED._d_colorsByIndexSets.iteritems():
+    for k,l in list(SHARED._d_colorsByIndexSets.items()):
         _k = mUI.MelMenuItem(_popUp,subMenu = True,
                              label = k,
                              en=True)
@@ -2171,7 +2171,7 @@ def uiPopup_createShape(self):
                     en=False)     
     mUI.MelMenuItemDiv(_popUp)
 
-    for k,l in CURVES._d_shapeLibrary.iteritems():
+    for k,l in list(CURVES._d_shapeLibrary.items()):
         _k = mUI.MelMenuItem(_popUp,subMenu = True,
                              label = k,
                              en=True)

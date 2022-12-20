@@ -5,13 +5,13 @@ from cgm.lib.zoo.zooPy import events
 from cgm.lib.zoo.zooPy.misc import removeDupes, Callback
 from cgm.lib.zoo.zooPy.vectors import Colour
 
-from triggered import *
-from baseMelUI import *
+from .triggered import *
+from .baseMelUI import *
 
-import triggered
-import triggeredPresets
-import spaceSwitching
-import posesToSliders
+from . import triggered
+from . import triggeredPresets
+from . import spaceSwitching
+from . import posesToSliders
 
 
 def buildMenuItems( parent, obj ):
@@ -354,7 +354,7 @@ class TriggeredWindow(BaseMelWindow):
 	def buildImportPresetMenu( self, *a ):
 		cmd.menu( self.MENU_import, e=True, dai=True )
 		presetDict = triggeredPresets.listPresets()
-		for locale, presets in presetDict.iteritems():
+		for locale, presets in list(presetDict.items()):
 			for preset in presets:
 				MelMenuItem( self.MENU_import, l=preset.name(), c=Callback( self.importFilepath, preset.path() ) )
 	def buildConnectsMenu( self, *a ):
@@ -368,7 +368,7 @@ class TriggeredWindow(BaseMelWindow):
 		selTrigger = self.getHighlightedTrigger()
 		if selTrigger:
 			cmd.menu( self.MENU_cmdEditor, e=True, dai=True )
-			for presetName, presetContents in CMD_PRESETS.iteritems():
+			for presetName, presetContents in list(CMD_PRESETS.items()):
 				MelMenuItem( self.MENU_cmdEditor, l=presetName, en=not previewMode, c=Callback( self.UI_cmdEditor.setValue, presetContents ) )
 
 			MelMenuItem( self.MENU_cmdEditor, l='setAttr cmd', en=not previewMode, c=lambda *a: self.UI_cmdEditor.setValue( writeSetAttrCmd( selTrigger ) ) )

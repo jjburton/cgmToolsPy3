@@ -76,7 +76,7 @@ class SetFactory(object):
 
     def storeNameStrings(self,obj):
         """ Store the base, short and long names of an object to instance."""
-        set = mc.ls(obj,long=True)
+        set = mc.ls(obj,int=True)
         self.nameLong = set[0]
         set = mc.ls(obj,shortNames=True)        
         self.nameShort = set[0]
@@ -93,7 +93,7 @@ class SetFactory(object):
         attributes.storeInfo(set,'cgmName',self.baseName)
         if setType:
             self.setType = setType
-            if setType in setTypes.keys():
+            if setType in list(setTypes.keys()):
                 doType = setTypes.get(setType)
             else:
                 doType = setType
@@ -161,7 +161,7 @@ class SetFactory(object):
         
         typeBuffer = search.returnTagInfo(self.nameLong,'cgmType')
         if typeBuffer:
-            for t in setTypes.keys():
+            for t in list(setTypes.keys()):
                 if setTypes.get(t) == typeBuffer:
                     self.setType = t
             if not self.setType:
@@ -364,7 +364,7 @@ class SetFactory(object):
 	
         if setType is not None:
             doSetType = setType
-            if setType in setTypes.keys():
+            if setType in list(setTypes.keys()):
                 doSetType = setTypes.get(setType)
 
             if attributes.storeInfo(self.nameLong,'cgmType',doSetType,True):

@@ -293,11 +293,11 @@ def aim_atPoint(obj = None, position = [0,0,0], aimAxis = "z+", upAxis = "y+", m
             go(obj,_loc_snap)
             mc.delete(_constraint,_loc_snap)    
         else:
-            raise NotImplementedError,"mode: {0}".format(mode)
+            raise NotImplementedError("mode: {0}".format(mode))
         
         if _loc:mc.delete(_loc)
         return True
-    except Exception,err:
+    except Exception as err:
         try:mc.delete(_loc)
         except:pass
         #log.error( "aim_atPoint | obj: {0} | err: {1}".format(obj,err) )
@@ -426,7 +426,7 @@ def matchTarget_snap(obj = None, move = True, rotate = True, boundingBox = False
     _target = ATTR.get_message(_obj, 'cgmMatchTarget','cgmMatchDat',0)
     
     if not _target:
-        raise ValueError,"|{0}| >> {1} has no cgmMatchTarget.".format(_str_func,NAMES.get_short(_obj))
+        raise ValueError("|{0}| >> {1} has no cgmMatchTarget.".format(_str_func,NAMES.get_short(_obj)))
     
     log.debug("|{0}| >> {1} snapping to: {2}.".format(_str_func,NAMES.get_short(_obj),_target[0]))
     

@@ -1,7 +1,7 @@
 
-from baseMelUI import *
+from .baseMelUI import *
 from maya.cmds import *
-from melUtils import printWarningStr
+from .melUtils import printWarningStr
 
 #this dict stores attribute values for the selection - attributeChange scriptjobs fire when an attribute changes
 #but don't pass in pre/post values, or even the name of the attribute that has changed.  So when the scriptjobs
@@ -42,7 +42,7 @@ class AttrpathCallback(object):
 		#put the following into a single undo chunk
 		try:
 			undoInfo( openChunk=True )
-			for attrpath, preValue in PRE_ATTR_VALUES.iteritems():
+			for attrpath, preValue in list(PRE_ATTR_VALUES.items()):
 				curValue = getAttr( attrpath )
 				valueDelta = curValue - preValue
 
@@ -136,7 +136,7 @@ class PosePropagatorLayout(MelHLayout):
 		'''
 		time = currentTime( q=True )
 		PRE_ATTR_VALUES.clear()
-		for attrpath in PRE_ATTR_VALUES.keys():
+		for attrpath in list(PRE_ATTR_VALUES.keys()):
 			PRE_ATTR_VALUES[ attrpath ] = getAttr( attrpath )
 	def on_delete( self ):
 		autoKeyframe( e=True, state=self._initialAutoKeyState )

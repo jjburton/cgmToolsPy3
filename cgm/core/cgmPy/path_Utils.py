@@ -20,7 +20,7 @@ import re
 import sys
 import stat
 import shutil
-import cPickle
+import pickle
 import datetime
 
 DEFAULT_AUTHOR = 'default_username@your_domain.com'
@@ -196,7 +196,7 @@ class Path(str):
             randomPathName = cls( generateRandomPathName() )
 
         return randomPathName
-    def __nonzero__( self ):
+    def __bool__( self ):
         '''
         a Path instance is "non-zero" if its not '' or '/'  (although I guess '/' is actually a valid path on *nix)
         '''
@@ -542,7 +542,7 @@ class Path(str):
 
             return idx
         except:
-            raise ValueError,"find Failure. {0} | search: {1} | caseMatters: {2}".format(_bfr,search,caseMatters)
+            raise ValueError("find Failure. {0} | search: {1} | caseMatters: {2}".format(_bfr,search,caseMatters))
     #index = find
     def exists( self ):
         '''
@@ -580,7 +580,7 @@ class Path(str):
             selfStr = str( self )
             try:
                 os.remove( selfStr )
-            except WindowsError, e:
+            except WindowsError as e:
                 os.chmod( selfStr, stat.S_IWRITE )
                 os.remove( selfStr )
         elif self.isdir():
@@ -662,13 +662,13 @@ class Path(str):
         self.up().create()
 
         with open( self, 'w' ) as f:
-            cPickle.dump( toPickle, f, PICKLE_PROTOCOL )
+            pickle.dump( toPickle, f, PICKLE_PROTOCOL )
     def unpickle( self ):
         '''
         unpickles the file
         '''
         fileId = file( self, 'rb' )
-        data = cPickle.load(fileId)
+        data = pickle.load(fileId)
         fileId.close()
 
         return data
@@ -832,10 +832,10 @@ class Path(str):
         if recursive:
             walker = os.walk( self.osPath() )
             for path, subs, files in walker:
-                path = Path( path, self.__CASE_MATTERS )
+                #path = Path( path, self.__CASE_MATTERS )
 
                 for sub in subs:
-                    p = path / sub
+                    p = os.path.join(path, sub)
                     if itemtest( p ):
                         if namesOnly:
                             p = p.name()
@@ -844,7 +844,7 @@ class Path(str):
                     else: break  #if this doesn't match, none of the other subs will
 
                 for item in files:
-                    p = path / item
+                    p = os.path.join(path,item)
                     if itemtest( p ):
                         if namesOnly:
                             p = p.name()
@@ -853,7 +853,7 @@ class Path(str):
                     else: break  #if this doesn't match, none of the other items will
         else:
             for item in os.listdir( self ):
-                p = self / item
+                p = os.path.join(self,item)
                 if itemtest( p ):
                     if namesOnly:
                         p = p.name()

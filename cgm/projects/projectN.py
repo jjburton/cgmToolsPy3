@@ -1,12 +1,12 @@
 import cgm.core.cgm_Meta as cgmMeta
 import cgm.core.cgm_RigMeta as RIGMETA
-from cgm.core.cgmPy import validateArgs as VALID
+from .cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.attribute_utils as ATTR
-from cgm.core.rigger.lib import rig_Utils as rUtils
+from .cgm.core.rigger.lib import rig_Utils as rUtils
 #reload(rUtils)
-from cgm.core.classes import NodeFactory as NodeF
+from .cgm.core.classes import NodeFactory as NodeF
 import cgm.core.lib.distance_utils as DIST
-from cgm.core import cgm_General as cgmGEN
+from .cgm.core import cgm_General as cgmGEN
 
 import maya.cmds as mc
 import pprint
@@ -227,7 +227,7 @@ def cards_constrainToSockects():
     
     
     
-    for k,t in _d.iteritems():
+    for k,t in list(_d.items()):
         mObj = cgmMeta.asMeta("{0}:rootMotion_anim".format(k))
         if not mObj:
             log.error("Failed to find: {0}".format(k))
@@ -1453,13 +1453,13 @@ def stacheSetup():
     
     mMuzzle = cgmMeta.asMeta(_muzzle)
     
-    for o,t in _d.iteritems():
+    for o,t in list(_d.items()):
         mObj = cgmMeta.asMeta(o)
         mTarget = cgmMeta.asMeta(t)
         
         mDynGroup = mObj.dynParentGroup
         
-        for i in xrange(2):
+        for i in range(2):
             if not i:
                 _name = "{0}_{1}_trackLoc".format(mObj.p_nameBase,mTarget.p_nameBase)
                 _alias = 'trackLip'
@@ -1541,7 +1541,7 @@ def simpleLipHandleTrack(top = 'muzzle_anim', lwr = 'lip_anim'):
         
         
         
-d_wiring = {u'R_lip_smile': u'|cha_faceBuffer.lip_smile_right', u'R_lip_narrow': u'|cha_faceBuffer.lip_narrow_right', u'R_lip_smileBig': u'|cha_faceBuffer.lip_smilePush_right', u'L_lid_happyBlink': u'|cha_faceBuffer.lid_arcUp_left', u'teeth_lwrFlat': u'|cha_faceBuffer.teeth_flatLwr', u'L_lip_wide': u'|cha_faceBuffer.lip_wide_left', u'R_lid_blink': u'|cha_faceBuffer.lid_blink_right', u'L_lid_blink': u'|cha_faceBuffer.lid_blink_left', u'R_lip_seal': u'|cha_faceBuffer.lip_seal_right', u'L_brow_anger': u'|cha_faceBuffer.brow_angry_left', u'mouth_up': u'|cha_faceBuffer.mouth_up', u'jaw_open': u'|cha_faceBuffer.jaw_open', u'L_brow_thicken': u'|cha_faceBuffer.brow_thick_left', u'teeth_hide': u'|cha_faceBuffer.teeth_hide', u'R_brow_flat': u'|cha_faceBuffer.brow_flat_right', u'tongueHide': u'|cha_faceBuffer.tongue_hide', u'R_lip_wide': u'|cha_faceBuffer.lip_wide_right', u'L_lid_downBlink': u'|cha_faceBuffer.lid_arcDn_left', u'L_brow_arcUp': u'|cha_faceBuffer.brow_arcUp_left', u'R_lip_cat': u'|cha_faceBuffer.lip_cat_right', u'R_lid_downBlink': u'|cha_faceBuffer.lid_arcDn_right', u'R_eye_mouthFix': u'|cha_faceBuffer.eye_fix_right', u'L_lip_smile': u'|cha_faceBuffer.lip_smile_left', u'R_brow_thicken': u'|cha_faceBuffer.brow_thick_right', u'R_brow_arcUp': u'|cha_faceBuffer.brow_arcUp_right', u'L_lip_narrow': u'|cha_faceBuffer.lip_narrow_left', u'L_eyeRound': u'|cha_faceBuffer.eye_pupilRound_left', u'L_brow_flat': u'|cha_faceBuffer.brow_flat_left', u'teeth_flatSeal': u'|cha_faceBuffer.teeth_closeFlat', u'L_lip_seal': u'|cha_faceBuffer.lip_seal_left', u'teeth_close': u'|cha_faceBuffer.teeth_closeReg', u'mouth_out': u'|cha_faceBuffer.mouth_out', u'R_eyeRound': u'|cha_faceBuffer.eye_pupilRound_right', u'R_lip_frown': u'|cha_faceBuffer.lip_frown_right', u'L_eye_mouthFix': u'|cha_faceBuffer.eye_fix_left', u'L_lip_smileBig': u'|cha_faceBuffer.lip_smilePush_left', u'R_brow_anger': u'|cha_faceBuffer.brow_angry_right', u'teeth_uprFlat': u'|cha_faceBuffer.teeth_flatUpr', u'L_lip_frown': u'|cha_faceBuffer.lip_frown_left', u'L_lip_cat': u'|cha_faceBuffer.lip_cat_left'} # 
+d_wiring = {'R_lip_smile': '|cha_faceBuffer.lip_smile_right', 'R_lip_narrow': '|cha_faceBuffer.lip_narrow_right', 'R_lip_smileBig': '|cha_faceBuffer.lip_smilePush_right', 'L_lid_happyBlink': '|cha_faceBuffer.lid_arcUp_left', 'teeth_lwrFlat': '|cha_faceBuffer.teeth_flatLwr', 'L_lip_wide': '|cha_faceBuffer.lip_wide_left', 'R_lid_blink': '|cha_faceBuffer.lid_blink_right', 'L_lid_blink': '|cha_faceBuffer.lid_blink_left', 'R_lip_seal': '|cha_faceBuffer.lip_seal_right', 'L_brow_anger': '|cha_faceBuffer.brow_angry_left', 'mouth_up': '|cha_faceBuffer.mouth_up', 'jaw_open': '|cha_faceBuffer.jaw_open', 'L_brow_thicken': '|cha_faceBuffer.brow_thick_left', 'teeth_hide': '|cha_faceBuffer.teeth_hide', 'R_brow_flat': '|cha_faceBuffer.brow_flat_right', 'tongueHide': '|cha_faceBuffer.tongue_hide', 'R_lip_wide': '|cha_faceBuffer.lip_wide_right', 'L_lid_downBlink': '|cha_faceBuffer.lid_arcDn_left', 'L_brow_arcUp': '|cha_faceBuffer.brow_arcUp_left', 'R_lip_cat': '|cha_faceBuffer.lip_cat_right', 'R_lid_downBlink': '|cha_faceBuffer.lid_arcDn_right', 'R_eye_mouthFix': '|cha_faceBuffer.eye_fix_right', 'L_lip_smile': '|cha_faceBuffer.lip_smile_left', 'R_brow_thicken': '|cha_faceBuffer.brow_thick_right', 'R_brow_arcUp': '|cha_faceBuffer.brow_arcUp_right', 'L_lip_narrow': '|cha_faceBuffer.lip_narrow_left', 'L_eyeRound': '|cha_faceBuffer.eye_pupilRound_left', 'L_brow_flat': '|cha_faceBuffer.brow_flat_left', 'teeth_flatSeal': '|cha_faceBuffer.teeth_closeFlat', 'L_lip_seal': '|cha_faceBuffer.lip_seal_left', 'teeth_close': '|cha_faceBuffer.teeth_closeReg', 'mouth_out': '|cha_faceBuffer.mouth_out', 'R_eyeRound': '|cha_faceBuffer.eye_pupilRound_right', 'R_lip_frown': '|cha_faceBuffer.lip_frown_right', 'L_eye_mouthFix': '|cha_faceBuffer.eye_fix_left', 'L_lip_smileBig': '|cha_faceBuffer.lip_smilePush_left', 'R_brow_anger': '|cha_faceBuffer.brow_angry_right', 'teeth_uprFlat': '|cha_faceBuffer.teeth_flatUpr', 'L_lip_frown': '|cha_faceBuffer.lip_frown_left', 'L_lip_cat': '|cha_faceBuffer.lip_cat_left'} # 
 
 
 

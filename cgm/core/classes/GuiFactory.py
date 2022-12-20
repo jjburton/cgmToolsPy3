@@ -211,8 +211,8 @@ class markingMenu(object):#mUI.BaseMelWindow
                     mc.popupMenu('cgmMM', edit = True, ctl = 0, alt = 0, sh = 0, mm = 1, b =1, aob = 1, p = _p, 
                                  pmc = lambda *a: self.createUI(),                            
                                  postMenuCommandOnce=True)#dai = True,            
-        except Exception,err:
-            print Exception,err
+        except Exception as err:
+            print((Exception,err))
         finally:
             mc.warning( "'{0}' Built. Click for pop up.".format(_str_popWindow))
         
@@ -232,7 +232,7 @@ class markingMenu(object):#mUI.BaseMelWindow
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_%s_%s"%(self._str_MM ,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_%s'%varName] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_%s'%varName)
         if fullName not in self.l_optionVars:
@@ -259,7 +259,7 @@ def reloadUI2(self):
         self.close()
         del(self)
         return cls()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def resetUI(cls,window,l_optionVars):
@@ -293,7 +293,7 @@ def killChildren(uiElement):
     for c in l_:
         #log.info('deleting old ui: {0}'.format(c))
         try:mc.deleteUI(c)
-        except Exception,err:log.debug('failed to delete: {0} | err: {1}'.format(c,err))     
+        except Exception as err:log.debug('failed to delete: {0} | err: {1}'.format(c,err))     
 
 if cgmGEN.__mayaVersion__ > 2016:
     _b_reload = False
@@ -427,7 +427,7 @@ class cgmWorkspaceUI(mUI.BaseMelWindow):
             if self.var_uiLoadCount.value in l_thanksIntervals:
                 uiWindow_thanks()            
 
-        except Exception,err:cgmGEN.cgmException(Exception,err)
+        except Exception as err:cgmGEN.cgmException(Exception,err)
         finally:
             mc.progressBar(self.pg_maya, edit=True, endProgress=True)
 
@@ -505,7 +505,7 @@ class cgmWorkspaceUI(mUI.BaseMelWindow):
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_%s%s"%(self.__class__.TOOLNAME,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_%s'%varName] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_%s'%varName)
         if fullName not in self.l_optionVars:
@@ -969,7 +969,7 @@ class cgmGUI(mUI.BaseMelWindow):
             if self.var_uiLoadCount.value in l_thanksIntervals:
                 uiWindow_thanks()
 
-        except Exception,err:cgmGEN.cgmException(Exception,err)
+        except Exception as err:cgmGEN.cgmException(Exception,err)
         finally:
             mc.progressBar(self.pg_maya, edit=True, endProgress=True)
 
@@ -1011,7 +1011,7 @@ class cgmGUI(mUI.BaseMelWindow):
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_%s_%s"%(self.__class__.TOOLNAME,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_%s'%varName] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_%s'%varName)
         if fullName not in self.l_optionVars:
@@ -1392,7 +1392,7 @@ class cgmGUI2(mUI.BaseMelWindow):
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_%s%s"%(self.__toolName__,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_%s'%varName] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_%s'%varName)
         if fullName not in self.l_optionVars:
@@ -1511,7 +1511,7 @@ class cgmGUI2(mUI.BaseMelWindow):
                 mc.window(_dock, edit = True, tlc = [200, 200])
             self.var_Dock.toggle()
                 
-        except Exception,err:
+        except Exception as err:
             log.error("Failed to dock: {0}".format(err))
 
     def do_showHelpToggle( self):
@@ -1798,7 +1798,7 @@ def do_purgeOptionVars(varHolder):
 def do_purgeOptionVar(varName):
     if mc.optionVar(exists = varName):    
         mc.optionVar( remove=varName )
-        print "'%s' removed"%varName
+        print(("'%s' removed"%varName))
         return True
     return False
 #=========================================================================
@@ -1917,7 +1917,7 @@ def add_cgmFooter(parent = False):
         mc.iconTextButton(style='iconOnly',image =_path_image,
                           c=lambda *a:(webbrowser.open("https://github.com/jjburton/cgmTools/wiki/")))  
                           #c=lambda *a:(webbrowser.open("http://docs.cgmonks.com/")))  
-    except Exception,err:
+    except Exception as err:
         log.warning("Failed to add cgmFooter")
         for arg in err.args:
             log.error(arg)
@@ -1932,7 +1932,7 @@ def add_cgMonaseryFooter(parent = False):
         _path_image = os.path.join(_path_imageFolder,'cgmonastery_uiFooter_gray.png')
         mc.iconTextButton(style='iconOnly',image =_path_image,
                           c=lambda *a:(webbrowser.open("https://github.com/jjburton/cgmTools/wiki/")))  
-    except Exception,err:
+    except Exception as err:
         log.warning("Failed to add cgmFooter")
         for arg in err.args:
             log.error(arg)
@@ -2141,8 +2141,8 @@ def progressBar_iter(progressBar=None,**kws):
     if not progressBar:
         progressBar = progressBar_start(*kws)
         
-    if 'step' not in kws.keys():kws['step'] = 1
-    if 'beginProgress' not in kws.keys():kws['beginProgress'] = 1
+    if 'step' not in list(kws.keys()):kws['step'] = 1
+    if 'beginProgress' not in list(kws.keys()):kws['beginProgress'] = 1
     kws['edit'] = 1
     
     mc.progressBar(progressBar, **kws)
@@ -2163,7 +2163,7 @@ def progressBar_set(progressBar=None,**kws):
     if not progressBar:progressBar = progressBar_start(*kws)    
     if kws.get('status'):
         str_bfr = kws.get('status')
-    if 'beginProgress' not in kws.keys():kws['beginProgress'] = 1
+    if 'beginProgress' not in list(kws.keys()):kws['beginProgress'] = 1
     mc.progressBar(progressBar,edit = True,**kws)
 
 
@@ -2172,7 +2172,7 @@ def log_selfReport(self):
         log.info("="*100)		
         log.info("{0} GUI = {1} {0}".format(cgmGEN._str_headerDiv, self))
         log.info("="*100)	
-        l_keys = self.__dict__.keys()
+        l_keys = list(self.__dict__.keys())
         l_keys.sort()		    
         log.info(" Self Stored: " + cgmGEN._str_subLine)
         for i,str_k in enumerate(l_keys):
@@ -2185,12 +2185,12 @@ def log_selfReport(self):
                 if 'var_' in str_k:
                     log.info(cgmGEN._str_baseStart * 2 + "[{3}] | full:{0} | type: {1} | value: {2}".format(buffer.name,buffer.varType,buffer.value,str_k))		
                 #log.info(cgmGEN._str_baseStart * 4 + "Type: {0}".format(type(buffer)))
-            except Exception,error:
+            except Exception as error:
                 log.error("log_selfReport >> '{0}' key fail | error: {1}".format(str_k,error))
                 
         pprint.pprint(self.__dict__)
         
-    except Exception,error:
+    except Exception as error:
         log.error("log_self fail | error: {0}".format(error))
         
 class Callback(object):
@@ -2374,7 +2374,7 @@ class cgmScrollList(mUI.BaseMelWidget):
             if selCommand and self.selCommand:
                 self.selCommand()
             
-        except Exception,err:
+        except Exception as err:
             log.error("select_last | {}".format(err))
             
     def getSelectedIdxs( self ):
@@ -2386,7 +2386,7 @@ class cgmScrollList(mUI.BaseMelWidget):
             self( e=True, selectIndexedItem=idx+1 )#indices are 1-based in mel land - fuuuuuuu alias!!!
             if selCommand and self.selCommand:
                 self.selCommand()
-        except Exception,err:log.error(err)
+        except Exception as err:log.error(err)
         
         
     def selectByValue( self, value, preclear=True, selCommand=True ):
@@ -2395,7 +2395,7 @@ class cgmScrollList(mUI.BaseMelWidget):
             self( e=True, selectItem=value )
             if selCommand and self.selCommand:
                 self.selCommand()            
-        except Exception,err:
+        except Exception as err:
             if value in self._items:
                 log.error(err)
         
@@ -2433,7 +2433,7 @@ class cgmScrollList(mUI.BaseMelWidget):
             _color = [v*.7 for v in color]
             self(e =1, hlc = _color)
             return
-        except Exception,err:
+        except Exception as err:
             log.error(err)
             
         try:self(e =1, hlc = [.5,.5,.5])
@@ -2545,7 +2545,7 @@ class cgmScrollList(mUI.BaseMelWidget):
                 self._l_str_loaded.append(strEntry)
                 idx = self._l_strings.index(strEntry)
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
@@ -2556,7 +2556,7 @@ def uiPrompt_removeDir(path = None):
     '''
     mPath = PATHS.Path(path)
     if not mPath.exists():
-        raise StandardError('uiPath_removeDir | Invalid Path: {0}'.format(path))
+        raise Exception('uiPath_removeDir | Invalid Path: {0}'.format(path))
     
     promptstring = 'Remove Dir '.format(mPath.asFriendly())
     

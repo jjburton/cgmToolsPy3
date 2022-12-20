@@ -1,5 +1,5 @@
 
-from baseSkeletonPreset import *
+from .baseSkeletonPreset import *
 
 
 #end

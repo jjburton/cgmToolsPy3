@@ -1,5 +1,6 @@
 import cgm.core.rig.ik_utils as IK
-reload(IK)
+import importlib
+importlib.reload(IK)
 
 ml_segJoints = cgmMeta.validateObjListArg(mc.ls(sl=1))
 mModule = cgmMeta.asMeta('segment_part')#...noend, lever
@@ -22,17 +23,17 @@ mSurf = IK.ribbon(**d_test)
 
 
 import cgm.projects.morpheusForUnity.m_utils as MORPHYUTILS
-reload(MORPHYUTILS) 
+importlib.reload(MORPHYUTILS) 
 
 MORPHYUTILS.rigJoint_verify()
 MORPHYUTILS.driverGroup_verify()
 MORPHYUTILS.rigJoint_connectFromRig()
 
-driven1 = [u'L_lip_corner_rig',u'L_lip_upr_rig',u'CTR_lip_upr_rig',u'R_lip_upr_rig',u'R_lip_corner_rig']
-driven2 = [u'L_lip_corner_rig',u'L_lip_lwr_rig',u'CTR_lip_lwr_rig',u'R_lip_lwr_rig',u'R_lip_corner_rig']
+driven1 = ['L_lip_corner_rig','L_lip_upr_rig','CTR_lip_upr_rig','R_lip_upr_rig','R_lip_corner_rig']
+driven2 = ['L_lip_corner_rig','L_lip_lwr_rig','CTR_lip_lwr_rig','R_lip_lwr_rig','R_lip_corner_rig']
 
-influences1 =[u'L_lip_corner_anim',u'L_lip_upr_anim',u'CTR_lip_upr_anim',u'R_lip_upr_anim',u'R_lip_corner_anim']
-influences2 =[u'L_lip_corner_anim',u'L_lip_lwr_anim',u'CTR_lip_lwr_anim',u'R_lip_lwr_anim',u'R_lip_corner_anim']
+influences1 =['L_lip_corner_anim','L_lip_upr_anim','CTR_lip_upr_anim','R_lip_upr_anim','R_lip_corner_anim']
+influences2 =['L_lip_corner_anim','L_lip_lwr_anim','CTR_lip_lwr_anim','R_lip_lwr_anim','R_lip_corner_anim']
 
 d_test = {'driven1':driven1,
           'driven2':driven2,
@@ -43,16 +44,16 @@ d_test = {'driven1':driven1,
           'baseName2':"lwrLip",
           'extendEnds':True,
           'msgDriver':'driverGroup'}
-reload(MORPHYUTILS)
+importlib.reload(MORPHYUTILS)
 MORPHYUTILS.ribbon_seal(**d_test)
 
 
 
-driven1 = [u'L_lip_corner_rig',u'L_lip_upr_rig',u'CTR_lip_upr_rig',u'R_lip_upr_rig',u'R_lip_corner_rig']
-driven2 = [u'L_lip_corner_rig',u'L_lip_lwr_rig',u'CTR_lip_lwr_rig',u'R_lip_lwr_rig',u'R_lip_corner_rig']
+driven1 = ['L_lip_corner_rig','L_lip_upr_rig','CTR_lip_upr_rig','R_lip_upr_rig','R_lip_corner_rig']
+driven2 = ['L_lip_corner_rig','L_lip_lwr_rig','CTR_lip_lwr_rig','R_lip_lwr_rig','R_lip_corner_rig']
 
-influences1 =[u'L_lip_corner_anim',u'L_lip_upr_anim',u'CTR_lip_upr_anim',u'R_lip_upr_anim',u'R_lip_corner_anim']
-influences2 =[u'L_lip_corner_anim',u'L_lip_lwr_anim',u'CTR_lip_lwr_anim',u'R_lip_lwr_anim',u'R_lip_corner_anim']
+influences1 =['L_lip_corner_anim','L_lip_upr_anim','CTR_lip_upr_anim','R_lip_upr_anim','R_lip_corner_anim']
+influences2 =['L_lip_corner_anim','L_lip_lwr_anim','CTR_lip_lwr_anim','R_lip_lwr_anim','R_lip_corner_anim']
 
 d_test = {'driven1':driven1,
           'driven2':driven2,
@@ -69,7 +70,7 @@ d_test = {'driven1':driven1,
           'specialMode':'endsToInfluences',
           'settingsControl':'jaw_rig',
           'msgDriver':'driverGroup'}
-reload(MORPHYUTILS)
+importlib.reload(MORPHYUTILS)
 MORPHYUTILS.ribbon_seal(**d_test)
 d_split = {'driven1':driven1,
            'driven2':driven2,
@@ -79,11 +80,11 @@ d_split = {'driven1':driven1,
            'settingsControl':'jaw_rig',
            'buildNetwork':True,
            }
-reload(MORPHYUTILS)
+importlib.reload(MORPHYUTILS)
 MORPHYUTILS.split_blends(**d_split)
 
 import cgm.core.lib.math_utils as MATH
-reload(MATH)
+importlib.reload(MATH)
 l = [4.020265273374398, 2.712863014235007,1.2084344688755784,2.7127737672840446, 4.020333705296969]
 l = [10,2]
 MATH.normalizeListToSum(l)

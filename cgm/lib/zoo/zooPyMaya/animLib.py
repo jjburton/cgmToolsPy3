@@ -1,5 +1,5 @@
 
-import cPickle
+import pickle
 
 from maya import OpenMaya, OpenMayaUI, mel
 from maya import cmds as cmd
@@ -8,9 +8,9 @@ from cgm.lib.zoo.zooPy import presets
 from cgm.lib.zoo.zooPy.strUtils import Mapping
 from cgm.lib.zoo.zooPy.path import Path
 
-import animClip
+from . import animClip
 
-from melUtils import printInfoStr, printWarningStr, printErrorStr
+from .melUtils import printInfoStr, printWarningStr, printErrorStr
 
 TOOL_NAME = 'animLib'
 VER = 4
@@ -125,7 +125,7 @@ class BaseClipPreset(presets.Preset):
 			return self._clipDict
 
 		with open( self.path() ) as f:
-			self._clipDict = cPickle.load( f )
+			self._clipDict = pickle.load( f )
 
 		return self._clipDict
 	def __exit__( self, xType, xVal, tb ):
@@ -209,7 +209,7 @@ class BaseClipPreset(presets.Preset):
 
 		#write the preset file to disk
 		with open( self.path(), 'w' ) as f:
-			cPickle.dump( so, f )
+			pickle.dump( so, f )
 
 		#generate the icon for the clip and add it to perforce if appropriate
 		icon = generateIcon( self )
@@ -236,7 +236,7 @@ class LibraryManager():
 		'''
 		libraries = set()
 
-		for locale, paths in self.getLibraryPaths().iteritems():
+		for locale, paths in list(self.getLibraryPaths().items()):
 			for p in paths:
 				libName = p.name()
 				libraries.add(libName)
@@ -270,7 +270,7 @@ class LibraryManager():
 	def getLibraryClips( self, library ):
 		clips = {presets.LOCAL: [], presets.GLOBAL: []}
 		possibleTypes = AnimClipPreset, PoseClipPreset
-		for locale, localeClips in clips.iteritems():
+		for locale, localeClips in list(clips.items()):
 			for dir in self._presetManager.getPresetDirs(locale):
 				dir += library
 				if not dir.exists():

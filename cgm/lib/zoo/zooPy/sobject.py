@@ -1,7 +1,7 @@
 
-from __future__ import with_statement
 
-from cStringIO import StringIO
+
+from io import StringIO
 from functools import partial
 
 #some boolean string values - should be lower-case!
@@ -58,10 +58,10 @@ def findDigits( line ):
 class SObject(object):
 
 	#these are the types supported
-	__SUPPORTED_TYPES = str, unicode, int, float, str, bool, long, list, tuple, dict, type(None)
+	__SUPPORTED_TYPES = str, str, int, float, str, bool, int, list, tuple, dict, type(None)
 	__SUPPORTED_TYPE_DICT = dict( ((t.__name__, t) for t in __SUPPORTED_TYPES) )
 	__SUPPORTED_TYPES_SET = set( __SUPPORTED_TYPES )
-	__SUPPORTED_KEY_TYPES = bool, int, long, float, str, unicode
+	__SUPPORTED_KEY_TYPES = bool, int, int, float, str, str
 	__SUPPORTED_TYPES_SET_SET = set( __SUPPORTED_KEY_TYPES )
 
 	def __init__( self, *orderedAttrValuePairs, **unorderedAttrValuePairs ):
@@ -80,7 +80,7 @@ class SObject(object):
 		for attrName, attrValue in orderedAttrValuePairs:
 			setattr( self, attrName, attrValue )
 
-		for attrName, attrValue in unorderedAttrValuePairs.iteritems():
+		for attrName, attrValue in list(unorderedAttrValuePairs.items()):
 			setattr( self, attrName, attrValue )
 	def __hash__( self ):
 		return id( self )
@@ -207,7 +207,7 @@ class SObject(object):
 		def serializeDict( value, valueType, depth ):
 			stream.write( '\n' )
 			depthPrefix = '\t' * depth
-			for k, v in value.iteritems():
+			for k, v in list(value.items()):
 				kType = type( k )
 				if kType not in supportedKeyTypes:
 					raise TypeError( '''The dict key type "%s" isn't supported!''' % kType )
@@ -226,7 +226,7 @@ class SObject(object):
 		def defaultSerializer( value, valueType, depth ):
 
 			#escape newline characters
-			if valueType is str or valueType is unicode:
+			if valueType is str or valueType is str:
 				value = value.encode( 'unicode_escape' )
 
 			stream.write( '%s\n' % value )
@@ -340,7 +340,7 @@ class SObject(object):
 			return None
 
 		def defaultParser( valueStr, typeCls, depth ):
-			if typeCls is str or typeCls is unicode:
+			if typeCls is str or typeCls is str:
 				valueStr = valueStr.decode( 'unicode_escape' )
 
 			return typeCls( valueStr )
@@ -385,7 +385,7 @@ class SObject(object):
 			return objectParser( line )
 	@classmethod
 	def Unserialize( cls, theStr ):
-		if not isinstance( theStr, basestring ):
+		if not isinstance( theStr, str ):
 			raise TypeError( "Need to pass in a string object!" )
 
 		return cls.UnserializeStream( StringIO( theStr ) )
@@ -408,7 +408,7 @@ class SObject(object):
 		obj = cls()
 		dictObjectMap[ theDictId ] = obj
 		supportedTypes = cls.__SUPPORTED_TYPES_SET
-		for key, value in theDict.iteritems():
+		for key, value in list(theDict.items()):
 			valueType = type( value )
 
 			if valueType is dict:
@@ -438,7 +438,7 @@ class SObject(object):
 			return dictObjectMap[ self ]
 
 		thisDict = dictObjectMap[ self ] = {}
-		for key, value in self.iteritems():
+		for key, value in list(self.items()):
 			if type( value ) is SObject:
 				thisDict[ key ] = value.toDict( dictObjectMap )
 			else:
@@ -451,7 +451,7 @@ class SObject(object):
 		for attr in self.getAttrs():
 			yield attr, getattr( self, attr )
 	def items( self ):
-		return list( self.iteritems() )
+		return list( self.items() )
 	def iterkeys( self ):
 		return iter( self.getAttrs() )
 	keys = getAttrs
@@ -459,7 +459,7 @@ class SObject(object):
 		for attr in self.getAttrs():
 			yield getattr( self, attr )
 	def values( self ):
-		return self.itervalues()
+		return iter(list(self.values()))
 
 
 def pickleToSObject( obj, pickledObjDict=None ):
@@ -480,13 +480,13 @@ def pickleToSObject( obj, pickledObjDict=None ):
 		return obj
 
 	sobject = pickledObjDict[ objId ] = SObject()
-	for attrName, attrValue in obj.__dict__.iteritems():
+	for attrName, attrValue in list(obj.__dict__.items()):
 		if not SObject.IsValueSupported( attrValue ):
 			attrValue = pickleToSObject( attrValue )
 
 		setattr( sobject, attrName, attrValue )
 
-	for typeCls in (str, int, long, float, unicode, bool, list, tuple, dict):
+	for typeCls in (str, int, int, float, str, bool, list, tuple, dict):
 		if isinstance( obj, typeCls ):
 			sobject.__instance_value_sobject = typeCls( obj )
 			break
@@ -505,7 +505,7 @@ def unpickleFromSObject( sobject, instanceCls ):
 	'''
 	base = None
 	hasBeenConstructed = False
-	for typeCls in (str, int, long, float, unicode, bool, list, tuple, dict):
+	for typeCls in (str, int, int, float, str, bool, list, tuple, dict):
 		if issubclass( instanceCls, typeCls ):
 			base = typeCls
 			break
@@ -521,7 +521,7 @@ def unpickleFromSObject( sobject, instanceCls ):
 
 	new.__class__ = instanceCls
 
-	for attr, value in sobject.iteritems():
+	for attr, value in list(sobject.items()):
 		new.__dict__[ attr ] = value
 
 	return new

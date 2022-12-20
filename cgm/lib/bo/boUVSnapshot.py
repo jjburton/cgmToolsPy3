@@ -136,7 +136,7 @@ def snapshot(objs, dst, fmt, size, aa):
     if len(result) == 0:
         print('no uv snapshots were output..')
     else:
-        print('output {0} uv snapshot(s) to /{1} successfully!'.format(len(result), dst))
+        print(('output {0} uv snapshot(s) to /{1} successfully!'.format(len(result), dst)))
 
 
 

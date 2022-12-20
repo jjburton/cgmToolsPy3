@@ -1,6 +1,6 @@
 
-from rigPrim_curves import *
-from spaceSwitching import build, NO_TRANSLATION, NO_ROTATION
+from .rigPrim_curves import *
+from .spaceSwitching import build, NO_TRANSLATION, NO_ROTATION
 
 
 class FkSpine(PrimaryRigPart):

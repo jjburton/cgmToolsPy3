@@ -4,12 +4,12 @@ standalone.initialize()
 
 from maya.cmds import *
 
-from devTest_base import d_makeNewScene, BaseTest
+from .devTest_base import d_makeNewScene, BaseTest
 
-import skeletonBuilder
-import skeletonBuilderUI
+from . import skeletonBuilder
+from . import skeletonBuilderUI
 
-import rigPrimitives
+from . import rigPrimitives
 
 __all__ = [ 'TestSkeletonBuilder' ]
 
@@ -100,7 +100,7 @@ class TestSkeletonBuilder(BaseTest):
 
 		#test the UI - make sure it loads and doesn't error with the built skeleton in the scene
 		ui = skeletonBuilderUI.SkeletonBuilderUI()
-		tabs = skeletonBuilderUI.CreateEditRigTabLayout.IterInstances().next()
+		tabs = next(skeletonBuilderUI.CreateEditRigTabLayout.IterInstances())
 
 		#walk through the tabs
 		for n in range( len( tabs ) ):

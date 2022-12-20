@@ -26,6 +26,7 @@ from cgm.lib.classes.OptionVarFactory import *
 
 import maya.mel as mel
 import maya.cmds as mc
+import importlib
 
 mayaVersion = int( mel.eval( 'getApplicationVersionAsFloat' ) )
 
@@ -38,7 +39,7 @@ from cgm.tools.lib import  (tdToolsLib,
                             namingToolsLib)
 
 #reload(tdToolsLib)
-reload(namingToolsLib)
+importlib.reload(namingToolsLib)
 
 def run():
     tdTools = tdToolsClass()
@@ -1988,7 +1989,7 @@ class tdToolsClass(BaseMelWindow):
 	ContainersListName = (RadioCollectionName+'Containers')
 	self.ContainersListName = []
 	for LayoutCommand in SectionLayoutCommands:
-	    print LayoutCommand
+	    print(LayoutCommand)
 	    self.ContainersListName.append( [self.LayoutCommand(parent,vis=True) ])
 
 

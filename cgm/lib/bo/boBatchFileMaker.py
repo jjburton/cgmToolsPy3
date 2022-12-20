@@ -50,11 +50,11 @@ def pyWarning( warningString ):
 def getMAFrameRange( maFile ):
 	#check ext
 	if not os.path.exists( maFile ):
-		print 'file not found: %s' % maFile
+		print(('file not found: %s' % maFile))
 		return
 	root, ext = os.path.splitext( maFile )
 	if ext != '.ma':
-		print 'filetype is not mayaAscii: %s' % maFile
+		print(('filetype is not mayaAscii: %s' % maFile))
 		return
 	
 	startFrame, endFrame = None, None
@@ -716,7 +716,7 @@ class BatchFileMaker(object):
 				result = cmds.confirmDialog(t='Creating Directory...', m='The specified Save Location does not exist, create?\n%s' % self.bfs['sd'], b=['Yes', 'No'], db='Ok', cb='No')
 				if result == 'Yes':
 					os.makedirs(self.bfs['sd'])
-					print 'save directory has been created: %s' % self.bfs['sd']
+					print(('save directory has been created: %s' % self.bfs['sd']))
 		else:
 			result = cmds.confirmDialog(t='Save Location', ma='center', m='No save location was specified for the batch files.\nThey will be saved to the last working directory.\nDo you want to continue?', b=['Yes', 'No'], db='Ok', cb='No')
 			if result == 'Yes':
@@ -729,14 +729,14 @@ class BatchFileMaker(object):
 				result = cmds.confirmDialog(t='Creating Directory...', m='The specified Project Directory does not exist, create?\n%s' % self.rs['pd'], b=['Yes', 'No'], db='Ok', cb='No')
 				if result == 'Yes':
 					os.makedirs(self.rs['pd'])
-					print 'project directory has been created: %s' % self.rs['pd']
+					print(('project directory has been created: %s' % self.rs['pd']))
 		
 		if self.rs['rd']:
 			if not os.path.exists(self.rs['rd']):
 				result = cmds.confirmDialog(t='Creating Directory...', m='The specified Render Directory does not exist, create?\n%s' % self.rs['rd'],b=['Yes', 'No'], db='Ok', cb='No')
 				if result == 'Yes':
 					os.makedirs(self.rs['rd'])
-					print 'render directory has been created: %s' % self.rs['rd']
+					print(('render directory has been created: %s' % self.rs['rd']))
 	
 	def buildStaticFlags(self):
 		"""Creates the flags that will be the same for every .bat"""
@@ -816,7 +816,7 @@ class BatchFileMaker(object):
 		return returnStr
 	
 	def writeBatCmds(self):
-		files = self.batCmds.keys()
+		files = list(self.batCmds.keys())
 		for f in files:
 			filePath = os.path.abspath(os.path.join(self.bfs['sd'], '%s.bat' % f))
 			self.writeFile(filePath, self.batCmds[f])
@@ -826,7 +826,7 @@ class BatchFileMaker(object):
 			fsock = open(fileName, 'w')
 			try:
 				fsock.write(data+'\n')
-				print '// wrote batch file successfully: %s' % fileName
+				print(('// wrote batch file successfully: %s' % fileName))
 			finally:
 				fsock.close()
 		except IOError:

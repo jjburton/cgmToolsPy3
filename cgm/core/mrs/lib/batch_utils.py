@@ -127,7 +127,7 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
     
     for d2 in dat:
         _dat.append('{')
-        for k,d in d2.iteritems():
+        for k,d in list(d2.items()):
             if k == 'objs':
                 if d:
                     _l_tmp = ','.join("'{0}'".format(o) for o in d)
@@ -406,7 +406,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     mFile = PATHS.Path(f)
     
     if not mFile.exists():
-        raise ValueError,"Invalid file: {0}".format(f)
+        raise ValueError("Invalid file: {0}".format(f))
     
     _path = mFile.asFriendly()
     
@@ -454,7 +454,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                 if l_fails:
                     log.info('The following failed...')
                     pprint.pprint(l_fails)
-                    raise ValueError,"Modules failed to rig: {0}".format(l_fails)
+                    raise ValueError("Modules failed to rig: {0}".format(l_fails))
         
                 log.info("Begin Rig Prep cleanup...")
                 '''
@@ -471,7 +471,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                     l_timeReports = []
                     
                     if kws.get('mirrorVerify',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('mirror_verify...')
                         t1 = time.clock()
@@ -489,7 +489,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 ])
                         
                     if kws.get('qss',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('qss...')
                         t1 = time.clock()                                                
@@ -499,7 +499,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 ])
                         
                     if kws.get('deleteUnusedShaders'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Delete unused shaders...')
                         t1 = time.clock()
@@ -508,7 +508,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         l_timeReports.append(['deleteUnusedShaders', get_time(t2-t1)])
                                               
                     if kws.get('deleteCGMLightGroup'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Delete cgm shaders...')
                         t1 = time.clock()
@@ -520,7 +520,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         
                         
                     if kws.get('hideVisSub',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                         
                         log.info('hideVisSub...')
                         t1 = time.clock()
@@ -530,7 +530,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                                 continue
                             try:
                                 mSubBlock.moduleTarget.rigNull.settings.visSub = 0
-                            except Exception,err:
+                            except Exception as err:
                                 log.error(mSubBlock)
                                 log.error(err)
 
@@ -539,7 +539,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         l_timeReports.append(['hideVisSub', get_time(t2-t1)])
                         
                     if kws.get('hideJointAxis'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Hide axis on all joints...')   
                         t1 = time.clock()
@@ -551,7 +551,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 ])
                         
                     if kws.get('removeRefs'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Remove Refs...')
                         t1 = time.clock()
@@ -562,7 +562,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         l_timeReports.append(['removeRefs', get_time(t2-t1)
 ])                    
                     if kws.get('ihi',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('ihi...')
                         t1 = time.clock()
@@ -573,7 +573,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         l_timeReports.append(['ihi', get_time(t2-t1)
 ])                        
                     if kws.get('connectRig',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('rig connect...')
                         t1 = time.clock()
@@ -586,7 +586,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                     log.info('...')
                     
                     if kws.get('controllerVerify',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         if cgmGEN.__mayaVersion__ >= 2018:
                             log.info('controller_verify...')
@@ -600,7 +600,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 ])                            
                     
                     if kws.get('blocksGather',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         t1 = time.clock()
                         mGrp = BUILDERUTILS.gather_rigBlocks()
@@ -613,7 +613,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                                               
 
                     if kws.get('proxyMesh',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
 
                         log.info('proxyMesh...')
                         t1 = time.clock()                        
@@ -622,7 +622,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         l_timeReports.append(['proxyMesh', get_time(t2-t1)])
                         
                     if kws.get('puppetMesh',1):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                         
                         log.info('puppetMesh...')
                         t1 = time.clock()                                                
@@ -632,7 +632,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 
                         
                     if kws.get('worldGather'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Gathering world dags...')
                         t1 = time.clock()
@@ -643,7 +643,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
 ])                    
                     
                     if kws.get('deleteUnusedLayers'):
-                        print(cgmGEN._str_hardBreak)                                                
+                        print((cgmGEN._str_hardBreak))                                                
                         log.info('Deleting Unused Layers...')
                         t1 = time.clock()
                         
@@ -651,13 +651,13 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         t2 = time.clock()
                         l_timeReports.append(['deleteUnusedLayers', get_time(t2-t1)
 ])
-                    print(cgmGEN._str_hardBreak)            
-                    print(cgmGEN.logString_sub("Batch",'Times'))
+                    print((cgmGEN._str_hardBreak))            
+                    print((cgmGEN.logString_sub("Batch",'Times')))
                     for i,pair_time in enumerate(l_timeReports):
-                        print(" {0} | ['{1}'] | {2} ".format(i,pair_time[0],pair_time[1]))
-                    print ('Completed: {}'.format(datetime.datetime.now()))                        
+                        print((" {0} | ['{1}'] | {2} ".format(i,pair_time[0],pair_time[1])))
+                    print(('Completed: {}'.format(datetime.datetime.now())))                        
 
-    except Exception,err:
+    except Exception as err:
         log.error(err)
         
         

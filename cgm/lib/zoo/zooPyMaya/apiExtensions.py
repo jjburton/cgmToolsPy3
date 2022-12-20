@@ -16,7 +16,7 @@ def asMObject( otherMobject ):
 	'''
 	tries to cast the given obj to an mobject - it can be string
 	'''
-	if isinstance( otherMobject, basestring ):
+	if isinstance( otherMobject, str ):
 		sel = MSelectionList()
 		sel.add( otherMobject )
 
@@ -84,7 +84,7 @@ def partialPathName( self ):
 	returns the partial name of the node
 	'''
 	if self.isNull():
-		return unicode()
+		return str()
 
 	if isinstance( self, MObjectHandle ):
 		self = self.object()
@@ -101,9 +101,9 @@ def partialPathName( self ):
 		node = MObject()
 		self.getDependNode( 0, node )
 
-		return unicode( MPlug( node, self ) )
+		return str( MPlug( node, self ) )
 
-	return u'<instance of %s>' % self.__class__
+	return '<instance of %s>' % self.__class__
 
 def __repr( self ):
 	return repr( self.partialPathName() )
@@ -155,10 +155,10 @@ def cmpNodes( a, b ):
 	if b is None:
 		return False
 
-	if isinstance( a, basestring ):
+	if isinstance( a, str ):
 		a = asMObject( a )
 
-	if isinstance( b, basestring ):
+	if isinstance( b, str ):
 		b = asMObject( b )
 
 	if not isinstance( a, MObject ):
@@ -171,7 +171,7 @@ def cmpNodes( a, b ):
 
 
 def __eq( self, other ):
-	if isinstance( other, basestring ):
+	if isinstance( other, str ):
 		other = asMObject( other )
 
 	return MObjectOriginalEquivalenceMethod( self, other )
@@ -183,7 +183,7 @@ if not hasattr( sys, '_MObjectOriginalEquivalenceMethod' ):
 else:
 	MObjectOriginalEquivalenceMethod = sys._MObjectOriginalEquivalenceMethod
 	MObject.__eq__ = __eq
-	print "mobject __eq__ already setup!"
+	print("mobject __eq__ already setup!")
 
 
 #preGetAttr = MObject.__getattr__
@@ -271,8 +271,8 @@ MObject.rename = _rename
 
 
 def cleanShortName( self ):
-	if not isinstance( self, basestring ):
-		self = unicode( self )
+	if not isinstance( self, str ):
+		self = str( self )
 
 	return self.split( ':' )[-1].split( '|' )[-1]
 
@@ -575,7 +575,7 @@ def iterAll():
 	'''
 	iterNodes = MItDependencyNodes()
 	getItem = iterNodes.thisNode
-	next = iterNodes.next  #cache next method for faster access inside the generator
+	next = iterNodes.__next__  #cache next method for faster access inside the generator
 	while not iterNodes.isDone():
 		yield getItem()
 		next()
@@ -676,7 +676,7 @@ def iterNonUniqueNames():
 		if not MFnDependencyNode( mobject ).hasUniqueName():  #thankfully instantiating MFn objects isn't slow - just MObject and MDagPath
 			yield mobject
 
-		iterNodes.next()
+		next(iterNodes)
 
 
 def fixNonUniqueNames():
@@ -684,12 +684,12 @@ def fixNonUniqueNames():
 	for dagPath in iterNonUniqueNames():
 		name = dagPath.partialPathName()
 		newName = rename( name, stripTrailingDigits( name.split( '|' )[ -1 ] ) +'#' )
-		print 'RENAMED:', name, newName
+		print(('RENAMED:', name, newName))
 
 
 def selectNonUniqueNames():
 	cmd.select( cl=True )
-	theNodes = map( str, iterNonUniqueNames() )
+	theNodes = list(map( str, iterNonUniqueNames() ))
 	if theNodes:
 		cmd.select( theNodes )
 

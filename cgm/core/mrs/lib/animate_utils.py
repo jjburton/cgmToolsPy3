@@ -115,7 +115,7 @@ def ik_bankRollShapes(self):
         _str_func = 'bankRollShapes'
         log.debug(cgmGEN.logString_sub(_str_func))        
 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 _d_contextAttrs = {'poseMatchMethod':{'dv':'base'},
                    'time':{'dv':'current'},
@@ -124,7 +124,7 @@ _d_contextAttrs = {'poseMatchMethod':{'dv':'base'},
 
 def get_contextDict(prefix=False):
     _res = {}
-    for a,d in _d_contextAttrs.iteritems():
+    for a,d in list(_d_contextAttrs.items()):
         _name = None
         try:
             if prefix:
@@ -137,7 +137,7 @@ def get_contextDict(prefix=False):
             else:
                 _res['context'+a.capitalize()] = cgmMeta.cgmOptionVar(_name).value
                 
-        except Exception,err:
+        except Exception as err:
             log.warning("Failed to query context: {0} | {1}".format(_name,err))
             
     _l_order = ['core','children','siblings','mirror']
@@ -151,7 +151,7 @@ def get_contextDict(prefix=False):
                 _name = 'cgmVar_mrsContext_'  + k
                 
             _res['context'+k.capitalize()] = cgmMeta.cgmOptionVar(_name).value
-        except Exception,err:
+        except Exception as err:
             log.warning("Failed to query context: {0} | {1}".format(_name,err))
     
     if prefix:
@@ -165,7 +165,7 @@ def uiSetup_context(self,prefix=False):
     self._l_contextTime = _l_contextTime
     self._l_contextKeys = _l_contextKeys
     
-    for a,d in _d_contextAttrs.iteritems():
+    for a,d in list(_d_contextAttrs.items()):
         if prefix:
             _name = "cgmVar_mrsContext_{0}_{1}".format(prefix,a) 
         else:
@@ -287,7 +287,7 @@ class dat(object):
         
         if datTarget:
             self.datTarget = datTarget
-            if self.datString not in self.datTarget.__dict__.keys():
+            if self.datString not in list(self.datTarget.__dict__.keys()):
                 self.datTarget.__dict__[self.datString] = self.dat
                 
         else:
@@ -433,7 +433,7 @@ class dat(object):
                 
             self.dat[mModule] = _m
             return self.dat[mModule]
-        except Exception,err:
+        except Exception as err:
             log.error(err)
         finally:
             CGMUI.doEndMayaProgressBar()
@@ -482,13 +482,13 @@ class dat(object):
         _frame = self.d_timeContext['frameInitial']
         
 
-        _keys = d_timeContext.keys()
+        _keys = list(d_timeContext.keys())
         _keys.sort()    
         if _context not in ['control']:
-            log.info("Context: {0} | keys: {1} | sources: {2}".format(_context, len(d_timeContext.keys()),
+            log.info("Context: {0} | keys: {1} | sources: {2}".format(_context, len(list(d_timeContext.keys())),
                                                                       len(d_timeContext['partControls'])))
             log.info(cgmGEN.logString_sub(None,'Sources'))
-            for mObj,l in d_timeContext['partControls'].iteritems():
+            for mObj,l in list(d_timeContext['partControls'].items()):
                 log.info("[{0}] || controls: {1}".format(mObj,len(l)))        
             log.info(cgmGEN.logString_sub(None,'Keys'))
             for k in _keys:
@@ -498,7 +498,7 @@ class dat(object):
             #pprint.pprint(d_timeContext['partControls'])
                 
         else:
-            log.info("Context: {0} | Time: {1} | keys: {2}".format(_context, _contextTime, len(d_timeContext.keys())))        
+            log.info("Context: {0} | Time: {1} | keys: {2}".format(_context, _contextTime, len(list(d_timeContext.keys()))))        
             for k in _keys:
                 log.info("{0} : {1}".format(k,d_timeContext[k]))
             log.info(cgmGEN._str_subLine)
@@ -581,7 +581,7 @@ class dat(object):
 
             self.dat[mPuppet] = _p
             return _p
-        except Exception,err:
+        except Exception as err:
             log.error(err)
 
     def get_buffer(self,context,children,siblings):
@@ -602,7 +602,7 @@ class dat(object):
         _str_func='context_get'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
                         
-        _keys = kws.keys()
+        _keys = list(kws.keys())
         
         #pprint.pprint(kws)
         
@@ -908,7 +908,7 @@ class dat(object):
             _str_func='get_context'
             log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
                             
-            _keys = kws.keys()
+            _keys = list(kws.keys())
             
             context = kws.get('context') or self.var_mrsContext.value
             b_children = kws.get('children') or self.var_mrsContext_children.value
@@ -1189,7 +1189,7 @@ class dat(object):
                 log.debug(cgmGEN.logString_sub("second pass context..."))
                 pprint.pprint(self.d_context)            
             return self.d_context['mControls']
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
         
     #@cgmGEN.Timer
     def contextTime_get(self,mirrorQuery=False,**kws):
@@ -1225,7 +1225,7 @@ class dat(object):
             log.debug("|{0}| >> context: {1} | {2} - {3} | {4}".format(_str_func,_context,_contextKeys,_contextTime, ' | '.join(kws)))
             
             #First gcather our controls
-            _keys = kws.keys()
+            _keys = list(kws.keys())
             
             context = _context
             b_children = kws.get('contextMirror',d_globalContext['contextMirror'])
@@ -1383,7 +1383,7 @@ class dat(object):
                     d_tmp = {}
                     l_keys = []
                     #First pass we collect all the keys...
-                    for mPart,controls in self.d_timeContext['partControls'].iteritems():
+                    for mPart,controls in list(self.d_timeContext['partControls'].items()):
                         d_tmp[mPart] = []
                         _l = d_tmp[mPart]
                         for c in controls:
@@ -1398,7 +1398,7 @@ class dat(object):
                     if _context in ['part']:
                         if _contextTime in ['next','previous']:
                             log.debug(cgmGEN.logString_sub(_str_func,'Second pass | {0}'.format(_contextTime)))                        
-                            for mPart,keys in d_tmp.iteritems():
+                            for mPart,keys in list(d_tmp.items()):
                                 if not keys:
                                     continue
                                 if _contextTime== 'next':
@@ -1414,11 +1414,11 @@ class dat(object):
                             else:
                                 _match = MATH.find_valueInList(_frame,l_keys,'previous')                        
                             
-                            for mPart,keys in d_tmp.iteritems():
+                            for mPart,keys in list(d_tmp.items()):
                                 d_tmp[mPart] = [_match]                    
                         
                     
-                    for mPart,keys in d_tmp.iteritems():
+                    for mPart,keys in list(d_tmp.items()):
                         for k in keys:
                             addSource(self,mPart,k,_res)
                             
@@ -1430,16 +1430,16 @@ class dat(object):
                 if _contextTime in ['next','previous'] and _context !='control' and 'cat'=='dog':
                     #We only want one value here...
                     if _contextTime== 'next':
-                        _match = MATH.find_valueInList(_frame,_res.keys(),'next')
+                        _match = MATH.find_valueInList(_frame,list(_res.keys()),'next')
                     else:
-                        _match = MATH.find_valueInList(_frame,_res.keys(),'previous')
+                        _match = MATH.find_valueInList(_frame,list(_res.keys()),'previous')
                     
-                    for k in _res.keys():
+                    for k in list(_res.keys()):
                         if k != _match:
                             _res.pop(k)
                 else:
                     _range = SEARCH.get_time('slider')
-                    for k in _res.keys():
+                    for k in list(_res.keys()):
                         if k < _range[0] or k > _range[1]:
                             log.debug("Out of range: {0}".format(k))
                             _res.pop(k)
@@ -1448,21 +1448,21 @@ class dat(object):
                 log.debug(cgmGEN.logString_sub(_str_func,'Combining keys'))
                 
                 if _context == 'control':
-                    for k in _res.keys():
+                    for k in list(_res.keys()):
                         _res[k]= self.l_sources                
                 else:
-                    mSources = self.d_timeContext['partControls'].keys()
-                    for k in _res.keys():
+                    mSources = list(self.d_timeContext['partControls'].keys())
+                    for k in list(_res.keys()):
                         _res[k]= mSources
                 
                 if _contextTime in ['next','previous']:
                     log.debug(cgmGEN.logString_sub(_str_func,'Combined final cull | {0}'.format(_contextTime)))
                     if _contextTime== 'next':
-                        _match = MATH.find_valueInList(_frame,_res.keys(),'next')
+                        _match = MATH.find_valueInList(_frame,list(_res.keys()),'next')
                     else:
-                        _match = MATH.find_valueInList(_frame,_res.keys(),'previous')
+                        _match = MATH.find_valueInList(_frame,list(_res.keys()),'previous')
                     
-                    for k in _res.keys():
+                    for k in list(_res.keys()):
                         if k != _match:
                             _res.pop(k)                
             
@@ -1472,7 +1472,7 @@ class dat(object):
             self.d_timeContext['res'] = _res
                 
             return _res
-        except Exception,err:
+        except Exception as err:
             pprint.pprint(self.d_timeContext)
             cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
@@ -1487,7 +1487,7 @@ class dat(object):
         if key is None:
             key = self.d_timeContext['frameInitial']
             
-        for mPart,controls in self.d_timeContext['partControls'].iteritems():
+        for mPart,controls in list(self.d_timeContext['partControls'].items()):
             _d = {}
             for c in controls:
                 _d_c = {}
@@ -1515,19 +1515,19 @@ class dat(object):
             return log.error("Key empty: {0}".format(key))
             
             
-        for mPart,controls in self.d_timeContext['partControls'].iteritems():
+        for mPart,controls in list(self.d_timeContext['partControls'].items()):
             log.debug(cgmGEN.logString_sub(_str_func,'mPart: {0}'.format(mPart)))
             _dat = dat[mPart]
             for c in controls:
                 _d_c = _dat[c]
-                for a,v in _d_c.iteritems():
+                for a,v in list(_d_c.items()):
                     ATTR.set(c,a,v)
                     
     #@cgmGEN.Timer
     def mirrorData(self,mode=''):
         ml_nodes = self.d_context['mControls']
         if not ml_nodes:
-            raise ValueError,"Must have controls in context"
+            raise ValueError("Must have controls in context")
         
         l_strings = self.d_context.get('sControls')
         if not l_strings:
@@ -1540,7 +1540,7 @@ class dat(object):
     def key(self,):
         ml_nodes = self.d_context['mControls']
         if not ml_nodes:
-            raise ValueError,"Must have controls in context"
+            raise ValueError("Must have controls in context")
         
         l_strings = self.d_context.get('sControls')
         if not l_strings:
@@ -1564,7 +1564,7 @@ def _uiCB_getPoseInputNodes(self,**kws):
         'contextCore' : kws.get('core') or self.var_mrsContext_core.value,        
     }
     #_contextSettings = MRSANIMUTILS.get_contextDict(self.__class__.TOOLNAME)
-    print len(mc.ls(sl=1))
+    print((len(mc.ls(sl=1))))
     #pprint.pprint(_dat)
     _ml_controls = self.mDat.context_get(**_dat)
     #pprint.pprint(_ml_controls)
@@ -1701,7 +1701,7 @@ def get_buffer_dat(update = False):
         #pprint.pprint(_res)
         CGM_MRSANIMATE_DAT = _res
         return _res
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     finally:
         CGMUI.doEndMayaProgressBar()

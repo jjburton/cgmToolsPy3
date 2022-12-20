@@ -7,9 +7,9 @@ import maya.cmds as cmd
 from cgm.lib.zoo.zooPy import events
 from cgm.lib.zoo.zooPy import typeFactories
 
-import melUtils
-import apiExtensions
-from cmdStrResolver import resolve
+from . import melUtils
+from . import apiExtensions
+from .cmdStrResolver import resolve
 
 mel = melUtils.mel
 
@@ -91,7 +91,7 @@ class Trigger(object):
 	def __ne__( self, other ):
 		return not self.__eq__( other )
 	def __unicode__( self ):
-		return unicode( self.obj )
+		return str( self.obj )
 	def __repr__( self ):
 		return repr( self.__unicode__() )
 	def __getitem__( self, slot ):
@@ -358,7 +358,7 @@ class Trigger(object):
 		'''
 		removes either the specified object from all slots it is connected to, or deletes the given slot index
 		'''
-		if isinstance(objectOrSlot,basestring):
+		if isinstance(objectOrSlot,str):
 			slots = self.getConnectSlots(objectOrSlot)
 			for slot in slots:
 				try: cmd.deleteAttr( '%s.zooTrig%d' % ( self.obj, slot ))
@@ -472,7 +472,7 @@ class Trigger(object):
 			end = int(end)
 			if end < 0: end += numAllSlots
 			else: end += 1
-			[nonexistantSlots.add(slot) for slot in xrange( start, end )]
+			[nonexistantSlots.add(slot) for slot in range( start, end )]
 
 		[nonexistantSlots.discard( slot ) for slot,connect in enumerate(allSlots)]
 		missingSlots = missingSlots.union( nonexistantSlots )  #now add the nonexistantSlots to the missingSlots
@@ -560,7 +560,7 @@ class Trigger(object):
 		try:
 			self.eval( cmdStr )
 		except:
-			print "ERROR: executing triggered! command on %s" % self.obj
+			print(("ERROR: executing triggered! command on %s" % self.obj))
 	def filterConnects( self, cmdStr, connectIdxs ):
 		'''
 		will return the lines of a command string that refer to connects contained in the given list
@@ -717,9 +717,7 @@ def getKillState( obj ):
 	return Trigger( obj ).getKillState()
 
 
-class Triggered(object):
-	__metaclass__ = typeFactories.SingletonType
-
+class Triggered(object, metaclass=typeFactories.SingletonType):
 	def __init__( self ):
 		self._jobId = None
 	def load( self ):

@@ -1,6 +1,6 @@
 
 
-from __future__ import with_statement
+
 
 import inspect
 
@@ -11,9 +11,9 @@ from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy.presets import PresetManager, Preset, LOCAL, GLOBAL
 from cgm.lib.zoo.zooPy.names import camelCaseToNice
 
-import apiExtensions
+from . import apiExtensions
 
-from baseSkeletonBuilder import SkeletonPart, setupAutoMirror, TOOL_NAME, buildSkeletonPartContainer
+from .baseSkeletonBuilder import SkeletonPart, setupAutoMirror, TOOL_NAME, buildSkeletonPartContainer
 
 XTN = 'skeleton'
 PRESET_MANAGER = PresetManager( TOOL_NAME, XTN )
@@ -65,7 +65,7 @@ def writeToFilepath( presetFilepath ):
 	try:
 		contents = generatePresetContents()
 	except NoPartsError:
-		print "No parts found in the scene!"
+		print("No parts found in the scene!")
 		return
 
 	Path( presetFilepath ).write( contents )
@@ -179,12 +179,12 @@ def loadFromFilepath( presetFilepath ):
 
 			#move to the appropriate position
 			if 't' in attrDict:
-				tx, ty, tz = map( float, attrDict[ 't' ] )
+				tx, ty, tz = list(map( float, attrDict[ 't' ] ))
 				move( tx, ty, tz, actualItem, a=True, ws=True, rpr=True )
 
 			#rotate appropriately
 			if 'r' in attrDict:
-				rx, ry, rz = map( float, attrDict[ 'r' ] )
+				rx, ry, rz = list(map( float, attrDict[ 'r' ] ))
 				rotate( rx, ry, rz, actualItem, a=True, ws=True )
 
 			#append to the items list - so we can instantiate the part once we've finished building the items

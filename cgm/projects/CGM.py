@@ -57,7 +57,7 @@ def setup_bgColor(mode = 'gray', reverse = False):
     
     d_color = d_bg_presets.get(mode)
     if not d_color:
-        raise ValueError,"Invalid mode: {0}".format(mode)
+        raise ValueError("Invalid mode: {0}".format(mode))
     
     if reverse:
         _top = d_color['bottom']

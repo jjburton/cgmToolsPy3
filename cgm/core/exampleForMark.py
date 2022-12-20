@@ -61,7 +61,7 @@ class ChildClass(r9Meta.MetaClass):
                             attributes.doAddAttr(node, 'UUID', 'string')				
                         attributes.doSetAttr(node,'UUID','',True)
                         attributes.doSetAttr(node,'mClass',_setClass,True)			    
-            except Exception,error:
+            except Exception as error:
                 log.error("pre setClass fail >> %s"%error)
            
 

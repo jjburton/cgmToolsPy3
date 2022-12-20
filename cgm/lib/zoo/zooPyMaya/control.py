@@ -11,12 +11,12 @@ from cgm.lib.zoo.zooPy.misc import removeDupes
 from cgm.lib.zoo.zooPy.vectors import Vector
 from cgm.lib.zoo.zooPy import colours
 
-import rigUtils
-import triggered
-import meshUtils
+from . import rigUtils
+from . import triggered
+from . import meshUtils
 
-from apiExtensions import asMObject, MObject
-from melUtils import mel, printErrorStr
+from .apiExtensions import asMObject, MObject
+from .melUtils import mel, printErrorStr
 
 SPACE_WORLD = rigUtils.SPACE_WORLD
 SPACE_LOCAL = rigUtils.SPACE_LOCAL
@@ -28,7 +28,7 @@ CONTROL_DIRECTORY = None
 if CONTROL_DIRECTORY is None:
 	#try to determine the directory that contains the control macros
 	dirsToSearch = [ Path( __file__ ).up() ] + sys.path + os.environ[ 'MAYA_SCRIPT_PATH' ].split( os.pathsep )
-	dirsToSearch = map( Path, dirsToSearch )
+	dirsToSearch = list(map( Path, dirsToSearch ))
 	dirsToSearch = removeDupes( dirsToSearch )
 
 	for dirToSearch in dirsToSearch:
@@ -49,7 +49,7 @@ if CONTROL_DIRECTORY is None:
 if CONTROL_DIRECTORY is None:
 	printErrorStr( "Cannot determine the directory that contains the *.control files - please open '%s' and set the CONTROL_DIRECTORY variable appropriately" % Path( __file__ ) )
 
-AX_X, AX_Y, AX_Z, AX_X_NEG, AX_Y_NEG, AX_Z_NEG = map( Axis, range( 6 ) )
+AX_X, AX_Y, AX_Z, AX_X_NEG, AX_Y_NEG, AX_Z_NEG = list(map( Axis, list(range( 6)) ))
 DEFAULT_AXIS = AX_X
 
 AXIS_ROTATIONS = { AX_X: (0, 0, -90),
@@ -148,7 +148,7 @@ class PlaceDesc(object):
 		elif p == self.PIVOT_OBJ:
 			p = self._placeData[ 2 ]
 
-		if isinstance( p, basestring ): return p
+		if isinstance( p, str ): return p
 		if isinstance( p, int ): return self.WORLD
 		if p is None: return self.WORLD
 
@@ -194,7 +194,7 @@ def attrState( objs, attrNames, lock=None, keyable=None, show=None ):
 	if not isinstance( objs, (list, tuple) ):
 		objs = [ objs ]
 
-	objs = map( str, objs )
+	objs = list(map( str, objs ))
 
 	if not isinstance( attrNames, (list, tuple) ):
 		attrNames = [ attrNames ]
@@ -359,7 +359,7 @@ def buildControl( name,
 		_scale = list( getJointSize( [ place ] + (shapeDesc.joints or []) ) )
 		_scale = sorted( _scale )[ -1 ]
 		if abs( _scale ) < 1e-2:
-			print 'AUTO SCALE FAILED', _scale, name, place
+			print(('AUTO SCALE FAILED', _scale, name, place))
 			_scale = scale
 
 		scale = _scale
@@ -387,7 +387,7 @@ def buildControl( name,
 
 			#if we get this far that means none of the joints have geo skinned to them - so set the surface and curve types to their default values
 			shapeDesc.surfaceType = shapeDesc.curveType = ShapeDesc.DEFAULT_TYPE
-			print 'WARNING - surface type was set to SKIN, but no geometry is skinned to the joints: %s' % shapeDesc.joints
+			print(('WARNING - surface type was set to SKIN, but no geometry is skinned to the joints: %s' % shapeDesc.joints))
 		except BreakException: pass
 
 
@@ -699,7 +699,7 @@ def getShapeStrs( obj ):
 
 def getControlShapeFiles():
 	dir = CONTROL_DIRECTORY
-	if isinstance( dir, basestring ):
+	if isinstance( dir, str ):
 		dir = Path( dir )
 
 	if not isinstance( dir, Path ) or not dir.exists():
@@ -710,8 +710,8 @@ def getControlShapeFiles():
 		shapes = [ f for f in dir.files() if f.hasExtension( 'shape' ) ]
 
 	if not shapes:
-		searchPaths = map( Path, sys.path )
-		searchPaths += map( Path, os.environ.get( 'MAYA_SCRIPT_PATH', '' ).split( ';' ) )
+		searchPaths = list(map( Path, sys.path ))
+		searchPaths += list(map( Path, os.environ.get( 'MAYA_SCRIPT_PATH', '' ).split( ';' ) ))
 		searchPaths = removeDupes( searchPaths )
 
 		for d in searchPaths:

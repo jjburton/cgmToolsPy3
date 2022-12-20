@@ -15,6 +15,7 @@ import stat
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -22,7 +23,7 @@ log.setLevel(logging.INFO)
 
 #Need to walk below a folder and find modules and folders...
 #Only modules with __init__ will be queryable, so preferably walk those folders as well.
-import cgm_General as cgmGen
+from . import cgm_General as cgmGen
 from cgm.core.cgmPy import path_Utils as PATH
 
 ## ----------------------------------------------------------------------
@@ -58,7 +59,7 @@ class ModuleFactory(object):
             modName = item.split('.')[0]
             if modName == name:
                 impmod = __import__('witch.modules.'+modName, {}, {}, [modName])
-                reload(impmod)
+                importlib.reload(impmod)
                 theClass = impmod.__getattribute__( modName )
                 return(theClass)
 
@@ -133,13 +134,13 @@ class Reloader(object):
 
                     try:
                         module = __import__(name, globals(), locals(), ['*'], -1)
-                        reload(module)
+                        importlib.reload(module)
 
-                    except ImportError, e:
+                    except ImportError as e:
                         for arg in e.args:
                             self.logger.debug(arg)
 
-                    except Exception, e:
+                    except Exception as e:
                         for arg in e.args:
                             self.logger.debug(arg)
 
@@ -245,7 +246,7 @@ def get_data(path = None, level = None, mode = 0, cleanPyc = False):
                         
             #log.debug("|{0}| >> found: {1}".format(_str_func,name)) 
             if key:
-                if key not in _d_files.keys():
+                if key not in list(_d_files.keys()):
                     if key != _mod:_l_sub.append(key)                    
                     _d_files[key] = os.path.join(root,f)
                     _d_names[key] = name
@@ -289,18 +290,18 @@ def get_data(path = None, level = None, mode = 0, cleanPyc = False):
             #if k in _l_pycd:
             log.debug("|{0}| >> Attempting to clean pyc for: {1} ".format(_str_func,_file))  
             if not _file.endswith('.pyc'):
-                raise ValueError,"Should NOT be here"
+                raise ValueError("Should NOT be here")
             try:
                 os.remove( _file )
-            except WindowsError, e:
+            except WindowsError as e:
                 try:
                     log.info("|{0}| >> Initial delete fail. attempting chmod... ".format(_str_func))                          
                     os.chmod( _file, stat.S_IWRITE )
                     os.remove( _file )                          
-                except Exception,e:
+                except Exception as e:
                     for arg in e.args:
                         log.error(arg)   
-                    raise RuntimeError,"Stop"
+                    raise RuntimeError("Stop")
         _l_pyc = []
         
     
@@ -320,7 +321,7 @@ def get_data(path = None, level = None, mode = 0, cleanPyc = False):
         log.error("|{0}| >> DUPLICATE MODULES....")
         for m in _l_duplicates:
             if _b_debug:print(m)
-    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),path))
+    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(list(_d_files.keys())),path))
     
     log.debug(cgmGen._str_subLine)    
     log.debug("|{0}| >> Ordered MODULES....".format(_str_func))
@@ -336,4 +337,4 @@ def get_data(path = None, level = None, mode = 0, cleanPyc = False):
             
 class test(object):
     def __init__(self):
-        print 'test'
+        print('test')

@@ -49,7 +49,7 @@ import maya.cmds as mc
 import maya.mel as mm
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(14)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -93,7 +93,7 @@ def main(selectedChannels=True, transformsOnly=False, excludeChannels=None):
                 try:
                     default = mc.attributeQuery(attr, listDefault=True, node=obj)[0]
                     mc.setAttr(obj+'.'+attr, default)
-                except StandardError:
+                except Exception:
                     pass
                 
     utl.deselectChannels()

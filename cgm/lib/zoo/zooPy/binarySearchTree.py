@@ -1,5 +1,5 @@
 
-from vectors import Vector
+from .vectors import Vector
 
 _MAX_RECURSE = 35
 

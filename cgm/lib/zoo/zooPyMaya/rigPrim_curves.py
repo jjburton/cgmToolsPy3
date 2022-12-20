@@ -1,6 +1,6 @@
 
-from baseRigPrimitive import *
-from spaceSwitching import build, NO_TRANSLATION, NO_ROTATION
+from .baseRigPrimitive import *
+from .spaceSwitching import build, NO_TRANSLATION, NO_ROTATION
 
 
 class SplineIK(PrimaryRigPart):
@@ -255,13 +255,13 @@ def buildNumControls( objs, numControls=3, **kw ):
 
 	#now skin the linear curve to the controls and setup skinning
 	lineCluster = skinCluster( controls, linearCurve, tsb=True )[0]
-	cvIdxs = range( len( objs ) )  #there is one cv per input object
+	cvIdxs = list(range( len( objs )))  #there is one cv per input object
 	cvsPerControl = float( len( objs ) ) / (numControls - 1)  #there is one cv per input object
 	for n in range( numControls-1 ):
 		cvsForThisControl = int( round( cvsPerControl * n ) )
 		weightInc = 1.0 / (cvsForThisControl - 1)
 		c1, c2 = controls[n], controls[n+1]
-		cvIdxs = range( n * cvsForThisControl, (n + 1) * cvsForThisControl )
+		cvIdxs = list(range( n * cvsForThisControl, (n + 1) * cvsForThisControl))
 		for i, cvIdx in enumerate( cvIdxs ):
 			weight = 1 - (i * weightInc)
 			skinPercent( lineCluster, '%s.cv[%d]' % (linearCurve, cvIdx), transformValue=((c1, weight), (c2, 1.0-weight)) )
@@ -324,7 +324,7 @@ def buildCurveThroughObjs( objs, parentProxies=True ):
 	cmdKw = { 'd': 1 }
 
 	cmdKw[ 'p' ] = tuple( xform( obj, q=True, ws=True, rp=True ) for obj in objs )
-	cmdKw[ 'k' ] = range( numObjs )
+	cmdKw[ 'k' ] = list(range( numObjs))
 
 	baseCurve = curve( **cmdKw )
 

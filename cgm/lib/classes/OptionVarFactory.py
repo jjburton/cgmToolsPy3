@@ -110,7 +110,7 @@ class OptionVarFactory():
                     self.set(value)
                         
     def returnVarTypeFromCall(self, varTypeCheck):    
-        for option in optionVarTypeDict.keys():
+        for option in list(optionVarTypeDict.keys()):
             if varTypeCheck in optionVarTypeDict.get(option):
                 return option
         return 'int'
@@ -136,7 +136,7 @@ class OptionVarFactory():
             #If it exists, first check for data buffer
             typeBuffer = search.returnDataType(dataBuffer) or False
             if not typeBuffer:
-                print'changing to int!'
+                print('changing to int!')
                 typeBuffer = 'int'
             
             if varType is not None:    
@@ -159,7 +159,7 @@ class OptionVarFactory():
         """ 
         Makes an optionVar.
         """
-        print "Creating '%s' as '%s'"%(self.name,self.form)
+        print(("Creating '%s' as '%s'"%(self.name,self.form)))
             
         if doType == 'int':
             mc.optionVar(iv=(self.name,0))

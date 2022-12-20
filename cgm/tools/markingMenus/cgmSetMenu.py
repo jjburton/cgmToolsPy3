@@ -312,7 +312,7 @@ class setToolsMarkingMenu(BaseMelWindow):
 			optionVar.toggle()
 			self.reload()
 		except:
-			print "MM change var and reset failed!"
+			print("MM change var and reset failed!")
 		
 			
 		

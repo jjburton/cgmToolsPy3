@@ -24,12 +24,12 @@ try:
     from cgm.core.lib import attribute_utils as ATTR
     #from cgm.core.lib import transform_utils as TRANS
     #from cgm.core.lib import math_utils as MATH
-    #from cgm.core import cgm_PuppetMeta as PUPPETMETA
+    ##from cgm.core import cgm_PuppetMeta as PUPPETMETA
     from cgm.core.mrs import RigBlocks as RBLOCKS
     #from cgm.core.mrs.lib import general_utils as RBLOCKGEN
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -90,8 +90,8 @@ class Test_RigBlocks(unittest.TestCase):
             for i in range(_state,4):
                 _t_step = time.clock()
                 mBlock.changeState(i)
-                print("[{0}] Step: {1} complate in {2} seconds".format(blockType, i, "%0.3f"%(time.clock()-_t_step)) + '-'*80) 
-            print("[{0}] completed in  {1} seconds".format(blockType, "%0.3f"%(time.clock()-_t_start))) 
+                print(("[{0}] Step: {1} complate in {2} seconds".format(blockType, i, "%0.3f"%(time.clock()-_t_step)) + '-'*80)) 
+            print(("[{0}] completed in  {1} seconds".format(blockType, "%0.3f"%(time.clock()-_t_start)))) 
     
     
       

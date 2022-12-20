@@ -72,8 +72,8 @@ def get_python_call(crvShape,printInfo=False):
     commandsReturn = []
     shapeNodes = []
     if not shapesInfo:
-        raise ValueError,"|{0}.{1}| >> Not a valid object. Empty shapes dict. '{2}'".format(__name__,_str_func,crvShape)
-    for shape in shapesInfo.keys():
+        raise ValueError("|{0}.{1}| >> Not a valid object. Empty shapes dict. '{2}'".format(__name__,_str_func,crvShape))
+    for shape in list(shapesInfo.keys()):
         dictBuffer =  shapesInfo[shape]
         shapeNodes.append(dictBuffer['shape'])
         commandBuffer =[]
@@ -86,24 +86,24 @@ def get_python_call(crvShape,printInfo=False):
         command = ('%s%s%s%s' % (commandBuffer[0],'( ',(','.join(commandBuffer[1:])),')'))
         commandsReturn.append(command)
     #Get our message ready
-    print ''
+    print('')
     #print (guiFactory.doPrintReportStart())
-    print cgmGEN._str_hardLine
+    print((cgmGEN._str_hardLine))
     print ('import maya.cmds as mc')
     if len(shapeNodes)>1:print ('from cgm.core.lib import shape_utils as SHAPES')
-    print ''
+    print('')
     if len(shapeNodes)>1:
-        print '_l_res = []'
+        print('_l_res = []')
         for i,shape in enumerate(shapeNodes):
-            if printInfo:print ("#...shape: {0}".format(shape))
-            print ('%s%s%s' % ('_l_res.append(',commandsReturn[i],')'))
-        print 'SHAPES.combine(_l_res)'
+            if printInfo:print(("#...shape: {0}".format(shape)))
+            print(('%s%s%s' % ('_l_res.append(',commandsReturn[i],')')))
+        print('SHAPES.combine(_l_res)')
     else:
-        print ("#...{0} shape may be created with...".format(NAMES.get_short(crvShape)))        
-        print (commandsReturn[0])
+        print(("#...{0} shape may be created with...".format(NAMES.get_short(crvShape))))        
+        print((commandsReturn[0]))
 
-    print ''
-    print cgmGEN._str_hardLine
+    print('')
+    print((cgmGEN._str_hardLine))
     #print (guiFactory.doPrintReportEnd())
     return commandsReturn
 
@@ -211,7 +211,7 @@ def get_shape_info(crvShape):
             
         mc.delete(_infoNode)
 
-    except Exception,err:
+    except Exception as err:
         try:mc.delete(_infoNode)
         except:pass
         if not SEARCH.is_shape(crvShape):
@@ -219,7 +219,7 @@ def get_shape_info(crvShape):
         _type = cgmValid.get_mayaType(crvShape)
         if not _type == 'nurbsCurve':
             log.error("|{0}| >> Failure || {2} Not a nurbsCurve. Type: {1}".format(_str_func,_type,crvShape))
-        raise Exception,"|{0}| >> failed! | err: {1}".format(_str_func,err)
+        raise Exception("|{0}| >> failed! | err: {1}".format(_str_func,err))
     
 
     return {'transform':_transform,
@@ -270,23 +270,23 @@ def get_curve_shape_info(curve):
         return _d
 
 
-    except Exception,err:
+    except Exception as err:
         try:mc.delete(_bfr[0])
         except:pass
         if SEARCH.is_shape(curve):
             log.error("|{0}| >> is a shape: {1}".format(_str_func,curve))
-        raise Exception,"|{0}| >> failed! | err: {1}".format(_str_func,err)    
+        raise Exception("|{0}| >> failed! | err: {1}".format(_str_func,err))    
     
 def create_oneOfEach(size = None):
     _str_func = 'create_oneOfEach'
     _l_res = []
-    for k,l_shapes in _d_shapeLibrary.iteritems():
+    for k,l_shapes in list(_d_shapeLibrary.items()):
         for n in l_shapes:
             try:
                 _b = create_fromName(n,size)
                 _b = mc.rename(_b,n)
                 _l_res.append(_b)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Problem with : {1}:{2} || {3}...".format(_str_func,k,n,err))
             
     POS.layout_byColumn(_l_res,5)    
@@ -844,7 +844,7 @@ def create_fromName(name = None, size = None, direction = 'z+', absoluteSize = T
     #elif name == 'name':
     #    _l_res.append(object)
     else:
-        raise ValueError,"|{0}| >> Unknown name: {1}...".format(_str_func,name)
+        raise ValueError("|{0}| >> Unknown name: {1}...".format(_str_func,name))
     
     if _l_res:
         _res = SHAPES.combine(_l_res)
@@ -920,7 +920,7 @@ def create_fromList(targetList = None, posList = None):
     if targetList is not None:
         posList = [POS.get(t) for t in targetList]
     elif posList is None:
-        raise ValueError,"must have targetList or posList"
+        raise ValueError("must have targetList or posList")
     
     knot_len = len(posList)+3-1
     return mc.curve (d=3, ep = posList, k = [i for i in range(0,knot_len)], os=True) 
@@ -949,7 +949,7 @@ def connect(targets = None, points = 4):
     if targets is None:
         targets = sel
     if not targets:
-        raise ValueError,"No targets specified"
+        raise ValueError("No targets specified")
     
     l_shapes = []
     _len = False
@@ -975,15 +975,15 @@ def connect(targets = None, points = 4):
             _l = d_epPos[ii]
             _l.append(p)
 
-    for k,points in d_epPos.iteritems():
+    for k,points in list(d_epPos.items()):
         log.debug("|{0}| >> {1} | k: {1} | points: {2}".format(_str_func,k,points))
         try:
             crv_connect = mc.curve (d=1, ep = points, os=True) 
 
             #CURVES.create_fromList(posList=points)
             l_mainCurves.append(crv_connect)
-        except Exception,err:
-            print err
+        except Exception as err:
+            print(err)
 
     for crv in l_mainCurves[1:]:
         CORERIG.shapeParent_in_place(l_mainCurves[0], crv, False)    
@@ -998,7 +998,7 @@ def join_shapes(targets = None, component = 'ep',mode='all'):
     if targets is None:
         targets = sel
     if not targets:
-        raise ValueError,"No targets specified"
+        raise ValueError("No targets specified")
     
     l_shapes = []
     _len = False
@@ -1017,7 +1017,7 @@ def join_shapes(targets = None, component = 'ep',mode='all'):
         l_shapes.append(_l_shapes)
     
     if len(l_shapes)<2:
-        raise ValueError,"Must have more than two valid shape lists"
+        raise ValueError("Must have more than two valid shape lists")
     
     log.debug("|{0}| >> Making connectors".format(_str_func))
     d_compPos = {}
@@ -1025,7 +1025,7 @@ def join_shapes(targets = None, component = 'ep',mode='all'):
         log.debug("|{0}| >> Shapes {1} | {2}".format(_str_func,i,shps))
         for ii,shp in enumerate(shps):
             log.debug("|{0}| >> Shape {1} | {2}".format(_str_func,ii,shp))            
-            for iii,comp in enumerate(mc.ls("{0}.{1}[*]".format(shp,component),flatten=True,long=True)):
+            for iii,comp in enumerate(mc.ls("{0}.{1}[*]".format(shp,component),flatten=True,int=True)):
                 _key = "{0},{1}".format(ii,iii)
                 if not d_compPos.get(_key):
                     d_compPos[_key] = []
@@ -1034,7 +1034,7 @@ def join_shapes(targets = None, component = 'ep',mode='all'):
                 _l.append(POS.get(comp))
     #pprint.pprint(d_compPos)
     _cnt = 0
-    for k,points in d_compPos.iteritems():
+    for k,points in list(d_compPos.items()):
         l_use = []        
         if mode == 'even':
             for i,p in enumerate(points):
@@ -1106,7 +1106,7 @@ def create_controlCurve(target = None, shape= 'circle', color = 'yellow',
             if sizeMulti is not None:
                 _size = _size * sizeMulti
         elif _sizeMode == 'cast':
-            raise ValueError,"cast not implemented"
+            raise ValueError("cast not implemented")
         else:
             _size = size
         
@@ -1252,7 +1252,7 @@ def getUSplitList(curve=None, points=3, markPoints=False,
         else:
             if startSplitFactor:
                 if points < 5:
-                    raise StandardError,"Need at least 5 points for startSplitFactor. Points : %s"%(points)
+                    raise Exception("Need at least 5 points for startSplitFactor. Points : %s"%(points))
                 log.debug("%s >> startSplitFactor : %s"%(_str_func,startSplitFactor))
                 
                 #Figure out our u's
@@ -1325,17 +1325,17 @@ def getUSplitList(curve=None, points=3, markPoints=False,
 
             if len(ml_built)>1:
                 try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
-                except StandardError,error:raise StandardError,"Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error)
+                except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                 try:
                     for o in ml_built:
                         o.scale = [f_distance,f_distance,f_distance]
-                except StandardError,error:raise StandardError,"Scale fail : %s"%error
+                except Exception as error:raise Exception("Scale fail : %s"%error)
         
         mc.delete(useCurve)#Delete our use curve
         if returnU:return l_uValues
         return l_spanUPositions
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 #>>>>PRE Refactor ============================================================================================
@@ -1408,7 +1408,7 @@ def returnSplitCurveList(*args, **kws):
 
                 if b_reverseCurve:
                     useCurve = mc.reverseCurve(useCurve,rpo = True)[0]
-            except Exception,error:raise StandardError,"Rebuild fail | %s"%error
+            except Exception as error:raise Exception("Rebuild fail | %s"%error)
 
             try:#>>> Divide stuff
                 #==========================	
@@ -1422,7 +1422,7 @@ def returnSplitCurveList(*args, **kws):
                     l_uValues = [f_maxU/2]
                 elif f_startSplitFactor is not False:
                     if points < 5:
-                        raise StandardError,"Need at least 5 points for startSplitFactor. Points : %s"%(points)
+                        raise Exception("Need at least 5 points for startSplitFactor. Points : %s"%(points))
                     log.debug("%s >> f_startSplitFactor : %s"%(_str_funcName,f_startSplitFactor))  
                     #Figure out our u's
                     f_base = f_startSplitFactor * f_maxU 
@@ -1459,12 +1459,12 @@ def returnSplitCurveList(*args, **kws):
                     log.debug("%s >> Sub mode. "%(_str_funcName))
                     if f_kwMinU is not False:
                         if f_kwMinU > f_maxU:
-                            raise StandardError, "kw minU value(%s) cannot be greater than maxU(%s)"%(f_kwMinU,f_maxU)
+                            raise Exception("kw minU value(%s) cannot be greater than maxU(%s)"%(f_kwMinU,f_maxU))
                         f_useMinU = f_kwMinU
                     else:f_useMinU = 0.0
                     if f_kwMaxU is not False:
                         if f_kwMaxU > f_maxU:
-                            raise StandardError, "kw maxU value(%s) cannot be greater than maxU(%s)"%(f_kwMaxU,f_maxU)	
+                            raise Exception("kw maxU value(%s) cannot be greater than maxU(%s)"%(f_kwMaxU,f_maxU))	
                         f_useMaxU = f_kwMaxU
                     else:f_useMaxU = f_maxU
 
@@ -1494,7 +1494,7 @@ def returnSplitCurveList(*args, **kws):
                             l_uValues.append(i*f_factor)
                         l_uValues.append(f_maxU)
                     log.debug("%s >> l_uValues : %s"%(_str_funcName,l_uValues))  
-            except Exception,error:raise StandardError,"Divide fail | %s"%error
+            except Exception as error:raise Exception("Divide fail | %s"%error)
 
             for u in l_uValues:
                 l_spanUPositions.append(mc.pointPosition("%s.u[%f]"%(useCurve,u)))
@@ -1512,12 +1512,12 @@ def returnSplitCurveList(*args, **kws):
 
                     if len(ml_built)>1:
                         try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
-                        except StandardError,error:raise StandardError,"Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error)
+                        except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                         try:
                             for o in ml_built:
                                 o.scale = [f_distance,f_distance,f_distance]
-                        except StandardError,error:raise StandardError,"Scale fail : %s"%error
-            except StandardError,error:log.error("Mark points fail. error : %s"%(error))
+                        except Exception as error:raise Exception("Scale fail : %s"%error)
+            except Exception as error:log.error("Mark points fail. error : %s"%(error))
             mc.delete(useCurve)#Delete our use curve
             return l_spanUPositions
 
@@ -1813,7 +1813,7 @@ def getPercentPointOnCurve(*args, **kws):
             self.mi_crv = cgmMeta.validateObjArg(self.d_kws['curve'],mayaType='nurbsCurve',noneValid=False)
             #self._str_funcCombined = self._str_funcCombined + "('{0}')".format(self.mi_crv.p_nameShort)	    
             try:self.str_bufferU = mc.ls("{0}{1}".format(self.mi_crv.mNode,".u[*]"))[0]
-            except Exception,error:raise Exception,"ls fail | error: {0}".format(error)
+            except Exception as error:raise Exception("ls fail | error: {0}".format(error))
             self.f_maxU = float(self.str_bufferU.split(':')[-1].split(']')[0])	
 
             return mc.pointPosition("%s.u[%f]"%(self.mi_crv.mNode,self.f_maxU*self.f_factor), w=True)
@@ -1866,7 +1866,7 @@ def convertCurve(*args, **kws):
                 if not self.b_keepOriginal:mi_crv.delete()
                 return mc.curve(d = 2,ep = l_pos, os = True)
                 #return curves.curveFromPosList(l_pos)
-            raise NotImplementedError,"arg: %s"%self.str_arg
+            raise NotImplementedError("arg: %s"%self.str_arg)
 
     return fncWrap(*args, **kws).go()
 
@@ -1909,7 +1909,7 @@ def mirrorCurve(*args, **kws):
             self.str_mirrorAcross = cgmValid.stringArg(self.d_kws['mirrorAcross'],noneValid=True)
             self.int_across = 0#This is the index to check -- ie pos[0] for x
             if self.str_mirrorAcross.lower() != 'x':
-                raise NotImplementedError, "Only implmeneted x mirror so far | kw: %s"%self.str_mirrorAcross
+                raise NotImplementedError("Only implmeneted x mirror so far | kw: %s"%self.str_mirrorAcross)
 
         def _create(self):
             mi_base = self.mi_baseCurve
@@ -1974,17 +1974,17 @@ def mirrorCurve(*args, **kws):
                         try:
                             str_attachedCurves  = mc.attachCurve([self.mi_created.mNode,self.mi_baseCurve.mNode],
                                                                  blendBias = self.d_kws['blendBias'])
-                        except Exception,error:raise StandardError,"Attach curve | %s"%error
+                        except Exception as error:raise Exception("Attach curve | %s"%error)
                         #mc.delete(self.mi_created.mNode)#delete the old one
                         #self.mi_created = cgmMeta.cgmObject(str_attachedCurves[0])
                         #int_spans = (len(l_epPos)*1.5)
                         int_spans = len(l_epPos)+1			
                         try:
                             mc.rebuildCurve (self.mi_created.mNode, ch=0, rpo=1, rt=0, end=1, kr=0, kcp=0, kep=1, kt=0, s=int_spans, d=3, tol=0.001)
-                        except Exception,error:raise StandardError,"Rebuild curve | %s"%error
+                        except Exception as error:raise Exception("Rebuild curve | %s"%error)
                         try:
                             mc.reverseCurve (self.mi_created.mNode, rpo=1)
-                        except Exception,error:raise StandardError,"Reverse curve | %s"%error			
+                        except Exception as error:raise Exception("Reverse curve | %s"%error)			
                     self.mi_created.rename( mi_base.p_nameBase + '_mirrored')
                     return self.mi_created.p_nameShort
 
@@ -1994,7 +1994,7 @@ def mirrorCurve(*args, **kws):
                 l_cvsBase = self.d_base['l_cvs']			
                 l_cvsTarget = self.d_target['l_cvs']
                 if len(l_cvsBase) != len(l_cvsTarget):
-                    raise NotImplementedError,"Haven't added ability to do curves of differing cv lengths yet"
+                    raise NotImplementedError("Haven't added ability to do curves of differing cv lengths yet")
                 for i,pos in enumerate(self.d_base['l_cvPos']):
                     mc.move(-pos[0],pos[1],pos[2], l_cvsTarget[i], ws=True)
 
@@ -2017,7 +2017,7 @@ def mirrorCurve(*args, **kws):
                     d_return['b_weighted'] = 1
                 elif d_return['f_bbMax'] < d_return['f_bbMin']:
                     d_return['b_weighted'] = -1
-            except Exception,error:raise StandardError,"Push direction check | %s"%error
+            except Exception as error:raise Exception("Push direction check | %s"%error)
 
             #> Check thresholds ----------------------------------------------------------------------
             try:
@@ -2025,12 +2025,12 @@ def mirrorCurve(*args, **kws):
                     d_return['b_oneSided'] = True		
                 """if abs(d_return['f_bbMin']) <= self.f_threshold or abs(d_return['f_bbMax']) <= self.f_threshold:
 		    d_return['b_oneSided'] = True"""
-            except Exception,error:raise StandardError,"Threshholds check | %s"%error
+            except Exception as error:raise Exception("Threshholds check | %s"%error)
 
             #> Is ep --------------------------------------------------------------------
             try:
                 d_return['b_epState'] = isEP(mi_crv)
-            except Exception,error:raise StandardError,"ep check | %s"%error
+            except Exception as error:raise Exception("ep check | %s"%error)
 
             #> Get positions -------------------------------------------------------------------------
             try:
@@ -2055,14 +2055,14 @@ def mirrorCurve(*args, **kws):
                 d_return['l_cvPos'] = l_cvPos
                 d_return['l_epPos'] = l_epPos	    
                 d_return['l_cvs'] = l_cvs
-            except Exception,error:raise StandardError,"Get positions | %s"%error
+            except Exception as error:raise Exception("Get positions | %s"%error)
 
             #> Is even --------------------------------------------------------------------
             try:
                 if len(l_cvs)%2==0:#even
                     d_return['b_even'] = True
                 else: d_return['b_even'] = False
-            except Exception,error:"Even check | %s"%error
+            except Exception as error:"Even check | %s"%error
 
             #> Which end is bigger
             try:
@@ -2072,7 +2072,7 @@ def mirrorCurve(*args, **kws):
                 if abs(l_cvPos[-1][self.int_across]) <= self.f_threshold:
                     d_return['b_endInThreshold'] = True
                 else:d_return['b_endInThreshold'] = False
-            except Exception,error:raise StandardError,"End check | %s"%error
+            except Exception as error:raise Exception("End check | %s"%error)
 
             return d_return
 
@@ -2112,14 +2112,14 @@ def mirror_worldSpace(base=None, target = None, mirrorAcross = 'x'):
     _l_shapes_target = mc.listRelatives(target,shapes=True,fullPath=True)
     
     if len(_l_shapes_source) != len(_l_shapes_target):
-        raise ValueError,"Len of source shapes ({0}) != target ({1})".format(len(_l_shapes_source),len(_l_shapes_target)) 
+        raise ValueError("Len of source shapes ({0}) != target ({1})".format(len(_l_shapes_source),len(_l_shapes_target))) 
     
     for i,s in enumerate(_l_shapes_source):
         _l_ep_source = mc.ls("{0}.cv[*]".format(s),flatten=True)
         _l_ep_target = mc.ls("{0}.cv[*]".format(_l_shapes_target[i]),flatten = True)
     
         if len(_l_ep_source) != len(_l_ep_target):
-            raise ValueError,"Len of source ({0}) != target ({1})".format(len(_l_ep_source),len(_l_ep_target))
+            raise ValueError("Len of source ({0}) != target ({1})".format(len(_l_ep_source),len(_l_ep_target)))
         _mult = [-1,1,1]    
         for ii,ep in enumerate(_l_ep_source):
             _pos = POS.get(ep)
@@ -2137,14 +2137,14 @@ def match(base=None, target = None, autoRebuild = True, keepOriginal = True, spa
     
     if _d_base['spans'] != _d_target['spans']:
         if not autoRebuild:
-            raise ValueError,"Len of source ({0}) != target ({1})".format(_d_base['spans'],_d_target['spans'])
+            raise ValueError("Len of source ({0}) != target ({1})".format(_d_base['spans'],_d_target['spans']))
         log.debug("|{0}| >> Rebuilding curve to new count...".format(_str_func))                                                            
         
         mc.rebuildCurve (target, ch=0, rpo=1, rt=0, end=1, kr=0, kcp=0, kep=1, kt=0, s=_d_base['spans'], d=_d_base['degree'], tol=0.001)
     
     _d_target = get_shape_info(target)
     if _d_base['spans'] != _d_target['spans']:
-        raise ValueError,'Nope. source: {0} | target: {1}'.format(_d_base['spans'],_d_target['spans'])
+        raise ValueError('Nope. source: {0} | target: {1}'.format(_d_base['spans'],_d_target['spans']))
     
     _l_ep_source = mc.ls("{0}.cv[*]".format(base),flatten=True)
     _l_ep_target = mc.ls("{0}.cv[*]".format(target),flatten = True)

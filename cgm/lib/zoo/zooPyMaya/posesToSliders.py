@@ -3,8 +3,8 @@ from maya.cmds import *
 
 from cgm.lib.zoo.zooPy.misc import removeDupes
 
-import melUtils
-import triggered
+from . import melUtils
+from . import triggered
 
 
 def create( trigger,
@@ -61,7 +61,7 @@ def create( trigger,
 
 	#get a list of all target objects, so we know what objects to build SDK curves for
 	allUsedConnectIdxs = []
-	for connectsUsed in connectsUsedByCmds.values():
+	for connectsUsed in list(connectsUsedByCmds.values()):
 		allUsedConnectIdxs += connectsUsed
 
 	allUsedConnects = removeDupes( allUsedConnectIdxs )

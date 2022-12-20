@@ -132,9 +132,9 @@ def create_curveSetup(jointList = None,
     b_extendTwistToEnd= VALID.boolArg(extendTwistToEnd)
 
     if b_addMidTwist and int_lenJoints <4:
-        raise ValueError,"must have at least 3 joints for a mid twist setup"
+        raise ValueError("must have at least 3 joints for a mid twist setup")
     if int_lenJoints<3:
-        raise ValueError,"needs at least three joints"
+        raise ValueError("needs at least three joints")
 
 
     #Good way to verify an instance list? #validate orientation             
@@ -179,10 +179,10 @@ def create_curveSetup(jointList = None,
     #>> Orient ========================================================================================
     if reorient:#if it is, we can assume it's right
         log.debug("|{0}| >> reorient mode...".format(_str_func))                                    
-        raise NotImplementedError,'Nope'
+        raise NotImplementedError('Nope')
         JOINTS.orientChain(ml_joints,str_orientation[0]+'+', )
         if str_secondaryAxis is None:
-            raise Exception,"Must have secondaryAxis arg if no moduleInstance is passed"
+            raise Exception("Must have secondaryAxis arg if no moduleInstance is passed")
         for mJnt in ml_joints:
             """
             Cannot iterate how important this step is. Lost a day trying to trouble shoot why one joint chain worked and another didn't.
@@ -333,7 +333,7 @@ def create(jointList, segmentType = 'curve',
     _str_func = 'create'
 
     if segmentType != 'curve':
-        raise NotImplementedError,"|{0}| >> Haven't implemented segmentType: {1}".format(_str_func,segmentType)
+        raise NotImplementedError("|{0}| >> Haven't implemented segmentType: {1}".format(_str_func,segmentType))
 
     #Gather data>>> =====================================================================================
     log.debug("|{0}| >> Data gather...".format(_str_func))                                                        
@@ -345,13 +345,13 @@ def create(jointList, segmentType = 'curve',
     #> joints -------------------------------------------------------------
     if type(jointList) not in [list,tuple]:jointList = [jointList]
     if len(jointList)<3:
-        raise StandardError,"createCGMSegment>>> needs at least three joints"
+        raise Exception("createCGMSegment>>> needs at least three joints")
 
     ml_influenceJoints = cgmMeta.validateObjListArg(influenceJoints,'cgmObject',noneValid=False,mayaType=['nurbsCurve','joint'])
 
     try:ml_jointList = cgmMeta.validateObjListArg(jointList,'cgmObject',noneValid=False,mayaType=['nurbsCurve','joint'])
-    except Exception,error:
-        raise StandardError,"%s >>Joint metaclassing | error : %s"%(_str_func,error)
+    except Exception as error:
+        raise Exception("%s >>Joint metaclassing | error : %s"%(_str_func,error))
 
     #module -----------------------------------------------------------------------------------------------
     mi_module = cgmMeta.validateObjArg(moduleInstance,noneValid = True)
@@ -626,7 +626,7 @@ def create(jointList, segmentType = 'curve',
                 log.info(attr)
                 if not mSegmentCurve.hasAttr(attr):
                     mSegmentCurve.select()
-                    raise StandardError, "Segment curve missing attr: %s"%attr
+                    raise Exception("Segment curve missing attr: %s"%attr)
 
             l_attrPrefix = ['Start','End']
             int_runningTally = 0
@@ -646,8 +646,8 @@ def create(jointList, segmentType = 'curve',
                 for arg in [arg_up1,arg_out1,arg_up2,arg_out2]:
                     try:
                         NodeF.argsToNodes(arg).doBuild()
-                    except Exception,err:
-                        raise Exception,"arg fail {0} | error: {1}".format(arg,err)
+                    except Exception as err:
+                        raise Exception("arg fail {0} | error: {1}".format(arg,err))
 
                 mPlug_out_scaleUp.doConnectOut("%s.%s"%(mSegmentCurve.mNode,l_plugs[int_runningTally]))
                 int_runningTally+=1
@@ -739,8 +739,8 @@ def create(jointList, segmentType = 'curve',
     log.debug("|{0}| >> Return prep...".format(_str_func)) 
     md_return = {'mSegmentCurve':mSegmentCurve,'mAnchorStart':mAnchorStart,'mAnchorEnd':mAnchorEnd,'mPlug_extendTwist':mPlug_extendTwist,
                  'mmConstraintStartAim':mAimConstraintStart,'mmConstraintEndAim':mAimConstraintEnd}
-    for k in d_segmentBuild.keys():
-        if k not in md_return.keys():
+    for k in list(d_segmentBuild.keys()):
+        if k not in list(md_return.keys()):
             md_return[k] = d_segmentBuild[k]#...push to the return dict
     return md_return    
     #<<< Return DONE =====================================================================================    
@@ -757,7 +757,7 @@ def create(jointList, segmentType = 'curve',
     try:#Mid influence objects =====================================================================================   
         ml_midObjects = ml_influenceJoints[1:-1] or []
         if len(ml_midObjects)>1:
-            raise NotImplementedError,"createCGMSegment>>Haven't implemented having more than one mid influence object in a single chain yet!"
+            raise NotImplementedError("createCGMSegment>>Haven't implemented having more than one mid influence object in a single chain yet!")
         if ml_midObjects:
             #Create a dup constraint curve
             mConstraintCurve = mSegmentCurve.doDuplicate(po = True)
@@ -774,9 +774,9 @@ def create(jointList, segmentType = 'curve',
                 #Aim
                 #AimBlend
 
-    except Exception,error:
+    except Exception as error:
         log.error("createCGMSegment>>Extra Influence Object Setup Fail! %s"%[i_obj.getShortName() for i_obj in ml_influenceJoints])
-        raise StandardError,error  
+        raise Exception(error)  
 
 
 def addSquashAndStretch_toCurve(jointList,#attrHolder,#Should be an ikHandle normally, should have attributes and a joint List stored
@@ -802,7 +802,7 @@ def addSquashAndStretch_toCurve(jointList,#attrHolder,#Should be an ikHandle nor
             md_jointToHandle[mJnt] = mJnt.ikHandle
             mSegmentCurve = cgmMeta.validateObjArg( md_jointToHandle[mJnt].segmentCurve )
         else:
-            raise ValueError,"|{0}| >> No attr holder data found on joint : {1}...".format(_str_func,mJnt.p_nameShort)
+            raise ValueError("|{0}| >> No attr holder data found on joint : {1}...".format(_str_func,mJnt.p_nameShort))
     
     #mAttrHolder = cgmMeta.validateObjArg(attrHolder,'cgmNode',noneValid=False) 
     
@@ -912,7 +912,7 @@ def addAdditveScale_toCurve(jointList,#attrHolder,#Should be an ikHandle normall
             if not segmentCurve:
                 segmentCurve = md_jointToHandle[i].getMessage('segmentCurve')
         else:
-            raise ValueError,"|{0}| >> No attr holder data found on joint : {1}...".format(_str_func,mJnt.p_nameShort)
+            raise ValueError("|{0}| >> No attr holder data found on joint : {1}...".format(_str_func,mJnt.p_nameShort))
 
     #pprint.pprint(vars())
     mSegmentCurve = cgmMeta.validateObjArg(segmentCurve)
@@ -1057,7 +1057,7 @@ def addAdditveScale_toCurve(jointList,#attrHolder,#Should be an ikHandle normall
     #log.debug("last - %s | %s"%(ml_drivenJoints[-1].getShortName(),d_jointDrivers[ml_drivenJoints[-1]]))
     
     
-    for mJnt in d_jointDrivers.keys():#Build our 
+    for mJnt in list(d_jointDrivers.keys()):#Build our 
         log.debug("%s driven >> up: %s | out: %s"%(mJnt.getShortName(),[plug for plug in d_jointDrivers[mJnt]['up']],[plug for plug in d_jointDrivers[mJnt]['out']]))
         arg_up = "%s.scale%s = %s"%(mJnt.mNode,upChannel,' + '.join(d_jointDrivers[mJnt]['up']))
         arg_out = "%s.scale%s = %s"%(mJnt.mNode,outChannel,' + '.join(d_jointDrivers[mJnt]['out']))
@@ -1095,7 +1095,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
     ml_midControls = cgmMeta.validateObjListArg(midControls,'cgmObject',noneValid=True)
 
     if ml_midControls and len(ml_midControls) != len(ml_newJoints):
-        raise StandardError," Enough controls for joints provided! joints: %s | controls: %s"%(len(ml_midControls),len(ml_newJoints))
+        raise Exception(" Enough controls for joints provided! joints: %s | controls: %s"%(len(ml_midControls),len(ml_newJoints)))
 
 
     mBaseParent = cgmMeta.validateObjArg(baseParent,cgmMeta.cgmObject,noneValid=False)
@@ -1281,7 +1281,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
 
         targetWeights = mc.pointConstraint(mPointConstraint.mNode,q=True, weightAliasList=True)
         if len(targetWeights)>2:
-            raise StandardError,"addCGMSegmentSubControl>>Too many weight targets: obj: %s | weights: %s"%(mJnt.mNode,targetWeights)
+            raise Exception("addCGMSegmentSubControl>>Too many weight targets: obj: %s | weights: %s"%(mJnt.mNode,targetWeights))
 
         d_midPointBlendReturn = NodeF.createSingleBlendNetwork([mControl.mNode,'linearSplineFollow'],
                                                                [mControl.mNode,'resultSplineFollow'],
@@ -1344,7 +1344,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
 
         targetWeights = mc.orientConstraint(mOrientConstraint.mNode,q=True, weightAliasList=True)
         if len(targetWeights)>2:
-            raise StandardError,"Too many weight targets: obj: %s | weights: %s"%(mJnt.mNode,targetWeights)
+            raise Exception("Too many weight targets: obj: %s | weights: %s"%(mJnt.mNode,targetWeights))
 
         d_midOrientBlendReturn = NodeF.createSingleBlendNetwork([mControl.mNode,'startEndAim'],
                                                                 [mControl.mNode,'resultEndAim'],
@@ -1377,9 +1377,9 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
         
         if addTwist == 'asdasdfasdfasdfasdfasdf':
             if not mSegmentCurve:
-                raise StandardError,"addCGMSegmentSubControl>>Cannot add twist without a segmentCurve"
+                raise Exception("addCGMSegmentSubControl>>Cannot add twist without a segmentCurve")
             if not mSegmentCurve.getMessage('drivenJoints'):
-                raise StandardError,"addCGMSegmentSubControl>>Cannot add twist stored bind joint info on segmentCurve: %s"%mSegmentCurve.getShortName()		    
+                raise Exception("addCGMSegmentSubControl>>Cannot add twist stored bind joint info on segmentCurve: %s"%mSegmentCurve.getShortName())		    
 
             ml_drivenJoints = mSegmentCurve.msgList_get('drivenJoints',asMeta = True)
 
@@ -1468,7 +1468,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
                                                        operation=1)
 
                     attributes.doConnectAttr("%s.output1D"%i_pmaAdd.mNode,plug_rotateGroup)
-                except Exception,error:
+                except Exception as error:
                     log.error("'%s' Failed | %s"%(i_jnt.getShortName(),error))
 
             for i,i_jnt in enumerate(ml_beforeJoints):
@@ -1487,7 +1487,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
             
             if not mSegmentCurve.hasAttr('scaleMidUp') or not mSegmentCurve.hasAttr('scaleMidOut'):
                 mSegmentCurve.select()
-                raise ValueError, "Segment curve missing scaleMidUp or scaleMideOut"
+                raise ValueError("Segment curve missing scaleMidUp or scaleMideOut")
             
             mPlug_outDriver = cgmMeta.cgmAttr(mControl,"s%s"%controlOrientation[2])
             mPlug_upDriver = cgmMeta.cgmAttr(mControl,"s%s"%controlOrientation[1])
@@ -1563,7 +1563,7 @@ def curve_tightenEndWeights(curve,start = None, end = None, blendLength = 2):
     log.debug("l_influenceObjects: '%s'"%l_influenceObjects)
 
     if not i_skinCluster and l_influenceObjects:
-        raise StandardError,"curveSmoothWeights failed. Not enough info found"
+        raise Exception("curveSmoothWeights failed. Not enough info found")
 
     l_cvInts = [int(cv[-2]) for cv in l_cvs]
 
@@ -1572,7 +1572,7 @@ def curve_tightenEndWeights(curve,start = None, end = None, blendLength = 2):
     #if len{cvEnds)<4:
         #raise StandardError,"Must have enough cvEnds. cvEnds: %s"%(cvEnds)
     if len(l_cvInts)<(blendLength + 2):
-        raise StandardError,"Must have enough cvEnds. blendLength: %s"%(blendLength)	
+        raise Exception("Must have enough cvEnds. blendLength: %s"%(blendLength))	
 
     blendFactor = 1 * ((blendLength+1)*.1)
     log.debug("blendFactor: %s"%blendFactor)

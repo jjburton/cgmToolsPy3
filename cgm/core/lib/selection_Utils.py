@@ -69,7 +69,7 @@ def get_softSelectionItems():
         
         for i in range(fnComp.elementCount()):
             elements.append('%s.vtx[%i]' % (node, fnComp.element(i)))
-        iter.next()
+        next(iter)
     return elements
 
 def get_softSelectionWeights():
@@ -98,7 +98,7 @@ def get_softSelectionWeights():
         for i in range(fnComp.elementCount()):
             elements.append('%s.vtx[%i]' % (node, fnComp.element(i)))
             weights.append(getWeight(i)) 
-        iter.next()
+        next(iter)
         
     return elements, weights
 
@@ -135,6 +135,6 @@ def get_sorted_softSelectionWeights():
             _path = '%s.vtx[%i]' % (node, fnComp.element(i))
             _d[int(_path.split('[')[-1].split(']')[0])] = getWeight(i)
             weights.append(getWeight(i)) 
-        iter.next()
+        next(iter)
         
     return d_objects

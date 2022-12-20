@@ -1,11 +1,11 @@
 
-from __future__ import with_statement
+
 
 import os
 import sys
 
-from path import Path
-from sobject import SObject
+from .path import Path
+from .sobject import SObject
 from unittest import TestCase
 
 _BIG_STR = r"""python( "from cgm.lib.zoo.zooPyMaya import triggered" );
@@ -45,7 +45,7 @@ class SObjectTests(TestCase):
 		root.aBool = False
 		root.big_str = _BIG_STR
 
-		root.s2 = SObject( ('some_float', 200.0), ('someBool', True), ('unicode_test', u'some unicode value "with crap in it"\nand a newline!') )
+		root.s2 = SObject( ('some_float', 200.0), ('someBool', True), ('unicode_test', 'some unicode value "with crap in it"\nand a newline!') )
 		root.s2.crazy_list = [1,2.5,'3',True,False,['nested','lists','are','fun',(7,8,9,{'dict':1,'inside':2,'tuple':(3)})]]
 		root.s2.emptyTuple = ()
 		root.s2.similarKeyDict = {123:'key as int', '123': 'key as str'}
@@ -57,7 +57,7 @@ class SObjectTests(TestCase):
 		#test SObjects in lists - mixed with other stuff
 		root.s5 = SObject()
 		root.s5.objList = [root.s2, root.s3, root.s5, 1, 3.5, True, False, None]
-		root.s5.largeList = range(1000)
+		root.s5.largeList = list(range(1000))
 
 		#test tuples
 		root.s6 = SObject( ('aTuple', (1,2,3)), ('objTuple', (SObject(), SObject())) )
@@ -67,7 +67,7 @@ class SObjectTests(TestCase):
 		return root
 	def testGetAttr( self ):
 		attrNames = 'apple', 'banana', 'pears', 'orange', 'peach', 'nectarine', 'grape', 'watermelon'
-		attrValues = range( len( attrNames ) )
+		attrValues = list(range( len( attrNames )))
 		obj = SObject()
 		for attr, val in zip( attrNames, attrValues ):
 			setattr( obj, attr, val )
@@ -77,9 +77,9 @@ class SObjectTests(TestCase):
 			assert value == getattr( obj, attr )
 
 		#test simple case equality
-		assert obj == SObject( *zip( attrNames, attrValues ) )
+		assert obj == SObject( *list(zip( attrNames, attrValues )) )
 
-		obj2 = SObject( **dict( zip( attrNames, attrValues ) ) )
+		obj2 = SObject( **dict( list(zip( attrNames, attrValues )) ) )
 		assert sorted( attrNames ) == sorted( obj2.getAttrs() )
 	def testSerialization( self ):
 		sobject = self.constructData()
@@ -102,7 +102,7 @@ class SObjectTests(TestCase):
 
 		unserialized = SObject.Load( filepath )
 		assert unserialized == sobject
-		print sobject
+		print(sobject)
 	def testRoundTrip( self ):
 		sobject = self.constructData()
 

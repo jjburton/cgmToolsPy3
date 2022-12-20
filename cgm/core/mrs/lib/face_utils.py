@@ -21,6 +21,7 @@ from Red9.core import Red9_Meta as r9Meta
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -333,11 +334,11 @@ def SDKGroups_pushTo(nodes = [],position=True):
                    's':mObj.scale,
                    'mGrp':mGrp}
         
-    for mObj,_d in d.iteritems():
+    for mObj,_d in list(d.items()):
         mObj.resetAttrs(['t','r','s'])
         
     for i in range(8):
-        for mObj,_d in d.iteritems():
+        for mObj,_d in list(d.items()):
             if position:
                 _d['mGrp'].p_position = _d['p']
                 _d['mGrp'].p_orient = _d['o']
@@ -565,9 +566,9 @@ class poseBuffer():
             self.attrDat = attrDat
             
         if not d_buffer:
-            raise ValueError, "No attrDat"
+            raise ValueError("No attrDat")
         
-        l_sections = d_buffer.keys()
+        l_sections = list(d_buffer.keys())
         l_sections.sort()
         
         mBuffer.addAttr("Rest",attrType = 'float',hidden = False)
@@ -606,22 +607,22 @@ class poseBuffer():
     def connect_to_controls(self,d_type = None):
         _str_func = 'connect_to_controls'
         mBuffer = self.mBuffer
-        reload(NODEF)
+        importlib.reload(NODEF)
         
         if not d_type:
             d_type = _d_faceControlsToConnect.get(mBuffer.cgmName)
             
         if not d_type:
-            raise ValueError, cgmGEN.logString_msg(_str_func,"Must have wiring dict")
+            raise ValueError(cgmGEN.logString_msg(_str_func,"Must have wiring dict"))
         
-        for key,_d_control in d_type.iteritems():
+        for key,_d_control in list(d_type.items()):
             try:
                 control = _d_control['control']
                 _d_wiring = _d_control['wiringDict']
                 _l_simpleArgs = _d_control.get('simpleArgs') or []
                 
                 if not mc.objExists(control):
-                    raise ValueError,"Control not found: {0}".format(control)
+                    raise ValueError("Control not found: {0}".format(control))
                 
                 if _d_wiring:
                     try:
@@ -630,7 +631,7 @@ class poseBuffer():
                                                     baseName = key,
                                                     trackAttr = True,
                                                     simpleArgs = _l_simpleArgs )
-                    except Exception,error:
+                    except Exception as error:
                         log.warning(" Wire call fail | error: {0}".format(error)   ) 
                 elif _l_simpleArgs:
                         for arg in _l_simpleArgs:
@@ -640,7 +641,7 @@ class poseBuffer():
                                 
                             try:
                                 NODEF.argsToNodes(arg).doBuild()			
-                            except Exception,error:
+                            except Exception as error:
                                 log.error( cgmGEN.logString_msg(_str_func,"{0} arg failure | error: {1}".format(arg,error)))
                                 
                         
@@ -649,14 +650,14 @@ class poseBuffer():
                                         
                 #self._d_controls[key] = cgmMeta.cgmObject(control)
 
-            except Exception,error:
-                raise Exception,"Control '{0}' fail | error: {1}".format(key,error)
+            except Exception as error:
+                raise Exception("Control '{0}' fail | error: {1}".format(key,error))
             
     def connect_to_bsNode(self, targetNode = None, d_connect = None):
         _str_func = 'connect_to_blendshapeNode'
         
         if not targetNode:
-            raise ValueError, cgmGEN.logString_msg(_str_func,"Must have targetNode")
+            raise ValueError(cgmGEN.logString_msg(_str_func,"Must have targetNode"))
         
         mTarget = cgmMeta.validateObjArg(targetNode)
             
@@ -668,13 +669,13 @@ class poseBuffer():
         l_missingDrivers = []
         l_missingDriven = []
         
-        for driver,driven in d_connect.iteritems():
+        for driver,driven in list(d_connect.items()):
             log.info(cgmGEN.logString_sub(_str_func,"{0} | {1}".format(driver,driven)))
             
             if mBuffer.hasAttr(driver):
                 try:
                     mBuffer.doConnectOut(driver,"{0}.{1}".format(mTarget.mNode,driven))
-                except Exception,error:
+                except Exception as error:
                     log.error("----------------- {0}".format(error))                            
             else:
                 log.warning(msg)
@@ -683,7 +684,7 @@ class poseBuffer():
         if l_missingDrivers:
             log.info(cgmGEN.logString_sub(_str_func,"Missing attrs {0}".format(len(l_missingDrivers))) )
             for a in l_missingDrivers:
-                print a
+                print(a)
                                 
     def report(self):
         mBuffer = self.mBuffer
@@ -693,19 +694,19 @@ class poseBuffer():
                 continue
             if 'XXX' in a:
                 continue
-            print a
+            print(a)
             
     def log_wireDictTemplate(self):
         mBuffer = self.mBuffer
         
-        print "{" +  "'{0}':".format(mBuffer.cgmName) + "{"
+        print(("{" +  "'{0}':".format(mBuffer.cgmName) + "{"))
         for a in mBuffer.getAttrs(ud=True):
             if a in poseBuffer.attrMask:
                 continue
             if 'XXX' in a:
                 continue
-            print "'{0}':None, ".format(a)        
-        print "}}"
+            print(("'{0}':None, ".format(a)))        
+        print("}}")
         
     def poseDat_get(self):
         mBuffer = self.mBuffer
@@ -1559,9 +1560,9 @@ def getBlendDriverDict(node = 'blendShape1', ignore = ['SHAPES']):
 
 def setBlendDriverDict(node = 'blendShape1', d_wiring = {}):
     import cgm.core.lib.attribute_utils as ATTR
-    for t,s in d_wiring.iteritems():
+    for t,s in list(d_wiring.items()):
         log.info("Set: {} | {}".format(t,s))
         try:
             ATTR.connect(s,node+'.'+t)
-        except Exception,err:
-            print err
+        except Exception as err:
+            print(err)

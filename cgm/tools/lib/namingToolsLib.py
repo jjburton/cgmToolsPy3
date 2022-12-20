@@ -96,14 +96,14 @@ def uiLoadAutoNameObject(self):
 			userAttrs = attributes.returnUserAttributes(selected[0])
 			cgmAttrs = NameFactoryOld.returnCGMOrder()
 			usedAttrs = lists.returnMatchList(userAttrs,cgmAttrs)
-			tagAttrs = tagsDict.keys()
+			tagAttrs = list(tagsDict.keys())
 			#Enable the tag fields
-			for key in fieldToKeyDict.keys():
+			for key in list(fieldToKeyDict.keys()):
 				mc.textField(fieldToKeyDict.get(key),edit=True,enable=True,
 				             text = '',
 				              bgc = dictionary.returnStateColor('normal'))
 			
-			for key in tagsDict.keys():
+			for key in list(tagsDict.keys()):
 				currentField = fieldToKeyDict.get(key)
 
 				
@@ -155,12 +155,12 @@ def uiLoadAutoNameObject(self):
 				if buildSelectPopUp or buildLoadPopUp:
 					buffer = MelPopupMenu(currentField,button = 3)
 				if buildSelectPopUp:		
-					for key in buildSelectPopUp.keys():
+					for key in list(buildSelectPopUp.keys()):
 						MelMenuItem(buffer ,
 							        label = key,
 							        c = ('%s%s%s' %("mc.select('",buildSelectPopUp.get(key),"')")))
 				if buildLoadPopUp:		
-					for key in buildLoadPopUp.keys():
+					for key in list(buildLoadPopUp.keys()):
 						MelMenuItem(buffer ,
 					                label = key,
 					                c = lambda *a:uiLoadParentNameObject(self,buildLoadPopUp.get(key)))
@@ -173,7 +173,7 @@ def uiLoadAutoNameObject(self):
 		#clear the field
 		guiFactory.doLoadSingleObjectToTextField(self.AutoNameObjectField,'cgmVar_AutoNameObject')
 		# update the fields
-		for key in fieldToKeyDict.keys():
+		for key in list(fieldToKeyDict.keys()):
 			mc.textField(fieldToKeyDict.get(key),edit=True,enable=False,
 		                 text = '',
 			             bgc = dictionary.returnStateColor('normal'))
@@ -219,7 +219,7 @@ def uiCopyTags(self):
 	selected = mc.ls(sl=True)
 	if len(selected) >= 2:
 		for obj in selected[1:]:
-			print obj
+			print(obj)
 			attributes.copyNameTagAttrs(selected[0],obj)
 	else:
 		guiFactory.warning('Need at least two objects.')
@@ -313,7 +313,7 @@ def uiUpdateAutoNameTag(self,tag):
 # Naming functions
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def uiGetObjectInfo(self):
-	selected = mc.ls(sl=True,long=True)
+	selected = mc.ls(sl=True,int=True)
 	from cgm.lib.classes import NameFactory as NameFactoryOld
 	#reload(NameFactoryOld)
 	
@@ -328,7 +328,7 @@ def uiReturnIterator(self):
 	#reload(NameFactoryOld)
 	
 	for obj in selected:
-		print (NameFactoryOld.returnIterateNumber(obj))
+		print((NameFactoryOld.returnIterateNumber(obj)))
 			
 def uiReturnFastName(self):
 	selected = mc.ls(sl=True)
@@ -336,7 +336,7 @@ def uiReturnFastName(self):
 	#reload(NameFactoryOld)
 	
 	for obj in selected:
-		print (NameFactoryOld.returnObjectGeneratedNameDict(obj))
+		print((NameFactoryOld.returnObjectGeneratedNameDict(obj)))
 			
 def uiReturnSceneUniqueName(self):
 	selected = mc.ls(sl=True)
@@ -344,10 +344,10 @@ def uiReturnSceneUniqueName(self):
 	#reload(NameFactoryOld)
 	
 	for obj in selected:
-		print (NameFactoryOld.returnUniqueGeneratedName(obj,True))
+		print((NameFactoryOld.returnUniqueGeneratedName(obj,True)))
 			
 def uiNameObject(self,sceneUnique):
-	selected = mc.ls(sl=True,flatten=True,long=True)
+	selected = mc.ls(sl=True,flatten=True,int=True)
 	newNames = []
 	
 	if not selected:
@@ -388,7 +388,7 @@ def uiNameObject(self,sceneUnique):
 		NameFactoryOld.doNameObject(selected[0],sceneUnique)
 	
 	if newNames:
-		print ("The following were named: %s" %','.join(newNames))
+		print(("The following were named: %s" %','.join(newNames)))
 		
 	
 
@@ -438,7 +438,7 @@ def uiAutoNameWalkDown(self):
 	autoNameObject = mc.textField(self.AutoNameObjectField,q=True,text = True)
 	if autoNameObject:
 		children = search.returnChildrenObjects(autoNameObject)
-		print children
+		print(children)
 		if children:
 			mc.textField(self.AutoNameObjectField,e=True,text = children[0])
 			mc.select(children[0])

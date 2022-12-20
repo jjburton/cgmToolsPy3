@@ -1,5 +1,5 @@
 
-from __future__ import with_statement
+
 
 import os
 import re
@@ -10,10 +10,10 @@ import datetime
 import subprocess
 import tempfile
 
-import path
+from . import path
 
-from path import *
-from misc import iterBy
+from .path import *
+from .misc import iterBy
 
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ### IMPORTANT: perforce is disabled by default - to enable call enablePerforce()
@@ -65,12 +65,12 @@ class P4Output(dict):
 
 		self.errors = []
 
-		if isinstance( outStr, basestring ):
+		if isinstance( outStr, str ):
 			lines = outStr.split( '\n' )
 		elif isinstance( outStr, (list, tuple) ):
 			lines = outStr
 		else:
-			print outStr
+			print(outStr)
 			raise P4Exception( "unsupported type (%s) given to %s" % (type( outStr ), self.__class__.__name__) )
 
 		delimiter = (' ', ':')[ keysColonDelimited ]
@@ -105,7 +105,7 @@ class P4Output(dict):
 
 		#finally, if there are prefixes which have a numeral at the end, strip it and pack the data into a list
 		multiKeys = {}
-		for k in self.keys():
+		for k in list(self.keys()):
 			m = self.END_DIGITS.search( k )
 			if m is None:
 				continue
@@ -119,7 +119,7 @@ class P4Output(dict):
 			except KeyError:
 				multiKeys[ prefix ] = [ (idx, data) ]
 
-		for prefix, dataList in multiKeys.iteritems():
+		for prefix, dataList in list(multiKeys.items()):
 			try:
 				self.pop( prefix )
 			except KeyError: pass
@@ -134,7 +134,7 @@ class P4Output(dict):
 		if self.errors:
 			return '\n'.join( self.errors )
 
-		return '\n'.join( '%s:  %s' % items for items in self.iteritems() )
+		return '\n'.join( '%s:  %s' % items for items in list(self.items()) )
 
 
 INFO_PREFIX_RE = re.compile( '^info([0-9]*): ' )
@@ -187,7 +187,7 @@ def populateChange( change ):
 		changeNum = change[ 'change' ]
 		if isinstance( changeNum, int ) and changeNum:
 			fullChange = P4Change.FetchByNumber( changeNum )
-			for key, value in fullChange.iteritems():
+			for key, value in list(fullChange.items()):
 				change[ key ] = value
 
 
@@ -200,7 +200,7 @@ class P4Change(dict):
 		self[ 'actions' ] = []
 		self[ 'revisions' ] = []
 	def __setattr__( self, attr, value ):
-		if isinstance( value, basestring ):
+		if isinstance( value, str ):
 			if value.isdigit():
 				value = int( value )
 
@@ -241,13 +241,13 @@ class P4Change(dict):
 	def __eq__( self, other ):
 		if isinstance( other, int ):
 			return self.change == other
-		elif isinstance( other, basestring ):
+		elif isinstance( other, str ):
 			if other == 'default':
 				return self.change == 0
 
 		return self.change == other.change
 	def __iter__( self ):
-		return zip( self.files, self.revisions, self.actions )
+		return list(zip( self.files, self.revisions, self.actions ))
 	@classmethod
 	def Create( cls, description, files=None ):
 
@@ -294,7 +294,7 @@ class P4Change(dict):
 			prefix = 'text:'
 			PREFIX_LEN = len( prefix )
 
-			line = lineIter.next()
+			line = next(lineIter)
 			while line.startswith( prefix ):
 				line = line[ PREFIX_LEN: ].lstrip()
 
@@ -302,10 +302,10 @@ class P4Change(dict):
 					break
 
 				change.description += line
-				line = lineIter.next()
+				line = next(lineIter)
 
-			lineIter.next()
-			line = lineIter.next()
+			next(lineIter)
+			line = next(lineIter)
 			while not line.startswith( prefix ):
 				idx = line.rfind( '#' )
 				depotFile = Path( line[ :idx ] )
@@ -318,7 +318,7 @@ class P4Change(dict):
 				change.actions.append( act )
 				change.revisions.append( rev )
 
-				line = lineIter.next()
+				line = next(lineIter)
 		except StopIteration:
 			pass
 
@@ -351,7 +351,7 @@ class P4Change(dict):
 			curChange = None
 			try:
 				while True:
-					line = lineIter.next()
+					line = next(lineIter)
 					if line.startswith( 'Change' ):
 						curChange = cls()
 						changes.append( curChange )
@@ -697,7 +697,7 @@ class P4File(Path):
 		if not self.USE_P4:
 			return
 
-		if isinstance( newChange, (int, long) ):
+		if isinstance( newChange, int ):
 			change = newChange
 		elif isinstance( newChange, P4Change ):
 			change = newChange.change
@@ -882,7 +882,7 @@ def _p4Delete( filepath, doP4=True ):
 					#which case we still need to do a normal delete...
 					if not filepath.exists():
 						return
-		except Exception, e: pass
+		except Exception as e: pass
 
 	return pathDelete( filepath )
 
@@ -1015,7 +1015,7 @@ def toDepotAndDiskPaths( files ):
 		lines += _p4run( 'where', *filesChunk )[ :-1 ]  #last line is the "exit" line...
 
 	paths = []
-	for f, line in zip( map( Path, files ), lines ):
+	for f, line in zip( list(map( Path, files )), lines ):
 		fName = f[ -1 ]
 		fNameLen = len( fName )
 
@@ -1206,7 +1206,7 @@ def gatherFilesIntoChange( files, change=None ):
 			except TypeError: continue
 
 			#in this case, the file isn't managed by perforce - so add it
-			print 'adding file:', f
+			print(('adding file:', f))
 			p4.add( f )
 			p4.setChange(change, f)
 			filesGathered.append( f )
@@ -1291,7 +1291,7 @@ def deleteRedundantPYCs( rootDir=None, recursive=True, echo=False ):
 	for f in orphans:
 		if echo:
 			try:
-				print f - rootDir, f.reason
+				print((f - rootDir, f.reason))
 			except AttributeError:
 				pass
 

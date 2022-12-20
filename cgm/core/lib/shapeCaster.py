@@ -72,7 +72,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
         log.info(mi_obj)	
         mi_obj = cgmMeta.validateObjArg(mi_obj,cgmMeta.cgmObject,noneValid = True)
         if not mi_obj:
-            raise ValueError,"mi_obj kw: {0} ".format(mi_obj)
+            raise ValueError("mi_obj kw: {0} ".format(mi_obj))
 
         _str_func = "returnBaseControlSize(%s)"%mi_obj.p_nameShort
         log.debug(">> %s "%(_str_func) + "="*75)
@@ -87,8 +87,8 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
                 axis = ['x','y','z']
             if type(axis) in [list,tuple]:
                 for a in axis:
-                    if a in dictionary.stringToVectorDict.keys():
-                        if list(a)[0] in d_axisToDo.keys():
+                    if a in list(dictionary.stringToVectorDict.keys()):
+                        if list(a)[0] in list(d_axisToDo.keys()):
                             d_axisToDo[list(a)[0]].append( a )
                         else:
                             d_axisToDo[list(a)[0]] = [ a ]
@@ -102,8 +102,8 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
                         log.warning("Don't know what with: '%s'"%a)
             log.debug("%s >> d_axisToDo: %s "%(_str_func,d_axisToDo))  
             if not d_axisToDo:return False	    
-        except Exception,error:
-            raise Exception,"Axis check | {0}".format(error)
+        except Exception as error:
+            raise Exception("Axis check | {0}".format(error))
 
 
         #>>
@@ -115,28 +115,28 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
                 try:
                     info = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[0])
                     d_returnDistances[axis] = (distance.returnDistanceBetweenPoints(info['near'],mi_obj.getPosition()) *2)
-                except Exception,error:
-                    raise Exception,"raycast | %s"%error
+                except Exception as error:
+                    raise Exception("raycast | %s"%error)
             else:
                 try:
                     info1 = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[0])
                     info2 = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[1])
                     if info1 and info2:
                         d_returnDistances[axis] = distance.returnDistanceBetweenPoints(info1['near'],info2['near'])                    
-                except Exception,error:
-                    raise Exception,"raycast | %s"%error
+                except Exception as error:
+                    raise Exception("raycast | %s"%error)
 
         if not d_returnDistances:
-            raise Exception,"No intersections found"
+            raise Exception("No intersections found")
 
         #>>Add the average
         log.debug("%s >> d_returnDistances: %s "%(_str_func,d_returnDistances))        	
-        d_returnDistances['average'] = (sum([d_returnDistances.get(k) for k in d_returnDistances.keys()]))/len(d_returnDistances.keys())
+        d_returnDistances['average'] = (sum([d_returnDistances.get(k) for k in list(d_returnDistances.keys())]))/len(list(d_returnDistances.keys()))
 
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)     	
         return d_returnDistances    
-    except Exception,error:
-        raise Exception," returnBaseControlSize | {0}".format(error)
+    except Exception as error:
+        raise Exception(" returnBaseControlSize | {0}".format(error))
 
 
 
@@ -147,7 +147,7 @@ def joinCurves(targetObjects, mode = 'simple', curveDegree = 1):
         for i_obj in ml_targetObjects:
             d_buffer = {}
             if i_obj.getMayaType() != 'nurbsCurve':
-                raise StandardError,"joinCurve>> %s is not a 'nurbsCurve'. Type: %s"%(i_obj.getShortName(),i_obj.getMayaType())
+                raise Exception("joinCurve>> %s is not a 'nurbsCurve'. Type: %s"%(i_obj.getShortName(),i_obj.getMayaType()))
             l_components = i_obj.getComponents('ep')
             l_componentIndices = []
             for c in l_components:
@@ -177,18 +177,18 @@ def joinCurves(targetObjects, mode = 'simple', curveDegree = 1):
                 for i,p in enumerate(l_pos):
                     if not d_pntsConnect.get(i):d_pntsConnect[i] = []
                     d_pntsConnect[i].append(p)
-            for k in d_pntsConnect.keys():
+            for k in list(d_pntsConnect.keys()):
                 l_created.append( mc.curve(d=curveDegree,ep=d_pntsConnect[k],os =True) )#Make the curve		    
         else:
-            for idx in d_objInfo[d_objInfo.keys()[0]]['indices']:
+            for idx in d_objInfo[list(d_objInfo.keys())[0]]['indices']:
                 l_pos = []
                 for i_crv in ml_targetObjects:
                     l_pos.append( cgmMeta.cgmNode(d_objInfo[i_crv]['components'][idx]).getPosition() )
                 l_created.append( mc.curve(d=curveDegree,ep=l_pos,os =True) )#Make the curve	
         return l_created
 
-    except StandardError,error:
-        raise StandardError,"joinCurve>> Failure. targets: %s | error: %s"%(targetObjects,error)
+    except Exception as error:
+        raise Exception("joinCurve>> Failure. targets: %s | error: %s"%(targetObjects,error))
 
 def createWrapControlShape(targetObjects,
                            targetGeo = None,
@@ -257,9 +257,9 @@ def createWrapControlShape(targetObjects,
     assert type(points) is int,"Points must be int: %s"%points
     assert type(curveDegree) is int,"Points must be int: %s"%points
     assert curveDegree > 0,"Curve degree must be greater than 1: %s"%curveDegree
-    if posOffset is not None and len(posOffset) and len(posOffset)!=3:raise StandardError, "posOffset must be len(3): %s | len: %s"%(posOffset,len(posOffset))
-    if rootOffset is not None and len(rootOffset) and len(rootOffset)!=3:raise StandardError, "rootOffset must be len(3): %s | len: %s"%(rootOffset,len(rootOffset))
-    if rootRotate is not None and len(rootRotate) and len(rootRotate)!=3:raise StandardError, "rootRotate must be len(3): %s | len: %s"%(rootRotate,len(rootRotate))
+    if posOffset is not None and len(posOffset) and len(posOffset)!=3:raise Exception("posOffset must be len(3): %s | len: %s"%(posOffset,len(posOffset)))
+    if rootOffset is not None and len(rootOffset) and len(rootOffset)!=3:raise Exception("rootOffset must be len(3): %s | len: %s"%(rootOffset,len(rootOffset)))
+    if rootRotate is not None and len(rootRotate) and len(rootRotate)!=3:raise Exception("rootRotate must be len(3): %s | len: %s"%(rootRotate,len(rootRotate)))
 
     if extendMode in ['loliwrap','cylinder','disc'] and insetMult is None:insetMult = 1
     for axis in ['x','y','z']:
@@ -357,7 +357,7 @@ def createWrapControlShape(targetObjects,
         if not size:
             d_size = returnBaseControlSize(mi_rootLoc,targetGeo,axis=[aimAxis])#Get size
             log.debug("d_size: %s"%d_size)
-            size = d_size[ d_size.keys()[0]]*insetMult	
+            size = d_size[ list(d_size.keys())[0]]*insetMult	
 
         discOffset = size
         log.debug("d_size: %s"%d_size)
@@ -382,7 +382,7 @@ def createWrapControlShape(targetObjects,
     elif extendMode == 'cylinder':
         log.debug("|{0}| >> cylinder...".format(_str_func))            
         d_size = returnBaseControlSize(mi_rootLoc,targetGeo,axis=[aimAxis])#Get size
-        discOffset = d_size[ d_size.keys()[0]]*insetMult
+        discOffset = d_size[ list(d_size.keys())[0]]*insetMult
         log.debug("d_size: %s"%d_size)
         log.debug("discOffset is: %s"%discOffset)
 
@@ -509,7 +509,7 @@ def createWrapControlShape(targetObjects,
 
     if joinMode and extendMode not in ['loliwrap','endCap'] and len(l_sliceReturns)>1:
         if joinHits:
-            keys = d_rootCastInfo['processedHits'].keys()
+            keys = list(d_rootCastInfo['processedHits'].keys())
             keys.sort()
             #goodDegrees = []
             #for i,key in enumerate(keys):
@@ -519,7 +519,7 @@ def createWrapControlShape(targetObjects,
             log.debug("joinHits: %s"%joinHits)
             log.debug("goodDegrees: %s"%goodDegrees)	    
         else:
-            goodDegrees = [key for key in d_rootCastInfo['processedHits'].keys()]
+            goodDegrees = [key for key in list(d_rootCastInfo['processedHits'].keys())]
         #> Side Curves
         for degree in goodDegrees:
             l_pos = []	    
@@ -602,8 +602,8 @@ def createMeshSliceCurve(mesh, mi_obj,latheAxis = 'z',aimAxis = 'y+',
         log.debug("mesh: {0}".format(mesh))
         log.debug("points: {0}".format(points))
 
-    except Exception,error:
-        raise ValueError,"Validation fail | {0}".format(error) 
+    except Exception as error:
+        raise ValueError("Validation fail | {0}".format(error)) 
 
 
     #>>> Info #================================================================
@@ -690,7 +690,7 @@ def createMeshSliceCurve(mesh, mi_obj,latheAxis = 'z',aimAxis = 'y+',
             #points = points+1	
             pass
 
-        rotateBaseValue = len(range(int(rotateFloor),int(rotateCeiling)))/points
+        rotateBaseValue = len(list(range(int(rotateFloor),int(rotateCeiling))))/points
         #rotateBaseValue = (rotateCeiling - rotateFloor)/points
 
         log.debug("|{0}| >> floor: {1} | ceiling {2} | baseValue: {3} | points: {4}".format(_str_func,rotateFloor,rotateCeiling,rotateBaseValue,points))     
@@ -700,7 +700,7 @@ def createMeshSliceCurve(mesh, mi_obj,latheAxis = 'z',aimAxis = 'y+',
             l_rotateSettings.append( (rotateBaseValue*(i)) + initialRotate + rotateFloor)
         l_rotateSettings.append(rotateCeiling)
         
-    if not l_rotateSettings:raise ValueError, "Should have had some l_rotateSettings by now"
+    if not l_rotateSettings:raise ValueError("Should have had some l_rotateSettings by now")
     log.debug("rotateSettings: %s"%l_rotateSettings)
 
     #reload(RayCast)
@@ -756,20 +756,20 @@ def createMeshSliceCurve(mesh, mi_obj,latheAxis = 'z',aimAxis = 'y+',
 
                 d_rawHitFromValue[rotateValue] = hit
 
-            except Exception,err:
+            except Exception as err:
                 cgmGEN.cgmException(Exception,err)
  
         mc.delete(mi_loc.getParents()[-1])#delete top group
         log.debug("pos list: %s"%l_pos)    
         #guiFactory.doCloseProgressWindow()
 
-    except Exception,error:
+    except Exception as error:
         pprint.pprint(vars())
-        raise ValueError,"Cast fail | {0}".format(error) 	
+        raise ValueError("Cast fail | {0}".format(error)) 	
     try:
         if not l_pos:
             log.warning("Cast return: %s"%d_castReturn)
-            raise StandardError,"createMeshSliceCurve>> Not hits found. Nothing to do"
+            raise Exception("createMeshSliceCurve>> Not hits found. Nothing to do")
         if len(l_pos)>=3:
             if closedCurve:
                 l_pos.extend(l_pos[:curveDegree])
@@ -789,8 +789,8 @@ def createMeshSliceCurve(mesh, mi_obj,latheAxis = 'z',aimAxis = 'y+',
                         'hitReturns':d_hitReturnFromValue}
             else:
                 return curveBuffer
-    except Exception,error:
+    except Exception as error:
         for arg in error.args:
             log.error(arg)
-        raise Exception,"Post process | {0}".format(error) 
+        raise Exception("Post process | {0}".format(error)) 
     return False    

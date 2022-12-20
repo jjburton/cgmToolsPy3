@@ -1,13 +1,13 @@
 
 from maya.cmds import *
 
-import devTest_base
+from . import devTest_base
 
 from cgm.lib.zoo.zooPy import strUtils
 from cgm.lib.zoo.zooPy import vectors
 
-import mayaDecorators
-import animClip
+from . import mayaDecorators
+from . import animClip
 
 #world space keyTime/translation/rotation data for creating the animated test data
 KEY_DATA = ( (0, (1,1,1), (-10, 15, 45)),

@@ -23,10 +23,10 @@ def BakeAndPrep(bakeSetName = 'bake_tdSet',
         prepped = Prep(deleteSetName,
                        exportSetName)
     else:
-        print "Not baked, so not prepping"
+        print("Not baked, so not prepping")
 
     if not prepped:
-        print "Not prepped"
+        print("Not prepped")
 
     return prepped
 
@@ -116,8 +116,8 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                 if euler:
                     for a in ['rotateX','rotateY','rotateZ']:
                         try:mc.filterCurve( obj + '_' + a )
-                        except Exception,err:
-                            print "{0} | {1} | {2}".format(obj,a,err)
+                        except Exception as err:
+                            print(("{0} | {1} | {2}".format(obj,a,err)))
                             
                 if tangent:
                     _anim = mc.listConnections(obj, type = 'animCurve')
@@ -134,7 +134,7 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
 
     #eval mode restore ----
     if _evalMode[0] != 'off':
-        print "Eval mode restored: {0}".format(_evalMode[0])
+        print(("Eval mode restored: {0}".format(_evalMode[0])))
         mc.evaluationManager(mode = _evalMode[0])
 
     mc.currentTime(currentTime)
@@ -159,7 +159,7 @@ def Prep(removeNamespace = False,
     try:
         topNode = cgmMeta.asMeta(mc.ls(sl=True)[0])
     except:
-        print "Select top node and try again."
+        print("Select top node and try again.")
         return
 
     currentTime = mc.currentTime(q=True)
@@ -236,7 +236,7 @@ def Prep(removeNamespace = False,
     if(mc.objExists(deleteSet)):
         mc.delete( mc.sets( deleteSet, q=True ) )  
     else:
-        print "No delete set found."  
+        print("No delete set found.")  
         prepped = False    
                     
                     
@@ -272,7 +272,7 @@ def Prep(removeNamespace = False,
     if(mc.objExists(exportSet)):
         mc.select( mc.sets( exportSet, q=True ) ) 
     else:
-        print "No export set found ({0}). Selecting top node.".format(exportSet)
+        print(("No export set found ({0}). Selecting top node.".format(exportSet)))
         mc.select( topNode.mNode )
         prepped = False
 
@@ -283,7 +283,7 @@ def Prep(removeNamespace = False,
         try:
             mc.parent(obj.mNode, w=True)
         except:
-            print "%s already a child of 'world'" % obj
+            print(("%s already a child of 'world'" % obj))
             
             
     if removeNamespace:#...attempt to clean name space stuff

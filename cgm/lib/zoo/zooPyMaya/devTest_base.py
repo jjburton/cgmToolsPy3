@@ -60,7 +60,7 @@ class BaseTest(unittest.TestCase):
 		if not self._CLEANUP:
 			return
 
-		print '--- CLEANING UP TEST FILES ---'
+		print('--- CLEANING UP TEST FILES ---')
 		for f in TEST_DIRECTORY.files( recursive=True ):
 
 			#delete the file

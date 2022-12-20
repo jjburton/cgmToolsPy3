@@ -20,8 +20,8 @@ def main(codeType):
         # Print the lines from the file in Maya:
         with open(tempFile, "r") as f:
             for line in f.readlines():
-                print line.rstrip()
-        print "\n",
+                print(line.rstrip())
+        print("\n", end=' ')
 
         if codeType == "python":
             # execute the file contents in Maya:
@@ -32,4 +32,4 @@ def main(codeType):
             # This causes the "// Result: " line to show up in the Script Editor:
             om.MGlobal.executeCommand(melCmd, True, True)
     else:
-        print "No Wing-generated temp file exists: " + tempFile
+        print("No Wing-generated temp file exists: " + tempFile)

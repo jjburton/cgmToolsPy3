@@ -7,7 +7,7 @@ import traceback
 
 
 def printMsg( *args ):
-	for a in args: print a,
+	for a in args: print(a, end=' ')
 
 
 def SHOW_IN_UI():
@@ -78,7 +78,7 @@ def exceptionHandler( *args ):
 		author = findMostRecentDefitionOf( '__author__' ) or DEFAULT_AUTHOR
 		svr = smtplib.SMTP( 'exchange2' )
 		svr.sendmail(os.environ[ 'USERNAME' ], [author, os.environ[ 'USERNAME' ]], message)
-	except Exception, x:
+	except Exception as x:
 		printMsg( 'ERROR: failed to mail exception dump', x )
 
 	#try to post an error dial
@@ -118,7 +118,7 @@ class ExceptionHandledType(type):
 	def __new__( cls, name, bases, attrs ):
 		global d_handleExceptions
 		newAttrs = {}
-		for itemName, item in attrs.iteritems():
+		for itemName, item in attrs.items():
 			if callable( item ): newAttrs[ itemName ] = d_handleExceptions( item )
 			else: newAttrs[ itemName ] = item
 

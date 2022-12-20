@@ -2,7 +2,7 @@
 from cgm.lib.zoo.zooPy.misc import removeDupes
 from cgm.lib.zoo.zooPy.devTest import TEST_CASES, runTestCases
 
-from baseMelUI import *
+from .baseMelUI import *
 
 
 class DevTestLayout(MelVSingleStretchLayout):

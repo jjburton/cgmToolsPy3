@@ -133,7 +133,7 @@ def doLocMe(self):
     if retLocators:
 	mc.select(retLocators)
 
-    print 'The following locators have been created - %s' % ','.join(retLocators)
+    print(('The following locators have been created - %s' % ','.join(retLocators)))
     return retLocators
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def doPurgeCGMAttrs(self):
@@ -179,7 +179,7 @@ def doLocCenter(self):
     mc.select(cl=True)
     self.forceBoundingBoxState = mc.optionVar( q='cgmVar_ForceBoundingBoxState' )
 
-    print selection 
+    print(selection) 
 
     if len(selection) >=2:
 	buffer = (locators.locMeCenter(selection,self.forceBoundingBoxState))
@@ -227,12 +227,12 @@ def doTagObjects(self):
 		selection.remove(obj)
 		break
 	else:
-	    print 'You have more than one locator'
+	    print('You have more than one locator')
 
     if taggingLoc:
 	for obj in selection:
 	    attributes.storeInfo(obj,'cgmMatchObject',taggingLoc)
-	    print ('%s%s' % (obj, " tagged and released..."))
+	    print(('%s%s' % (obj, " tagged and released...")))
 
 	if self.updateMatchRotateOrder:
 	    loc = ObjectFactory(taggingLoc)
@@ -331,7 +331,7 @@ def doStandAloneUpdateSelected():
     
     selection = mc.ls(sl=True) or []
     if not selection:
-	raise StandardError,"Nothing selected"
+	raise Exception("Nothing selected")
     
     for o in selection:
 	matchObject = search.returnTagInfo(o,'cgmMatchObject')
@@ -404,10 +404,10 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
     if self.LocinatorUpdateObjectsOptionVar.value:
 	self.LocinatorUpdateObjectsBufferOptionVar = OptionVarFactory(self.LocinatorUpdateObjectsBufferOptionVar.name)
 	
-	preSelectBuffer = mc.ls(sl=True,flatten=True,long=True) or []
+	preSelectBuffer = mc.ls(sl=True,flatten=True,int=True) or []
 	mc.select(cl=True)
 	self.LocinatorUpdateObjectsBufferOptionVar.select()
-	selection =  mc.ls(sl=True,flatten=True,long=True) or []
+	selection =  mc.ls(sl=True,flatten=True,int=True) or []
 
     else:
 	selection = (mc.ls (sl=True,flatten=True)) or []
@@ -436,16 +436,16 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 	    if search.returnTagInfo(item,'cgmLocMode'): 
 		objectsToUpdate[item] = False
 
-    print "Self bake mode is '%s'"%self.bakeMode
-    print "Force Every Frame mode is '%s'"%self.forceEveryFrame
+    print(("Self bake mode is '%s'"%self.bakeMode))
+    print(("Force Every Frame mode is '%s'"%self.forceEveryFrame))
     
     if objectsToUpdate:
 	if not self.bakeMode:
 	    #Single frame update
-	    for item in objectsToUpdate.keys():
+	    for item in list(objectsToUpdate.keys()):
 		if objectsToUpdate[item]:
 		    if doUpdateObj(self,item):
-			print ("'%s' updated..."%item)
+			print(("'%s' updated..."%item))
 		    else:
 			guiFactory.warning('%s%s' % (item, " has no match object"))
 		else:	
@@ -455,7 +455,7 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 			guiFactory.warning('%s%s' % (item, " could not be updated..."))
 	    
 
-	    mc.select(objectsToUpdate.keys())
+	    mc.select(list(objectsToUpdate.keys()))
 
 	else:
 	    #Multi frame update
@@ -467,14 +467,14 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 	    itemBaseAttrs = {}
 
 	    if self.forceEveryFrame== True:
-		for item in objectsToUpdate.keys():
+		for item in list(objectsToUpdate.keys()):
 		    #Then delete the key clear any key frames in the region to be able to cleanly put new ones on keys only mode
 		    mc.cutKey(item,animation = 'objects', time=(self.startFrame,self.endFrame + 1),at= matchModeKeyingDict.get(self.matchMode))
 
-		mayaMainProgressBar = guiFactory.doStartMayaProgressBar(len(range(self.startFrame,self.endFrame + 1)),"On '%s'"%item)
+		mayaMainProgressBar = guiFactory.doStartMayaProgressBar(len(list(range(self.startFrame,self.endFrame + 1))),"On '%s'"%item)
 		maxRange = self.endFrame + 1
 		#First set up our constraints for non locator objects
-		for item in objectsToUpdate.keys():
+		for item in list(objectsToUpdate.keys()):
 		    if objectsToUpdate[item]:
 			#Grab an attr buffer to see if a blendParent pops up
 			itemBaseAttrs[item] = mc.listAttr(item, userDefined = True)
@@ -487,7 +487,7 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 		    mc.progressBar(mayaMainProgressBar, edit=True, status = ("On frame %i for '%s'"%(f,"','".join(objectsToUpdate))), step=1)                    
 
 		    mc.currentTime(f)
-		    for item in objectsToUpdate.keys():
+		    for item in list(objectsToUpdate.keys()):
 			if not objectsToUpdate[item]:#locators are stored with false matchObjects
 			    locators.doUpdateLocator(item,self.forceBoundingBoxState)
 			else:
@@ -517,7 +517,7 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 		#guiFactory.doCloseProgressWindow()
 		#Put the time line back where it was
 		mc.currentTime(initialFramePosition)
-		mc.select(objectsToUpdate.keys())
+		mc.select(list(objectsToUpdate.keys()))
 
 	    else:
 		guiFactory.doProgressWindow()
@@ -610,7 +610,7 @@ def doUpdateLoc(self, forceCurrentFrameOnly = False ):
 		#Put the time line back where it was
 
 		mc.currentTime(initialFramePosition)
-		mc.select(objectsToUpdate.keys())
+		mc.select(list(objectsToUpdate.keys()))
 
 	if self.LocinatorUpdateObjectsOptionVar.value and preSelectBuffer:
 	    mc.select(preSelectBuffer)
@@ -706,7 +706,7 @@ def returnLocatorSource(locatorName):
     if search.returnObjectType(locatorName) == 'locator':
 	sourceObjectBuffer = search.returnTagInfo(locatorName,'cgmSource')
 	if sourceObjectBuffer:
-	    print sourceObjectBuffer
+	    print(sourceObjectBuffer)
 	    if ',' in list(sourceObjectBuffer):
 		sourceObjectsBuffer = sourceObjectBuffer.split(',')
 		return sourceObjectsBuffer[-1]
@@ -722,7 +722,7 @@ def returnLocatorSource(locatorName):
 	    else:
 		return sourceObject
 	else:
-	    print "Doesn't have a source stored"
+	    print("Doesn't have a source stored")
 	    return False
 
     else:
@@ -753,7 +753,7 @@ def returnLocatorSources(locatorName):
 	    else:
 		return sourceObject
 	else:
-	    print "Doesn't have a source stored"
+	    print("Doesn't have a source stored")
 	    return False
     else:
 	return False
@@ -798,7 +798,7 @@ def removeSelectedFromObjBuffer(bufferOptionVar):
 	    if queryCanUpdate(o):
 		try:
 		    bufferOptionVar.remove(o)
-		except StandardError:
+		except Exception:
 		    pass
 	    else:
 		guiFactory.report("'%s' can't be updated. Not added to buffer"%o)

@@ -25,6 +25,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 #========================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -35,7 +36,7 @@ import maya.mel as mel
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+##from cgm.core import cgm_PuppetMeta as PUPPETMETA
 from cgm.core import cgm_RigMeta as RIGMETA
 import cgm.core.rig.create_utils as RIGCREATE
 import cgm.core.lib.arrange_utils as ARRANGE
@@ -93,7 +94,7 @@ def example(self):
         #Control sets ===================================================================================
         log.debug(cgmGEN.logString_sub(_str_func, '...'))
         return 'This does nothing'
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 def get_side(self):
@@ -176,7 +177,7 @@ def get_uiString(self,showSide=True, skip = []):
         
         return _str
         
-    except Exception,err:
+    except Exception as err:
         log.debug(cgmGEN.logString_start(_str_func,'ERROR'))
         log.error(err)
         return self.mNode
@@ -208,7 +209,7 @@ def blockParent_getAttachPoint(self, mode = 'end',noneValid = True):
                 log.debug("|{0}| >> Root joint on master found".format(_str_func))
                 return mBlockParent.modulePuppet.rootJoint[0]
             return False
-        raise RuntimeError,"Shouldn't have gotten here"    
+        raise RuntimeError("Shouldn't have gotten here")    
     
     else:
         mParentModule = mParentModule[0]
@@ -217,7 +218,7 @@ def blockParent_getAttachPoint(self, mode = 'end',noneValid = True):
         ml_targetJoints = mParentModule.rigNull.msgList_get('moduleJoints',asMeta = True, cull = True)
         
         if not ml_targetJoints:
-            raise ValueError,"mParentModule has no module joints."
+            raise ValueError("mParentModule has no module joints.")
         if mode == 'end':
             mTarget = ml_targetJoints[-1]
         elif mode == 'base':
@@ -226,7 +227,7 @@ def blockParent_getAttachPoint(self, mode = 'end',noneValid = True):
             _msg = ("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
             if noneValid:
                 return log.error(_msg)
-            raise ValueError,_msg
+            raise ValueError(_msg)
         return mTarget
 
 def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = True, extraAttrs = None, mBlockModule = None, skipBlockAttrs = False):
@@ -244,8 +245,8 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
         if blockType is None:
             mBlockModule = self.p_blockModule
         elif not mBlockModule:
-            raise NotImplementedError,"Haven't implemented blocktype changing..."
-        reload(mBlockModule)
+            raise NotImplementedError("Haven't implemented blocktype changing...")
+        importlib.reload(mBlockModule)
         try:d_attrsFromModule = mBlockModule.d_attrsToMake
         except:d_attrsFromModule = {}
         
@@ -256,7 +257,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
         
         if not skipBlockAttrs:
             try:d_defaultSettings.update(mBlockModule.d_block_profiles[self.blockProfile])
-            except Exception,err:
+            except Exception as err:
                 log.debug(cgmGEN.logString_msg(_str_func,'Failed to query blockProfile defaults | {0}'.format(err)))
                 pass        
     
@@ -269,7 +270,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
         _l_standard = mBlockModule.__dict__.get('l_attrsStandard',[])
         log.debug("|{0}| >> standard: {1} ".format(_str_func,_l_standard))                        
         for k in _l_standard:
-            if k in BLOCKSHARE._d_attrsTo_make.keys():
+            if k in list(BLOCKSHARE._d_attrsTo_make.keys()):
                 _d[k] = BLOCKSHARE._d_attrsTo_make[k]
             else:
                 log.warning("|{0}| >> standard attr missing def: {1} ".format(_str_func,k))                        
@@ -277,8 +278,8 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
         if extraAttrs is not None:
             _d.update(extraAttrs)
     
-        for k,v in d_attrsFromModule.iteritems():
-            if k in _d.keys():
+        for k,v in list(d_attrsFromModule.items()):
+            if k in list(_d.keys()):
                 log.warning("|{0}| >> key: {1} already in to create list of attributes from default. | blockType: {2}".format(_str_func,k,blockType))                
             else:
                 _d[k] = v
@@ -296,7 +297,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
         _short = self.mNode
         
         #This is the verify part...
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         #for a,t in self._d_attrsToVerify.iteritems():
         
@@ -309,7 +310,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
                         log.debug(cgmGEN.logString_msg(_str_func,'Attribute of wrong type | {0} | type: {1} | wanted: {2}'.format(a,_type,attrType)))
                         ATTR.convert_type(_short,a,attrType)
                         return v
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed to convert 'Attribute of wrong type | {0} | type: {1} | wanted: {2} | err: {3}".format(a,_type,attrType,err))
                 
         for a in _keys:
@@ -344,7 +345,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
                         
                         if strValue and strValue in t:
                             try:ATTR.set(_short,a,strValue)
-                            except Exception,err:"...Failed to set old value: {0} | err: {1}".format(strValue,err)
+                            except Exception as err:"...Failed to set old value: {0} | err: {1}".format(strValue,err)
 
                 elif t == 'stringDatList':
                     if forceReset or not ATTR.datList_exists(_short,a,mode='string'):
@@ -380,7 +381,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
                         self.addAttr(a, v, attrType = t,lock=_l, keyable = False)                                
                     else:
                         self.addAttr(a,initialValue = v, attrType = t,lock=_l, keyable = False)            
-            except Exception,err:
+            except Exception as err:
                 _msg = "|{0}| Add attr Failure >> '{1}' | type: {4} | defaultValue: {2} | err: {3}".format(_str_func,a,v,err,_d.get(a))
                 log.error(_msg) 
                 if not forceReset:
@@ -390,7 +391,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
             ATTR.set_lock(_short,a,True)
             
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def verify(self, blockType = None, size = None, side = None, forceReset = False):
     """
@@ -402,12 +403,12 @@ def verify(self, blockType = None, size = None, side = None, forceReset = False)
     log.debug(cgmGEN.logString_start(_str_func))
 
     if self.isReferenced():
-        raise StandardError,"|{0}| >> Cannot verify referenced nodes".format(_str_func)
+        raise Exception("|{0}| >> Cannot verify referenced nodes".format(_str_func))
 
     _type = self.getMayaAttr('blockType')
     if blockType is not None:
         if _type is not None and _type != blockType:
-            raise ValueError,"|{0}| >> Conversion necessary. blockType arg: {1} | found: {2}".format(_str_func,blockType,_type)
+            raise ValueError("|{0}| >> Conversion necessary. blockType arg: {1} | found: {2}".format(_str_func,blockType,_type))
     else:
         blockType = _type
         
@@ -428,13 +429,13 @@ def verify(self, blockType = None, size = None, side = None, forceReset = False)
     if _side is not None:
         log.info("|{0}| >> Side: {1}".format(_str_func,_side))                
         try: ATTR.set(self.mNode,'side',_side)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to set side. {1}".format(_str_func,err))
 
 
     #>>> Base shapes --------------------------------------------------------------------------------
     try:self.baseSize = self._callSize
-    except Exception,err:log.debug("|{0}| >> _callSize push fail: {1}.".format(_str_func,err))
+    except Exception as err:log.debug("|{0}| >> _callSize push fail: {1}.".format(_str_func,err))
     self.doName()
     
     if ATTR.get_type(self.mNode,'blockProfile') == 'enum':
@@ -456,7 +457,7 @@ def set_nameListFromName(self):
             self.datList_connect('nameList',_l)
             return _l
         return False
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
         
 def set_nameTag(self,nameTag = None):
@@ -498,7 +499,7 @@ def set_nameTag(self,nameTag = None):
                 
         self.datList_connect('nameList',l_nameList)
         pprint.pprint(l_nameList)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def set_nameIter(self,nameTag = None):
     try:
@@ -531,7 +532,7 @@ def set_nameIter(self,nameTag = None):
             self.nameIter = nameTag
         #self.doName()
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 
 def set_blockNullFormState(self,state=True, define = True, form=True,prerig=True):
@@ -615,7 +616,7 @@ def doName(self):
     #pprint.pprint(vars())
     #Check for special attributes to replace data, name
     _d_new = {}
-    for k,v in _d.iteritems():
+    for k,v in list(_d.items()):
         if v in ['none','None','NONE',None]:
             continue
         _d_new[k] = v
@@ -653,7 +654,7 @@ def set_side(self,side=None):
             side = 0
         try:
             ATTR.set(_short,'side',side)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to change attr. | err: {1}".format(_str_func,err))            
             return False
         
@@ -661,7 +662,7 @@ def set_side(self,side=None):
         color(self)
         if self.getMessage('moduleTarget'):module_verify(self)
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def set_position(self,position=None,ui=False):
     try:
@@ -692,14 +693,14 @@ def set_position(self,position=None,ui=False):
         
         try:
             ATTR.set(_short,'position',position)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to change attr. | err: {1}".format(_str_func,err))            
             return False
         
         self.doName()
         if self.getMessage('moduleTarget'):module_verify(self)
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def color(self):
     try:
@@ -723,7 +724,7 @@ def color(self):
                     log.debug("|{0}| >> shape: {1}".format(_str_func,mShape))
                     mHandleFactory.color(mShape.mNode)
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def color_outliner(self,mNodes = None, arg = 'main', stateLinks = True):
@@ -731,7 +732,7 @@ def color_outliner(self,mNodes = None, arg = 'main', stateLinks = True):
     _str_func = 'color'
     log.debug(cgmGEN.logString_start(_str_func))
 
-    reload(BLOCKSHARE)
+    importlib.reload(BLOCKSHARE)
     
     d_color = BLOCKSHARE.d_outlinerColors.get(self.blockType)
     if not d_color:
@@ -795,7 +796,7 @@ def get_infoBlock_report(self):
             if ATTR.get(_short,a):
                 _res.append("{0} : {1}".format(a,ATTR.get_enumValueString(_short,a)))
         return _res
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 #=============================================================================================================
@@ -811,12 +812,12 @@ def define(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
     if _str_state != 'define':
-        raise ValueError,"[{0}] is not in define form. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in define form. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
@@ -824,12 +825,12 @@ def define(self):
     mBlockModule = self.p_blockModule
     
     for c in ['define']:
-        if c in mBlockModule.__dict__.keys():
+        if c in list(mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule {1} call found...".format(_str_func,c))            
             self.atBlockModule(c)
             
     try:attrMask_getBaseMask(self)
-    except Exception,err:
+    except Exception as err:
         log.info(cgmGEN.logString_msg(_str_func,'attrMask fail | {0}'.format(err)))
 
     self.blockState = 'define'#...yes now in this state
@@ -853,7 +854,7 @@ def is_form(self):
 
         return msgDat_check(self, get_stateLinks(self,'form'))
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 def formDeleteBAK(self,msgLinks = []):
@@ -867,7 +868,7 @@ def formDeleteBAK(self,msgLinks = []):
                 log.debug("|{0}| >> deleting link: {1}".format(_str_func,link))                        
                 mc.delete(self.getMessage(link))
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def formNull_verify(self):
@@ -953,7 +954,7 @@ def create_formLoftMesh(self, targets = None, mDatHolder = None, mFormNull = Non
               'polygonType':1,#'quads',
               'uNumber': 1 + ATTR.get(self.mNode, uAttr)}
     
-        for a,v in _d.iteritems():
+        for a,v in list(_d.items()):
             ATTR.set(_tessellate,a,v)    
     
         mLoft.overrideEnabled = 1
@@ -1009,7 +1010,7 @@ def create_formLoftMesh(self, targets = None, mDatHolder = None, mFormNull = Non
     
         self.connectChildNode(mLoft.mNode, plug, 'block')    
         return mLoft
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 #=============================================================================================================
@@ -1043,7 +1044,7 @@ def noTransformNull_verify(self,mode='form',forceNew=False,mVisLink = None):
 
     
         return mNoTransformNull    
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def prerigNull_verify(self):
@@ -1061,7 +1062,7 @@ def prerigNull_verify(self):
             mPrerigNull = self.prerigNull    
             
         return mPrerigNull
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def prerig_simple(self):
@@ -1109,7 +1110,7 @@ def prerig_delete(self, msgLinks = [], msgLists = [], formHandles = True):
             else:
                 mc.delete(_buffer)
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def prerig_handlesLock(self, lock=None):
@@ -1139,7 +1140,7 @@ def prerig_handlesLock(self, lock=None):
                     mLoc.delete()
         
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 def delete(self):
@@ -1150,7 +1151,7 @@ def delete(self):
 
     _int_state,_state = BLOCKGEN.validate_stateArg(self.blockState)
     
-    _range = range(_int_state+1)
+    _range = list(range(_int_state+1))
     _range.reverse()
     for i in _range:
         try:
@@ -1162,7 +1163,7 @@ def delete(self):
             d_links = get_stateLinks(self, state)
             log.debug("|{0}| >> links {1} | {2}".format(_str_func,i,d_links))  
             msgDat_delete(self,d_links)
-        except Exception,err:
+        except Exception as err:
             log.error(err)
     
     mc.delete(self.mNode)
@@ -1185,7 +1186,7 @@ def msgDat_delete(self,d_wiring = {}, msgLinks = [], msgLists = [] ):
             if l_dat:
                 log.debug("|{0}| >>  Found msgLink: {1} | {2}".format(_str_func,l,l_dat))
                 try:mc.delete(l_dat)
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >>  Failed to delete: {1} | {2} | {3}".format(_str_func,l,l_dat,err))
                 
     for l in d_wiring.get('msgLists',[]) + msgLists:
@@ -1196,7 +1197,7 @@ def msgDat_delete(self,d_wiring = {}, msgLinks = [], msgLists = [] ):
                 for mObj in dat:
                     try:
                         mObj.delete()
-                    except Exception,err:
+                    except Exception as err:
                         log.error("|{0}| >>  Failed to delete msgList: {1} | {2}".format(_str_func,l,err))                
                 #self.msgList_purge(l)
     return True
@@ -1241,7 +1242,7 @@ def get_stateLinks(self, mode = 'form' ):
         try:
             d_wiring = CGMDICT.blendDat(d_wiring, getattr(mBlockModule,'d_wiring_{0}'.format(mode)))
             log.debug("|{0}| >>  Found {1} wiring dat in BlockModule".format(_str_func,mode))
-        except Exception,err:
+        except Exception as err:
             log.debug("|{0}| >>  No {1} wiring dat in BlockModule. error: {2}".format(_str_func,mode,err))
             pass
         
@@ -1251,12 +1252,12 @@ def get_stateLinks(self, mode = 'form' ):
             d_wiring['msgLinks'].append(_noTrans)
             
             
-        for k,l in d_wiring.iteritems():
+        for k,l in list(d_wiring.items()):
             d_wiring[k] = LISTS.get_noDuplicates(l)
             
         return d_wiring
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def is_prerig(self):
@@ -1265,7 +1266,7 @@ def is_prerig(self):
         log.debug(cgmGEN.logString_start(_str_func))
 
         return msgDat_check(self, get_stateLinks(self,'prerig'))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def is_skeleton(self):
@@ -1275,7 +1276,7 @@ def is_skeleton(self):
     
     mBlockModule = self.p_blockModule
 
-    if 'skeleton_check' in mBlockModule.__dict__.keys():
+    if 'skeleton_check' in list(mBlockModule.__dict__.keys()):
         log.debug("|{0}| >> BlockModule skeleton_check call found...".format(_str_func))            
         return self.atBlockModule('skeleton_check')
     else:
@@ -1313,7 +1314,7 @@ def is_prerigBAK(self, msgLinks = [], msgLists = [] ):
                 log.debug("|{0}| >> {1}".format(_str_func,l))  
             return False
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -1347,7 +1348,7 @@ def get_castSize(self, casters, castMesh = None, axis1 = 'x', axis2 = 'y',extend
             yDist = None
         
         if xDist is None and yDist is None:
-            raise ValueError,"Cast fail"
+            raise ValueError("Cast fail")
         if xDist is None:
             xDist = yDist
         if yDist is None:
@@ -1577,7 +1578,7 @@ def create_defineLoftMesh(self, targets = None,
         self.connectChildNode(mLoftSurface.mNode, plug, 'block')
         
         return mLoftSurface
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def create_prerigLoftMesh(self, targets = None,
@@ -1616,7 +1617,7 @@ def create_prerigLoftMesh(self, targets = None,
                   'polygonType':1,#'quads',
                   'uNumber': 1 + len(targets)}
         
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_tessellate,a,v)  
                 
         elif polyType in ['bezier','noMult']:
@@ -1635,7 +1636,7 @@ def create_prerigLoftMesh(self, targets = None,
             if polyType == 'noMult':
                 _d['rebuildType'] = 3
         
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_rebuildNode,a,v)
                 
         else:
@@ -1740,7 +1741,7 @@ def create_prerigLoftMesh(self, targets = None,
             self.connectChildNode(mLoftSurface.mNode, 'prerigLoftMesh', 'block')
         
         return mLoftSurface
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def create_simpleFormLoftMesh(self, targets = None,
@@ -1791,7 +1792,7 @@ def create_simpleFormLoftMesh(self, targets = None,
                   'polygonType':1,#'quads',
                   'uNumber': 1 + len(targets)}
         
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_tessellate,a,v)  
         elif polyType in ['bezier','noMult']:
             _res_body = mc.loft(targets, o = True, d = 1, po = 3, c = False,autoReverse=False)
@@ -1810,7 +1811,7 @@ def create_simpleFormLoftMesh(self, targets = None,
             if polyType == 'noMult':
                 _d['rebuildType'] = 3
         
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_rebuildNode,a,v)
         elif polyType == 'faceLoft':
             _res_body = mc.loft(targets, o = True, d = 1, po = 3, c = False,autoReverse=False)
@@ -1832,7 +1833,7 @@ def create_simpleFormLoftMesh(self, targets = None,
                   'spansV':_len}#General}
             _d.update(d_rebuild)
             
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_rebuildNode,a,v)
                 
             toName = [_loftNode]
@@ -1867,7 +1868,7 @@ def create_simpleFormLoftMesh(self, targets = None,
                   'spansV':_len}#General}
             _d.update(d_rebuild)
             
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_rebuildNode,a,v)
                 
             toName = [_loftNode]        
@@ -1977,7 +1978,7 @@ def create_simpleFormLoftMesh(self, targets = None,
         self.connectChildNode(mLoftSurface.mNode, _plug, 'block')
         
         return mLoftSurface
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def create_jointLoft(self, targets = None, mPrerigNull = None,
@@ -2008,7 +2009,7 @@ def create_jointLoft(self, targets = None, mPrerigNull = None,
           'polygonType':1,#'quads',
           'uNumber': baseCount + len(targets)}
 
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)  
         
     ATTR.set(_loftNode,'degree',degree)  
@@ -2124,12 +2125,12 @@ def rigDeleteBAK(self,msgLinks = []):
         
         
         if self.isReferenced():
-            raise ValueError,"Referenced node."
+            raise ValueError("Referenced node.")
         
         _str_state =  _mBlock.getEnumValueString('blockState')
     
         if _str_state != 'rig':
-            raise ValueError,"{0} is not in rig state. state: {1}".format(_str_func, _str_state)
+            raise ValueError("{0} is not in rig state. state: {1}".format(_str_func, _str_state))
     
         #self.blockState = 'rig>prerig'        
     
@@ -2155,7 +2156,7 @@ def rigDeleteBAK(self,msgLinks = []):
     
     
     
-        if 'rigDelete' in _mBlockModule.__dict__.keys():
+        if 'rigDelete' in list(_mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule rigDelete call found...".format(_str_func))            
             _mBlockModule.rigDelete(self)        
     
@@ -2169,7 +2170,7 @@ def rigDeleteBAK(self,msgLinks = []):
                 mc.delete(self.getMessage(link))
                 
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 """
@@ -2202,7 +2203,7 @@ def pivots_buildShapes(self, mPivotHelper = None, mRigNull = None):
         
     if mPivotHelper is None:
         if not self.getMessage('pivotHelper'):
-            raise ValueError,"|{0}| >> No pivots helper found. mBlock: {1}".format(_str_func,self)
+            raise ValueError("|{0}| >> No pivots helper found. mBlock: {1}".format(_str_func,self))
         mPivotHelper = self.pivotHelper
         
     """
@@ -2346,7 +2347,7 @@ def pivots_setup(self, mControl = None,
         
         
     if not d_pivots:
-        raise ValueError,"|{0}| >> No pivots found. mBlock: {1}".format(_str_func,self)
+        raise ValueError("|{0}| >> No pivots found. mBlock: {1}".format(_str_func,self))
     
     #pprint.pprint(vars())
     
@@ -2552,10 +2553,10 @@ def pivots_setup(self, mControl = None,
         log.debug("|{0}| >> Spin ...".format(_str_func))
         if setupSpin:
             d_mPlugSpin = {}
-            for k in d_drivenGroups.keys():
+            for k in list(d_drivenGroups.keys()):
                 d_mPlugSpin[k] = cgmMeta.cgmAttr(mControl,'spin{0}'.format(d_strCaps[k]),attrType='float',defaultValue = 0,keyable = True)
                 
-            for k in d_drivenGroups.keys():
+            for k in list(d_drivenGroups.keys()):
                 str_key = d_strCaps[k]
                 mPlug = d_mPlugSpin[k]
                 mDriven = d_drivenGroups[k]
@@ -2710,11 +2711,11 @@ def prerigHandles_getNameDat(self, nameHandles = False, count = None, **kws):
     
     _nameDict['cgmType'] = 'preHandle'
     
-    for a,v in kws.iteritems():
+    for a,v in list(kws.items()):
         _nameDict[a] = v    
     
     _cnt = 0
-    l_range = range(count)
+    l_range = list(range(count))
     for i in l_range:
         _nameDictTemp = copy.copy(_nameDict)
         _specialName = False
@@ -2742,7 +2743,7 @@ def prerigHandles_getNameDat(self, nameHandles = False, count = None, **kws):
             log.debug("|{0}| >>  nameHandles on. Same length...".format(_str_func))
             for i,mHandle in enumerate(ml_prerigHandles):
                 _dict = l_res[i]
-                for k,v in _dict.iteritems():
+                for k,v in list(_dict.items()):
                     if issubclass(type(v),list):
                         ATTR.copy_to(v[0],v[1], toObject=mHandle.mNode,toAttr=k,driven='target')
                     else:
@@ -2853,13 +2854,13 @@ def skeleton_getNameDicts(self, combined = False, count = None, iterName= None, 
         _nameDict['cgmType'] = 'skinJoint'
     
     
-    for a,v in kws.iteritems():
+    for a,v in list(kws.items()):
         _nameDict[a] = v
     
     log.debug("|{0}| >>  baseDict: {1}".format(_str_func,_nameDict))
 
     _cnt = 0
-    l_range = range(_number)
+    l_range = list(range(_number))
     l_dicts = []
     for i in l_range:
         _nameDictTemp = copy.copy(_nameDict)
@@ -2942,7 +2943,7 @@ def skeleton_getCreateDict(self, count = None):
     elif _targetsMode == 'prerigHandles':
         _ml_rigHandles = self.msgList_get('prerigHandles',asMeta = True)
         if not _ml_rigHandles:
-            raise ValueError, "No rigHandles. Check your state"            
+            raise ValueError("No rigHandles. Check your state")            
     
         #_ml_controls = [self] + _ml_rigHandles
     
@@ -2953,11 +2954,11 @@ def skeleton_getCreateDict(self, count = None):
             else:
                 _l_targets.append(mObj.mNode)        
     else:
-        raise ValueError,"targetsMode: {0} is not implemented".format(_targetsMode)
+        raise ValueError("targetsMode: {0} is not implemented".format(_targetsMode))
     
     if not _l_targets:
         log.error("|{0}| >> mode: {1} | targetsMode: {2} | targetsCall: {3}".format(_str_func,_mode,_targetsMode,_targetsCall))
-        raise ValueError, "No targets found. Check your settings"
+        raise ValueError("No targets found. Check your settings")
     
     log.debug("|{0}| >> Targets: {1}".format(_str_func,_l_targets))
     #pprint.pprint(vars())
@@ -2998,7 +2999,7 @@ def skeleton_getCreateDict(self, count = None):
         _l_pos = [POS.get(_l_targets[0])]
         _d_res['targets'] = _l_targets           
     else:
-        raise ValueError,"mode: {0} is not implemented".format(_mode)                
+        raise ValueError("mode: {0} is not implemented".format(_mode))                
 
     _d_res['positions'] = _l_pos
     _d_res['mode'] = _mode
@@ -3197,7 +3198,7 @@ def skeleton_getAttachJoint(self):
         else:
             ml_targetJoints = mParentModule.rigNull.msgList_get('moduleJoints',asMeta = True, cull = True)
             if not ml_targetJoints:
-                raise ValueError,"mParentModule has no module joints."
+                raise ValueError("mParentModule has no module joints.")
             _attachPoint = ATTR.get_enumValueString(self.mNode,'attachPoint')
             if _attachPoint == 'end':
                 mTargetJoint = ml_targetJoints[-1]
@@ -3210,7 +3211,7 @@ def skeleton_getAttachJoint(self):
                 idx = self.attachIndex
                 mTargetJoint = ml_targetJoints[idx]                
             else:
-                raise ValueError,"Not done with {0}".format(_attachPoint)
+                raise ValueError("Not done with {0}".format(_attachPoint))
             return mTargetJoint
 
     return False
@@ -3253,7 +3254,7 @@ def skeleton_connectToParent(self):
         else:
             ml_targetJoints = mParentModule.rigNull.msgList_get('moduleJoints',asMeta = True, cull = True)
             if not ml_targetJoints:
-                raise ValueError,"mParentModule has no module joints."
+                raise ValueError("mParentModule has no module joints.")
             _attachPoint = ATTR.get_enumValueString(self.mNode,'attachPoint')
             if _attachPoint == 'end':
                 mTargetJoint = ml_targetJoints[-1]
@@ -3266,7 +3267,7 @@ def skeleton_connectToParent(self):
                 idx = self.attachIndex
                 mTargetJoint = ml_targetJoints[idx]
             else:
-                raise ValueError,"Not done with {0}".format(_attachPoint)
+                raise ValueError("Not done with {0}".format(_attachPoint))
             ml_moduleJoints[0].p_parent = mTargetJoint
 
     return True
@@ -3345,7 +3346,7 @@ def skeleton_pushSettings(ml_chain = None, orientation = 'zyx', side = 'right',
                     #else:
                     mJnt.__setattr__('preferredAngle{0}'.format(orientation[i].upper()),v)
             elif _preferredAxis:
-                for k,v in _preferredAxis.iteritems():
+                for k,v in list(_preferredAxis.items()):
                     _idx = _l_axisAlias.index(k)
                     #if side.lower() == 'right':#negative value
                         #mJnt.__setattr__('preferredAngle{0}'.format(orientation[_idx].upper()),-v)				
@@ -3354,8 +3355,8 @@ def skeleton_pushSettings(ml_chain = None, orientation = 'zyx', side = 'right',
                 
             if _limitBuffer:
                 log.debug("|{0}| >> found limit data on {1}:{2}".format(_str_func,_key,_limitBuffer))              
-                raise Exception,"Limit Buffer not implemented"
-    except Exception,err:
+                raise Exception("Limit Buffer not implemented")
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 def skeleton_getHandleChain(self, typeModifier = None, jointHelpers = True, mOrientHelper = None):
@@ -3380,11 +3381,11 @@ def skeleton_getHandleChain(self, typeModifier = None, jointHelpers = True, mOri
         
         ml_formHandles = self.msgList_get('formHandles',asMeta = True)
         if not ml_formHandles:
-            raise ValueError,"No formHandles connected"        
+            raise ValueError("No formHandles connected")        
         
         ml_prerigHandles = self.msgList_get('prerigHandles',asMeta = True)
         if not ml_prerigHandles:
-            raise ValueError,"No prerigHandles connected"
+            raise ValueError("No prerigHandles connected")
         
         if mOrientHelper is None:
             mOrientHelper = ml_formHandles[0].orientHelper or ml_prerigHandles[0].orientHelper
@@ -3446,7 +3447,7 @@ def skeleton_buildHandleChain(self,typeModifier = 'handle', connectNodesAs = Fal
     else:
         ml_handleChain = ml_handleJoints
 
-    if connectNodesAs and type(connectNodesAs) in [str,unicode]:
+    if connectNodesAs and type(connectNodesAs) in [str,str]:
         self.moduleTarget.rigNull.msgList_connect(connectNodesAs,ml_handleChain,'rigNull')#Push back
 
     #log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)
@@ -3479,7 +3480,7 @@ def verify_loftList(self,int_shapers):
                 self.addAttr(str_attr,initialValue = v, attrType = 'enum', enumName= _enum_loftShape, keyable = False)
                 if strValue:
                     ATTR.set(_short,str_attr,strValue)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
                     
 def verify_dynSwitch(self):
@@ -3534,22 +3535,22 @@ def rigNodes_get(self,report = False):
             md[_type].append(o)
 
             
-        for k,l in md.iteritems():
+        for k,l in list(md.items()):
             _len_type = len(l)
-            print("|{0}| >>  Type: {1} ...".format(_str_func,k)+'-'*60)
+            print(("|{0}| >>  Type: {1} ...".format(_str_func,k)+'-'*60))
             d_counts[k] = _len_type
             for i,mNode in enumerate(l):
-                print("{0} | {1}".format(i,mNode))
+                print(("{0} | {1}".format(i,mNode)))
                 
         log.debug(cgmGEN._str_subLine)
-        _sort = d_counts.keys()
+        _sort = list(d_counts.keys())
         _sort.sort()
         for k in _sort:
-            print("|{0}| >>  {1} : {2}".format(_str_func,k,d_counts[k]))
+            print(("|{0}| >>  {1} : {2}".format(_str_func,k,d_counts[k])))
         #print("|{0}| >>  Fails to initialize : {1}".format(_str_func,len(l_fails)))
         #for i,n in enumerate(l_fails):
         #    print("{0} | {1}".format(i,n))            
-        print("|{0}| >>  Total: {1} | {2}".format(_str_func,_len,self))
+        print(("|{0}| >>  Total: {1} | {2}".format(_str_func,_len,self)))
         log.debug(cgmGEN._str_hardLine)
     return _res
 
@@ -3565,7 +3566,7 @@ def prerig_getHandleTargets(self):
     
     ml_handles = self.msgList_get('prerigHandles',asMeta = True)
     if not ml_handles:
-        raise ValueError,"No prerigHandles connected"
+        raise ValueError("No prerigHandles connected")
     
     for i,mHandle in enumerate(ml_handles):
         if mHandle.getMessage('jointHelper'):
@@ -3588,7 +3589,7 @@ def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = 
         mParent_current =  self.blockParent
         _str_state = self.getEnumValueString('blockState')
         if _str_state == 'rig':
-            raise ValueError,"Cannot change the block parent of a rigged rigBlock. State: {0} | rigBlock: {1}".format(_str_state,self)
+            raise ValueError("Cannot change the block parent of a rigged rigBlock. State: {0} | rigBlock: {1}".format(_str_state,self))
         
         if not parent:
             self.blockParent = False
@@ -3602,10 +3603,10 @@ def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = 
         else:
             mParent = cgmMeta.validateObjArg(parent,'cgmRigBlock',noneValid=True)
             if not mParent:
-                raise ValueError,"Invalid blockParent. Not a cgmRigBlock. parent: {0}".format( cgmMeta.asMeta(parent))
+                raise ValueError("Invalid blockParent. Not a cgmRigBlock. parent: {0}".format( cgmMeta.asMeta(parent)))
             
             if parent == self:
-                raise ValueError, "Cannot blockParent to self"
+                raise ValueError("Cannot blockParent to self")
     
             #if parent.getMessage('blockParent') and parent.blockParent == self:
                 #raise ValueError, "Cannot blockParent to block whose parent is self"
@@ -3642,7 +3643,7 @@ def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = 
             if setBuildProfile and mParent.hasAttr('buildProfile'):
                 log.debug("|{0}| >>  buildProfile_load...".format(_str_func))
                 self.atUtils('buildProfile_load', mParent.getMayaAttr('buildProfile'))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
 def siblings_get(self,matchType = False, matchProfile = False, excludeSelf = True, matchName=False):
@@ -3669,7 +3670,7 @@ def siblings_get(self,matchType = False, matchProfile = False, excludeSelf = Tru
     for mChild in ml_children:
         log.debug("|{0}| >> mChild: {1}".format(_str_func,mChild))        
         _match = True
-        for a,v in d.iteritems():
+        for a,v in list(d.items()):
             if not str(mChild.getMayaAttr(a)) == str(v):
                 _match = False
                 continue
@@ -3708,7 +3709,7 @@ def siblings_pushSubShapers(self,matchType=True,matchProfile=True):
         log.info(cgmGEN.logString_msg(_str_func,mSib))
         ml_shapers = form_getSubShapers(mSib)
         for i,mHandle in enumerate(ml_shapers):
-            for a,v in l[i].iteritems():
+            for a,v in list(l[i].items()):
                 mHandle.setMayaAttr(a,v)
                 
 def siblings_pushFormHandles(self,matchType=True,matchProfile=True):
@@ -3735,7 +3736,7 @@ def siblings_pushFormHandles(self,matchType=True,matchProfile=True):
         log.info(cgmGEN.logString_msg(_str_func,mSib))
         ml_shapers = mSib.msgList_get('formHandles')
         for i,mHandle in enumerate(ml_shapers):
-            for a,v in l[i].iteritems():
+            for a,v in list(l[i].items()):
                 mHandle.setMayaAttr(a,v)
         
 def siblings_pushPrerigHandles(self,matchType=True,matchProfile=True):
@@ -3762,7 +3763,7 @@ def siblings_pushPrerigHandles(self,matchType=True,matchProfile=True):
         log.info(cgmGEN.logString_msg(_str_func,mSib))
         ml_shapers = mSib.msgList_get('prerigHandles',asMeta = True)
         for i,mHandle in enumerate(ml_shapers):
-            for a,v in l[i].iteritems():
+            for a,v in list(l[i].items()):
                 mHandle.setMayaAttr(a,v)
     
     
@@ -3783,7 +3784,7 @@ def form_snapHandlesToParam(self):
     for mHandle in self.msgList_get('formHandle') + form_getSubShapers(self):
         log.info(mHandle)
         mTrack = mHandle.getMessageAsMeta('trackCurve')
-        print mTrack
+        print(mTrack)
         if mHandle.hasAttr('param') and mTrack:
             log.info('...')
             param = CURVES.getUParamOnCurve(mHandle.mNode, mTrack.mNode)
@@ -3812,7 +3813,7 @@ def duplicate2(self):
         mDup.loadBlockDat(self.getBlockDat())
         mDup.doName()
         return mDup
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def duplicate(self, uiPrompt = True):
     """
@@ -3889,7 +3890,7 @@ def duplicate(self, uiPrompt = True):
         
         if _d['blockType'] in ['finger','thumb']:
             log.debug("|{0}| >> Clearing nameList".format(_str_func))
-            for a in blockDat['ud'].iteritems():
+            for a in list(blockDat['ud'].items()):
                 if 'nameList' in a:
                     blockDat['ud'].remove(a)
             blockDat['ud']['nameList_0'] = _v            
@@ -3941,7 +3942,7 @@ def duplicate(self, uiPrompt = True):
 
             
         return mDup
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
     
@@ -3998,10 +3999,10 @@ def blockMirror_create(self, forceNew = False):
         blockDat = self.getBlockDat()
         blockDat['ud']['side'] = _side
         for k in ['baseSize','baseAim']:
-            if blockDat['ud'].has_key(k):
+            if k in blockDat['ud']:
                 blockDat['ud'].pop(k)
             for a in 'XYZ':
-                if blockDat['ud'].has_key(k+a):
+                if k+a in blockDat['ud']:
                     blockDat['ud'].pop(k+a)
         mMirror.blockDat = blockDat
         
@@ -4046,7 +4047,7 @@ def blockMirror_create(self, forceNew = False):
         blockDat_load(mMirror,useMirror=True,redefine=True)
         controls_mirror(self,mMirror)
         return mMirror
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
     
 def blockMirror_go(self, mode = 'push',autoCreate = False,define=True,form = True, prerig= True):
     """
@@ -4069,7 +4070,7 @@ def blockMirror_go(self, mode = 'push',autoCreate = False,define=True,form = Tru
             controls_mirror(mMirror,self,**kws)
 
         return mMirror
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def blockMirror_settings(blockSource, blockMirror = None,
                          mode = 'push'):
@@ -4106,7 +4107,7 @@ def blockMirror_settings(blockSource, blockMirror = None,
         _udFail = {}
         _l_done = []
         if not blockDat.get('ud'):
-            raise ValueError,"|{0}| >> No ud data found".format(_str_func)
+            raise ValueError("|{0}| >> No ud data found".format(_str_func))
         
         _ud['baseSize'] = baseSize_get(mSource)
         
@@ -4120,7 +4121,7 @@ def blockMirror_settings(blockSource, blockMirror = None,
         
                 
         _mask = ['side','version','blockState','baseAim','baseAimY','cgmDirection','castVector']
-        for a,v in _ud.iteritems():
+        for a,v in list(_ud.items()):
             if a in _mask or a in _l_done:
                 continue
             _type = ATTR.get_type(_short,a)
@@ -4155,7 +4156,7 @@ def blockMirror_settings(blockSource, blockMirror = None,
                     else:
                         log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     _udFail[a] = v
                     log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     #r9Meta.printMetaCacheRegistry()                
@@ -4209,9 +4210,9 @@ def blockMirror_settings2():
         _ud = blockDat.get('ud')
         _udFail = {}
         if not blockDat.get('ud'):
-            raise ValueError,"|{0}| >> No ud data found".format(_str_func)
+            raise ValueError("|{0}| >> No ud data found".format(_str_func))
         
-        for a,v in _ud.iteritems():
+        for a,v in list(_ud.items()):
             _current = ATTR.get(_short,a)
             if _current != v:
                 try:
@@ -4220,7 +4221,7 @@ def blockMirror_settings2():
                     else:
                         log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     _udFail[a] = v
                     log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     #r9Meta.printMetaCacheRegistry()                
@@ -4238,7 +4239,7 @@ def mirror_self(self,primeAxis = 'left'):
 
     mBlockModule = self.p_blockModule
 
-    if 'mirror_self' in mBlockModule.__dict__.keys():
+    if 'mirror_self' in list(mBlockModule.__dict__.keys()):
         log.debug("|{0}| >> BlockModule mirror_self call found...".format(_str_func))
         #reload(mBlockModule)
         mBlockModule.mirror_self(self,primeAxis)
@@ -4262,18 +4263,18 @@ def mirror_blockDat(self = None, mirrorBlock = None, reflectionVector = MATH.Vec
         rootReflectionVector = TRANS.transformDirection(rootTransform,reflectionVector).normalized()
         #rootReflectionVector = rootTransform.formPositions[0].TransformDirection(reflectionVector).normalized()
 
-        print("|{0}| >> Root: {1}".format(_str_func, rootTransform.p_nameShort))                                            
+        print(("|{0}| >> Root: {1}".format(_str_func, rootTransform.p_nameShort)))                                            
 
 
         if mirrorBlock:
-            print ("|{0}| >> Target: {1} ...".format(_str_func, mirrorBlock.p_nameShort))
+            print(("|{0}| >> Target: {1} ...".format(_str_func, mirrorBlock.p_nameShort)))
 
             _blockState = rootBlock.blockState
             _mirrorState = mirrorBlock.blockState
             if _blockState > _mirrorState or _blockState < _mirrorState:
-                print ("|{0}| >> root state greater. Matching root: {1} to mirror:{2}".format(_str_func, _blockState,_mirrorState))
+                print(("|{0}| >> root state greater. Matching root: {1} to mirror:{2}".format(_str_func, _blockState,_mirrorState)))
             else:
-                print ("|{0}| >> blockStates match....".format(_str_func, mirrorBlock.p_nameShort))
+                print(("|{0}| >> blockStates match....".format(_str_func, mirrorBlock.p_nameShort)))
 
             #if rootBlock.blockState != BlockState.TEMPLATE or mirrorBlock.blockState != BlockState.TEMPLATE:
                 #print "Can only mirror blocks in Form state"
@@ -4287,7 +4288,7 @@ def mirror_blockDat(self = None, mirrorBlock = None, reflectionVector = MATH.Vec
             for i,p in enumerate(currentFormObjects):
                 formHeirarchyDict[i] = p.fullPath.count('|')
 
-            formObjectsSortedByHeirarchy = sorted(formHeirarchyDict.items(), key=operator.itemgetter(1))
+            formObjectsSortedByHeirarchy = sorted(list(formHeirarchyDict.items()), key=operator.itemgetter(1))
 
             for x in range(2):
                 # do this twice in case there are any stragglers 
@@ -4332,7 +4333,7 @@ def mirror_blockDat(self = None, mirrorBlock = None, reflectionVector = MATH.Vec
                 childBlock = Block.LoadRigBlock( child )
                 if childBlock:
                     Block.MirrorBlockPush(childBlock)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def MirrorSelectedBlocks( reflectionVector = MATH.Vector3(1,0,0) ):
@@ -4388,7 +4389,7 @@ def blockMirror_subShapers(self,blockMirror=None,mode='push'):
         return log.warning("|{0}| >> no target".format(_str_func))
     
     for i,mCrv in enumerate(ml_source):
-        print mCrv
+        print(mCrv)
         CURVES.mirror_worldSpace(mCrv.mNode, ml_target[i].mNode)
     
     
@@ -4403,7 +4404,7 @@ def blockMirror_subShapers(self,blockMirror=None,mode='push'):
 def baseSize_get(self):
     mBlockModule = self.p_blockModule
     
-    if 'baseSize_get' in mBlockModule.__dict__.keys():
+    if 'baseSize_get' in list(mBlockModule.__dict__.keys()):
         log.debug("|{0}| >> BlockModule call found...".format(_str_func))            
         return mBlockModule.baseSize_get
     
@@ -4510,14 +4511,14 @@ def blockDat_get(self,report = True):
                         _d['ud'][a] = ATTR.get_enumValueString(_short,a)                    
                     else:
                         _d['ud'][a] = ATTR.get(_short,a)
-                except Exception,err:
+                except Exception as err:
                     log.error("Failed to query attr: {0} | type: {1} | err: {2}".format(a,_type,err))
         
         _d['ud']['baseSize'] = baseSize_get(self)
         
         if report:cgmGEN.walk_dat(_d,'[{0}] blockDat'.format(self.p_nameShort))
         return _d
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def blockDat_save(self):
@@ -4533,7 +4534,7 @@ def blockDat_copy(self,sourceBlock=None,ignoreChecks=False,load=False):
     log.debug("|{0}| {1}".format(_str_func,self))
     
     if self == sourceBlock:
-        raise ValueError,"Can't copy blockDat from self."
+        raise ValueError("Can't copy blockDat from self.")
     blockDat = sourceBlock.getBlockDat()
     
     _type = blockDat['ud'].get('blockType')
@@ -4541,16 +4542,16 @@ def blockDat_copy(self,sourceBlock=None,ignoreChecks=False,load=False):
     
     if not ignoreChecks:
         if _type != self.blockType:
-            raise ValueError,"Incompatible blockTypes. dat: {0} | {1}".format(_type,self.blockType)
+            raise ValueError("Incompatible blockTypes. dat: {0} | {1}".format(_type,self.blockType))
         if _profile != self.blockProfile:
-            raise ValueError,"Incompatible blockProfiles. dat: {0} | {1}".format(_profile,self.blockProfile)
+            raise ValueError("Incompatible blockProfiles. dat: {0} | {1}".format(_profile,self.blockProfile))
     
     blockDat['baseName'] = self.cgmName
     blockDat['ud']['cgmName'] = self.cgmName
     
     if blockDat['ud'].get('rigSetup') in ['finger']:
         log.debug("|{0}| >> Clearing nameList".format(_str_func))
-        for a in blockDat['ud'].iteritems():
+        for a in list(blockDat['ud'].items()):
             if 'nameList' in a:
                 blockDat['ud'].remove(a)
         blockDat['nameList_0'] = _v
@@ -4572,13 +4573,13 @@ def blockDat_getControlDat(self,mode = 'define',report = True):
                     'form':1,
                     'prerig':2}
     
-    if _mode_str not in _modeToState.keys():
-        raise ValueError,"Unknown mode: {0}".format(_mode_str)
+    if _mode_str not in list(_modeToState.keys()):
+        raise ValueError("Unknown mode: {0}".format(_mode_str))
     
     _blockState_int = self.blockState
     
     if not _blockState_int >= _modeToState[_mode_str]:
-        raise ValueError,'[{0}] not {1} yet. State: {2}'.format(_short,_mode_str,_blockState_int)
+        raise ValueError('[{0}] not {1} yet. State: {2}'.format(_short,_mode_str,_blockState_int))
         #_ml_formHandles = self.msgList_get('formHandles',asMeta = True)
     
     _d_controls = {'define':False,'form':False,'prerig':False}
@@ -4765,7 +4766,7 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
         
         for i_loop in range(3):
             log.debug(cgmGEN.logString_sub(_str_func,"Loop: {0}".format(i_loop)))
-            for i,mObj in md_match.iteritems():
+            for i,mObj in list(md_match.items()):
                 if not i_loop:log.info(cgmGEN.logString_msg(_str_func,"Handle: {0}".format(mObj)))
                 
                 _handleType = mObj.getMayaAttr('handleType')
@@ -4773,7 +4774,7 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
                     try:
                         mObj.p_orient = _orientsTempl[i]
                         continue
-                    except Exception,err:
+                    except Exception as err:
                         _l_warnings.append('{0}...'.format(mObj.p_nameShort))
                         _l_warnings.append('Couldnt set vector handle orient | {0}'.format(err))
                 
@@ -4841,7 +4842,7 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
                                 if _s != None:
                                     if _scaleMode in ['bb','useLoft']:
                                         try:DIST.scale_to_axisSize(mLoftCurve.mNode,_ab,skip=2)
-                                        except Exception,err:
+                                        except Exception as err:
                                             log.error(err)
                                             TRANS.scale_to_boundingBox_relative(mLoftCurve.mNode,_bb,freeze=False)
                                     else:
@@ -4855,12 +4856,12 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
                 if _jointHelpersPre and _jointHelpersPre.get(i):
                     mObj.jointHelper.translate = _jointHelpersPre[i]                    
                         
-            for i,d_sub in _subShapers.iteritems():
+            for i,d_sub in list(_subShapers.items()):
                 try:
                     ml_subs = ml_handles[int(i)].msgList_get('subShapers')
                     log.debug ("|{0}| >> subShapers: {1}".format(_str_func,i))
                     if not ml_subs:
-                        raise ValueError,"Failed to find subShaper: {0} | {1}".format(i,d_sub)
+                        raise ValueError("Failed to find subShaper: {0} | {1}".format(i,d_sub))
                     _t = d_sub.get('t')
                     _r = d_sub.get('r')
                     _s = d_sub.get('s')
@@ -4879,7 +4880,7 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
                             if _noScale != True:
                                 if _scaleMode in ['bb','useLoft']:
                                     try:DIST.scale_to_axisSize(mObj.mNode,_ab[ii-1],skip=2)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error(err)                                
                                         TRANS.scale_to_boundingBox_relative(mObj.mNode,_bb[ii-1],freeze=False)
                                 else:
@@ -4893,12 +4894,12 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
                         if _noScale != True:
                             if _scaleMode in ['bb','useLoft']:
                                 try:DIST.scale_to_axisSize(mObj.mNode,_ab[ii],skip=2)
-                                except Exception,err:
+                                except Exception as err:
                                     log.error(err)
                                     TRANS.scale_to_boundingBox_relative(mObj.mNode,_bb[ii],freeze=False)
                             else:
                                 ATTR.set(mObj.mNode,'s',_s[ii])
-                except Exception,err:
+                except Exception as err:
                     log.error(cgmGEN.logString_msg(_str_func,"subShapers: {0} | {1}".format(i,err)))
                     pprint.pprint(d_sub)
 
@@ -4924,11 +4925,11 @@ def blockDat_load(self, blockDat = None,
             blockDat = self.blockDat
     
         if not issubclass(type(blockDat),dict):
-            raise ValueError,"|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat) 
+            raise ValueError("|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat)) 
     
         _blockType = blockDat.get('blockType')
         if _blockType != self.blockType:
-            raise ValueError,"|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType) 
+            raise ValueError("|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType)) 
     
         self.blockScale = blockDat['blockScale']
         
@@ -4937,9 +4938,9 @@ def blockDat_load(self, blockDat = None,
         _ud = blockDat.get('ud')
         _udFail = {}
         if not blockDat.get('ud'):
-            raise ValueError,"|{0}| >> No ud data found".format(_str_func)
+            raise ValueError("|{0}| >> No ud data found".format(_str_func))
         
-        for a,v in _ud.iteritems():
+        for a,v in list(_ud.items()):
             _current = ATTR.get(_short,a)
             if _current != v:
                 try:
@@ -4948,7 +4949,7 @@ def blockDat_load(self, blockDat = None,
                     else:
                         log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     _udFail[a] = v
                     log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     #r9Meta.printMetaCacheRegistry()                
@@ -4993,7 +4994,7 @@ def blockDat_load(self, blockDat = None,
         #>>Controls ====================================================================================
         def setAttr(node,attr,value):
             try:ATTR.set(node,attr,value)
-            except Exception,err:
+            except Exception as err:
                 log.warning("|{0}| >> Failed to set: {1} | attr:{2} | value:{3} | err: {4}".format(_str_func,
                                                                                                    node,
                                                                                                    attr,value))
@@ -5083,14 +5084,14 @@ def blockDat_load(self, blockDat = None,
             
         if _d_warnings:
             try:
-                for k,d in _d_warnings.iteritems():
+                for k,d in list(_d_warnings.items()):
                     for i,w in enumerate(d):
                         if i == 0:log.warning(cgmGEN.logString_sub(_str_func,"{0} | Warnings".format(k)))
                         log.warning(w)
             except:pass
         return
 
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
 
 
 def blockDat_load_prefactor(self, blockDat = None,
@@ -5114,11 +5115,11 @@ def blockDat_load_prefactor(self, blockDat = None,
             blockDat = self.blockDat
     
         if not issubclass(type(blockDat),dict):
-            raise ValueError,"|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat) 
+            raise ValueError("|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat)) 
     
         _blockType = blockDat.get('blockType')
         if _blockType != self.blockType:
-            raise ValueError,"|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType) 
+            raise ValueError("|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType)) 
     
         mMirror = False
         if useMirror:
@@ -5133,9 +5134,9 @@ def blockDat_load_prefactor(self, blockDat = None,
         _ud = blockDat.get('ud')
         _udFail = {}
         if not blockDat.get('ud'):
-            raise ValueError,"|{0}| >> No ud data found".format(_str_func)
+            raise ValueError("|{0}| >> No ud data found".format(_str_func))
         
-        for a,v in _ud.iteritems():
+        for a,v in list(_ud.items()):
             _current = ATTR.get(_short,a)
             if _current != v:
                 try:
@@ -5144,7 +5145,7 @@ def blockDat_load_prefactor(self, blockDat = None,
                     else:
                         log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     _udFail[a] = v
                     log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     #r9Meta.printMetaCacheRegistry()                
@@ -5184,7 +5185,7 @@ def blockDat_load_prefactor(self, blockDat = None,
         #>>Controls ====================================================================================
         def setAttr(node,attr,value):
             try:ATTR.set(node,attr,value)
-            except Exception,err:
+            except Exception as err:
                 log.warning("|{0}| >> Failed to set: {1} | attr:{2} | value:{3} | err: {4}".format(_str_func,
                                                                                                    node,
                                                                                                    attr,value))
@@ -5277,11 +5278,11 @@ def blockDat_load_prefactor(self, blockDat = None,
                                             if _t:
                                                 ATTR.set(mLoftCurve.mNode,'translate',_t)
                                             
-                                for i,d_sub in _subShapers.iteritems():
+                                for i,d_sub in list(_subShapers.items()):
                                     ml_subs = _ml_defineHandles[int(i)].msgList_get('subShapers')
                                     log.debug ("|{0}| >> subShapers: {1}".format(_str_func,i))
                                     if not ml_subs:
-                                        raise ValueError,"Failed to find subShaper: {0} | {1}".format(i,d_sub)
+                                        raise ValueError("Failed to find subShaper: {0} | {1}".format(i,d_sub))
                                     _t = d_sub.get('t')
                                     _r = d_sub.get('r')
                                     _s = d_sub.get('s')
@@ -5376,15 +5377,15 @@ def blockDat_load_prefactor(self, blockDat = None,
                                                 ATTR.set(mLoftCurve.mNode,'translate',_t)
                                             elif _p:
                                                 mLoftCurve.p_position = _p
-                                except Exception,err:
+                                except Exception as err:
                                     _l_warnings.append("{0} | {1} | mObj: {2} | err: {3}".format(i_loop,i,mObj.p_nameShort, err))
                                         
-                            for i,d_sub in _subShapers.iteritems():
+                            for i,d_sub in list(_subShapers.items()):
                                 try:
                                     ml_subs = _ml_formHandles[int(i)].msgList_get('subShapers')
                                     log.debug ("|{0}| >> subShapers: {1}".format(_str_func,i))
                                     if not ml_subs:
-                                        raise ValueError,"Failed to find subShaper: {0} | {1}".format(i,d_sub)
+                                        raise ValueError("Failed to find subShaper: {0} | {1}".format(i,d_sub))
                                     _t = d_sub.get('t')
                                     _r = d_sub.get('r')
                                     _s = d_sub.get('s')
@@ -5395,7 +5396,7 @@ def blockDat_load_prefactor(self, blockDat = None,
                                         ATTR.set(mObj.mNode,'t',_t[ii])
                                         ATTR.set(mObj.mNode,'r',_r[ii])
                                         ATTR.set(mObj.mNode,'s',_s[ii])
-                                except Exception,err:
+                                except Exception as err:
                                     _l_warnings.append("{0} | {1} | subs | err: {2}".format(i_loop,i, err))
                                     
                                 
@@ -5463,7 +5464,7 @@ def blockDat_load_prefactor(self, blockDat = None,
                                             ATTR.set(_tmp_short,_a,v)   
                                     if _jointHelpersPre and _jointHelpersPre.get(i):
                                         mObj.jointHelper.translate = _jointHelpersPre[i]
-                                except Exception,err:
+                                except Exception as err:
                                     _l_warnings.append("{0} | {1} | mObj: {2} | err: {3}".format(i_loop,i,mObj.p_nameShort, err))                
                     #if _d_prerig.get('rootOrientHelper'):
                         #if self.getMessage('orientHelper'):
@@ -5475,7 +5476,7 @@ def blockDat_load_prefactor(self, blockDat = None,
             #    self.p_blockState = _target_state
 
         if _d_warnings:
-            for k,d in _d_warnings.iteritems():
+            for k,d in list(_d_warnings.items()):
                 for i,w in enumerate(d):
                     if i == 0:log.warning(cgmGEN.logString_sub(_str_func,"{0} | Warnings".format(k)))
                     log.warning(w)
@@ -5484,7 +5485,7 @@ def blockDat_load_prefactor(self, blockDat = None,
         log.debug("|{0}| >> Generators".format(_str_func)+ '-'*80)
         _d = {"isSkeletonized":[self.isSkeletonized,self.doSkeletonize,self.deleteSkeleton]}
     
-        for k,calls in _d.iteritems():
+        for k,calls in list(_d.items()):
             _block = bool(blockDat.get(k))
             _current = calls[0]()
             if _state != _current:
@@ -5497,7 +5498,7 @@ def blockDat_load_prefactor(self, blockDat = None,
     
     
         return True
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
 
 
 
@@ -5541,12 +5542,12 @@ def blockDat_loadBAK(self, blockDat = None, mirror=False, reflectionVector = MAT
         blockDat = self.blockDat
 
     if not issubclass(type(blockDat),dict):
-        raise ValueError,"|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat) 
+        raise ValueError("|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat)) 
     
 
     _blockType = blockDat.get('blockType')
     if _blockType != self.blockType:
-        raise ValueError,"|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType) 
+        raise ValueError("|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType)) 
     
     log.debug("|{0}| >> blockDat looks good...".format(_str_func))    
     
@@ -5560,8 +5561,8 @@ def blockDat_loadBAK(self, blockDat = None, mirror=False, reflectionVector = MAT
     log.debug("|{0}| >> ud...".format(_str_func)+ '-'*80)
     _ud = blockDat.get('ud')
     if not blockDat.get('ud'):
-        raise ValueError,"|{0}| >> No ud data found".format(_str_func) 
-    for a,v in _ud.iteritems():
+        raise ValueError("|{0}| >> No ud data found".format(_str_func)) 
+    for a,v in list(_ud.items()):
         _current = ATTR.get(_short,a)
         if _current != v:
             try:
@@ -5570,7 +5571,7 @@ def blockDat_loadBAK(self, blockDat = None, mirror=False, reflectionVector = MAT
                 else:
                     log.debug("|{0}| >> userDefined '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     ATTR.set(_short,a,v)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> userDefined '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                 r9Meta.printMetaCacheRegistry()                
                 for arg in err.args:
@@ -5694,7 +5695,7 @@ def blockDat_loadBAK(self, blockDat = None, mirror=False, reflectionVector = MAT
     log.debug("|{0}| >> Generators".format(_str_func)+ '-'*80)
     _d = {"isSkeletonized":[self.isSkeletonized,self.doSkeletonize,self.deleteSkeleton]}
 
-    for k,calls in _d.iteritems():
+    for k,calls in list(_d.items()):
         _block = bool(blockDat.get(k))
         _current = calls[0]()
         if _state != _current:
@@ -5711,11 +5712,11 @@ def blockAttr_set(self, **kws):
     _str_func = '[{0}] blockAttr_set'.format(_short)
     #log.debug("|{0}| >> ".format(_str_func)+ '-'*80)
     
-    for a,v in kws.iteritems():
+    for a,v in list(kws.items()):
         if self.hasAttr(a):
             try:
                 ATTR.set(_short,a,v)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| Set attr Failure >> '{1}' | value: {2} | err: {3}".format(_str_func,a,v,err)) 
                 
             if a == 'numRoll':
@@ -5749,11 +5750,11 @@ def messageConnection_setAttr(self,plug = None, **kws):
         l_objs = self.msgList_get(plug)
         
     for o in l_objs:
-        for a,v in kws.iteritems():
+        for a,v in list(kws.items()):
             try:
                 ATTR.set(o,a,v)
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
     return l_objs
 
     
@@ -5775,7 +5776,7 @@ def get_blockDagNodes(self):
             if self.getMessage(a):
                 ml_controls.extend(self.getMessage(a,asMeta=True))
         mBlockModule = self.getBlockModule()
-        if 'd_wiring_extraDags' in mBlockModule.__dict__.keys():
+        if 'd_wiring_extraDags' in list(mBlockModule.__dict__.keys()):
             log.debug("|{0}| >>  Found extraDat wiring".format(_str_func))
             for k in mBlockModule.d_wiring_extraDags.get('msgLinks',[]):
                 mNode = self.getMessageAsMeta(k)
@@ -5786,7 +5787,7 @@ def get_blockDagNodes(self):
                 if ml:
                     ml_controls.extend(ml)
         return ml_controls
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def connect_jointLabels(self):
     try:
@@ -5802,7 +5803,7 @@ def connect_jointLabels(self):
                 log.info(cgmGEN.logString_msg(_str_func,"Found: {0}".format(mObj)))
                 ATTR.connect(_driver, "{0}.overrideVisibility".format(mObj.mNode))        
 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def shapers_get(self):
     _short = self.p_nameShort        
@@ -5916,7 +5917,7 @@ def controls_get(self,define = False, form = False, prerig= False, asDict =False
         if asDict:
             return md_controls
         return ml_controls
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def controls_mirror(blockSource, blockMirror = None,
                     mirrorMode = 'push', 
@@ -6019,7 +6020,7 @@ def controls_mirror(blockSource, blockMirror = None,
         l_dat = []
         
         if not ml_controls:
-            raise ValueError,"No controls"
+            raise ValueError("No controls")
         
         blockMirror.scaleY = blockSource.scaleY
         #Root ----------------------------------------------------------------------------------
@@ -6291,13 +6292,13 @@ def controls_mirror(blockSource, blockMirror = None,
                     #mObj.p_positionEuclid = _dat['pos']
                     mObj.p_positionEuclid = _dat['pos']
                     
-                    if _dat.has_key('simpleRot'):
+                    if 'simpleRot' in _dat:
                         _rot = _dat.get('simpleRot')
                         if _rot != False:
                             log.debug("|{0}| >> Simple rot mObj: {1} | {2}".format(_str_func,
                                                                                    mObj.p_nameBase,
                                                                                    _rot))            
-                            for a,v in _rot.iteritems():
+                            for a,v in list(_rot.items()):
                                 ATTR.set(str_obj,'r{0}'.format(a),v)
                     else:
                         SNAP.aim_atPoint(mObj.mNode, _dat['aimPoint'], vectorUp=_dat['up'],mode='vector')
@@ -6310,14 +6311,14 @@ def controls_mirror(blockSource, blockMirror = None,
                             print _dat['up']"""
                         
                     #Subshapers ----------------------------------------------------------------------
-                    if _dat.has_key('subShapers'):
+                    if 'subShapers' in _dat:
                         ml_subShapers = mObj.msgList_get('subShapers')
                         if not ml_subShapers:
-                            raise ValueError, "SubShaper data but no datList: {0}".format(mObj)
+                            raise ValueError("SubShaper data but no datList: {0}".format(mObj))
                         
                         for i_sub,mSub in enumerate(ml_subShapers):
                             _d_sub = _dat['subShapers'][i_sub]
-                            for a,d in _d_sub.iteritems():
+                            for a,d in list(_d_sub.items()):
                                 if a == 'position':
                                     log.debug("|{0}| >> subShaper position: {1} | {2}".format(_str_func,mSub,d))
                                     mSub.p_positionEuclid = d
@@ -6330,13 +6331,13 @@ def controls_mirror(blockSource, blockMirror = None,
                                 mSub.p_position = _d_sub.get('position')"""
                     
                     #Loft Curve ----------------------------------------------------------------------
-                    if _dat.has_key('loftCurve'):
+                    if 'loftCurve' in _dat:
                         mLoftCurve = mObj.getMessage('loftCurve',asMeta=True)[0]
                         if not mLoftCurve:
-                            raise ValueError, "loftCurve data but no datList: {0}".format(mObj)
+                            raise ValueError("loftCurve data but no datList: {0}".format(mObj))
                         
                         _d_sub = _dat['loftCurve']
-                        for a,d in _d_sub.iteritems():
+                        for a,d in list(_d_sub.items()):
                             if a == 'position':
                                 log.debug("|{0}| >> loftCurve position: {1} | {2}".format(_str_func,mLoftCurve,d))
                                 mLoftCurve.p_positionEuclid = d                            
@@ -6354,13 +6355,13 @@ def controls_mirror(blockSource, blockMirror = None,
 
                         mObj.p_parent = mParent
 
-                    elif _dat.has_key('simpleScale'):
+                    elif 'simpleScale' in _dat:
                         _scale = _dat.get('simpleScale')
                         if _scale != False:
                             log.debug("|{0}| >> Simple scale mObj: {1} | {2}".format(_str_func,
                                                                                    mObj.p_nameBase,
                                                                                    _scale))            
-                            for a,v in _scale.iteritems():
+                            for a,v in list(_scale.items()):
                                 ATTR.set(str_obj,'s{0}'.format(a),v)
                         else:
                             continue
@@ -6369,13 +6370,13 @@ def controls_mirror(blockSource, blockMirror = None,
                             try:
                                 ATTR.set(str_obj,'s{0}'.format(a), _dat['scale'][i])
                                 #mObj.scale = _dat['scale']
-                            except Exception,err:log.debug("|{0}| >> scale err: {1}".format(_str_func,err))            
-                except Exception,err:
+                            except Exception as err:log.debug("|{0}| >> scale err: {1}".format(_str_func,err))            
+                except Exception as err:
                     log.debug("|{0}| >> mObj failure: {1} | {2}".format(_str_func,mObj.p_nameShort,err))            
                 
         return l_dat,md_remap
     
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 def controlsRig_reset(self):
     try:
         
@@ -6385,7 +6386,7 @@ def controlsRig_reset(self):
         
         self.moduleTarget.rigNull.moduleSet.reset()
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 _d_attrStateMasks = {0:[],
@@ -6432,12 +6433,12 @@ _d_attrStateVisOff = {0:[],
                         'ribbonConnectBy',
                         'spaceSwitch_fk']}
 
-l_aHidden = (u'mSystemRoot',
+l_aHidden = ('mSystemRoot',
               #u'baseSizeX',
               #u'baseSizeY',
               #u'baseSizeZ',
-              u'attributeAliasList',
-              u'cgmColorLock')
+              'attributeAliasList',
+              'cgmColorLock')
 l_aKeyable = ()
 
 def attrMask_getBaseMask(self):
@@ -6529,7 +6530,7 @@ def get_stateChannelBoxAttrs(self,mode = None,report=False):
         #reload(mBlockModule)
         
         def updateDictLists(d1,d2):
-            for k,l in d1.iteritems():
+            for k,l in list(d1.items()):
                 _dat = d2.get(k)
                 if _dat:
                     l.extend(_dat)
@@ -6580,7 +6581,7 @@ def get_stateChannelBoxAttrs(self,mode = None,report=False):
                 except:pass
         for a in ['blockScale']:
             if ATTR.has_attr(_short,a) and ATTR.is_keyable(_short,a):
-                l_attrs.append(unicode(a))
+                l_attrs.append(str(a))
                 
         #Make sure no core stuff sneaked through
         _baseDat = self.baseDat or {}
@@ -6602,7 +6603,7 @@ def get_stateChannelBoxAttrs(self,mode = None,report=False):
         d_attrOn = {}
         d_attrOnCheck = {}
         
-        for i,l in __d_attrStateVisOn.iteritems():
+        for i,l in list(__d_attrStateVisOn.items()):
             d_attrOn[i] = []
             for a in l_attrs:
                 for a2 in l:
@@ -6620,7 +6621,7 @@ def get_stateChannelBoxAttrs(self,mode = None,report=False):
                 d_attrOn[0].append(a)
                     
         d_attrOff = {}
-        for i,l in __d_attrStateVisOff.iteritems():
+        for i,l in list(__d_attrStateVisOff.items()):
             log.debug(cgmGEN.logString_msg(_str_func,'Off check [{0}] | {1}'.format(i,l)))                
             
             d_attrOff[i] = []
@@ -6668,7 +6669,7 @@ def get_stateChannelBoxAttrs(self,mode = None,report=False):
         if report:
             pprint.pprint(l_use)
         return l_use
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def uiQuery_getStateAttrs(self,mode = None,report=True):
     try:
@@ -6701,7 +6702,7 @@ def uiQuery_getStateAttrs(self,mode = None,report=True):
         
         for a in ['visibility','blockScale']:
             if ATTR.has_attr(_short,a) and ATTR.is_keyable(_short,a):
-                l_attrs.append(unicode(a))
+                l_attrs.append(str(a))
                 
         for a in ['side','position']:
             if a in l_attrs:
@@ -6734,7 +6735,7 @@ def uiQuery_getStateAttrs(self,mode = None,report=True):
         if report:
             pprint.pprint(l_attrs)
         return l_attrs
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 def uiQuery_filterListToAttrDict(l=[],d={}):
@@ -6742,11 +6743,11 @@ def uiQuery_filterListToAttrDict(l=[],d={}):
     Call to process a attr state dict against a given list of attributes
     '''
     if not l and d:
-        raise ValueError,"Must have list and dict"
+        raise ValueError("Must have list and dict")
     
     l_cull = copy.copy(l)
     l_cull = LISTS.get_noDuplicates(l_cull)
-    _keys = d.keys()
+    _keys = list(d.keys())
     _keys.sort()
     l_order =['define','profile','basic','name',
               'form','proxySurface','prerig',
@@ -6806,12 +6807,12 @@ def uiQuery_getStateAttrDictFromModule(mBlockModule = None, report = False, unkn
     _d = {}
     try:
         _d = mBlockModule.d_attrStateMask
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     
     d_use = CGMDICT.blendDat(BLOCKSHARE.d_uiAttrDict,_d)
         
-    for k,l in d_use.iteritems():
+    for k,l in list(d_use.items()):
         log.debug(cgmGEN.logString_sub(_str_func, k))
         if report:pprint.pprint(l)
         _tmp = []
@@ -6844,12 +6845,12 @@ def uiQuery_getStateAttrDict(self,report = False, unknown = True):
     _d = {}
     try:
         _d = mBlockModule.d_attrStateMask
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     
     d_use = CGMDICT.blendDat(BLOCKSHARE.d_uiAttrDict,_d)
         
-    for k,l in d_use.iteritems():
+    for k,l in list(d_use.items()):
         log.debug(cgmGEN.logString_sub(_str_func, k))
         if report:pprint.pprint(l)
         _tmp = []
@@ -6907,7 +6908,7 @@ def formDelete(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
@@ -6920,7 +6921,7 @@ def formDelete(self):
     #self.blockState = 'form>define'#...buffering that we're in process
 
     mBlockModule = self.p_blockModule
-    l_blockModuleKeys = mBlockModule.__dict__.keys()
+    l_blockModuleKeys = list(mBlockModule.__dict__.keys())
     if 'formDelete' in l_blockModuleKeys:
         log.debug("|{0}| >> BlockModule formDelete call found...".format(_str_func))
         self.atBlockModule('formDelete')
@@ -6947,7 +6948,7 @@ def formDelete(self):
     
     for mObj in self.msgList_get('formStuff'):
         try:mObj.delete()    
-        except Exception,err:
+        except Exception as err:
             pass
     self.blockState = 'define'#...yes now in this state
     return True
@@ -6957,12 +6958,12 @@ def templateAttrLock(self,v=1):
     
 def test_exception(self,*args,**kws):
     try:
-        raise ValueError,"here"
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+        raise ValueError("here")
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 def test_nestedException(self,*args,**kws):
     try:
         test_exception(self,*args,**kws)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
                      loftShape=None,l_basePos = None, baseSize=1.0,
@@ -7022,7 +7023,7 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     int_shapers = self.getMayaAttr(aShapers)
     int_sub = self.getMayaAttr(aSubShapers)
     if not l_numSubShapers:
-        l_numSubShapers = [int_sub for i in xrange(int_shapers-1)]
+        l_numSubShapers = [int_sub for i in range(int_shapers-1)]
     log.info("|{0}| >> l_numSubShapers: {1}".format(_str_func,l_numSubShapers)) 
 
     
@@ -7672,7 +7673,7 @@ def form(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
@@ -7680,7 +7681,7 @@ def form(self):
         log.debug("|{0}| >> Already in form state...".format(_str_func))                    
         return True
     elif _str_state != 'define':
-        raise ValueError,"[{0}] is not in define state. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in define state. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
@@ -7689,7 +7690,7 @@ def form(self):
 
     mBlockModule = self.p_blockModule
 
-    if 'form' in mBlockModule.__dict__.keys():
+    if 'form' in list(mBlockModule.__dict__.keys()):
         log.debug("|{0}| >> BlockModule call found...".format(_str_func))            
         self.atBlockModule('form')
 
@@ -7704,7 +7705,7 @@ def prerig(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
@@ -7712,7 +7713,7 @@ def prerig(self):
         log.debug("|{0}| >> Already in prerig state...".format(_str_func))                    
         return True
     elif _str_state != 'form':
-        raise ValueError,"[{0}] is not in define form. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in define form. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
@@ -7721,7 +7722,7 @@ def prerig(self):
 
     mBlockModule = self.p_blockModule
 
-    if 'prerig' in mBlockModule.__dict__.keys():
+    if 'prerig' in list(mBlockModule.__dict__.keys()):
         log.debug("|{0}| >> BlockModule prerig call found...".format(_str_func))
         #reload(mBlockModule)
         mBlockModule.prerig(self)
@@ -7735,12 +7736,12 @@ def prerigDelete(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
     if _str_state != 'prerig':
-        raise ValueError,"[{0}] is not in prerig state. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in prerig state. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
@@ -7748,7 +7749,7 @@ def prerigDelete(self):
     #self.blockState = 'prerig>form'#...buffering that we're in process
 
     mBlockModule = self.p_blockModule
-    l_blockModuleKeys = mBlockModule.__dict__.keys()
+    l_blockModuleKeys = list(mBlockModule.__dict__.keys())
     
     if 'prerigDelete' in l_blockModuleKeys:
         log.debug("|{0}| >> BlockModule prerigDelete call found...".format(_str_func))
@@ -7766,7 +7767,7 @@ def skeleton(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
@@ -7774,7 +7775,7 @@ def skeleton(self):
         log.debug("|{0}| >> Already in skeleton state...".format(_str_func))                    
         return True
     elif _str_state != 'prerig':
-        raise ValueError,"[{0}] is not in prerig form. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in prerig form. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
@@ -7784,7 +7785,7 @@ def skeleton(self):
     mBlockModule = self.p_blockModule
     
     for c in ['skeleton_build','build_skeleton']:
-        if c in mBlockModule.__dict__.keys():
+        if c in list(mBlockModule.__dict__.keys()):
             log.debug("|{0}| >> BlockModule {1} call found...".format(_str_func,c))            
             if not self.atBlockModule(c):
                 self.blockState = 'prerig'#...yes now in this state
@@ -7840,12 +7841,12 @@ def skeleton_delete(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
     if _str_state != 'skeleton':
-        raise ValueError,"[{0}] is not in skeleton state. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in skeleton state. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
     def closeOut():
@@ -7857,7 +7858,7 @@ def skeleton_delete(self):
     #self.blockState = 'skeleton>prerig'#...buffering that we're in process
 
     mBlockModule = self.p_blockModule
-    l_blockModuleKeys = mBlockModule.__dict__.keys()
+    l_blockModuleKeys = list(mBlockModule.__dict__.keys())
     
     if 'skeleton_delete' in l_blockModuleKeys:
         log.debug("|{0}| >> BlockModule skeleton_delete call found...".format(_str_func))
@@ -7901,7 +7902,7 @@ def rig(self,**kws):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
@@ -7909,19 +7910,19 @@ def rig(self,**kws):
         log.debug("|{0}| >> Already in rig state...".format(_str_func))                    
         return True
     elif _str_state != 'skeleton':
-        raise ValueError,"[{0}] is not in skeleton form. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in skeleton form. state: {1}".format(self.mNode, _str_state))
 
     #>>>Children ------------------------------------------------------------------------------------
 
     #>>>Meat ------------------------------------------------------------------------------------
     #self.blockState = 'skeleton>rig'#...buffering that we're in process
-    if not 'autoBuild' in kws.keys():
+    if not 'autoBuild' in list(kws.keys()):
         kws['autoBuild'] = True
     
     try:self.asRigFactory(**kws)
-    except Exception,err:
+    except Exception as err:
         self.blockState = 'skeleton'
-        raise Exception,err
+        raise Exception(err)
     
     if not is_rigged(self):
         log.error("|{0}| >> Failed to return is_rigged...".format(_str_func))                    
@@ -7938,12 +7939,12 @@ def rigDelete(self):
     log.debug("|{0}| >> self: {1}".format(_str_func,self)+ '-'*80)
     
     if self.isReferenced():
-        raise ValueError,"|{0}| >> referenced node: {1}".format(_str_func,self.mNode)
+        raise ValueError("|{0}| >> referenced node: {1}".format(_str_func,self.mNode))
 
     _str_state = self.getEnumValueString('blockState')
     
     if _str_state != 'rig':
-        raise ValueError,"[{0}] is not in rig state. state: {1}".format(self.mNode, _str_state)
+        raise ValueError("[{0}] is not in rig state. state: {1}".format(self.mNode, _str_state))
 
 
     #>>>Meat ------------------------------------------------------------------------------------
@@ -8034,7 +8035,7 @@ def rigDelete(self):
             log.error("|{0}| >> Unknown mClass moduleTarget: {1}".format(_str_func,mModuleTarget))                
 
     mBlockModule = self.p_blockModule
-    l_blockModuleKeys = mBlockModule.__dict__.keys()
+    l_blockModuleKeys = list(mBlockModule.__dict__.keys())
     if 'rigDelete' in l_blockModuleKeys:
         log.debug("|{0}| >> BlockModule rigDelete call found...".format(_str_func))
         self.p_blockModule.rigDelete(self)
@@ -8052,7 +8053,7 @@ def changeState(self, state = None, rebuildFrom = None, forceNew = False,checkDe
     mc.select(cl=True)
     
     if self.isReferenced():
-        raise ValueError,"Referenced node. Cannot verify"
+        raise ValueError("Referenced node. Cannot verify")
     
     if rebuildFrom:
         log.debug("|{0}| >> Rebuid from: {1}".format(_str_func,rebuildFrom))
@@ -8234,7 +8235,7 @@ def changeState(self, state = None, rebuildFrom = None, forceNew = False,checkDe
         return True
     else:
         log.warning('Forcing recreate')
-        if _state_target in d_upStateFunctions.keys():
+        if _state_target in list(d_upStateFunctions.keys()):
             if not d_upStateFunctions[_state_target](self):return False
             return True
     
@@ -8262,7 +8263,7 @@ def get_shapeOffset(self):
                     log.debug("|{0}| >> {1} attr found on rigBlock: {2} | {3}".format(_str_func,a,v,mBlock.mNode))                
                     return v            
         return 1
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 def puppet_get(self,mModuleTarget = None):
     try:
@@ -8285,7 +8286,7 @@ def puppet_get(self,mModuleTarget = None):
                 else:
                     mPuppet = False
         return mPuppet
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
 def puppet_verify(self):
     """
@@ -8343,7 +8344,7 @@ def puppet_verify(self):
     
         return mPuppet                
  
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def module_verify(self,moduleType = None, moduleLink = 'moduleTarget',**kws):
     """
@@ -8369,7 +8370,7 @@ def module_verify(self,moduleType = None, moduleLink = 'moduleTarget',**kws):
                 if mModule.hasAttr('cgmDirection'):
                     ATTR.delete(mModule.mNode,'cgmDirection')
     
-            for k,v in _nameDict.iteritems():
+            for k,v in list(_nameDict.items()):
                 if v:
                     log.debug("|{0}| >> Name dat k: {1} | v:{2}".format(_str_func,k,v))
                     mModule.addAttr(k,value = v,lock = True)
@@ -8401,7 +8402,7 @@ def module_verify(self,moduleType = None, moduleLink = 'moduleTarget',**kws):
         #ATTR.set(mModule.mNode,'moduleType',_moduleType,lock=True)
         return mModule
  
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def is_rigged(self):
     try:
@@ -8418,7 +8419,7 @@ def is_rigged(self):
         
         return self.moduleTarget.atUtils('is_rigged')
 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def checkState(self,asString=True):
     return getState(self,asString,False)
@@ -8464,7 +8465,7 @@ def getState(self, asString = True, fastCheck=True):
                 log.debug("|{0}| >> default test passed.".format(_str_func))
                 _goodState = _state
                 
-            if 'is_{0}'.format(_state) in _blockModule.__dict__.keys():
+            if 'is_{0}'.format(_state) in list(_blockModule.__dict__.keys()):
                 _call = getattr(_blockModule,'is_{0}'.format(_state))
                 log.debug("|{0}| >> blockModule test: {1}".format(_str_func, _call))                
                 if _call:
@@ -8494,7 +8495,7 @@ def getState(self, asString = True, fastCheck=True):
         if asString:
             return _goodState
         return _l_blockStates.index(_goodState)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 #Profile stuff ==============================================================================================  
@@ -8511,7 +8512,7 @@ def datList_validate(self,count = None, datList = 'rollCount',checkAttr = 'numCo
         if not self.datList_get(datList) and not forceEdit:
             log.info(cgmGEN.logString_msg(_str_func,"No datList found | tag: {0}".format(datList)))
             _default = self.getMayaAttr(defaultAttr)
-            l_subs = [_default for i in xrange(count)]
+            l_subs = [_default for i in range(count)]
             self.datList_connect(datList, l_subs)            
             return  True
 
@@ -8594,7 +8595,7 @@ def datList_validate(self,count = None, datList = 'rollCount',checkAttr = 'numCo
             
         #pprint.pprint(vars())
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -8669,7 +8670,7 @@ def nameList_uiPrompt(self, nameList = 'nameList'):
             log.warning("Current: {0}".format(l_current))
             return log.warning("|{0}| >> cancelled | {1}".format(_str_func, self))
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
         
@@ -8756,7 +8757,7 @@ def nameList_validate(self,count = None, nameList = 'nameList',checkAttr = 'numC
             
         #pprint.pprint(vars())
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -8780,11 +8781,11 @@ def nameList_resetToProfile(self,arg = None):
         try:
             l_nameList =  mBlockModule.d_block_profiles[arg]['nameList']
             log.debug("|{0}| >>  Found on profile: {1}".format(_str_func,l_nameList))
-        except Exception,err:
+        except Exception as err:
             try:
                 l_nameList =  mBlockModule.d_defaultSettings['nameList']
                 log.debug("|{0}| >>  Found on module: {1}".format(_str_func,l_nameList))
-            except Exception,err:
+            except Exception as err:
                 pass
         
         if not l_nameList:
@@ -8806,7 +8807,7 @@ def nameList_resetToProfile(self,arg = None):
                 self.datList_connect('nameList', l_nameList, mode='string')
         log.debug("|{0}| >>  New: {1}".format(_str_func,self.datList_get('nameList')))
         return l_nameList
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -8819,10 +8820,10 @@ def blockProfile_getOptions(self):
         log.debug("|{0}| >>  BlockModule: {1}".format(_str_func,mBlockModule))
         #reload(mBlockModule)
         
-        try:return mBlockModule.d_block_profiles.keys()
-        except Exception,err:
+        try:return list(mBlockModule.d_block_profiles.keys())
+        except Exception as err:
             return log.error("|{0}| >>  Failed to query. | {1}".format(_str_func,err))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def blockProfile_getAttrs(self,arg):
@@ -8835,7 +8836,7 @@ def blockProfile_getAttrs(self,arg):
     #reload(mBlockModule)
     
     try:_d = mBlockModule.d_block_profiles[arg]
-    except Exception,err:
+    except Exception as err:
         return log.warning("|{0}| >>  Failed to query profile: {1} | {2} | {3}".format(_str_func,err, _short, Exception))
     
     return _d
@@ -8849,7 +8850,7 @@ def blockProfile_load(self, arg):
     mBlockModule = self.p_blockModule
     log.debug("|{0}| >>  BlockModule: {1} | profile: {2}".format(_str_func,mBlockModule,arg))
     try:_d = mBlockModule.d_block_profiles[arg]
-    except Exception,err:
+    except Exception as err:
         return log.warning("|{0}| >>  Failed to query profile: {1} | {2} | {3}".format(_str_func,err, _short, Exception))
     
     #if not _d.get('blockProfile'):
@@ -8858,12 +8859,12 @@ def blockProfile_load(self, arg):
     #cgmGEN.func_snapShot(vars())
     log.debug("|{0}| >>  {1}...".format(_str_func,arg))
     _l_badAttrs = ['side']
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         try:
             if a in _l_badAttrs:
-                print('!'*100)
-                print(cgmGEN.logString_msg(_str_func, 'REMOVE {0} from {1} | {2}'.format(a,arg,mBlockModule.__name__)))
-                print('!'*100)                
+                print(('!'*100))
+                print((cgmGEN.logString_msg(_str_func, 'REMOVE {0} from {1} | {2}'.format(a,arg,mBlockModule.__name__))))
+                print(('!'*100))                
                 continue
             log.debug("|{0}| attr >> '{1}' | v: {2}".format(_str_func,a,v)) 
             _done = False
@@ -8898,7 +8899,7 @@ def blockProfile_load(self, arg):
                 ATTR.set(_short,a,v)
             log.info("|{0}| >>  {1} | {2}".format(_str_func,a,v))                
             
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| Set attr Failure >> '{1}' | value: {2} | err: {3}".format(_str_func,a,v,err)) 
     
     self.doStore('blockProfile',arg)
@@ -8918,7 +8919,7 @@ def buildProfile_load(self, arg):
     #pprint.pprint(BLOCKSHARE.d_build_profiles)
     _d_block = {}
     try:_d_block = mBlockModule.d_build_profiles[arg]
-    except Exception,err:
+    except Exception as err:
         return log.error("|{0}| >>  Failed to query. | {1} | {2}".format(_str_func,err, Exception))
     
     _d_block = _d_block.get('shared',{}) or _d_block.get('default',{})
@@ -8950,7 +8951,7 @@ def buildProfile_load(self, arg):
         return log.error("|{0}| >>  [FAILED] Block: {1} | profile: {2} | Can't load in state: {3}".format(_str_func,_short,arg,_state))
     
     log.debug("|{0}| >>  Loading: {1}...".format(_str_func,arg))
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         try:
             log.info("|{0}| attr >> '{1}' | v: {2}".format(_str_func,a,v)) 
             _done = False
@@ -8972,7 +8973,7 @@ def buildProfile_load(self, arg):
                         log.debug("{0}...".format(a2))
                         ATTR.set(_short,a2, v)
                         
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| Set attr Failure >> '{1}' | value: {2} | err: {3}".format(_str_func,a,v,err)) 
     
     self.doStore('buildProfile',arg)
@@ -8992,7 +8993,7 @@ def blockProfile_get(self, bySection = False, skipSections = ['advanced','data',
 
     _res = {}
 
-    for section,l in uiQuery_getStateAttrDict(self,unknown=False).iteritems():
+    for section,l in list(uiQuery_getStateAttrDict(self,unknown=False).items()):
         if section in skipSections:
             continue
         if bySection:
@@ -9014,7 +9015,7 @@ def blockProfile_get(self, bySection = False, skipSections = ['advanced','data',
     pprint.pprint(_res)
     return
     log.debug("|{0}| >>  Loading: {1}...".format(_str_func,arg))
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         try:
             log.info("|{0}| attr >> '{1}' | v: {2}".format(_str_func,a,v)) 
             _done = False
@@ -9036,7 +9037,7 @@ def blockProfile_get(self, bySection = False, skipSections = ['advanced','data',
                         log.debug("{0}...".format(a2))
                         ATTR.set(_short,a2, v)
                         
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| Set attr Failure >> '{1}' | value: {2} | err: {3}".format(_str_func,a,v,err)) 
     
     self.doStore('buildProfile',arg)
@@ -9054,7 +9055,7 @@ def doSize(self, mode = None, postState = None):
     
     _str_state = getState(self)
     if _str_state not in ['define','form']:
-        raise ValueError,"|{0}| >>  [{1}] is not in define state. state: {2}".format(_str_func,self.mNode, _str_state)
+        raise ValueError("|{0}| >>  [{1}] is not in define state. state: {2}".format(_str_func,self.mNode, _str_state))
     
     #mBlockModule = self.p_blockModule
     #log.debug("|{0}| >>  BlockModule: {1}".format(_str_func,mBlockModule))
@@ -9246,16 +9247,16 @@ def skeleton_getReport(self):
             ml_mirror = mMirror.moduleTarget.atUtils('rig_getSkinJoints',asMeta=True)
             for i,j in enumerate(ml):
                 try:
-                    print("{} | {} >><<>> {}".format(_cnt, j.p_nameBase, ml_mirror[i].p_nameBase))
+                    print(("{} | {} >><<>> {}".format(_cnt, j.p_nameBase, ml_mirror[i].p_nameBase)))
                     _cnt +=1
                     _len+=2
-                except Exception,err:
+                except Exception as err:
                     log.error(err)
 
         else:
             _modules+=1            
             for mObj in ml:
-                print("{} | {}".format(_cnt, mObj.p_nameBase))
+                print(("{} | {}".format(_cnt, mObj.p_nameBase)))
                 _cnt +=1
                 _len+=1
                 
@@ -9264,15 +9265,15 @@ def skeleton_getReport(self):
         if mMirror:ml_processed.append(mMirror)
 
     
-    print("[{}] Joints in [{}] modules.".format(_len, _modules))
+    print(("[{}] Joints in [{}] modules.".format(_len, _modules)))
     return
     log.info(cgmGEN.logString_sub(_str_func,'Centre'))
-    for k,v in md_list['Centre'].iteritems():
-        print "{0} | {1} ".format(k,v.p_nameShort)
+    for k,v in list(md_list['Centre'].items()):
+        print(("{0} | {1} ".format(k,v.p_nameShort)))
         
     log.info(cgmGEN.logString_sub(_str_func,'Left/Right'))
-    for k,v in md_list['Left'].iteritems():
-        try:print "{0} | {1} >><< {2}".format(k,v.p_nameShort,md_list['Right'][k].p_nameShort)
+    for k,v in list(md_list['Left'].items()):
+        try:print(("{0} | {1} >><< {2}".format(k,v.p_nameShort,md_list['Right'][k].p_nameShort)))
         except:
             pass
 
@@ -9492,7 +9493,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         #    CORERIG.color_mesh(mGeo.mNode,'puppetmesh')
             
         return ml_mesh
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
             
     
@@ -9536,7 +9537,7 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
             
     #BlockModule call? ====================================================================================
     mBlockModule = self.p_blockModule
-    if mBlockModule.__dict__.has_key('create_simpleMesh'):
+    if 'create_simpleMesh' in mBlockModule.__dict__:
         log.debug("|{0}| >> BlockModule 'create_simpleMesh' call found...".format(_str_func))            
         ml_mesh = mBlockModule.create_simpleMesh(self,skin=skin,parent=mParent,deleteHistory=deleteHistory)
     
@@ -9788,7 +9789,7 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     _d = {'format':2,#General
           'polygonType':1,#'quads',
           'uNumber': 1 + jointCount}
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)
 
     #>>Top/Bottom bottom -----------------------------------------------------------------
@@ -9802,7 +9803,7 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
                   'polygonType':1,#'quads',
                   'vNumber':1,
                   'uNumber':1}
-            for a,v in _d.iteritems():
+            for a,v in list(_d.items()):
                 ATTR.set(_tessellate,a,v)
             _l_combine.append(_res[0])
 
@@ -9855,7 +9856,7 @@ def create_defineCurve(self,d_definitions,md_handles, mParentNull = None,crvType
             mParentNull = self.atUtils('stateNull_verify','define')
             
         mHandleFactory = self.asHandleFactory()
-        for k in d_definitions.keys():
+        for k in list(d_definitions.keys()):
             log.debug("|{0}| >>  curve: {1}...".format(_str_func,k))            
             _dtmp = d_definitions[k]
             
@@ -9906,7 +9907,7 @@ def create_defineCurve(self,d_definitions,md_handles, mParentNull = None,crvType
             mCrv.dagLock()
         return {'md_curves':md_defineCurves,
                 'ml_curves':ml_defineCurves}
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     finally:pass
 
 def create_define_rotatePlane(self, md_handles,md_vector,mStartParent=None):
@@ -9979,7 +9980,7 @@ def create_define_rotatePlane(self, md_handles,md_vector,mStartParent=None):
               'polygonType':1,#'quads'
               }
               
-        for a,v in _d.iteritems():
+        for a,v in list(_d.items()):
             ATTR.set(_tessellate,a,v)
         
         mPlane = cgmMeta.validateObjArg(_res_body[0])
@@ -10001,7 +10002,7 @@ def create_define_rotatePlane(self, md_handles,md_vector,mStartParent=None):
         #Aim them...
         #Make our loft...
         return mPlane
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
 def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None, mScaleSpace = None, rotVecControl = False,blockUpVector = [0,1,0], vecControlLiveScale = False, statePlug ='define',vectorScaleAttr = 'baseSize',startScale=False, forceSize = False):
     try:
@@ -10163,7 +10164,7 @@ def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None,
                 else:
                     mHandle.resetAttrs('translate')
                     
-                for a,v in _dtmp.get('defaults',{}).iteritems():
+                for a,v in list(_dtmp.get('defaults',{}).items()):
                     if issubclass(type(v),list):
                         ATTR.set(mHandle.mNode, a, v)
                     else:
@@ -10352,7 +10353,7 @@ def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None,
                              worldUpType = 'objectRotation', 
                              worldUpVector = [0,1,0])            
 
-        for k,dTmp in d_definitions.iteritems():
+        for k,dTmp in list(d_definitions.items()):
             if dTmp.get('handleType') == 'vector':
                 if md_handles.get(k):
                     ATTR.set_standardFlags(md_handles[k].mNode,['tx','ty','tz'])
@@ -10435,7 +10436,7 @@ def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None,
             md_measure = {}
             measureTag = 'end'
             if startScale:measureTag = 'start'
-            for k,d in d_measure.iteritems():
+            for k,d in list(d_measure.items()):
                 md_measure[k] = {}
                 if k == 'length':
                     mPos =mEndSizeHandle.doLoc()
@@ -10490,7 +10491,7 @@ def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None,
         
             
 
-            for tag,mHandle in md_handles.iteritems():
+            for tag,mHandle in list(md_handles.items()):
                 _dtmp = d_definitions.get(tag,False)
                 _noLock = _dtmp.get('noLock',[])
                 if tag in ['lever']:
@@ -10599,7 +10600,7 @@ def create_defineHandles(self,l_order,d_definitions,baseSize,mParentNull = None,
                 'md_vector':md_vector,
                 'md_jointLabels':md_jointLabels}
  
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
     
 def define_set_baseSize(self,baseSize = None, baseAim = None, baseAimDefault = [0,0,1]):
@@ -10682,7 +10683,7 @@ def define_set_baseSize(self,baseSize = None, baseAim = None, baseAimDefault = [
     if d_baseDat:
         log.debug("|{0}| >>  baseDat...".format(_str_func)+ '-'*40)
         #pprint.pprint(d_baseDat)
-        for k,vec in d_baseDat.iteritems():
+        for k,vec in list(d_baseDat.items()):
             mHandle = self.getMessageAsMeta('define{0}Helper'.format(STR.capFirst(k)))
             mUp = self.getMessageAsMeta('vector{0}Helper'.format(STR.capFirst(k)))
             
@@ -10795,12 +10796,12 @@ def prerig_handlesLayout(self,mode='even',curve='linear',spans=2):
         ml_toSnap = ml_preUse[idx_startNew:idx_endNew+1]
         #pprint.pprint(vars())
         if not ml_toSnap:
-            raise ValueError,"|{0}| >>  Nothing found to snap | start: {1} | end: {2} | {3}".format(_str_func,idx_start,idx_end,self)
+            raise ValueError("|{0}| >>  Nothing found to snap | start: {1} | end: {2} | {3}".format(_str_func,idx_start,idx_end,self))
         
         #pprint.pprint(vars())
         
         return ARRANGE.alongLine([mObj.mNode for mObj in ml_toSnap],mode,curve,spans)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     
 def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):
@@ -10812,7 +10813,7 @@ def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):
     
     ml_handles = self.msgList_get('{0}Handles'.format(mode))
     if not ml_handles:
-        raise ValueError,"|{0}| >>  No {2} handles | {1}".format(_str_func,self,mode)
+        raise ValueError("|{0}| >>  No {2} handles | {1}".format(_str_func,self,mode))
     
     ml_use = []
     for mObj in ml_handles:
@@ -10829,7 +10830,7 @@ def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):
         vector_neg = mOrientHelper.getAxisVector('y-',asEuclid = 0)        
     else:
         try:mOrientHelper = self.orientHelper
-        except:raise ValueError,"No orientHelper found"
+        except:raise ValueError("No orientHelper found")
         
         vector_pos = mOrientHelper.getAxisVector('y+',asEuclid = 0)
         vector_neg = mOrientHelper.getAxisVector('y-',asEuclid = 0)        
@@ -10853,7 +10854,7 @@ def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):
     log.debug("|{0}| >>  mEnd: {1}".format(_str_func,mEnd))
     
     if not ml_toSnap:
-        raise ValueError,"|{0}| >>  Nothing found to snap | {1}".format(_str_func,self)
+        raise ValueError("|{0}| >>  Nothing found to snap | {1}".format(_str_func,self))
         
     #pprint.pprint(vars())
     
@@ -10885,7 +10886,7 @@ def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):
           'polygonType':1,#'quads'
           }
           
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)    
             
     #Snap our joints ---------------------------------------------------------------------------------
@@ -10907,7 +10908,7 @@ def prerig_snapHandlesToRotatePlane(self,cleanUp=0):
     
     ml_prerig = self.msgList_get('prerigHandles')
     if not ml_prerig:
-        raise ValueError,"|{0}| >>  No prerig handles | {1}".format(_str_func,self)
+        raise ValueError("|{0}| >>  No prerig handles | {1}".format(_str_func,self))
     
     for mObj in ml_prerig:
         if mObj.getMayaAttr('cgmType') not in ['blockHandle','preHandle']:
@@ -10922,7 +10923,7 @@ def prerig_snapHandlesToRotatePlane(self,cleanUp=0):
         vector_neg = mOrientHelper.getAxisVector('y-',asEuclid = 0)        
     else:
         try:mOrientHelper = self.orientHelper
-        except:raise ValueError,"No orientHelper found"
+        except:raise ValueError("No orientHelper found")
         
         vector_pos = mOrientHelper.getAxisVector('y+',asEuclid = 0)
         vector_neg = mOrientHelper.getAxisVector('y-',asEuclid = 0)        
@@ -10948,7 +10949,7 @@ def prerig_snapHandlesToRotatePlane(self,cleanUp=0):
     ml_toSnap = ml_prerig[idx_start:idx_end]
     
     if not ml_toSnap:
-        raise ValueError,"|{0}| >>  Nothing found to snap | {1}".format(_str_func,self)
+        raise ValueError("|{0}| >>  Nothing found to snap | {1}".format(_str_func,self))
         
     #pprint.pprint(vars())
     
@@ -10980,7 +10981,7 @@ def prerig_snapHandlesToRotatePlane(self,cleanUp=0):
           'polygonType':1,#'quads'
           }
           
-    for a,v in _d.iteritems():
+    for a,v in list(_d.items()):
         ATTR.set(_tessellate,a,v)    
             
     #Snap our joints ---------------------------------------------------------------------------------
@@ -11229,7 +11230,7 @@ def prerig_get_rpBasePos(self,ml_handles = [], markPos = False, forceMidToHandle
     
     
         return True
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
         
         
 def focus(self,arg=True,mode='vis',ml_focus = None):
@@ -11272,7 +11273,7 @@ def focus(self,arg=True,mode='vis',ml_focus = None):
 
             
         #cgmGEN.func_snapShot(vars())
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 
@@ -11341,7 +11342,7 @@ def form_shapeHandlesToDefineMesh(self,ml_handles = None):
                 for i,a in enumerate('xyz'):
                     ATTR.set(_mNode,'s{0}'.format(a),l_box[i])
                 log.debug(l_box)
-            except Exception,err:
+            except Exception as err:
                 log.error("Form Handle failed to scale: {0}".format(mHandle))
                 log.error(err)
     
@@ -11361,7 +11362,7 @@ def form_shapeHandlesToDefineMesh(self,ml_handles = None):
                         None])"""
             
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -11380,10 +11381,10 @@ def blockProfile_valid(self,update= False):
         _d_profiles = mBlockModule.__dict__.get('d_block_profiles',{})
         _typeDict=  _d_profiles.get(_blockProfile,{})
         if _blockProfile and not _typeDict:
-            print(cgmGEN._str_subLine)
+            print((cgmGEN._str_subLine))
             log.error(cgmGEN.logString_msg(_str_func,'blockType not found in blockProfiles. Please fix | found {0}'.format(_blockProfile)))
-            pprint.pprint(_d_profiles.keys())
-            print(cgmGEN._str_subLine)
+            pprint.pprint(list(_d_profiles.keys()))
+            print((cgmGEN._str_subLine))
             return False
         
         if update:
@@ -11391,9 +11392,9 @@ def blockProfile_valid(self,update= False):
             verify_blockAttrs(self,queryMode=False)
             blockProfile_load(self,_blockProfile)
             
-        print("[{0}] Profile checks {1}".format(self.p_nameShort, _blockProfile))            
+        print(("[{0}] Profile checks {1}".format(self.p_nameShort, _blockProfile)))            
         return _typeDict   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)    
     
     
@@ -11410,19 +11411,19 @@ def is_current(self):
         _d_profiles = mBlockModule.__dict__.get('d_block_profiles',{})
         _typeDict=  _d_profiles.get(_blockProfile,{})
         if _blockProfile and not _typeDict:
-            print(cgmGEN._str_subLine)
+            print((cgmGEN._str_subLine))
             log.error(cgmGEN.logString_msg(_str_func,'blockType not found in blockProfiles. Please fix | found {0}'.format(_blockProfile)))
-            pprint.pprint(_d_profiles.keys())
-            print(cgmGEN._str_subLine)
+            pprint.pprint(list(_d_profiles.keys()))
+            print((cgmGEN._str_subLine))
             
         
         if _ver_block == _ver_module:
-            print("[{0}] up to date | version: {1}".format(self.p_nameShort, _ver_block))            
+            print(("[{0}] up to date | version: {1}".format(self.p_nameShort, _ver_block)))            
             return True
         
         log.warning("[{0}] out of date || rigBlock: {1} | module: {2}".format(self.p_nameShort, _ver_block, _ver_module))
         return False   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
     
 def update(self,force=False,stopState = 'define'):
@@ -11449,7 +11450,7 @@ def update(self,force=False,stopState = 'define'):
         _typeDict=  _d_profiles.get(_blockProfile,{})
         if _blockProfile and not _typeDict:
             log.error(cgmGEN.logString_msg(_str_func,'blockType not found in blockProfiles. Please fix | found {0}'.format(_blockProfile)))
-            pprint.pprint(_d_profiles.keys())
+            pprint.pprint(list(_d_profiles.keys()))
             return False        
         
         verify_blockAttrs(self)
@@ -11475,7 +11476,7 @@ def update(self,force=False,stopState = 'define'):
                              'cgmName','baseSize',
                              'blockParent','blockChildren','blockMirror']:
                     try:ATTR.delete(_short,a)
-                    except Exception,err:log.error("Failed to delete: {0} | {1}".format(a,err))
+                    except Exception as err:log.error("Failed to delete: {0} | {1}".format(a,err))
             self.verify()
             changeState(self,'define',forceNew=True)
             
@@ -11491,7 +11492,7 @@ def update(self,force=False,stopState = 'define'):
         blockDat_load(self,redefine=True,overrideMode='update')
         
         try:self.doStore('version', mBlockModule.__version__, 'string',lock=True)
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN.logString_msg(_str_func,"Failed to set version | {0}".format(err)))
         #Verify
         #verify_blockAttrs(self, queryMode=False)
@@ -11500,7 +11501,7 @@ def update(self,force=False,stopState = 'define'):
         #pprint.pprint(vars())
         
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
         
@@ -11526,7 +11527,7 @@ def rebuild(self, stopState = 'define'):
         _typeDict=  _d_profiles.get(_blockProfile,{})
         if _blockProfile and not _typeDict:
             log.error(cgmGEN.logString_msg(_str_func,'blockType not found in blockProfiles. Please fix | found {0}'.format(_blockProfile)))
-            pprint.pprint(_d_profiles.keys())
+            pprint.pprint(list(_d_profiles.keys()))
             return False
         _baseDat = _typeDict.get('baseDat')
         
@@ -11579,7 +11580,7 @@ def rebuild(self, stopState = 'define'):
             #log.warning(cgmGEN.logString_msg(_str_func,'resetting baseDat: {0}'.format(_baseDat)))
             #mDup.baseDat = _baseDat                        
         
-        for a,l in d_lists.iteritems():
+        for a,l in list(d_lists.items()):
             ATTR.datList_connect(mDup.mNode,a,l)
             
         blockDat_load(mDup)
@@ -11596,7 +11597,7 @@ def rebuild(self, stopState = 'define'):
         
         
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
         
@@ -11611,7 +11612,7 @@ def to_scriptEditor(self,mode = 'block', blockString ='mBlock', facString = 'mRi
             mel.eval('python "import cgm.core.cgm_Meta as cgmMeta;{1} = cgmMeta.asMeta({0});{2} = {1}.asRigFactory()"'.format("'{0}'".format(self.mNode),blockString,facString))
         else:
             mel.eval('python "import cgm.core.cgm_Meta as cgmMeta;{1} = cgmMeta.asMeta({0});"'.format("'{0}'".format(self.mNode),blockString))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 
@@ -11625,7 +11626,7 @@ def blockModule_setLogger(self,mode = 'debug'):
         else:
             mModule.log.setLevel(mModule.logging.INFO)
             
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
         
@@ -11740,14 +11741,14 @@ def blockScale_bake(self,sizeMethod = 'axisSize',force=False,):
                             if _d.get('axisSize'):
                                 try:
                                     DIST.scale_to_axisSize(_d['str'],_d['axisSize'])
-                                except Exception,err:
+                                except Exception as err:
                                     log.warning(cgmGEN.logString_msg(_str_func, "{0} | failed to axisSize {1}".format(_d['str'],err)))
                         elif sizeMethod in ['bb','bbSize']:
                             if _d.get('bbSize'):
                                 try:
                                     #reload(TRANS)
                                     TRANS.scale_to_boundingBox(_d['str'],_d['bbSize'],freeze=False)
-                                except Exception,err:
+                                except Exception as err:
                                     log.warning(cgmGEN.logString_msg(_str_func, "{0} | failed to axisSize {1}".format(_d['str'],err)))
                 """
                 if ii == 0:
@@ -11779,7 +11780,7 @@ def blockScale_bake(self,sizeMethod = 'axisSize',force=False,):
         rootShape_update(self)
         #pprint.pprint(vars())
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
         
@@ -11807,7 +11808,7 @@ def rootShape_update(self):
         self.addAttr('cgmColorLock',True,lock=True,hidden=True)          
         
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def get_orienationDict(self,orienation='zyx'):
@@ -11839,7 +11840,7 @@ def get_orienationDict(self,orienation='zyx'):
         _d['stringUpNeg'] = _mOrientation.p_upNegative.p_string
         _d['stringOutNeg'] = _mOrientation.p_outNegative.p_string        
         return _d
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
 
 def shapes_castTest(self,orient= 'zyx'):
@@ -11848,7 +11849,7 @@ def shapes_castTest(self,orient= 'zyx'):
         return
         
     if not is_skeleton(self):
-        raise ValueError,"Must be skeletonized | {0}".format(self)
+        raise ValueError("Must be skeletonized | {0}".format(self))
     
     mFac = self.asRigFactory()
     
@@ -11938,7 +11939,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
     if targets is None:
         ml_targets = mRigNull.msgList_get('rigJoints',asMeta = True)
         if not ml_targets:
-            raise ValueError,"No rigJoints connected. NO targets offered"
+            raise ValueError("No rigJoints connected. NO targets offered")
     else:
         ml_targets = cgmMeta.validateObjListArg(targets,'cgmObject')
 
@@ -12113,7 +12114,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
                     log.debug("|{0}| >> vector: {1}".format(_str_func,vec))                                        
                     p1 = POS.get(_loftCurves[0])
                     #p1 = mc.pointOnSurface(_planar,parameterU=.5,parameterV=.5,position=True)#l_pos[i]                    
-                except Exception,err:
+                except Exception as err:
                     log.debug(err)
                     try:
                         vec
@@ -12207,7 +12208,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
                             l_edges.extend(GEO.get_edgeLoopFromVerts(vtxs))
     
                         mc.polySoftEdge(l_edges, a=0, ch=0)
-                    except Exception,err:print err
+                    except Exception as err:print(err)
                 
                 mc.select(cl=1)
                 mc.delete([end,mid1,mid2])
@@ -12386,7 +12387,7 @@ def snapShot_controls_get(self,blockMirror=False,define=True,form=True,prerig=Tr
             return ml_controls,md_sourceAll,ml_targetControls,md_targetAll
         return ml_controls,md_sourceAll
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def snapShot_get(self):
@@ -12409,7 +12410,7 @@ def snapShot_get(self):
         
         log.debug(cgmGEN.logString_sub(_str_func, 'Gather Dat'))
         
-        for datSet,dat in md_ctrls.iteritems():
+        for datSet,dat in list(md_ctrls.items()):
             md_dat[datSet] = {}
             try:_progressBar = CGMUI.doStartMayaProgressBar(stepMaxValue=len(dat))
             except:_progressBar = None
@@ -12456,7 +12457,7 @@ def snapShot_get(self):
         #pprint.pprint(md_dat)
         self.__snapShotDat = md_dat
         return md_dat   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
     finally:
         if _progressBar:CGMUI.doEndMayaProgressBar()
@@ -12529,7 +12530,7 @@ def snapShot_set(self, md_dat = None, sizeMethod = 'bb', mainHandleNormalizeScal
             
             for ii in range(3):#3 loop to account for parentage
                 log.info(cgmGEN.logString_sub(_str_func, 'Push: {0}'.format(ii)))
-                for i,mDat in mDatSet.iteritems():                    
+                for i,mDat in list(mDatSet.items()):                    
 
                     mCtrl = mDat.get('mCtrl')
                     if not mCtrl:
@@ -12623,7 +12624,7 @@ def snapShot_set(self, md_dat = None, sizeMethod = 'bb', mainHandleNormalizeScal
         #pprint.pprint(vars())
         return True           
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
     finally:
         CGMUI.doEndMayaProgressBar()
@@ -12740,14 +12741,14 @@ def blockScale_bake(self,sizeMethod = 'axisSize',force=False,):
                             if _d.get('axisSize'):
                                 try:
                                     DIST.scale_to_axisSize(_d['str'],_d['axisSize'])
-                                except Exception,err:
+                                except Exception as err:
                                     log.warning(cgmGEN.logString_msg(_str_func, "{0} | failed to axisSize {1}".format(_d['str'],err)))
                         elif sizeMethod in ['bb','bbSize']:
                             if _d.get('bbSize'):
                                 try:
-                                    reload(TRANS)
+                                    importlib.reload(TRANS)
                                     TRANS.scale_to_boundingBox(_d['str'],_d['bbSize'],freeze=False)
-                                except Exception,err:
+                                except Exception as err:
                                     log.warning(cgmGEN.logString_msg(_str_func, "{0} | failed to axisSize {1}".format(_d['str'],err)))
                 """
                 if ii == 0:
@@ -12779,7 +12780,7 @@ def blockScale_bake(self,sizeMethod = 'axisSize',force=False,):
         rootShape_update(self)
         #pprint.pprint(vars())
         return True   
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 
@@ -13033,7 +13034,7 @@ def controller_walkChain(self,ml_chain,state='extra'):
             ml_walked.append(mHandle)
             
             ATTR.multi_append(self.mNode, '{0}Stuff'.format(state), mController.mNode)
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1} | {2} | {3}".format(i,mController.mNode,type(mController),err))
         
         
@@ -13121,7 +13122,7 @@ def controller_wireHandles(self,ml_handles,state='extra'):
             try:
                 ATTR.connect("{0}.visProximityMode".format(self.mNode),
                              "{0}.visibilityMode".format(mObj.mNode))    
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         ATTR.multi_append(self.mNode, '{0}Stuff'.format(state), mObj.mNode)
         

@@ -19,17 +19,17 @@ def FindAndRemapTextures():
             match = SequenceMatcher(None,texturePath, content).find_longest_match(0,len(texturePath), 0, len(content))
             newPath = content + texturePath[match.size+match.a:]
             if os.path.exists(newPath):
-                print "changing %s.fileTexturePath to %s" % (f, newPath)
+                print(("changing %s.fileTexturePath to %s" % (f, newPath)))
                 mc.setAttr( '%s.fileTextureName' % f, newPath, type='string' )
             else:
                 match = SequenceMatcher(None,texturePath, export).find_longest_match(0,len(texturePath), 0, len(export))
                 newPath = export + texturePath[match.size+match.a:]
                 
                 if os.path.exists(newPath):
-                    print "changing %s.fileTexturePath to %s" % (f, newPath)
+                    print(("changing %s.fileTexturePath to %s" % (f, newPath)))
                     mc.setAttr( '%s.fileTextureName' % f, newPath, type='string' )
                 else:
-                    print "Can't find %s" % texturePath
+                    print(("Can't find %s" % texturePath))
 
 def LocalizeTextures():
     optionVarProjectStore       = cgmMeta.cgmOptionVar("cgmVar_projectCurrent", varType = "string")
@@ -55,5 +55,5 @@ def LocalizeTextures():
             if os.path.normpath(textureName) != os.path.normpath(newFilename):
                 copyfile(textureName, newFilename)
             
-                print 'remapped %s to %s' % (textureName, newFilename)
+                print(('remapped %s to %s' % (textureName, newFilename)))
                 mc.setAttr('%s.fileTextureName' % f, newFilename, type='string')

@@ -1,9 +1,9 @@
 
 from cgm.lib.zoo.zooPy.vectors import Vector, Matrix, Axis, AX_X, AX_Y, AX_Z
 
-from rigUtils import MATRIX_ROTATION_ORDER_CONVERSIONS_FROM, MATRIX_ROTATION_ORDER_CONVERSIONS_TO
-from mayaDecorators import d_unifyUndo
-import apiExtensions
+from .rigUtils import MATRIX_ROTATION_ORDER_CONVERSIONS_FROM, MATRIX_ROTATION_ORDER_CONVERSIONS_TO
+from .mayaDecorators import d_unifyUndo
+from . import apiExtensions
 
 import maya
 from maya.cmds import *
@@ -560,7 +560,7 @@ def setupMirroringFromNames( mandatoryTokens=('control', 'ctrl') ):
 				leftT, rightT = str( controlPairs[0][1] ), str( controlPairs[1][1] )
 
 				ControlPair.Create( leftT, rightT )
-				print 'creating a control pair on %s -> %s' % (leftT, rightT)
+				print(('creating a control pair on %s -> %s' % (leftT, rightT)))
 
 
 #end

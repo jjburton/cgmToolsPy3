@@ -121,7 +121,7 @@ def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):
     log.debug("|{0}| >> ObjList: {1} ".format(_str_func,objList))             
     _len = len(objList)
     if _len < 3:
-        raise ValueError,"|{0}| >> Need at least 3 objects".format(_str_func)
+        raise ValueError("|{0}| >> Need at least 3 objects".format(_str_func))
     
     _pos_start = POS.get(objList[0])
     _pos_end = POS.get(objList[-1])    
@@ -139,7 +139,7 @@ def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):
     elif curve == 'target':
         _type = VALID.get_mayaType(objList[-1])
         if _type != 'nurbsCurve':
-            raise ValueError,"Last selected must be curve. Found: '{}' | type: '{}'".format(objList[-1], _type)
+            raise ValueError("Last selected must be curve. Found: '{}' | type: '{}'".format(objList[-1], _type))
         curveBuffer = objList.pop(-1)
         _len -=1
 
@@ -151,7 +151,7 @@ def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):
         knot_len = len(l_pos)+3-1		
         curveBuffer = mc.curve (d=3, ep = l_pos, k = [i for i in range(0,knot_len)], os=True)
     else:
-        raise ValueError,"|{0}| >>unknown curve setup: {1}".format(_str_func,curve)
+        raise ValueError("|{0}| >>unknown curve setup: {1}".format(_str_func,curve))
     
     if mode == 'even':
         if curve == 'linear':
@@ -190,8 +190,8 @@ def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):
         
         
     else:
-        try:raise ValueError,"{0} >> mode not supported: {1}".format(sys._getframe().f_code.co_name, mode)
-        except:raise ValueError,"mode not supported: {0}".format(mode)
+        try:raise ValueError("{0} >> mode not supported: {1}".format(sys._getframe().f_code.co_name, mode))
+        except:raise ValueError("mode not supported: {0}".format(mode))
         
         
     if curveBuffer and curve != 'target':
@@ -227,16 +227,16 @@ def dag_sort(objList = None):
             for c in l:
                 try:
                     mc.reorder(c,front=True)
-                except Exception,err:
-                    print err
+                except Exception as err:
+                    print(err)
     
     if l_world:
         l_world.sort()
         for o in l_world:
             try:
                 mc.reorder(o,front=True)
-            except Exception,err:
-                print err            
+            except Exception as err:
+                print(err)            
 
 
 

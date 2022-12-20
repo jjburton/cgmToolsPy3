@@ -100,9 +100,9 @@ def set_random(node=None, posLocal = False, rotLocal = False, posWorld = False, 
              
     
     if posLocal + posWorld + rotLocal + rotWorld + scale + scaleUniform + rotateOrder == 0:
-        raise ValueError,"No options specified"
+        raise ValueError("No options specified")
     if relative:
-        raise NotImplemented,"relative not implemented"
+        raise NotImplemented("relative not implemented")
     
     if posLocal or posWorld:
         _pos = [random.uniform(posRange[0],posRange[1]) for i in range(3)]
@@ -135,7 +135,7 @@ def set_random(node=None, posLocal = False, rotLocal = False, posWorld = False, 
         ATTR.set(_node,'scale',_scale)
         
     if rotateOrder:
-        ATTR.set(_node,'rotateOrder', random.choice(range(1,5)))
+        ATTR.set(_node,'rotateOrder', random.choice(list(range(1,5))))
         
     
     return
@@ -567,7 +567,7 @@ def scale_to_boundingBox_relative(node = None, box = [1,1,1],shapes=True,freeze=
         else:
             try:_l_scale.append( box[i]/v )
             except:
-                print 'fail'
+                print('fail')
                 _l_scale.append( v ) 
     
     mc.scale(_l_scale[0],_l_scale[1],_l_scale[2], node, relative = True)
@@ -618,7 +618,7 @@ def scaleLocal_set(node=None, new_scale = [1,1,1]):
         try:
             mc.setAttr("{}.s{}".format(node,'xyz'[i]),v)
             #ATTR.set(_node,'s{}'.format('xyz'[i]),v)
-        except Exception,err:
+        except Exception as err:
             log.error(_str_func + " | {} | {} | {}".format(node,v,err))
     
 def scaleLossy_get(node=None, asEuclid = False):
@@ -694,7 +694,7 @@ def parent_set(node = None, parent = False):
             #try:scaleLocal_set(_res, scale)
             #except Exception,err2:
                 #log.error("Scale Fail: {}".format(err2))
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to parent '{1}' to '{2}' | err: {3}".format(_str_func, node,parent, err))
             pprint.pprint(vars())
             return node
@@ -707,7 +707,7 @@ def parent_set(node = None, parent = False):
             return mc.parent(node, world = True)[0]
         else:
             return node
-    raise ValueError,"Shouldn't have arrived here."
+    raise ValueError("Shouldn't have arrived here.")
 
 def parent_get(node = None, fullPath = True):
     """
@@ -1076,7 +1076,7 @@ def euclidVector3Arg(arg):
         if VALID.isListArg(arg) and len(arg) == 3:
             return EUCLID.Vector3(float(arg[0]),float(arg[1]),float(arg[2]))
         else:
-            raise ValueError,"|{0}| >> arg: {1}".format(_str_func,arg)
+            raise ValueError("|{0}| >> arg: {1}".format(_str_func,arg))
     return arg
     
 def transformDirection(node = None, v = None, scale= False):
@@ -1358,7 +1358,7 @@ def worldMatrix_get(node = None, asEuclid = False):
     node = VALID.mNodeString(node)
 
     try:matrix_a = mc.xform( node,q=True,m=True, ws=True )
-    except Exception, e:
+    except Exception as e:
         if not VALID.is_transform(node):
             log.error("|{0}| >> Not a transform: '{1}'".format(_str_func,node))                        
             return False
@@ -1366,7 +1366,7 @@ def worldMatrix_get(node = None, asEuclid = False):
         log.error("|{0}| >> Failed: '{1}'".format(_str_func,node))
         #for arg in e.args:
             #log.error(arg)
-        raise Exception,e 
+        raise Exception(e) 
         
     if not asEuclid:
         return matrix_a

@@ -23,7 +23,7 @@ try:
     from cgm.core.cgmPy import validateArgs as VALID
     import cgm.core.classes.NodeFactory as NODEFACTORY
 except ImportError:
-    raise StandardError('Test can only be run in Maya')
+    raise Exception('Test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -221,9 +221,9 @@ class Test_argsToNodes(unittest.TestCase):
             assert str(plugCall[0]) == d_return['ml_outPlugs'][-1].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
             assert mObj.inverseMultThree == 3* -mObj.tx,"Inversion doesn't match"
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Inversion mult 3 Failure! '%s'"%(error))
-            raise StandardError,error      
+            raise Exception(error)      
     
         try:#Simple inversion 
             arg = "%s.simpleInversion = -%s.tx"%(str_obj,str_obj)
@@ -238,9 +238,9 @@ class Test_argsToNodes(unittest.TestCase):
             assert str(plugCall[0]) == d_return['ml_outPlugs'][0].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
             assert mObj.simpleInversion == -mObj.tx,"Inversion doesn't match"
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Simple inversion Failure! '%s'"%(error))
-            raise StandardError,error  
+            raise Exception(error)  
     
         try:#Simple Average 
             arg = "%s.sumAverage1 = 4 >< 4 >< 4"%(str_obj)
@@ -252,9 +252,9 @@ class Test_argsToNodes(unittest.TestCase):
     
             assert mObj.sumAverage1 == 4,"Average is wrong: 4 != %s"%mObj.sumAverage1
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Simple sum Failure! '%s'"%(error))
-            raise StandardError,error      
+            raise Exception(error)      
     
         try:#Test direct connect
             arg = "%s.directConnect = %s.ty"%(str_obj,str_obj)
@@ -262,9 +262,9 @@ class Test_argsToNodes(unittest.TestCase):
             log.debug(mc.listConnections("%s.directConnect"%str_obj,source = True,scn = True))
             plugCall = mc.listConnections("%s.directConnect"%(mObj.mNode),plugs=True,scn = True)	
             assert plugCall[0] == '%s.translateY'%mObj.getShortName(),log.error("Direct connect failed. Plug call:{0}".format(plugCall))
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Single Connect Failure! '%s'"%(error))
-            raise StandardError,error   
+            raise Exception(error)   
     
         try:#Multi direct connect
             arg = "%s.directConnect, %s.ry = %s.ty"%(str_obj,str_obj,str_obj)
@@ -276,9 +276,9 @@ class Test_argsToNodes(unittest.TestCase):
             log.debug(plugCall)
             assert plugCall[0] == '%s.translateY'%mObj.getShortName(),log.error("Direct connect failed: rotateY")
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Multi Connect Failure! '%s'"%(error))
-            raise StandardError,error  
+            raise Exception(error)  
     
         try:#Simple sum 
             mObj.tx = 1
@@ -296,9 +296,9 @@ class Test_argsToNodes(unittest.TestCase):
             assert str(plugCall[0]) == d_return['ml_outPlugs'][0].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
             assert mObj.sumResult1 == mObj.tx - mObj.ty - mObj.tz,"Sum doesn't match"
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Simple sum Failure! '%s'"%(error))
-            raise StandardError,error   
+            raise Exception(error)   
     
         try:#clamp 
             mObj.tz = 3
@@ -315,9 +315,9 @@ class Test_argsToNodes(unittest.TestCase):
             mObj.tz = .5
             assert mObj.clampResult == .5,"Value 2 fail"
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>Clamp fail! '%s'"%(error))
-            raise StandardError,error       
+            raise Exception(error)       
     
         try:#setRange 
             mObj.tz = 5
@@ -334,9 +334,9 @@ class Test_argsToNodes(unittest.TestCase):
             mObj.tz = 10
             assert mObj.setRangeResult == 1,"Value 2 fail"
     
-        except StandardError,error:
+        except Exception as error:
             log.error("test_argsToNodes>>setRangeResult failure! '%s'"%(error))
-            raise StandardError,error   
+            raise Exception(error)   
     
         if deleteObj:mObj.delete()
         """

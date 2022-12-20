@@ -9,20 +9,20 @@ from cgm.lib.zoo.zooPy import presets
 from cgm.lib.zoo.zooPy.path import Path
 from cgm.lib.zoo.zooPy.misc import Callback
 
-from baseMelUI import *
-from melUtils import mel
-from mayaDecorators import d_showWaitCursor
+from .baseMelUI import *
+from .melUtils import mel
+from .mayaDecorators import d_showWaitCursor
 
-import skeletonBuilderPresets
-import baseRigPrimitive
-import spaceSwitchingUI
-import skinWeightsUI
-import rigPrimitives
-import meshUtils
-import baseMelUI
-import presetsUI
-import rigUtils
-import control
+from . import skeletonBuilderPresets
+from . import baseRigPrimitive
+from . import spaceSwitchingUI
+from . import skinWeightsUI
+from . import rigPrimitives
+from . import meshUtils
+from . import baseMelUI
+from . import presetsUI
+from . import rigUtils
+from . import control
 
 Axis = rigUtils.Axis
 
@@ -412,7 +412,7 @@ class CommonButtonsLayout(MelColumn):
 	def on_drive( self, e=None ):
 		selParts = rigPrimitives.getPartsFromObjects( cmd.ls( sl=True ) )
 		if len( selParts ) <= 1:
-			print 'WARNING :: please select two or more parts - the first part selected will drive consequent parts'
+			print('WARNING :: please select two or more parts - the first part selected will drive consequent parts')
 			return
 
 		firstPart = selParts.pop( 0 )
@@ -521,10 +521,10 @@ class BuildPartLayout(MelFormLayout):
 		              ac=((self.UI_argsLayout, 'left', 0, self.UI_create)) )
 	def getKwargDict( self ):
 		kwargs = {}
-		for arg, ui in self.kwarg_UIs.iteritems():
+		for arg, ui in list(self.kwarg_UIs.items()):
 			kwargs[ arg ] = ui.getValue()
 
-		if kwargs.has_key( 'parent' ):
+		if 'parent' in kwargs:
 			if not kwargs[ 'parent' ]:
 				kwargs[ 'parent' ] = None
 
@@ -532,7 +532,7 @@ class BuildPartLayout(MelFormLayout):
 
 		return kwargs
 	def rePopulate( self ):
-		for argName, ui in self.kwarg_UIs.iteritems():
+		for argName, ui in list(self.kwarg_UIs.items()):
 			if isinstance( ui, MelOptionMenu_SkeletonPart ):
 				ui.populate()
 	def on_create( self, e ):
@@ -584,7 +584,7 @@ class BuildingLayout(MelScrollLayout):
 	def rePopulatePresets( self ):
 		self.UI_presetsCol.clear()
 
-		for locale, presets in skeletonBuilderPresets.listPresets().iteritems():
+		for locale, presets in list(skeletonBuilderPresets.listPresets().items()):
 			for preset in presets:
 				SkeletonPresetLayout( self.UI_presetsCol, preset )
 	def on_createPreset( self, *a ):
@@ -631,7 +631,7 @@ class EditPartLayout(MelFormLayout):
 		for arg in self.ARGS_TO_HIDE:
 			buildKwargs.pop( arg, None )
 
-		for arg, argValue in buildKwargs.iteritems():
+		for arg, argValue in list(buildKwargs.items()):
 			argLbl = MelLabel( argsForm, label=names.camelCaseToNice( arg ) )
 
 			#determine the function to use for building the UI for the arg
@@ -672,7 +672,7 @@ class EditPartLayout(MelFormLayout):
 		          (argsForm, 'right', 0, reButt)) )
 	def getBuildKwargs( self ):
 		kwargs = {}
-		for argName, widget in self.argUIs.iteritems():
+		for argName, widget in list(self.argUIs.items()):
 			kwargs[ argName ] = widget.getValue()
 
 		return kwargs
@@ -812,7 +812,7 @@ class RigPartLayout(MelFormLayout):
 			if rigMethod:
 				kwargs[ 'rigMethodName' ] = rigMethod
 
-		for argName, widget in self.argUIs.iteritems():
+		for argName, widget in list(self.argUIs.items()):
 			kwargs[ argName ] = widget.getValue()
 
 		self.UI_options.enable( not disableState )
@@ -1046,16 +1046,16 @@ class SkeletonBuilderWindow(BaseMelWindow):
 	def on_reboot( self, *a ):
 		self.close()
 
-		import mayaDependencies
+		from . import mayaDependencies
 		mayaDependencies.flush()
 
-		import skeletonBuilderUI
+		from . import skeletonBuilderUI
 		skeletonBuilderUI.SkeletonBuilderWindow()
 	def on_loadMirrorTool( self, *a ):
 		#check the rig to see if its been setup for pose mirroring
 		#rigPrimitives.setupMirroring()
 
-		import poseSymUI
+		from . import poseSymUI
 		poseSymUI.PoseSymWindow()
 
 SkeletonBuilderUI = SkeletonBuilderWindow

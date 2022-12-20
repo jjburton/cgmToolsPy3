@@ -1,11 +1,11 @@
 
 from maya.cmds import *
-from baseMelUI import *
-from melUtils import printWarningStr
-from control import attrState, LOCK_HIDE, Axis
-from mayaDecorators import d_unifyUndo
+from .baseMelUI import *
+from .melUtils import printWarningStr
+from .control import attrState, LOCK_HIDE, Axis
+from .mayaDecorators import d_unifyUndo
 from names import camelCaseToNice
-from apiExtensions import getNodesCreatedBy
+from .apiExtensions import getNodesCreatedBy
 
 
 class DynamicChain(object):

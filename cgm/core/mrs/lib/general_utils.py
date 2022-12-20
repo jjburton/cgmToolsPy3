@@ -135,7 +135,7 @@ def validate_stateArg(stateArg = None,):
     _str_func = 'valid_stateArg'
     _failMsg = "|{0}| >> Invalid: {1} | valid: {2}".format(_str_func,stateArg,BLOCKSHARED._l_blockStates)
     
-    if type(stateArg) in [str,unicode]:
+    if type(stateArg) in [str,str]:
         stateArg = stateArg.lower()
         if stateArg in BLOCKSHARED._l_blockStates:
             stateIndex = BLOCKSHARED._l_blockStates.index(stateArg)
@@ -246,14 +246,14 @@ def get_uiScollList_dat(arg = None, tag = None, counter = 0, blockList=None, str
             arg = get_scene_block_heirarchy(True)
             
         if not isinstance(arg,dict):
-            raise ValueError, "need dict: {0}".format(arg)
+            raise ValueError("need dict: {0}".format(arg))
         
         if blockList is None:
             blockList = []
         if stringList is None:
             stringList = []
             
-        l_keys = arg.keys()
+        l_keys = list(arg.keys())
         if not l_keys:
             return [],[]
             
@@ -376,13 +376,13 @@ def get_uiScollList_dat(arg = None, tag = None, counter = 0, blockList=None, str
                         print('> {0} '.format(mBlock.mNode))			                	            
                     else:
                         print('-'* counter + '> {0} '.format(mBlock.mNode) )"""	
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed: {0} | {1}".format(k, err))
                 log.error("List: {0}".format(_l_report))
                 
     
         return blockList,stringList
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
 
@@ -405,14 +405,14 @@ def get_uiModuleScollList_dat(arg = None, tag = None, counter = 0, blockList=Non
             arg = get_scene_module_heirarchy(True)
             
         if not isinstance(arg,dict):
-            raise ValueError, "need dict: {0}".format(arg)
+            raise ValueError("need dict: {0}".format(arg))
         
         if blockList is None:
             blockList = []
         if stringList is None:
             stringList = []
             
-        l_keys = arg.keys()
+        l_keys = list(arg.keys())
         if not l_keys:
             return [],[]
             
@@ -513,13 +513,13 @@ def get_uiModuleScollList_dat(arg = None, tag = None, counter = 0, blockList=Non
                         print('> {0} '.format(mBlock.mNode))			                	            
                     else:
                         print('-'* counter + '> {0} '.format(mBlock.mNode) )"""	
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed: {0} | {1}".format(k, err))
                 log.error("List: {0}".format(_l_report))
                 
     
         return blockList,stringList
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
         
@@ -536,7 +536,7 @@ def walk_module_heirarchy(mModule,dataDict = None, asMeta = True,l_processed = N
     log.debug("|{0}| >> mModule: {1}".format(_str_func,mModule.mNode)  )      
     
     if not mModule:
-        raise ValueError,"No block"
+        raise ValueError("No block")
     
     if dataDict is None:
         dataDict = {}
@@ -591,7 +591,7 @@ def walk_rigBlock_heirarchy(mBlock,dataDict = None, asMeta = True,l_processed = 
     log.debug("|{0}| >> mBlock: {1}".format(_str_func,mBlock.mNode)  )      
     
     if not mBlock:
-        raise ValueError,"No block"
+        raise ValueError("No block")
     
     if dataDict is None:
         dataDict = {}
@@ -685,7 +685,7 @@ def get_rigBlock_heirarchy_context(mBlock, context = 'below', asList = False, re
                 _res.update(walk_rigBlock_heirarchy(mObj))
 
     else:
-        raise ValueError,"|{0}| >> unknown context: {1}".format(_str_func,context)
+        raise ValueError("|{0}| >> unknown context: {1}".format(_str_func,context))
         
     if report:
         log.debug("|{0}| >> report...".format(_str_func))        
@@ -708,7 +708,7 @@ def sort_blockList_by_parentLen(ml = []):
             
         d[_len].append(mObj)
     
-    _keys = d.keys()
+    _keys = list(d.keys())
     _keys.sort()
     _res = []
     for k in _keys:
@@ -745,7 +745,7 @@ def get_puppet_heirarchy_context(mModule, context = 'below', asList = False, rep
     _res = {}
     
     if context == 'scene':
-        raise NotImplementedError,'{0} || scene mode not done'.format(_str_func)
+        raise NotImplementedError('{0} || scene mode not done'.format(_str_func))
         _res = get_scene_block_heirarchy()
         
     elif context == 'root':
@@ -777,7 +777,7 @@ def get_puppet_heirarchy_context(mModule, context = 'below', asList = False, rep
                 _res.update(walk_module_heirarchy(mObj))
 
     else:
-        raise ValueError,"|{0}| >> unknown context: {1}".format(_str_func,context)
+        raise ValueError("|{0}| >> unknown context: {1}".format(_str_func,context))
         
     if report:
         log.debug("|{0}| >> report...".format(_str_func))        
@@ -803,14 +803,14 @@ def print_heirarchy_dict(arg = None, tag = None, counter = 0):
     TypeError | if not passed a dict
     '''
     if isinstance(arg,dict):
-        l_keys = arg.keys()
+        l_keys = list(arg.keys())
         _int = int(counter+1/2)
         if counter == 0:
-            print('# {0} '.format(tag) + cgmGEN._str_hardLine)	
+            print(('# {0} '.format(tag) + cgmGEN._str_hardLine))	
         elif counter == 1:
-            print('{0} '.format(tag))	
+            print(('{0} '.format(tag)))	
         else:
-            print(' '* (_int*2) + ' |'+'_'* 2 + ' {0} '.format(tag))
+            print((' '* (_int*2) + ' |'+'_'* 2 + ' {0} '.format(tag)))
             #print('-'* counter + '> {0} '.format(tag))		            
         #else:
             #print(' '* _int + '|||'+'_'* _int + ' {0} '.format(tag) + cgmGEN._str_subLine)		
@@ -826,9 +826,9 @@ def print_heirarchy_dict(arg = None, tag = None, counter = 0):
             print_heirarchy_dict(buffer,str_key,counter)
     else:
         if counter == 0:
-            print('{0} : '.format(tag) + str(arg))			                
+            print(('{0} : '.format(tag) + str(arg)))			                
         else:
-            print(' '* counter + ' {0} : '.format(tag) + str(arg))			                
+            print((' '* counter + ' {0} : '.format(tag) + str(arg)))			                
 
     return
 
@@ -859,7 +859,7 @@ def patch_templateToForm():
                     ATTR.set(o,a,'form')
 
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
     finally:
         CGMUI.doEndMayaProgressBar()
@@ -942,7 +942,7 @@ def get_modules_dat(update = False):
                 key = '.'.join(_splitUp + [name])    
                 if key:
                     log.debug("|{0}| >> ... {1}".format(_str_func,key))                      
-                    if name not in _d_modules.keys():
+                    if name not in list(_d_modules.keys()):
                         _d_files[key] = os.path.join(root,f)
                         _d_import[name] = key
                         _l_cat.append(name)
@@ -952,7 +952,7 @@ def get_modules_dat(update = False):
                             _d_modules[name] = module
                             #if not is_buildable(module):
                                 #_l_unbuildable.append(name)
-                        except Exception, e:
+                        except Exception as e:
                             log.warning("|{0}| >> Module failed: {1}".format(_str_func,key))
                             log.error(e)
                             cgmGEN.cgmExceptCB(Exception,e,msg=vars())
@@ -972,13 +972,13 @@ def get_modules_dat(update = False):
         log.debug("|{0}| >> DUPLICATE MODULES....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
-    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),_path))     
+        raise Exception("Must resolve")
+    log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(list(_d_files.keys())),_path))     
     if _l_unbuildable and _b_debug:
         log.debug(cgmGEN._str_subLine)
         log.debug("|{0}| >> ({1}) Unbuildable modules....".format(_str_func,len(_l_unbuildable)))
         for m in _l_unbuildable:
-            print(">>>    " + m) 
+            print((">>>    " + m)) 
             
     CGM_RIGBLOCK_DAT = _d_modules, _d_categories, _l_unbuildable
     return _d_modules, _d_categories, _l_unbuildable

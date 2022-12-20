@@ -7,19 +7,19 @@ from cgm.lib.zoo.zooPy.names import Parity, Name, camelCaseToNice, stripParity
 from maya.cmds import *
 from maya import cmds as cmd
 
-from rigUtils import *
-from control import *
-from skeletonBuilder import *
-from mayaDecorators import d_unifyUndo, d_showWaitCursor
-from melUtils import printInfoStr, printWarningStr, printErrorStr, referenceFile
+from .rigUtils import *
+from .control import *
+from .skeletonBuilder import *
+from .mayaDecorators import d_unifyUndo, d_showWaitCursor
+from .melUtils import printInfoStr, printWarningStr, printErrorStr, referenceFile
 
-import apiExtensions
-import skeletonBuilder
-import spaceSwitching
-import poseSym
-import control
+from . import apiExtensions
+from . import skeletonBuilder
+from . import spaceSwitching
+from . import poseSym
+from . import control
 
-from triggered import Trigger, setKillState
+from .triggered import Trigger, setKillState
 
 AXES = Axis.BASE_AXES
 
@@ -225,13 +225,13 @@ class RigPart(typeFactories.trackableClassFactory()):
 					self.getSkeletonPart()
 
 				#this isn't fatal, although its not good
-				except RigPartError, x:
+				except RigPartError as x:
 					printWarningStr( str( x ) )
 	def __unicode__( self ):
-		return u"%s_%d( %r )" % (self.__class__.__name__, self.getIdx(), self._container)
+		return "%s_%d( %r )" % (self.__class__.__name__, self.getIdx(), self._container)
 	__str__ = __unicode__
 	def __repr__( self ):
-		return repr( unicode( self ) )
+		return repr( str( self ) )
 	def __hash__( self ):
 		'''
 		the hash for the container mobject uniquely identifies this rig control

@@ -1,5 +1,5 @@
 
-from baseRigPrimitive import *
+from .baseRigPrimitive import *
 
 
 class Root(PrimaryRigPart):

@@ -85,14 +85,14 @@ def randomize(prefix='mk_head',reset = False, eyes = True):
                 d_vs[k] = random.randint(0,100) * .01
             
         
-        for k1,k2 in d_onlyPairs.items():
+        for k1,k2 in list(d_onlyPairs.items()):
             _pair = [k1,k2]
             if d_vs.get(k1) and d_vs.get(k2):
                 d_vs[_pair[random.randint(0,1)]] = 0.0
             
             
         #Loop through and set the values ---------------------------------------
-        for k,v in d_vs.iteritems():
+        for k,v in list(d_vs.items()):
             log.info("{0} | {1}".format(k,v))            
             ATTR.set(mBSNode.mNode, k, v)
         
@@ -231,7 +231,7 @@ def headRig_connectToBody(*args, **kws):
                               'ik_cog':'cog_anim',
                               }
             self.md_objs = {}
-            for k in _d_stuffToFind.keys():
+            for k in list(_d_stuffToFind.keys()):
                 _obj = cgmValid.objString(arg=_d_stuffToFind[k], noneValid=True, 
                                           calledFrom=self._str_funcName)
                 if not _obj:
@@ -259,11 +259,11 @@ def headRig_connectToBody(*args, **kws):
                 _mi_bodyPuppet.msgList_connect('eyeLook',ml_eyeLooks)#...store to the new one
                 for mObj in ml_eyeLooks:
                     mObj.connectParentNode(_mi_bodyPuppet,'puppet')
-            except Exception,error:raise Exception,"Eye look transfer fail | error: {0}".format(error)
+            except Exception as error:raise Exception("Eye look transfer fail | error: {0}".format(error))
             
             try:#FaceDeform --------------------------------------------------------------------
                 _mi_headModule.faceDeformNull.parent = _mi_bodyPuppet.masterNull.deformGroup
-            except Exception,error:raise Exception,"Geo | error: {0}".format(error)  
+            except Exception as error:raise Exception("Geo | error: {0}".format(error))  
             
         def _fncStep_parenting_(self):
             """
@@ -276,21 +276,21 @@ def headRig_connectToBody(*args, **kws):
             try:#Geo --------------------------------------------------------------------
                 for mObj in _mi_headPuppet.masterNull.geoGroup.getChildren(asMeta = True):
                     mObj.parent = _mi_bodyPuppet.masterNull.geoGroup
-            except Exception,error:raise Exception,"Geo | error: {0}".format(error)    
+            except Exception as error:raise Exception("Geo | error: {0}".format(error))    
             
             try:#Face Rig/gui --------------------------------------------------------------------
                 for k in ['faceGui','faceCam']:
                     rigging.doParentReturnName(self.md_objs[k].mNode, _mi_bodyPuppet.masterNull.noTransformGroup.mNode)
-            except Exception,error:raise Exception,"Face Rig/GUI | error: {0}".format(error)              
+            except Exception as error:raise Exception("Face Rig/GUI | error: {0}".format(error))              
             
             try:#to Master control --------------------------------------------------------------------
                 for k in ['world_eyeLook','world_leftEye','world_rightEye','SDKface','SDKcustomize']:
                     rigging.doParentReturnName(self.md_objs[k].mNode, _mi_bodyMasterAnim.mNode)
-            except Exception,error:raise Exception,"...to master Control | error: {0}".format(error)         
+            except Exception as error:raise Exception("...to master Control | error: {0}".format(error))         
             
             try:#Skeleton --------------------------------------------------------------------
                 rigging.doParentReturnName(self.md_objs['joint_faceRigHead'].mNode, self.md_objs['joint_bodyHead'].mNode)
-            except Exception,error:raise Exception,"...to master Control | error: {0}".format(error)  
+            except Exception as error:raise Exception("...to master Control | error: {0}".format(error))  
             
             try:#Object Sets --------------------------------------------------------------------
                 _mi_bodyPuppet = self.md_objs['BodyPuppet']
@@ -298,7 +298,7 @@ def headRig_connectToBody(*args, **kws):
                 for k in ['l_eyeModule','r_eyeModule','headModule']:
                     _mi_bodyPuppet.puppetSet.addObj(self.md_objs[k].rigNull.moduleSet.mNode)
                 
-            except Exception,error:raise Exception,"...to master Control | error: {0}".format(error)   
+            except Exception as error:raise Exception("...to master Control | error: {0}".format(error))   
             
         def _fncStep_repair_(self):
             """
@@ -310,11 +310,11 @@ def headRig_connectToBody(*args, **kws):
                 _mi_bodyPuppet = self.md_objs['BodyPuppet']
                 _mi_bodyPuppet._UTILS.mirrorSetup_verify(_mi_bodyPuppet,'anim')
                 
-            except Exception,error:raise Exception,"...reindex | error: {0}".format(error)   
+            except Exception as error:raise Exception("...reindex | error: {0}".format(error))   
 
             try:#Vis stuff? --------------------------------------------------------------------
                 self.log_toDo('Vis stuff?')
-            except Exception,error:raise Exception,"...to vis stuff| error: {0}".format(error)   
+            except Exception as error:raise Exception("...to vis stuff| error: {0}".format(error))   
             
             try:#Register head as a space --------------------------------------------------------------------
                 for k in ['ik_eyes']:#'ik_l_eye','ik_r_eye'
@@ -323,17 +323,17 @@ def headRig_connectToBody(*args, **kws):
                     for k2 in ['joint_faceRigHead','ik_shoulders','ik_cog']:
                         try:
                             _dynGroup.addDynParent(self.md_objs[k2].mNode)
-                        except Exception,error:
-                            raise Exception,"Add parent {0} fail!".format(k2)
+                        except Exception as error:
+                            raise Exception("Add parent {0} fail!".format(k2))
                     try:
                         _dynGroup.rebuild()
-                    except Exception,error:
-                        raise Exception,"Rebuild fail! | {0}".format(error)                       
-            except Exception,error:raise Exception,"...register spaces | error: {0}".format(error)   
+                    except Exception as error:
+                        raise Exception("Rebuild fail! | {0}".format(error))                       
+            except Exception as error:raise Exception("...register spaces | error: {0}".format(error))   
             
             #self.report_toDo()
             try:#Vis stuff? --------------------------------------------------------------------
                 self.log_toDo('Delete Old groups, lock skeleton/geo')
-            except Exception,error:raise Exception,"...delete old stuff | error: {0}".format(error)  
+            except Exception as error:raise Exception("...delete old stuff | error: {0}".format(error))  
             
     return fncWrap(*args,**kws).go()

@@ -129,7 +129,7 @@ class Gui(object):
             logger.error('Not enough information was provided')
             return
         
-        print self.surf, self.axis, self.useNormal, self.pts
+        print((self.surf, self.axis, self.useNormal, self.pts))
         
         pl = PointLoft()
         pl.pts = self.pts
@@ -160,8 +160,8 @@ class PointLoft(object):
         ptDelta = self.ptDeltas[self.axis]
         axis = self.axisVectors[self.axis]
         
-        print 'axis %s' % axis
-        print 'ptDelta %s' % ptDelta
+        print(('axis %s' % axis))
+        print(('ptDelta %s' % ptDelta))
         
         moveCount = 0
         failCount = 0

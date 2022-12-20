@@ -88,7 +88,7 @@ class go(object):
             log.error("Not a cgmModule: '%s'"%moduleInstance)
             return 
         if not mc.objExists(moduleInstance.mNode):
-            raise Exception,"RigFactory.go.init Module instance no longer exists: '%s'"%moduleInstance
+            raise Exception("RigFactory.go.init Module instance no longer exists: '%s'"%moduleInstance)
 
         if type(controlTypes) is not list:controlTypes = [controlTypes]
 
@@ -114,7 +114,7 @@ class go(object):
                 if _bfr:
                     self._targetMesh = _bfr[0]
                 else:
-                    raise ValueError,"Need a mesh"
+                    raise ValueError("Need a mesh")
             self._ml_targetObjects = cgmMeta.validateObjListArg(targetObjects, cgmMeta.cgmObject,noneValid=True)
             self._ml_controlObjects = self._mi_formNull.msgList_get('controlObjects')
             log.info('initial...done')
@@ -138,9 +138,9 @@ class go(object):
             self._baseModuleDistance = self._returnBaseDistance()
             self._baseModuleThickness = self._returnBaseThickness()
             
-        except Exception,error:
+        except Exception as error:
             
-            raise Exception,"{0} >> [Module data gather fail] error: {1}".format(self._strShortName,error)	
+            raise Exception("{0} >> [Module data gather fail] error: {1}".format(self._strShortName,error))	
         
         #>>> We need to figure out which control to make
         #===================================================================================
@@ -161,12 +161,12 @@ class go(object):
                     self.d_controlBuildFunctions[key](self,**kws)
                 except:
                     self.d_controlBuildFunctions[key](**kws)
-            except Exception,error:
+            except Exception as error:
                 if kws:
                     cgmGeneral.walk_dat(kws)
                 for arg in error.args:
                     log.error(arg)
-                raise Exception,"controlBuildFunction Call {0} fail | error: {1}".format(key,error)
+                raise Exception("controlBuildFunction Call {0} fail | error: {1}".format(key,error))
             #if key not in self.d_returnControls:
                 #log.warning("Necessary control shape(s) was not built: '%s'"%key)
                 #raise Exception,"Did not get all necessary controls built"
@@ -178,16 +178,16 @@ class go(object):
                 storageInstance._md_fkControls = self.md_fkControls
                 storageInstance._md_controlPivots = self.md_returnPivots
 
-            except Exception,error:
+            except Exception as error:
                 log.error("storage fail]{%s}"%storageInstance) 
-                raise Exception,"Did not get all necessary controls built"
+                raise Exception("Did not get all necessary controls built")
 
         if self.ml_specialLocs:
             mc.delete([i_obj.mNode for i_obj in self.ml_specialLocs])
 
     def _validateControlArg(self,arg):
         """returns function"""
-        if arg in self.d_controlBuildFunctions.keys():
+        if arg in list(self.d_controlBuildFunctions.keys()):
             return True
         log.warning("_validateControlArg couldn't find: %s"%arg)
         return False
@@ -200,22 +200,22 @@ class go(object):
             l_objectsToDo = self.l_controlSnapObjects
 
         if type(d_kws) is not dict:
-            raise Exception, "_pushKWsDict>> 'd_kws' arg not a dict: %s"%d_kws
+            raise Exception("_pushKWsDict>> 'd_kws' arg not a dict: %s"%d_kws)
         
         log.debug("_pushKWsDict >> " + "="*50)
         if d_kws:
             #push d_kws
             if d_kws.get(i):
-                for k in d_kws[i].keys():
+                for k in list(d_kws[i].keys()):
                     log.debug("%s: %s"%(k,d_kws[i].get(k)))
                     self.__dict__[k] = d_kws[i].get(k)
             elif i == len(l_objectsToDo)-1 and d_kws.get(-1):
                 log.debug('last mode')
-                for k in d_kws[-1].keys():
+                for k in list(d_kws[-1].keys()):
                     log.debug("%s: %s"%(k,d_kws[-1].get(k)))			
                     self.__dict__[k] = d_kws[-1].get(k)
             else:
-                for k in d_kws['default'].keys():
+                for k in list(d_kws['default'].keys()):
                     log.debug("%s: %s"%(k,d_kws['default'].get(k)))			
                     self.__dict__[k] = d_kws['default'].get(k)
         log.debug("_pushKWsDict << " + "="*50)
@@ -245,7 +245,7 @@ class go(object):
                                                                   self.str_jointOrientation[0]+'+',
                                                                   pierceDepth=self.f_skinOffset*15) or {}
             if not d_return.get('hit'):
-                raise Exception,"go._verifyCastObjects>>failed to get hit to measure first distance"
+                raise Exception("go._verifyCastObjects>>failed to get hit to measure first distance")
             dist_cast = distance.returnDistanceBetweenPoints(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
             mi_lastLoc.__setattr__("t"+self.str_jointOrientation[0],dist_cast*.6)#Move
             pBuffer = mi_lastLoc.parent
@@ -270,11 +270,11 @@ class go(object):
             log.info("%s >> midIndex = %s"%(_str_funcName,midIndex))	    		
             try:
                 d_return = ShapeCast.returnBaseControlSize(self.l_controlSnapObjects[midIndex],self._targetMesh,axis=[self.str_jointOrientation[1],self.str_jointOrientation[2]])
-            except Exception,error:
+            except Exception as error:
                 log.info("cast objects: {0}".format(self.l_controlSnapObjects))
                 log.info("target mesh: {0}".format(self._targetMesh))
                 log.info("axis: {0}".format(self.str_jointOrientation))
-                raise Exception,"shapeCast.returnBaseControlSize send | {0}".format(error)
+                raise Exception("shapeCast.returnBaseControlSize send | {0}".format(error))
             #log.info("%s >> d_return = %s"%(_str_funcName,d_return))	    		
             #l_lengths = [d_return[k] for k in d_return.keys()]
             #log.info("%s >> l_lengths = %s"%(_str_funcName,l_lengths))	    				
@@ -283,7 +283,7 @@ class go(object):
         elif self._mi_module.getMessage('helper'):
             return distance.returnBoundingBoxSizeToAverage(self._mi_module.getMessage('helper'))
         else:
-            raise Exception, "%s >> Not enough info to figure out"%_str_funcName
+            raise Exception("%s >> Not enough info to figure out"%_str_funcName)
 
     def _returnBaseDistance(self):
         if len(self.l_controlSnapObjects) >1:
@@ -296,19 +296,19 @@ class go(object):
         try:
             try:#>>Info gather =====================================================================
                 mi_helper = self._mi_module.helper
-                if not mi_helper:raise Exception,"No suitable helper found"    
+                if not mi_helper:raise Exception("No suitable helper found")    
 
                 try:ml_uprLidHandles = self._mi_rigNull.msgList_get('handleJoints_upr')
-                except Exception,error:raise Exception,"Missing uprlid handleJoints | error: %s "%(error)
+                except Exception as error:raise Exception("Missing uprlid handleJoints | error: %s "%(error))
                 try:ml_lwrLidHandles = self._mi_rigNull.msgList_get('handleJoints_lwr',asMeta = False)
-                except Exception,error:raise Exception,"Missing lwrlid handleJoints | error: %s "%(error)  
+                except Exception as error:raise Exception("Missing lwrlid handleJoints | error: %s "%(error))  
                 log.info("%s >>> ml_uprLidHandles : %s "%(_str_funcName,[mObj.mNode for mObj in ml_uprLidHandles]))	
                 log.info("%s >>> ml_lwrLidHandles : %s"%(_str_funcName,[mObj.mNode for mObj in ml_lwrLidHandles]))		
 
                 __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_uprLidHandles]) /2 
                 log.info("%s >>> baseDistance : %s"%(_str_funcName,__baseDistance))				
-            except Exception,error:
-                raise Exception,"Gather Data fail! | error: %s"%(error)  
+            except Exception as error:
+                raise Exception("Gather Data fail! | error: %s"%(error))  
 
             ml_handleCrvs = []
             for mObj in ml_uprLidHandles + ml_lwrLidHandles:
@@ -333,15 +333,15 @@ class go(object):
                     ml_handleCrvs.append(mi_crv)
                     #>>Copy pivot
                     mi_crv.doCopyPivot(mObj.mNode)
-                except Exception,error:
-                    raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)  
+                except Exception as error:
+                    raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))  
 
             self.d_returnControls['l_handleCurves'] = [mObj.p_nameShort for mObj in ml_handleCrvs]
             self.md_ReturnControls['ml_handleCurves'] = ml_handleCrvs
             self._mi_rigNull.msgList_connect('handleCurves',ml_handleCrvs,'owner')
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
             return False
 
@@ -375,7 +375,7 @@ class go(object):
             self._mi_rigNull.connectChildNode(mi_crv,'shape_settings','owner')
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
             return False
 
@@ -403,12 +403,12 @@ class go(object):
 
             #>>>Combine the curves
             try:newCurve = curves.combineCurves(l_curvesToCombine) 
-            except Exception,error:raise Exception,"Failed to combine | error: %s"%error
+            except Exception as error:raise Exception("Failed to combine | error: %s"%error)
 
             mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_helper.mNode,False) )
 
             try:curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
-            except Exception,error:raise Exception,"Parent shape in place fail | error: %s"%error
+            except Exception as error:raise Exception("Parent shape in place fail | error: %s"%error)
 
             mc.delete(_str_trace)
 
@@ -425,7 +425,7 @@ class go(object):
 
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
             return False
 
@@ -460,7 +460,7 @@ class go(object):
 
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
             return False
 
@@ -485,7 +485,7 @@ class go(object):
             #if self.str_partType == "eyeball":
             mi_crv.__setattr__('t%s'%self.str_jointOrientation[2],0)
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> Find info | %s"%(_str_funcName,error) )
 
         try:    
@@ -504,7 +504,7 @@ class go(object):
 
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
             return False
 
@@ -540,7 +540,7 @@ class go(object):
                 d_return = RayCast.findMeshIntersectionFromObjectAxis(self._targetMesh,mi_crvBase.mNode)
                 if not d_return.get('hit'):
                     log.info(d_return)
-                    raise Exception,"build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode)
+                    raise Exception("build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode))
                 #log.debug("hitDict: %s"%d_return)
                 dist = distance.returnDistanceBetweenPoints(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*7)#self._baseModuleThickness/4
                 #log.debug("dist: %s"%dist)
@@ -551,8 +551,8 @@ class go(object):
                 mi_tmp.parent = False
                 ml_curvesToCombine.append(mi_tmp)
                 mi_crvBase.__setattr__("tz",0)
-        except Exception,error:
-            raise Exception,"Rotate dup | {0}".format(error)                    
+        except Exception as error:
+            raise Exception("Rotate dup | {0}".format(error))                    
 
         i_grp.delete()
         
@@ -560,8 +560,8 @@ class go(object):
             log.info(ml_curvesToCombine)
             mi_crv = cgmMeta.cgmObject( curves.combineCurves([i_obj.mNode for i_obj in ml_curvesToCombine]) )
             #log.debug("mi_crv: %s"%mi_crv.mNode)
-        except Exception,error:
-            raise Exception,"Reinitialize | {0}".format(error)            
+        except Exception as error:
+            raise Exception("Reinitialize | {0}".format(error))            
 
         try:#>>Copy tags and name
             mi_crv.addAttr('cgmName',attrType='string',value = 'cog',lock=True)        
@@ -570,16 +570,16 @@ class go(object):
 
             mc.xform(mi_crv.mNode, cp=True)
             mc.makeIdentity(mi_crv.mNode, apply=True,s=1,n=0)	
-        except Exception,error:
-            raise Exception,"Copy tags | {0}".format(error)
+        except Exception as error:
+            raise Exception("Copy tags | {0}".format(error))
         
         try:#>>> Color
             curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
             self.d_returnControls['cog'] = mi_crv.mNode
             self.md_ReturnControls['cog'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_cog','owner')
-        except Exception,error:
-            raise Exception,"Color | {0}".format(error)
+        except Exception as error:
+            raise Exception("Color | {0}".format(error))
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
 
@@ -599,7 +599,7 @@ class go(object):
         if not d_return.get('hit'):
             log.info(d_return)
             log.info(self._targetMesh)
-            raise Exception,"build_hips>>failed to get hit. Master form object probably isn't in mesh"
+            raise Exception("build_hips>>failed to get hit. Master form object probably isn't in mesh")
         dist = distance.returnDistanceBetweenPoints(mi_loc.getPosition(),d_return['hit'])
         mi_loc.tz = -dist *.2	
 
@@ -700,7 +700,7 @@ class go(object):
             self._mi_rigNull.msgList_connect('shape_segmentFK',ml_segmentControls,'owner')
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("build_segmentFKHandles fail]{%s}"%error) 
             return False
 
@@ -839,7 +839,7 @@ class go(object):
             mi_newCurve.doCopyPivot(obj)
             
             if 'head' in obj:
-                print 'Head mode!'
+                print('Head mode!')
                 crv1 = ShapeCast.createMeshSliceCurve(self._targetMesh,obj,'y','z+',
                                                       minRotate=-90,maxRotate=90,
                                                       closedCurve=False,
@@ -912,7 +912,7 @@ class go(object):
                                                                       self.str_jointOrientation[0]+'+',
                                                                       pierceDepth=self.f_skinOffset*15) or {}
                 if not d_return.get('hit'):
-                    raise Exception,"go._verifyCastObjects>>failed to get hit to measure first distance"
+                    raise Exception("go._verifyCastObjects>>failed to get hit to measure first distance")
                 dist_cast = distance.returnDistanceBetweenPoints(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
                 mi_lastLoc.__setattr__("t"+self.str_jointOrientation[0],dist_cast*.6)#Move
                 pBuffer = mi_lastLoc.parent
@@ -954,7 +954,7 @@ class go(object):
 
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("build_moduleCap fail]{%s}"%error) 
             return False
     #@cgmGeneral.Timer    
@@ -978,7 +978,7 @@ class go(object):
             ml_controlSnapObjects.append(mi_obj.helper)  
         log.debug("helperObjects: %s"%[i_obj.getShortName() for i_obj in ml_controlSnapObjects])
         if len(ml_controlSnapObjects) > 2:
-            raise Exception,"go.build_clavicle>>> Must have only 2 control objects. Found: %s"%(len(ml_controlSnapObjects))
+            raise Exception("go.build_clavicle>>> Must have only 2 control objects. Found: %s"%(len(ml_controlSnapObjects)))
 
         mi_startObj = ml_controlSnapObjects[0]
         mi_endObj = ml_controlSnapObjects[1]
@@ -1018,7 +1018,7 @@ class go(object):
         #Distance stuff    
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh, mi_endLoc.mNode, axis_distanceDirectionCast, pierceDepth=self.f_skinOffset*2) or {}
         if not d_return.get('hit'):
-            raise Exception,"go.build_clavicle>>failed to get hit to measure first distance"
+            raise Exception("go.build_clavicle>>failed to get hit to measure first distance")
         dist_cast = distance.returnDistanceBetweenPoints(mi_endLoc.getPosition(),d_return['hit']) * 1.25
 
         log.debug("go.build_clavicle>>cast distance: %s"%dist_cast)
@@ -1091,7 +1091,7 @@ class go(object):
                         mi_mid = cgmMeta.cgmObject(obj)
                         break   
             if not mi_mid:
-                raise Exception, "build_midIKHandle>>> currently needs an arm or leg"
+                raise Exception("build_midIKHandle>>> currently needs an arm or leg")
 
             #figure out our settings
             #================================================================
@@ -1127,7 +1127,7 @@ class go(object):
 
             log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-        except Exception,error:
+        except Exception as error:
             log.error("build_midIKHandle fail]{%s}"%error) 
             return False
 
@@ -1234,7 +1234,7 @@ class go(object):
                 d_return = RayCast.findMeshIntersectionFromObjectAxis(self._targetMesh,mi_crvBase.mNode,firstHit=False)
                 if not d_return.get('hit'):
                     log.info(d_return)
-                    raise Exception,"build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode)
+                    raise Exception("build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode))
                 #log.debug("hitDict: %s"%d_return)
                 dist = distance.returnDistanceBetweenPoints(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*5)
                 #log.debug("dist: %s"%dist)
@@ -1245,8 +1245,8 @@ class go(object):
                 mi_tmp.parent = False
                 ml_curvesToCombine.append(mi_tmp)
                 mi_crvBase.__setattr__("tz",0)
-        except Exception,error:
-            raise Exception,"Rotate dup | {0}".format(error)                    
+        except Exception as error:
+            raise Exception("Rotate dup | {0}".format(error))                    
         i_grp.delete()
     
         try:
@@ -1254,8 +1254,8 @@ class go(object):
             mi_crv = cgmMeta.cgmObject( curves.combineCurves([i_obj.mNode for i_obj in ml_curvesToCombine]) )
             
             #log.debug("mi_crv: %s"%mi_crv.mNode)
-        except Exception,error:
-            raise Exception,"Reinitialize | {0}".format(error)            
+        except Exception as error:
+            raise Exception("Reinitialize | {0}".format(error))            
     
         try:#>>Copy tags and name
             coreRigging.match_transform(mi_crv.mNode, self._ml_controlObjects[-1].mNode)
@@ -1269,8 +1269,8 @@ class go(object):
             self.d_returnControls['segmentIKEnd'] = mi_crv.mNode 		
             self.md_ReturnControls['segmentIKEnd'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_handleIK','owner')
-        except Exception,error:
-            raise Exception,"Color | {0}".format(error)
+        except Exception as error:
+            raise Exception("Color | {0}".format(error))
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
         #rigging.copyPivot(mi_crv.mNode, self._ml_controlObjects[-1].mNode)
         #mi_crv.doCopyTransform(self._ml_controlObjects[-1])          
@@ -1343,8 +1343,8 @@ class go(object):
             self.d_returnControls['segmentIKEnd'] = mi_crv.mNode 		
             self.md_ReturnControls['segmentIKEnd'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_handleIK','owner')"""
-        except Exception,error:
-            raise Exception,"segment handles | {0}".format(err)
+        except Exception as error:
+            raise Exception("segment handles | {0}".format(err))
         
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
@@ -1413,7 +1413,7 @@ class go(object):
         if _castMode == 'vector':
             d_return = RayCast.findMeshIntersectionFromObjectAxis(self._targetMesh,mi_rootLoc.mNode,vector = self.settingsVector,firstHit=True)
             if not d_return.get('hit'):
-                raise Exception,"go.build_settings>>failed to get hit to measure distance"
+                raise Exception("go.build_settings>>failed to get hit to measure distance")
 
             mc.move(d_return['hit'][0],d_return['hit'][1],d_return['hit'][2],i_gear.mNode,absolute = True,ws=True)
             #SNAP.go(i_gear.mNode,mi_rootLoc.mNode,positiomove = False, orient = False, aim=True, aimVector=[0,0,-1])
@@ -1424,7 +1424,7 @@ class go(object):
         else:#Axis mode
             d_return = RayCast.findMeshIntersectionFromObjectAxis(self._targetMesh,mi_rootLoc.mNode,axis = self.aimAxis,firstHit=True)		    
             if not d_return.get('hit'):
-                raise Exception,"go.build_settings>>failed to get hit to measure distance"	    
+                raise Exception("go.build_settings>>failed to get hit to measure distance")	    
             dist_move = distance.returnDistanceBetweenPoints(mi_rootLoc.getPosition(),d_return['hit'])
             log.debug("axis cast move: %s"%dist_move)
             grp = mi_rootLoc.doGroup(True)
@@ -1465,7 +1465,7 @@ class go(object):
         #Find our foot
         #============================================================================	
         if self.str_partType == 'foot':
-            raise NotImplementedError,"haven't implemented foot"
+            raise NotImplementedError("haven't implemented foot")
         elif self.str_partType == 'legSimple':
             #find the foot. 1) Build search dict
             d_search = {'moduleType':'foot'}
@@ -1483,7 +1483,7 @@ class go(object):
                 ml_controlSnapObjects.append(mi_obj.helper)  
             log.debug("helperObjects: %s"%[i_obj.getShortName() for i_obj in ml_controlSnapObjects])
             if ml_controlSnapObjects[1].cgmName != 'ball':
-                raise Exception,"go.build_footShape>>> Expected second snap object to be 'ball'. Found: %s"%ml_controlSnapObjects[1].mNode
+                raise Exception("go.build_footShape>>> Expected second snap object to be 'ball'. Found: %s"%ml_controlSnapObjects[1].mNode)
             mi_ball = ml_controlSnapObjects[1]
             mi_ankle = ml_controlSnapObjects[0]
 
@@ -1498,7 +1498,7 @@ class go(object):
                     break
 
         if not mi_ball and not mi_ankle:
-            raise Exception,"go.build_footShape>>> Haven't found a foot module to build from"
+            raise Exception("go.build_footShape>>> Haven't found a foot module to build from")
 
         #Get our helper objects
         #============================================================================
@@ -1511,7 +1511,7 @@ class go(object):
 
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,self.str_jointOrientation[0]+'+',pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
-            raise Exception,"go.build_footShape>>failed to get hit to measure first distance"
+            raise Exception("go.build_footShape>>failed to get hit to measure first distance")
         dist = distance.returnDistanceBetweenPoints(mi_ballLoc.getPosition(),d_return['hit']) *1.5
         log.debug("go.build_footShape>>front distance: %s"%dist)
 
@@ -1525,8 +1525,8 @@ class go(object):
             mi_ballPivot.doName()
             self.d_returnPivots['ball'] = mi_ballPivot.mNode 		
             self.md_returnPivots['ball'] = mi_ballPivot	
-        except Exception,err:
-            raise Exception,"Ball pivot fail << {0} >>".format(err)
+        except Exception as err:
+            raise Exception("Ball pivot fail << {0} >>".format(err))
         
         try:#Toe pivot
             mi_toePivot =  mi_ballLoc.doLoc(fastMode = True)
@@ -1539,8 +1539,8 @@ class go(object):
             #mc.rotate (objRot[0], objRot[1], objRot[2], str_pivotToe, ws=True)	
             self.d_returnPivots['toe'] = mi_toePivot.mNode 		
             self.md_returnPivots['toe'] = mi_toePivot	
-        except Exception,err:
-            raise Exception,"toe pivot fail << {0} >>".format(err)
+        except Exception as err:
+            raise Exception("toe pivot fail << {0} >>".format(err))
         
         try:#Inner bank pivots
             if self._direction == 'left':
@@ -1553,7 +1553,7 @@ class go(object):
     
             d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,innerAim,pierceDepth=self.f_skinOffset*5) or {}
             if not d_return.get('hit'):
-                raise Exception,"go.build_footShape>>failed to get inner bank hit"	
+                raise Exception("go.build_footShape>>failed to get inner bank hit")	
             mi_innerPivot =  mi_ballLoc.doLoc(fastMode = True)
             mc.move (d_return['hit'][0],d_return['hit'][1],d_return['hit'][2], mi_innerPivot.mNode)
             mi_innerPivot.__setattr__('r%s'%self.str_jointOrientation[2],0)
@@ -1567,7 +1567,7 @@ class go(object):
     
             d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,outerAim,pierceDepth=self.f_skinOffset*5) or {}
             if not d_return.get('hit'):
-                raise Exception,"go.build_footShape>>failed to get outer bank hit"	
+                raise Exception("go.build_footShape>>failed to get outer bank hit")	
             mi_outerPivot =  mi_ballLoc.doLoc(fastMode = True)
             mc.move (d_return['hit'][0],d_return['hit'][1],d_return['hit'][2], mi_outerPivot.mNode)
             mi_outerPivot.__setattr__('r%s'%self.str_jointOrientation[2],0)
@@ -1578,8 +1578,8 @@ class go(object):
             mi_outerPivot.doName()	
             self.d_returnPivots['outer'] = mi_outerPivot.mNode 		
             self.md_returnPivots['outer'] = mi_outerPivot	
-        except Exception,err:
-            raise Exception,"Banks fail << {0} >>".format(err)
+        except Exception as err:
+            raise Exception("Banks fail << {0} >>".format(err))
         
         try:#Heel pivot
             mi_heelPivot =  mi_heelLoc.doLoc(fastMode = True)
@@ -1589,7 +1589,7 @@ class go(object):
     
             d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_heelPivot.mNode,self.str_jointOrientation[0]+'-',pierceDepth=self.f_skinOffset*5) or {}
             if not d_return.get('hit'):
-                raise Exception,"Hit failed"	
+                raise Exception("Hit failed")	
             mc.move (d_return['hit'][0],d_return['hit'][1],d_return['hit'][2], mi_heelPivot.mNode)
             mi_heelPivot.__setattr__('t%s'%self.str_jointOrientation[1],0)
             mi_heelPivot.addAttr('cgmName','heel',lock=True)	
@@ -1600,8 +1600,8 @@ class go(object):
     
             mi_ballLoc.delete()
             mi_heelLoc.delete()
-        except Exception,err:
-            raise Exception,"heel pivot fail << {0} >>".format(err)
+        except Exception as err:
+            raise Exception("heel pivot fail << {0} >>".format(err))
         
         #Store em all
         self._mi_formNull.connectChildNode(mi_toePivot,'pivot_toe','module')
@@ -1632,7 +1632,7 @@ class go(object):
         #Find our foot
         #============================================================================	
         if self.str_partType == 'foot':
-            raise NotImplementedError,"haven't implemented foot"
+            raise NotImplementedError("haven't implemented foot")
         elif self.str_partType == 'legSimple':
             #find the foot. 1) Build search dict
             d_search = {'moduleType':'foot'}
@@ -1650,7 +1650,7 @@ class go(object):
                 ml_controlSnapObjects.append(mi_obj.helper)  
             log.debug("helperObjects: %s"%[i_obj.getShortName() for i_obj in ml_controlSnapObjects])
             if ml_controlSnapObjects[1].cgmName != 'ball':
-                raise Exception,"go.build_footShape>>> Expected second snap object to be 'ball'. Found: %s"%ml_controlSnapObjects[1].mNode
+                raise Exception("go.build_footShape>>> Expected second snap object to be 'ball'. Found: %s"%ml_controlSnapObjects[1].mNode)
             mi_ball = ml_controlSnapObjects[1]
             mi_ankle = ml_controlSnapObjects[0]
 
@@ -1665,7 +1665,7 @@ class go(object):
                     break
 
         if not mi_ball and not mi_ankle:
-            raise Exception,"go.build_footShape>>> Haven't found a foot module to build from"
+            raise Exception("go.build_footShape>>> Haven't found a foot module to build from")
 
         #Get our helper objects
         #============================================================================
@@ -1678,7 +1678,7 @@ class go(object):
 
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,self.str_jointOrientation[0]+'+',pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
-            raise Exception,"go.build_footShape>>failed to get hit to measure first distance"
+            raise Exception("go.build_footShape>>failed to get hit to measure first distance")
         dist = distance.returnDistanceBetweenPoints(mi_ballLoc.getPosition(),d_return['hit']) *1.25
         log.debug("go.build_footShape>>front distance: %s"%dist)
 
@@ -1856,9 +1856,9 @@ class go(object):
         #Find our hand
         #============================================================================	
         if self.str_partType == 'hand':
-            raise NotImplementedError,"haven't implemented hand"
+            raise NotImplementedError("haven't implemented hand")
         elif self.str_partType == 'armSimple':
-            raise NotImplementedError,"haven't implemented hand"
+            raise NotImplementedError("haven't implemented hand")
 
         elif self.str_partType == 'arm':
             for obj in self.l_controlSnapObjects:
@@ -1871,7 +1871,7 @@ class go(object):
                     break
 
         if not mi_wrist:
-            raise Exception,"go.build_handShape>>> Haven't found a wrist to build from"
+            raise Exception("go.build_handShape>>> Haven't found a wrist to build from")
 
         #Get our helper objects
         #============================================================================
@@ -1904,7 +1904,7 @@ class go(object):
         #Distance stuff    
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_palmLoc.mNode,axis_distanceDirectionCast,pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
-            raise Exception,"go.build_clavicle>>failed to get hit to measure first distance"
+            raise Exception("go.build_clavicle>>failed to get hit to measure first distance")
         dist_cast = distance.returnDistanceBetweenPoints(mi_palmLoc.getPosition(),d_return['hit']) * 4
 
         #Cast our stuff
@@ -2162,7 +2162,7 @@ def shapeCast_eyebrow(*args,**kws):
 
             #Find our helpers -------------------------------------------------------------------------------------------
             self.mi_helper = cgmMeta.validateObjArg(self.mi_module.getMessage('helper'),noneValid=True)
-            if not self.mi_helper:raise Exception,"%s >>> No suitable helper found"%(_str_funcName)
+            if not self.mi_helper:raise Exception("%s >>> No suitable helper found"%(_str_funcName))
             self.mi_leftBrowCrv = cgmMeta.validateObjArg(self.mi_helper.getMessage('leftBrowHelper'),noneValid=False)
 
             #>> Find our joint lists ===================================================================
@@ -2178,9 +2178,9 @@ def shapeCast_eyebrow(*args,**kws):
             self.ml_browCenterHandles = metaUtils.get_matchedListFromAttrDict(ml_handleJoints,
                                                                               cgmDirection = 'center',
                                                                               cgmName = 'brow')
-            if not self.ml_browLeftHandles:raise Exception,"Failed to find left brow handle joints"
-            if not self.ml_browRightHandles:raise Exception,"Failed to find right brow handle joints"
-            if not self.ml_browCenterHandles:raise Exception,"Failed to find center brow rig joints"
+            if not self.ml_browLeftHandles:raise Exception("Failed to find left brow handle joints")
+            if not self.ml_browRightHandles:raise Exception("Failed to find right brow handle joints")
+            if not self.ml_browCenterHandles:raise Exception("Failed to find center brow rig joints")
 
             #>> Cheek --------------------------------------------------------------------------
             self.ml_cheekLeftHandles = metaUtils.get_matchedListFromAttrDict(ml_handleJoints,
@@ -2209,9 +2209,9 @@ def shapeCast_eyebrow(*args,**kws):
                                                                          cgmDirection = 'top')	
             self.ml_backRigJoints = metaUtils.get_matchedListFromAttrDict(ml_rigJoints,
                                                                           cgmDirection = 'back')		    
-            if not self.ml_leftRigJoints:raise Exception,"Failed to find left rig joints"
-            if not self.ml_rightRigJoints:raise Exception,"Failed to find right rig joints"
-            if not self.ml_centerRigJoints:raise Exception,"Failed to find center rig joints"	    
+            if not self.ml_leftRigJoints:raise Exception("Failed to find left rig joints")
+            if not self.ml_rightRigJoints:raise Exception("Failed to find right rig joints")
+            if not self.ml_centerRigJoints:raise Exception("Failed to find center rig joints")	    
 
             #>> calculate ------------------------------------------------------------------------
             self.f_browLength = distance.returnCurveLength(self.mi_helper.leftBrowHelper.mNode)	    	    
@@ -2239,7 +2239,7 @@ def shapeCast_eyebrow(*args,**kws):
                        'right':{'jointList': self.ml_browRightHandles},
                        'center':{'jointList': self.ml_browCenterHandles},}
 
-            for str_direction in d_build.keys():
+            for str_direction in list(d_build.keys()):
                 ml_handleCrvs = []		
                 ml_jointList = d_build[str_direction].get('jointList')
                 l_colors = self.d_colors[str_direction]
@@ -2288,8 +2288,8 @@ def shapeCast_eyebrow(*args,**kws):
                         mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                         ml_handleCrvs.append(mi_crv)
 
-                    except Exception,error:
-                        raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)  
+                    except Exception as error:
+                        raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))  
 
                 self.ml_handles.extend(ml_handleCrvs)	    
 
@@ -2301,7 +2301,7 @@ def shapeCast_eyebrow(*args,**kws):
                        'right':{'jointList': self.ml_cheekRightHandles},
                        }
 
-            for str_direction in d_build.keys():
+            for str_direction in list(d_build.keys()):
                 ml_handleCrvs = []		
                 ml_jointList = d_build[str_direction].get('jointList')
                 l_colors = self.d_colors[str_direction]
@@ -2346,8 +2346,8 @@ def shapeCast_eyebrow(*args,**kws):
                         mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                         ml_handleCrvs.append(mi_crv)
 
-                    except Exception,error:
-                        raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)  
+                    except Exception as error:
+                        raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))  
                 self.ml_handles.extend(ml_handleCrvs)
 
         def _templeShapes_(self): 
@@ -2358,7 +2358,7 @@ def shapeCast_eyebrow(*args,**kws):
                        'right':{'jointList': self.ml_templeRightHandles},
                        }
 
-            for str_direction in d_build.keys():
+            for str_direction in list(d_build.keys()):
                 ml_handleCrvs = []		
                 ml_jointList = d_build[str_direction].get('jointList')
                 l_colors = self.d_colors[str_direction]
@@ -2394,8 +2394,8 @@ def shapeCast_eyebrow(*args,**kws):
                         mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                         ml_handleCrvs.append(mi_crv)
 
-                    except Exception,error:
-                        raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)  
+                    except Exception as error:
+                        raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))  
                 self.ml_handles.extend(ml_handleCrvs)	
 
         def _facePins_(self): 
@@ -2407,7 +2407,7 @@ def shapeCast_eyebrow(*args,**kws):
                        'right':{'jointList': self.ml_rightRigJoints},
                        'center':{'jointList': self.ml_centerRigJoints + self.ml_topRigJoints + self.ml_backRigJoints},}
 
-            for str_direction in d_build.keys():
+            for str_direction in list(d_build.keys()):
                 ml_handleCrvs = []		
                 ml_jointList = d_build[str_direction].get('jointList')
                 l_colors = self.d_colors[str_direction]
@@ -2448,8 +2448,8 @@ def shapeCast_eyebrow(*args,**kws):
 
                         #>>Copy pivot ---------------------------------------------------------------------------------
                         #mi_crv.doCopyPivot(mObj.mNode)
-                    except Exception,error:
-                        raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)  
+                    except Exception as error:
+                        raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))  
                 self.ml_pinHandles.extend(ml_handleCrvs)	
 
     def _connect_(self): 
@@ -2507,7 +2507,7 @@ def shapeCast_mouthNose(*args,**kws):
 
             #Find our helpers -------------------------------------------------------------------------------------------
             self.mi_helper = cgmMeta.validateObjArg(self.mi_module.getMessage('helper'),noneValid=True)
-            if not self.mi_helper:raise Exception,"%s >>> No suitable helper found"%(_str_funcName)
+            if not self.mi_helper:raise Exception("%s >>> No suitable helper found"%(_str_funcName))
 
             #self.mi_skullPlate = cgmMeta.validateObjArg(self.mi_helper.getMessage('skullPlate'),noneValid=False)
             #self.str_skullPlate = self.mi_skullPlate.mNode
@@ -2633,9 +2633,9 @@ def shapeCast_mouthNose(*args,**kws):
             d_['teethLwr'] = metaUtils.get_matchedListFromAttrDict(ml_rigJoints,
                                                                      cgmName = 'teeth',
                                                                      cgmPosition = 'lower')              
-            for k in d_.iterkeys():
+            for k in list(d_.keys()):
                 buffer = d_.get(k)
-                if not buffer:raise Exception,"Failed to find %s handle joints"%k
+                if not buffer:raise Exception("Failed to find %s handle joints"%k)
                 if len(buffer) == 1:
                     d_[k] = buffer[0]
 
@@ -2672,7 +2672,7 @@ def shapeCast_mouthNose(*args,**kws):
                 #self.f_mouthWidth = distance.returnDistanceBetweenObjects(self.md_handles['lipCornerRight'].mNode,self.md_handles['lipCornerLeft'].mNode)
                 self.f_mouthWidth = distance.returnCurveLength(self.mi_helper.getMessage('mouthMidCastHelper'))                                
                 self.f_baseDistance = self.f_mouthWidth / 4
-            except Exception,error:raise Exception,"Initial distance calculation | %s"%error
+            except Exception as error:raise Exception("Initial distance calculation | %s"%error)
             #>> Running lists --------------------------------------------------------------------
             self.ml_handles = []
             self.ml_pinHandles = []
@@ -2693,7 +2693,7 @@ def shapeCast_mouthNose(*args,**kws):
             d_build = {'tongueBase':{'mi_obj': self.md_handles['tongueBase'],'shape':'circleArrow','shapeMulti':1.25},
                        'tongueTip':{'mi_obj': self.md_handles['tongueTip'],'shape':'arrowsOnBall','centerPivot':True}}
 
-            for str_name in d_build.keys():
+            for str_name in list(d_build.keys()):
                 d_buffer = d_build[str_name]
                 try:
                     mObj = d_buffer['mi_obj']
@@ -2717,8 +2717,8 @@ def shapeCast_mouthNose(*args,**kws):
                     mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                     ml_handleCrvs.append(mi_crv)
 
-                except Exception,error:
-                    raise Exception,"%s create fail! | error: %s"%(str_name,error)  
+                except Exception as error:
+                    raise Exception("%s create fail! | error: %s"%(str_name,error))  
             self.ml_handles.extend(ml_handleCrvs)
             
         def _teethShapes_(self): 
@@ -2735,7 +2735,7 @@ def shapeCast_mouthNose(*args,**kws):
             d_build = {'teethUpr':{'mi_obj': self.md_handles['teethUpr'],'shape':'U','shapeMulti':.1,'offset_up':.5},
                        'teethLwr':{'mi_obj': self.md_handles['teethLwr'],'shape':'L','shapeMulti':.1,'offset_up':-.5}}
 
-            for str_name in d_build.keys():
+            for str_name in list(d_build.keys()):
                 d_buffer = d_build[str_name]
                 try: 
                     mObj = d_buffer['mi_obj']
@@ -2764,8 +2764,8 @@ def shapeCast_mouthNose(*args,**kws):
                     mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                     ml_handleCrvs.append(mi_crv)
 
-                except Exception,error:
-                    raise Exception,"%s create fail! | error: %s"%(str_name,error)  
+                except Exception as error:
+                    raise Exception("%s create fail! | error: %s"%(str_name,error))  
             self.ml_handles.extend(ml_handleCrvs)
             
         def _mouthMoveShape_(self): 	    
@@ -2916,8 +2916,8 @@ def shapeCast_mouthNose(*args,**kws):
 
                         self.progressBar_set(status = "On: '%s'"%_str_mObj, progress = i, maxValue = int_lenMax)		    				    		    
 
-                    except Exception,error:
-                        raise Exception,"%s info fail | %s"%(i,error)
+                    except Exception as error:
+                        raise Exception("%s info fail | %s"%(i,error))
 
                     mi_crv =  cgmMeta.asMeta(curves.createControlCurve(_shape,size = _size, direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
                     SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
@@ -2939,9 +2939,9 @@ def shapeCast_mouthNose(*args,**kws):
                     mi_crv.connectChildNode(mObj,'handleJoint','controlShape')
                     ml_handleCrvs.append(mi_crv)
 
-                except Exception,error:
-                    try:raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error)
-                    except Exception,error:raise Exception,"Curve create fail! handle: '%s' | error: %s"%(mObj,error)
+                except Exception as error:
+                    try:raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj.p_nameShort,error))
+                    except Exception as error:raise Exception("Curve create fail! handle: '%s' | error: %s"%(mObj,error))
             self.ml_handles.extend(ml_handleCrvs)	
 
         def _facePins_(self): 
@@ -2952,7 +2952,7 @@ def shapeCast_mouthNose(*args,**kws):
                        'right':{'jointList': self.ml_rightRigJoints},
                        'center':{'jointList': self.ml_centerRigJoints},}
 
-            for str_direction in d_build.keys():
+            for str_direction in list(d_build.keys()):
                 ml_handleCrvs = []		
                 ml_jointList = d_build[str_direction].get('jointList')
                 l_colors = self.d_colors[str_direction]
@@ -2996,8 +2996,8 @@ def shapeCast_mouthNose(*args,**kws):
 
                             #>>Copy pivot ---------------------------------------------------------------------------------
                             #mi_crv.doCopyPivot(mObj.mNode)
-                        except Exception,error:
-                            raise Exception,"[Curve create fail! handle: '%s']{%s}"%(_str_obj,error)  
+                        except Exception as error:
+                            raise Exception("[Curve create fail! handle: '%s']{%s}"%(_str_obj,error))  
                 self.ml_pinHandles.extend(ml_handleCrvs)	
 
         def _connect_(self): 
@@ -3058,14 +3058,14 @@ def shapeCast_eyeball(*args,**kws):
             self.log_info('main helpers...')
             
             self.mi_helper = cgmMeta.validateObjArg(self.mi_module.getMessage('helper'),noneValid=True)
-            if not self.mi_helper:raise Exception,"%s >>> No suitable helper found"%(_str_funcName)
+            if not self.mi_helper:raise Exception("%s >>> No suitable helper found"%(_str_funcName))
 
             #Find our helpers -------------------------------------------------------------------------------------------
             self.log_info('sub helpers...')            
             for attr in self.mi_helper.getAttrs(userDefined = True):#Get allof our Helpers
                 if "Helper" in attr:
                     try:self.__dict__["mi_%s"%attr.replace('Helper','Crv')] = cgmMeta.validateObjArg(self.mi_helper.getMessage(attr),noneValid=False)
-                    except Exception,error:raise Exception, " Failed to find '%s' | %s"%(attr,error)
+                    except Exception as error:raise Exception(" Failed to find '%s' | %s"%(attr,error))
 
             self._b_buildIris = self.mi_helper.buildIris
             self._b_buildPupil = self.mi_helper.buildPupil	    
@@ -3107,7 +3107,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_helper = self.mi_helper
                 _baseDistance = self.f_baseDistance 
                 _irisSize = self.f_irisSize
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
@@ -3141,15 +3141,15 @@ def shapeCast_eyeball(*args,**kws):
 		'''
                 #>>>Combine the curves
                 try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
-                except Exception,error:raise Exception,"!Failed to combine]{%s}"%error
+                except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
 
                 mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_helper.mNode,False) )
 
                 try:curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
-                except Exception,error:raise Exception,"Parent shape in place fail | error: %s"%error
+                except Exception as error:raise Exception("Parent shape in place fail | error: %s"%error)
 
                 mc.delete(newCurve)
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3158,20 +3158,20 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['eyeballFK'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['eyeballFK'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_eyeballFK','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
 
         def _buildIK_(self):
             try:#query ===========================================================
                 mi_helper = self.mi_helper
                 f_baseDistance = self.f_baseDistance  
                 _irisSize = self.f_irisSize		
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 mi_crv = cgmMeta.asMeta( curves.createControlCurve('fatCross',
@@ -3185,7 +3185,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.parent = False
                 mi_tmpGroup.delete()
 
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3194,13 +3194,13 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['eyeballIK'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['eyeballIK'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_eyeballIK','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
 
         def _buildSettings_(self):
             try:#query ===========================================================
@@ -3209,7 +3209,7 @@ def shapeCast_eyeball(*args,**kws):
                 _irisSize = self.f_irisSize	
                 log.info(f_baseDistance)
                 log.info(_irisSize)		
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================		
                 mi_crv = cgmMeta.asMeta( curves.createControlCurve('gear',
@@ -3222,7 +3222,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.parent = False
                 mi_tmpGroup.delete()
 
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3231,20 +3231,20 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['settings'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['settings'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_settings','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
 
         def _buildEyeMove_(self):
             try:#query ===========================================================
                 mi_helper = self.mi_helper
                 f_baseDistance = self.f_baseDistance  
                 f_size = distance.returnBoundingBoxSizeToAverage(mi_helper.irisHelper.mNode)
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 '''
@@ -3278,11 +3278,11 @@ def shapeCast_eyeball(*args,**kws):
 		    mi_crv.__setattr__("r%s"%self.str_orientation[2],180)'''
 
                 try:curves.parentShapeInPlace(mi_crv.mNode,_str_trace)#Parent shape
-                except Exception,error:raise Exception,"Parent shape in place fail | %s"%error
+                except Exception as error:raise Exception("Parent shape in place fail | %s"%error)
 
                 mc.delete(_str_trace,mi_tmpGroup.mNode)		
 
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3291,13 +3291,13 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['eyeMove'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['eyeMove'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_eyeMove','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
 
         def _buildIris_(self):
             try:#query ===========================================================
@@ -3306,7 +3306,7 @@ def shapeCast_eyeball(*args,**kws):
                 _irisSize = self.f_irisSize
                 _baseDistance = self.f_baseDistance  
                 _baseIrisPos = self._baseIrisPos
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
             
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
@@ -3315,7 +3315,7 @@ def shapeCast_eyeball(*args,**kws):
                                                                           direction = 'z+',
                                                                           size = _irisSize,
                                                                           absoluteSize=False),'cgmObject',setClass=False)
-                except Exception,error: raise Exception,"Initial create | {0}".format(error)
+                except Exception as error: raise Exception("Initial create | {0}".format(error))
                 
                 try:
                     SNAP.go(mi_tmpCrv,mi_irisCrv.mNode)
@@ -3331,16 +3331,16 @@ def shapeCast_eyeball(*args,**kws):
                     ml_curvesToCombine[-1].parent = False
     
                     mi_tmpGroup.delete()
-                except Exception,error: raise Exception,"Move | {0}".format(error)
+                except Exception as error: raise Exception("Move | {0}".format(error))
                 
                 #>>>Combine the curves
                 try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
-                except Exception,error:raise Exception,"!Failed to combine]{%s}"%error
+                except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
                 try:
                     mi_crv = cgmMeta.cgmObject(newCurve)
-                except Exception,error: raise Exception,"New curve | {0}".format(error)
+                except Exception as error: raise Exception("New curve | {0}".format(error))
                 
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3349,13 +3349,13 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['iris'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['iris'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_iris','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
 
         def _buildPupil_(self):
             try:#query ===========================================================
@@ -3364,7 +3364,7 @@ def shapeCast_eyeball(*args,**kws):
                 _pupilSize = self.f_pupilSize
                 _baseDistance = self.f_baseDistance  
                 _baseIrisPos = self._baseIrisPos
-            except Exception,error: raise Exception,"!Query]{%s}"%error
+            except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
@@ -3387,7 +3387,7 @@ def shapeCast_eyeball(*args,**kws):
 
                 #>>>Combine the curves
                 try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
-                except Exception,error:raise Exception,"!Failed to combine]{%s}"%error
+                except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
 
                 #mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_pupilCrv.mNode,False) )
 
@@ -3396,7 +3396,7 @@ def shapeCast_eyeball(*args,**kws):
 
                 #mc.delete(newCurve)
                 mi_crv = cgmMeta.cgmObject(newCurve)
-            except Exception,error: raise Exception,"!Curve create]{%s}"%error
+            except Exception as error: raise Exception("!Curve create]{%s}"%error)
 
             try:#Tag,name, color ===========================================================
                 mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3405,13 +3405,13 @@ def shapeCast_eyeball(*args,**kws):
 
                 #Color
                 curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
-            except Exception,error: raise Exception,"!Tag,name,color]{%s}"%error
+            except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
                 self.mi_go.d_returnControls['pupil'] = mi_crv.mNode
                 self.mi_go.md_ReturnControls['pupil'] = mi_crv
                 self.mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_pupil','owner')
-            except Exception,error: raise Exception,"!Connect]{%s}"%error
+            except Exception as error: raise Exception("!Connect]{%s}"%error)
         def _cleanUp_(self):
             self.mi_irisPosLoc.delete()
     #We wrap it so that it autoruns and returns
@@ -3462,13 +3462,13 @@ def shapeCast_eyelids(*args,**kws):
 	    '''
             #Find our helpers -------------------------------------------------------------------------------------------
             self.mi_helper = cgmMeta.validateObjArg(self.mi_module.getMessage('helper'),noneValid=True)
-            if not self.mi_helper:raise Exception,"%s >>> No suitable helper found"%(_str_funcName)
+            if not self.mi_helper:raise Exception("%s >>> No suitable helper found"%(_str_funcName))
 
             #>> Find our joint lists ===================================================================
             try:self.ml_uprLidHandles = self.mi_go._mi_rigNull.msgList_get('handleJoints_upr')
-            except Exception,error:raise Exception,"Missing uprlid handleJoints | %s "%(error)
+            except Exception as error:raise Exception("Missing uprlid handleJoints | %s "%(error))
             try:self.ml_lwrLidHandles = self.mi_go._mi_rigNull.msgList_get('handleJoints_lwr')
-            except Exception,error:raise Exception,"Missing lwrlid handleJoints | %s "%(error)  
+            except Exception as error:raise Exception("Missing lwrlid handleJoints | %s "%(error))  
 
             #>> calculate ------------------------------------------------------------------------
             #self.f_baseDistance = distance.returnCurveLength(self.mi_helper.lwrLidHelper.mNode) /4
@@ -3509,8 +3509,8 @@ def shapeCast_eyelids(*args,**kws):
                     ml_handleCrvs.append(mi_crv)
                     #>>Copy pivot
                     mi_crv.doCopyPivot(mObj.mNode)
-                except Exception,error:
-                    raise Exception,"(handle: '%s' | error: %s )"%(mObj.p_nameShort,error)  
+                except Exception as error:
+                    raise Exception("(handle: '%s' | error: %s )"%(mObj.p_nameShort,error))  
 
             #connect ===========================================================
             mi_go.d_returnControls['l_handleCurves'] = [mObj.p_nameShort for mObj in ml_handleCrvs]
@@ -3543,7 +3543,7 @@ def shapeCast_eyeLook(*args,**kws):
 
             #Find our helpers -------------------------------------------------------------------------------------------
             self.mi_helper = cgmMeta.validateObjArg(self.mi_module.getMessage('helper'),noneValid=True)
-            if not self.mi_helper:raise Exception,"%s >>> No suitable helper found"%(_str_funcName)
+            if not self.mi_helper:raise Exception("%s >>> No suitable helper found"%(_str_funcName))
 
             self.mi_parentModule = self.mi_module.moduleParent
 
@@ -3557,7 +3557,7 @@ def shapeCast_eyeLook(*args,**kws):
                 mi_helper = self.mi_helper
                 __baseDistance = self.f_baseDistance 
                 mi_parentModule = self.mi_parentModule
-            except Exception,error: raise Exception,"[Query]{%s}"%error
+            except Exception as error: raise Exception("[Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 mi_crv = cgmMeta.asMeta( curves.createControlCurve('arrow4Fat',
@@ -3572,7 +3572,7 @@ def shapeCast_eyeLook(*args,**kws):
                 mi_tmpGroup.delete()
 
                 mi_crv.__setattr__('t%s'%mi_go.str_jointOrientation[2],0)	
-            except Exception,error: raise Exception,"[Curve create]{%s}"%error
+            except Exception as error: raise Exception("[Curve create]{%s}"%error)
 
             try:#>>Copy tags and name
                 #mi_crv.doCopyNameTagsFromObject(mi_helper.mNode,ignore = ['cgmType','cgmTypeModifier'])
@@ -3584,13 +3584,13 @@ def shapeCast_eyeLook(*args,**kws):
                 l_color = modules.returnSettingsData('colorCenter',True)
                 curves.setCurveColorByName(mi_crv.mNode,l_color[0])    
 
-            except Exception,error: raise Exception,"[Connect]{%s}"%error
+            except Exception as error: raise Exception("[Connect]{%s}"%error)
 
             try:#connect ===========================================================
                 mi_go._mi_rigNull.connectChildNode(mi_crv,'shape_eyeLook','owner')
                 mi_go.d_returnControls['eyeLook'] = mi_crv.mNode
                 mi_go.md_ReturnControls['eyeLook'] = mi_crv		
-            except Exception,error: raise Exception,"[Connect]{%s}"%error
+            except Exception as error: raise Exception("[Connect]{%s}"%error)
 
     #We wrap it so that it autoruns and returns
     return fncWrap(*args,**kws).go()  
@@ -3616,7 +3616,7 @@ def build_eyeLook(self):
         #if self.str_partType == "eyeball":
         mi_crv.__setattr__('t%s'%self.str_jointOrientation[2],0)
 
-    except Exception,error:
+    except Exception as error:
         log.error("%s >>> Find info | %s"%(_str_funcName,error) )
 
     try:    
@@ -3635,6 +3635,6 @@ def build_eyeLook(self):
 
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.clock()-time_func)) + "-"*75)         
 
-    except Exception,error:
+    except Exception as error:
         log.error("%s >>> fail]{%s}"%(_str_funcName,error) )
         return False

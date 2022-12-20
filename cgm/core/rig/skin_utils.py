@@ -74,7 +74,7 @@ def surface_copyWeights(sourceSurface, targetSurface):
     
 
     if len(ml_skinSource) > 1:
-        raise ValueError,"Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters)
+        raise ValueError("Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters))
     mSkinSource = ml_skinSource[0]
     mSkinTarget = ml_skinTarget[0]
     
@@ -82,14 +82,14 @@ def surface_copyWeights(sourceSurface, targetSurface):
     int_targetCVs = len(l_cvsTarget)
     if int_sourceCVs != int_targetCVs:
         #pprint.pprint(vars)
-        raise ValueError, "|{0}| >> cvLens must match".format(_str_func,)
+        raise ValueError("|{0}| >> cvLens must match".format(_str_func,))
         
     l_influenceSource = CORESKIN.get_influences_fromMatrix(ml_skinSource[0].mNode)
     l_influenceTargets = CORESKIN.get_influences_fromMatrix(ml_skinTarget[0].mNode)
     
     if l_influenceSource != l_influenceTargets:
         pprint.pprint(vars())
-        raise ValueError, "|{0}| >> Influence targets don't match".format(_str_func,)    
+        raise ValueError("|{0}| >> Influence targets don't match".format(_str_func,))    
     
     for i,cv in enumerate(l_cvsSource):
         v = mc.skinPercent(mSkinSource.mNode,cv, q=True, v = True)
@@ -124,7 +124,7 @@ def surface_tightenEnds(controlSurface,start = None, end = None,blendLength=3, h
     ml_skinClusters = mSurface.getDeformers(deformerTypes = 'skinCluster',asMeta=True)
     
     if len(ml_skinClusters) > 1:
-        raise ValueError,"Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters)
+        raise ValueError("Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters))
     
     mSkin = ml_skinClusters[0]
     
@@ -134,7 +134,7 @@ def surface_tightenEnds(controlSurface,start = None, end = None,blendLength=3, h
     
     
     if not mSkin and l_influenceObjects:
-        raise StandardError,"controlSurfaceSmoothWeights failed. Not enough info found"
+        raise Exception("controlSurfaceSmoothWeights failed. Not enough info found")
     
     cvStarts = [int(cv.split('[')[-1].split(']')[0]) for cv in l_cvs]
     cvEnds = [int(cv.split('[')[-2].split(']')[0]) for cv in l_cvs]
@@ -208,7 +208,7 @@ def surface_tightenEnds(controlSurface,start = None, end = None,blendLength=3, h
     #pprint.pprint(vars())
     #pprint.pprint(d_dat)    
     #return        
-    for k,dat in d_dat.iteritems():
+    for k,dat in list(d_dat.items()):
         #log.debug("|{0}| >> key: {1} | dat: {2}".format(_str_func,k,dat))
         
         l_vs = []
@@ -275,7 +275,7 @@ def curve_tightenEnds(curve,start = None, end = None,blendLength=3, hardLength =
     ml_skinClusters = mCurve.getDeformers(deformerTypes = 'skinCluster',asMeta=True)
     
     if len(ml_skinClusters) > 1:
-        raise ValueError,"Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters)
+        raise ValueError("Only know how to deal with one skin cluster. Found: {0}".format(ml_skinClusters))
     
     mSkin = ml_skinClusters[0]
     
@@ -285,7 +285,7 @@ def curve_tightenEnds(curve,start = None, end = None,blendLength=3, hardLength =
 
     
     if not mSkin and l_influenceObjects:
-        raise StandardError,"controlSurfaceSmoothWeights failed. Not enough info found"
+        raise Exception("controlSurfaceSmoothWeights failed. Not enough info found")
     
     l_cvsUse = [int(cv.split('[')[-1].split(']')[0]) for cv in l_cvs]
     #cvEnds = [int(cv.split('[')[-2].split(']')[0]) for cv in l_cvs]
@@ -353,7 +353,7 @@ def curve_tightenEnds(curve,start = None, end = None,blendLength=3, hardLength =
     #pprint.pprint(d_dat)    
     #return
     
-    for k,dat in d_dat.iteritems():
+    for k,dat in list(d_dat.items()):
         #log.debug("|{0}| >> key: {1} | dat: {2}".format(_str_func,k,dat))
         
         l_vs = []

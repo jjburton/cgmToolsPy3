@@ -62,7 +62,7 @@ def distanceMeasure(start = None, end = None, baseName = 'measureThis',asMeta=Tr
         if _res.get('loc_end'):
             _res['mLoc_end'] = cgmMeta.asMeta(_res['loc_end'])            
         return _res
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 def get_meshFromNurbs(nurbSurface = None, mode = 'default', uNumber = 10, vNumber = 10):
@@ -102,7 +102,7 @@ def get_meshFromNurbs(nurbSurface = None, mode = 'default', uNumber = 10, vNumbe
                      'uss':1}
             _res = mc.nurbsToPoly(mShape.mNode, **d_kws)
         else:
-            raise ValueError,"get_meshFromNurbs | Unknown mode: {0}".format(mode)
+            raise ValueError("get_meshFromNurbs | Unknown mode: {0}".format(mode))
         newShapes.append(_res[0])
 
     if len(newShapes)>1:

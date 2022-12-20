@@ -183,7 +183,7 @@ def returnIterateNumber(obj):
             if bufferName not in objToQuery.matchedChildren and bufferName in parentToQuery.matchedChildren:
                 attributes.storeInfo(obj,'cgmNameModifier','branched')
                 attributes.storeInfo(obj,'cgmIterator',str(cnt))
-                print ("%s has a duplicate in the same heirarchy!" %obj)
+                print(("%s has a duplicate in the same heirarchy!" %obj))
         #print ("Count after checking name parent is %i" %cnt)
         return cnt
     #otherwise, we process it by itself
@@ -280,7 +280,7 @@ def returnUniqueGeneratedName(obj,sceneUnique = False,ignore='none'):
     updatedNamesDict = returnObjectGeneratedNameDict(obj,ignore)
     order = returnCGMOrder()
     
-    if 'cgmName' not in updatedNamesDict.keys():
+    if 'cgmName' not in list(updatedNamesDict.keys()):
         buffer = mc.ls(obj,shortNames = True)
         attributes.storeInfo(obj,'cgmName',buffer[0],True)
         updatedNamesDict = returnObjectGeneratedNameDict(obj,ignore)
@@ -519,7 +519,7 @@ def doNameObject(obj,sceneUnique = False):
         guiFactory.warning("'%s' is already named correctly."%nameFactory.nameBase)
         return name
     else:
-        objLong = mc.ls(obj,long=True)
+        objLong = mc.ls(obj,int=True)
         renameBuffer = mc.rename(objLong,name)
 
         shapes = mc.listRelatives(renameBuffer,shapes=True,fullPath=True)

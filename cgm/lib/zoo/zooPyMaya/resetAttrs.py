@@ -1,5 +1,5 @@
 
-import apiExtensions
+from . import apiExtensions
 
 from maya.cmds import *
 from cgm.lib.zoo.zooPy.misc import removeDupes

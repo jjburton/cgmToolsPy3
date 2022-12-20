@@ -47,8 +47,8 @@ from cgm.lib import lists
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 
-__l_spaceModes = SHARED._d_spaceArgs.keys()
-__l_pivots = SHARED._d_pivotArgs.keys()
+__l_spaceModes = list(SHARED._d_spaceArgs.keys())
+__l_pivots = list(SHARED._d_pivotArgs.keys())
 
 class ui(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
@@ -385,7 +385,7 @@ def uiFunc_updateFields(self):
     _d_sectionToDatKey = {'rotate':'rotateLocal',
                           'orient':'rotation'}
     
-    for section in self._d_transformAttrFields.keys():
+    for section in list(self._d_transformAttrFields.keys()):
         log.info("|{0}| >> On {1}".format(_str_func,section))
         _s = section
         if _s in ['translate','rotate','position','rotateAxis','scalePivot','orient']:
@@ -436,7 +436,7 @@ def uiFunc_getTargets(self):
         
     log.info("|{0}| >> targets...".format(_str_func))                
     for mObj in _ml_targets:
-        print(mObj.mNode)
+        print((mObj.mNode))
     
     return _ml_targets
     #_mTransformTargetself._mTransformTarget
@@ -447,7 +447,7 @@ def uiFunc_valuesSend(self,section=None,key=None):
     
     _ml_targets = uiFunc_getTargets(self)
     if not _ml_targets:
-        raise ValueError,"Must have targets"
+        raise ValueError("Must have targets")
         
     _d_fieldValues = {}
     
@@ -462,7 +462,7 @@ def uiFunc_valuesSend(self,section=None,key=None):
             _v = self._d_transformAttrFields[_s][key].getValue()
             _d_fieldValues[key] = _v
         
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to get key data. Section: {0} | key: {1}...".format(_str_func,_s,key))                
             log.error(err)   
         
@@ -472,7 +472,7 @@ def uiFunc_valuesSend(self,section=None,key=None):
     #pprint.pprint(_d_fieldValues)
     
     if _s in ['translate','rotate','scale','jointOrient','rotateAxis']:
-        for a,v in _d_fieldValues.iteritems():
+        for a,v in list(_d_fieldValues.items()):
             _a = _s + a
             log.info("|{0}| >> Trying attr: {1} | v: {2}... ".format(_str_func,_a,v))                        
             for mObj in _ml_targets:
@@ -481,7 +481,7 @@ def uiFunc_valuesSend(self,section=None,key=None):
                     return
                 log.info("|{0}| >> Trying Object: {1}... ".format(_str_func,mObj.mNode))                                    
                 try:ATTR.set(mObj.mNode,_a,v)        
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> Failed to get set data. Object: {0} | a: {1} | v: {2}...".format(_str_func,mObj.mNode,_a,v))                
                     log.error(err)
     elif _s == 'position':
@@ -490,12 +490,12 @@ def uiFunc_valuesSend(self,section=None,key=None):
             pos = TRANS.position_get(mObj.mNode)
             log.info("|{0}| >> pre pos: [{1}] ".format(_str_func,pos)) 
             
-            for k,v in _d_fieldValues.iteritems():
+            for k,v in list(_d_fieldValues.items()):
                 pos['XYZ'.index(k)] = v
             log.info("|{0}| >> pos pos: [{1}] ".format(_str_func,pos))   
             try:
                 TRANS.position_set(mObj.mNode, pos)     
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to get set data. Object: {0} | section: {2}...".format(_str_func,mObj.mNode,_s))                
                 log.error(err) 
     elif _s == 'orient':
@@ -504,12 +504,12 @@ def uiFunc_valuesSend(self,section=None,key=None):
             val = TRANS.orient_get(mObj.mNode)
             log.info("|{0}| >> pre val: [{1}] ".format(_str_func,val)) 
         
-            for k,v in _d_fieldValues.iteritems():
+            for k,v in list(_d_fieldValues.items()):
                 val['XYZ'.index(k)] = v
             log.info("|{0}| >> post val: [{1}] ".format(_str_func,val))   
             try:
                 TRANS.orient_set(mObj.mNode, val)     
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to get set data. Object: {0} | section: {2}...".format(_str_func,mObj.mNode,_s))                
                 log.error(err)         
     elif _s == 'scaleLossy':
@@ -519,12 +519,12 @@ def uiFunc_valuesSend(self,section=None,key=None):
             scale = TRANS.scaleLossy_get(mObj.mNode)
             log.info("|{0}| >> pre scale: [{1}] ".format(_str_func,scale)) 
         
-            for k,v in _d_fieldValues.iteritems():
+            for k,v in list(_d_fieldValues.items()):
                 scale['XYZ'.index(k)] = v
             log.info("|{0}| >> post scale: [{1}] ".format(_str_func,scale))   
             try:
                 TRANS.scaleLocal_set(mObj.mNode, scale)     
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to get set data. Object: {0} | section: {1} ...".format(_str_func,mObj.mNode,_s))                
                 log.error(err)
     elif _s == 'scalePivot':
@@ -534,14 +534,14 @@ def uiFunc_valuesSend(self,section=None,key=None):
             #pos = TRANS.position_get(mObj.mNode)
             log.info("|{0}| >> pre piv: [{1}] ".format(_str_func,piv)) 
         
-            for k,v in _d_fieldValues.iteritems():
+            for k,v in list(_d_fieldValues.items()):
                 piv['XYZ'.index(k)] = v
                 
             #piv = MATH.list_subtract(piv,pos)
             log.info("|{0}| >> post piv: [{1}] ".format(_str_func,piv))   
             try:
                 TRANS.scalePivot_set(mObj.mNode, piv)     
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed to get set data. Object: {0} | section: {1} ...".format(_str_func,mObj.mNode,_s))                
                 log.error(err)        
     else:
@@ -556,16 +556,16 @@ def uiFunc_valuesTweak(self,mode = '+'):
         log.info("|{0}| >> Zeroing ".format(_str_func))           
         for a in 'XYZ':
             self.__dict__['uiff_transformTweak{0}'.format(a)].setValue(0)
-        for k,cb in self._d_transformCBs.iteritems():
+        for k,cb in list(self._d_transformCBs.items()):
             cb.setValue(0)
         return 
     
     _ml_targets = uiFunc_getTargets(self)
     if not _ml_targets:
-        raise ValueError,"Must have targets"    
+        raise ValueError("Must have targets")    
 
     _l_toTweak = []
-    for k,cb in self._d_transformCBs.iteritems():
+    for k,cb in list(self._d_transformCBs.items()):
         if cb.getValue():
             _l_toTweak.append(k)
             

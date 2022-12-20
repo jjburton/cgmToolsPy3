@@ -17,6 +17,7 @@ import re
 import sys
 import webbrowser
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -74,7 +75,7 @@ if cgmGen.__mayaVersion__ >=2016:
 def clean_scriptPaths():
     _str_func = 'clean_scriptPaths'
     _buffer = maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' )
-    mayaScriptPaths = map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) )
+    mayaScriptPaths = list(map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) ))
     mayaScriptPathsSet = set( mayaScriptPaths )
 
     _l_good = []
@@ -112,7 +113,7 @@ def clean_scriptPaths():
 def clean_pluginPaths():
     _str_func = 'clean_pluginPaths'
     _buffer = maya.mel.eval( 'getenv MAYA_PLUG_IN_PATH' )
-    mayaScriptPaths = map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_PLUG_IN_PATH' ).split( os.pathsep ) )
+    mayaScriptPaths = list(map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_PLUG_IN_PATH' ).split( os.pathsep ) ))
     mayaScriptPathsSet = set( mayaScriptPaths )
 
     _l_good = []
@@ -148,7 +149,7 @@ def setupCGMScriptPaths():
     #thisPath = os.sep.join(__file__.split(os.sep)[:-1])
     thisPath = thisFile.up().osPath()
 
-    mayaScriptPaths = map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) )
+    mayaScriptPaths = list(map( cgmPath.Path, maya.mel.eval( 'getenv MAYA_SCRIPT_PATH' ).split( os.pathsep ) ))
     mayaScriptPathsSet = set( mayaScriptPaths )
     _paths = [os.path.join('cgm','mel','zooPy'),
               os.path.join('cgm','mel'),
@@ -177,7 +178,7 @@ def setupCGMPlugins():
     thisPath = thisFile.up().osPath()
 
     existingPlugPathStr = maya.mel.eval( 'getenv MAYA_PLUG_IN_PATH;' )
-    existingPlugPaths = map( cgmPath.Path, existingPlugPathStr.split( os.pathsep ) )
+    existingPlugPaths = list(map( cgmPath.Path, existingPlugPathStr.split( os.pathsep ) ))
     existingPlugPathsSet = set( existingPlugPaths )
 
     #cgmPyPath = thisPath / 'cgm/plugins'
@@ -189,7 +190,7 @@ def setupCGMPlugins():
         existingPlugPaths = mUI.removeDupes( existingPlugPaths )
         newPlugPathStr = os.pathsep.join( [ p for p in existingPlugPaths ] )
         for p in existingPlugPaths:
-            print p
+            print(p)
         maya.mel.eval( 'putenv MAYA_PLUG_IN_PATH "%s";' % newPlugPathStr )
 
 """
@@ -239,8 +240,8 @@ def uiMainMenu_rebuild():
     
     import cgm.core.tools.lib.tool_calls as TOOLCALLS
     
-    reload(UICHUNKS)
-    reload(TOOLCALLS)
+    importlib.reload(UICHUNKS)
+    importlib.reload(TOOLCALLS)
     uiMainMenu_add()
 
 
@@ -284,7 +285,7 @@ class AutoStartInstaller(object):
         log.info("pyUserSetup: {0}".format(pyUserSetup))
         log.info("melUserSetup: {0}".format(melUserSetup))        
         if pyUserSetup is None and melUserSetup is None:
-            print 'No py or mel user setup files found.Creating py'
+            print('No py or mel user setup files found.Creating py')
             if not self.createMelUserSetup():#if we can't make a user file, break
                 self.log_error("Failed to create Py User File")
                 return False
@@ -305,11 +306,11 @@ class AutoStartInstaller(object):
                 try:
                     self.installMel( melUserSetup )
                     success = True
-                except self.AutoSetupError, x:
+                except self.AutoSetupError as x:
                     errors.append( x )
 
         if not success:
-            print '>>>>>Failed>>>>>>'
+            print('>>>>>Failed>>>>>>')
             for x in errors:
                 log.info("Install error: {0}".format(x))
 
@@ -391,7 +392,7 @@ class AutoStartInstaller(object):
         try:
             envFile = mc.about(environmentFile = True) or False #Get env variable
             if not envFile: #See if it got anything
-                print 'No environmental file found'
+                print('No environmental file found')
             buffer = envFile.split('/')[:-1]#parse to list and pull 'Maya.env'
             buffer.extend(['scripts','userSetup.mel'])
             newLocation =  os.sep.join(buffer)
@@ -406,7 +407,7 @@ class AutoStartInstaller(object):
         try:
             envFile = mc.about(environmentFile = True) or False #Get env variable
             if not envFile: #See if it got anything
-                print 'No environmental file found'
+                print('No environmental file found')
             buffer = envFile.split('/')[:-1]#parse to list and pull 'Maya.env'
             buffer.extend(['scripts','userSetup.py'])
             newLocation =  os.sep.join(buffer)
@@ -451,8 +452,8 @@ def uiBuild_cgmMenu( *args ):
     menu = maya._cgmMenu
     menu.clear()
     
-    try:reload(UICHUNKS)
-    except Exception,err:
+    try:importlib.reload(UICHUNKS)
+    except Exception as err:
         log.error("Failed to reload UICHUNKS: {0}".format(err))
         
     log.info("|{0}| >> building...".format(_str_func))        
@@ -768,7 +769,7 @@ uiByTab = TOOLBOX.uiByTab
 #ui = TOOLBOX.ui
 
 def callUI():
-    reload(TOOLBOX)
+    importlib.reload(TOOLBOX)
     ui()
     
 class ui(TOOLBOX.ui):
@@ -783,7 +784,7 @@ class ui(TOOLBOX.ui):
         try:
             installer = AutoStartInstaller()
             mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Auto-Load On Maya Start", cb=installer.isInstalled(), c=lambda *a: AutoStartInstaller().install() )
-        except Exception,err:
+        except Exception as err:
             log.warning("Not loaded from cgmToolbox. No autoinstaller options")
             
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu )

@@ -34,7 +34,7 @@ import maya.cmds as mc
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.core import cgm_PuppetMeta as PUPPETMETA
+#from cgm.core import cgm_PuppetMeta as PUPPETMETA
 import cgm.core.cgm_RigMeta as cgmRIGMETA
 import cgm.core.lib.geo_Utils as GEO
 from cgm.core.lib import curve_Utils as CURVES
@@ -72,7 +72,7 @@ class eyeLook(object):
         if dag:
             mDag = cgmMeta.asMeta(dag)
             if not mDag.getMayaAttr('cgmType') == 'eyeLookMain':
-                raise ValueError,"Not a eyeLookMain tagged node: {0}".format(mDag)
+                raise ValueError("Not a eyeLookMain tagged node: {0}".format(mDag))
             self.mDag = mDag
             
     @classmethod
@@ -102,7 +102,7 @@ def eyeLook_get(self,autoBuild=False):
         if len(ml_puppetEyelooks) == 1 and ml_puppetEyelooks[0]:
             return ml_puppetEyelooks[0]
         else:
-            raise StandardError,"More than one puppet eye look"
+            raise Exception("More than one puppet eye look")
         
     if autoBuild:
         return eyeLook_verify(self)
@@ -127,7 +127,7 @@ def eyeLook_verify(self):
             return _eyeLook
         
         if mBlock.blockType not in ['eye']:
-            raise ValueError,"blocktype must be eye. Found {0} | {1}".format(mBlock.blockType,mBlock)
+            raise ValueError("blocktype must be eye. Found {0} | {1}".format(mBlock.blockType,mBlock))
         
         #Data... -----------------------------------------------------------------------
         log.debug("|{0}| >> Get data...".format(_str_func))
@@ -236,7 +236,7 @@ def eyeLook_verify(self):
         
         return mCrv
     
-    except Exception,error:
+    except Exception as error:
         cgmGEN.cgmExceptCB(Exception,error,msg=vars())
 
    
@@ -247,8 +247,8 @@ def eyeLook_verify(self):
             try:
                 for mCtrl in self.ml_controlsAll:
                     mi_parentRigNull.msgList_append('controlsAll',mCtrl)
-            except Exception,error: raise Exception,"!Controls all connect!| %s"%error	    
+            except Exception as error: raise Exception("!Controls all connect!| %s"%error)	    
             try:mi_parentRigNull.moduleSet.extend(self.ml_controlsAll)
-            except Exception,error: raise Exception,"!Failed to set module objectSet! | %s"%error
-    except Exception,error:raise Exception,"!Module Parent registration! | %s"%(error)	    
+            except Exception as error: raise Exception("!Failed to set module objectSet! | %s"%error)
+    except Exception as error:raise Exception("!Module Parent registration! | %s"%(error))	    
 

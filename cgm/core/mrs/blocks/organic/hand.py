@@ -361,12 +361,12 @@ def define(self):
         
         
         
-        for k,d in _d.iteritems():
+        for k,d in list(_d.items()):
             _v = _d_scaleSpace[_str_pose].get(k)
             if _v is not None:
                 d['scaleSpace'] = _v
         
-        l_order.extend(_d.keys())
+        l_order.extend(list(_d.keys()))
         
         for k in ['thumbUp']:
             _d['{0}Inner'.format(k)] = {'color':'blue','tagOnly':1,'arrow':0,'jointLabel':1,'vectorLine':0,'handleType':'vector','parentTag':'thumbBaseInner','endTag':'thumbTipInner'}
@@ -408,7 +408,7 @@ def define(self):
         ml_handles = md_res['ml_handles']
         
         
-        for k,p in d_toParent.iteritems():
+        for k,p in list(d_toParent.items()):
             md_handles[k].p_parent = md_handles[p]
             
             
@@ -564,11 +564,11 @@ def define(self):
         idx_side = 0
         d = {}
         
-        for tag,mHandle in md_handles.iteritems():
+        for tag,mHandle in list(md_handles.items()):
             mHandle = cgmMeta.validateObjArg(mHandle,'cgmControl',setClass=True)
             mHandle._verifyMirrorable()
             _center = True
-            for p1,p2 in d_pairs.iteritems():
+            for p1,p2 in list(d_pairs.items()):
                 if p1 == tag or p2 == tag:
                     _center = False
                     break
@@ -580,7 +580,7 @@ def define(self):
             mHandle.mirrorAxis = "translateX,rotateY,rotateZ"
     
         #Self mirror wiring -------------------------------------------------------
-        for k,m in d_pairs.iteritems():
+        for k,m in list(d_pairs.items()):
             md_handles[k].mirrorSide = 1
             md_handles[m].mirrorSide = 2
             md_handles[k].mirrorIndex = idx_side
@@ -602,7 +602,7 @@ def define(self):
         return        
         
  
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
 def uiBuilderMenu(self,parent = None):
@@ -751,9 +751,9 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
             
             k = 'thumbLine{0}DefineCurve'.format(s_tag)
             mCrv = self.getMessageAsMeta('{0}'.format(k))
-            if not mCrv:raise ValueError,"Didn't find cruve " + k                    
+            if not mCrv:raise ValueError("Didn't find cruve " + k)                    
             mBaseHandle = self.getMessageAsMeta('define{0}Helper'.format(handleKey))
-            if not mBaseHandle:raise ValueError,"Didn't find " + handleKey
+            if not mBaseHandle:raise ValueError("Didn't find " + handleKey)
             
 
             log.debug(cgmGEN.logString_msg(_str_func,'Get drivers'))
@@ -765,7 +765,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                 mHelper = self.getMessageAsMeta('define{0}{1}Helper'.format(STR.capFirst(k),
                                                                             s_tag.capitalize()))
                 if not mHelper:
-                    raise ValueError,"Failed to query: {0}".format(k)
+                    raise ValueError("Failed to query: {0}".format(k))
                 md_helpers[k] = mHelper
                 if k != 'thumbUp':
                     ml_drivers.append(mHelper)
@@ -987,7 +987,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                 #Basecurves
                 log.debug(cgmGEN.logString_msg(_str_func,'Base Curves...'))
                 d_curveCreation = {}
-                for i,l in md_baseTags.iteritems():
+                for i,l in list(md_baseTags.items()):
                     d_curveCreation["fBase_{0}".format(i)] = {'keys':l,'rebuild':1}
                 
                 
@@ -1016,7 +1016,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                     ATTR.set_max(_short,a,.95)
                     
                 md_drivers = {}
-                for i in md_baseTags.keys():
+                for i in list(md_baseTags.keys()):
                     log.debug(cgmGEN.logString_sub(_str_func,'subSplit {0}'.format(mCrv)))
                     mCrv = md_curves["fBase_{0}".format(i)]
                     if not md_driverTags.get(i):md_driverTags[i] = []
@@ -1058,7 +1058,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                 log.debug(cgmGEN.logString_msg(_str_func,'Driver Curves...'))
                 d_curveCreation = {}
                 l_curveKeys = []
-                for i,l in md_driverTags.iteritems():
+                for i,l in list(md_driverTags.items()):
                     key = "finger_{0}".format(i)
                     d_curveCreation[key] = {'keys':l,'rebuild':0}
                     l_curveKeys.append(key)
@@ -1077,7 +1077,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                 #Scale ====================================================================
                 log.debug(cgmGEN.logString_msg(_str_func,'profile curves'))
                 ml_surfaces = []
-                for idx,ml in md_drivers.iteritems():
+                for idx,ml in list(md_drivers.items()):
                     ml_profiles = []
                     
                     log.debug(cgmGEN.logString_msg(_str_func,'finger visual {0}'.format(idx)))
@@ -1228,7 +1228,7 @@ def verify_drivers(self,forceNew=True,resetToBase=True):
                     
                 #cgmGEN.func_snapShot(vars())        
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     
 def verify_subBlocks(self,forceNew=True):
@@ -1384,7 +1384,7 @@ def verify_subBlocks(self,forceNew=True):
                         mHelper = self.getMessageAsMeta('define{0}{1}Helper'.format(STR.capFirst(k),
                                                                                     a.capitalize()))
                         if not mHelper:
-                            raise ValueError,"Failed to query: {0}".format(k)
+                            raise ValueError("Failed to query: {0}".format(k))
                         md_helpers[k] = mHelper
                         if k != 'thumbUp':
                             ml_drivers.append(mHelper)
@@ -1449,7 +1449,7 @@ def verify_subBlocks(self,forceNew=True):
                             
                     #Wire
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 
@@ -1484,7 +1484,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
                         md_blocks[dKey][idxKey] = mBlock
         else:
             log.debug(cgmGEN.logString_msg(_str_func,'Finding blocks'))
-            for k,d in md_blocks.iteritems():
+            for k,d in list(md_blocks.items()):
                 ml_blocks = self.msgList_get('{0}Blocks'.format(k))
                 for i,mBlock in enumerate(ml_blocks):
                     d[i] = mBlock
@@ -1494,7 +1494,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
         #Process =============================================================================
         #pprint.pprint(md_blocks)
         
-        for k,dSet in md_blocks.iteritems():
+        for k,dSet in list(md_blocks.items()):
             if dSet:
                 log.debug(cgmGEN.logString_sub(_str_func,'Processing: {0}'.format(k)))
 
@@ -1510,12 +1510,12 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
                         mHelper = self.getMessageAsMeta('define{0}{1}Helper'.format(STR.capFirst(tag),
                                                                                     _dir))
                         if not mHelper:
-                            raise ValueError,"Failed to query: {0}".format(tag)
+                            raise ValueError("Failed to query: {0}".format(tag))
                         md_helpers[tag] = mHelper
                     
                     ml_profiles = self.msgList_get('{0}_0_profiles'.format(k))
                     
-                    for k2,mBlock in dSet.iteritems():
+                    for k2,mBlock in list(dSet.items()):
                         ml_drivers = self.msgList_get('{0}_{1}_Drivers'.format(k,k2))
                         _blockState = mBlock.getState(False)
                         #Define.............
@@ -1567,7 +1567,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
                                                      1]
                                             #TRANS.scale_to_size(_mNode,l_box)
                                             DIST.scale_to_axisSize(_mNode,l_box)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error("Form Handle failed to scale: {0}".format(mHandle))
                                         log.error(err)
                                         
@@ -1595,7 +1595,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
                     log.debug(cgmGEN.logString_sub(_str_func,'Fingers...'))                    
                     ml_surfaces = self.msgList_get('fingerLoftSurfaces')
 
-                    for k2,mBlock in dSet.iteritems():
+                    for k2,mBlock in list(dSet.items()):
                         log.debug(cgmGEN.logString_sub(_str_func,'Finger {0}'.format(k2)))
                         _surf = ml_surfaces[k2].mNode
                         ml_drivers = self.msgList_get('finger{0}Drivers'.format(k2))
@@ -1671,7 +1671,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
                                                      1]
                                             #TRANS.scale_to_size(_mNode,l_box)
                                             DIST.scale_to_axisSize(_mNode,l_box)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error("Form Handle failed to scale: {0}".format(mHandle))
                                         log.error(err)
                                         
@@ -1693,7 +1693,7 @@ def subBlock_align(self,mBlockArg  = None, formScale = True, ml_drivers = None, 
 
                     
                     
-    except Exception,err:cgmGEN.cgmException(Exception,err)
+    except Exception as err:cgmGEN.cgmException(Exception,err)
     
     
 def verify_subBlocksBAK(self,forceNew=True):
@@ -1840,7 +1840,7 @@ def verify_subBlocksBAK(self,forceNew=True):
                 print i"""
             
             self.msgList_connect('fingerBlocks',ml_fingerBlocks)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     
     
@@ -1908,7 +1908,7 @@ def sub_connect(self,mode='snap',forceNew=True):
                     log.debug(cgmGEN.logString_msg(_str_func,'form...'))
                     
             
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 def sub_detach(self):
@@ -1942,7 +1942,7 @@ def sub_detach(self):
                                 
                         mDefineHandle.template=False            
             
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     
 

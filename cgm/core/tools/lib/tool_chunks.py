@@ -15,6 +15,7 @@ import webbrowser
 import copy
 
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -25,7 +26,7 @@ import maya.mel as mel
 
 import Red9
 
-from cgm.lib.zoo.zooPyMaya import xferAnimUI
+#from cgm.lib.zoo.zooPyMaya import xferAnimUI
 
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
@@ -61,9 +62,9 @@ import cgm.core.rig.joint_utils as JOINTS
 from cgm.core.lib import transform_utils as TRANS
 from cgm.core.lib import constraint_utils as CONSTRAINTS
 from cgm.core.lib import search_utils as SEARCH
-reload(SEARCH)
+importlib.reload(SEARCH)
 import cgm.core.lib.mayaBeOdd_utils as MAYABEODD
-reload(MMCONTEXT)
+importlib.reload(MMCONTEXT)
 
 from cgm.core.lib.ml_tools import (ml_breakdownDragger,
                                    ml_breakdown,
@@ -202,12 +203,12 @@ def uiSection_query(parent = None):
     def queryType():
         sl = mc.ls(sl=1)
         if sl:
-            print(cgmGEN._str_hardBreak)
+            print((cgmGEN._str_hardBreak))
             
             for o in sl:
-                print("'{}' | mayaType: {}".format(NAMESUTILS.short(o), VALID.get_mayaType(o)))
+                print(("'{}' | mayaType: {}".format(NAMESUTILS.short(o), VALID.get_mayaType(o))))
                 
-            print(cgmGEN._str_hardBreak)
+            print((cgmGEN._str_hardBreak))
         else:
             log.warning("Nothing selected")
                 
@@ -555,7 +556,7 @@ def uiSection_shapes(parent = None, selection = None, pairSelected = True):
         uiColorIndexShape = mc.menuItem(p=uiContext,l='Index',                                         
                                         ann = "Set overrideColor by {0} by index".format(ctxt),                                                        
                                         subMenu=True)
-        _IndexKeys = SHARED._d_colorsByIndexSets.keys()
+        _IndexKeys = list(SHARED._d_colorsByIndexSets.keys())
         
         for k1 in _IndexKeys:
             _keys2 = SHARED._d_colorsByIndexSets.get(k1,[])
@@ -578,7 +579,7 @@ def uiSection_shapes(parent = None, selection = None, pairSelected = True):
                                  ann = "Set overrideColor by {0} -- 2016 or above only".format(ctxt),                                                                                         
                                  l='RBG', subMenu=True)   
         
-        _IndexKeys = SHARED._d_colorSetsRGB.keys()
+        _IndexKeys = list(SHARED._d_colorSetsRGB.keys())
         for k1 in _IndexKeys:
             _keys2 = SHARED._d_colorSetsRGB.get(k1,[])
             _sub = False
@@ -649,7 +650,7 @@ def uiSection_attributes(parent):
                        ann = "Add attributes to selected objects...",                                                                                                                              
                        rp='S') 
     _d_attrTypes = {"string":'E','float':'S','enum':'NE','vector':'SW','int':'W','bool':'NW','message':'SE'}
-    for _t,_d in _d_attrTypes.iteritems():
+    for _t,_d in list(_d_attrTypes.items()):
         mc.menuItem(parent=_add,
                     l=_t,
                     ann = "Add a {0} attribute(s) to the selected objects".format(_t),                                                                                                       
@@ -670,7 +671,7 @@ def uiSection_nodes(parent):
     _uic_nodes = mc.menuItem(parent = uiNodes,subMenu=True,
                              l='Create',
                              )               
-    for n in SHARED._d_node_to_suffix.keys():
+    for n in list(SHARED._d_node_to_suffix.keys()):
         mc.menuItem(parent = _uic_nodes,
                     l=n,
                     c=cgmGEN.Callback(NODES.create,'NameMe',n),                   
@@ -1061,9 +1062,9 @@ def uiSection_hotkeys(parent):
 
 from cgm.lib import optionVars
 from cgm.core.lib.wing import mayaWingServer as mWingServer
-reload(mWingServer)
+importlib.reload(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
-reload(cgmDeveloperLib)
+importlib.reload(cgmDeveloperLib)
 from cgm.core.tests import cgmMeta_test as testCGM
 import cgm.core.tests.cgmTests as CGMTEST
 #reload(CGMTEST)
@@ -1078,11 +1079,11 @@ def load_MorpheusMaker( *a ):
     try:
         print("Trying to load Morheus Maker 2014")
         from morpheusRig_v2.core.tools import MorpheusMaker as mMaker
-        reload(mMaker)    
+        importlib.reload(mMaker)    
         mMaker.go()	
-    except Exception,error:
+    except Exception as error:
         log.error("You appear to be missing the Morpheus pack. Or maybe angered the spirits...")
-        raise Exception,error
+        raise Exception(error)
     
 def uiSection_dev(parent):
     _str_func = 'uiSection_dev' 
@@ -1202,7 +1203,7 @@ def uiSection_dev(parent):
                 ann = "WARNING - Opens new file...Unit test cgm.core",
                 c=lambda *a: ut_cgmTestCall('mClasses'))     """
     
-    for m,l in CGMTEST._d_modules.iteritems():
+    for m,l in list(CGMTEST._d_modules.items()):
         _mCheck = mc.menuItem(parent = _testCheck,subMenu = True,tearOff = True,
                               l='Debug ' + m)   
         _mTest = mc.menuItem(parent = _test,subMenu = True,tearOff = True,
@@ -1254,7 +1255,7 @@ def uiSection_dev(parent):
     #BG ------------------------------------------
     _bgColor = mc.menuItem(parent = parent,subMenu = True,tearOff = True,
                            l='BG Gradiant')
-    for k in CGMPROJECTS.d_bg_presets.keys():
+    for k in list(CGMPROJECTS.d_bg_presets.keys()):
         mc.menuItem(parent = _bgColor,
                     l='{0}'.format(k),
                     c=cgmGEN.Callback(CGMPROJECTS.setup_bgColor,k))
@@ -1264,20 +1265,20 @@ def uiSection_dev(parent):
     
 def ut_cgmTestCall(*args,**kws):
     import cgm.core.tests.cgmTests as cgmTests
-    reload(cgmTests)
+    importlib.reload(cgmTests)
     cgmTests.main(*args,**kws)    
 
 def ut_allOLD():
-    reload(testCGM)
+    importlib.reload(testCGM)
     testCGM.ut_AllTheThings()
 def ut_metaOLD():
-    reload(testCGM)
+    importlib.reload(testCGM)
     testCGM.ut_cgmMeta()
 def ut_puppetOLD():
-    reload(testCGM)
+    importlib.reload(testCGM)
     testCGM.ut_cgmPuppet()
 def ut_limbOLD():
-    reload(testCGM)
+    importlib.reload(testCGM)
     testCGM.ut_cgmLimb()
     
 def uiSection_createFromSel(parent, selection = None):
@@ -1496,7 +1497,7 @@ def uiSection_riggingUtils(parent, selection = None):
 from cgm.core.tools.lib import snap_calls as SNAPCALLS
 
 def call_optionVar_ui():
-    reload(SNAPCALLS)    
+    importlib.reload(SNAPCALLS)    
     SNAPCALLS.ui_optionVars()
 
 def uiSection_utils(parent = None, selection = None, pairSelected = True):
@@ -1744,7 +1745,7 @@ def uiFunc_createOneOfEach():
     CURVES.create_oneOfEach(var_createSizeValue.value)
 
 def uiFunc_createCurve():
-    reload(CURVES)
+    importlib.reload(CURVES)
     var_createAimAxis = cgmMeta.cgmOptionVar('cgmVar_createAimAxis', defaultValue = 2)
     var_curveCreateType = cgmMeta.cgmOptionVar('cgmVar_curveCreateType', defaultValue = 'circle')
     var_defaultCreateColor = cgmMeta.cgmOptionVar('cgmVar_defaultCreateColor', defaultValue = 'yellow')
@@ -1782,7 +1783,7 @@ def uiOptionMenu_contextTD(self, parent, callback = cgmGEN.Callback):
                         #c = lambda *a:ui_CallAndKill(self.var_contextTD.setValue,item),
                         c = callback(self.var_contextTD.setValue,item),                                  
                         rb = _rb)                
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
         
 def uiOptionMenu_buffers(self, callback = cgmGEN.Callback):
@@ -1802,7 +1803,7 @@ def uiOptionMenu_buffers(self, callback = cgmGEN.Callback):
     _d = {'RayCast':self.var_rayCastTargetsBuffer,
           'Match':self.var_locinatorTargetsBuffer}
 
-    for k in _d.keys():
+    for k in list(_d.keys()):
         var = _d[k]
         _ui = mc.menuItem(p=uiMenu, subMenu = True,
                           l = k)

@@ -44,7 +44,7 @@ _path = None
 for v in ['7.2','7.1','7.0']:
   _path = "C:\Program Files (x86)\Wing Pro {0}".format(v)
   if os.path.exists(_path):
-    print "Path Found: {0}".format(v)
+    print(("Path Found: {0}".format(v)))
     break
 
 WINGHOME = r"{0}".format(_path)

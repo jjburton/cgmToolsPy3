@@ -4,9 +4,9 @@ import datetime
 from cgm.lib.zoo.zooPy import presets
 
 import maya.cmds as cmd
-import melUtils
+from . import melUtils
 
-from mayaDecorators import d_showWaitCursor
+from .mayaDecorators import d_showWaitCursor
 
 mel = melUtils.mel
 melecho = melUtils.melecho
@@ -112,7 +112,7 @@ def importPreset( presetName, locale=DEFAULT_LOCALE, createSets=True, deleteAfte
 		cmd.delete( nodesDict[ volumesList[0][0] ] )
 
 	#return the created volumes
-	return nodesDict.keys(),
+	return list(nodesDict.keys()),
 
 
 #end

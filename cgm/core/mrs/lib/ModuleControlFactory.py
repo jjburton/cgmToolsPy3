@@ -114,10 +114,10 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
         
         if _addMirrorAttributeBridges :
             if type(_addMirrorAttributeBridges ) not in [list,tuple]:
-                raise ValueError,"[Bad addMirrorAttributeBridge arg]{arg: %s}"%_addMirrorAttributeBridge 
+                raise ValueError("[Bad addMirrorAttributeBridge arg]{arg: %s}"%_addMirrorAttributeBridge) 
             for i,l in enumerate(_addMirrorAttributeBridges):
                 if type(l) not in [list,tuple]:
-                    raise ValueError,"[Bad addMirrorAttributeBridge arg: %s]{arg: %s}"%(i,l) 			
+                    raise ValueError("[Bad addMirrorAttributeBridge arg: %s]{arg: %s}"%(i,l)) 			
         
         # Running lists ------------------------------------------------------------------------------------------
         ml_groups = []#Holder for groups
@@ -133,7 +133,7 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
         if copyTransform is not None:
             mTarget = cgmMeta.validateObjArg(copyTransform,'cgmObject',noneValid=True)
             if not mTarget:
-                raise StandardError,"Failed to find suitable copyTransform object: '%s"%copyTransform
+                raise Exception("Failed to find suitable copyTransform object: '%s"%copyTransform)
     
             #Need to move this to default cgmNode stuff
             mBuffer = mi_control
@@ -164,7 +164,7 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
             elif mc.objExists(copyPivot):
                 i_target = cgmMeta.cgmObject(copyPivot)
             else:
-                raise StandardError,"Failed to find suitable copyTransform object: '%s"%copyPivot
+                raise Exception("Failed to find suitable copyTransform object: '%s"%copyPivot)
     
             #Need to move this to default cgmNode stuff
             mi_control.doCopyPivot(i_target.mNode)
@@ -180,9 +180,9 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
         _rotateOrder = False
         if setRotateOrder is not None:
             _rotateOrder = setRotateOrder
-        elif controlType in __d_rotateOrderDefaults__.keys():
+        elif controlType in list(__d_rotateOrderDefaults__.keys()):
             _rotateOrder = __d_rotateOrderDefaults__[controlType]
-        elif mi_control.getAttr('cgmName') in __d_rotateOrderDefaults__.keys():
+        elif mi_control.getAttr('cgmName') in list(__d_rotateOrderDefaults__.keys()):
             _rotateOrder = __d_rotateOrderDefaults__[mi_control.getAttr('cgmName')]
         else:
             log.debug("|{0}| >> Rotate order not set on: {1}".format(_str_func,mi_control.p_nameShort))  
@@ -308,7 +308,7 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
             mPlug_forwardBackDriver = cgmMeta.cgmAttr(mi_control,"forwardBack",attrType = 'float',keyable=True)
             try:
                 mPlug_forwardBackDriven = cgmMeta.validateAttrArg([mi_control,addForwardBack])['mi_plug']
-            except Exception,error:raise StandardError,"push pull driver | %s"%(error)
+            except Exception as error:raise Exception("push pull driver | %s"%(error))
         
             if str_mirrorSide.lower() == 'right':
                 arg_forwardBack = "%s = -%s"%(mPlug_forwardBackDriven.p_combinedShortName,
@@ -327,12 +327,12 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
                 _attrName = VALID.stringArg(l_bridge[0])
                 _attrToBridge = VALID.stringArg(l_bridge[1])
                 if not mi_control.hasAttr(_attrToBridge):
-                    raise StandardError,"['%s' lacks the bridge attr '%s']"%(mi_control.p_nameShort,_attrToBridge)
+                    raise Exception("['%s' lacks the bridge attr '%s']"%(mi_control.p_nameShort,_attrToBridge))
     
                 mPlug_attrBridgeDriver = cgmMeta.cgmAttr(mi_control,_attrName,attrType = 'float',keyable=True)
                 try:
                     mPlug_attrBridgeDriven = cgmMeta.validateAttrArg([mi_control,_attrToBridge])['mi_plug']
-                except Exception,error:raise StandardError,"[validate control attribute bridge attr]{%s}"%(error)
+                except Exception as error:raise Exception("[validate control attribute bridge attr]{%s}"%(error))
     
                 if str_mirrorSide.lower() == 'right':
                     arg_attributeBridge = "%s = -%s"%(mPlug_attrBridgeDriven.p_combinedShortName,
@@ -373,5 +373,5 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
         #pprint.pprint(vars())
         
         return {'mObj':mi_control,'instance':mi_control,'ml_groups':ml_groups,'ml_constraintGroups':ml_constraintGroups}	
-    except Exception,err: cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err: cgmGEN.cgmExceptCB(Exception,err)
 

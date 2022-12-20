@@ -116,7 +116,7 @@ def update_obj(obj = None, move = None, rotate = None, mode = 'self',**kws):
     elif mode == 'source':
         source = ATTR.get_message(obj,'cgmLocSource')
         if not source:
-            raise ValueError,"No source found: {0}.cgmLocSource".format(obj)
+            raise ValueError("No source found: {0}.cgmLocSource".format(obj))
         log.debug("|{0}| >> source {1}".format(_str_func,NAMES.get_short(source)))
         SNAP.go(source[0],_obj,position=move,rotation=rotate)
     else:
@@ -225,8 +225,8 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
     #log.info("|{0}| >> Not updatable: {1}".format(_str_func,NAMES.get_short(_obj)))  
     _targets = VALID.objStringList(l_args=targets,isTransform=True,noneValid=False,calledFrom=_str_func)
         
-    if not _targets:raise ValueError,"|{0}| >> no targets.".format(_str_func)
-    if not move and not rotate:raise ValueError,"|{0}| >> Move and rotate both False".format(_str_func)
+    if not _targets:raise ValueError("|{0}| >> no targets.".format(_str_func))
+    if not move and not rotate:raise ValueError("|{0}| >> Move and rotate both False".format(_str_func))
     
     if dynMode is None:
         try:dynMode = cgmMeta.cgmOptionVar('cgmVar_dynMode').getValue()
@@ -246,7 +246,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
         if matchMode == 'source':
             source = ATTR.get_message(o,'cgmLocSource')
             if not source:
-                raise ValueError,"No source found: {0}.cgmLocSource".format(o)            
+                raise ValueError("No source found: {0}.cgmLocSource".format(o))            
             _l_toDo.append(o)
             _d['loc'] = o
             _d['source'] = source[0]
@@ -281,7 +281,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
         _d_keyDat['frameStart'] = timeRange[0]
         _d_keyDat['frameEnd'] = timeRange[1]       
     else:
-        raise ValueError,"|{0}| >> Unknown timeMode: {1}".format(_str_func,timeMode)
+        raise ValueError("|{0}| >> Unknown timeMode: {1}".format(_str_func,timeMode))
     
     _attrs = []
     if move:
@@ -303,7 +303,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
     
     _keysAll = None
     if keysMode == 'frames':
-        _keysAll = range(_start,_end +1)
+        _keysAll = list(range(_start,_end +1))
     elif keysMode == 'twos':
         _keysAll = []
         i = _start
@@ -354,8 +354,8 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
                 _keys = _source + _loc
                 _keys = lists.returnListNoDuplicates(_keys)
             elif keysMode == 'frames':
-                _keys = range(_start,_end +1)
-            else:raise ValueError,"|{0}| >> Unknown keysMode: {1}".format(_str_func,keysMode)
+                _keys = list(range(_start,_end +1))
+            else:raise ValueError("|{0}| >> Unknown keysMode: {1}".format(_str_func,keysMode))
         
             _l_cull = []
             for k in _keys:
@@ -407,7 +407,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
         mc.refresh(su=1)
     else:
         _start = mc.playbackOptions(q=True,min=True)
-        _keysToProcessFull = range(int(_start), int(max(_keysToProcess))+1)
+        _keysToProcessFull = list(range(int(_start), int(max(_keysToProcess))+1))
         #for k in _keysToProcess:
         #    if k not in _keysToProcessFull:
         #        _keysToProcessFull.append(k)
@@ -433,13 +433,13 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
                 
                     if matchMode == 'source':
                         try:update_obj(o,move,rotate,mode=matchMode)
-                        except Exception,err:log.error(err)
+                        except Exception as err:log.error(err)
                         mc.setKeyframe(_d_toDo[o]['source'],time = f, at = _attrs)
                     else:
                         try:update_obj(o,move,rotate)
-                        except Exception,err:log.error(err)
+                        except Exception as err:log.error(err)
                         mc.setKeyframe(o,time = f, at = _attrs)
-    except Exception,err:
+    except Exception as err:
         log.error(err)
     finally:
         if not dynMode:mc.refresh(su=0)
@@ -514,7 +514,7 @@ def uiFunc_change_matchMode(self,arg):
         self.var_matchModeRotate.value = 1
     else:
         self.var_matchMode.value = 2        
-        raise ValueError,"|{0}| >> Unknown matchMode: {1}".format(sys._getframe().f_code.co_name,arg)
+        raise ValueError("|{0}| >> Unknown matchMode: {1}".format(sys._getframe().f_code.co_name,arg))
     
         
 def uiOptionMenu_matchMode(self, parent):
@@ -564,7 +564,7 @@ def uiOptionMenu_matchMode(self, parent):
                         label=item,
                         c = cgmGen.Callback(self.var_matchModePivot.setValue,i),
                         rb = _rb)         """
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| failed to load. err: {1}".format(_str_section,err)) 
         
         
@@ -589,7 +589,7 @@ def uiBuffer_control(self, parent):
                     c= lambda *a: self.var_locinatorTargetsBuffer.select())
         mc.menuItem(p=uiMenu, l="Clear",
                     c= lambda *a: self.var_locinatorTargetsBuffer.clear())       
-    except Exception,err:
+    except Exception as err:
         log.error("|{0}| failed to load. err: {1}".format(_str_section,err)) 
         
 def uiRadialMenu_root(self,parent,direction = None, callback = None):

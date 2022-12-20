@@ -71,7 +71,7 @@ def example(self):
         _str_func = ' example'.format(self)
         log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def get_shapeOffset(self):
     """
@@ -106,7 +106,7 @@ def get_shapeOffset(self):
         return 1
         
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 @cgmGEN.Timer
 def modules_getHeirarchal(self,rewire=False):
@@ -120,7 +120,7 @@ def modules_getHeirarchal(self,rewire=False):
                 if _res:
                     log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
                     return _res
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         else:
             modules_get(self,True)
@@ -138,7 +138,7 @@ def modules_getHeirarchal(self,rewire=False):
             #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
                     
         return ml_allModules        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 #@cgmGEN.Timer
 def modules_get(self,rewire=False):
@@ -152,7 +152,7 @@ def modules_get(self,rewire=False):
                 if _res:
                     log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
                     return _res
-            except Exception,err:
+            except Exception as err:
                 log.debug(err)    
         
 
@@ -175,7 +175,7 @@ def modules_get(self,rewire=False):
             #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
                     
         return ml_allModules        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def modules_gather(self,**kws):
     try:
@@ -190,7 +190,7 @@ def modules_gather(self,**kws):
             _str_module = mModule.p_nameShort
             module_connect(self,mModule,**kws)
         return ml_modules
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def module_connect(self,mModule,**kws):
     try:
@@ -217,7 +217,7 @@ def module_connect(self,mModule,**kws):
     
         return True        
        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 def is_upToDate(self,report = True):
@@ -225,18 +225,18 @@ def is_upToDate(self,report = True):
     
     if report:
         _short = self.p_nameBase
-        print cgmGEN._str_hardBreak        
-        print("|{0}| >> ".format(_short) + cgmGEN._str_subLine)
+        print((cgmGEN._str_hardBreak))        
+        print(("|{0}| >> ".format(_short) + cgmGEN._str_subLine))
     
     for mModule in modules_get(self):
         _res.append( mModule.atUtils('is_upToDate',report) )
         
     if report:
         if False in _res:
-            print("|{0}| >> OUT OF DATE ".format(_short))
+            print(("|{0}| >> OUT OF DATE ".format(_short)))
         else:
             log.info("|{0}| >> build current. ".format(_short))
-        print cgmGEN._str_hardBreak
+        print((cgmGEN._str_hardBreak))
         
     if False in _res:
         return False
@@ -299,7 +299,7 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
                            'Right':[]}
         d_Indices = {}
         
-        for k,v in d_runningSideIdxes.iteritems():
+        for k,v in list(d_runningSideIdxes.items()):
             d_Indices[k] = v
             
         if d_Indices['Right'] != d_Indices['Left']:
@@ -392,7 +392,7 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
                             
                             _match = True
                             tags_second = md_cgmTags[mCandidate]
-                            for a,v in tags_second.iteritems():
+                            for a,v in list(tags_second.items()):
                                 if tags_prime[a] != v:
                                     _match = False
                                     break
@@ -567,12 +567,12 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
 
 
     log.info(cgmGEN.logString_sub(_str_func,'Centre'))
-    for k,v in md_indicesToControls['Centre'].iteritems():
-        print "{0} | {1} ".format(k,v.p_nameShort)
+    for k,v in list(md_indicesToControls['Centre'].items()):
+        print(("{0} | {1} ".format(k,v.p_nameShort)))
         
     log.info(cgmGEN.logString_sub(_str_func,'Left/Right'))
-    for k,v in md_indicesToControls['Left'].iteritems():
-        try:print "{0} | {1} >><< {2}".format(k,v.p_nameShort,md_indicesToControls['Right'][k].p_nameShort)
+    for k,v in list(md_indicesToControls['Left'].items()):
+        try:print(("{0} | {1} >><< {2}".format(k,v.p_nameShort,md_indicesToControls['Right'][k].p_nameShort)))
         except:
             pass
 
@@ -613,7 +613,7 @@ def mirror_getNextIndex(self,side):
             return max(l_return)+1
         else:return 0        
      
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
     
@@ -647,7 +647,7 @@ def mirror_getDict(self):
                         d_return[int_side].append(int_idx)
         return d_return
      
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 #=============================================================================================================
 #>> Anim
@@ -661,16 +661,16 @@ def modules_settings_set(self,**kws):
             if mModule.rigNull.getMessage('settings'):
                 mSettings = mModule.rigNull.settings
                 _short_settings = mSettings.mNode
-                for k,v in kws.iteritems():
+                for k,v in list(kws.items()):
                     try:
                         ATTR.set(_short_settings,k,v)
-                    except Exception,err:
+                    except Exception as err:
                         #if mSettings.hasAttr(k):
                         log.debug("|{0}| >>  Failed to set: mModule:{1} | k:{2} | v:{3} | {4}".format(_str_func,mModule.mNode,k,v,err))
             else:
                 log.debug("|{0}| >>  Missing settings: {1}".format(_str_func,mModule))
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def anim_reset(self,transformsOnly = True):
     try:
@@ -687,7 +687,7 @@ def anim_reset(self,transformsOnly = True):
         if _sel:mc.select(_sel)
         return _result
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def anim_select(self):
     try:
@@ -695,7 +695,7 @@ def anim_select(self):
         log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
         self.puppetSet.select()
         return True        
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 def anim_key(self,**kws):
     try:
@@ -714,7 +714,7 @@ def anim_key(self,**kws):
         if _sel:mc.select(_sel)
         return _result
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 @cgmGEN.Timer
 def layer_verify(self,**kws):
@@ -739,7 +739,7 @@ def layer_verify(self,**kws):
             self.connectChildNode(mLayer.mNode,'controlLayer')
         
         return self.displayLayer, self.controlLayer
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 def armature_verify(self):
@@ -760,7 +760,7 @@ def armature_verify(self):
     ATTR.copy_to(self.mNode,'cgmName',mArmature.mNode,driven='target')
     mArmature.addAttr('puppet',attrType = 'messageSimple')
     if not mArmature.connectParentNode(self.mNode,'puppet','armature'):
-        raise StandardError,"Failed to connect masterNull to puppet network!"
+        raise Exception("Failed to connect masterNull to puppet network!")
 
     mArmature.addAttr('cgmType',initialValue = 'ignore',lock=True)
     mArmature.addAttr('cgmModuleType',value = 'master',lock=True)   
@@ -870,7 +870,7 @@ def rig_connect(self):
     mRootMotionHandle =  self.getMessageAsMeta('rootMotionHandle')
     if not mRootJoint:
         log.error("|{0}| >> No root motion handle".format(_str_func))        
-        raise Exception,"No root motion handle found. "
+        raise Exception("No root motion handle found. ")
     
     RIGCONSTRAINT.driven_connect(mRootJoint,mRootMotionHandle,'noScale')
     
@@ -1033,7 +1033,7 @@ def groups_verify(self):
         mMasterNull = self.masterNull
     
         if not mMasterNull:
-            raise ValueError, "No masterNull"
+            raise ValueError("No masterNull")
     
         for attr in ['rig','deform','noTransform','geo','skeleton',
                      'parts','worldSpaceObjects','puppetSpaceObjects','spacePivots']:
@@ -1067,7 +1067,7 @@ def groups_verify(self):
             if attr == 'spacePivots':
                 mGroup.p_parent = mMasterNull.puppetSpaceObjectsGroup
                 
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def collect_worldSpaceObjects(self,progressBar = None):
     _str_func = 'collect_worldSpaceObjects'
@@ -1144,7 +1144,7 @@ def get_joints(self,mode='bind'):
         elif _mode in ['rig']:
             ml = mModule.rigNull.msgList_get('rigJoints',asMeta = True)
         else:
-            raise ValueError,"Unknown mode: {0}".format(mode)
+            raise ValueError("Unknown mode: {0}".format(mode))
         _res.extend(ml)
         
     return _res
@@ -1185,7 +1185,7 @@ def get_rigGeo(self):
     mMasterNull = self.masterNull
     
     _res = []
-    _l_base = [o for o in mc.ls(type='mesh',visible = True, long=True)]
+    _l_base = [o for o in mc.ls(type='mesh',visible = True, int=True)]
     _l_dags = [VALID.getTransform(o) for o in _l_base]
     _l_dags = LISTS.get_noDuplicates(_l_dags)
     
@@ -1254,7 +1254,7 @@ def rigNodes_setAttr(self,attr=None,value=None,progressBar = None,progressEnd=Tr
             cgmUI.progressBar_set(progressBar,
                                   progress=i, vis=True)
         try:l_dat.extend(mModule.rigNull.getMessage('rigNodes'))
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mModule,err))
             
     if attr and value is not None:
@@ -1272,7 +1272,7 @@ def rigNodes_setAttr(self,attr=None,value=None,progressBar = None,progressEnd=Tr
                     for s in _shapes:
                         ATTR.set(node,attr,value)
                 ATTR.set(node,attr,value)
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} | {1}".format(node,err))
     
     if progressBar and progressEnd:
@@ -1300,7 +1300,7 @@ def rig_connectAll(self, mode = 'connect', progressBar = None,progressEnd=True):
     _d_modeToCall = {'connect':'rig_connect',
                      'disconnect':'rig_disconnect'}
     if not _d_modeToCall.get(mode):
-        raise ValueError,"Unknown mode: {0}".format(mode)
+        raise ValueError("Unknown mode: {0}".format(mode))
     for i,mModule in enumerate([self] + ml_modules):
         if progressBar:
             cgmUI.progressBar_set(progressBar,
@@ -1309,7 +1309,7 @@ def rig_connectAll(self, mode = 'connect', progressBar = None,progressEnd=True):
             
         try:
             mModule.atUtils(_d_modeToCall.get(mode))
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mModule,err))
     
     if progressBar and progressEnd:
@@ -1330,7 +1330,7 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
     for i,mModule in enumerate([self] + ml_modules):  
         try:
             ml_rigBLocks.append(mModule.rigBlock)
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mModule,err))
             
     if progressBar:
@@ -1344,7 +1344,7 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
                                   progress=i, vis=True)
         try:
             mRigBlock.verify_proxyMesh(forceNew=forceNew,puppetMeshMode=puppetMeshMode)
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mRigBlock,err))
     
     if progressBar and progressEnd:
@@ -1473,7 +1473,7 @@ def controls_getDat(self, keys = None, ignore = [], report = False, listOnly = F
     if ml_objs and keys is None and not ignore:        
         log.debug("|{0}| >> remaining... ".format(_str_func))
         #pprint.pprint( ml_objs)
-        raise ValueError,("|{0}| >> Resolve missing controls!".format(_str_func))
+        raise ValueError("|{0}| >> Resolve missing controls!".format(_str_func))
         #return log.error("|{0}| >> Resolve missing controls!".format(_str_func))
 
     if report:
@@ -1520,7 +1520,7 @@ def controls_checkDups(self):
     
     log.info(cgmGEN.logString_msg(_str_func,'dups:'))
     for mObj in mDups:
-        print("idx: {0} | {1}".format(mObj.mirrorIndex,mObj))
+        print(("idx: {0} | {1}".format(mObj.mirrorIndex,mObj)))
     return mDups
         
 
@@ -1539,7 +1539,7 @@ def controls_get(self,walk=False,rewire=False,core=False):
                 if _res:
                     log.info(cgmGEN.logString_msg(_str_func,'mControlsAll buffer...'))
                     return _res
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         else:
             try:
@@ -1547,7 +1547,7 @@ def controls_get(self,walk=False,rewire=False,core=False):
                 if _resCore:
                     log.info(cgmGEN.logString_msg(_str_func,'mControlsCoreAll buffer...'))
                     return _resCore
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 
     try:
@@ -1556,7 +1556,7 @@ def controls_get(self,walk=False,rewire=False,core=False):
             if not walk:
                 log.info(cgmGEN.logString_msg(_str_func,'mControlsCore buffer...'))                
                 return _resCore
-    except Exception,err:
+    except Exception as err:
         log.error(err)
         _resCore = copy.copy(_res)
         
@@ -1577,9 +1577,9 @@ def controls_get(self,walk=False,rewire=False,core=False):
 
 def get_report(self):
     
-    print(cgmGEN._str_hardBreak)
-    print("Puppet: '{0}' | {1}".format(self.cgmName, self.p_nameBase))
-    print(cgmGEN._str_hardBreak)
+    print((cgmGEN._str_hardBreak))
+    print(("Puppet: '{0}' | {1}".format(self.cgmName, self.p_nameBase)))
+    print((cgmGEN._str_hardBreak))
     
     
     ml_modules = modules_get(self)
@@ -1610,10 +1610,10 @@ def get_report(self):
             
             for mObj in ml_rigNodes:
                 _type = mObj.getMayaType()
-                if not _d.has_key(_type):
+                if _type not in _d:
                     _d[_type] = 0
                     
-                if not d_counts.has_key(_type):
+                if _type not in d_counts:
                     d_counts[_type] = 0
                     
                 _d[_type] += 1
@@ -1623,42 +1623,42 @@ def get_report(self):
             #_d['Nodes'] = len(ml_rigNodes)
         
         
-        print(cgmGEN.logString_sub("{0} - '{1}'".format(i,mModule.p_nameShort),
-                                   "[{0}] | Type: {1} | Profile: {2}".format(mBlock.p_nameShort, mBlock.blockType, mBlock.blockProfile)))
+        print((cgmGEN.logString_sub("{0} - '{1}'".format(i,mModule.p_nameShort),
+                                   "[{0}] | Type: {1} | Profile: {2}".format(mBlock.p_nameShort, mBlock.blockType, mBlock.blockProfile))))
               
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         
         for k in _keys:
-            print "   [{0}] : {1}".format(k,_d[k])
+            print(("   [{0}] : {1}".format(k,_d[k])))
         
         print('\n')
         
 
-    print(cgmGEN.logString_sub("Counts", 'Nodes'))
-    _keys = d_counts.keys()
+    print((cgmGEN.logString_sub("Counts", 'Nodes')))
+    _keys = list(d_counts.keys())
     _keys.sort()
     
     for k in _keys:
-        print "   [{0}] : {1}".format(k,d_counts[k])    
+        print(("   [{0}] : {1}".format(k,d_counts[k])))    
         
         
     print('\n')
-    print(cgmGEN._str_subLine)
+    print((cgmGEN._str_subLine))
     
     d_dat = {'Modules': len(ml_modules),
              'Bind Joints':int_joints,
              'Nodes':int_nodes}
     
-    for d,v in d_dat.iteritems():
-        print "   [{0}] : {1}".format(d,v)
+    for d,v in list(d_dat.items()):
+        print(("   [{0}] : {1}".format(d,v)))
         
 
     print('\n')
 
     BLOCKGEN.get_rigBlock_heirarchy_context(self.rigBlock,'below',False,True)
     
-    print(cgmGEN._str_hardBreak)
+    print((cgmGEN._str_hardBreak))
     
 
 def get_report_asset(self,csv=False):
@@ -1677,7 +1677,7 @@ def get_report_asset(self,csv=False):
     for mObj in mExportSet.getMetaList():
         _type = mObj.getMayaType()
         if _type == 'joint':
-            print "joint " + mObj.mNode
+            print(("joint " + mObj.mNode))
         elif _type in ['mesh']:
             _d = {'mesh':mObj.mNode,
                   'verts':mc.polyEvaluate(mObj.getShapes()[0], vertex=True)}
@@ -1742,7 +1742,7 @@ def get_uiString(self,showSide=True):
             
         return _str
         
-    except Exception,err:
+    except Exception as err:
         log.debug(cgmGEN.logString_start(_str_func,'ERROR'))
         log.error(err)
         return self.mNode
@@ -1946,14 +1946,14 @@ def controller_verify(self,progressBar = None,progressEnd=True):
                                 else:
                                     _buffer = md_moduleController[mModParent].get('root')
                                     if _buffer:
-                                        print _buffer                                    
+                                        print(_buffer)                                    
                                         mParentController = get_tag(_buffer[0])
                                         mController.parent_set(mParentController)                            
                             else:
                                 if md_tmp.get('root'):
                                     _buffer = md_tmp.get('root')
                                     if _buffer:
-                                        print _buffer                                    
+                                        print(_buffer)                                    
                                         mParentController = get_tag(_buffer[0])
                                         mController.parent_set(mParentController)                             
                                     
@@ -1972,7 +1972,7 @@ def controller_verify(self,progressBar = None,progressEnd=True):
                             for modChild in ml_modChildren:
                                 _buffer = md_moduleController[modChild].get(tag)
                                 if _buffer:
-                                    print _buffer
+                                    print(_buffer)
                                     ml_children.append(_buffer[0])
                         else:
                             mChild = False
@@ -1996,10 +1996,10 @@ def controller_verify(self,progressBar = None,progressEnd=True):
                                     _msg =True
                                 mChildController = get_tag(mChild)
                                 mChildController.parent_set(mController,msgConnect=_msg)
-                            except Exception,err:
+                            except Exception as err:
                                 log.error("Child Err: {0} | {1}".format(mChild,err))
                             
-                    except Exception,err:
+                    except Exception as err:
                         log.error("Err: {0} | {1}".format(mObj,err))
                 
                 if ml:
@@ -2025,7 +2025,7 @@ def controller_verify(self,progressBar = None,progressEnd=True):
             cgmUI.progressBar_end(progressBar)
             
         return
-    except Exception,err:
+    except Exception as err:
         pprint.pprint(vars())
         log.error("controller_verify | {0}".format(err))
 
@@ -2236,5 +2236,5 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         #    CORERIG.color_mesh(mGeo.mNode,'puppetmesh')
             
         return ml_mesh
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     

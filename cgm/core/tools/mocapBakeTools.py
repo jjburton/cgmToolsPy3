@@ -478,7 +478,7 @@ class ui(cgmUI.cgmGUI):
         if onlySelected:
             idxs = self.parent_target_scroll.getSelectedIdxs()
         else:
-            idxs = range( len(self.parent_target_scroll.getAllItems()) )
+            idxs = list(range( len(self.parent_target_scroll.getAllItems())))
 
         # point/orient
         if mode == 0:
@@ -540,7 +540,7 @@ class ui(cgmUI.cgmGUI):
 
         for i, trg in enumerate(self.parent_target_items):
             wantedLink = []
-            closest = sys.maxint
+            closest = sys.maxsize
             for j, src in enumerate(self.parent_source_items):
                 closeness = STRING.levenshtein(trg.item, src.item)
                 if closeness < closest:
@@ -550,7 +550,7 @@ class ui(cgmUI.cgmGUI):
             if not self.has_link(wantedLink, self.parent_links):
                 make_link = True
                 if not self.var_mocap_allow_multiple_targets.value:
-                    current_closest = sys.maxint
+                    current_closest = sys.maxsize
                     for link in self.parent_links:
                         if link[0] == wantedLink[0]:
                             closeness = STRING.levenshtein(self.parent_target_items[link[1]].item, self.parent_source_items[link[0]].item)
@@ -613,7 +613,7 @@ class ui(cgmUI.cgmGUI):
         self.refresh_aliases()
 
     def uiFunc_add_selected_to_list(self, *args):
-        print "Button1"
+        print("Button1")
 
     # add items to scroll lists
     def uiFunc_add_to_parent_source(self, *args):
@@ -955,9 +955,9 @@ def set_connection_offsets(connection_data):
 
 
 def bake(connection_data, start, end):
-    bake_range = range( int(math.floor(start)), int(math.floor(end+1)))
+    bake_range = list(range( int(math.floor(start)), int(math.floor(end+1))))
     if end < start:
-        bake_range = range(int(math.floor(end)),int(math.floor(start+1)))
+        bake_range = list(range(int(math.floor(end)),int(math.floor(start+1))))
         bake_range.reverse()
 
     for i in bake_range:

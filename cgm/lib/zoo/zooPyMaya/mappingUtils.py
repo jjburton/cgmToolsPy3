@@ -1,6 +1,6 @@
 
 from cgm.lib.zoo.zooPy import strUtils
-from apiExtensions import *
+from .apiExtensions import *
 
 
 def findItem( itemName ):

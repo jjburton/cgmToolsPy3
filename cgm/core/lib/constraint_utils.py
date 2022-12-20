@@ -169,11 +169,11 @@ def get_targets(node=None, fullPath = True, select = False):
     """   
     _str_func = 'get_targets'
     if node == None:
-        _sel = mc.ls(sl=True,long=True)
+        _sel = mc.ls(sl=True,int=True)
         if _sel:
             node = _sel[0]
         else:
-            raise ValueError,"|{0}| >> No node arg. None selected".format(_str_func)
+            raise ValueError("|{0}| >> No node arg. None selected".format(_str_func))
             
     node = VALID.mNodeString(node)
     _type = VALID.get_mayaType(node)
@@ -185,7 +185,7 @@ def get_targets(node=None, fullPath = True, select = False):
             log.debug("|{0}| >> Not a constraint node. Found contraints to. Returning first".format(_str_func))
             return get_targets(_to[0],fullPath,select)
             
-        raise ValueError,"|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node)
+        raise ValueError("|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node))
 
     _res = _call(node,q=True,targetList=True)
     if select:
@@ -214,7 +214,7 @@ def get_targetWeightsDict(node=None):
 
     _call = _d_type_to_call.get(_type,False)
     if not _call:
-        raise ValueError,"|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node)
+        raise ValueError("|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node))
 
     aliasList = _call(node,q=True, weightAliasList=True)
     if aliasList:
@@ -243,7 +243,7 @@ def get_targetWeightsAttrs(node=None):
 
     _call = _d_type_to_call.get(_type,False)
     if not _call:
-        raise ValueError,"|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node)
+        raise ValueError("|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,node))
 
     return _call(node,q=True, weightAliasList=True)
 
@@ -332,7 +332,7 @@ def set_weightsByDistance(constraint=None,vList = None):
 
     for i,v in enumerate(vList):
         try:ATTR.set(constraint,_attrs[i],v)
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN.logString_msg(_str_func, err))
 
     return vList
@@ -379,7 +379,7 @@ def copy_constraint(sourceConstraint=None, targetObj=None, constraintType=None, 
 
     if constraintType is None:
         if targetObj is None:
-            raise ValueError,"|{0}| >> Must have targetObject or constraintType ".format(_str_func)
+            raise ValueError("|{0}| >> Must have targetObject or constraintType ".format(_str_func))
         else:
             log.info("|{0}| >> No constraintType passed. Using source's: '{1}' ".format(_str_func,_type))            
             constraintType = _type
@@ -387,7 +387,7 @@ def copy_constraint(sourceConstraint=None, targetObj=None, constraintType=None, 
     _call = _d_type_to_call.get(constraintType,False)
     
     if not _call:
-        raise ValueError,"|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,sourceConstraint)
+        raise ValueError("|{0}| >> {1} not a known type of constraint. node: {2}".format(_str_func,_type,sourceConstraint))
     
     
     if targetObj is None:

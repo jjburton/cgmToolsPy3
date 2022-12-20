@@ -1,9 +1,9 @@
 import maya.cmds as mc
-from cgm.lib import joints, rigging, attributes, names, distance, nodes, search, batch, lists,curves
-from cgm.lib import position
+from .cgm.lib import joints, rigging, attributes, names, distance, nodes, search, batch, lists,curves
+from .cgm.lib import position
 
 import copy as copy
-from cgm.lib import skinning as cgmSkin
+from .cgm.lib import skinning as cgmSkin
 
 # ====================================================================================================================
 #
@@ -750,7 +750,7 @@ def makeJointControlSurfaceFish(startJoint,controlJointList,outChannel,name):
     cnt = 0
     for grp in posGroups:
         node = mc.createNode ('pointOnSurfaceInfo',name= (grp+'_posInfoNode'))
-        print node
+        print(node)
         posInfoNodes.append (node)
         """ Connect the info node to the surface """                  
         mc.connectAttr ((controlSurface[0]+'Shape.worldSpace'),(posInfoNodes[cnt]+'.inputSurface'))
@@ -919,11 +919,11 @@ def fixPoleVectorsCauseJoshIsAMoron ():
         groupPair = mc.listRelatives (group, children=True)
         if len(groupPair) == 2:
             if (mc.listRelatives (groupPair[1], children=True)) > 0:
-                print (groupPair[1]+' has constraint')
+                print((groupPair[1]+' has constraint'))
             else:
                 poleVector = mc.poleVectorConstraint (groupPair[0],groupPair[1],name = ('joshIsAGoob_pvConst')) 
         else:
-            print 'not needed'
+            print('not needed')
     
 
     

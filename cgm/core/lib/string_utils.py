@@ -28,7 +28,7 @@ def levenshtein(s1, s2):
     if len(s2) == 0:
         return len(s1)
 
-    previous_row = range(len(s2) + 1)
+    previous_row = list(range(len(s2) + 1))
     for i, c1 in enumerate(s1):
         current_row = [i + 1]
         for j, c2 in enumerate(s2):
@@ -66,7 +66,7 @@ def camelCase(arg = None):
                     else:
                         l_new.append(a[0].capitalize()+a[1:])
         return ''.join(l_new)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 
@@ -124,7 +124,7 @@ def stripInvalidChars(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?>
         str_Clean = cgmValid.stringArg(arg,False,_str_funcName)
 
         for char in invalidChars:
-            if functionSwap and char in d_functionStringSwaps.keys():
+            if functionSwap and char in list(d_functionStringSwaps.keys()):
                 str_Clean = str_Clean.replace( char, d_functionStringSwaps.get(char) )
             else:
                 str_Clean = str_Clean.replace( char, replaceChar )
@@ -147,7 +147,7 @@ def stripInvalidChars(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?>
             while str_Clean.endswith( '_' ):
                 str_Clean = str_Clean[ :-1 ]
         return str_Clean		
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
 def stripWhiteSpaceStart(arg = None):

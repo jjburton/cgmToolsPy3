@@ -60,17 +60,17 @@ def kill_mmTool(ui='cgmMM'):
                 #mmTemplate.killChildren(_str_popWindow)
                 if mc.popupMenu(ui,ex = True):
                     try:mc.menu(ui,e = True, deleteAllItems = True)
-                    except Exception,err:
+                    except Exception as err:
                         log.error("Failed to delete menu items")   
                         
                     mc.deleteUI(ui) 
                     
                 #pprint.pprint(vars())      
                 
-        except Exception,err:
+        except Exception as err:
             log.error(err)   
         finally:
-            print("... '{0}' killed".format(ui))
+            print(("... '{0}' killed".format(ui)))
         
     mc.evalDeferred(_call,lp=True)
     

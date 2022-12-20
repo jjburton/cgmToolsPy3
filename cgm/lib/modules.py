@@ -65,7 +65,7 @@ def cgmTagToFloatAttr(obj,cgmTag,*a, **kw):
     """
     userAttrsData = attributes.returnUserAttrsToDict(obj)
     success = False
-    for key in userAttrsData.keys():
+    for key in list(userAttrsData.keys()):
         if key == cgmTag:
             try:
                 return attributes.addFloatAttributeToObject (obj, userAttrsData.get(key),*a, **kw )
@@ -77,7 +77,7 @@ def cgmTagToFloatAttr(obj,cgmTag,*a, **kw):
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def returnModuleColors(moduleNull):
     direction = search.returnTagInfo(moduleNull,'cgmDirection')
-    print direction
+    print(direction)
     if direction == False:
         return returnSettingsData('colorCenter',True)
     else:
@@ -99,7 +99,7 @@ def doPurgeNull(null):
     userAttrsData = attributes.returnUserAttrsToDict(null)
     if not userAttrsData:
         return False
-    for attr in userAttrsData.keys():
+    for attr in list(userAttrsData.keys()):
         if 'cgm' not in attr:
             attributes.doDeleteAttr(null,attr)
             guiFactory.warning("Deleted: '%s.%s'"%(null,attr))    
@@ -271,7 +271,7 @@ def saveTemplateToModule(moduleNull):
     templateObjects = []
     coreNamesArray = [] 
     #>>>TemplateInfo
-    for key in templatePosObjectsInfoData.keys():
+    for key in list(templatePosObjectsInfoData.keys()):
         if (mc.attributeQuery (key,node=templatePosObjectsInfoNull,msg=True)) == True:
             templateObjects.append (templatePosObjectsInfoData[key])
         coreNamesArray.append (key)
@@ -284,7 +284,7 @@ def saveTemplateToModule(moduleNull):
             posTemplateObjects.append(obj)
     """ get our control template objects """
     controlTemplateObjects=[]
-    for key in templateControlObjectsData.keys():
+    for key in list(templateControlObjectsData.keys()):
         if (mc.attributeQuery (key,node=templateControlObjectsNull,msg=True)) == True:
             controlTemplateObjects.append (templateControlObjectsData[key])
 
@@ -300,7 +300,7 @@ def saveTemplateToModule(moduleNull):
         
     masterOrient = (attributes.returnMessageObject(moduleRoot,'orientHelper'))
     
-    print ('%s%s'% (moduleNull,' data acquired...'))
+    print(('%s%s'% (moduleNull,' data acquired...')))
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     #>>> Save Data
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -315,11 +315,11 @@ def saveTemplateToModule(moduleNull):
         storageData.append(mc.xform (obj,  q=True, os=True, ro=True))
         
     storageData.append(mc.xform (masterOrient, q=True, os=True, ro=True))
-    print storageData
+    print(storageData)
     """ template control objects data"""
     tempateControlObjectsStorageData = []
     for obj in controlTemplateObjects:
-        print obj
+        print(obj)
         tempateControlObjectsStorageData.append(mc.xform (obj, q=True, ws=True, t=True))
         tempateControlObjectsStorageData.append(mc.xform (obj,  q=True, os=True, ro=True))
         rootScale = (mc.xform (moduleRoot, q=True, relative = True, scale=True))
@@ -330,7 +330,7 @@ def saveTemplateToModule(moduleNull):
             objScale.append(scale*rootScale[cnt])
             cnt+=1
         tempateControlObjectsStorageData.append(objScale)
-    print tempateControlObjectsStorageData
+    print(tempateControlObjectsStorageData)
 
     #>>> Store the data to the initial objects pos
     """ Get the attributes to store to"""
@@ -369,7 +369,7 @@ def saveTemplateToModule(moduleNull):
         cnt+=1 
         
     #>>>>>>need to add locking>>>>>>>>>>>>>>>>>>>>>>>>>>>>    
-    print ('%s%s'% (moduleNull,' template object positional/rotational/scale data stored...'))
+    print(('%s%s'% (moduleNull,' template object positional/rotational/scale data stored...')))
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     #>>> Save skin joints to skin joints null
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -379,11 +379,11 @@ def saveTemplateToModule(moduleNull):
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """ Gather our objects"""
     toDeleteList = search.returnObjectsOwnedByModuleNull(templateNull)
-    print toDeleteList
+    print(toDeleteList)
     
     for obj in toDeleteList:
         if mc.objExists(obj) == True:
-            print ('%s%s'% (obj,' deleted...'))
+            print(('%s%s'% (obj,' deleted...')))
             mc.delete(obj)
 
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -394,7 +394,7 @@ def saveTemplateToModule(moduleNull):
     
     #add locking
     
-    print ('%s%s'% (moduleNull,' done'))
+    print(('%s%s'% (moduleNull,' done')))
     return 'done'
 
 
@@ -518,7 +518,7 @@ def returnSettingsDataAsFloat(setting):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     dataBuffer = returnSettingsData(setting)
-    print dataBuffer
+    print(dataBuffer)
     returnList = []
     if '|' in list(dataBuffer):
         listSplit = dataBuffer.split('|')
@@ -588,7 +588,7 @@ def returnInfoNullObjects(moduleNull,infoType,types='templateObject'):
     coreNamesArray = []  
     divider = NameFactory.returnCGMDivider()
 
-    for key in infoNullData.keys():
+    for key in list(infoNullData.keys()):
         if (mc.attributeQuery (key,node=infoNull,msg=True)) == True:
             infoNullObjects.append(infoNullData[key])
         coreNamesArray.append (key)
@@ -619,7 +619,7 @@ def returnPartNestedMessages(partNull):
     """
     objectsDict = attributes.returnMessageAttrs(partNull)
     returnDict = {}
-    for key in objectsDict.keys():
+    for key in list(objectsDict.keys()):
         returnDict[key] =  attributes.returnMessageAttrs(objectsDict[key])
     return returnDict
 
@@ -759,7 +759,7 @@ def returnTemplateObjects(moduleNull,types='templateObject'):
     coreNamesArray = []  
     divider = NameFactory.returnCGMDivider()
 
-    for key in templateNullData.keys():
+    for key in list(templateNullData.keys()):
         if (mc.attributeQuery (key,node=templateNull,msg=True)) == True:
             templateObjects.append(templateNullData[key])
         coreNamesArray.append (key)
@@ -823,7 +823,7 @@ def returnOrderedChildrenModules(moduleNull):
     moduleParents ={}
     for module in modules:
         moduleParents[module] = attributes.returnMessageObject(module,'moduleParent')
-    print moduleParents
+    print(moduleParents)
     
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Parsing out Children
@@ -831,11 +831,11 @@ def returnOrderedChildrenModules(moduleNull):
     childrenModules = []
     
     """ first we're gonna find all modules that have our module as it's parent"""
-    for key in moduleParents.keys():
+    for key in list(moduleParents.keys()):
         if moduleParents.get(key) == moduleNull:
             childrenModules.append(key)
 
-    print childrenModules
+    print(childrenModules)
     
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Further parsing
@@ -910,7 +910,7 @@ def returnOrderedParentModules(masterNull):
             moduleChildren[module] = childrenBuffer
     
     orderedModules = []
-    for key in moduleChildren.keys():
+    for key in list(moduleChildren.keys()):
         if moduleParents.get(key) == masterNull:
             orderedModules.append(key)
             moduleChildren.pop(key)
@@ -918,7 +918,7 @@ def returnOrderedParentModules(masterNull):
     """ parse out the parent modules through the remaning modules"""
     while len(moduleChildren)>0:
         for module in orderedModules:
-            for key in moduleChildren.keys():
+            for key in list(moduleChildren.keys()):
                 if moduleParents.get(key) == module:
                     orderedModules.append(key)
                     moduleChildren.pop(key)
@@ -948,14 +948,14 @@ def returnOrderedModules(masterNull):
         moduleParents[module] = attributes.returnMessageObject(module,'moduleParent')
         
     orderedModules = []
-    for key in moduleParents.keys():
+    for key in list(moduleParents.keys()):
         if moduleParents.get(key) == masterNull:
             orderedModules.append(key)
             moduleParents.pop(key)
 
     while len(moduleParents)>0:
         for module in orderedModules:
-            for key in moduleParents.keys():
+            for key in list(moduleParents.keys()):
                 if moduleParents.get(key) == module:
                     orderedModules.append(key)
                     moduleParents.pop(key)

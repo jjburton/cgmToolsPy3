@@ -24,7 +24,7 @@ def run():
     try:
         cgmMetaMM()
         #cgmMetaMMWindow = cgmMetaMM()
-    except Exception,err:
+    except Exception as err:
         log.error("Failed to load. err:{0}".format(err))
         
 _str_popWindow = 'cgmMetaMM'#...outside to push to killUI
@@ -98,7 +98,7 @@ class cgmMetaMM(mUI.BaseMelWindow):
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_{0}_{1}".format(self._str_MM,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_{0}'.format(varName)] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_{0}'.format(varName))
         if fullName not in self.l_optionVars:
@@ -174,7 +174,7 @@ class cgmMetaMM(mUI.BaseMelWindow):
         self.var_mmAction.value=1			
         if command:
             try:command()
-            except Exception,err:
+            except Exception as err:
                 log.info("{0} button >> error {1}".format(self._str_MM, err))      
 
     def createUI(self,parent):
@@ -206,9 +206,9 @@ class cgmMetaMM(mUI.BaseMelWindow):
             self.mmActionOptionVar.value=1						
             optionVar.toggle()
             log.info("{0}.toggleVarAndReset>>> {1} : {2}".format(self._str_MM,optionVar.name,optionVar.value))
-        except Exception,error:
+        except Exception as error:
             log.error(error)
-            print "MM change var and reset failed!"
+            print("MM change var and reset failed!")
 
     def reset(self):
         log.info("{0} >> reset".format(self._str_MM))        
@@ -259,7 +259,7 @@ def killChildren(uiElement):
     for c in l_:
         #log.info('deleting old ui: {0}'.format(c))
         try:mc.deleteUI(c)
-        except Exception,err:log.debug('failed to delete: {0} | err: {1}'.format(c,err))          
+        except Exception as err:log.debug('failed to delete: {0} | err: {1}'.format(c,err))          
 
 def killUI():
     log.info("killUI...")
@@ -267,7 +267,7 @@ def killUI():
         _str_popWindow = 'cgmMM'
         if mc.popupMenu(_str_popWindow,ex = True):
             mc.deleteUI(_str_popWindow)
-    except Exception,err:
+    except Exception as err:
         log.error(err)
 
 

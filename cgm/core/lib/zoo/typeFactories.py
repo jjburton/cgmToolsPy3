@@ -113,7 +113,7 @@ def instanceTrackerTypeFactory( metaclassSuper=type ):
 			'''
 			iterates over all instances of the class
 			'''
-			for key, value in self._INSTANCE_LIST.items():
+			for key, value in list(self._INSTANCE_LIST.items()):
 
 				#tidy up the weak value dict as we go - NOTE: this only works if we use items() above NOT iteritems!
 				if value is None:
@@ -185,7 +185,7 @@ def interfaceTypeFactory( metaclassSuper=type ):
 			if cls._METHODS_TO_IMPLEMENT is None:
 				cls._METHODS_TO_IMPLEMENT = methodsToImplement = []
 				cls._INTERFACE_CLASS = newCls
-				for name, obj in attrs.items():
+				for name, obj in list(attrs.items()):
 					if type( obj ) is cls._FUNC_TYPE:
 						methodsToImplement.append( name )
 
@@ -200,7 +200,7 @@ def interfaceTypeFactory( metaclassSuper=type ):
 						#the interface - so we can't just look up the methodName in the attrs dict
 						methodImplementation = getattr( newCls, methodName, None )
 						methodAbstract = getattr( cls._INTERFACE_CLASS, methodName )
-						if methodImplementation.im_func is methodAbstract.im_func:
+						if methodImplementation.__func__ is methodAbstract.__func__:
 							raise TypeError( "The class %s doesn't implement the required method %s!" % (name, methodName) )
 
 						if not compareCallSignatures( methodImplementation, methodAbstract ):
@@ -247,7 +247,7 @@ def trackableClassFactory( superClass=object ):
 	the metaclass class constructor keyword.  Python 2.6 and before need you to
 	use the __metaclass__ magic class attribute to define a metaclass
 	'''
-	class TrackableClass(superClass): __metaclass__ = trackableTypeFactory()
+	class TrackableClass(superClass, metaclass=trackableTypeFactory()): pass
 	return TrackableClass
 
 

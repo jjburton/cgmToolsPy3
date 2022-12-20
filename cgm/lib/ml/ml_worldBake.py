@@ -54,7 +54,7 @@ import maya.cmds as mc
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(8)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -155,7 +155,7 @@ def fromLocators(bakeOnOnes=False):
                 source.append(src)
                 destination.append(dest)
             
-        except StandardError:
+        except Exception:
             pass
     
     if not destination:
@@ -168,7 +168,7 @@ def fromLocators(bakeOnOnes=False):
         if constraints:
             try:
                 mc.delete(constraints)
-            except StandardError:
+            except Exception:
                 pass
     
     matchBake(source, destination, bakeOnOnes=bakeOnOnes)
@@ -308,7 +308,7 @@ def matchBake(source=None, destination=None, bakeOnOnes=False, maintainOffset=Fa
                 ott[d][a].reverse()
     
     if bakeOnOnes:
-        allKeyTimes = range(int(start), int(end)+1)
+        allKeyTimes = list(range(int(start), int(end)+1))
     else:
         allKeyTimes = list(set(allKeyTimes))
         allKeyTimes.sort()
@@ -336,7 +336,7 @@ def matchBake(source=None, destination=None, bakeOnOnes=False, maintainOffset=Fa
         mc.currentTime(resetTime, edit=True)
         mc.select(destination, replace=True)
     
-    mc.delete(duplicates.values())
+    mc.delete(list(duplicates.values()))
     mc.filterCurve(mc.listConnections(destination,type='animCurve'))
     if bakeOnOnes:
         mc.keyTangent(destination, attribute=attributes, itt='spline', ott='spline')

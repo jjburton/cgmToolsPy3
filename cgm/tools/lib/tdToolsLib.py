@@ -76,8 +76,8 @@ def loadZooSkinPropagation( *a ):
     refPropagation.propagateWeightChangesToModel_confirm()
 
 def uiSetSelfVariable(self,variable,value):
-    print variable
-    print value
+    print(variable)
+    print(value)
     self.variable = value
 
 def loadJTDDynamicParent():
@@ -135,7 +135,7 @@ def doSelectDrivenJoints(self):
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def uiUpdate_ClickMeshTargetField(self):
     if self.ClickMeshTargetOptionVar.value:
-	print self.ClickMeshTargetOptionVar.value
+	print((self.ClickMeshTargetOptionVar.value))
 	if len(self.ClickMeshTargetOptionVar.value) == 1:
 	    self.ClickMeshTargetsField(edit=True, text = "%s"%(self.ClickMeshTargetOptionVar.value[0]))	    
 	else:
@@ -195,7 +195,7 @@ def uiClickMeshToolLaunch(self):
 	if len(allMesh)<=meshClamp:
 	    doMesh = allMesh #Still not sure if we wanna do all scene meshes. Need more testing.
 	else: 
-	    raise StandardError("No mesh loaded or too many mesh objects for autoload")
+	    raise Exception("No mesh loaded or too many mesh objects for autoload")
     
     
     self.ClickMeshTool = DraggerContextFactory.clickMesh( mesh = doMesh,
@@ -352,12 +352,12 @@ def doLoadPolyUnite(self):
 
     if uniteNode:
         sourceShapesBuffer = deformers.returnPolyUniteSourceShapes(uniteNode)
-        print sourceShapesBuffer
+        print(sourceShapesBuffer)
         selectList = []
 
         uniteGeoBuffer = mc.listRelatives( (deformers.returnPolyUniteResultGeoShape(uniteNode)), parent = True)
         uniteGeo = uniteGeoBuffer[0]
-        print uniteGeo
+        print(uniteGeo)
 
         for obj in sourceShapesBuffer:
             if search.returnObjectType(obj) in ['blendShape','wrap','skinCluster']:
@@ -369,7 +369,7 @@ def doLoadPolyUnite(self):
                 selectList.append(obj)
 
         mc.select(cl=True)
-        print selectList
+        print(selectList)
         mc.select (selectList)
     else:
         return (guiFactory.warning('No polyUnite found'))
@@ -391,7 +391,7 @@ def doDeletePolyUniteNode(self):
     # Get our variables from the ui and optionVars
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     sourceObject = self.SourceObjectField(q=True, text = True)
-    print sourceObject
+    print(sourceObject)
     if search.returnObjectType(sourceObject) == 'polyUnite':
         deformers.removePolyUniteNode(sourceObject)
     else:
@@ -424,7 +424,7 @@ def doBuildPolyUnite(self):
             targetObjects = targetObjectsBuffer
 
     baseName = self.BaseNameField(query=True, text = True)
-    print baseName
+    print(baseName)
 
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Variable data checks
@@ -640,7 +640,7 @@ def doBakeBlendShapeTargetsToTargetsFromSource(self):
                 if bakeCombineCase:
                     if combineTermsString:
                         combineTerms = combineTermsString.split(';')
-                        print combineTerms
+                        print(combineTerms)
                         #>>> Check for combineTerms length
                         if len(combineTerms)==2:
                             for targetObj in targetObjects:
@@ -656,22 +656,22 @@ def doBakeBlendShapeTargetsToTargetsFromSource(self):
 		    bakeBlendShapeNodeToTargetObject(targetObject,sourceObject, blendShapeNode, baseNameToUse = False, stripPrefix = False,ignoreInbetweens = False, ignoreTargets = False, transferConnections = True)
 		    """
                     for targetObj in targetObjects:
-                        print 'source...'
-                        print sourceObject
-                        print 'target objects...'
-                        print targetObjects
-                        print 'bakeCase...'
-                        print bakeInbetweensCase
-                        print 'transfer...'
-                        print transferConnectionsCase
-                        print 'combineCase'
-                        print bakeCombineCase
-                        print 'combineTerms'
-                        print combineTermsString
-                        print 'bsNodes...'
-                        print blendShapeNode
-                        print 'basename...'
-                        print baseName
+                        print('source...')
+                        print(sourceObject)
+                        print('target objects...')
+                        print(targetObjects)
+                        print('bakeCase...')
+                        print(bakeInbetweensCase)
+                        print('transfer...')
+                        print(transferConnectionsCase)
+                        print('combineCase')
+                        print(bakeCombineCase)
+                        print('combineTerms')
+                        print(combineTermsString)
+                        print('bsNodes...')
+                        print(blendShapeNode)
+                        print('basename...')
+                        print(baseName)
                         deformers.bakeBlendShapeNodeToTargetObject(targetObj,sourceObject, blendShapeNode, baseNameToUse = baseName,
                                                                    stripPrefix = False, ignoreInbetweens = (not bakeInbetweensCase),
                                                                    ignoreTargets = False,transferConnections = transferConnectionsCase)
@@ -707,13 +707,13 @@ def doBakeBlendShapeTargetsFromSource(self):
 
     blendShapeNodes = deformers.returnObjectDeformers(sourceObject,'blendShape')
     blendShapeNode = blendShapeNodes[0]
-    print sourceObject
-    print bakeInbetweensCase
-    print transferConnectionsCase
-    print bakeCombineCase
-    print combineTermsString
-    print blendShapeNodes
-    print baseName
+    print(sourceObject)
+    print(bakeInbetweensCase)
+    print(transferConnectionsCase)
+    print(bakeCombineCase)
+    print(combineTermsString)
+    print(blendShapeNodes)
+    print(baseName)
 
     if sourceObject:
         if len(blendShapeNodes) >= 1:
@@ -1067,10 +1067,10 @@ def doReturnExcessInfluenceVerts(self):
     def returnProc(badVertices):
         if len(badVertices)>0:
             mc.select(badVertices, replace=True)
-            print (guiFactory.doPrintReportStart())
-            print ('%s%i%s%i%s' % ('There are ',(len(badVertices)),' verts are over the max influence (',maxInfluences,'):'))
-            print badVertices
-            print (guiFactory.doPrintReportEnd())
+            print((guiFactory.doPrintReportStart()))
+            print(('%s%i%s%i%s' % ('There are ',(len(badVertices)),' verts are over the max influence (',maxInfluences,'):')))
+            print(badVertices)
+            print((guiFactory.doPrintReportEnd()))
         else:
             guiFactory.warning('No verts over max influence')
 
@@ -1144,7 +1144,7 @@ def doAimSnapToOne():
     mc.select(cl=True)
     if len(selection) >=2:
         for item in selection[:-1]:
-            print ('on ' + item)
+            print(('on ' + item))
             bufferList.append(position.aimSnap(item,selection[-1],aimVector,upVector,worldUpVector))
         return bufferList
     else:
@@ -1159,9 +1159,9 @@ def doAimSnapOneToNext():
     mc.select(cl=True)
     if len(selection) >=2:
         parsedList = lists.parseListToPairs(selection)
-        print parsedList
+        print(parsedList)
         for pair in parsedList:
-            print ('on ' + pair[0])
+            print(('on ' + pair[0]))
             bufferList.append(position.aimSnap(pair[0],pair[1],aimVector,upVector,worldUpVector))
         return bufferList
     else:
@@ -1285,10 +1285,10 @@ def TextCurveObjectCreate(self):
         self.textObjectText = self.textObjectTextField(q=True,text=True)
         self.textObjectSize = mc.floatField(self.textObjectSizeField,q=True,value=True)
         textObjectsToMake = []
-        print self.textObjectText
+        print((self.textObjectText))
         if ';' in self.textObjectText:
             textObjectsToMake = self.textObjectText.split(';')
-        print textObjectsToMake
+        print(textObjectsToMake)
         if len(textObjectsToMake):
             for word in textObjectsToMake:
                 self.textCurrentObject = curves.createTextCurveObject(word,self.textObjectSize,None, font = self.textObjectFont)
@@ -1399,7 +1399,7 @@ def TextCurveObjectdoUpdate(self):
             attributes.storeInfo(textCurveObject,'cgmObjectText',self.textObjectText)
             attributes.storeInfo(textCurveObject,'cgmObjectSize',self.textObjectSize)
             if self.changeFontOnUpdate:
-                print 'YESSSSS'                
+                print('YESSSSS')                
                 attributes.storeInfo(textCurveObject,'cgmObjectFont',self.textObjectFont)
 
             textCurveObject = curves.updateTextCurveObject(textCurveObject)
@@ -1491,11 +1491,11 @@ def curveControlCreate(self):
                 else:
                     creationSize = sizeReturn
 		
-		print shapeOption
-		print creationSize
-		print self.uiCurveAxis
+		print(shapeOption)
+		print(creationSize)
+		print((self.uiCurveAxis))
                 buffer = curves.createControlCurve(shapeOption,creationSize,self.uiCurveAxis )
-		print "buffer is '%s'"%buffer
+		print(("buffer is '%s'"%buffer))
                 attributes.storeInfo(buffer,'cgmName',item)
 		attributes.storeInfo(buffer,'cgmSource',item)
                 buffer = NameFactoryOld.doNameObject(buffer)
@@ -1512,11 +1512,11 @@ def curveControlCreate(self):
             guiFactory.doEndMayaProgressBar(mayaMainProgressBar)
 	    
         else:
-            print shapeOption
-            print self.uiCurveAxis
+            print(shapeOption)
+            print((self.uiCurveAxis))
             buffer = curves.createControlCurve(shapeOption,1,self.uiCurveAxis )
-            print buffer
-            print self.uiCurveName
+            print(buffer)
+            print((self.uiCurveName))
             if self.uiCurveName:
                 attributes.storeInfo(buffer,'cgmName',self.uiCurveName)
             else:
@@ -1589,7 +1589,7 @@ def curveControlConnect(self):
 	selection[cnt] = obj.nameBase
 	obj.getAttrs()
 	
-	if 'cgmSource' in obj.userAttrsDict.keys():
+	if 'cgmSource' in list(obj.userAttrsDict.keys()):
 	    source = ObjectFactory(obj.userAttrsDict.get('cgmSource'))	
 	    
 	    buffer = updateTransform(obj.nameShort,source.nameShort)
@@ -1615,7 +1615,7 @@ def curveControlConnect(self):
 	obj = ControlFactory(o,RotateOrderState,True)
 	obj.getAttrs()
 	
-	if 'cgmSource' in obj.userAttrsDict.keys():
+	if 'cgmSource' in list(obj.userAttrsDict.keys()):
 	    source = ObjectFactory(obj.userAttrsDict.get('cgmSource'))    
 	    
 	    if ConnectBy == 'ShapeParent':
@@ -1635,7 +1635,7 @@ def curveControlConnect(self):
 		obj.update(obj.nameBase)
 		
 		if HeirarchyState and HeirarchyMode == 'maintain' :
-		    if obj.nameBase in parentConstraintTargets.keys():
+		    if obj.nameBase in list(parentConstraintTargets.keys()):
 			constraints.parent(parentConstraintTargets.get(obj.nameBase),groupBuffer,maintainOffset = True)
 			if ScaleState:
 			    pass
@@ -1747,7 +1747,7 @@ def uiSetGuessOrientation(self):
         mc.optionVar( sv=('cgmVar_WorldUpAxis', worldAxis.axisString) )
         menuItems = self.WorldUpCollection.getItems()
         menuItems[index](edit = True,rb = True)	
-        print("worldUp set to '%s'"%worldAxis.axisString)	
+        print(("worldUp set to '%s'"%worldAxis.axisString))	
 
     if selection:
         aimAxis = []
@@ -1963,8 +1963,8 @@ def doReportObjectType():
     selection = mc.ls (sl=True,flatten=True) or []
     for obj in selection:
         objType = search.returnObjectType(obj)
-        print (">>> '" + obj + "' == " + objType)
-    print 'done'
+        print((">>> '" + obj + "' == " + objType))
+    print('done')
 
 def doReportSelectionCount():
     """

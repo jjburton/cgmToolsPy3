@@ -71,16 +71,16 @@ Code examples:
 
 '''
 
-from __future__ import print_function
+
 
 import maya.cmds as cmds
 import maya.mel as mel
 
 import Red9.startup.setup as r9Setup
-import Red9_CoreUtils as r9Core
-import Red9_General as r9General
-import Red9_PoseSaver as r9Pose
-import Red9_Meta as r9Meta
+from . import Red9_CoreUtils as r9Core
+from . import Red9_General as r9General
+from . import Red9_PoseSaver as r9Pose
+from . import Red9_Meta as r9Meta
 
 from functools import partial
 import os
@@ -144,9 +144,9 @@ def checkRunTimeCmds():
             try:
                 cmds.loadPlugin('SnapRuntime.py')
             except:
-                raise StandardError('SnapRuntime Plug-in could not be loaded')
+                raise Exception('SnapRuntime Plug-in could not be loaded')
     except:
-        raise StandardError('SnapRuntime Plug-in not found')
+        raise Exception('SnapRuntime Plug-in not found')
 
 def getChannelBoxSelection(longNames=False):
     '''
@@ -245,7 +245,7 @@ def nodesDriven(nodes, allowReferenced=False, skipLocked=False, nodes_only=False
             if not cons:
                 cons = cmds.listConnections(node, s=True, d=False, type='pairBlend', c=True)
             if cons:
-                cons = zip(cons[0::2], cons[1::2])
+                cons = list(zip(cons[0::2], cons[1::2]))
                 for attr, con in cons:
                     if skipLocked:
                         if not cmds.getAttr(attr, k=True):
@@ -302,7 +302,7 @@ def getKeyedAttrs(nodes, attrs=[], returnkeyed=True, asMap=False):
                     if node not in keylist:
                         keylist[node] = []
                     keylist[node].append(attr)
-            except StandardError, err:
+            except Exception as err:
                 log.debug(err)
     return keylist
 
@@ -512,7 +512,7 @@ def animCurve_get_bounds(curve, bounds_only=False, skip_static=True):
     keyList = cmds.keyframe(curve, q=True, vc=True, tc=True)
     if not keyList:
         return False
-    keydata = zip(keyList[0::2], keyList[1::2])
+    keydata = list(zip(keyList[0::2], keyList[1::2]))
     minV = keydata[0]
     maxV = keydata[-1]
     bounds = [minV[0], maxV[0]]
@@ -686,7 +686,7 @@ def setTimeRangeToo(nodes=None, setall=True, bounds_only=True):
             cmds.playbackOptions(ast=time[0])
             cmds.playbackOptions(aet=time[1])
     else:
-        raise StandardError('given nodes have no found animation data')
+        raise Exception('given nodes have no found animation data')
 
 def snap(source, destination, snapTranslates=True, snapRotates=True, snapScales=False, *args, **kws):
     '''
@@ -770,8 +770,8 @@ class AnimationLayerContext(object):
 
             # return the original mute and lock states and select the new
             # mergedLayer ready for the rest of the copy code to deal with
-            for layer, cache in self.layerCache.items():
-                for layer, cache in self.layerCache.items():
+            for layer, cache in list(self.layerCache.items()):
+                for layer, cache in list(self.layerCache.items()):
                     cmds.animLayer(layer, edit=True, mute=cache['mute'])
                     cmds.animLayer(layer, edit=True, lock=cache['locked'])
         if exc_type:
@@ -1987,7 +1987,7 @@ class AnimationUI(object):
 
     def getPoseSelected(self):
         if not self.poseSelected:
-            raise StandardError('No Pose Selected in the UI')
+            raise Exception('No Pose Selected in the UI')
         return self.poseSelected
 
     def buildPoseList(self, sortBy='name'):
@@ -2037,7 +2037,7 @@ class AnimationUI(object):
         '''
         if self.posePathMode == 'projectPoseMode':
             if self.poseProjectMute:
-                raise StandardError('%s : function disabled in Project Pose Mode!' % func)
+                raise Exception('%s : function disabled in Project Pose Mode!' % func)
             else:
                 result = cmds.confirmDialog(
                     title='Project Pose Modifications',
@@ -2277,7 +2277,7 @@ class AnimationUI(object):
                 if buttons:
                     for button in buttons:
                         cmds.deleteUI(button)
-            except StandardError, error:
+            except Exception as error:
                 print(error)
 
             for pose in r9Core.filterListByString(self.poses, searchFilter, matchcase=False) or []:  # self.buildFilteredPoseList(searchFilter):
@@ -2292,8 +2292,8 @@ class AnimationUI(object):
                                             ann=pose,
                                             onc=partial(self.__uiCB_iconGridSelection, pose),
                                             ofc="import maya.cmds as cmds;cmds.iconTextCheckBox('_%s', e=True, v=True)" % pose)  # we DONT allow you to deselect
-                except StandardError, error:
-                    raise StandardError(error)
+                except Exception as error:
+                    raise Exception(error)
 
             if searchFilter:
                 # with search scroll the list to the top as results may seem blank otherwise
@@ -2491,7 +2491,7 @@ class AnimationUI(object):
             name = cmds.promptDialog(query=True, text=True)
             try:
                 return os.path.join(self.getPoseDir(), '%s.pose' % r9Core.validateString(name, fix=True))
-            except ValueError, error:
+            except ValueError as error:
                 raise ValueError(error)
 
     def __uiCB_setPoseRootNode(self, specific=None, *args):
@@ -2517,14 +2517,14 @@ class AnimationUI(object):
         else:
             if self.poseRootMode == 'RootNode':
                 if not rootNode:
-                    raise StandardError('Warning nothing selected')
+                    raise Exception('Warning nothing selected')
                 fillTextField(rootNode[0])
             elif self.poseRootMode == 'MetaRoot':
                 if rootNode:
                     # metaRig=r9Meta.getConnectedMetaNodes(rootNode[0])
                     metaRig = r9Meta.getConnectedMetaSystemRoot(rootNode[0])
                     if not metaRig:
-                        raise StandardError("Warning selected node isn't connected to a MetaRig node")
+                        raise Exception("Warning selected node isn't connected to a MetaRig node")
                     fillTextField(metaRig.mNode)
                 else:
                     metaRigs = r9Meta.getMetaNodes(dataType='mClass')
@@ -2534,7 +2534,7 @@ class AnimationUI(object):
                                             mInstances=['MetaRig'],
                                             allowMulti=False)._showUI()
                     else:
-                        raise StandardError("Warning: No MetaRigs found in the Scene")
+                        raise Exception("Warning: No MetaRigs found in the Scene")
 
         # fill the cache up for the ini file
         self.ANIM_UI_OPTVARS['AnimationUI']['poseRoot'] = cmds.textFieldButtonGrp(self.uitfgPoseRootNode, q=True, text=True)
@@ -2568,14 +2568,14 @@ class AnimationUI(object):
                 if _rootSet == '****  AUTO__RESOLVED  ****' and self.poseRootMode == 'MetaRoot':
                     if _selected:
                         return r9Meta.getConnectedMetaSystemRoot(_selected)
-                raise StandardError('RootNode not Set for Hierarchy Processing')
+                raise Exception('RootNode not Set for Hierarchy Processing')
             else:
                 return _rootSet
         else:
             if _selected:
                 return _selected
         if not _selected:
-            raise StandardError('No Nodes Set or selected for Pose')
+            raise Exception('No Nodes Set or selected for Pose')
         return _selected
 
     def __uiCB_enableRelativeSwitches(self, *args):
@@ -2614,7 +2614,7 @@ class AnimationUI(object):
             return
         try:
             newName = self.__uiCB_savePosePath(self.getPoseSelected())
-        except ValueError, error:
+        except ValueError as error:
             raise ValueError(error)
         try:
             os.rename(self.getPosePath(), newName)
@@ -2684,7 +2684,7 @@ class AnimationUI(object):
                 cmds.select(cl=True)
                 [cmds.select(node, add=True) for node in nodes]
         else:
-            raise StandardError('RootNode not Set for Hierarchy Processing')
+            raise Exception('RootNode not Set for Hierarchy Processing')
 
     def __uiPoseMakeSubFolder(self, handlerFile=None, *args):
         '''
@@ -2693,7 +2693,7 @@ class AnimationUI(object):
         '''
         basePath = cmds.textFieldButtonGrp(self.uitfgPosePath, query=True, text=True)
         if not os.path.exists(basePath):
-            raise StandardError('Base Pose Path is inValid or not yet set')
+            raise Exception('Base Pose Path is inValid or not yet set')
         promptstring = 'New Pose Folder Name'
         if handlerFile:
             promptstring = 'New %s POSE Folder Name' % os.path.basename(handlerFile).replace('_poseHandler.py', '').upper()
@@ -2723,7 +2723,7 @@ class AnimationUI(object):
         syncSubFolder = True
         projectPath = self.posePathProject
         if not os.path.exists(self.posePathProject):
-            raise StandardError('Project Pose Path is inValid or not yet set')
+            raise Exception('Project Pose Path is inValid or not yet set')
         if syncSubFolder:
             subFolder = self.getPoseSubFolder()
             projectPath = os.path.join(projectPath, subFolder)
@@ -2741,7 +2741,7 @@ class AnimationUI(object):
                         os.mkdir(projectPath)
                         log.debug('New Folder Added to ProjectPosePath: %s' % projectPath)
                     except:
-                        raise StandardError('Failed to make the SubFolder path')
+                        raise Exception('Failed to make the SubFolder path')
                 elif result == 'CopyToRoot':
                     projectPath = self.posePathProject
                 else:
@@ -2752,7 +2752,7 @@ class AnimationUI(object):
             shutil.copy2(self.getPosePath(), projectPath)
             shutil.copy2(self.getIconPath(), projectPath)
         except:
-            raise StandardError('Unable to copy pose : %s > to Project directory' % self.poseSelected)
+            raise Exception('Unable to copy pose : %s > to Project directory' % self.poseSelected)
 
     def __uiPoseAddPoseHandler(self, *args):
         '''
@@ -2808,7 +2808,7 @@ class AnimationUI(object):
                 if 'AnimationUI' in self.ANIM_UI_OPTVARS:
                     if 'checkboxes' in self.ANIM_UI_OPTVARS['AnimationUI'] and \
                                 self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes']:
-                        for cb, status in self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes'].items():
+                        for cb, status in list(self.ANIM_UI_OPTVARS['AnimationUI']['checkboxes'].items()):
                             try:
                                 cmds.checkBox(cb, e=True, v=r9Core.decodeString(status))
                             except:
@@ -2864,7 +2864,7 @@ class AnimationUI(object):
             self.__uiCB_manageSnapTime()  # preCopyKeys
             self.__uiCB_manageTimeOffsetState()
 
-        except StandardError, err:
+        except Exception as err:
             log.debug('failed to complete UIConfig load')
             log.warning(err)
         finally:
@@ -3061,9 +3061,9 @@ class AnimationUI(object):
                 log.info('FilterTest : Object Count Returned : %s' % len(nodes))
                 cmds.select(nodes)
             except:
-                raise StandardError('Filter Returned Nothing')
+                raise Exception('Filter Returned Nothing')
         else:
-            raise StandardError('No Root Node selected for Filter Testing')
+            raise Exception('No Root Node selected for Filter Testing')
 
     def __PoseSave(self, path=None, storeThumbnail=True):
         '''
@@ -3076,7 +3076,7 @@ class AnimationUI(object):
         if not path:
             try:
                 path = self.__uiCB_savePosePath()
-            except ValueError, error:
+            except ValueError as error:
                 raise ValueError(error)
 
         poseHierarchy = cmds.checkBox(self.uicbPoseHierarchy, q=True, v=True)
@@ -3151,7 +3151,7 @@ class AnimationUI(object):
     def __PosePointCloud(self, func):
         '''
         .. note::
-            this is dependant on EITHER a wire from the root of the pose to a GEO
+            this is dependent on EITHER a wire from the root of the pose to a GEO
             under the attr 'renderMeshes' OR the second selected object is the reference Mesh
             Without either of these you'll just get a locator as the PPC root
         '''
@@ -3163,9 +3163,10 @@ class AnimationUI(object):
         elif len(objs) == 2:
             if cmds.nodeType(cmds.listRelatives(objs[1])[0]) == 'mesh':
                 meshes = objs
+
         if func == 'make':
             if not objs:
-                raise StandardError('you need to select a reference object to use as pivot for the PPCloud')
+                raise Exception('you need to select a reference object to use as pivot for the PPCloud')
             rootReference = objs[0]
             if not meshes:
                 # turn on locator visibility
@@ -3175,24 +3176,27 @@ class AnimationUI(object):
                 else:
                     cmds.modelEditor('modelPanel4', e=True, locators=True)
             self.ppc = r9Pose.PosePointCloud(self.__uiCB_getPoseInputNodes(),
-                                           self.filterSettings,
-                                           meshes=meshes)
+                                             self.filterSettings,
+                                             meshes=meshes)
             self.ppc.prioritySnapOnly = cmds.checkBox(self.uicbSnapPriorityOnly, q=True, v=True)
             self.ppc.buildOffsetCloud(rootReference)
+            return
+        # sync current instance
         if not hasattr(self, 'ppc') or not self.ppc:
             current = r9Pose.PosePointCloud.getCurrentInstances()
             if current:
                 self.ppc = r9Pose.PosePointCloud(self.__uiCB_getPoseInputNodes(),
-                                           self.filterSettings,
-                                           meshes=meshes)
+                                                 self.filterSettings,
+                                                 meshes=meshes)
                 self.ppc.syncdatafromCurrentInstance()
-
-        if func == 'delete':
-            self.ppc.delete()
-        elif func == 'snap':
-            self.ppc.applyPosePointCloud()
-        elif func == 'update':
-            self.ppc.updatePosePointCloud()
+        # process current intance
+        if self.ppc:
+            if func == 'delete':
+                self.ppc.delete()
+            elif func == 'snap':
+                self.ppc.applyPosePointCloud()
+            elif func == 'update':
+                self.ppc.updatePosePointCloud()
 
     def __MirrorPoseAnim(self, process, mirrorMode, side=None):
         '''
@@ -3311,9 +3315,9 @@ class AnimationUI(object):
                 self.__MirrorPoseAnim('symmetry', 'Anim', 'Right')
         except r9Setup.ProPack_Error:
             log.warning('ProPack not Available')
-        except StandardError, error:
+        except Exception as error:
             traceback = sys.exc_info()[2]  # get the full traceback
-            raise StandardError(StandardError(error), traceback)
+            raise Exception(Exception(error), traceback)
         if objs and not func == 'HierarchyTest':
             cmds.select(cl=True)
             for obj in objs:
@@ -3381,7 +3385,7 @@ class AnimFunctions(object):
             if issubclass(type(filterSettings), r9Core.FilterNode_Settings):
                 self.settings = filterSettings
             else:
-                raise StandardError('filterSettings param requires an r9Core.FilterNode_Settings object')
+                raise Exception('filterSettings param requires an r9Core.FilterNode_Settings object')
             self.settings.printSettings()
         else:
             self.settings = r9Core.FilterNode_Settings()
@@ -3481,7 +3485,7 @@ class AnimFunctions(object):
                         except:
                             log.debug('Failed to copyKeys between : %s >> %s' % (src, dest))
             else:
-                raise StandardError('Nothing found by the Hierarchy Code to process')
+                raise Exception('Nothing found by the Hierarchy Code to process')
         return True
 
     # ===========================================================================
@@ -3579,7 +3583,7 @@ class AnimFunctions(object):
                     except:
                         pass
         else:
-            raise StandardError('Nothing found by the Hierarchy Code to process')
+            raise Exception('Nothing found by the Hierarchy Code to process')
         return True
 
     # ===========================================================================
@@ -3670,8 +3674,8 @@ class AnimFunctions(object):
 
         try:
             checkRunTimeCmds()
-        except StandardError, error:
-            raise StandardError(error)
+        except Exception as error:
+            raise Exception(error)
         cancelled = False
 
         if logging_is_debug():
@@ -3757,7 +3761,7 @@ class AnimFunctions(object):
 
                                     for src, dest in self.nodesToSnap:
                                         # verify the src node has a key at the given accumulated keytime (if smartbake)
-                                        if _smartBake_nodekeys and src in _smartBake_nodekeys.keys() and t not in _smartBake_nodekeys[src]:
+                                        if _smartBake_nodekeys and src in list(_smartBake_nodekeys.keys()) and t not in _smartBake_nodekeys[src]:
                                             if logging_is_debug():
                                                 log.debug('skipping time : %s : node : %s' % (t, r9Core.nodeNameStrip(src)))
                                         else:
@@ -3817,7 +3821,7 @@ class AnimFunctions(object):
             if cancelled and preCopyKeys:
                 cmds.undo()
         else:
-            raise StandardError('Nothing found by the Hierarchy Code to process')
+            raise Exception('Nothing found by the Hierarchy Code to process')
         return True
 
     def snapValidateResults(self):
@@ -3845,16 +3849,16 @@ class AnimFunctions(object):
         '''
         try:
             checkRunTimeCmds()
-        except StandardError, error:
-            raise StandardError(error)
+        except Exception as error:
+            raise Exception(error)
 
         if not nodes:
             nodes = cmds.ls(sl=True, l=True)
         if nodes:
             if not len(nodes) >= 2:
-                raise StandardError('Please select at least 2 base objects for the SnapAlignment')
+                raise Exception('Please select at least 2 base objects for the SnapAlignment')
         else:
-            raise StandardError('Please select at least 2 base objects for the SnapAlignment')
+            raise Exception('Please select at least 2 base objects for the SnapAlignment')
 
         # pass to the plugin SnapCommand
         for node in nodes[1:]:
@@ -3895,8 +3899,8 @@ class AnimFunctions(object):
             _keyed_attrs.extend(['rx', 'ry', 'rz'])
         try:
             checkRunTimeCmds()
-        except StandardError, error:
-            raise StandardError(error)
+        except Exception as error:
+            raise Exception(error)
 
         eval_mode = 'static'
         if time:
@@ -3929,7 +3933,7 @@ class AnimFunctions(object):
                             cmds.select([nodes[0], offsetRef])
                             pointOnPolyCmd([nodes[0], offsetRef])
                         else:
-                            raise StandardError('Component Level Tracking is only available in Maya2011 upwards')
+                            raise Exception('Component Level Tracking is only available in Maya2011 upwards')
 
                     cmds.parent(snapRef, offsetRef)
                     cmds.SnapTransforms(source=destObj, destination=snapRef, snapTranslates=trans, snapRotates=rots)
@@ -3960,7 +3964,7 @@ class AnimFunctions(object):
                         cmds.setKeyframe(destObj, at=_keyed_attrs)
                     except:
                         log.debug('failed to set full keydata on %s' % destObj)
-            except StandardError, err:
+            except Exception as err:
                 log.warning('Stabilizer Error %s' % err)
             finally:
                 cmds.delete(deleteMe)
@@ -4054,7 +4058,7 @@ class AnimFunctions(object):
                 except:
                     pass
         else:
-            raise StandardError('Nothing found by the Hierarchy Code to process')
+            raise Exception('Nothing found by the Hierarchy Code to process')
         return True
 
     @staticmethod
@@ -4489,7 +4493,7 @@ class RandomizeKeys(object):
 
         selectedCurves = cmds.keyframe(q=True, sl=True, n=True)
         if not selectedCurves:
-            raise StandardError('No Keys or Anim curves selected!')
+            raise Exception('No Keys or Anim curves selected!')
 
         self.addNoise(curves=selectedCurves,
                       step=frmStep,
@@ -4780,7 +4784,7 @@ class MirrorHierarchy(object):
             if issubclass(type(filterSettings), r9Core.FilterNode_Settings):
                 self.settings = filterSettings
             else:
-                raise StandardError('filterSettings param requires an r9Core.FilterNode_Settings object')
+                raise Exception('filterSettings param requires an r9Core.FilterNode_Settings object')
         else:
             self.settings = r9Core.FilterNode_Settings()
 
@@ -4795,7 +4799,7 @@ class MirrorHierarchy(object):
         if not side:
             return False
         if type(side) == int:
-            if side not in range(0, 3):
+            if side not in list(range(0, 3)):
                 raise ValueError('given mirror side is not a valid int entry: 0, 1 or 2')
             else:
                 return True
@@ -4834,7 +4838,7 @@ class MirrorHierarchy(object):
             log_unused = ''
             unkeyed = getKeyedAttrs(nodes, returnkeyed=False)
             if unkeyed:
-                for node, attrs in unkeyed.items():
+                for node, attrs in list(unkeyed.items()):
                     log_unused += '\nMirrorAnim : Unkeyed attrs : %s : %s' % (node, attrs)
                 print(log_unused)
                 result = cmds.confirmDialog(title='Pre Mirror Validations : Animation Mode : Missing Key Daya',
@@ -4850,7 +4854,7 @@ class MirrorHierarchy(object):
                 if result == 'Continue & Ignore':
                     return True
                 if result == 'SetKeyframes (Recommended)':
-                    for node, attrs in unkeyed.items():
+                    for node, attrs in list(unkeyed.items()):
                         try:
                             cmds.setKeyframe(node, attribute=attrs, t=cmds.playbackOptions(min=True))
                             log.debug('adding key to static attrs : %s > %s' % (node, attrs))
@@ -4922,7 +4926,7 @@ class MirrorHierarchy(object):
         This will copy all the mirrorData from src to dest, useful for copying data between
         systems when the MirrorMap fails due to naming.
         '''
-        pairs = zip(src, dest)
+        pairs = list(zip(src, dest))
         for src, dest in pairs:
             axis = None
             src = r9Meta.MetaClass(src)
@@ -5030,7 +5034,7 @@ class MirrorHierarchy(object):
             self.indexednodes.extend(mrig.getMirror_opposites(self.indexednodes))
 
         if not self.indexednodes:
-            raise StandardError('No mirrorMarkers found from the given node list/hierarchy')
+            raise Exception('No mirrorMarkers found from the given node list/hierarchy')
 
         for node in set(self.indexednodes):
             try:
@@ -5059,7 +5063,7 @@ class MirrorHierarchy(object):
                 else:
                     self.mirrorDict[side][str(index)]['axisAttr'] = False
 
-            except StandardError, error:
+            except Exception as error:
                 log.debug(error)
                 log.info('Failed to add Node to Mirror System : %s' % r9Core.nodeNameStrip(node))
 
@@ -5072,26 +5076,26 @@ class MirrorHierarchy(object):
         self.getMirrorSets()
         if not short:
             print('\nCentre MirrorLists =====================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Centre'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Centre'].keys())):
                 print('%s > %s' % (i, self.mirrorDict['Centre'][i]['node']))
             print('\nRight MirrorLists ======================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Right'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Right'].keys())):
                 print('%s > %s' % (i, self.mirrorDict['Right'][i]['node']))
             print('\nLeft MirrorLists =======================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Left'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Left'].keys())):
                 print('%s > %s' % (i, self.mirrorDict['Left'][i]['node']))
         else:
             print('\nCentre MirrorLists =====================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Centre'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Centre'].keys())):
                 print('%s > %s' % (i, r9Core.nodeNameStrip(self.mirrorDict['Centre'][i]['node'])))
             print('\nRight MirrorLists ======================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Right'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Right'].keys())):
                 print('%s > %s' % (i, r9Core.nodeNameStrip(self.mirrorDict['Right'][i]['node'])))
             print('\nLeft MirrorLists =======================================================')
-            for i in r9Core.sortNumerically(self.mirrorDict['Left'].keys()):
+            for i in r9Core.sortNumerically(list(self.mirrorDict['Left'].keys())):
                 print('%s > %s' % (i, r9Core.nodeNameStrip(self.mirrorDict['Left'][i]['node'])))
         if self.unresolved:
-            for key, val in self.unresolved.items():
+            for key, val in list(self.unresolved.items()):
                 if val:
                     print('\CLASHING %s Mirror Indexes =====================================================' % key)
                     for i in r9Core.sortNumerically(val):
@@ -5154,8 +5158,8 @@ class MirrorHierarchy(object):
             slaveAxis = 'Left'
 
         with AnimationLayerContext(self.indexednodes, mergeLayers=self.mergeLayers, restoreOnExit=False):
-            for index, masterSide in self.mirrorDict[masterAxis].items():
-                if index not in self.mirrorDict[slaveAxis].keys():
+            for index, masterSide in list(self.mirrorDict[masterAxis].items()):
+                if index not in list(self.mirrorDict[slaveAxis].keys()):
                     log.warning('No matching Index Key found for %s mirrorIndex : %s >> %s' %
                                 (masterAxis, index, r9Core.nodeNameStrip(masterSide['node'])))
                 else:
@@ -5215,8 +5219,8 @@ class MirrorHierarchy(object):
         with r9General.AnimationContext(**context_kws):
             with AnimationLayerContext(self.indexednodes, mergeLayers=self.mergeLayers, restoreOnExit=False):
                 # Switch Pairs on the Left and Right and inverse the channels
-                for index, leftData in self.mirrorDict['Left'].items():
-                    if index not in self.mirrorDict['Right'].keys():
+                for index, leftData in list(self.mirrorDict['Left'].items()):
+                    if index not in list(self.mirrorDict['Right'].keys()):
                         log.warning('No matching Index Key found for Left mirrorIndex : %s >> %s' % (index, r9Core.nodeNameStrip(leftData['node'])))
                     else:
                         rightData = self.mirrorDict['Right'][index]
@@ -5234,7 +5238,7 @@ class MirrorHierarchy(object):
                             inverseCall(rightData['node'], rightData['axis'])
 
                 # Inverse the Centre Nodes
-                for data in self.mirrorDict['Centre'].values():
+                for data in list(self.mirrorDict['Centre'].values()):
                     inverseCall(data['node'], data['axis'])
 
     def saveMirrorSetups(self, filepath):
@@ -5278,7 +5282,7 @@ class MirrorHierarchy(object):
                 found = False
                 if clearCurrent:
                     self.deleteMirrorIDs(node)
-                for index, leftData in self.mirrorDict['Left'].items():
+                for index, leftData in list(self.mirrorDict['Left'].items()):
                     if r9Core.matchNodeLists([node], [leftData['node']], matchMethod=matchMethod):
                         log.debug('NodeMatched: %s, Side=Left, index=%i, axis=%s' % (node, int(index), leftData['axis']))
                         if r9Core.decodeString(leftData['axisAttr']):
@@ -5292,7 +5296,7 @@ class MirrorHierarchy(object):
                         found = True
                         break
                 if not found:
-                    for index, rightData in self.mirrorDict['Right'].items():
+                    for index, rightData in list(self.mirrorDict['Right'].items()):
                         if r9Core.matchNodeLists([node], [rightData['node']], matchMethod=matchMethod):
                             log.debug('NodeMatched: %s, Side=Right, index=%i, axis=%s' % (node, int(index), rightData['axis']))
                             if r9Core.decodeString(rightData['axisAttr']):
@@ -5306,7 +5310,7 @@ class MirrorHierarchy(object):
                             found = True
                             break
                 if not found:
-                    for index, centreData in self.mirrorDict['Centre'].items():
+                    for index, centreData in list(self.mirrorDict['Centre'].items()):
                         if r9Core.matchNodeLists([node], [centreData['node']], matchMethod=matchMethod):
                             log.debug('NodeMatched: %s, Side=Centre, index=%i, axis=%s' % (node, int(index), centreData['axis']))
                             if r9Core.decodeString(centreData['axisAttr']):
@@ -5512,7 +5516,7 @@ class MirrorSetup(object):
             cmds.radioCollection('mirrorSide', e=True, select=side)
             cmds.intField('ifg_mirrorIndex', e=True, v=index)
         else:
-            raise StandardError('mirror Data not setup on this node')
+            raise Exception('mirror Data not setup on this node')
 
         if cmds.attributeQuery(self.mirrorClass.mirrorAxis, node=node, exists=True):
             axis = self.mirrorClass.getMirrorAxis(node)
@@ -5630,19 +5634,43 @@ class MirrorSetup(object):
         axis = self.__ui_getMirrorAxis()
 
         if len(nodes) > 1:
+            message = "Add / Modify Mirror Markers on Multiple selected nodes?\n\n"\
+                        "Choose to either set complete mirror Markers from the UI settings OR "\
+                        "Modify part of the current mirror markers on the nodes\n\n"\
+                        "* Set New : add complete new mirror markers\n"\
+                        "* Axis : modify just the axis values on the nodes\n"\
+                        "* Side : modify just the side markers\n"\
+                        "* ID'S : change / increment just the mirror ID's\n\n"
+
             result = cmds.confirmDialog(
                 title='Mirror Markers',
-                message='Add incremented Mirror Markers to Muliple selected nodes?',
-                button=['OK', 'Cancel'],
+                message=message,
+                icon='question',
+                button=['Set New + Increment IDs', 'IDs : Modify / Increment', 'AXIS : Modify Only', 'SIDE : Modify Only', 'Cancel'],
                 defaultButton='OK',
                 cancelButton='Cancel',
                 dismissString='Cancel')
-            if result == 'OK':
+
+            if result == 'Set New + Increment IDs':
                 i = index
                 for node in nodes:
                     self.mirrorClass.setMirrorIDs(node, side=str(side), slot=i, axis=axis)
                     log.info('MirrorMarkers added to : %s' % r9Core.nodeNameStrip(node))
                     i += 1
+            elif result == 'IDs : Modify / Increment':
+                i = index
+                for node in nodes:
+                    self.mirrorClass.setMirrorIDs(node, side=None, slot=i, axis=None)
+                    log.info('MirrorMarkers Modified IDs to %i : %s' % (i, r9Core.nodeNameStrip(node)))
+                    i += 1
+            elif result == 'AXIS : Modify Only':
+                for node in nodes:
+                    self.mirrorClass.setMirrorIDs(node, side=None, slot=None, axis=axis)
+                    log.info('MirrorMarkers Axis Modified %s : %s' % (axis, r9Core.nodeNameStrip(node)))
+            elif result == 'SIDE : Modify Only':
+                for node in nodes:
+                    self.mirrorClass.setMirrorIDs(node, side=str(side), slot=None, axis=None)
+                    log.info('MirrorMarkers Side Modified %s : %s' % (side, r9Core.nodeNameStrip(node)))
         else:
             self.mirrorClass.setMirrorIDs(nodes[0], side=str(side), slot=index, axis=axis)
             log.info('MirrorMarkers added to : %s' % r9Core.nodeNameStrip(nodes[0]))
@@ -5704,7 +5732,7 @@ class CameraTracker():
         TODO: add option for cloning the camera rather than using the current directly
         '''
         if not cmds.ls(sl=True):
-            raise StandardError('Nothing selected to Track!')
+            raise Exception('Nothing selected to Track!')
         if not cam:
             cam = cmds.modelEditor(cmds.playblast(ae=True).split('|')[-1], q=True, camera=True)
 
@@ -5902,15 +5930,15 @@ class ReconnectAnimData(object):
 
         objs = pm.ls(sl=True, st=True)
         if not objs:
-            raise StandardError('nothing selected to process, please select the characterSet of the broken reference')
+            raise Exception('nothing selected to process, please select the characterSet of the broken reference')
 
         cSet, nodetype = objs
         refNode = cSet.referenceFile().refNode
 
         if not nodetype == 'character':
-            raise StandardError('You must select a CharacterSet to reconnect')
+            raise Exception('You must select a CharacterSet to reconnect')
         if not refNode:
-            raise StandardError('Given characterSet is not from a referenced file')
+            raise Exception('Given characterSet is not from a referenced file')
 
         animCurves = refNode.listConnections(type='animCurve', s=True)
         cSetPlugs = pm.aliasAttr(cSet, q=True)

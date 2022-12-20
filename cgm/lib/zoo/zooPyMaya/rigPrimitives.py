@@ -1,11 +1,11 @@
 
 import sys
-import skeletonBuilder
-import baseRigPrimitive
+from . import skeletonBuilder
+from . import baseRigPrimitive
 
 from cgm.lib.zoo.zooPy.path import Path
-from skeletonBuilder import *
-from baseRigPrimitive import *
+from .skeletonBuilder import *
+from .baseRigPrimitive import *
 
 RIG_PART_SCRIPT_PREFIX = 'rigPrim_'
 
@@ -48,7 +48,7 @@ def _setupSkeletonPartRigMethods():
 			except KeyError:
 				_rigMethodDict[ partCls ] = [ (cls.PRIORITY, cls) ]
 
-	for partCls, rigTypes in _rigMethodDict.iteritems():
+	for partCls, rigTypes in list(_rigMethodDict.items()):
 		rigTypes.sort()
 		rigTypes = [ rigType for priority, rigType in rigTypes ]
 		partCls.RigTypes = rigTypes

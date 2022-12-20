@@ -102,7 +102,7 @@ def shapeArg(node = None, types = None, singleReturn = False, noneValid = True):
     if not _res:
         if noneValid:
             return False
-        raise ValueError,"No valid shape detected. node: {0} | types:{1}".format(node,types)
+        raise ValueError("No valid shape detected. node: {0} | types:{1}".format(node,types))
     
     if singleReturn:
         if len(_res)>1:
@@ -219,11 +219,11 @@ def get_mayaType(node = None):
             if _rootType == 'nurbsSurface':
                 return 'isoparm'
             else:
-                raise ValueError,"unexpected rootType: {0}".format(_rootType)
+                raise ValueError("unexpected rootType: {0}".format(_rootType))
         if 'ep' == _compType:
             return 'editPoint' 
         
-        raise RuntimeError,"Shouldn't have gotten here. Need another check for component type. '{0}'".format(_node)
+        raise RuntimeError("Shouldn't have gotten here. Need another check for component type. '{0}'".format(_node))
     #elif mc.listRelatives(_node,shapes=True,fullPath=False) == None:
         #return 'shape'
     return _intialCheck
@@ -305,7 +305,7 @@ def get_dataType(data = None):
             return 'int'
         elif t is float:
             return 'float'
-        elif t is unicode or t is str:
+        elif t is str or t is str:
             return 'string'
         else:
             return False   
@@ -318,14 +318,14 @@ def get_dataType(data = None):
         stringFound = False
         # First if there is a single string in the data set, the rest of the list will be treated as a string set
         for o in data:
-            if type(o) is unicode or type(o) is str:
+            if type(o) is str or type(o) is str:
                 return 'string'
         # If not, check for floats
         for o in data:
             if type(o) is float:
                 return 'float'        
         # Else just use the first one
-        if type(data[0]) is unicode or type(data[0]) is str:
+        if type(data[0]) is str or type(data[0]) is str:
             return 'string'
         else:
             return simpleReturn(type(data[0]))
@@ -345,16 +345,16 @@ def vectorArg(arg,noneValid = True):
     """     
     try:
         if not isListArg(arg):
-            raise ValueError,"Not a list, can't be vector"
+            raise ValueError("Not a list, can't be vector")
         if len(arg) != 3:
-            raise ValueError,"Len = {0} | {1}".format(len(arg),arg)
+            raise ValueError("Len = {0} | {1}".format(len(arg),arg))
         for i,v in enumerate(arg):
             if valueArg(v) is False:
-                raise ValueError,"{0} not a value.".format(v)
+                raise ValueError("{0} not a value.".format(v))
         return arg
-    except Exception,err:
+    except Exception as err:
         if noneValid:return False
-        raise Exception,err
+        raise Exception(err)
     
 def isVectorEquivalent(lhs, rhs, **kwargs):
     """
@@ -418,14 +418,14 @@ def stringArg(arg=None, noneValid=True, calledFrom = None, **kwargs):
     
     if not arg:
         if noneValid:return False
-        raise ValueError,"Arg is None and not noneValid"
+        raise ValueError("Arg is None and not noneValid")
 
     if issubclass(type(arg),list or tuple):
         arg = arg[0]  
         
     result = arg
    
-    if not isinstance(arg, basestring):      
+    if not isinstance(arg, str):      
         if noneValid:
             result = False
         else:
@@ -460,7 +460,7 @@ def listArg(l_args=None, types=None):
             if l_args is not None:
                 l_args = [l_args]#try to make it a list
                 result = isinstance(l_args, (tuple, list))#Try again
-        except Exception,error:raise Exception,"Failed to convert to list | error: {0}".format(error)
+        except Exception as error:raise Exception("Failed to convert to list | error: {0}".format(error))
 
     if result:
         if types is not None:
@@ -531,12 +531,12 @@ def stringListArg(l_args=None, noneValid=False, calledFrom = None, **kwargs):
     result = []
     if l_args is None:
         if noneValid:return False
-        else:raise ValueError,"Arg is none and not noneValid"
+        else:raise ValueError("Arg is none and not noneValid")
     if not isinstance(l_args, (tuple, list)):l_args = [l_args]
     
     for arg in l_args:
         tmp = stringArg(arg, noneValid)
-        if isinstance(tmp, basestring):
+        if isinstance(tmp, str):
             result.append(tmp)
         else:
             log.warning(
@@ -617,8 +617,8 @@ def euclidVector3(arg):
     except:
         try:
             return EUCLID.Vector3(arg)
-        except Exception,err:
-            raise Exception,err
+        except Exception as err:
+            raise Exception(err)
     
     return arg
 
@@ -628,7 +628,7 @@ def euclidVector3Arg(arg):
         if isListArg(arg) and len(arg) == 3:
             return EUCLID.Vector3(float(arg[0]),float(arg[1]),float(arg[2]))
         else:
-            raise ValueError,"|{0}| >> arg: {1}".format(_str_func,arg)
+            raise ValueError("|{0}| >> arg: {1}".format(_str_func,arg))
     return arg
 
 def objString(arg=None, mayaType=None, isTransform=None, noneValid=False, calledFrom = None, **kwargs):
@@ -671,7 +671,7 @@ def objString(arg=None, mayaType=None, isTransform=None, noneValid=False, called
     if issubclass(type(arg),list or tuple):
         arg = arg[0]  
     
-    if not isinstance(arg, basestring):
+    if not isinstance(arg, str):
         if noneValid:
             return False
         raise TypeError('{0}: arg must be string'.format(_str_func))
@@ -689,7 +689,7 @@ def objString(arg=None, mayaType=None, isTransform=None, noneValid=False, called
     
     if result != False and mayaType is not None:
         l_mayaTypes = mayaType
-        if isinstance(mayaType, (basestring)):
+        if isinstance(mayaType, (str)):
             l_mayaTypes = [mayaType]
 
         str_argMayaType = get_mayaType(arg)
@@ -758,7 +758,7 @@ def is_shape(node = None):
     _node = stringArg(node,False,_str_func)
     log.debug("|{0}| >> node: '{1}' ".format(_str_func,_node))    
     
-    _shape = mc.ls(node,type='shape',long=True)
+    _shape = mc.ls(node,type='shape',int=True)
     if _shape:
         if len(_shape) == 1:
             if _shape[0] == NAME.get_long(_node):
@@ -786,7 +786,7 @@ def objStringList(l_args=None, mayaType=None, noneValid=False, isTransform=False
     result = []
     if l_args is None:
         if noneValid:return False
-        else:raise ValueError,"Arg is none and not noneValid"
+        else:raise ValueError("Arg is none and not noneValid")
         
     if not isinstance(l_args, (list, tuple)):l_args = [l_args]
 
@@ -925,7 +925,7 @@ class simpleOrientation():
         log.debug('Caller: {0}, arg: {1}'.format(_str_func, arg))
         
         if valueArg(arg):
-            for v,i in d_rotateOrder.iteritems():
+            for v,i in list(d_rotateOrder.items()):
                 if i == arg:
                     str_arg = v
         else:
@@ -939,7 +939,7 @@ class simpleOrientation():
 
         str_arg = str_arg.lower()
 
-        if not d_rotateOrder.has_key(str_arg):
+        if str_arg not in d_rotateOrder:
             fmt_args = [str_arg, 
                         _str_func, 
                         'xyz, yzx, zxy, xzy, yxz, or zyx']
@@ -1045,7 +1045,7 @@ class simpleAxis(object):
         if isListArg(arg, types=int):
             #str_arg = '['+','.join([str(v) for v in arg]) + ']'
             str_arg = str(list(arg))
-        elif isinstance(arg, basestring):
+        elif isinstance(arg, str):
             pass
         else:
             fmt_args = [str_arg, 
@@ -1055,16 +1055,16 @@ class simpleAxis(object):
 
         str_arg = str_arg.replace(' ','')
         
-        if SHARED._d_short_axis_to_long.has_key(str_arg):
+        if str_arg in SHARED._d_short_axis_to_long:
             self.__str_axis = SHARED._d_short_axis_to_long[str_arg]
             self.__v_axis = SHARED._d_axis_string_to_vector.get(self.__str_axis)
-        elif SHARED._d_axis_string_to_vector.has_key(str_arg):
+        elif str_arg in SHARED._d_axis_string_to_vector:
             self.__str_axis = str_arg
             self.__v_axis = SHARED._d_axis_string_to_vector[str_arg]
-        elif SHARED.d_vectorToString.has_key(str_arg):
+        elif str_arg in SHARED.d_vectorToString:
             self.__str_axis = d_vectorToString[str_arg]
             self.__v_axis = d_stringTovector(self.__str_axis)
-        elif SHARED._d_axis_vector_to_string.has_key(str_arg):
+        elif str_arg in SHARED._d_axis_vector_to_string:
             self.__str_axis = SHARED._d_axis_vector_to_string[str_arg]
             self.__v_axis = SHARED._d_axis_string_to_vector.get(self.__str_axis)            
         else:
@@ -1145,7 +1145,7 @@ def MeshDict(mesh = None, pointCounts = True, calledFrom = None):
     
     if mesh is None:
         _bfr = mc.ls(sl=True)
-        if not _bfr:raise ValueError,"No selection found and no source arg"
+        if not _bfr:raise ValueError("No selection found and no source arg")
         mesh = _bfr[0]
         log.info("{0}>> No source specified, found: '{1}'".format(_str_func,mesh))
            
@@ -1167,7 +1167,7 @@ def MeshDict(mesh = None, pointCounts = True, calledFrom = None):
         if _shape is None:
             _shape = _shapes[0]
     else:
-        raise ValueError,"{0} error. Not a usable mesh type : obj: '{1}' | type: {2}".format(_str_func, mesh, _type)
+        raise ValueError("{0} error. Not a usable mesh type : obj: '{1}' | type: {2}".format(_str_func, mesh, _type))
 
     _return = {'mesh':_mesh,
                'meshType':_type,
@@ -1232,7 +1232,7 @@ def fileOpen(filepath= None, force = True, ignoreVersion = True):
         filepath = filepath()
         
     if not filepath:
-        raise ValueError,"No filepath"
+        raise ValueError("No filepath")
     
     _current = mc.file(q=True, sn=True)
     if mc.file(_current, q=1, modified = 1):
@@ -1272,21 +1272,21 @@ def kw_fromDict(arg = None ,d = None, indexCallable = False, returnIndex = False
     if calledFrom: _str_func = "{0} calling {1}".format(calledFrom,_str_func) 
        
     if arg is None or d is None:
-        raise ValueError,"{0}: Must have k and d arguments | arg: {1} | d: {2}".format(_str_func, arg, d)
+        raise ValueError("{0}: Must have k and d arguments | arg: {1} | d: {2}".format(_str_func, arg, d))
     
     if not isinstance(d, dict):
-        raise ValueError,"{0}: d arg must be a dict | d: {1}".format(_str_func,d)
+        raise ValueError("{0}: d arg must be a dict | d: {1}".format(_str_func,d))
     
-    for k in d.keys():
+    for k in list(d.keys()):
         if isStringEquivalent(k,arg):return k
         _l = d[k]
         if not isListArg(_l):
-            raise ValueError,"{0}: Invalid list on dict key | k: {1} | Not a list: {2}".format(_str_func,k,_l)
+            raise ValueError("{0}: Invalid list on dict key | k: {1} | Not a list: {2}".format(_str_func,k,_l))
         for o in _l:
             if isStringEquivalent(o,arg):return k 
             
     if not noneValid:
-        raise ValueError,"{0}: Invalid arg | arg: {1} | options: {2}".format(_str_func, arg, d)
+        raise ValueError("{0}: Invalid arg | arg: {1} | options: {2}".format(_str_func, arg, d))
     return arg
 
 def kw_fromList(arg = None ,l = None, indexCallable = False, returnIndex = False, noneValid = False, calledFrom = None):
@@ -1308,11 +1308,11 @@ def kw_fromList(arg = None ,l = None, indexCallable = False, returnIndex = False
        
     if arg is None or l is None:
         if noneValid:return False
-        raise ValueError,"{0}: Must have k and l arguments | arg: {1} | l: {2}".format(_str_func, arg, l)
+        raise ValueError("{0}: Must have k and l arguments | arg: {1} | l: {2}".format(_str_func, arg, l))
     
     if not isListArg(l):
         if noneValid:return False        
-        raise ValueError,"{0}: l arg must be a list | l: {1} | type:{2}".format(_str_func,l,type(l))
+        raise ValueError("{0}: l arg must be a list | l: {1} | type:{2}".format(_str_func,l,type(l)))
     
     if returnIndex:
         if type(arg) is int:
@@ -1326,7 +1326,7 @@ def kw_fromList(arg = None ,l = None, indexCallable = False, returnIndex = False
             else:_res = o      
         if isStringEquivalent(o,arg):_res = o
     if _res is None and not noneValid:
-        raise ValueError,"{0}: Invalid arg | arg: {1} | options: {2}".format(_str_func, arg, l)
+        raise ValueError("{0}: Invalid arg | arg: {1} | options: {2}".format(_str_func, arg, l))
     return _res
         
     

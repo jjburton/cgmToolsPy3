@@ -73,7 +73,7 @@ def loadFromFilepath( filepath, searchDomain=None ):
 	root = sobject.SObject.Load( filepath )
 	mapping = mappingUtils.matchNames( root.allNodes, searchDomain )
 
-	for nodeName, triggerData in root.triggerDict.iteritems():
+	for nodeName, triggerData in list(root.triggerDict.items()):
 		actualNode = mapping[ nodeName ]
 		if actualNode:
 			actualNode = actualNode[0]

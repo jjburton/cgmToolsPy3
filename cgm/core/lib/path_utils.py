@@ -183,26 +183,26 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
         
         _i+=1
         
-    for k,d in _d_dir.iteritems():
+    for k,d in list(_d_dir.items()):
         if d.get('dir'):
             d['tokensSub'] = {}
             for subD in d.get('dir'):
-                for k,d2 in _d_dir.iteritems():
+                for k,d2 in list(_d_dir.items()):
                     if d2.get('token') == subD:
                         d['tokensSub'][k] = subD
 
     if _b_debug:
-        print(cgmGEN.logString_sub(_str_func,"Levels"))
+        print((cgmGEN.logString_sub(_str_func,"Levels")))
         pprint.pprint(_d_levels)
-        print(cgmGEN.logString_sub(_str_func,"Dat"))
+        print((cgmGEN.logString_sub(_str_func,"Dat")))
         pprint.pprint(_d_dir)
         
         if uiStrings:
-            print (cgmGEN.logString_sub(_str_func,'Ui Strings'))
+            print((cgmGEN.logString_sub(_str_func,'Ui Strings')))
             #pprint.pprint(_d_uiStrings)
             
             for s in _l_uiStrings:
-                print s        
+                print(s)        
         
 
     if _l_duplicates and _b_debug:
@@ -210,7 +210,7 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
         log.debug("|{0}| >> DUPLICATE ....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
+        raise Exception("Must resolve")
     
     #log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),_path))     
     return _d_dir, _d_levels, _l_keys

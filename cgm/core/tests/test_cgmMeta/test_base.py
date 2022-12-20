@@ -24,7 +24,7 @@ try:
     from cgm.core import cgm_General as cgmGEN
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -41,13 +41,13 @@ class Test_r9Issues(unittest.TestCase):
         #return 'ok'
         
     def test_caching(self):
-        self.assertEquals(self.r9Node1.cached,None,)
+        self.assertEqual(self.r9Node1.cached,None,)
         
         self.r9Node1.addAttr('mClass','MetaClass')
         r9Node1Cached = r9Meta.MetaClass(self.r9Node1.mNode)
         
-        self.assertEquals(self.r9Node1.cached,True)
-        self.assertEquals(self.r9Node1,r9Node1Cached)
+        self.assertEqual(self.r9Node1.cached,True)
+        self.assertEqual(self.r9Node1,r9Node1Cached)
         
     def test_duplicate(self):
         self.r9Node1_dup = r9Meta.MetaClass(mc.duplicate(self.r9Node1.mNode)[0])        
@@ -149,16 +149,16 @@ class Test_general(unittest.TestCase):
             _t_start = time.clock()
             try:
                 mObj = cgmMeta.createMetaNode(mType,name = 'createTest_{0}'.format(mType))
-            except Exception,err:
+            except Exception as err:
                 log.error("{0} failure...".format(mType))
                 for arg in err.args:
                     log.error(arg)  
                 #log.error(cgmGEN._str_subLine)
-                raise Exception,err
+                raise Exception(err)
             
             self.assertEqual(issubclass(type(mObj),_r9ClassRegistry[mType]),True, mObj)
             mObj.delete()   
-            print("[{0}] completed in  {1} seconds".format(mType, "%0.3f"%(time.clock()-_t_start))) 
+            print(("[{0}] completed in  {1} seconds".format(mType, "%0.3f"%(time.clock()-_t_start)))) 
                 
             
         
@@ -203,22 +203,22 @@ class Test_NameFactory(unittest.TestCase):
                 i_trans1a = cgmMeta.cgmObject(name = 'trans')
                 i_parent = cgmMeta.cgmObject(name = 'parent')
                 i_parent.addAttr('cgmName','nameParent', attrType = 'string')
-            except Exception,error:
-                raise Exception,"Setup | {0}".format(error)
+            except Exception as error:
+                raise Exception("Setup | {0}".format(error))
     
             try:i_trans1b = cgmMeta.cgmObject(mc.duplicate(i_trans1a.mNode)[0] )
-            except Exception,error:
-                raise Exception,"duplicate | {0}".format(error)
+            except Exception as error:
+                raise Exception("duplicate | {0}".format(error))
             try:
                 i_trans1a.parent = i_parent.mNode
                 i_trans1b.parent = i_parent.mNode
-            except Exception,error:
-                raise Exception,"parent | {0}".format(error)		    
+            except Exception as error:
+                raise Exception("parent | {0}".format(error))		    
             assert i_trans1b in i_trans1a.getSiblings(asMeta = True),"In getSiblins? %s"%i_trans1a.getSiblings()
             #assert NF(i_trans1a).getMatchedSiblings() == [i_trans1b],"%s"%NF(i_trans1a).getMatchedSiblings()
             #assert NF(i_trans1b).getMatchedSiblings() == [i_trans1a],"%s"%NF(i_trans1b).getMatchedSiblings()        
             #assert NF(i_trans1b).returnUniqueGeneratedName(fastIterate = False) == NF(i_trans1a).returnUniqueGeneratedName(fastIterate = False),"Not returning same name buffer"
-        except Exception,error:raise Exception,"TransformNodes | {0}".format(error)
+        except Exception as error:raise Exception("TransformNodes | {0}".format(error))
     
         #Name different ways
         bufferName =  NF(i_trans1a).returnUniqueGeneratedName(fastIterate = False)

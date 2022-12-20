@@ -356,7 +356,7 @@ def resize_masterShape(self,sizeBy=None,resize=False):
         
         return True
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())    
     
     
@@ -572,10 +572,10 @@ def rig_cleanUp(self):
                 try:
                     for mCtrl in self.ml_controlsAll:
                         mi_parentRigNull.msgList_append('controlsAll',mCtrl)
-                except Exception,error: raise Exception,"!Controls all connect!| %s"%error	    
+                except Exception as error: raise Exception("!Controls all connect!| %s"%error)	    
                 try:mi_parentRigNull.moduleSet.extend(self.ml_controlsAll)
-                except Exception,error: raise Exception,"!Failed to set module objectSet! | %s"%error
-        except Exception,error:raise Exception,"!Module Parent registration! | %s"%(error)	            
+                except Exception as error: raise Exception("!Failed to set module objectSet! | %s"%error)
+        except Exception as error:raise Exception("!Module Parent registration! | %s"%(error))	            
         
         return
         
@@ -787,7 +787,7 @@ def rig_cleanUp(self):
         
         #log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
         #except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 #@cgmGEN.Timer
 def rigDelete(self):
@@ -839,11 +839,11 @@ def rigDelete(self):
         return True
         self.v = 1
         try:self.moduleTarget.masterControl.masterGroup.delete()
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception,err
+            raise Exception(err)
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def is_rig(self):
     return True
@@ -852,7 +852,7 @@ def is_rig(self):
     
     _d_links = {'moduleTarget' : ['masterControl']}
     
-    for plug,l_links in _d_links.iteritems():
+    for plug,l_links in list(_d_links.items()):
         _mPlug = self.getMessage(plug,asMeta=True)[0]
         if not _mPlug:
             _l_missing.append("{0} : {1}".format(plug,l_links))

@@ -179,7 +179,7 @@ class connectNegativeAttrs(cgmGeneral.cgmFuncCls):
                     else:log.warning("%s Not all numeric |  source: %s | target : %s | attr : %s"%(self._str_reportStart, self.mi_source.p_nameShort,self.mi_target.p_nameShort,a))		    
                 else:log.warning("%s target : %s |  lacks attr : %s"%(self._str_reportStart, self.mi_target.p_nameShort,a))
         if not self.l_attrsToDo:
-            raise Exception,"Found no attrs to do"
+            raise Exception("Found no attrs to do")
         return True
 
     def _create(self):
@@ -192,7 +192,7 @@ class connectNegativeAttrs(cgmGeneral.cgmFuncCls):
             mPlug_source = self.d_sourcePlugs[a]
             mPlug_target = self.d_targetPlugs[a]	    
             try:mi_revNode = cgmMeta.cgmNode(nodeType='multiplyDivide')
-            except:raise StandardError,"Failed to create reverse node for: %s"%a
+            except:raise Exception("Failed to create reverse node for: %s"%a)
             mi_revNode.doStore('cgmName',mi_source)
             mi_revNode.addAttr('cgmTypeModifier',value = a,lock = True)	    
             mi_revNode.doName()
@@ -202,9 +202,9 @@ class connectNegativeAttrs(cgmGeneral.cgmFuncCls):
             mi_revNode.operation = 1
             mi_revNode.input2X = -1
             try:mPlug_source.doConnectOut("%s.input1X"%mi_revNode.mNode)
-            except Exception,error:raise Exception,"Source: %s | error: %s"%(mPlug_source.p_combinedShortName,error)
+            except Exception as error:raise Exception("Source: %s | error: %s"%(mPlug_source.p_combinedShortName,error))
             try:mPlug_target.doConnectIn("%s.outputX"%mi_revNode.mNode)	    
-            except Exception,error:raise Exception,"Target: %s | error: %s"%(mPlug_target.p_combinedShortName,error)
+            except Exception as error:raise Exception("Target: %s | error: %s"%(mPlug_target.p_combinedShortName,error))
         return l_nodes
 
 
@@ -274,10 +274,10 @@ def connect_controlWiring(*args, **kws):
                 self._str_baseName = "NEEDNAME"
 
             if not self._d_wiringData:
-                raise ValueError,"wiringDict arg must have data | arg: {0}".format(self._d_wiringData)
+                raise ValueError("wiringDict arg must have data | arg: {0}".format(self._d_wiringData))
 
             if not issubclass(type(self._d_wiringData),dict):
-                raise ValueError,"wiringDict arg must be dict | arg: {0}".format(self._d_wiringData)
+                raise ValueError("wiringDict arg must be dict | arg: {0}".format(self._d_wiringData))
 
             #>>> Declare some holders
             self.d_driverPlugs = {}
@@ -292,7 +292,7 @@ def connect_controlWiring(*args, **kws):
 
             #Make sure driver attrs exist
             l_drivers = []
-            for a_driven in self._d_wiringData.keys():
+            for a_driven in list(self._d_wiringData.keys()):
                 l_drivers.append(self._d_wiringData[a_driven]['driverAttr'])
             l_drivers = [o.split('-')[-1] for o in l_drivers]
             l_drivers = lists.returnListNoDuplicates(l_drivers)
@@ -309,7 +309,7 @@ def connect_controlWiring(*args, **kws):
                                                   keyable = False,
                                                   hidden = False,lock=True)
 
-            for a_driven in self._d_wiringData.keys():
+            for a_driven in list(self._d_wiringData.keys()):
                 try:
                     _d_sub = self._d_wiringData[a_driven]
                     _driver = _d_sub['driverAttr']
@@ -317,7 +317,7 @@ def connect_controlWiring(*args, **kws):
 
                     #Driven...
                     if not self.mi_targetObject.hasAttr(a_driven):
-                        raise AttributeError,"Missing driven attr!"
+                        raise AttributeError("Missing driven attr!")
                     else:
                         self.d_drivenPlugs[a_driven] = cgmMeta.cgmAttr(self.mi_targetObject,a_driven)
 
@@ -328,8 +328,8 @@ def connect_controlWiring(*args, **kws):
 		    elif not self.mi_controlObject.hasAttr(_driver):
 			raise AttributeError,"Missing driver attr! | {0}".format(_driver)"""
 
-                except Exception,error:
-                    raise Exception, "{0} failure | error: {1}".format(a_driven,error)
+                except Exception as error:
+                    raise Exception("{0} failure | error: {1}".format(a_driven,error))
 
             self.log_infoNestedDict('d_drivenPlugs')
             self.log_infoNestedDict('d_drivenToDriverKeys')
@@ -410,7 +410,7 @@ def connect_controlWiring(*args, **kws):
                     self._d_negative_results[driver] = mPlugResult
 
                     return mPlugResult
-            except Exception,error:
+            except Exception as error:
                 return self._FailBreak_(error)
 
         def get_clampResultConnection(self, mPlugDriver = None, minValue = 0, maxValue = 1):
@@ -419,7 +419,7 @@ def connect_controlWiring(*args, **kws):
             '''
             _l_in = ['inputR','inputG','inputB']
             _l_out = ['outputR','outputG','outputB']
-            raise NotImplementedError,"Clamp not implemeted"
+            raise NotImplementedError("Clamp not implemeted")
 
         def get_driverPlug(self,arg):
             """
@@ -436,7 +436,7 @@ def connect_controlWiring(*args, **kws):
                 if mc.objExists(arg):
                     return arg
                 else:
-                    raise ValueError,"Driver attr does not exist: {0}".format(arg)
+                    raise ValueError("Driver attr does not exist: {0}".format(arg))
             else:
                 if not self.mi_controlObject.hasAttr(arg):
                     #cgmMeta.cgmAttr(self.mi_controlObject, arg, 'float', keyable = True, hidden = False, minValue = -self._f_defaultMaxValue, maxValue = self._f_defaultMaxValue)			
@@ -453,7 +453,7 @@ def connect_controlWiring(*args, **kws):
             mi_controlObject = self.mi_controlObject
             mi_targetObject = self.mi_targetObject
 
-            for a_driven in self.d_drivenPlugs.keys():
+            for a_driven in list(self.d_drivenPlugs.keys()):
                 try:
                     _d_sub = self._d_wiringData[a_driven]
 
@@ -488,14 +488,14 @@ def connect_controlWiring(*args, **kws):
                     elif _mode is 'cornerBlend':
                         try:
                             _driver2 = _d_sub['driverAttr2']
-                        except:raise ValueError,"Missing driverAttr2"
+                        except:raise ValueError("Missing driverAttr2")
 
                         ml_plugs = []
                         for plug in [_driver, _driver2]:
                             try:
                                 ml_plugs.append(self.get_positiveDriver(plug))
-                            except Exception,error:
-                                raise Exception,"attr validation fail | attr {0}".format(plug)
+                            except Exception as error:
+                                raise Exception("attr validation fail | attr {0}".format(plug))
 
                         for mPlug in ml_plugs:
                             self.log_info(mPlug.p_combinedShortName)
@@ -534,14 +534,14 @@ def connect_controlWiring(*args, **kws):
 			'''
                         try:
                             _driver2 = _d_sub['driverAttr2']
-                        except:raise ValueError,"Missing driverAttr2"
+                        except:raise ValueError("Missing driverAttr2")
 
                         ml_plugs = []
                         for plug in [_driver, _driver2]:
                             try:
                                 ml_plugs.append(self.get_positiveDriver(plug))
-                            except Exception,error:
-                                raise Exception,"attr validation fail | attr {0}".format(plug)
+                            except Exception as error:
+                                raise Exception("attr validation fail | attr {0}".format(plug))
 
                         self.log_info("building: {0} = clamp(0,1, -clamp(-1,0,{1}) - {2})".format(_mPlug_driven.p_combinedShortName,ml_plugs[0].p_combinedShortName,ml_plugs[1].p_combinedShortName))
                         #                                                   1
@@ -571,14 +571,14 @@ def connect_controlWiring(*args, **kws):
                         for k in ['driverAttr2','driverAttr3','driverAttr4']: 
                             try:
                                 _l_drivers.append(_d_sub[k])
-                            except:raise ValueError,"{0}".format(k)
+                            except:raise ValueError("{0}".format(k))
 
                         ml_plugs = []
                         for plug in _l_drivers:
                             try:
                                 ml_plugs.append(self.get_positiveDriver(plug))
-                            except Exception,error:
-                                raise Exception,"attr validation fail | attr {0}".format(plug)
+                            except Exception as error:
+                                raise Exception("attr validation fail | attr {0}".format(plug))
 
                         self.log_info("building: {0} = clamp(0,1, ({1} * {2}) - ({3} * {4}))".format(_mPlug_driven.p_combinedShortName,ml_plugs[0].p_combinedShortName,ml_plugs[1].p_combinedShortName,ml_plugs[2].p_combinedShortName,ml_plugs[3].p_combinedShortName))
 
@@ -618,14 +618,14 @@ def connect_controlWiring(*args, **kws):
                         else:
                             self.d_driverPlugs[_driver] = cgmMeta.cgmAttr(mi_controlObject,_driver)
 
-                except Exception,error:
-                    raise Exception, "{0} Wiring failure | error: {1}".format(a_driven,error)
+                except Exception as error:
+                    raise Exception("{0} Wiring failure | error: {1}".format(a_driven,error))
 
             for arg in self._l_simpleArgs:
                 self.log_info("On arg: {0}".format(arg))
                 try:
                     argsToNodes(arg).doBuild()			
-                except Exception,error:
+                except Exception as error:
                     self.log_error("{0} arg failure | error: {1}".format(arg,error))
 
             self.log_infoNestedDict('d_driverPlugs')
@@ -679,7 +679,7 @@ def createAndConnectBlendColors(driverObj1, driverObj2, l_drivenObjs, driver = N
     """
     l_channels = [c for c in channels if c in ['translate','rotate','scale']]
     if not l_channels:
-        raise StandardError,"createAndConnectBlendColors>>> Need valid channels: %s"%channels
+        raise Exception("createAndConnectBlendColors>>> Need valid channels: %s"%channels)
 
     ml_nodes = []
 
@@ -809,7 +809,7 @@ class build_mdNetwork(object):
         for i,k in enumerate(self.l_iAttrs):
             log.debug("%s >> %s"%(i,self.d_iAttrs[i].p_combinedName))
 
-        for resultIndex in self.d_mdNetworksToBuild.keys():#For each stored index dict key
+        for resultIndex in list(self.d_mdNetworksToBuild.keys()):#For each stored index dict key
             #To do, add a check to see if a good network exists before making another
             iNetwork = self.validateMDNetwork(resultIndex)
 
@@ -820,7 +820,7 @@ class build_mdNetwork(object):
         #a.p_combinedName
         #>>>Connect stuff
         log.debug("Making connections: %s"%self.d_connectionsToMake)	
-        for sourceIndex in self.d_connectionsToMake.keys():#For each stored index dict key
+        for sourceIndex in list(self.d_connectionsToMake.keys()):#For each stored index dict key
             source = self.d_iAttrs.get(sourceIndex)#Get the source attr's instance
             log.debug("source: '%s'"%source.p_combinedName)	    
             for targetIndex in self.d_connectionsToMake.get(sourceIndex):#for each target of that source
@@ -837,7 +837,7 @@ class build_mdNetwork(object):
             Return a cgmAttr if everything checks out
             """
             log.debug("verifyObjAttr: '%s',%s'"%(obj,attr))
-            if type(attr) not in [str,unicode]:
+            if type(attr) not in [str,str]:
                 log.warning("attr arg must be string: '%s'"%attr)
                 return False
             try:#Try to link an instance
@@ -865,7 +865,7 @@ class build_mdNetwork(object):
             log.debug("Checking: %s"%a)
             if type(a) is dict:
                 log.debug("...is dict")
-                if 'result' and 'drivers' in a.keys():
+                if 'result' and 'drivers' in list(a.keys()):
                     log.debug("...found necessary keys")
                     if type(a.get('result')) is list and len(a.get('result'))==2:
                         log.debug("...Checking 'result'")			
@@ -1019,9 +1019,9 @@ class build_mdNetwork(object):
             log.debug("self.i_mdOutAttrIndex: %s"%self.i_mdOutAttrIndex)	    
             log.debug("...Adding connection: %s"%connection)
             if self.i_mdOutAttrIndex is None:
-                raise ValueError,"self.i_mdOutAttrIndex is :%s"%self.i_mdOutAttrIndex
-            if connection not in self.d_iAttrs.keys():
-                raise ValueError,"connection index not in self.l_iAttrs: %s"%connection		
+                raise ValueError("self.i_mdOutAttrIndex is :%s"%self.i_mdOutAttrIndex)
+            if connection not in list(self.d_iAttrs.keys()):
+                raise ValueError("connection index not in self.l_iAttrs: %s"%connection)		
             verifyMDNetwork(self.i_mdOutAttrIndex ,connection)
 
         if self.i_mdOutAttrIndex is not None:#Register our connection to make
@@ -1165,18 +1165,18 @@ class argsToNodes(object):
         ml_outPlugs = []
         l_outPlugs = []
 
-        for nodeType in self.d_networksToBuild.keys():
+        for nodeType in list(self.d_networksToBuild.keys()):
             if self.d_networksToBuild[nodeType]:
                 log.debug("argsToNodes>> d_networksToBuild: '%s'"%nodeType)
                 for n in self.d_networksToBuild[nodeType]:
                     log.debug(">>>> %s"%n)
                     self.verify_nodalNetwork(n,nodeType)
 
-        for resultKey in self.d_connectionsToMake.keys():
+        for resultKey in list(self.d_connectionsToMake.keys()):
             if self.d_connectionsToMake[resultKey].get('nodeType') == 'directConnect':
                 log.debug("direct Connect mode!")
                 if type(self.d_connectionsToMake[resultKey].get('driver')) is not int:
-                    raise StandardError,"Cannot make a connection. No driver indexed: %s"%self.d_connectionsToMake[resultKey]
+                    raise Exception("Cannot make a connection. No driver indexed: %s"%self.d_connectionsToMake[resultKey])
                 for i in self.d_connectionsToMake[resultKey]['driven']:
                     driverIndex = self.d_connectionsToMake[resultKey].get('driver')
                     self.ml_attrs[i].doConnectIn(self.ml_attrs[driverIndex].p_combinedName)
@@ -1185,13 +1185,13 @@ class argsToNodes(object):
                     self.ml_attrs[i].p_locked = True	
 
             else:#Reg mode
-                if resultKey not in self.d_good_nodeNetworks.keys():
+                if resultKey not in list(self.d_good_nodeNetworks.keys()):
                     log.warning("resultKey not found: %s"%resultKey)
                 else:
                     arg = resultKey
                     l_args.append(arg)
                     try:outIndex = self.d_good_NetworkOuts[arg]
-                    except:raise StandardError,"Failed to find out network plug for: '%s'"%arg
+                    except:raise Exception("Failed to find out network plug for: '%s'"%arg)
                     mi_outPlug = self.ml_attrs[outIndex]
                     ml_outPlugs.append(mi_outPlug)
                     l_outPlugs.append(mi_outPlug.p_combinedName)
@@ -1210,7 +1210,7 @@ class argsToNodes(object):
 
         #Build our return dict
         #{l_args:[],l_outPlugs:[]indexed to args
-        ml_nodes = [self.d_good_nodeNetworks.get(key) for key in self.d_good_nodeNetworks.keys()]
+        ml_nodes = [self.d_good_nodeNetworks.get(key) for key in list(self.d_good_nodeNetworks.keys())]
         l_nodes = [i_node.mNode for i_node in ml_nodes]
 
         return {'l_args':l_args,'l_outPlugs':l_outPlugs,'ml_outPlugs':ml_outPlugs,'ml_nodes':ml_nodes,'l_nodes':l_nodes}
@@ -1236,11 +1236,11 @@ class argsToNodes(object):
     def validateArg(self,arg,*args,**kws):
         log.debug("argsToNodes.validateArg>> Arg: '%s'"%(arg))	
         if type(arg) in [list,tuple]:
-            raise NotImplementedError,"argsToNodes.validateArg>> list type arg not ready"
+            raise NotImplementedError("argsToNodes.validateArg>> list type arg not ready")
         elif type(arg) != str:
             try: arg = str(arg)
             except:
-                raise StandardError,"argsToNodes.validateArg>> Arg type must be str. Couldn't convert Type: %s"%type(arg)
+                raise Exception("argsToNodes.validateArg>> Arg type must be str. Couldn't convert Type: %s"%type(arg))
 
         if ' and ' in arg:#I was a moron and had 'and' before. Lots of things have 'and' like 'handle'....
             log.warning("argsToNodes.validateArg>> ' and ' not implemented. Splitting and processing the former part of arg. arg: %s"%arg)	    
@@ -1262,7 +1262,7 @@ class argsToNodes(object):
         for i,a in enumerate(argBuffer):
             for k in l_NotImplementedTo_NodalArg:
                 if k in arg:
-                    raise NotImplementedError,"argsToNodes.validateArg>> '%s' not implemented | '%s'"%(k,a)
+                    raise NotImplementedError("argsToNodes.validateArg>> '%s' not implemented | '%s'"%(k,a))
 
             foundMatch = False
             log.debug("argsToNodes.validateArg>> On a: %s"%(a))
@@ -1323,8 +1323,8 @@ class argsToNodes(object):
                             break
                         else:
                             log.debug("argsToNodes.validateArg>> pma arg found: %s"%a)				    
-                    except StandardError,error:
-                        raise StandardError,error  
+                    except Exception as error:
+                        raise Exception(error)  
             if not foundMatch and '-' in a:
                 foundMatch = True
                 if self.validate_subArg(a,'multiplyDivide'):
@@ -1340,7 +1340,7 @@ class argsToNodes(object):
                 else:
                     log.debug("argsToNodes.validateArg>> inverse check: %s"%arg)
             if not self.d_networksToBuild:
-                raise StandardError,"argsToNodes.validateArg>> Found nothing to do! | %s"%a
+                raise Exception("argsToNodes.validateArg>> Found nothing to do! | %s"%a)
 
     def verify_attr(self,arg,nodeType = False,originalArg = False):
         """
@@ -1367,16 +1367,16 @@ class argsToNodes(object):
         else:
             if '-' in arg:#Looking for inverses
                 if not originalArg:
-                    raise StandardError,"argsToNodes.verify_attr>> original arg required with '-' mode!"	    				
+                    raise Exception("argsToNodes.verify_attr>> original arg required with '-' mode!")	    				
                 if not nodeType:
-                    raise StandardError,"argsToNodes.verify_attr>> nodeType required with '-' mode!"	    		
+                    raise Exception("argsToNodes.verify_attr>> nodeType required with '-' mode!")	    		
                 log.debug("argsToNodes.verify_attr>> '-' Mode!: %s"%arg)	    
                 #We have to make a sub attr connection to inverse this value
                 #First register the attr
                 d_driver = cgmMeta.validateAttrArg(arg.split('-')[1],noneValid=True,**kws)
 
                 if not d_driver:
-                    raise StandardError,"argsToNodes.verify_attr>> '-' Mode fail!"	    
+                    raise Exception("argsToNodes.verify_attr>> '-' Mode fail!")	    
                 if d_driver['mi_plug'].p_combinedName not in self.l_attrs:
                     log.debug("argsToNodes.verify_attr>> Adding: %s"%d_driver['combined'])
                     self.l_attrs.append(d_driver['mi_plug'].p_combinedName)		
@@ -1388,7 +1388,7 @@ class argsToNodes(object):
 
                 d_validSubArg = {'arg':self.cleanArg(arg),'callArg':originalArg,'drivers':[index,'-1'],'operation':1}
                 self.d_networksToBuild['multiplyDivide'].append(d_validSubArg)#append to build
-                return unicode(self.cleanArg(arg))#unicoding for easy type check on later call	
+                return str(self.cleanArg(arg))#unicoding for easy type check on later call	
 
             d_driver = cgmMeta.validateAttrArg(arg,noneValid=False,**kws)
             log.debug("verify_attr>> d_driver: %s"%d_driver)
@@ -1407,8 +1407,8 @@ class argsToNodes(object):
     def validate_subArg(self,arg, nodeType = 'condition'):
         log.debug("argsToNodes.validate_subArg>> '%s' validate: '%s'"%(nodeType,arg))
         #First look for a result connection to register
-        if nodeType != 'directConnect' and nodeType not in d_operator_to_NodeType.keys():
-            raise StandardError,"argsToNodes.validate_subArg>> unknown nodeType: '%s'"%nodeType
+        if nodeType != 'directConnect' and nodeType not in list(d_operator_to_NodeType.keys()):
+            raise Exception("argsToNodes.validate_subArg>> unknown nodeType: '%s'"%nodeType)
         resultArg = []
         thenArg = []
         log.debug(1)
@@ -1419,13 +1419,13 @@ class argsToNodes(object):
                 spaceSplit = arg.split(' ')
                 splitBuffer = arg.split(splitter)#split by ';'
                 if len(splitBuffer)>2:
-                    raise StandardError,"argsToNodes.validate_subArg>> Too many splits for arg: %s"%splitBuffer		
+                    raise Exception("argsToNodes.validate_subArg>> Too many splits for arg: %s"%splitBuffer)		
                 resultArg = splitBuffer[0]
                 arg = splitBuffer[1]
                 log.debug("argsToNodes.validate_subArg>> result args: %s"%resultArg)
-        except StandardError,error:
+        except Exception as error:
             log.error(error)
-            raise StandardError, "argsToNodes.validate_subArg>> resultSplit failure: %s"%(arg)
+            raise Exception("argsToNodes.validate_subArg>> resultSplit failure: %s"%(arg))
 
         try:#If then
             for nodeT in ['clamp','setRange']:
@@ -1437,12 +1437,12 @@ class argsToNodes(object):
             if nodeType == 'condition' and ':' in arg:
                 thenSplit = arg.split(':')
                 if len(thenSplit)>2:
-                    raise StandardError,"argsToNodes.validate_subArg>> Too many thenSplits for arg: ':' | %s"%thenSplit	
+                    raise Exception("argsToNodes.validate_subArg>> Too many thenSplits for arg: ':' | %s"%thenSplit)	
                 thenArg = thenSplit[1]
                 arg = thenSplit[0]	    
-        except StandardError,error:
+        except Exception as error:
             log.error(error)
-            raise StandardError, "argsToNodes.validate_subArg>> thenSplit failure: %s"%(arg)
+            raise Exception("argsToNodes.validate_subArg>> thenSplit failure: %s"%(arg))
 
 
         try:#Function Split
@@ -1458,19 +1458,19 @@ class argsToNodes(object):
                 for function in d_operator_to_NodeType[nodeType]:
                     if function in arg:#See if we have the function
                         if len(arg.split(function))>2 and nodeType == 'condition':
-                            raise StandardError,"argsToNodes.validate_subArg>> Bad arg. Too many functions in arg: %s"%(function)
+                            raise Exception("argsToNodes.validate_subArg>> Bad arg. Too many functions in arg: %s"%(function))
                         l_funcs.append(function)
             elif nodeType in ['clamp','setRange']:
                 splitBuffer = arg.split(',')
                 log.debug("clamp type split: %s"%splitBuffer)	
             if not l_funcs and '-' not in arg and nodeType not in ['directConnect','setRange','clamp']:
-                raise StandardError, "argsToNodes.validate_subArg>> No function of type '%s' found: %s"%(nodeType,d_operator_to_NodeType[nodeType])	    
+                raise Exception("argsToNodes.validate_subArg>> No function of type '%s' found: %s"%(nodeType,d_operator_to_NodeType[nodeType]))	    
             elif len(l_funcs)!=1 and '-' not in arg and nodeType not in ['directConnect','setRange','clamp']:#this is to grab an simple inversion
                 log.warning("argsToNodes.validate_subArg>> Bad arg. Too many functions in arg: %s"%(l_funcs))
             if l_funcs:l_funcs = [l_funcs[0].split(' ')[1]]
-        except StandardError,error:
+        except Exception as error:
             log.error(error)
-            raise StandardError, "argsToNodes.validate_subArg>> functionSplit failure: %s"%(arg)
+            raise Exception("argsToNodes.validate_subArg>> functionSplit failure: %s"%(arg))
 
         log.debug("validate_subArg>> l_funcs: %s"%l_funcs)
         log.debug("validate_subArg>> splitBuffer: %s"%splitBuffer)
@@ -1494,7 +1494,7 @@ class argsToNodes(object):
         for d in l_drivers:
             log.debug("Checking driver: %s"%d)
             d_return = self.verify_attr(d,nodeType,arg)
-            if d_return is None:raise StandardError, "argsToNodes.validate_subArg>> driver failure: %s"%(d)
+            if d_return is None:raise Exception("argsToNodes.validate_subArg>> driver failure: %s"%(d))
             else:l_validDrivers.append(d_return)
 
         log.debug("l_validDrivers: %s"%l_validDrivers)
@@ -1502,7 +1502,7 @@ class argsToNodes(object):
         if nodeType != 'directConnect':
             maxDrivers = d_nodeType_to_limits[nodeType].get('maxDrivers')
             if maxDrivers and len(l_validDrivers)>maxDrivers:
-                raise StandardError, "argsToNodes.validate_subArg>> Too many drivers (max - %s): %s"%(maxDrivers,l_validDrivers)
+                raise Exception("argsToNodes.validate_subArg>> Too many drivers (max - %s): %s"%(maxDrivers,l_validDrivers))
 
         if l_funcs:#we  use normal start
             d_validArg = {'arg':self.cleanArg(arg),'oldArg':arg,'drivers':l_validDrivers,'operation':d_function_to_Operator[l_funcs[0]]}
@@ -1522,7 +1522,7 @@ class argsToNodes(object):
             else:
                 thenBuffer = [thenArg]
             if len(thenBuffer)>2:
-                raise StandardError, "argsToNodes.validate_subArg>> thenBuffer > 2: %s"%(thenBuffer)		
+                raise Exception("argsToNodes.validate_subArg>> thenBuffer > 2: %s"%(thenBuffer))		
             for arg in thenBuffer:
                 #try to validate
                 a_return = self.verify_attr(arg,nodeType)
@@ -1546,7 +1546,7 @@ class argsToNodes(object):
                 a_return = self.verify_attr(arg,nodeType)
                 if a_return is not None:
                     if d_validArg.get('drivers') and a_return in d_validArg['drivers']:
-                        raise StandardError,"argsToNodes.validate_subArg>> Same attr cannot be in drivers and driven of same node arg!"
+                        raise Exception("argsToNodes.validate_subArg>> Same attr cannot be in drivers and driven of same node arg!")
                     results_indices.append(a_return)
 
         #Build our arg 
@@ -1565,7 +1565,7 @@ class argsToNodes(object):
                 #self.d_networksToBuild[nodeType].append(d_validArg)#append to build		    
                 #self.d_good_connections[d_validArg['arg']]=self.ml_attrs[d_validArg['drivers'][0]]#store the instance		    
             else:
-                raise StandardError, "argsToNodes.validate_subArg>> Too few drivers : %s"%(l_validDrivers)
+                raise Exception("argsToNodes.validate_subArg>> Too few drivers : %s"%(l_validDrivers))
 
 
         return True
@@ -1577,10 +1577,10 @@ class argsToNodes(object):
         #Fast check only checks connected nodes and not all nodes of that type
         """
         def verifyDriver(self,arg):
-            if type(arg) == unicode:
+            if type(arg) == str:
                 #We should have already done this one
-                if arg not in self.d_good_NetworkOuts.keys():
-                    raise StandardError,"Not built yet: '%s'"%arg
+                if arg not in list(self.d_good_NetworkOuts.keys()):
+                    raise Exception("Not built yet: '%s'"%arg)
                 log.debug(arg)
                 d = self.ml_attrs[ self.d_good_NetworkOuts[arg] ]
                 return d
@@ -1606,10 +1606,10 @@ class argsToNodes(object):
             l_driverNames = []
             try:#Get our drivers
                 for v in d_arg['drivers']:
-                    if type(v) == unicode:
+                    if type(v) == str:
                         #We should have already done this one
-                        if v not in self.d_good_NetworkOuts.keys():
-                            raise StandardError,"Not built yet: '%s'"%v
+                        if v not in list(self.d_good_NetworkOuts.keys()):
+                            raise Exception("Not built yet: '%s'"%v)
                         log.debug(v)
                         d = self.ml_attrs[ self.d_good_NetworkOuts[v] ]
                         ml_drivers.append(d)
@@ -1624,9 +1624,9 @@ class argsToNodes(object):
                         ml_drivers.append(int(v))#Int value
                 log.debug("argsToNodes.verifyNode>> drivers: %s"%ml_drivers )
                 log.debug("argsToNodes.verifyNode>> driversNames: %s"%l_driverNames )
-            except StandardError,error:
+            except Exception as error:
                 log.error("argsToNodes.verifyNode>> arg driver initialiation fail%s")
-                raise StandardError,error    
+                raise Exception(error)    
 
             i_node= None 
 
@@ -1649,7 +1649,7 @@ class argsToNodes(object):
             log.debug("argsToNodes.verifyNode>> l_matchCandidates: %s"%l_matchCandidates)
 
             if l_matchCandidates and not fastCheck:
-                raise ValueError,"Shouldn't be here"
+                raise ValueError("Shouldn't be here")
                 matchFound = False
                 for cnt,n in enumerate(l_matchCandidates):
                     falseCnt = []
@@ -1739,14 +1739,14 @@ class argsToNodes(object):
                 i_node = cgmMeta.cgmNode(nodeType = nodeType)#make the node
                 try:
                     if d_arg.get('operation'):i_node.operation = d_arg['operation']
-                except:raise StandardError,"Failed to set operation!"
+                except:raise Exception("Failed to set operation!")
 
                 #Name it  
                 #if d_arg.get('callArg'):key = d_arg.get('callArg')
                 buffer = d_arg['arg']
                 try:
                     str_buffer = strUtils.stripInvalidChars(buffer)
-                except StandardError,error:raise StandardError,"strip invalid issue %s"%(error)
+                except Exception as error:raise Exception("strip invalid issue %s"%(error))
                 i_node.doStore('cgmName',str_buffer)
                 i_node.doStore('creationArg',"%s"%d_arg['arg'])		
                 i_node.doName()
@@ -1850,9 +1850,9 @@ def test_argsToNodes(deleteObj = True):
         i_obj.ty = 1
         assert i_obj.condResult == 1,"condResult should be 1"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Condition Failure! '%s'"%(error))
-        raise StandardError,error  
+        raise Exception(error)  
 
     try:#Mult inversion
         arg = "%s.inverseMultThree = 3 * -%s.tx"%(str_obj,str_obj)
@@ -1869,9 +1869,9 @@ def test_argsToNodes(deleteObj = True):
         assert str(plugCall[0]) == d_return['ml_outPlugs'][-1].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
         assert i_obj.inverseMultThree == 3* -i_obj.tx,"Inversion doesn't match"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Inversion mult 3 Failure! '%s'"%(error))
-        raise StandardError,error      
+        raise Exception(error)      
 
     try:#Simple inversion 
         arg = "%s.simpleInversion = -%s.tx"%(str_obj,str_obj)
@@ -1886,9 +1886,9 @@ def test_argsToNodes(deleteObj = True):
         assert str(plugCall[0]) == d_return['ml_outPlugs'][0].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
         assert i_obj.simpleInversion == -i_obj.tx,"Inversion doesn't match"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Simple inversion Failure! '%s'"%(error))
-        raise StandardError,error  
+        raise Exception(error)  
 
     try:#Simple Average 
         arg = "%s.sumAverage1 = 4 >< 4 >< 4"%(str_obj)
@@ -1900,9 +1900,9 @@ def test_argsToNodes(deleteObj = True):
 
         assert i_obj.sumAverage1 == 4,"Average is wrong: 4 != %s"%i_obj.sumAverage1
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Simple sum Failure! '%s'"%(error))
-        raise StandardError,error      
+        raise Exception(error)      
 
     try:#Test direct connect
         arg = "%s.directConnect = %s.ty"%(str_obj,str_obj)
@@ -1910,9 +1910,9 @@ def test_argsToNodes(deleteObj = True):
         log.debug(mc.listConnections("%s.directConnect"%str_obj,source = True,scn = True))
         plugCall = mc.listConnections("%s.directConnect"%(i_obj.mNode),plugs=True,scn = True)	
         assert plugCall[0] == '%s.translateY'%i_obj.getShortName(),log.error("Direct connect failed. Plug call:{0}".format(plugCall))
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Single Connect Failure! '%s'"%(error))
-        raise StandardError,error   
+        raise Exception(error)   
 
     try:#Multi direct connect
         arg = "%s.directConnect, %s.ry = %s.ty"%(str_obj,str_obj,str_obj)
@@ -1924,9 +1924,9 @@ def test_argsToNodes(deleteObj = True):
         log.debug(plugCall)
         assert plugCall[0] == '%s.translateY'%i_obj.getShortName(),log.error("Direct connect failed: rotateY")
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Multi Connect Failure! '%s'"%(error))
-        raise StandardError,error  
+        raise Exception(error)  
 
     try:#Simple sum 
         i_obj.tx = 1
@@ -1944,9 +1944,9 @@ def test_argsToNodes(deleteObj = True):
         assert str(plugCall[0]) == d_return['ml_outPlugs'][0].p_combinedName,"Connections don't match: %s | %s"%(plugCall[0],combinedName)
         assert i_obj.sumResult1 == i_obj.tx - i_obj.ty - i_obj.tz,"Sum doesn't match"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Simple sum Failure! '%s'"%(error))
-        raise StandardError,error   
+        raise Exception(error)   
 
     try:#clamp 
         i_obj.tz = 3
@@ -1963,9 +1963,9 @@ def test_argsToNodes(deleteObj = True):
         i_obj.tz = .5
         assert i_obj.clampResult == .5,"Value 2 fail"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>Clamp fail! '%s'"%(error))
-        raise StandardError,error       
+        raise Exception(error)       
 
     try:#setRange 
         i_obj.tz = 5
@@ -1982,9 +1982,9 @@ def test_argsToNodes(deleteObj = True):
         i_obj.tz = 10
         assert i_obj.setRangeResult == 1,"Value 2 fail"
 
-    except StandardError,error:
+    except Exception as error:
         log.error("test_argsToNodes>>setRangeResult failure! '%s'"%(error))
-        raise StandardError,error   
+        raise Exception(error)   
 
     if deleteObj:i_obj.delete()
     """
@@ -2087,7 +2087,7 @@ class build_conditionNetworkFromGroup(object):
 def createAverageNode(drivers,driven = None,operation = 3):
     #Create the mdNode
     log.debug(1)    
-    if type(drivers) not in [list,tuple]:raise StandardError,"createAverageNode>>> drivers arg must be list"
+    if type(drivers) not in [list,tuple]:raise Exception("createAverageNode>>> drivers arg must be list")
     l_driverReturns = []
     for d in drivers:
         l_driverReturns.append(cgmMeta.validateAttrArg(d))
@@ -2134,7 +2134,7 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
     #Make our attr
     a = AttrFactory.AttrFactory(controlObject,chooseAttr,'enum')
     children.insert(0,'none')
-    print children
+    print(children)
     if len(children) == 2:
         a.setEnum('off:on')
     else:
@@ -2196,7 +2196,7 @@ def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
 
     try:#Find our objects ------------------------------------------------------------------------
         ml_objs = cgmMeta.validateObjListArg(arg)
-    except Exception,error:raise Exception,"{0} | {1} finding objects".format(_str_funcRoot,error)
+    except Exception as error:raise Exception("{0} | {1} finding objects".format(_str_funcRoot,error))
 
     try:#Find our attrs ------------------------------------------------------------------------
         for mObj in ml_objs:
@@ -2232,9 +2232,9 @@ def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
                             #log.info("{0} : {1}".format(k,d_buffer[k]))
                     if d_buffer:
                         md_objAttrs[mObj].append(d_buffer)
-                except Exception,error:
+                except Exception as error:
                     log.error("{0} | {1} failed to query | error: {2}".format(_str_funcRoot,_str_attrCombined,error))
-    except Exception,error:raise Exception,"{0} | {1} finding attrs".format(_str_funcRoot,error)
+    except Exception as error:raise Exception("{0} | {1} finding attrs".format(_str_funcRoot,error))
 
     try:#rewire ------------------------------------------------------------------------
         if not b_reportOnly:
@@ -2248,21 +2248,21 @@ def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
                         _plugFrom = _d['driver']
                         try:
                             attributes.doBreakConnection(mObj.mNode, _d['attr'])
-                        except Exception,error:
+                        except Exception as error:
                             log.error("{0} | {1} failed to break connection | error: {2}".format(_str_funcRoot,_str_attrCombined,error))
                         for plugTo in _d['driven']:
                             try:
                                 log.info("From >> {0}".format(_plugFrom))
                                 log.info("To >> {0}".format(plugTo))					
                                 attributes.doConnectAttr(_plugFrom,plugTo)
-                            except Exception,error:
+                            except Exception as error:
                                 log.error("-"*70)
                                 log.error("{0} | {1} failed to rewire...".format(_str_funcRoot,_str_attrCombined))
                                 log.error("From >> {0}".format(_plugFrom))
                                 log.error("To >> {0}".format(plugTo))				
                                 log.error("{0} |error: {1}".format(_str_funcRoot,error))	
                                 log.error("-"*70)				
-    except Exception,error:raise Exception,"{0} | rewire | error: {1}".format(_str_funcRoot,error)    
+    except Exception as error:raise Exception("{0} | rewire | error: {1}".format(_str_funcRoot,error))    
 
     if l_attrs:
         log.info("Total Bridge attrs: {0}".format(len(l_attrs)))    

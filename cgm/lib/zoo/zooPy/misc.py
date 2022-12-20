@@ -41,7 +41,7 @@ def iterBy( iterable, count ):
 	while True:
 		try:
 			toYield = []
-			for n in range( count ): toYield.append( i.next() )
+			for n in range( count ): toYield.append( next(i) )
 			yield toYield
 		except StopIteration:
 			if toYield: yield toYield

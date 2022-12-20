@@ -46,7 +46,7 @@ import maya.cmds as mc
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(2)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 

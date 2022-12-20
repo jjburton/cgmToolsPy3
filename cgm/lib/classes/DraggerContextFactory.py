@@ -393,7 +393,7 @@ class clickMesh(ContextualPick):
             #First get the distance to try to check
             checkDistance = self.getDistanceToCheck(m)
             #print ("Checking distance of %s"%checkDistance)
-            if m not in self.meshPosDict.keys():
+            if m not in list(self.meshPosDict.keys()):
                 self.meshPosDict[m] = []
                 self.meshUVDict[m] = []
                 
@@ -458,7 +458,7 @@ class clickMesh(ContextualPick):
                         mc.select(cl=True)
                     else:
                         nameBuffer = mc.spaceLocator()[0]
-                        for m in self.meshPosDict.keys():#check each mesh dictionary to see where it came from
+                        for m in list(self.meshPosDict.keys()):#check each mesh dictionary to see where it came from
                             if pos in self.meshPosDict[m]:#if the mesh has a match
                                 attributes.storeInfo(nameBuffer,'cgmHitTarget',m)
                                 

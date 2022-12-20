@@ -4,6 +4,7 @@
 
 #>>>======================================================================
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -15,26 +16,26 @@ import maya.mel as mel
 
 def red9( *a ):
     import Red9
-    reload(Red9)
+    importlib.reload(Red9)
     Red9.start()
 
 def attrTools( *a ):
     from cgm.core.tools import attrTools as attrTools
-    reload(attrTools)
+    importlib.reload(attrTools)
     attrTools.ui()
 
 def cgmMeshTools( *a ):
     from cgm.core.tools import meshTools
-    reload(meshTools)
+    importlib.reload(meshTools)
     cgmMeshToolsWin = meshTools.run()
     
 def mrsUI():
     try:
         import cgm.core.mrs.Builder as MRSBUILDER
-        reload(MRSBUILDER)
+        importlib.reload(MRSBUILDER)
         #MRSBUILDER.ui()
         MRSBUILDER.ui_get()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 def mrsBlockEditor():
@@ -43,7 +44,7 @@ def mrsBlockEditor():
     
 def mrsBlockCreate():
     import cgm.core.mrs.Builder as MRSBUILDER
-    reload(MRSBUILDER)
+    importlib.reload(MRSBUILDER)
     MRSBUILDER.ui_createBlock()
     
 def mrsBlockPicker():
@@ -52,153 +53,153 @@ def mrsBlockPicker():
     
 def mrsANIMATE():
     import cgm.core.mrs.Animate as MRSANIMATE
-    reload(MRSANIMATE)
+    importlib.reload(MRSANIMATE)
     MRSANIMATE.ui()
     
 def mrsPOSER():
     import cgm.core.mrs.PoseManager as MRSPOSER
-    reload(MRSPOSER)
+    importlib.reload(MRSPOSER)
     MRSPOSER.ui()
     
 def cgmSnapTools():
     try:
         import cgm.core.tools.snapTools as SNAP
-        reload(SNAP)
+        importlib.reload(SNAP)
         SNAP.ui()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def mocapBakeTool():
     try:
         import cgm.core.tools.mocapBakeTools as MOCAPBAKE
-        reload(MOCAPBAKE)
+        importlib.reload(MOCAPBAKE)
         MOCAPBAKE.ui()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def cgmUpdateTool():
     try:
         import cgm.core.tools.updateTool as CGMUPDATE
-        reload(CGMUPDATE)
+        importlib.reload(CGMUPDATE)
         CGMUPDATE.ui()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def cgmUpdateTool_lastBranch():
     try:
         import cgm.core.tools.updateTool as CGMUPDATE
-        reload(CGMUPDATE)
+        importlib.reload(CGMUPDATE)
         CGMUPDATE.checkBranch()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 def locinator():
     from cgm.core.tools import locinator as LOCINATOR
-    reload(LOCINATOR)
+    importlib.reload(LOCINATOR)
     LOCINATOR.ui()
 
 def dynParentTool( *a ):
     from cgm.core.tools import dynParentTool as DYNPARENTTOOL
-    reload(DYNPARENTTOOL)
+    importlib.reload(DYNPARENTTOOL)
     DYNPARENTTOOL.ui()
     
 def setTools():
     import cgm.core.tools.setTools as SETTOOLS
-    reload(SETTOOLS)
+    importlib.reload(SETTOOLS)
     SETTOOLS.ui()
     
 def transformTools():
     import cgm.core.tools.transformTools as TT
-    reload(TT)
+    importlib.reload(TT)
     TT.ui()
     
 def jointTools():
     import cgm.core.tools.jointTools as JOINTTOOLS
-    reload(JOINTTOOLS)
+    importlib.reload(JOINTTOOLS)
     JOINTTOOLS.ui()
 
 def ngskin():
     try:
         from ngSkinTools.ui.mainwindow import MainWindow
         MainWindow.open()    
-    except Exception,err:
+    except Exception as err:
         webbrowser.open("http://www.ngskintools.com/")
-        raise ValueError,"Failed to load. Go get it. | {0}".format(err)
+        raise ValueError("Failed to load. Go get it. | {0}".format(err))
 
 def SVGator():
     import cgm.core.tools.SVGator as SVGATOR
-    reload(SVGATOR)
+    importlib.reload(SVGATOR)
     SVGATOR.ui()
     
     
 def CGMDATui():
     import cgm.core.cgm_Dat as CGMDAT
-    reload(CGMDAT)
+    importlib.reload(CGMDAT)
     CGMDAT.ui()
     
 def BLOCKDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
-    reload(MRSDAT)
+    importlib.reload(MRSDAT)
     MRSDAT.uiBlockDat()
     
 def CONFIGDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
-    reload(MRSDAT)
+    importlib.reload(MRSDAT)
     MRSDAT.uiBlockConfigDat()
     
 def SHAPEDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
-    reload(MRSDAT)
+    importlib.reload(MRSDAT)
     MRSDAT.uiShapeDat()
     
 def mrsShots():
     try:
         import cgm.core.mrs.Shots as SHOTS
-        reload(SHOTS)
+        importlib.reload(SHOTS)
         x = SHOTS.ShotUI()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
 def mrsScene():
     try:
         import cgm.core.mrs.Scene as SCENE
-        reload(SCENE)
+        importlib.reload(SCENE)
         #mel.eval('python "import cgm.core.mrs.Scene as SCENE;cgmSceneUI = SCENE.ui()"')
         SCENE.ui()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 def mrsSceneLegacy():
     import cgm.core.mrs.SceneOld as SCENELEGACY
-    reload(SCENELEGACY)
+    importlib.reload(SCENELEGACY)
     #mel.eval('python "import cgm.core.mrs.Scene as SCENE;cgmSceneUI = SCENE.ui()"')
     SCENELEGACY.ui()
 
         
 def mrsShapeDat():
     import cgm.core.mrs.MRSDat as MRSDAT
-    reload(MRSDAT)
+    importlib.reload(MRSDAT)
     MRSDAT.uiShapeDat()
         
 def animDraw():
     try:
         import cgm.core.tools.liveRecord as liveRecord
-        reload(liveRecord)
+        importlib.reload(liveRecord)
         import cgm.core.tools.animDrawTool as ADT
-        reload(ADT)
+        importlib.reload(ADT)
         import cgm.core.tools.animDraw as animDraw
-        reload(animDraw)        
+        importlib.reload(animDraw)        
         mel.eval('python "import cgm.core.tools.animDrawTool as ANIMDRAW;cgmAnimDrawUI = ANIMDRAW.ui()"')
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
         
 def animFilter():
     try:
         import cgm.core.tools.animFilterTool as ANIMFILTER
-        reload(ANIMFILTER)
+        importlib.reload(ANIMFILTER)
         mel.eval('python "import cgm.core.tools.animFilterTool as ANIMFILTER;cgmAnimFilterUI = ANIMFILTER.ui()"')
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 
@@ -207,21 +208,21 @@ def animFilter():
 def cgmSimChain():
     try:
         from cgm.core.tools import dynFKTool
-        reload(dynFKTool)
+        importlib.reload(dynFKTool)
         dynFKTool.ui()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
 
 def cgmProject():
     try:
         import cgm.core.tools.Project as PROJECT
-        reload(PROJECT)
-        reload(PROJECT.PU)
+        importlib.reload(PROJECT)
+        importlib.reload(PROJECT.PU)
         #x = PROJECT.ui()
         mel.eval('python "import cgm;uiProject = cgm.core.tools.Project.ui();"')
         
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
     #except Exception,err:
     #    log.warning("[cgmProject] failed to load. | {0}".format(err))
@@ -229,33 +230,33 @@ def cgmProject():
 
 def loadPuppetBox( *a ):
     from cgm.tools import puppetBox
-    reload(puppetBox)
+    importlib.reload(puppetBox)
     cgmPuppetBoxWin = puppetBox.run()
 
 def loadPuppetBox2( *a ):
     from cgm.tools import puppetBox2
-    reload(puppetBox2)
+    importlib.reload(puppetBox2)
     cgmPuppetBoxWin = puppetBox2.run()	
 
 def loadCGMSimpleGUI( *a ):
     try:
         
         from cgm.core.classes import GuiFactory as uiFactory
-        reload(uiFactory)
+        importlib.reload(uiFactory)
         uiFactory.cgmGUI()
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)        
 
 def reload_cgmCore( *a ):
     try:
         import cgm.core
         cgm.core._reload()	
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
 def testMorpheus( *a ):
     from cgm.core.tests import cgmMeta_test as testCGM
-    reload(testCGM)
+    importlib.reload(testCGM)
     testCGM.MorpheusBase_Test()
 
 
@@ -277,23 +278,23 @@ def loadXferAnim( *a ):
 #>>Legacy Tools =======================================================================================
 def attrToolsLEGACY( *a ):
     from cgm.tools import attrTools as attrTools1
-    reload(attrTools1)
+    importlib.reload(attrTools1)
     cgmAttrToolsWin = attrTools1.run()
     
 def animToolsLEGACY( *a ):
     from cgm.tools import animTools
-    reload(animTools)
+    importlib.reload(animTools)
     cgmAnimToolsWin = animTools.run()
 
 def setToolsLEGACY( *a ):
     from cgm.tools import setTools
-    reload(setTools)
+    importlib.reload(setTools)
     cgmSetToolsWin = setTools.run()	
     
     
 def locinatorLEGACY( *a ):
     from cgm.tools import locinator
-    reload(locinator)
+    importlib.reload(locinator)
     locinator.run()
     
 def tdToolsLEGACY( *a ):
@@ -301,5 +302,5 @@ def tdToolsLEGACY( *a ):
     import maya.mel as mel
     mel.eval('python("import maya.cmds as mc;")')
     from cgm.tools import tdTools
-    reload(tdTools)
+    importlib.reload(tdTools)
     tdTools.run()

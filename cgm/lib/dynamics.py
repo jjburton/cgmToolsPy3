@@ -104,7 +104,7 @@ def makeChainsDynamic(startJoints,name):
     folicleGroup = mc.rename(oldFolicleGroupBuffer[0],(name+'follicles_grp'))
     oldOutputGroupBuffer = (mc.listRelatives (crvInfo[3],parent=True))
     outputCrvsGroup = mc.rename(oldOutputGroupBuffer[0],(name+'OutputCrvs_grp'))
-    print crvsInfo
+    print(crvsInfo)
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>> set follicle settings
     for follicle in  follicles:
         """lock to base"""

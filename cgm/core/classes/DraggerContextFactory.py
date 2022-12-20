@@ -181,7 +181,7 @@ class ClickAction(ContextualPick):
         try:
             if not self.onPress is None:
                 self.onPress(self.constructDict())
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to run onPress callback | err:{1}".format(_str_funcName,err))                
             cgmGen.cgmException(Exception,err)
 
@@ -200,7 +200,7 @@ class ClickAction(ContextualPick):
         try:
             if not self.onRelease is None:
                 self.onRelease({'anchorPoint':self.anchorPoint, 'pos':self.clickPos,'vector':self.clickVector})
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to run onPress callback | err:{1}".format(_str_funcName,err))                
             cgmGen.cgmException(Exception,err)
 
@@ -229,7 +229,7 @@ class ClickAction(ContextualPick):
         try:
             if not self.onFinalize is None:
                 self.onFinalize()
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to run onFinalize callback | err:{1}".format(_str_funcName,err))                
             cgmGen.cgmException(Exception,err)
 
@@ -393,7 +393,7 @@ class clickMesh(ContextualPick):
 
         if mesh is None and not self._str_castPlane:                
             log.warning("|clickMesh| >> Using all visible mesh!")
-            for l in mc.ls(type='mesh',visible = True, long=True), mc.ls(type='nurbsSurface',long=True, visible = True):
+            for l in mc.ls(type='mesh',visible = True, int=True), mc.ls(type='nurbsSurface',int=True, visible = True):
                 for o in l:
                     self.addTargetMesh( o )#             
 
@@ -557,7 +557,7 @@ class clickMesh(ContextualPick):
                                     _set = [m, self.d_meshUV[m][i2], "{0}_u{1}s_v{2}".format(NAMES.get_short(m),"{0:.4f}".format(self.d_meshUV[m][i2][0]),"{0:.4f}".format(self.d_meshUV[m][i2][1]))]
                                     self._l_folliclesToMake.append(_set)
                                     log.debug("|{0}|...uv {1}".format(_str_funcName,_set))                                                
-                                except Exception,err:
+                                except Exception as err:
                                     log.error("|{0}| >> Failed to query uv for hit {2} on shape {2} | err:{1}".format(_str_funcName,err,pos,m))                
 
                 
@@ -675,11 +675,11 @@ class clickMesh(ContextualPick):
             for o in self.l_created:
                 try:
                     #i_o = cgmMeta.cgmNode(o)
-                    for tag in self.d_tagAndName.keys():
+                    for tag in list(self.d_tagAndName.keys()):
                         ATTR.store_info(o, tag, self.d_tagAndName[tag])
                         #i_o.doStore(tag,self.d_tagAndName[tag])
                     #i_o.doName()
-                except Exception,error:
+                except Exception as error:
                     log.error(">>> clickMesh >> Failed to tag and name: %s | error: %s"%(i_o.p_nameShort,error))            	            		
         if self._str_castPlane:
             mc.delete(self._str_castPlane)
@@ -824,7 +824,7 @@ class clickMesh(ContextualPick):
                                 if DIST.get_distance_between_points(_pos, _pos_obj) < _dist_firstHit:
                                     log.warning("Close proximity cast, using default")
                                     _pos = self._posBuffer[-1]
-                            except Exception,err:
+                            except Exception as err:
                                 _pos = _pos_base                         
                                 log.error("SnapCast fail. Using original pos... | err: {0}".format(err))
                         else:pass
@@ -836,7 +836,7 @@ class clickMesh(ContextualPick):
                             mc.xform(o, ro= mc.xform(self.l_created[-1],q=True,ro=True))                   
                         
                         
-                    except Exception,err:
+                    except Exception as err:
                         log.error("{0} failed to snap. err: {1}".format(o,err))
                 mc.delete(self.l_created)
                 if self.l_toSnap:
@@ -919,7 +919,7 @@ class clickMesh(ContextualPick):
         try:
             #buffer = RayCast.findMeshIntersection(m, self.clickPos , self.clickVector, checkDistance) 
             _res = RayCast.cast(**kws)
-        except Exception,error:
+        except Exception as error:
             _res = None
             log.error("{0} >>> surface cast fail. More than likely, the offending face lacks uv's. Error:{1}".format(_str_funcName,error))
         
@@ -928,18 +928,18 @@ class clickMesh(ContextualPick):
             try:
                 for i,m in enumerate(_res['meshHits'].keys()):
                     #Buffer our data for processing on release....
-                    if self.d_meshPos.has_key(m):
+                    if m in self.d_meshPos:
                         self.d_meshPos[m].extend(_res['meshHits'][m])
                     else:
                         self.d_meshPos[m] = _res['meshHits'][m]  
                         
-                    if self.d_meshNormals.has_key(m):
+                    if m in self.d_meshNormals:
                         self.d_meshNormals[m].extend(_res['meshNormals'][m])
                     else:
                         self.d_meshNormals[m] = _res['meshNormals'][m]   
                                                 
                     _d_UVS = _res.get('uvs',{})
-                    if self.d_meshUV.has_key(m):
+                    if m in self.d_meshUV:
                         self.d_meshUV[m].extend(_d_UVS[m])
                     else:
                         self.d_meshUV[m] = _d_UVS[m]    
@@ -961,7 +961,7 @@ class clickMesh(ContextualPick):
                     _near = _res['near']
                     _far = _res['far']
                     self._posBuffer = [ DIST.get_average_position([_near,_far]) ]
-            except Exception,err:
+            except Exception as err:
                 cgmGen.log_info_dict(_res,'Result')
                 log.error("|{0}| >> Processing fail. err:{1}".format(_str_funcName,err))                
                 return
@@ -987,7 +987,7 @@ class clickMesh(ContextualPick):
                 _l = copy.copy(self._posBuffer)
                 for i,pos in enumerate(self._posBuffer):
                     _m_normal = False  
-                    if str(pos) in _d_hit_mesh_queried.keys():
+                    if str(pos) in list(_d_hit_mesh_queried.keys()):
                         log.debug("|{0}| >> Using queryied data for hit {1}".format(_str_funcName,pos))
                         _d = _d_hit_mesh_queried[str(pos)]
                         _m = _d['m']
@@ -1005,7 +1005,7 @@ class clickMesh(ContextualPick):
                                     _m_normal = _res['meshNormals'][_m][_m_hit_idx]
                                     _m_uv = _res['uvs'][_m][_m_hit_idx]                                    
                                     
-                                    if str(pos) not in _d_hit_mesh_queried.keys():
+                                    if str(pos) not in list(_d_hit_mesh_queried.keys()):
                                         _d_hit_mesh_queried[str(pos)] = {'m':m,'m_hit_idx':_m_hit_idx,'m_normal':_m_normal,'m_uv':_m_uv}
                                         
                                     log.debug("|{0}| >> mesh normal: {1}".format(_str_funcName,_m_normal))
@@ -1013,14 +1013,14 @@ class clickMesh(ContextualPick):
                         
                     if not _m_normal:
                         cgmGen.log_info_dict(self.d_meshPos,"Mesh hit dict")
-                        raise ValueError,"|{0}| >> Missing normal for hit: {1}".format(_str_funcName,pos)                    
+                        raise ValueError("|{0}| >> Missing normal for hit: {1}".format(_str_funcName,pos))                    
                     
                     #_p = RayCast.offset_hits_by_distance(pos,self.clickPos,_m_normal,self.f_offsetDistance)
                     try:_p = DIST.get_pos_by_vec_dist(pos,_m_normal,self.f_offsetDistance)
-                    except Exception,err:
+                    except Exception as err:
                         for item in pos,_m_normal,self.f_offsetDistance:
                             log.debug("|{0}| >> {1}".format(_str_funcName,item))                
-                        raise Exception,"|{0}| >> offset fail!".format(_str_funcName)
+                        raise Exception("|{0}| >> offset fail!".format(_str_funcName))
                     #_p = RayCast.offset_hit_by_distance(pos,self.clickPos,self.clickVector,-self.f_offsetDistance)
                     self._posBuffer[i] = _p
         
@@ -1069,7 +1069,7 @@ class clickMesh(ContextualPick):
                     _m_normal = False
                     _m_uv = False
                     if _rawPos:
-                        if str(_rawPos) in _d_hit_mesh_queried.keys():
+                        if str(_rawPos) in list(_d_hit_mesh_queried.keys()):
                             log.debug("|{0}| >> Using queryied data for hit {1}".format(_str_funcName,_rawPos))
                             _d = _d_hit_mesh_queried[str(_rawPos)]
                             _m = _d['m']
@@ -1148,12 +1148,12 @@ class clickMesh(ContextualPick):
                                     log.warning("Close proximity cast, using default")
                                     #_pos = self._posBuffer[-1]
                                     _pos = pos
-                            except Exception,err:
+                            except Exception as err:
                                 _pos = _pos                         
                                 log.error("SnapCast fail. Using original pos... | err: {0}".format(err))
                         try:
                             POS.set(_dup,_pos)
-                        except Exception,err:
+                        except Exception as err:
                             log.error("{0} failed to snap. err: {1}".format(o,err))
                             
                         nameBuffer.append(_dup)

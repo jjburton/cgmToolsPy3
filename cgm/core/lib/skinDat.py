@@ -204,14 +204,14 @@ class data(object):
             #else:
             log.info("No source specified, checking if selection found")
             _bfr = mc.ls(sl=True)
-            if not _bfr:raise ValueError,"No selection found and no source arg"
+            if not _bfr:raise ValueError("No selection found and no source arg")
             mesh = _bfr[0]
             
         _type = search.returnObjectType(mesh)
         
         if _type in ['mesh', 'nurbsCurve', 'nurbsSurface']:
             if _type in ['nurbsCurve','nurbsSurface']:
-                raise  NotImplementedError, "Haven't implemented nurbsCurve or nurbsSurface yet"
+                raise  NotImplementedError("Haven't implemented nurbsCurve or nurbsSurface yet")
             log.info("Skinnable object '{0}', checking skin".format(mesh))
             _mesh = mesh
             _skin = skinning.querySkinCluster(_mesh) or False
@@ -223,7 +223,7 @@ class data(object):
             _mesh = attributes.doGetAttr(_skin,'outputGeometry')[0]
             log.info("Found: {0}".format(_mesh))
         else:
-            raise ValueError,"Not a usable mesh type : {0}".format(_type)
+            raise ValueError("Not a usable mesh type : {0}".format(_type))
         
         _shape = mc.listRelatives(_mesh,shapes=True,fullPath=False)[0]
         _return = {'mesh':_mesh,
@@ -280,7 +280,7 @@ class data(object):
         Updates the stored source skinning data
         '''        
         if not self.d_source:
-            raise ValueError, "No source found. Cannot write data"
+            raise ValueError("No source found. Cannot write data")
         
         _d = gather_skinning_dict(source = self.d_source['mesh'])      
         self.d_source.update(_d['mesh'])#...update source dict
@@ -319,10 +319,10 @@ class data(object):
         
         _config = configobj.ConfigObj(filepath)
         if _config.get('configType') != 'cgmSkinConfig':
-            raise ValueError,"This isn't a cgmSkinConfig config | {0}".format(filepath)
+            raise ValueError("This isn't a cgmSkinConfig config | {0}".format(filepath))
                 
-        for k in data._configToStored.keys():
-            if _config.has_key(k):
+        for k in list(data._configToStored.keys()):
+            if k in _config:
                 self.__dict__[data._configToStored[k]] = _config[k]
             else:
                 log.error("Config file missing section {0}".format(k))
@@ -337,23 +337,23 @@ class data(object):
     def report(self):
         log.info("Read Data Report "+ cgmGEN._str_hardBreak)
         log.info("Config File: {0}".format(self.str_filepath))
-        for k in data._configToStored.keys():
+        for k in list(data._configToStored.keys()):
             _d_bfr = self.__dict__[data._configToStored[k]]
             if _d_bfr:
                 log.info("{0} ".format(k) + cgmGEN._str_subLine)
-                l_keys = _d_bfr.keys()
+                l_keys = list(_d_bfr.keys())
                 l_keys.sort()
                 for k1 in l_keys:
                     _bfr = _d_bfr[k1]
                     if isinstance(_bfr,dict):
-                        print(">" + "Nested Dict: {0}".format(k1) + cgmGEN._str_subLine)
-                        l_bufferKeys = _bfr.keys()
+                        print((">" + "Nested Dict: {0}".format(k1) + cgmGEN._str_subLine))
+                        l_bufferKeys = list(_bfr.keys())
                         l_bufferKeys.sort()
                         for k2 in l_bufferKeys:
-                            print("-"*3 +'>' + " {0} : {1} ".format(k2,_bfr[k2]))			
+                            print(("-"*3 +'>' + " {0} : {1} ".format(k2,_bfr[k2])))			
                     else:
-                        print(">" + " {0} : {1} ".format(k1,_d_bfr[k1]))                	    
-                print(cgmGEN._str_subLine)
+                        print((">" + " {0} : {1} ".format(k1,_d_bfr[k1])))                	    
+                print((cgmGEN._str_subLine))
         
 #>>> Utilities
 #===================================================================
@@ -417,24 +417,24 @@ def applySkin(*args,**kws):
             if isinstance(type(_data),type(data)):
                 self.mData = _data
             else:
-                raise ValueError,"Not a data instance"
+                raise ValueError("Not a data instance")
             
             if not _data.d_source:
-                raise ValueError,"No source data on data object"
+                raise ValueError("No source data on data object")
             if not _data.d_target:
-                raise ValueError,"No target data on data object"
+                raise ValueError("No target data on data object")
             if not _data.d_sourceInfluences:
                 return self._FailBreak_("No influence data. Read a config file to the data object.")
             
             _influenceMode = self.d_kws.get('influenceMode')
-            if _influenceMode in _d_influenceModes.keys():
+            if _influenceMode in list(_d_influenceModes.keys()):
                 self._influenceMode = _influenceMode
                 self.log_info("influenceMode: '{0}'".format(_influenceMode))
             else:
-                return self._FailBreak_("Unknown influenceMode arg ['{0}'] | Valid args{1}".format(_influenceMode,_d_influenceModes.keys()))                
+                return self._FailBreak_("Unknown influenceMode arg ['{0}'] | Valid args{1}".format(_influenceMode,list(_d_influenceModes.keys())))                
             
             if not self.mData.d_target:
-                raise ValueError,"No target mesh"
+                raise ValueError("No target mesh")
             self._b_nameMatch = cgmValid.boolArg(self.d_kws.get('nameMatch',False))
             self._b_forceClosestComponent = cgmValid.boolArg(self.d_kws.get('forceClosestComponent',False))            
             self._b_addMissingInfluences = cgmValid.boolArg(self.d_kws.get('addMissingInfluences',False))
@@ -540,7 +540,7 @@ def applySkin(*args,**kws):
                     #...push back to our list
                     _l_jointTargets = []
                     for i in range(_len_configList):_l_jointTargets.append(False)
-                    for i,v in _d.iteritems():
+                    for i,v in list(_d.items()):
                         _l_jointTargets[i] = v
                         #self.log_info("{0} | Config: {1} | target: {2}".format(i,jnt,_bfr))     
                 #self.log_info("Joints to use....")
@@ -550,14 +550,14 @@ def applySkin(*args,**kws):
             #...see if they exist with no conflicts
             #_l_jointTargets = l_dataJoints#...this will change
             try:_l_jointsToUse = cgmValid.objStringList(_l_jointTargets,mayaType = _validObjTypes)#...mayaType = 'joint'
-            except Exception,Error:return self._FailBreak_("influenceMode '{0}' joint check fail | {1}".format(_mode,Error))
+            except Exception as Error:return self._FailBreak_("influenceMode '{0}' joint check fail | {1}".format(_mode,Error))
             
             self.l_jointsToUse = _l_jointsToUse
             
         def get_ConfigJointList(self):
             _l = []
             _d_influenceData = self.mData.d_sourceInfluences['data']
-            _l_idxKeys = [int(k) for k in _d_influenceData.keys()]#...int them to sort them properly
+            _l_idxKeys = [int(k) for k in list(_d_influenceData.keys())]#...int them to sort them properly
             _l_idxKeys.sort()
 
             for idx in _l_idxKeys:
@@ -604,12 +604,12 @@ def applySkin(*args,**kws):
                 _bfr_toNormalize = []
                 _bfr_clean = {}
                 _d_normalized = {}
-                for k,value in _bfr_raw.iteritems():
+                for k,value in list(_bfr_raw.items()):
                     _bfr_clean[int(k)] = float(value)
                     _d_normalized[int(k)] = None
                     
                 #normalize the values...
-                for k,value in _bfr_clean.iteritems():
+                for k,value in list(_bfr_clean.items()):
                     _bfr_toNormalize.append(value)
                     
                 _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
@@ -665,9 +665,9 @@ def applySkin(*args,**kws):
                 for i,d in enumerate(self._l_processed):
                     _d_dup = copy.copy(d)
                     #self.log_info("{0} before remap: {1}".format(i,d))                    
-                    for r1,r2 in _d_rewire.iteritems():#...{1:2, 2:1}
-                        if r1 in _d_dup.keys():#...1,2
-                            if r2 in _d_dup.keys():
+                    for r1,r2 in list(_d_rewire.items()):#...{1:2, 2:1}
+                        if r1 in list(_d_dup.keys()):#...1,2
+                            if r2 in list(_d_dup.keys()):
                                 _bfr1 = _d_dup[r1]
                                 _bfr2 = _d_dup[r2]
                                 d[r1] = _bfr2
@@ -712,8 +712,8 @@ def applySkin(*args,**kws):
                         self._f_smoothWeightsValue = .5
                         
                     self.log_info("closestTo remap complete...")
-                except Exception,error:
-                    raise Exception,"closestTo remap failure | {0}".format(error)
+                except Exception as error:
+                    raise Exception("closestTo remap failure | {0}".format(error))
             
                 
             self._refineProcessedData()
@@ -725,7 +725,7 @@ def applySkin(*args,**kws):
             """
             #self._d_jointToWeighting = {jIdx:{vIDX:v}}
             #self._d_vertToWeighting = {vIdx:{jIdx:v...}} 
-            if not self.l_jointsToUse:raise ValueError,"No joints to use found"
+            if not self.l_jointsToUse:raise ValueError("No joints to use found")
             
             #...normalize data
             _l_cleanData = []
@@ -736,12 +736,12 @@ def applySkin(*args,**kws):
                 _bfr_clean = {}
                 _d_normalized = {}
                 
-                for k,value in _bfr_raw.iteritems():
+                for k,value in list(_bfr_raw.items()):
                     _bfr_clean[int(k)] = float(value)
                     _d_normalized[int(k)] = float(value)
                     
                 #normalize the values...
-                for k,value in _bfr_clean.iteritems():
+                for k,value in list(_bfr_clean.items()):
                     _bfr_toNormalize.append(value)
                     
                 _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
@@ -776,7 +776,7 @@ def applySkin(*args,**kws):
             for i,d_pair in enumerate(self._l_processed):
                 self._d_vertToWeighting[i] = d_pair
                 
-                for j_idx in d_pair.keys():
+                for j_idx in list(d_pair.keys()):
                     self._d_jointToWeighting[j_idx][i] = d_pair[j_idx] 
             
             #self.log_infoDict(self._d_vertToWeighting,'Vert To Weighting')
@@ -796,7 +796,7 @@ def applySkin(*args,**kws):
                     self.log_info("Adding influences...")                    
                     for infl in self._l_missingInfluences:
                         try:mc.skinCluster(_targetSkin, edit = True, ai = infl)
-                        except Exception,err:
+                        except Exception as err:
                             log.error(err)
                 #try:mc.delete(_targetSkin)
                 #except:pass
@@ -861,7 +861,7 @@ def applySkin(*args,**kws):
                 for c in range(numComponentsPerInfluence):
                     weights.set(0.0, c*numInfluences+i)                    
             
-            for vertIdx in self._d_vertToWeighting.keys():
+            for vertIdx in list(self._d_vertToWeighting.keys()):
                 self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
                 _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
                 
@@ -877,7 +877,7 @@ def applySkin(*args,**kws):
             
                 #at this point using the api or mel to set the data is a moot point...  we have the strings already so just use mel
                     
-                for jointIdx in _d_vert.keys():
+                for jointIdx in list(_d_vert.keys()):
                     #self.log_info(" vtx: {0} | jnt:{1} | value:{2}".format(vertIdx,jointIdx, _d_vert[jointIdx]))
                     #self.log_info("{0} | {1}".format( weightFmtStr.format(jointIdx),_d_vert[jointIdx]))
                     #mc.setAttr( weightFmtStr.format(jointIdx), _d_vert[jointIdx] ) 
@@ -899,7 +899,7 @@ def applySkin(*args,**kws):
                 _value = _skinclusterAttributesToCopy[k](self.mData.d_sourceSkin[k])
                 self.log_info("Setting '{0}' to {1}".format(k,_value))
                 try:attributes.doSetAttr(_targetSkin,k,_value)
-                except Exception,error:
+                except Exception as error:
                     self.log_error("{0} failed | {1}".format(k,error))
                     
             #...smooth process
@@ -1018,7 +1018,7 @@ def gather_skinning_dict(*args,**kws):
             if issubclass(type(_bfr),dict):
                 if a in ['matrix']:
                     _bfr2 = {}
-                    for k,v in _bfr.iteritems():
+                    for k,v in list(_bfr.items()):
                         _bfr2[str(k)] = v
                     d_skin[a] = _bfr2
                 else: 
@@ -1064,8 +1064,8 @@ def gather_skinning_dict(*args,**kws):
                     skinValues[str(ii)] = _bfr
             
             _d_componentWeights[_key] = skinValues 
-    except Exception,err:
-        raise Exception,err
+    except Exception as err:
+        raise Exception(err)
     finally:
         cgmGEN.doEndMayaProgressBar(_bar)
         #progressBar_end()

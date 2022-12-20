@@ -48,7 +48,7 @@ class ColouredWriter:
 
 
 def logInColour( msg, colour ):
-	print >> ColouredWriter( colour ), msg
+	print(msg, file=ColouredWriter( colour ))
 
 
 '''
@@ -62,11 +62,11 @@ BigError = ColouredWriter( BRIGHT | FG_RED | BG_RED )
 
 
 def logAsWarning( msg ):
-	print >> Warn, msg
+	print(msg, file=Warn)
 
 
 def logAsError( msg ):
-	print >> Error, msg
+	print(msg, file=Error)
 
 
 #end

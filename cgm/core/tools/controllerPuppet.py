@@ -72,7 +72,7 @@ class RecordingThread(threading.Thread):
         # returns id of the respective thread 
         if hasattr(self, '_thread_id'): 
             return self._thread_id 
-        for id, thread in threading._active.items(): 
+        for id, thread in list(threading._active.items()): 
             if thread is self: 
                 return id
    
@@ -109,7 +109,7 @@ class ControllerPuppet(object):
             self.connectionDict = self.mappingList[self.currentMapIdx]
             for key in self.connectionDict:
                 if isinstance(self.connectionDict[key], dict):
-                    self._keyList = self._keyList + self.connectionDict[key].keys()
+                    self._keyList = self._keyList + list(self.connectionDict[key].keys())
 
         self.playbackMultiplierList = [.1, .25, .5, .75, 1.0, 1.5, 2.0]
         self.playbackMultIdx = 4
@@ -282,7 +282,7 @@ class ControllerPuppet(object):
             if len(self.onDeactivate) > 0:
                 for func in self.onDeactivate:
                     func()
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> function failed: | err: {1}".format(_str_func, err))
             cgmGen.cgmException(Exception,err)
             self.stop()
@@ -296,7 +296,7 @@ class ControllerPuppet(object):
         self.connectionDict = self.mappingList[self.currentMapIdx]
         for key in self.connectionDict:
             if isinstance(self.connectionDict[key], dict):
-                self._keyList = self._keyList + self.connectionDict[key].keys()
+                self._keyList = self._keyList + list(self.connectionDict[key].keys())
         log.info('Current Mapping : {0}'.format(self.connectionDict['name']))
         self.displayMessage('Current Mapping : {0}'.format(self.connectionDict['name']))
 
@@ -371,7 +371,7 @@ class ControllerPuppet(object):
                 if mc.cutKey('{0}.{1}'.format( self._keyHolderDict[objName],attr), t=(self._endFrame, last) ):
                     mc.pasteKey( objName, o='replace' )
 
-        mc.delete( [self._keyHolderDict[x] for x in self._keyHolderDict.keys() ] )
+        mc.delete( [self._keyHolderDict[x] for x in list(self._keyHolderDict.keys()) ] )
         self._keyHolderDict = {}
 
         self.displayMessage('Stopping Recording')
@@ -405,7 +405,7 @@ class ControllerPuppet(object):
     def keyFromData(self, dataDict):
         #mc.refresh(su=True)
 
-        keyList = dataDict.keys()
+        keyList = list(dataDict.keys())
         keyList.sort()
 
         prevDataDict = {}

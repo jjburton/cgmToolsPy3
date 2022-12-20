@@ -54,7 +54,7 @@ from maya import OpenMaya
 import itertools
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(17)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -463,7 +463,7 @@ def deleteRedundantKeys(selectionOption=1):
         for group in groups:
             gsize = len(group)
             if gsize > 2:
-                cutIndex.extend(range(i+2,i+gsize))
+                cutIndex.extend(list(range(i+2,i+gsize)))
             i+=gsize
         if cutIndex:
             mc.cutKey(curve, index=utl.castToTime(cutIndex))

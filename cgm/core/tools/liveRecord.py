@@ -76,7 +76,7 @@ class LiveRecord(object):
             prevTime = time.time()
             self.update(self.fixedDeltaTime)
 
-        print "Duration: %f" % (time.time() - startTime)
+        print(("Duration: %f" % (time.time() - startTime)))
         
         mc.refresh()        
 
@@ -122,5 +122,5 @@ class LiveRecord(object):
         try:
             if self.onUpdate != None:
                 self.onUpdate(deltaTime)
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> onUpdate function failed: | err: {1}".format(_str_func, err))

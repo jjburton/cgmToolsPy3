@@ -137,14 +137,14 @@ def resetGuiInstanceOptionVars(optionVarHolder,commandToRun = False):
 # Standard functions
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def forceSelectUpdate():
-    selection = mc.ls(sl=True, flatten = True, long = True) or []
+    selection = mc.ls(sl=True, flatten = True, int = True) or []
     transforms = mc.ls(type='transform') or []
     mc.select(cl=True)
     
     if transforms:
         for t in transforms:
             if t not in selection:
-                print "Selecting '%s'"%t
+                print(("Selecting '%s'"%t))
                 mc.select(t)
                 break
         if selection:
@@ -557,7 +557,7 @@ def doUpdateProgressWindow(statusMessage,stepInterval,stepRange,reportItem=False
     if reportItem != False:
         mc.progressWindow(edit=True, progress=progressAmount, status=(statusMessage+  str(reportItem)) )
     else:
-        mc.progressWindow(edit=True, progress=progressAmount, status=(statusMessage+ `stepInterval` ) )
+        mc.progressWindow(edit=True, progress=progressAmount, status=(statusMessage+ repr(stepInterval) ) )
 
 def doCloseProgressWindow():
     mc.progressWindow(endProgress=1)
@@ -608,22 +608,22 @@ def doProgressBar(winName,trackedList,statusMessage):
 # Reporting
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def report(message):
-    print ("# Report: %s #"%message)
+    print(("# Report: %s #"%message))
     
 def doPrintReportStart(label = False):
     if label and type(label) is str:
         start = '#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> '
         end = ' - start >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-        print "%s%s%s"%(start,label,end)
+        print(("%s%s%s"%(start,label,end)))
         
     else:
-        print '#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> start >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+        print('#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> start >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
 
 def doPrintReportBreak():
-    print '#---------------------------------------------------------------------------'
+    print('#---------------------------------------------------------------------------')
 
 def doPrintReportEnd(label = False):
-    print '#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> End >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    print('#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> End >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
 
 
 
@@ -648,10 +648,10 @@ def classBridge_Puppet2():
 def testBridge():
     #from cgm.lib.classes import Bridge 
     globals()['cgmBridge'] = BridgeCGM()
-    print cgmBridge.__dict__.keys()
-    print 'cgmBridge' in globals()
+    print((list(cgmBridge.__dict__.keys())))
+    print(('cgmBridge' in globals()))
     cgmBridge.__dict__['test'] = 1
-    print cgmBridge.__dict__.keys()
+    print((list(cgmBridge.__dict__.keys())))
 
 
     

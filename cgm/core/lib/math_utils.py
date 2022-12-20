@@ -24,7 +24,7 @@ log.setLevel(logging.INFO)
 import maya.cmds as mc
 from maya import mel
 #import cgm.core.lib.euclid as EUCLID
-import euclid as EUCLID
+from . import euclid as EUCLID
 
 # From Red9 =============================================================
 
@@ -206,10 +206,10 @@ def get_obj_vector(obj = None, axis = 'z+',asEuclid = False):
     matrix = mc.xform(obj, q=True,  matrix=True, worldSpace=True)
     
     #>>> Figure out our vector
-    if axis not in SHARED._d_axis_string_to_vector.keys():
+    if axis not in list(SHARED._d_axis_string_to_vector.keys()):
         log.error("|{0}| >> axis arg not valid: '{1}'".format(_str_func,axis))
         return False
-    if list(axis)[0] not in d_matrixVectorIndices.keys():
+    if list(axis)[0] not in list(d_matrixVectorIndices.keys()):
         log.error("|{0}| >> axis arg not in d_matrixVectorIndices: '{1}'".format(_str_func,axis))            
         return False  
     vector = [matrix[i] for i in d_matrixVectorIndices.get(list(axis)[0])]
@@ -262,7 +262,7 @@ def get_space_value(arg, mode = 'mayaSpace'):
             elif unit =='yd':
                 _res.append(v * 0.0109361)
             else:
-                raise ValueError,"|{0}| >> nonhandled unit: {1}".format(_str_func,unit)
+                raise ValueError("|{0}| >> nonhandled unit: {1}".format(_str_func,unit))
     elif mode == 'apiSpace':
         for v in _values:
             if unit == 'mm':
@@ -278,9 +278,9 @@ def get_space_value(arg, mode = 'mayaSpace'):
             elif unit =='yd':
                 _res.append(v * 91.44)
             else:
-                raise ValueError,"|{0}| >> nonhandled unit: {1}".format(_str_func,unit)    
+                raise ValueError("|{0}| >> nonhandled unit: {1}".format(_str_func,unit))    
     else:
-        raise ValueError,"|{0}| >> unknown mode: {1}".format(_str_func,mode)
+        raise ValueError("|{0}| >> unknown mode: {1}".format(_str_func,mode))
 
     if len(_res) == 1:
         return _res[0]
@@ -536,7 +536,7 @@ def convert_aim_vectors_to_different_axis(aim, up, aimAxis="z+", upAxis="y+"):
                 wantedUp = -right
     
         return wantedAim, wantedUp
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def normalizeList(L, normalizeTo=1):
     '''normalize values of a list to make its max = normalizeTo'''
@@ -667,7 +667,7 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
         
         
     else:
-        raise ValueError,("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
+        raise ValueError("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
 
     #pprint.pprint(vars())
     return _res
@@ -737,7 +737,7 @@ def get_splitValueList(minU = 0,
     
     if insetSplitFactor is not None or startSplitFactor is not None:
         if not is_float_equivalent(minU,0):
-            raise StandardError,"Min U must be 0 when insetSplitFactor or startSplitFactor are used"
+            raise Exception("Min U must be 0 when insetSplitFactor or startSplitFactor are used")
     
     #>>> Divide stuff
     #==========================	
@@ -751,7 +751,7 @@ def get_splitValueList(minU = 0,
 
     if startSplitFactor is not None:
         if points < 5:
-            raise StandardError,"Need at least 5 points for startSplitFactor. Points : %s"%(points)
+            raise Exception("Need at least 5 points for startSplitFactor. Points : %s"%(points))
         log.debug("%s >> startSplitFactor : %s"%(_str_func,startSplitFactor))  
         #Figure out our u's
         f_base = startSplitFactor * maxU 
@@ -818,7 +818,7 @@ def list_subtract(l1,l2):
     """ 
     """
     if len(l1)!=len(l2):
-        raise ValueError,"list_subtract>>> lists must be same length! l1: %s | l2: %s"%(l1,l2)
+        raise ValueError("list_subtract>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
     l_return = []
     for i,x in enumerate(l1):
         l_return.append( x-l2[i])
@@ -828,7 +828,7 @@ def list_add(l1,l2):
     """ 
     """
     if len(l1)!=len(l2):
-        raise ValueError,"list_add>>> lists must be same length! l1: %s | l2: %s"%(l1,l2)
+        raise ValueError("list_add>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
     l_return = []
     for i,x in enumerate(l1):
         l_return.append( x+l2[i])
@@ -838,7 +838,7 @@ def list_mult(l1,l2):
     """ 
     """
     if len(l1)!=len(l2):
-        raise ValueError,"list_mult>>> lists must be same length! l1: %s | l2: %s"%(l1,l2)
+        raise ValueError("list_mult>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
     l_return = []
     for i,x in enumerate(l1):
         l_return.append( x*l2[i])
@@ -848,7 +848,7 @@ def list_div(l1,l2):
     """ 
     """
     if len(l1)!=len(l2):
-        raise ValueError,"list_div>>> lists must be same length! l1: %s | l2: %s"%(l1,l2)
+        raise ValueError("list_div>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
     l_return = []
     for i,x in enumerate(l1):
         l_return.append( x/l2[i])
@@ -900,7 +900,7 @@ def angleBetween(p1, p2, p3):
         v2 = (p3 - p2).normalized()
         
         return math.degrees(v1.angle(v2))
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
 def averageVectors(v1, v2):

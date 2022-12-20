@@ -19,6 +19,8 @@ from Red9.core import (Red9_General,
                        Red9_CoreUtils,
                        Red9_AnimationUtils,
                        Red9_PoseSaver) 
+import importlib
+import pprint
 """import cgm_General
 import cgm_Meta
 import cgm_Deformers
@@ -38,7 +40,7 @@ import lib.rayCaster
 import lib.meta_Utils
 import lib.shapeCaster"""
 
-import cgm_General as cgmGen
+from . import cgm_General as cgmGen
 import os
 import maya.mel as mel
 #import reloadFactory as RELOAD
@@ -53,7 +55,7 @@ log.setLevel(logging.INFO)
 _l_core_order = ['cgm_General',
                  'cgm_Meta',
                  'cgm_Deformers',
-                 'cgm_PuppetMeta',
+                 #'cgm_PuppetMeta',
                  'mrs.RigBlocks',
                  'cgm_RigMeta',
                  'rig.dynamic_utils',
@@ -98,7 +100,8 @@ def _reload(stepConfirm=False):
     _l_cull = copy.copy(_l_ordered)
     
     Red9.core._reload()
-    reload(cgmOS)
+    importlib.reload(cgmOS)
+    _d_failed = {}
     
     def loadLocal(str_module, module):
         _key = module.__dict__.get('__MAYALOCAL')
@@ -106,26 +109,31 @@ def _reload(stepConfirm=False):
             try:
                 mel.eval('python("import {0} as {1};")'.format(str_module,_key))
                 log.info("|{0}| >> ... {1} loaded local as [{2}]".format(_str_func,m,_key))  
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 
     for m in _l_core_order:
         _k = 'cgm.core.' + m
         
         #log.debug("|{0}| >> Checking for: {1}".format(_str_func,m))
-        if _k not in _d_modules.keys():
+        if _k not in list(_d_modules.keys()):
             log.debug("|{0}| >> Not found in queried sub modules: {1}".format(_str_func,_k))
         else:
             try:
-                module = __import__(_k, globals(), locals(), ['*'], -1)
-                reload(module) 
-                log.debug("|{0}| >> ... {1}".format(_str_func,m))  
+                module = __import__(_k, globals(), locals(), ['*'])
+                importlib.reload(module) 
+                log.info("|{0}| >> ... {1}".format(_str_func,_k))  
                 _l_finished.append(_k)
                 _l_cull.remove(_k)
                 loadLocal(_k,module)
-            except Exception, e:
+            except Exception as e:
+                #print(m)
+                _d_failed[_k] = e.args
+                
+                """
                 for arg in e.args:
-                    log.error(arg)
+                    log.error(arg)"""
+                #raise Exception,e
                 cgmGen.cgmExceptCB(Exception,e)
             """log.debug("|{0}| >> Cull: {1} | Ordered: {2}".format(_str_func,
                                                                  len(_l_cull),
@@ -148,7 +156,6 @@ def _reload(stepConfirm=False):
 
     print('CGM Core Reloaded and META REGISTRY updated')"""
     #return
-    _d_failed = {}
     _l_skip = []
     for m in _l_ordered:
         _k = 'cgm.core.' + m
@@ -166,18 +173,18 @@ def _reload(stepConfirm=False):
         
             
         if m not in _l_finished:
-            if m not in _d_modules.keys():
+            if m not in list(_d_modules.keys()):
                 log.debug("|{0}| >> Not found in queried dict: {1}".format(_str_func,m))
             else:
                 try:
-                    module = __import__(m, globals(), locals(), ['*'], -1)
-                    reload(module) 
+                    module = __import__(m, globals(), locals(), ['*'],)
+                    importlib.reload(module) 
                     log.debug("|{0}| >> ... {1}".format(_str_func,m))  
                     _l_finished.append(m)
                     _l_cull.remove(m)
                     loadLocal(m,module)
                     
-                except Exception, e:
+                except Exception as e:
                     #log.error("|{0}| >> Failed: {1}".format(_str_func,m))  
                     #for arg in e.args:
                         #log.error(arg)
@@ -197,9 +204,10 @@ def _reload(stepConfirm=False):
     if _d_failed:   
         log.info(cgmGen._str_subLine)        
         #log.info("|{0}| >> {1} modules failed to import".format(_str_func,len(_d_failed.keys())))  
-        cgmGen.log_info_dict(_d_failed,"|{0}| >> {1} modules failed to import".format(_str_func,len(_d_failed.keys())))
-        #for k in _d_failed.keys():
-            #log.info("|{0}| >> {1}".format(_str_func,m))
+        cgmGen.log_info_dict(_d_failed,"|{0}| >> {1} modules failed to import".format(_str_func,len(list(_d_failed.keys()))))
+        
+        for k in _d_failed.keys():
+            print("import {}".format(k))
     print('CGM Core Reload complete')     
 
         
@@ -214,26 +222,26 @@ def _reloadBAK():
     reload carefully and re-register the RED9_META_REGISTRY
     '''
     Red9.core._reload()
-    reload(cgm_General)    
-    reload(cgm_Meta)
-    reload(cgm_Deformers)
-    reload(cgm_PuppetMeta)
-    reload(cgm_RigMeta)
-    reload(cgmPy.validateArgs)
-    reload(rigger.ModuleFactory)
-    reload(rigger.JointFactory)
-    reload(rigger.TemplateFactory)
-    reload(rigger.PuppetFactory)
-    reload(rigger.RigFactory)
-    reload(rigger.ModuleShapeCaster)
-    reload(rigger.ModuleControlFactory)
+    importlib.reload(cgm_General)    
+    importlib.reload(cgm_Meta)
+    importlib.reload(cgm_Deformers)
+    importlib.reload(cgm_PuppetMeta)
+    importlib.reload(cgm_RigMeta)
+    importlib.reload(cgmPy.validateArgs)
+    importlib.reload(rigger.ModuleFactory)
+    importlib.reload(rigger.JointFactory)
+    importlib.reload(rigger.TemplateFactory)
+    importlib.reload(rigger.PuppetFactory)
+    importlib.reload(rigger.RigFactory)
+    importlib.reload(rigger.ModuleShapeCaster)
+    importlib.reload(rigger.ModuleControlFactory)
     
-    reload(classes.DraggerContextFactory)
-    reload(classes.SnapFactory)
-    reload(lib.rayCaster)
-    reload(lib.meta_Utils)
-    reload(lib.shapeCaster)
-    try:reload(morpheusRig_v2.core.morpheus_meta)
+    importlib.reload(classes.DraggerContextFactory)
+    importlib.reload(classes.SnapFactory)
+    importlib.reload(lib.rayCaster)
+    importlib.reload(lib.meta_Utils)
+    importlib.reload(lib.shapeCaster)
+    try:importlib.reload(morpheusRig_v2.core.morpheus_meta)
     except:print("Morpheus Rig core not found.")
     
     

@@ -4,6 +4,7 @@ import pprint
 import time
 import webbrowser
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -67,7 +68,7 @@ def run():
     try:
         cgmMarkingMenu()
         #mmWindow = cgmMarkingMenu()
-    except Exception,err:
+    except Exception as err:
         log.error("Failed to load. err:{0}".format(err))
         #for a in err.args():
         #    print a
@@ -137,13 +138,13 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         self.var_mmAction.value=1			
         if command:
             try:command()
-            except Exception,err:
+            except Exception as err:
                 log.info("{0} button >> error {1}".format(self._str_MM, err))     
     
     def button_CallBack(self, func, *a, **kws ):
-        print func
-        if a:print a
-        if kws:print kws
+        print(func)
+        if a:print(a)
+        if kws:print(kws)
         mmCallback(func,*a,**kws)
         MMUTILS.kill_mmTool()
         
@@ -153,9 +154,9 @@ class cgmMarkingMenu(cgmUI.markingMenu):
             self.mmActionOptionVar.value=1						
             optionVar.toggle()
             log.info("{0}.toggleVarAndReset>>> {1} : {2}".format(self._str_MM,optionVar.name,optionVar.value))
-        except Exception,error:
+        except Exception as error:
             log.error(error)
-            print "MM change var and reset failed!"
+            print("MM change var and reset failed!")
 
     def reset(self):
         log.info("{0} >> reset".format(self._str_MM))        
@@ -277,7 +278,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             #c = mmCallback(self.var_menuMode.setValue,i),
                             c = cgmGEN.Callback(self.var_menuMode.setValue,i),                            
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))	        
                  
         
@@ -331,10 +332,10 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         TOOLBOX.uiSetupOptionVars_curveCreation(self)
         
     def reloadLib(self):
-        reload(cgmUI)
-        reload(MMUTILS)
-        reload(DYNPARENTTOOL)
-        reload(MRSANIMATE)
+        importlib.reload(cgmUI)
+        importlib.reload(MMUTILS)
+        importlib.reload(DYNPARENTTOOL)
+        importlib.reload(MRSANIMATE)
         
     #@cgmGEN.Timer
     def bUI_radialRoot_td(self,parent):
@@ -734,7 +735,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             label=item,
                             c = mmCallback(self.var_keyType.setValue,i),
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))    
             
     def bUI_optionMenu_keyMode(self, parent):
@@ -754,7 +755,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             label=item,
                             c = mmCallback(self.var_keyMode.setValue,i),
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
             
     def bUI_optionMenu_aimMode(self, parent):
@@ -774,7 +775,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                                 label=item,
                                 c = mmCallback(self.var_aimMode.setValue,item),
                                 rb = _rb)                
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| failed to load. err: {1}".format(_str_section,err))  
                 
     def bUI_optionMenu_resetMode(self, parent):
@@ -794,7 +795,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             label=item,
                             c = mmCallback(self.var_resetMode.setValue,i),
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err)) 
             
     
@@ -821,7 +822,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                                 label=item,   
                                 c = mmCallback(self.var_objDefaultAimAxis.setValue,i),
                                 rb = _rb)                
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| failed to load. err: {1}".format(_str_section,err)) 
                 
                 
@@ -843,7 +844,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                                 c = mmCallback(self.var_objDefaultUpAxis.setValue,i),                                      
                                 #c = lambda *a:self.var_objDefaultUpAxis.setValue(i),                                  
                                 rb = _rb)                
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
                 
             try:#>>> Obj Out 
@@ -864,7 +865,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                                 c = mmCallback(self.var_objDefaultOutAxis.setValue,i),                                                                            
                                 #c = lambda *a:self.var_objDefaultOutAxis.setValue(i),                                  
                                 rb = _rb)                
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| failed to load. err: {1}".format(_str_section,err))     
                            
             
@@ -891,7 +892,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             #c = lambda *a:ui_CallAndKill(self.var_contextTD.setValue,item),
                             c = mmCallback(self.var_contextTD.setValue,item),                                  
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
             
     #@cgmGEN.Timer
@@ -916,7 +917,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             c = mmCallback(self.var_rayCastMode.setValue,i),                                  
                             #c = lambda *a:self.raySnap_setAndStart(self.var_rayCastMode.setValue(i)),                                  
                             rb = _rb)                
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))
             
         try:#>>> Offset Mode 
@@ -939,7 +940,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
             
             mc.menuItem(p= uiMenu_rayCast, l='Set Offset',
                         c = lambda *a:self.var_rayCastOffsetDist.uiPrompt_value('Set offset'))
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err)) 
             
         try:#>>> Orient Mode 
@@ -959,7 +960,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             c = mmCallback(self.var_rayCastOrientMode.setValue,i),
                             #c = lambda *a:self.raySnap_setAndStart(self.var_rayCastOffsetMode.setValue(i)),                                  
                             rb = _rb)         
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))  
 
     def bUI_radial_dynParent(self,parent,direction = None):
@@ -994,7 +995,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
             mc.menuItem(p=uiMenu, l="Clear",
                         c = lambda *a:self.var_rayCastTargetsBuffer.clear())
             
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| failed to load. err: {1}".format(_str_section,err))  
             
     #@cgmGEN.Timer     
@@ -1497,7 +1498,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
             _msg = "|{0}| : {1}".format(calling,o)
             try:
                 self.action_logged( RIGGING.copy_pivot(o,self._l_sel[0],rotatePivot,scalePivot), _msg  )
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| ||| Failure >>> err:s[{1}]".format(_msg,err))
                 
         mc.select(self._l_sel)
@@ -1566,7 +1567,7 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                            #c = mmCallback(ATTRTOOLS.uiWin_multiSetAttr),
                            rp='S') 
         _d_attrTypes = {"string":'E','float':'S','enum':'NE','vector':'SW','int':'W','bool':'NW','message':'SE'}
-        for _t,_d in _d_attrTypes.iteritems():
+        for _t,_d in list(_d_attrTypes.items()):
             mc.menuItem(parent=_add,
                         l=_t,
                         c = lambda *a:ATTRTOOLS.uiPrompt_addAttr(_t,**{'autoLoadFail':True}),
@@ -1773,14 +1774,14 @@ def killUI():
         #mmTemplate.killChildren(_str_popWindow)
         if mc.popupMenu('cgmMM',ex = True):
             try:mc.menu('cgmMM',e = True, deleteAllItems = True)
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed to delete menu items")   
                 
             mc.deleteUI('cgmMM') 
             
         #pprint.pprint(vars())      
             
-    except Exception,err:
+    except Exception as err:
         log.error(err)   
     finally:
         pass
@@ -1926,7 +1927,7 @@ def snap_action(self, snapMode = 'point',selectionMode = 'eachToLast'):
         elif snapMode == 'aim':
             kws['rotation'] = True
         else:
-            raise ValueError,"Unknown mode!"
+            raise ValueError("Unknown mode!")
         
         _pivotMode = self.var_snapPivotMode.value
         
@@ -1939,7 +1940,7 @@ def snap_action(self, snapMode = 'point',selectionMode = 'eachToLast'):
             elif _pivotMode == 2:
                 kws['pivot'] = 'boundingBox'
             else:
-                raise ValueError,"Uknown pivotMode: {0}".format(_pivotMode)        
+                raise ValueError("Uknown pivotMode: {0}".format(_pivotMode))        
     
         MMCONTEXT.func_process(SNAP.go, self._l_sel ,selectionMode,'Snap',noSelect=False, **kws)
     
@@ -2071,7 +2072,7 @@ def ui_CallAndKill(func, *a, **kws ):
         _str_func = 'ui_CallAndKill'
         MMUTILS.kill_mmTool()
         try:return func( *a, **kws )
-        except Exception,err:
+        except Exception as err:
             try:log.info("Func: {0}".format(func.__name__))
             except:log.info("Func: {0}".format(_func))
             if a:
@@ -2080,10 +2081,10 @@ def ui_CallAndKill(func, *a, **kws ):
                 log.info("kws: {0}".format(kws))
             for a in err.args:
                 log.info(a)
-            raise Exception,err
-    except Exception,err:
+            raise Exception(err)
+    except Exception as err:
         log.info("Failed...")
-        print Exception
+        print(Exception)
         #pprint.pprint(err)
 
 class mmCallback(object):
@@ -2099,7 +2100,7 @@ class mmCallback(object):
             _res = self._func( *self._args, **self._kwargs )
             MMUTILS.kill_mmTool()            
             return _res
-        except Exception,err:
+        except Exception as err:
             #MMUTILS.killUI()            
             #try:log.info("Func: {0}".format(self._func.__name__))
             #except:log.info("Func: {0}".format(self._func))

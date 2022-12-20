@@ -1,4 +1,4 @@
-from meshUtils import *
+from .meshUtils import *
 
 
 #end

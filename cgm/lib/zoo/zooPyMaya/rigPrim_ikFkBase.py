@@ -1,7 +1,7 @@
 
 from cgm.lib.zoo.zooPy.typeFactories import interfaceTypeFactory
-from baseRigPrimitive import *
-from apiExtensions import cmpNodes
+from .baseRigPrimitive import *
+from .apiExtensions import cmpNodes
 
 ARM_NAMING_SCHEME = 'arm', 'bicep', 'elbow', 'wrist'
 LEG_NAMING_SCHEME = 'leg', 'thigh', 'knee', 'ankle'

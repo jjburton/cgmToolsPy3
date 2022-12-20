@@ -53,7 +53,7 @@ import maya.mel as mm
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(8)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -171,10 +171,10 @@ def copyHierarchy(sourceTop=None, destinationTop=None, pasteMethod='replace', of
         if nodeName in destNames:
             destNode = mc.ls(destNS+nodeName)
             if not destNode:
-                print 'Cannot find destination node: '+destNS+':'+nodeName
+                print(('Cannot find destination node: '+destNS+':'+nodeName))
                 continue
             if len(destNode) > 1:
-                print 'Two or more destination nodes have the same name: '+destNS+':'+nodeName
+                print(('Two or more destination nodes have the same name: '+destNS+':'+nodeName))
                 continue
             
             copyAnimation(source=node, destination=destNode[0], pasteMethod=pasteMethod, offset=offset, start=start, end=end, layer=layer)

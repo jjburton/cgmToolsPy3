@@ -47,7 +47,7 @@ def get_short(obj = None):
         log.error("Too many objects named '{0}' (Be more specific): ".format(obj))
         for i,o in enumerate(buffer):
             log.error(" "*4 + "{0}:'{1}'".format(i,o))
-        raise ValueError,"{0} || More than one object with name".format(_str_func)
+        raise ValueError("{0} || More than one object with name".format(_str_func))
     raise ValueError("{0} || No object exists!".format(_str_func))
 short = get_short
 def get_long(obj = None):
@@ -71,7 +71,7 @@ def get_long(obj = None):
         log.error("Too many objects named '{0}' (Be more specific): ".format(obj))
         for i,o in enumerate(buffer):
             log.error(" "*4 + "{0}:'{1}'".format(i,o))
-        raise ValueError,"{0} || More than one object with name".format(_str_func)
+        raise ValueError("{0} || More than one object with name".format(_str_func))
     raise ValueError("{0} || No object exists!".format(_str_func))
 long = get_long
 
@@ -99,7 +99,7 @@ def get_base(obj = None):
         log.error("Too many objects named '{0}' (Be more specific): ".format(obj))
         for i,o in enumerate(buffer):
             log.error(" "*4 + "{0}:'{1}'".format(i,o))
-        raise ValueError,"{0} || More than one object with name".format(_str_func)
+        raise ValueError("{0} || More than one object with name".format(_str_func))
     raise ValueError("{0} || No object exists!".format(_str_func)) 
 base = get_base
 
@@ -149,7 +149,7 @@ def clean(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?><., """, noN
         str_Clean = arg
 
         for char in invalidChars:
-            if functionSwap and char in d_functionStringSwaps.keys():
+            if functionSwap and char in list(d_functionStringSwaps.keys()):
                 str_Clean = str_Clean.replace( char, d_functionStringSwaps.get(char) )
             else:
                 str_Clean = str_Clean.replace( char, replaceChar )
@@ -168,5 +168,5 @@ def clean(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?><., """, noN
             while str_Clean.endswith( '_' ):
                 str_Clean = str_Clean[ :-1 ]
         return str_Clean		
-    except Exception,err:
+    except Exception as err:
         cgmGeneral.cgmExceptCB(Exception,err,msg=vars())

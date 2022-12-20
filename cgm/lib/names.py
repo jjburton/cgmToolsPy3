@@ -69,7 +69,7 @@ def initializeDictionary(file):
     return nameDictionary
 
 def returnShortNameOLD(longName):
-    returnedDictionary = initializeDictionary('C:\Users\Josh\Documents\maya\python/namePrefs.conf')
+    returnedDictionary = initializeDictionary('C:\\Users\Josh\Documents\maya\python/namePrefs.conf')
     nameDictionary = returnedDictionary
     returnList = []
     condition = False

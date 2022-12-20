@@ -9,7 +9,7 @@ import threading
 import maya.utils as mu
 import maya.OpenMaya as om
 
-import executeWingCode
+from . import executeWingCode
 
 #-----------------
 PORT = 6000  # Needs to be the same value as authored in wingHotkeys.py below.
@@ -28,7 +28,7 @@ def processDataInMaya(data):
         # If we don't evaluate in maya.util.executeInMainThreadWithResult(),
         # Maya can crash, and that's no good.
         mu.executeInMainThreadWithResult(executeWingCode.main, data)
-    except Exception, e:
+    except Exception as e:
         om.MGlobal.displayError("Encountered exception: %s"%e)
 
 def server(processFunc=processDataInMaya, port=PORT, backlog=BACKLOG, size=SIZE):
@@ -56,11 +56,11 @@ def server(processFunc=processDataInMaya, port=PORT, backlog=BACKLOG, size=SIZE)
     try:
         s.bind((host,port))
     except:
-        print "Tried to open port %s, but failed:  It's probably already open\n"%port
+        print(("Tried to open port %s, but failed:  It's probably already open\n"%port))
         return
 
     s.listen(backlog)
-    print "Starting Python server, listening on port %s...\n"%port
+    print(("Starting Python server, listening on port %s...\n"%port))
     while True:
         client, address = s.accept() # client is a socket object
         data = client.recv(size)

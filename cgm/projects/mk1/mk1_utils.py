@@ -183,8 +183,8 @@ def verify_sizingData(mAsset = None, skinDepth = .75):
     try:#>>> Verify our arg
         mAsset = cgmMeta.validateObjArg(mAsset,mClass = 'cgmMorpheusMakerNetwork',noneValid = False)
         _str_funcName = "{0}('{1}')".format(_str_funcName,mAsset.cgmName)	
-    except Exception,error:
-        raise Exception,"{0}Verify  fail | {1}".format(_str_funcName,error)
+    except Exception as error:
+        raise Exception("{0}Verify  fail | {1}".format(_str_funcName,error))
 
     #>> Collect our positional info
     #====================================================================
@@ -202,7 +202,7 @@ def verify_sizingData(mAsset = None, skinDepth = .75):
                     break
                 mc.progressBar(mayaMainProgressBar, edit=True, status = "On {0} | '{1}'...".format(_str_funcName,str_moduleKey), step=1)
 
-                if str_moduleKey not in d_moduleControls.keys():
+                if str_moduleKey not in list(d_moduleControls.keys()):
                     log.warning("Missing controls info for: '%s'"%str_moduleKey)
                     return False
                 log.debug("{0} >> On str_moduleKey: '{1}'...".format(_str_funcName,str_moduleKey))
@@ -229,12 +229,12 @@ def verify_sizingData(mAsset = None, skinDepth = .75):
                         if not pos:return False
                         posBuffer.append(pos)
                 d_initialData[str_moduleKey] = posBuffer
-            except Exception,error:
-                raise Exception,"'{0}' key fail | {1}".format(str_moduleKey,error)
-    except Exception,error:
+            except Exception as error:
+                raise Exception("'{0}' key fail | {1}".format(str_moduleKey,error))
+    except Exception as error:
         try:gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
         except:pass	
-        raise Exception,"{0} fail | {1}".format(_str_funcName,error)
+        raise Exception("{0} fail | {1}".format(_str_funcName,error))
     try:gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
     except:pass
     return d_initialData
@@ -252,13 +252,13 @@ def verifyMorpheusNodeStructure(mMorpheus):
     def returnModuleMatch(moduleKey):
         for i_m in mMorpheus.moduleChildren:
             matchBuffer = 0
-            for key in d_moduleCheck[moduleKey].keys():
+            for key in list(d_moduleCheck[moduleKey].keys()):
                 log.debug("attr: %s"%key)
                 log.debug("value: '%s"%i_m.__dict__[key])
                 log.debug("checkTo: '%s'"%d_moduleCheck[moduleKey].get(key))
                 if i_m.hasAttr(key) and i_m.__dict__[key] == d_moduleCheck[moduleKey].get(key):
                     matchBuffer +=1
-            if matchBuffer == len(d_moduleCheck[moduleKey].keys()):
+            if matchBuffer == len(list(d_moduleCheck[moduleKey].keys())):
                 log.debug("Found Morpheus Module: '%s'"%moduleKey)
                 return i_m
         return False    
@@ -273,22 +273,22 @@ def verifyMorpheusNodeStructure(mMorpheus):
                         break
                     mc.progressBar(mayaMainProgressBar, edit=True, status = "On '%s'..."%(str_moduleKey), step=1)
 
-                    if str_moduleKey not in d_moduleParents.keys():#Make sure we have a parent
-                        raise StandardError, "Missing parent info for: '%s'"%str_moduleKey
-                    if str_moduleKey not in d_moduleCheck.keys():#Make sure we have a parent
-                        raise StandardError, "Missing check info for: '%s'"%str_moduleKey
+                    if str_moduleKey not in list(d_moduleParents.keys()):#Make sure we have a parent
+                        raise Exception("Missing parent info for: '%s'"%str_moduleKey)
+                    if str_moduleKey not in list(d_moduleCheck.keys()):#Make sure we have a parent
+                        raise Exception("Missing check info for: '%s'"%str_moduleKey)
                         return False  
 
-                    if str_moduleKey in d_moduleTemplateSettings.keys():#Make sure we have settings
+                    if str_moduleKey in list(d_moduleTemplateSettings.keys()):#Make sure we have settings
                         d_settingsDict = d_moduleTemplateSettings[str_moduleKey]
-                    elif d_moduleCheck[str_moduleKey]['moduleType'] in d_moduleTemplateSettings.keys():
+                    elif d_moduleCheck[str_moduleKey]['moduleType'] in list(d_moduleTemplateSettings.keys()):
                         d_settingsDict = d_moduleTemplateSettings[ d_moduleCheck[str_moduleKey]['moduleType'] ]            
                     else:
                         log.debug("Missing limb info for: '%s'"%str_moduleKey)
                         return False
 
                     log.debug("'{0}' structure check...".format(str_moduleKey))                
-                    if str_moduleKey in d_moduleInstances.keys():#if it's already stored, use it
+                    if str_moduleKey in list(d_moduleInstances.keys()):#if it's already stored, use it
                         i_module = d_moduleInstances[str_moduleKey]
                     else:
                         i_module = mMorpheus.getModuleFromDict(checkDict = d_moduleCheck[str_moduleKey])#Look for it
@@ -297,9 +297,9 @@ def verifyMorpheusNodeStructure(mMorpheus):
                         log.debug("'{0}' creating...".format(str_moduleKey))                
                         kw_direction = False
                         kw_name = False
-                        if 'cgmDirection' in d_moduleCheck[str_moduleKey].keys():
+                        if 'cgmDirection' in list(d_moduleCheck[str_moduleKey].keys()):
                             kw_direction = d_moduleCheck[str_moduleKey].get('cgmDirection')
-                        if 'cgmName' in d_moduleCheck[str_moduleKey].keys():
+                        if 'cgmName' in list(d_moduleCheck[str_moduleKey].keys()):
                             kw_name = d_moduleCheck[str_moduleKey].get('cgmName')            
                         i_module = mMorpheus.addModule(mClass = 'cgmLimb',mType = d_moduleCheck[str_moduleKey]['moduleType'],name = kw_name, direction = kw_direction)
                         d_moduleInstances[str_moduleKey] = i_module#Store it
@@ -310,7 +310,7 @@ def verifyMorpheusNodeStructure(mMorpheus):
 
                     #>>> Settings
                     log.debug("'{0}' settings check...".format(str_moduleKey))                		
-                    for key in d_settingsDict.keys():
+                    for key in list(d_settingsDict.keys()):
                         i_templateNull = i_module.templateNull
                         if i_templateNull.hasAttr(key):
                             log.debug("attr: '%s'"%key)  
@@ -321,7 +321,7 @@ def verifyMorpheusNodeStructure(mMorpheus):
                     #>>>Parent stuff       
                     log.debug("'{0}' parent check...".format(str_moduleKey))                
                     if d_moduleParents.get(str_moduleKey):#If we should be looking for a module parent
-                        if d_moduleParents.get(str_moduleKey) in d_moduleInstances.keys():
+                        if d_moduleParents.get(str_moduleKey) in list(d_moduleInstances.keys()):
                             i_moduleParent = False
                             if i_module.getMessage('moduleParent') and i_module.getMessage('moduleParent') == [d_moduleInstances[d_moduleParents[str_moduleKey]].mNode]:
                                 i_moduleParent = None
@@ -336,9 +336,9 @@ def verifyMorpheusNodeStructure(mMorpheus):
                             i_module.doSetParentModule(i_moduleParent.mNode)
                         else:
                             log.debug("'{0}' | moduleParent not found from key: '{1}'".format(str_moduleKey,d_moduleParents.get(str_moduleKey)))
-                except Exception,error:
-                    raise Exception,"'{0}' | {1}".format(str_moduleKey,error)		    
-        except Exception,error:raise Exception,"{0} create modules fail | {1}".format(_str_funcName,error)
+                except Exception as error:
+                    raise Exception("'{0}' | {1}".format(str_moduleKey,error))		    
+        except Exception as error:raise Exception("{0} create modules fail | {1}".format(_str_funcName,error))
 
         # For each module
         #=====================================================================
@@ -346,9 +346,9 @@ def verifyMorpheusNodeStructure(mMorpheus):
         #i_limb.getGeneratedCoreNames()   
         return mMorpheus
 
-    except Exception,error:
+    except Exception as error:
         gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    	
-        raise Exception,"{0} fail | error: {1}".format(_str_funcName,error)
+        raise Exception("{0} fail | error: {1}".format(_str_funcName,error))
 
 
 def setState(mAsset,state = 0,
@@ -367,8 +367,8 @@ def setState(mAsset,state = 0,
 
         mi_Morpheus = mAsset.mPuppet
         d_customizationData = verify_sizingData(mAsset)
-    except Exception,error:
-        raise Exception,"{0} defaults fail | {1}".format(_str_funcName,error)
+    except Exception as error:
+        raise Exception("{0} defaults fail | {1}".format(_str_funcName,error))
 
     try:#connect our geo to our unified mesh geo
         '''
@@ -381,8 +381,8 @@ def setState(mAsset,state = 0,
         if not d_customizationData:
             log.error("{0} no customization data found".format(_str_funcName))
             return False
-    except Exception,error:
-        raise Exception,"{0} validation fail | {1}".format(_str_funcName,error)
+    except Exception as error:
+        raise Exception("{0} validation fail | {1}".format(_str_funcName,error))
 
     try:
         mayaMainProgressBar = gui.doStartMayaProgressBar(len(l_modulesToDoOrder))
@@ -401,13 +401,13 @@ def setState(mAsset,state = 0,
                     kws['sizeMode'] = 'manual'
                     kws['posList'] = d_customizationData.get(str_moduleKey)
                     mi_module.setState(state,**kws)
-                except StandardError,error:
+                except Exception as error:
                     log.error("Set state fail: '%s'"%mi_module.getShortName())
-                    raise StandardError,error
-            except Exception,error:
-                raise Exception,"'{0}' | {1}".format(str_moduleKey,error)		
+                    raise Exception(error)
+            except Exception as error:
+                raise Exception("'{0}' | {1}".format(str_moduleKey,error))		
         gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
-    except Exception,error:
+    except Exception as error:
         if kws:log.info("{0} kws : {1}".format(_str_funcName,kws))
         gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar  
         log.error(error)
@@ -422,9 +422,9 @@ def updateTemplate(mAsset,**kws):
         d_customizationData = verify_sizingData(mAsset)
         i_Morpheus = mAsset.mPuppet
         if not d_customizationData:
-            raise ValueError,"No customization data found"
-    except Exception,error:
-        raise Exception,"{0} validate fail | {1}".format(_str_funcName,error)
+            raise ValueError("No customization data found")
+    except Exception as error:
+        raise Exception("{0} validate fail | {1}".format(_str_funcName,error))
 
     try:
         mayaMainProgressBar = gui.doStartMayaProgressBar(len(l_modulesToDoOrder))
@@ -445,10 +445,10 @@ def updateTemplate(mAsset,**kws):
                                 posList = d_customizationData.get(str_moduleKey))
                 i_module.doTemplate(tryTemplateUpdate = True,forceNew = True,
                                     **kws)        
-            except Exception,error:
-                raise Exception,"'{0}' | {1}".format(str_moduleKey,error)		
+            except Exception as error:
+                raise Exception("'{0}' | {1}".format(str_moduleKey,error))		
         gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
-    except Exception,error:
+    except Exception as error:
         if kws:log.info("{0} kws : {1}".format(_str_funcName,kws))
         gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar  
         log.error(error)
@@ -498,10 +498,10 @@ class MorpheusNetworkFunc(cgmGeneral.cgmFuncCls):
             try:asset = kws['mMorpheusAsset']
             except:
                 try:asset = args[0]
-                except:raise StandardError,"No kw or arg asset found'"
+                except:raise Exception("No kw or arg asset found'")
             if asset.mClass not in ['cgmMorpheusMakerNetwork']:
-                raise StandardError,"[mMorpheusAsset: '%s']{Not a asset!}"%asset.mNode
-        except Exception,error:raise StandardError,"MorpheusNetworkFunc failed to initialize | %s"%error
+                raise Exception("[mMorpheusAsset: '%s']{Not a asset!}"%asset.mNode)
+        except Exception as error:raise Exception("MorpheusNetworkFunc failed to initialize | %s"%error)
         self._str_funcName= "testMorpheusNetworkFunc"		
         super(MorpheusNetworkFunc, self).__init__(*args, **kws)
         self._mi_asset = asset
@@ -537,18 +537,18 @@ def puppet_updateGeoFromAsset(*args,**kws):
 
         def _fncStep_validate_(self):
             if not self._mi_asset.getMessage('mPuppet'):
-                raise ValueError,"Missing Puppet"
+                raise ValueError("Missing Puppet")
             self._mi_puppet = self._mi_asset.mPuppet
             self._mi_puppetMasterNull = self._mi_puppet.masterNull
             self._mi_puppetGeoGroup = self._mi_puppetMasterNull.geoGroup
 
             self.l_baseBodyGeo = self._mi_asset.getMessage('baseBodyGeo')
             if not self.l_baseBodyGeo:
-                raise ValueError,"Missing baseBodyGeo"		
+                raise ValueError("Missing baseBodyGeo")		
 
             d_AssetGeo = get_assetActiveGeo(self._mi_asset) or {}
             if not d_AssetGeo.get('d_geoTargets'):
-                raise ValueError,"geo_getActive failed to find any geo"
+                raise ValueError("geo_getActive failed to find any geo")
             self.d_AssetGeo = d_AssetGeo
 
             puppet_purgeGeo(self._mi_asset)
@@ -557,8 +557,8 @@ def puppet_updateGeoFromAsset(*args,**kws):
         def _fncStep_process_(self):
             try:
                 mi_puppet = self._mi_puppet
-            except Exception,error:
-                raise Exception,"Bring local fail | {0}".format(error)
+            except Exception as error:
+                raise Exception("Bring local fail | {0}".format(error))
 
             self.log_warning("This is a wip function. This needs to resolve what final geo is being used better")
 
@@ -578,7 +578,7 @@ def puppet_updateGeoFromAsset(*args,**kws):
 
                 else:
                     self.log_info("Unified geo found")
-            except Exception,error:raise Exception,"Base Geo fail | {0}".format(error)		
+            except Exception as error:raise Exception("Base Geo fail | {0}".format(error))		
                 #i_target.visibility = False	
 
             try:
@@ -600,7 +600,7 @@ def puppet_updateGeoFromAsset(*args,**kws):
 
                             mMesh.setDrawingOverrideSettings(pushToShapes=False)
 
-            except Exception,error:raise Exception,"Geo duplication | {0}".format(error)	    
+            except Exception as error:raise Exception("Geo duplication | {0}".format(error))	    
             return True
 
     return fncWrap(*args,**kws).go()
@@ -626,19 +626,19 @@ def puppet_purgeGeo(*args,**kws):
 
         def _fncStep_clean_(self):
             if not self._mi_asset.getMessage('mPuppet'):
-                raise ValueError,"Missing Puppet"
+                raise ValueError("Missing Puppet")
             self._mi_puppet = self._mi_asset.mPuppet
             self._mi_puppetMasterNull = self._mi_puppet.masterNull
             self._mi_puppetGeoGroup = self._mi_puppetMasterNull.geoGroup
 
             self.l_baseBodyGeo = self._mi_asset.getMessage('baseBodyGeo')
             if not self.l_baseBodyGeo:
-                raise ValueError,"Missing baseBodyGeo"	
+                raise ValueError("Missing baseBodyGeo")	
 
             try:
                 mi_puppet = self._mi_puppet
-            except Exception,error:
-                raise Exception,"Bring local fail | {0}".format(error)
+            except Exception as error:
+                raise Exception("Bring local fail | {0}".format(error))
 
             d_currentPuppetGeo = get_puppetGeo(self._mi_asset)
             if d_currentPuppetGeo.get('d_geoTargets'):
@@ -648,7 +648,7 @@ def puppet_purgeGeo(*args,**kws):
                         for obj in buffer:
                             #self.log_info("'{0}' |  deleting: '{1}'".format(str_key,obj.p_nameShort))			    
                             try:mc.delete(obj.mNode)
-                            except Exception,error:self.log_error("{0} failed to delete | {1}".format(obj,error))
+                            except Exception as error:self.log_error("{0} failed to delete | {1}".format(obj,error))
 
     return fncWrap(*args,**kws).go()
 
@@ -673,7 +673,7 @@ def puppet_verifyGeoDeformation(*args,**kws):
 
         def _fncStep_validate_(self):
             if not self._mi_asset.getMessage('mPuppet'):
-                raise ValueError,"Missing Puppet"
+                raise ValueError("Missing Puppet")
 
             self._mi_puppet = self._mi_asset.mPuppet
             if not self._mi_puppet.isSkeletonized():
@@ -686,14 +686,14 @@ def puppet_verifyGeoDeformation(*args,**kws):
 
             d_puppetGeo = get_puppetGeo(self._mi_asset) or {}
             if not d_puppetGeo.get('d_geoTargets'):
-                raise ValueError,"get_puppetGeo failed to find any geo"
+                raise ValueError("get_puppetGeo failed to find any geo")
             self.d_puppetGeo = d_puppetGeo
 
         def _fncStep_skinning_(self):
             try:
                 mi_puppet = self._mi_puppet
-            except Exception,error:
-                raise Exception,"Bring local fail | {0}".format(error)
+            except Exception as error:
+                raise Exception("Bring local fail | {0}".format(error))
 
             try:
                 #reload(deformers)
@@ -703,7 +703,7 @@ def puppet_verifyGeoDeformation(*args,**kws):
                         l_geo = self.d_puppetGeo.get('d_geoTargets')[str_key]
                         if l_geo:
                             try:l_skinKeyBuffer = d_geoGroupTagToSkinClusterTag[str_key]
-                            except Exception,error:raise Exception,"Skin key list fail | {0}".format(str_key)
+                            except Exception as error:raise Exception("Skin key list fail | {0}".format(str_key))
                             self.log_info("...looking to skin to one of {0}".format(l_skinKeyBuffer))
                             for k in l_skinKeyBuffer:
                                 buffer = self._d_skinBindDict.get(k)
@@ -719,7 +719,7 @@ def puppet_verifyGeoDeformation(*args,**kws):
                                         self.log_info("... is skinned")
                                     else:
                                         if not __ml_skinJoints:
-                                            raise ValueError,"No skin joints found"
+                                            raise ValueError("No skin joints found")
                                         self.log_info("Skinning: '{0}'".format(mObj))
                                         toBind = [mJnt.mNode for mJnt in __ml_skinJoints] + [mObj.mNode]
                                         cluster = mc.skinCluster(toBind, tsb = True, normalizeWeights = True, mi = 4, dr = 5)
@@ -728,11 +728,11 @@ def puppet_verifyGeoDeformation(*args,**kws):
                                         #mi_cluster.doCopyNameTagsFromObject(mObj.mNode,ignore=['cgmTypeModifier','cgmType'])
                                         mi_cluster.addAttr('mClass','cgmNode',attrType='string',lock=True)
                                         mi_cluster.doName()
-                                except Exception,error:
-                                    raise Exception,"mObj fail {0} | {1}".format(mObj,error)
-                    except Exception,error:
-                        raise Exception,"key {0} | {1}".format(str_key,error)
-            except Exception,error:raise Exception,"Geo duplication | {0}".format(error)	    
+                                except Exception as error:
+                                    raise Exception("mObj fail {0} | {1}".format(mObj,error))
+                    except Exception as error:
+                        raise Exception("key {0} | {1}".format(str_key,error))
+            except Exception as error:raise Exception("Geo duplication | {0}".format(error))	    
             return True
 
     return fncWrap(*args,**kws).go()
@@ -766,7 +766,7 @@ def get_assetActiveGeo(*args,**kws):
             self.log_warning("This is a wip function. This needs to resolve what final geo is being used better")
             try:
                 self.log_info("Base body geo: {0}".format(self._mi_asset.baseBodyGeo))
-            except Exception,error: raise Exception,"gather fail | error: {0}".format(error)
+            except Exception as error: raise Exception("gather fail | error: {0}".format(error))
             #self._returnDict['baseBody']
             self._returnDict['baseBody'] = self._mi_asset.baseBodyGeo
 
@@ -776,11 +776,11 @@ def get_assetActiveGeo(*args,**kws):
                 self._returnDict['d_geoTargets']= {}
                 d_geoGroupsToCheck = MORPHYDATA._d_customizationGeoGroupsToCheck
 
-                for key in d_geoGroupsToCheck.keys():
+                for key in list(d_geoGroupsToCheck.keys()):
                     try:
                         self.log_debug("Checking : '{0}' | msgAttr: '{1}'".format(key,d_geoGroupsToCheck[key]))
                         buffer = self._mi_assetMasterNull.getMessage(d_geoGroupsToCheck[key])
-                        if not buffer:raise RuntimeError,"Group not found"			    
+                        if not buffer:raise RuntimeError("Group not found")			    
                         mi_group = cgmMeta.validateObjArg(buffer,mayaType = ['group'])
                         l_geoGroupObjs = mi_group.getAllChildren(fullPath = True)
                         if not l_geoGroupObjs:
@@ -802,9 +802,9 @@ def get_assetActiveGeo(*args,**kws):
                                 for o in l_toSkin:
                                     self.log_debug("     '{0}'".format(o))				
                         self._returnDict['md_geoGroups'][key]  = mi_group
-                    except Exception,error:raise Exception,"{0} | {1}".format(key,error)			
-            except Exception,error:
-                raise Exception,"Geo gather fail | {0}".format(error)	    
+                    except Exception as error:raise Exception("{0} | {1}".format(key,error))			
+            except Exception as error:
+                raise Exception("Geo gather fail | {0}".format(error))	    
 
             #self.log_infoDict(self._returnDict)
             return self._returnDict
@@ -830,10 +830,10 @@ def get_puppetGeo(*args,**kws):
 
         def _fncStep_validate_(self):
             if not self._mi_asset.getMessage('mPuppet'):
-                raise ValueError,"Missing Puppet"
+                raise ValueError("Missing Puppet")
             self._mi_puppet = self._mi_asset.mPuppet
             if not self._mi_puppet.getMessage('masterNull'):
-                raise ValueError,"Puppet missing masterNull. Reverify and rerun"	
+                raise ValueError("Puppet missing masterNull. Reverify and rerun")	
             self._mi_puppetMasterNull = self._mi_puppet.masterNull
             self._mi_puppetGeoGroup = self._mi_puppetMasterNull.geoGroup
 
@@ -845,11 +845,11 @@ def get_puppetGeo(*args,**kws):
                 self._returnDict['d_geoTargets']= {}
 
 
-                for key in d_geoStoreKeyToGeoGroups.keys():
+                for key in list(d_geoStoreKeyToGeoGroups.keys()):
                     try:
                         self.log_debug("Checking : '{0}' | msgAttr: '{1}'".format(key,d_geoStoreKeyToGeoGroups[key]))
                         buffer = self._mi_puppetGeoGroup.getMessage(d_geoStoreKeyToGeoGroups[key])
-                        if not buffer:raise RuntimeError,"Group not found"			    
+                        if not buffer:raise RuntimeError("Group not found")			    
                         mi_group = cgmMeta.validateObjArg(buffer,mayaType = ['group','transform'])
                         l_geoGroupObjs = mi_group.getAllChildren(fullPath = True)
                         if not l_geoGroupObjs:
@@ -869,9 +869,9 @@ def get_puppetGeo(*args,**kws):
                                 for o in l_toSkin:
                                     self.log_debug("     '{0}'".format(o))				
                         self._returnDict['md_geoGroups'][key]  = mi_group
-                    except Exception,error:raise Exception,"{0} | {1}".format(key,error)			
-            except Exception,error:
-                raise Exception,"Geo gather fail | {0}".format(error)	    
+                    except Exception as error:raise Exception("{0} | {1}".format(key,error))			
+            except Exception as error:
+                raise Exception("Geo gather fail | {0}".format(error))	    
 
             #self.log_infoDict(self._returnDict)
             return self._returnDict
@@ -900,10 +900,10 @@ def puppet_verifyAll(*args,**kws):
 
         def _fncStep_puppet_(self):
             if not self._mi_asset.getMessage('mPuppet'):
-                raise ValueError,"Missing Puppet"
+                raise ValueError("Missing Puppet")
             self._mi_puppet = self._mi_asset.mPuppet
             if not self._mi_puppet.getMessage('masterNull'):
-                raise ValueError,"Puppet missing masterNull. Reverify and rerun"	
+                raise ValueError("Puppet missing masterNull. Reverify and rerun")	
 
             self._mi_puppetMasterNull = self._mi_puppet.masterNull
 
@@ -914,7 +914,7 @@ def puppet_verifyAll(*args,**kws):
             #Verify we have a puppet and that puppet has a masterControl which we need for or master scale plug
             if not self._mi_puppet.getMessage('masterControl'):
                 if not self._mi_puppet._verifyMasterControl():
-                    raise StandardError,"MasterControl failed to verify"
+                    raise Exception("MasterControl failed to verify")
 
             mi_assetMasterControl = self._mi_asset.masterControl#...masterControl of the asset
             mi_settings = mi_assetMasterControl.controlSettings
@@ -956,7 +956,7 @@ def puppet_verifyAll(*args,**kws):
                         else:
                             mGrp = mi_geoGroup.getMessageAsMeta(str_plug)
                         self.__dict__[str_newAttrName] = mGrp
-                    except Exception,error:raise Exception,"Group verify fail | {0}".format(error)
+                    except Exception as error:raise Exception("Group verify fail | {0}".format(error))
 
                     try:
                         #>>> Special data parsing to get things named how we want
@@ -988,7 +988,7 @@ def puppet_verifyAll(*args,**kws):
                             mGrp.doStore('cgmName',''.join(buffer[0]),overideMessageCheck = True)		
                             mGrp.doStore('cgmTypeModifier','geo',overideMessageCheck = True)
                             mGrp.doName()
-                    except Exception,error:raise Exception,"Special parse fail | {0}".format(error)
+                    except Exception as error:raise Exception("Special parse fail | {0}".format(error))
 
                     try:# Few Case things
                         #==============            
@@ -1004,9 +1004,9 @@ def puppet_verifyAll(*args,**kws):
                             mGrp.parent = self._mi_teethGeoGroup	
                         else:    
                             mGrp.parent = self._mi_geoGroup
-                    except Exception,error:raise Exception,"Parent fail | {0}".format(error)
+                    except Exception as error:raise Exception("Parent fail | {0}".format(error))
                     attributes.doSetLockHideKeyableAttr( mGrp.mNode )
-                except Exception,error:
+                except Exception as error:
                     self.log_error("Group check fail. | attr: '{0}' | error: {1}".format(attr,error))	    
 
     return fncWrap(*args,**kws).go()
@@ -1098,7 +1098,7 @@ def faceControls_verify(*args, **kws):
             self._str_attrHolder = self._mi_obj.mNode
             
         def _fncStep_attributes_(self):
-            l_sections = _d_faceBufferAttributes.keys()
+            l_sections = list(_d_faceBufferAttributes.keys())
             l_sections.sort()
             
             for section in l_sections:
@@ -1130,7 +1130,7 @@ def faceControls_verify(*args, **kws):
                         self._mi_obj.addAttr("_".join(n),attrType = 'float',hidden = False)
                         
         def _fncStep_controlWiring_(self):
-            for key in _d_faceControlsToConnect.keys():
+            for key in list(_d_faceControlsToConnect.keys()):
                 try:
                     _d_control = _d_faceControlsToConnect[key]
                     control = _d_control['control']
@@ -1144,17 +1144,17 @@ def faceControls_verify(*args, **kws):
                                                              _d_wiring,
                                                              baseName = key,
                                                              trackAttr = True)
-                    except Exception,error:
-                        raise Exception,"wire call fail | error: {0}".format(error)                         
+                    except Exception as error:
+                        raise Exception("wire call fail | error: {0}".format(error))                         
                     #self._d_controls[key] = cgmMeta.cgmObject(control)
 
-                except Exception,error:
-                    raise Exception,"Control '{0}' fail | error: {1}".format(key,error)                
+                except Exception as error:
+                    raise Exception("Control '{0}' fail | error: {1}".format(key,error))                
                 
     return fncWrap(*args,**kws).go()
 
 def get_blendshapeListToMake():
-    l_sections = _d_faceBufferAttributes.keys()
+    l_sections = list(_d_faceBufferAttributes.keys())
     l_sections.sort()    
     l_allNames = []
     for section in l_sections:        

@@ -46,7 +46,7 @@ def insertMulitiplyDivideBridge(drivenAttribute,newDriver):
     """
     #>>> Get variables
     driverAttribute = attributes.returnDriverAttribute(drivenAttribute)
-    print driverAttribute
+    print(driverAttribute)
     
     driverBuffer = driverAttribute.split('.')
     drivenBuffer = drivenAttribute.split('.')
@@ -153,8 +153,8 @@ def createNamedNode (nodeName, type):
     nodeSuffixDictionary = {'follicle':'foll','curveInfo':'crvInfo','condition':'condNode','multiplyDivide':'mdNode','pointOnSurfaceInfo':'posInfoNode','closestPointOnSurface':'cPntOnSurfNode','closestPointOnMesh':'cPntOnMeshNode','plusMinusAverage':'pmAvNode','frameCache':'fCacheNode'}
     utilityNodeList = ['plusMinusAverage','condition']
     if not type in nodeSuffixDictionary:
-        print (type + ' is not a node type or is not in the dictionary. Expected one of the following:')
-        print nodeSuffixDictionary
+        print((type + ' is not a node type or is not in the dictionary. Expected one of the following:'))
+        print(nodeSuffixDictionary)
         return False
     else:  
         suffix = nodeSuffixDictionary[type]

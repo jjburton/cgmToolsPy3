@@ -1,6 +1,6 @@
 
-from rigPrim_ikFkBase import *
-from rigPrim_stretchy import StretchRig
+from .rigPrim_ikFkBase import *
+from .rigPrim_stretchy import StretchRig
 
 
 class QuadrupedIkFkLeg(IkFkBase):

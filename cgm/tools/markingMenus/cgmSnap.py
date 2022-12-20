@@ -67,7 +67,7 @@ class snapMarkingMenu(mUI.BaseMelWindow):
 			if 'MayaWindow' in _parentPanel:
 				_p = 'viewPanes' 
 		if not mc.control(_p, ex = True):
-			raise ValueError,"{0} doesn't exist!".format(_p)
+			raise ValueError("{0} doesn't exist!".format(_p))
 			#_p = panel
 		if not mc.popupMenu('cgmMM',ex = True):
 			mc.popupMenu('cgmMM', ctl = 0, alt = 0, sh = 0, mm = 1, b =1, aob = 1, p = _p,
@@ -224,7 +224,7 @@ class snapMarkingMenu(mUI.BaseMelWindow):
 				self.uiOptions_RayCast.append(self.uiRC_RayCast.createButton(uiMenu_rayCast,label=item,
 				                                                             c = mUI.Callback(var_RayCastMode.setValue,i),
 				                                                             rb = _rb))   
-		except Exception,err:
+		except Exception as err:
 			log.error("{0} failed to load. err: {1}".format(_str_section,err))		
 		
 		
@@ -268,7 +268,7 @@ def raySnap_start(targets = []):
 	_toSnap = targets
 	log.info("raySnap_start | targets: {0}".format(_toSnap))
 	if not _toSnap:
-		raise ValueError,"raySnap_start >> Must have targets!"
+		raise ValueError("raySnap_start >> Must have targets!")
 
 	var_RayCastMode = cgmMeta.cgmOptionVar('cgmVar_SnapMenuRayCastMode', defaultValue=0)
 	log.info("mode: {0}".format(var_RayCastMode.value))

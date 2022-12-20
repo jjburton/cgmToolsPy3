@@ -19,7 +19,7 @@ log.setLevel(logging.INFO)
 
 from cgm.core import cgm_General as cgmGeneral
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.core import cgm_PuppetMeta as cgmPM
+#from cgm.core import cgm_PuppetMeta as cgmPM
 from cgm.core.classes import NodeFactory as NodeF
 from cgm.core.rigger import ModuleFactory as mFactory
 from cgm.core.rigger import PuppetFactory as pFactory
@@ -136,7 +136,7 @@ def ut_cgmMeta(*args, **kws):
             Make sure stuff hasn't changed from mark's stuff that's gonna obviously break things
             '''    
             try:mc.file(new=True,f=True)
-            except Exception,error:raise Exception,"[File New]{%s}"%error
+            except Exception as error:raise Exception("[File New]{%s}"%error)
 
             try:#Cache testing ==================================================================
                 r9Node1 = r9Meta.MetaClass(name = 'net',nodeType = 'network')
@@ -148,15 +148,15 @@ def ut_cgmMeta(*args, **kws):
                 assert r9Node1 == r9Node1Cached,"Nodes should match"	
 
 
-            except Exception,error:raise Exception,"[Cache testing]{%s}"%error
+            except Exception as error:raise Exception("[Cache testing]{%s}"%error)
 
             try:#duplicate testing ==================================================================
                 try:r9Node2 = r9Meta.MetaClass(mc.duplicate(r9Node1.mNode)[0])
-                except Exception,error:raise Exception,"[Duplicate initialization]{%s}"%error
+                except Exception as error:raise Exception("[Duplicate initialization]{%s}"%error)
                 assert r9Node1 is not r9Node2,"Nodes shouldn't be the same."
 
 
-            except Exception,error:raise Exception,"[duplicate testing]{%s}"%error	    
+            except Exception as error:raise Exception("[duplicate testing]{%s}"%error)	    
             r9Node1.delete()
             r9Node2.delete()
 
@@ -171,7 +171,7 @@ def ut_cgmMeta(*args, **kws):
                 try:#Test name and node argument passing
                     self.MetaInstance = cgmMeta.cgmMetaFactory()
                     assert mc.objExists(self.MetaInstance.mNode)        
-                except Exception,error:raise Exception,"[Name/node arg]{%s}"%error
+                except Exception as error:raise Exception("[Name/node arg]{%s}"%error)
 
                 #self.test_functionCalls()
                 #Initial instance deleted at end of function call
@@ -180,20 +180,20 @@ def ut_cgmMeta(*args, **kws):
                     self.MetaInstance = cgmMeta.cgmMetaFactory(name = 'Hogwarts')
                     assert mc.objExists(self.MetaInstance.mNode)        
                     assert self.MetaInstance.getShortName() == 'Hogwarts'     
-                except Exception,error:raise Exception,"['Hogwarts' being passed]{%s}"%error
+                except Exception as error:raise Exception("['Hogwarts' being passed]{%s}"%error)
 
                 try:
                     self.MetaInstance = cgmMeta.cgmMetaFactory(node = 'Hogwarts')
                     assert mc.objExists(self.MetaInstance.mNode)                
                     assert self.MetaInstance.getShortName() == 'Hogwarts'     
-                except Exception,error:raise Exception,"[Pass node, no name...]{%s}"%error
+                except Exception as error:raise Exception("[Pass node, no name...]{%s}"%error)
 
                 try:
                     self.MetaInstance = cgmMeta.cgmMetaFactory(node = 'Hogwarts', name = 'cgmTransform')
                     assert mc.objExists(self.MetaInstance.mNode)
                     assert self.MetaInstance.getShortName() == 'cgmTransform'
-                except Exception,error:raise Exception,"[Existing 'Hogwarts' node, new 'cgmTransform' name]{%s}"%error
-            except Exception,error:raise Exception,"[Simple Node creation]{%s}"%error
+                except Exception as error:raise Exception("[Existing 'Hogwarts' node, new 'cgmTransform' name]{%s}"%error)
+            except Exception as error:raise Exception("[Simple Node creation]{%s}"%error)
 
             try:#Create nodeType ==================================================================
                 self.MetaNode = cgmMeta.cgmMetaFactory(name = 'cgmNetwork', nodeType = 'network')
@@ -205,7 +205,7 @@ def ut_cgmMeta(*args, **kws):
                 self.ObjectSet = cgmMeta.cgmMetaFactory(name = 'cgmObjectSet',nodeType = 'objectSet')
                 assert mc.nodeType(self.ObjectSet.mNode)=='objectSet'
 
-            except Exception,error:raise Exception,"[Create nodeType]{%s}"%error
+            except Exception as error:raise Exception("[Create nodeType]{%s}"%error)
 
             try:#Create Test Objects and initialize
                 #============== 
@@ -213,7 +213,7 @@ def ut_cgmMeta(*args, **kws):
                 polyCubeCatch = mc.polyCube()  
                 self.pCube = cgmMeta.cgmMetaFactory(polyCubeCatch[0],name = 'pCube')
                 self.nCube = cgmMeta.cgmMetaFactory(nurbsCubeCatch[0],name = 'nCube')
-            except Exception,error:raise Exception,"[Create nurbs/poly cubes]{%s}"%error
+            except Exception as error:raise Exception("[Create nurbs/poly cubes]{%s}"%error)
 
         def _cgmNodeCalls_(self,**kws): 
             #select
@@ -229,7 +229,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.MetaInstance.getShortName() =='FooBar',"mNode is '%s'"%self.MetaInstance.mNode
                 self.MetaInstance.select()
                 assert mc.ls(sl=True)[0]=='FooBar'
-            except Exception,error:raise Exception,"[rename]{%s}"%error
+            except Exception as error:raise Exception("[rename]{%s}"%error)
 
             #convert
             #new=self.MetaInstance.convertMClassType('MetaRig')
@@ -240,7 +240,7 @@ def ut_cgmMeta(*args, **kws):
                 self.MetaInstance.delete()
                 assert not mc.objExists(_str_name)
                 mc.undo()		
-            except Exception,error:raise Exception,"[delete]{%s}"%error
+            except Exception as error:raise Exception("[delete]{%s}"%error)
 
 
             if not self.MetaNode:
@@ -271,8 +271,8 @@ def ut_cgmMeta(*args, **kws):
                 for t in _l:
                     mNode_ = cgmMeta.cgmNode(nodeType = t)
                     if mNode_.getMayaType() != t:
-                        raise Exception,"'{0}' nodeType not created. Type is '{1}'".format(t,mNode_.getMayaType())
-            except Exception,error:raise Exception,"[nodeType calls]{%s}"%error	 	    
+                        raise Exception("'{0}' nodeType not created. Type is '{1}'".format(t,mNode_.getMayaType()))
+            except Exception as error:raise Exception("[nodeType calls]{%s}"%error)	 	    
 
 
         def _changeClassCalls_(self,**kws): 
@@ -280,22 +280,22 @@ def ut_cgmMeta(*args, **kws):
             try:#cgmNode...
                 n1 = cgmMeta.cgmNode(name='test_setClass',nodeType = 'transform')
                 assert issubclass(type(n1),cgmMeta.cgmNode),"Not a cgmNode"
-            except Exception,error:raise Exception,"[cgmNode initial call]{%s}"%error	    
+            except Exception as error:raise Exception("[cgmNode initial call]{%s}"%error)	    
 
             try:#cgmObject...
                 try:
                     n1 = r9Meta.convertMClassType(n1,'cgmObject')
                     assert issubclass(type(n1),cgmMeta.cgmObject),"Not a cgmObject. Type :{0}".format(type(n1))
-                except Exception,error:
-                    raise Exception,"[cgmNode>>cgmObject]{%s}"%error	    
+                except Exception as error:
+                    raise Exception("[cgmNode>>cgmObject]{%s}"%error)	    
                 try:
                     n1 = r9Meta.convertMClassType(n1,'cgmControl')
                     #log.info(n1)
                     assert issubclass(type(n1),cgmMeta.cgmControl),"Not a cgmControl. Type :{0}".format(type(n1))
-                except Exception,error:raise Exception,"[cgmObject>>cgmControl]{%s}"%error	    
+                except Exception as error:raise Exception("[cgmObject>>cgmControl]{%s}"%error)	    
 
                 n1.delete()
-            except Exception,error:raise Exception,"[Conversions of cgmNode created obj]{%s}"%error
+            except Exception as error:raise Exception("[Conversions of cgmNode created obj]{%s}"%error)
 
             try:#Existing transform
                 try:
@@ -303,19 +303,19 @@ def ut_cgmMeta(*args, **kws):
                     n1 = cgmMeta.cgmNode(_str_grp)
                     n1 = r9Meta.convertMClassType(n1,'cgmControl')
                     assert issubclass(type(n1),cgmMeta.cgmControl),"Not a cgmControl. Type :{0}".format(type(n1))
-                except Exception,error:raise Exception,"[null1>>cgmControl]{%s}"%error	    
+                except Exception as error:raise Exception("[null1>>cgmControl]{%s}"%error)	    
                 try:
                     cgmMeta.validateObjArg(n1.mNode,'cgmObject')
-                except Exception,error:raise Exception,"[cgmControl subClass check]{%s}"%error			
+                except Exception as error:raise Exception("[cgmControl subClass check]{%s}"%error)			
 
                 try:
                     n1 = r9Meta.convertMClassType(n1,'cgmNode')
                     assert issubclass(type(n1),cgmMeta.cgmNode),"Not a cgmNode"
-                except Exception,error:raise Exception,"[cgmControl>>cgmNode]{%s}"%error	
+                except Exception as error:raise Exception("[cgmControl>>cgmNode]{%s}"%error)	
 
                 n1.delete()
 
-            except Exception,error:raise Exception,"[Conversions of cgmNode obj]{%s}"%error	    
+            except Exception as error:raise Exception("[Conversions of cgmNode obj]{%s}"%error)	    
 
 
         def _validateObjArg_(self,**kws):
@@ -324,54 +324,54 @@ def ut_cgmMeta(*args, **kws):
                     null = mc.group(em=True)    
                     i_node = cgmMeta.cgmNode(nodeType='transform')
                     i_obj = cgmMeta.cgmObject(nodeType='transform')
-                except Exception,error:raise Exception,"[creation]{%s}"%error
+                except Exception as error:raise Exception("[creation]{%s}"%error)
 
                 try:cgmMeta.validateObjArg()
                 except:self.log_debug("Empty arg should have failed and did")
-                else:raise StandardError,"Empty arg should have failed and did NOT"
+                else:raise Exception("Empty arg should have failed and did NOT")
 
                 try:
                     assert i_obj == cgmMeta.validateObjArg(i_obj.mNode),"string arg failed"
                     self.log_debug("String arg passed!")
-                except Exception,error:raise Exception,"String arg. | {0}".format(error)
+                except Exception as error:raise Exception("String arg. | {0}".format(error))
 
                 try:
                     assert i_obj == cgmMeta.validateObjArg(i_obj),"instance arg failed"
                     self.log_debug("instance arg passed!")
-                except Exception,error:raise Exception,"Instance arg. | {0}".format(error)
+                except Exception as error:raise Exception("Instance arg. | {0}".format(error))
 
                 try:
                     i_returnObj = cgmMeta.validateObjArg(i_obj.mNode,'cgmObject')
                     assert issubclass(type(i_returnObj),cgmMeta.cgmObject),"String + mType arg failed!"
                     self.log_debug("String + mType arg passed!")
-                except Exception,error:raise Exception,"String arg. String mType| {0}".format(error)
+                except Exception as error:raise Exception("String arg. String mType| {0}".format(error))
 
                 try:
                     assert i_obj == cgmMeta.validateObjArg(i_obj,'cgmObject'),"Instance + mType arg failed!"
                     self.log_debug("Instance + mType arg passed!")
-                except Exception,error:raise Exception,"Instance arg. string mType| {0}".format(error)
+                except Exception as error:raise Exception("Instance arg. string mType| {0}".format(error))
 
                 try:cgmMeta.validateObjArg(i_node.mNode,'cgmObject')
-                except Exception,error:
+                except Exception as error:
                     self.log_debug("Validate cgmNode as cgmObject should have failed and did")
                     #raise Exception,"Wrong mType check| {0}".format(error)
 
                 try:
                     assert issubclass(type(cgmMeta.validateObjArg(null)),cgmMeta.cgmNode),"Null string failed!"
                     self.log_debug("Null string passed!")
-                except Exception,error:raise Exception,"Null String arg. String mType| {0}".format(error)
+                except Exception as error:raise Exception("Null String arg. String mType| {0}".format(error))
 
                 try:
                     i_null = cgmMeta.validateObjArg(null,'cgmObject')
                     self.log_info(i_null)
                     assert issubclass(type(i_null),cgmMeta.cgmObject),"Null as cgmObject failed! | %s"%type(i_null)
                     self.log_debug("Null as cgmObjectpassed!")
-                except Exception,error:raise Exception,"Null string. Change type| {0}".format(error)
+                except Exception as error:raise Exception("Null string. Change type| {0}".format(error))
 
                 i_null.delete()
                 i_node.delete()
                 i_obj.delete()    
-            except Exception,error:raise Exception,"Initial tests | {0}".format(error)
+            except Exception as error:raise Exception("Initial tests | {0}".format(error))
 
             try:
                 #...Changing mClass on the fly
@@ -380,7 +380,7 @@ def ut_cgmMeta(*args, **kws):
                 except:self.log_debug("Validate puppet")
 
                 miPuppet.delete()
-            except Exception,error:raise Exception,"validate puppet"
+            except Exception as error:raise Exception("validate puppet")
 
             try:
                 _objs = [mc.joint(), mc.group(em=True), mc.createNode('multiplyDivide')]
@@ -393,10 +393,10 @@ def ut_cgmMeta(*args, **kws):
                             assert issubclass(type(n1),cgmMeta.cgmObject),"Not a cgmObject"   
                         n1.delete()
 
-                    except Exception,error:
-                        raise Exception,"{0} failed. | {1}".format(obj,error)
+                    except Exception as error:
+                        raise Exception("{0} failed. | {1}".format(obj,error))
 
-            except Exception,error:raise Exception,"nodetype series |{0}".format(error)	    
+            except Exception as error:raise Exception("nodetype series |{0}".format(error))	    
 
         def _cgmAttr_(self,**kws):    
             self.cgmAttrNull = cgmMeta.cgmObject(name = 'cgmAttrNull',nodeType = 'transform')
@@ -416,7 +416,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.cgmString.stringTest == 'catRatDog'
 
                 assert self.cgmString.p_keyable == False
-            except Exception,error:raise Exception,"[string test]{%s}"%error
+            except Exception as error:raise Exception("[string test]{%s}"%error)
 
             try:#NameFlags
                 #----------------   
@@ -431,7 +431,7 @@ def ut_cgmMeta(*args, **kws):
                 self.cgmTx.p_nameAlias = 'thatWay'
                 assert self.cgmTx.p_nameAlias == 'thatWay'
                 assert node.hasAttr('thatWay'),"attr alias 'thatWay'--{0} not recognized".format(self.cgmTx.p_combinedShortName)
-            except Exception,error:raise Exception,"[name flags]{%s}"%error
+            except Exception as error:raise Exception("[name flags]{%s}"%error)
 
             try:#Int test
                 #---------------- 
@@ -477,7 +477,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.cgmIntAttr.attrType == 'long', "Not long. {0}".format(self.cgmIntAttr.attrType)          
                 assert self.cgmIntAttr.p_locked == True
                 assert self.cgmIntAttr.intTest == 6  
-            except Exception,error:raise Exception,"[Int tests]{%s}"%error
+            except Exception as error:raise Exception("[Int tests]{%s}"%error)
 
             try:#Float test
                 self.cgmFloatAttr = cgmMeta.cgmAttr(node,'floatTest',value = 1.333, keyable = True, lock=True)
@@ -496,7 +496,7 @@ def ut_cgmMeta(*args, **kws):
 
                 self.cgmFloatAttr.p_keyable = False
                 assert self.cgmFloatAttr.p_keyable == False
-            except Exception,error:raise Exception,"[float tests]{%s}"%error
+            except Exception as error:raise Exception("[float tests]{%s}"%error)
 
 
             """try:#Message test
@@ -548,7 +548,7 @@ def ut_cgmMeta(*args, **kws):
                 self.cgmEnumAttr.doConnectOut(self.cgmFloatAttr.p_combinedName)#Connect 
                 self.log_debug('connect')		
                 assert self.cgmEnumAttr.getDriven() == [self.cgmFloatAttr.p_combinedName]," %s not equal to [%s]"%(self.cgmEnumAttr.getDriven(), self.cgmFloatAttr.p_combinedName)#This should be what's connected
-            except Exception,error:raise Exception,"[enum]{%s}"%error
+            except Exception as error:raise Exception("[enum]{%s}"%error)
 
             try:#Double3 test
                 #---------------- 
@@ -564,7 +564,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.cgmVectorAttr.value == [1.0,44.0,7.0],self.cgmVectorAttr.value
                 self.cgmVectorXAttr.doConnectIn(self.cgmFloatAttr.p_combinedName)
                 assert self.cgmVectorXAttr.getDriver() == self.cgmFloatAttr.p_combinedName," %s not equal to [%s]"%(self.cgmVectorXAttr.getDriver(), self.cgmFloatAttr.p_combinedName)#This should be what's connected
-            except Exception,error:raise Exception,"[double3]{%s}"%error
+            except Exception as error:raise Exception("[double3]{%s}"%error)
             #node.select()	    
         def _NodeFactory_(self,**kws):
             NodeF.test_argsToNodes()	
@@ -585,7 +585,7 @@ def ut_cgmMeta(*args, **kws):
                 node.addAttr('boolTest', False)       #create a bool attribute
                 node.addAttr('enumTest',enumName='A:B:D:E:F', attrType ='enum',value = 1) #create an enum attribute
                 node.addAttr('vecTest', [0,0,0], attrType ='double3') #create a double3
-            except Exception,error:raise Exception,"[Standard handling]{%s}"%error
+            except Exception as error:raise Exception("[Standard handling]{%s}"%error)
 
             try:#testAttrs with no value flags but attr flag to use default 
                 node.addAttr('stringTestNoValue', attrType = 'string')  #create a string attribute
@@ -594,13 +594,13 @@ def ut_cgmMeta(*args, **kws):
                 node.addAttr('boolTestNoValue', attrType = 'bool')  #create a string attribute
                 node.addAttr('enumTestNoValue', attrType = 'enum')  #create a string attribute
                 #node.addAttr('vecTestNoValue', attrType ='double3') #create a double3
-            except Exception,error:raise Exception,"[test creation - no values]{%s}"%error
+            except Exception as error:raise Exception("[test creation - no values]{%s}"%error)
 
 
             try:#create a string attr with JSON serialized data
                 testDict={'jsonFloat':1.05,'jsonInt':3,'jsonString':'string says hello','jsonBool':True}
                 node.addAttr('jsonTest',testDict,attrType = 'string')
-            except Exception,error:raise Exception,"[json serialized]{%s}"%error
+            except Exception as error:raise Exception("[json serialized]{%s}"%error)
 
             try:#test the hasAttr call in the baseClass
                 assert node.hasAttr('stringTest')
@@ -615,7 +615,7 @@ def ut_cgmMeta(*args, **kws):
                 assert node.hasAttr('intTestNoValue')
                 assert node.hasAttr('boolTestNoValue')
                 assert node.hasAttr('enumTestNoValue')
-            except Exception,error:raise Exception,"[created?]{%s}"%error
+            except Exception as error:raise Exception("[created?]{%s}"%error)
 
 
             try:#test the actual Maya node attributes
@@ -641,7 +641,7 @@ def ut_cgmMeta(*args, **kws):
                 assert mc.getAttr('%s.intTestNoValue' % node.mNode)==0
                 assert mc.getAttr('%s.boolTestNoValue' % node.mNode)==0
                 assert mc.getAttr('%s.enumTestNoValue' % node.mNode)==0
-            except Exception,error:raise Exception,"[Test created]{%s}"%error
+            except Exception as error:raise Exception("[Test created]{%s}"%error)
 
 
 
@@ -675,7 +675,7 @@ def ut_cgmMeta(*args, **kws):
                 node.vecTest = 2,2,2
                 assert node.vecTestX==2
                 assert node.vecTest == (2.0, 2.0, 2.0),'%s'%node.vecTest
-            except Exception,error:raise Exception,"[Meta calls the same?]{%s}"%error
+            except Exception as error:raise Exception("[Meta calls the same?]{%s}"%error)
 
 
             try:#json string handlers
@@ -690,7 +690,7 @@ def ut_cgmMeta(*args, **kws):
                 assert mc.objExists(node.mNode)
                 assert not node.hasAttr('boolTest')
                 assert not mc.attributeQuery('boolTest',node=node.mNode,exists=True)
-            except Exception,error:raise Exception,"[json handling]{%s}"%error
+            except Exception as error:raise Exception("[json handling]{%s}"%error)
 
         def _messageAttrHandling_(self,**kws):
             '''
@@ -706,26 +706,26 @@ def ut_cgmMeta(*args, **kws):
                 cube4= cgmMeta.cgmNode(mc.polyCube()[0])
                 cube5= cgmMeta.cgmNode(mc.polyCube()[0])
                 cube6= cgmMeta.cgmNode(mc.polyCube()[0])
-            except Exception,error:raise Exception,"[cube creation]{%s}"%error
+            except Exception as error:raise Exception("[cube creation]{%s}"%error)
 
             try:
                 try:
                     node.addAttr('msgMultiTest', value=[cube1.mNode,cube2.mNode,cube3.mNode], attrType='message')   #multi Message attr
                     node.addAttr('msgSingleTest', value=cube3.mNode, attrType='messageSimple')    #non-multi message attr
                     node.addAttr('msgSingleTest2', value=cube3.mNode, attrType='messageSimple')    #non-multi message attr
-                except Exception,error:raise Exception,"[Initial add]{%s}"%error
+                except Exception as error:raise Exception("[Initial add]{%s}"%error)
 
                 try:
                     assert node.hasAttr('msgMultiTest')
                     assert node.hasAttr('msgSingleTest')
                     assert node.hasAttr('msgSingleTest2')
-                except Exception,error:raise Exception,"[Has attr fail]{%s}"%error
+                except Exception as error:raise Exception("[Has attr fail]{%s}"%error)
 
                 assert mc.getAttr('%s.msgMultiTest' % node.mNode, type=True)=='message',"msgMultiTest not message"
                 assert mc.getAttr('%s.msgSingleTest' % node.mNode, type=True)=='message',"msgSingleTest not message"
                 assert mc.attributeQuery('msgMultiTest',node=node.mNode, multi=True)==True,"msgMultiTest not multi"
                 assert mc.attributeQuery('msgSingleTest',node=node.mNode, multi=True)==False,"msgSingleTest not single message"
-            except Exception,error:raise Exception,"[attr creation]{%s}"%error
+            except Exception as error:raise Exception("[attr creation]{%s}"%error)
 
             #NOTE : cmds returns shortName, but all MetaClass attrs are always longName
             try:
@@ -735,7 +735,7 @@ def ut_cgmMeta(*args, **kws):
                 assert node.getMessage('msgMultiTest',False) ==[cube1.getShortName(),cube2.getShortName(),cube3.getShortName()],"%s is not [%s,%s,%s]"%(node.getMessage('msgMultiTest',False),cube1.mNode,cube2.mNode,cube3.mNode)
                 node.msgSingleTest2 = cube1.mNode
                 assert node.msgSingleTest2 == [cube1.mNode],node.msgSingleTest2
-            except Exception,error:raise Exception,"[connections?]{%s}"%error
+            except Exception as error:raise Exception("[connections?]{%s}"%error)
 
 
 
@@ -746,17 +746,17 @@ def ut_cgmMeta(*args, **kws):
 
             try:#Randomly move stuff
                 for attr in 'translateX','translateY','translateZ','rotateX','rotateY','rotateZ':
-                    self.pCube.__setattr__(attr,random.choice(range(1,10)))
+                    self.pCube.__setattr__(attr,random.choice(list(range(1,10))))
                 for attr in 'scaleX','scaleY','scaleZ':
                     self.pCube.__setattr__(attr,random.choice([1,.5,.75]))
-                self.pCube.rotateOrder = random.choice(range(1,5))#0 not an option for accurate testing
+                self.pCube.rotateOrder = random.choice(list(range(1,5)))#0 not an option for accurate testing
 
                 for attr in 'translateX','translateY','translateZ','rotateX','rotateY','rotateZ':
-                    self.nCube.__setattr__(attr,random.choice(range(1,10)))
+                    self.nCube.__setattr__(attr,random.choice(list(range(1,10))))
                 for attr in 'scaleX','scaleY','scaleZ':
                     self.nCube.__setattr__(attr,random.choice([1,.5,.75]))
-                self.nCube.rotateOrder = random.choice(range(1,5))
-            except Exception,error:raise Exception,"[Move stuff]{%s}"%error
+                self.nCube.rotateOrder = random.choice(list(range(1,5)))
+            except Exception as error:raise Exception("[Move stuff]{%s}"%error)
 
             try:#Parent and assert relationship
                 #mc.parent(self.pCube.mNode,self.nCube.mNode)#parent pCube to nCube
@@ -771,7 +771,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.pCube.parent == False #Verify 
                 self.pCube.doAddChild(self.nCube.mNode)#Parent by adding as child
                 assert self.nCube.getShortName() in self.pCube.getChildren(),"Not in the children : %s"%self.pCube.getChildren()
-            except Exception,error:raise Exception,"[Parenting]{%s}"%error
+            except Exception as error:raise Exception("[Parenting]{%s}"%error)
 
 
             try:#Rotate order match
@@ -780,14 +780,14 @@ def ut_cgmMeta(*args, **kws):
 
                 self.MetaObject.doCopyRotateOrder = self.nCube.rotateOrder #Just set it
                 assert self.MetaObject.doCopyRotateOrder == self.nCube.rotateOrder
-            except Exception,error:raise Exception,"[Rotate order]{%s}"%error
+            except Exception as error:raise Exception("[Rotate order]{%s}"%error)
 
             try:#Group
                 previousPos = distance.returnWorldSpacePosition(self.pCube.mNode)
                 self.pCube.doGroup(True)
                 #assert previousPos == distance.returnWorldSpacePosition(self.pCube.mNode),"previous %s != %s"%(previousPos,distance.returnWorldSpacePosition(self.pCube.mNode))
                 assert self.pCube.getParent() != self.nCube.mNode,"nCube shouldn't be the parent"
-            except Exception,error:raise Exception,"[Grouping]{%s}"%error
+            except Exception as error:raise Exception("[Grouping]{%s}"%error)
 
             try:#setDrawingOverrideSettings
                 self.pCube.overrideEnabled = 1     
@@ -799,13 +799,13 @@ def ut_cgmMeta(*args, **kws):
                 assert self.pCube.overrideVisibility == 1
 
                 for shape in self.pCube.getShapes():
-                    for a in TestDict.keys():
+                    for a in list(TestDict.keys()):
                         assert attributes.doGetAttr(shape,a) == TestDict[a],"'%s.%s' is not %s"%(shape,a,TestDict[a])
-            except Exception,error:raise Exception,"[Drawing overrides]{%s}"%error
+            except Exception as error:raise Exception("[Drawing overrides]{%s}"%error)
 
             try:#Copy pivot
                 self.MetaObject.doCopyPivot(self.pCube.mNode)
-            except Exception,error:raise Exception,"[copy pivot]{%s}"%error
+            except Exception as error:raise Exception("[copy pivot]{%s}"%error)
 
         def _cgmObjectSetCalls_(self,**kws):
             try:
@@ -817,7 +817,7 @@ def ut_cgmMeta(*args, **kws):
                 #Initialize another set with a value on call
                 assert self.ObjectSet2.value == self.ObjectSet.value
                 del self.ObjectSet2.value        
-            except Exception,error:raise Exception,"[Initial]{%s}"%error
+            except Exception as error:raise Exception("[Initial]{%s}"%error)
 
             try:#Assert some info
                 #---------------- 
@@ -833,7 +833,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.ObjectSet.objectSetType == 'animation',"Type is '%s'"%self.ObjectSet.objectSetType
                 self.ObjectSet.objectSetType = 'modeling'
                 assert self.ObjectSet.objectSetType == 'modeling'
-            except Exception,error:raise Exception,"[Initial assertations]{%s}"%error
+            except Exception as error:raise Exception("[Initial assertations]{%s}"%error)
 
             try:#Adding and removing
                 #-------------------
@@ -848,7 +848,7 @@ def ut_cgmMeta(*args, **kws):
 
                 self.ObjectSet.value = False
                 assert not self.ObjectSet.value
-            except Exception,error:raise Exception,"[Add/remove by property]{%s}"%error
+            except Exception as error:raise Exception("[Add/remove by property]{%s}"%error)
 
             try:#Adding and removing
                 #-------------------
@@ -869,7 +869,7 @@ def ut_cgmMeta(*args, **kws):
 
                 assert not self.ObjectSet.doesContain(self.pCube.mNode),"%s"%self.ObjectSet.getList()
                 assert not self.ObjectSet.doesContain(self.nCube.mNode),"%s"%self.ObjectSet.getList()
-            except Exception,error:raise Exception,"[Check adds]{%s}"%error
+            except Exception as error:raise Exception("[Check adds]{%s}"%error)
 
             try:#Selecting/purging/copying
                 #-------------------------
@@ -893,7 +893,7 @@ def ut_cgmMeta(*args, **kws):
                 #Purge
                 self.ObjectSetCopy.purge()
                 assert not self.ObjectSetCopy.getList(),"Dup set failed to purge"
-            except Exception,error:raise Exception,"[Selecting/purging/copying]{%s}"%error
+            except Exception as error:raise Exception("[Selecting/purging/copying]{%s}"%error)
 
             try:#Keying, deleting keys, reseting
                 #------------------------------- 
@@ -910,13 +910,13 @@ def ut_cgmMeta(*args, **kws):
 
                 self.ObjectSet.reset()
                 assert self.pCube.tx == 0
-            except Exception,error:raise Exception,"[Keying, deleting keys, reseting]{%s}"%error
+            except Exception as error:raise Exception("[Keying, deleting keys, reseting]{%s}"%error)
         def _cgmOptionVarCalls_(self,**kws):
             try:#Purge the optionVars
                 for var in 'cgmVar_intTest','cgmVar_stringTest','cgmVar_floatTest':
                     if mc.optionVar(exists = var):
                         mc.optionVar(remove = var)
-            except Exception,error:raise Exception,"[manual purge]{%s}"%error
+            except Exception as error:raise Exception("[manual purge]{%s}"%error)
 
             try:# Testing creation/conversion of ine optionVar
                 #-------------------------
@@ -943,7 +943,7 @@ def ut_cgmMeta(*args, **kws):
                 self.OptionVarInt.value = 0
                 self.OptionVarInt.toggle()
                 assert self.OptionVarInt.value == 1
-            except Exception,error:raise Exception,"[Creation/Conversion...]{%s}"%error
+            except Exception as error:raise Exception("[Creation/Conversion...]{%s}"%error)
 
 
             try:# String varType test and initValue Test
@@ -967,7 +967,7 @@ def ut_cgmMeta(*args, **kws):
                 self.OptionVarString.value = (self.nCube.mNode,self.pCube.mNode,'test3')#set via tuple
                 assert len(self.OptionVarString.value) == 3,"Tuple. Len is %s"%len(self.OptionVarString.value)
                 assert type(self.OptionVarString.value) is list,"Type is %s"%type(self.OptionVarString.value)
-            except Exception,error:raise Exception,"[String tests]{%s}"%error
+            except Exception as error:raise Exception("[String tests]{%s}"%error)
 
             try:# Appending to string, removing, select and exist check testing
                 #-------------------------	
@@ -987,7 +987,7 @@ def ut_cgmMeta(*args, **kws):
                 len(mc.ls(sl=True)) == 2
                 self.OptionVarString.existCheck()#Remove maya objects that don't exist
                 len(self.OptionVarString.value) == 2
-            except Exception,error:raise Exception,"[Apend/Remove/select/exists...]{%s}"%error
+            except Exception as error:raise Exception("[Apend/Remove/select/exists...]{%s}"%error)
 
             try:# Float testing and translation testing
                 #-------------------------
@@ -1002,7 +1002,7 @@ def ut_cgmMeta(*args, **kws):
 
                 self.OptionVarFloat.varType = 'int' #Convert to int
                 #self.log_info(self.OptionVarFloat.value)                
-            except Exception,error:raise Exception,"[Float]{%s}"%error
+            except Exception as error:raise Exception("[Float]{%s}"%error)
 
 
             try:# Delete checking	
@@ -1012,14 +1012,14 @@ def ut_cgmMeta(*args, **kws):
 
                 self.OptionVarString.purge() #Deletion via purge
                 assert not mc.optionVar(exists = 'cgmVar_stringTest')
-            except Exception,error:raise Exception,"[delete]{%s}"%error
+            except Exception as error:raise Exception("[delete]{%s}"%error)
 
 
             try:# Float varType test and initValue Test
                 #-------------------------
                 #self.log_info('>'*3 + " String varType test and initValue Test...")   
                 self.OptionVarString = cgmMeta.cgmOptionVar('cgmVar_stringTest', defaultValue='batman')#String type
-            except Exception,error:raise Exception,"[float init value]{%s}"%error
+            except Exception as error:raise Exception("[float init value]{%s}"%error)
 
         def _cgmBufferNodeCalls_(self,**kws):
             self.BufferNode = cgmMeta.cgmBufferNode(name = 'testBuffer',value = ['test1','test2'],overideMessageCheck = True)#No arg should default to int
@@ -1039,48 +1039,48 @@ def ut_cgmMeta(*args, **kws):
                 i_net1 = cgmMeta.cgmNode(name = 'net',nodeType = 'network')        
                 i_net1.addAttr('cgmName','net', attrType = 'string')
                 assert nf(i_net1).getBaseIterator() == 0,"baseIterator: %s"%nf(i_net1).getBaseIterator()
-            except Exception,error:raise Exception,"Initial | {0}".format(error)
+            except Exception as error:raise Exception("Initial | {0}".format(error))
 
             try:
                 i_net2 = cgmMeta.cgmNode(mc.duplicate(i_net1.mNode)[0] )
                 try:assert nf(i_net1).getMatchedSiblings() == [i_net2],"%s"%nf(i_net1).getMatchedSiblings()
-                except Exception,error:raise Exception,"matched siblings > net 2, {0}".format(error)
+                except Exception as error:raise Exception("matched siblings > net 2, {0}".format(error))
 
                 try:assert nf(i_net2).getMatchedSiblings() == [i_net1],"%s"%nf(i_net2).getMatchedSiblings()
-                except Exception,error:raise Exception,"matched siblings > net 1, {0}".format(error)
+                except Exception as error:raise Exception("matched siblings > net 1, {0}".format(error))
 
                 assert nf(i_net1).getBaseIterator() == 1,"%s"%"baseIterator: %s"%nf(i_net1).getBaseIterator()
                 assert i_net1.getNameDict() == i_net2.getNameDict(),"Name dicts not equal"
                 assert nf(i_net1).getIterator() == 1,"Not 1 | {0}".format(nf(i_net1).getIterator())
                 try:i_net1.doName(fastName=False,fastIterate = False)
-                except Exception,error:raise Exception,"slow name pass: 1, {0}".format(error)
+                except Exception as error:raise Exception("slow name pass: 1, {0}".format(error))
                 assert nf(i_net2).getIterator() == 2,"Not 2 | {0}".format(nf(i_net2).getIterator())
                 try:nf(i_net2).doNameObject(fastIterate = False)
-                except Exception,error:raise Exception,"slow name pass: 2, {0}".format(error)		
+                except Exception as error:raise Exception("slow name pass: 2, {0}".format(error))		
                 assert '2' in list(i_net2.mNode),"2 not in : '%s'"%i_net2.mNode
-            except Exception,error:raise Exception,"Duplicate | {0}".format(error)
+            except Exception as error:raise Exception("Duplicate | {0}".format(error))
 
             try:#Transform nodes
                 try:
                     i_trans1a = cgmMeta.cgmObject(name = 'trans')
                     i_parent = cgmMeta.cgmObject(name = 'parent')
                     i_parent.addAttr('cgmName','nameParent', attrType = 'string')
-                except Exception,error:
-                    raise Exception,"Setup | {0}".format(error)
+                except Exception as error:
+                    raise Exception("Setup | {0}".format(error))
 
                 try:i_trans1b = cgmMeta.cgmObject(mc.duplicate(i_trans1a.mNode)[0] )
-                except Exception,error:
-                    raise Exception,"duplicate | {0}".format(error)
+                except Exception as error:
+                    raise Exception("duplicate | {0}".format(error))
                 try:
                     i_trans1a.parent = i_parent.mNode
                     i_trans1b.parent = i_parent.mNode
-                except Exception,error:
-                    raise Exception,"parent | {0}".format(error)		    
+                except Exception as error:
+                    raise Exception("parent | {0}".format(error))		    
                 assert i_trans1b in i_trans1a.getSiblings(asMeta = True),"In getSiblins? %s"%i_trans1a.getSiblings()
                 #assert nf(i_trans1a).getMatchedSiblings() == [i_trans1b],"%s"%nf(i_trans1a).getMatchedSiblings()
                 #assert nf(i_trans1b).getMatchedSiblings() == [i_trans1a],"%s"%nf(i_trans1b).getMatchedSiblings()        
                 #assert nf(i_trans1b).returnUniqueGeneratedName(fastIterate = False) == nf(i_trans1a).returnUniqueGeneratedName(fastIterate = False),"Not returning same name buffer"
-            except Exception,error:raise Exception,"TransformNodes | {0}".format(error)
+            except Exception as error:raise Exception("TransformNodes | {0}".format(error))
 
             #Name different ways
             bufferName =  nf(i_trans1a).returnUniqueGeneratedName(fastIterate = False)
@@ -1130,52 +1130,52 @@ def ut_msgList(*args, **kws):
                     self.l_strLong.append(mObj.mNode)
                     self.l_strShort.append(mObj.p_nameShort)
                     self.ml_objs.append(mObj)
-            except Exception,error:raise Exception,"[Create msgList objects]{%s}"%error
+            except Exception as error:raise Exception("[Create msgList objects]{%s}"%error)
 
         def _connect_(self,**kws):
             mi_catcher = self.mi_catcherObj
             try:#connect
                 md_objs = self.md_msgListObjs
                 self.mi_catcherObj.msgList_connect([md_objs[0],md_objs[1].mNode],'msgAttr','connectBack')
-            except Exception,error:raise Exception,"[Connect]{%s}"%error    
+            except Exception as error:raise Exception("[Connect]{%s}"%error)    
 
             try:#check connections
                 assert self.mi_catcherObj.msgAttr_0 == md_objs[0],"[0 Failed]{%s}"%self.mi_catcherObj.msgAttr_0
                 assert self.mi_catcherObj.msgAttr_1.mNode == md_objs[1].mNode,"[1 Failed]{%s}"%self.mi_catcherObj.msgAttr_1
                 assert md_objs[0].connectBack == self.mi_catcherObj,"[0 connectBack failed!]{%s}"%self.mi_catcherObj.msgAttr_0
-            except Exception,error:raise Exception,"[check connections]{%s}"%error   
+            except Exception as error:raise Exception("[check connections]{%s}"%error)   
 
         def _get_(self,**kws):
             mi_catcher = self.mi_catcherObj
             md_objs = self.md_msgListObjs
 
             try:assert self.mi_catcherObj.msgList_exists('msgAttr'),"[msgList exists check fail]"
-            except Exception,error:raise Exception,"[msgList exists]{%s}"%error   
+            except Exception as error:raise Exception("[msgList exists]{%s}"%error)   
 
 
             try:assert self.mi_catcherObj.msgList_get('msgAttr') == [self.ml_objs[0],self.ml_objs[1]],"[get != self.mlObjs]"
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%self.mi_catcherObj.msgList_get('msgAttr'))
                 self.log_error("expected : %s"%self.ml_objs[:2])		
-                raise StandardError,"[msgList_get check 1 -- asMeta 1]{%s}"%error   
+                raise Exception("[msgList_get check 1 -- asMeta 1]{%s}"%error)   
 
             try:assert self.mi_catcherObj.msgList_get('msgAttr',asMeta = False) == [mObj.p_nameShort for mObj in self.ml_objs[:2]],"[get != self.mlObjs]"
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%self.mi_catcherObj.msgList_get('msgAttr',asMeta = False))
                 self.log_error("expected : %s"%[mObj.p_nameShort for mObj in self.ml_objs[:2]])		
-                raise StandardError,"[msgList_get -- asMeta 0]{%s}"%error  
+                raise Exception("[msgList_get -- asMeta 0]{%s}"%error)  
 
             try:assert self.mi_catcherObj.msgList_getMessage('msgAttr',longNames = True) == [mObj.mNode for mObj in self.ml_objs[:2]],"[getMessage fail!]"
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%mi_catcher.msgList_getMessage('msgAttr',longNames = True))
                 self.log_error("expected : %s"%[mObj.mNode for mObj in self.ml_objs[:2]])		
-                raise StandardError,"[msgList_getMessage -- longNames True]{%s}"%error  
+                raise Exception("[msgList_getMessage -- longNames True]{%s}"%error)  
 
             try:assert self.mi_catcherObj.msgList_getMessage('msgAttr',longNames = False) == [mObj.p_nameShort for mObj in self.ml_objs[:2]],"[getMessage fail!]"
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%mi_catcher.msgList_getMessage('msgAttr',longNames = False))
                 self.log_error("expected : %s"%[mObj.p_nameShort for mObj in self.ml_objs[:2]])		
-                raise StandardError,"[msgList_getMessage -- longNames False]{%s}"%error  
+                raise Exception("[msgList_getMessage -- longNames False]{%s}"%error)  
 
         def _append_(self,**kws):
             mi_catcher = self.mi_catcherObj
@@ -1183,21 +1183,21 @@ def ut_msgList(*args, **kws):
 
             try:
                 mi_catcher.msgList_append(md_objs[2],'msgAttr',connectBack = 'connectBack')
-            except Exception,error:raise Exception,"[append connect]{%s}"%error    
+            except Exception as error:raise Exception("[append connect]{%s}"%error)    
 
             try:#check connections
                 assert mi_catcher.msgAttr_2 == md_objs[2],"[append failed]{%s}"%mi_catcher.msgAttr_2
                 assert md_objs[2].connectBack == mi_catcher,"[append -- connectBack failed!]{%s}"%md_objs[2].connectBack 
-            except Exception,error:raise Exception,"[check connections]{%s}"%error   
+            except Exception as error:raise Exception("[check connections]{%s}"%error)   
 
             try:
                 ml_buffer = self.mi_catcherObj.msgList_get('msgAttr')
                 assert [mObj.mNode for mObj in ml_buffer] == [mObj.mNode for mObj in self.ml_objs[:3]],"[get != self.mlObjs]"
                 assert len(ml_buffer) == 3,"[len != 3]"		
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%self.mi_catcherObj.msgList_get('msgAttr'))
                 self.log_error("expected : %s"%self.ml_objs[:3])		
-                raise StandardError,"[append msgList_get check 1 -- asMeta 0]{%s}"%error 
+                raise Exception("[append msgList_get check 1 -- asMeta 0]{%s}"%error) 
 
         def _index_(self,**kws):
             mi_catcher = self.mi_catcherObj
@@ -1213,16 +1213,16 @@ def ut_msgList(*args, **kws):
 
             try:
                 mi_catcher.msgList_remove(md_objs[2],attr = 'msgAttr')
-            except Exception,error:raise Exception,"[remove]{%s}"%error    
+            except Exception as error:raise Exception("[remove]{%s}"%error)    
 
             try:
                 ml_buffer = self.mi_catcherObj.msgList_get('msgAttr')
                 assert ml_buffer == self.ml_objs[:2],"[get != self.mlObjs]"
                 assert len(ml_buffer) == 2,"[len != 2]"		
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%self.mi_catcherObj.msgList_get('msgAttr'))
                 self.log_error("expected : %s"%self.ml_objs[:2])		
-                raise StandardError,"[msgList_get check]{%s}"%error 
+                raise Exception("[msgList_get check]{%s}"%error) 
 
         def _purge_(self,**kws):
             mi_catcher = self.mi_catcherObj
@@ -1230,16 +1230,16 @@ def ut_msgList(*args, **kws):
 
             try:
                 mi_catcher.msgList_purge(attr = 'msgAttr')
-            except Exception,error:raise Exception,"[purge]{%s}"%error    
+            except Exception as error:raise Exception("[purge]{%s}"%error)    
 
             try:
                 ml_buffer = self.mi_catcherObj.msgList_get('msgAttr')
                 assert ml_buffer == [],"[Buffer should be empty | %s]"%ml_buffer
                 assert len(ml_buffer) == 0,"[len != 0]"		
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%self.mi_catcherObj.msgList_get('msgAttr'))
                 self.log_error("expected : %s"%[])		
-                raise StandardError,"[msgList_get check]{%s}"%error 
+                raise Exception("[msgList_get check]{%s}"%error) 
 
         def _clean_(self,**kws):
             mi_catcher = self.mi_catcherObj
@@ -1249,28 +1249,28 @@ def ut_msgList(*args, **kws):
             try:
                 mi_catcher.msgList_connect(ml_objs, 'msgAttr', 'connectBack')
                 attributes.doBreakConnection(mi_catcher.mNode, 'msgAttr_2')#Break it
-            except Exception,error:raise Exception,"[connecting all]{%s}"%error  
+            except Exception as error:raise Exception("[connecting all]{%s}"%error)  
 
             try:
                 ml_buffer = self.mi_catcherObj.msgList_get('msgAttr', cull = True)
                 assert len(ml_buffer) == 4,"[len != 4]"		
-            except Exception,error:
+            except Exception as error:
                 self.log_error("result : %s"%ml_buffer)
                 self.log_error("expected : %s"%4)		
-                raise StandardError,"[msgList_get with cull check]{%s}"%error 
+                raise Exception("[msgList_get with cull check]{%s}"%error) 
 
             try:
                 mi_catcher.msgList_clean('msgAttr')
-            except Exception,error:raise Exception,"[clean]{%s}"%error  	
+            except Exception as error:raise Exception("[clean]{%s}"%error)  	
 
             try:
                 ml_buffer2 = self.mi_catcherObj.msgList_get('msgAttr')
                 assert ml_buffer2 == ml_buffer,"Buffers not the same"				
                 assert len(ml_buffer2) == 4,"[len != 4]"		
-            except Exception,error:
+            except Exception as error:
                 self.log_error("ml_buffer : %s"%ml_buffer)		
                 self.log_error("result : %s"%ml_buffer2)
-                raise StandardError,"[clean check]{%s}"%error 
+                raise Exception("[clean check]{%s}"%error) 
 
     return fncWrap(*args, **kws).go()
 
@@ -1292,7 +1292,7 @@ def ut_cgmPuppet(*args, **kws):
 
         def _puppetTests_(self,**kws):   
             try:mc.file(new=True,f=True)
-            except Exception,error:raise Exception,"[File Open]{%s}"%error
+            except Exception as error:raise Exception("[File Open]{%s}"%error)
 
             self.mi_puppet = cgmPM.cgmPuppet(name = 'Kermit')
             Puppet = self.mi_puppet
@@ -1301,26 +1301,26 @@ def ut_cgmPuppet(*args, **kws):
             try:#Initializations via other calls
                 #----------------------------------------------------------
                 try:self.mi_puppet._UTILS
-                except Exception,error:
-                    raise Exception,"No _Utils found | error: {0}".format(error)
+                except Exception as error:
+                    raise Exception("No _Utils found | error: {0}".format(error))
                 try:
                     mInstance = cgmMeta.cgmNode(Puppet.mNode)
                     if not issubclass(type(mInstance),cgmPM.cgmPuppet):
-                        raise ValueError,"not a cgmPuppet now...({0})".format(type(mInstance))
-                except Exception,error:raise Exception,"Call by cgmNode | {0}".format(error)
+                        raise ValueError("not a cgmPuppet now...({0})".format(type(mInstance)))
+                except Exception as error:raise Exception("Call by cgmNode | {0}".format(error))
                 try:
                     mInstance = cgmMeta.cgmObject(Puppet.mNode)
                     if not issubclass(type(mInstance),cgmPM.cgmPuppet):
-                        raise ValueError,"not a cgmPuppet now...({0})".format(type(mInstance))		    
-                except Exception,error:raise Exception,"Call by cgmObject | {0}".format(error)		
+                        raise ValueError("not a cgmPuppet now...({0})".format(type(mInstance)))		    
+                except Exception as error:raise Exception("Call by cgmObject | {0}".format(error))		
 
                 try:
                     mInstance = cgmMeta.validateObjArg(Puppet.mNode)
                     if not issubclass(type(mInstance),cgmPM.cgmPuppet):
-                        raise ValueError,"not a cgmPuppet now...({0})".format(type(mInstance))		    
-                except Exception,error:raise Exception,"Validate obj call | {0}".format(error)
+                        raise ValueError("not a cgmPuppet now...({0})".format(type(mInstance)))		    
+                except Exception as error:raise Exception("Validate obj call | {0}".format(error))
 
-            except Exception,error:raise Exception,"Initialization calls | {0}".format(error)	    
+            except Exception as error:raise Exception("Initialization calls | {0}".format(error))	    
 
             try:#Assertions on the network null
                 #----------------------------------------------------------
@@ -1336,13 +1336,13 @@ def ut_cgmPuppet(*args, **kws):
                                        'axisUp':['enum',1],
                                        'axisOut':['enum',0]}                                   
 
-                for attr in puppetDefaultValues.keys():
+                for attr in list(puppetDefaultValues.keys()):
                     assert Puppet.hasAttr(attr),("'%s' missing attr:%s"%(self.mi_puppet.mNode,attr))
                     assert mc.getAttr('%s.%s'%(Puppet.mNode,attr), type=True) == puppetDefaultValues.get(attr)[0], "Type is '%s'"%(mc.getAttr('%s.%s' %(Puppet.mNode,attr), type=True))
                     if len(puppetDefaultValues.get(attr)) > 1:#assert that value
                         log.debug("%s"% attributes.doGetAttr(Puppet.mNode,attr))                
                         assert attributes.doGetAttr(Puppet.mNode,attr) == puppetDefaultValues.get(attr)[1],"%s is not %s"%(attributes.doGetAttr(Puppet.mNode,attr),puppetDefaultValues.get(attr)[1])
-            except Exception,error:raise Exception,"[network null]{%s}"%error
+            except Exception as error:raise Exception("[network null]{%s}"%error)
 
             try:#Assertions on the masterNull
                 #----------------------------------------------------------
@@ -1354,13 +1354,13 @@ def ut_cgmPuppet(*args, **kws):
                 masterDefaultValues = {'cgmType':['string','ignore'],
                                        'cgmModuleType':['string','master']}       
 
-                for attr in masterDefaultValues.keys():
+                for attr in list(masterDefaultValues.keys()):
                     assert Puppet.masterNull.hasAttr(attr),("'%s' missing attr:%s"%(Puppet.masterNull.mNode,attr))
                     assert mc.getAttr('%s.%s'%(Puppet.masterNull.mNode,attr), type=True) == masterDefaultValues.get(attr)[0], "Type is '%s'"%(mc.getAttr('%s.%s' %(Puppet.masterNull.mNode,attr), type=True))
                     if len(masterDefaultValues.get(attr)) > 1:#assert that value
                         log.debug("%s"% attributes.doGetAttr(Puppet.masterNull.mNode,attr))
                         assert attributes.doGetAttr(Puppet.masterNull.mNode,attr) == masterDefaultValues.get(attr)[1],"MasterDefault value keys dont' match. {0}".format(attr)
-            except Exception,error:raise Exception,"[masterNull]{%s}"%error
+            except Exception as error:raise Exception("[masterNull]{%s}"%error)
 
             Puppet2 = 'Failed'
 
@@ -1405,7 +1405,7 @@ def ut_cgmPuppet(*args, **kws):
             try:
                 Module1 = cgmPM.cgmModule(name = 'arm',position = 'front',direction = 'right', handles = 3)
                 Module1IO = cgmPM.cgmModule(Module1.mNode,initializeOnly = True) #Should equal that of the reg process
-            except Exception,error:raise Exception,"[creation]{%s}"%error
+            except Exception as error:raise Exception("[creation]{%s}"%error)
 
             try:#Assertions on the module null
                 #----------------------------------------------------------
@@ -1421,7 +1421,7 @@ def ut_cgmPuppet(*args, **kws):
                 assert Module1.cgmType == Module1IO.cgmType
                 assert Module1.cgmPosition == Module1IO.cgmPosition
                 assert Module1.cgmDirection == Module1IO.cgmDirection       
-            except Exception,error:raise Exception,"[Module null and compare]{%s}"%error
+            except Exception as error:raise Exception("[Module null and compare]{%s}"%error)
 
             try:#Assertions on the rig null
                 #----------------------------------------------------------
@@ -1433,7 +1433,7 @@ def ut_cgmPuppet(*args, **kws):
                 #assert Module1.i_rigNull.fk == False
 
                 assert Module1.i_rigNull.mNode == Module1.rigNull.mNode
-            except Exception,error:raise Exception,"[rigNull and compare]{%s}"%error
+            except Exception as error:raise Exception("[rigNull and compare]{%s}"%error)
 
             try:#Assertions on the template null
                 #----------------------------------------------------------
@@ -1441,7 +1441,7 @@ def ut_cgmPuppet(*args, **kws):
                 assert Module1.i_rigNull.hasAttr('cgmType')
                 assert Module1.i_templateNull.mNode == Module1.templateNull.mNode
                 assert Module1.i_templateNull.handles == 3,'%s'%Module1.i_templateNull.handles
-            except Exception,error:raise Exception,"[templateNull]{%s}"%error
+            except Exception as error:raise Exception("[templateNull]{%s}"%error)
 
             """try:#Assertions on the coreNames bufferNode
                 #----------------------------------------------------------
@@ -1456,14 +1456,14 @@ def ut_cgmPuppet(*args, **kws):
 
                 assert Module1.modulePuppet.mNode == self.mi_puppet.mNode
                 assert Module1.getMessage('modulePuppet') == [self.mi_puppet.mNode],"'%s' != '%s'"%(Module1.getMessage('modulePuppet'),self.mi_puppet.mNode)
-            except Exception,error:raise Exception,"[connect]{%s}"%error
+            except Exception as error:raise Exception("[connect]{%s}"%error)
 
 
             try:
                 #self.log_info('>'*3 + " Creating Limb module with moduleParent Flag...")           
                 Module2 = cgmPM.cgmLimb(name = 'hand',moduleParent = Module1)
                 #assert Module2.getMessage('moduleParent')[0] == Module1.mNode #connection via flag isn't working yet
-            except Exception,error:raise Exception,"[Creating with moduleParent]{%s}"%error
+            except Exception as error:raise Exception("[Creating with moduleParent]{%s}"%error)
 
             try:
                 #self.log_info("Connecting '%s' to '%s'"%(Module2.getShortName(),Module1.getShortName()))
@@ -1471,7 +1471,7 @@ def ut_cgmPuppet(*args, **kws):
                 #self.log_info(Module2.mClass)        
                 Module2.doSetParentModule(Module1)
                 assert Module2.getMessage('moduleParent') == [Module1.mNode]
-            except Exception,error:raise Exception,"[doSetParentModule]{%s}"%error
+            except Exception as error:raise Exception("[doSetParentModule]{%s}"%error)
 
     return fncWrap(*args, **kws).go()
 
@@ -1504,30 +1504,30 @@ def ut_cgmLimb(*args, **kws):
                 _path_folder = cgmPath.Path(cgm.core.tests.__file__).up()		
                 l_mayaTestFiles = cgmOS.get_lsFromPath(cgm.core.tests.__file__)
                 _path_folder = cgmPath.Path(cgm.core.tests.__file__).up()
-            except Exception,error:raise Exception,"[Query]{%s}"%error
+            except Exception as error:raise Exception("[Query]{%s}"%error)
 
             try:mc.file(new=True,f=True)
-            except Exception,error:raise Exception,"[File New]{%s}"%error
+            except Exception as error:raise Exception("[File New]{%s}"%error)
 
             try:
                 mFile = DIR_SEPARATOR.join([_path_folder,_str_fileName])
                 mc.file(mFile, i = True, pr = True, force = True)#,prompt = False
 
-            except Exception,error:
+            except Exception as error:
                 self.log_error("Found: %s"%l_mayaTestFiles)
-                raise StandardError,"[Import Mesh]{%s}"%error	
+                raise Exception("[Import Mesh]{%s}"%error)	
 
         def _define_(self,**kws):
             try:#Puppet creation
                 self.mi_puppet = cgmPM.cgmPuppet(name =  'Charlie')
                 mPuppet = self.mi_puppet
                 self.md_modules = {}
-            except Exception,error:raise Exception,"[Puppet creation]{%s}"%(error)
+            except Exception as error:raise Exception("[Puppet creation]{%s}"%(error))
 
             try:#Module Creation -----------------------------------------------------
                 for str_tag in l_limbOrder:
                     try:
-                        if str_tag in d_limbTemplateSettings.keys():#Make sure we have settings
+                        if str_tag in list(d_limbTemplateSettings.keys()):#Make sure we have settings
                             _d = d_limbTemplateSettings[str_tag]          
                         else:
                             log.info("Missing limb info for: '%s'"%str_tag)
@@ -1541,42 +1541,42 @@ def ut_cgmLimb(*args, **kws):
                         mModule = mPuppet.addModule(mClass = 'cgmLimb',mType = kw_mType,name = kw_name, direction = kw_direction)
                         self.md_modules[str_tag] = mModule#store back
                         try:mModule._UTILS
-                        except Exception,error:
-                            raise Exception,"No _Utils found | error: {0}".format(error)		    
+                        except Exception as error:
+                            raise Exception("No _Utils found | error: {0}".format(error))		    
                         try:
-                            for key in _d.keys():
+                            for key in list(_d.keys()):
                                 i_templateNull = mModule.templateNull
                                 if i_templateNull.hasAttr(key):
                                     self.log_debug("%s '%s': %s"%(str_tag,key,_d.get(key)))  
                                     try:i_templateNull.__setattr__(key,_d.get(key)) 
                                     except:log.warning("attr failed: %s"%key)	
-                        except Exception,error:raise Exception,"[Setting default settings]{%s}"%(error)
+                        except Exception as error:raise Exception("[Setting default settings]{%s}"%(error))
 
 
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
 
-            except Exception,error:raise Exception,"[module creation]{%s}"%(error)
+            except Exception as error:raise Exception("[module creation]{%s}"%(error))
 
             try:#State check -----------------------------------------------------
                 for str_tag in self.md_modules:
                     try:
                         mModule = self.md_modules[str_tag]
                         assert mModule.getState() == 0,"%s state is not 0 | state: %s"%(str_tag,mModule.getState())
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
                 int_puppetState = mPuppet.getState() 
                 assert int_puppetState == 0,"Puppet state is not 0 | state: %s"%(int_puppetState)
-            except Exception,error:raise Exception,"[state check]{%s}"%(error)
+            except Exception as error:raise Exception("[state check]{%s}"%(error))
 
             try:#Add geo
                 self.mi_geo = cgmMeta.cgmObject(self._str_geo)
                 self.mi_geo.parent = mPuppet.masterNull.geoGroup
                 mPuppet.connectChildNode(self.mi_geo,'unifiedGeo')
-            except Exception,error:raise Exception,"[Add geo]{%s}"%(error)
+            except Exception as error:raise Exception("[Add geo]{%s}"%(error))
 
         def _size_(self,**kws):
             try:#Query -------------------------------------------------------------
                 mPuppet = self.mi_puppet
-            except Exception,error:raise Exception,"[Query]{%s}"%(error)
+            except Exception as error:raise Exception("[Query]{%s}"%(error))
 
             try:#Size -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1585,8 +1585,8 @@ def ut_cgmLimb(*args, **kws):
                     try:
                         #mModule.doSize(sizeMode = 'manual',posList = l_sizeData)
                         mFactory.checkState(mModule,1,sizeMode = 'manual',posList = l_sizeData)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)    
-            except Exception,error:raise Exception,"[module size by checkState]{%s}"%(error)   
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))    
+            except Exception as error:raise Exception("[module size by checkState]{%s}"%(error))   
 
             try:#State check -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1594,10 +1594,10 @@ def ut_cgmLimb(*args, **kws):
                         mModule = self.md_modules[str_tag]
                         int_mState = mModule.getState()
                         assert int_mState == 1,"%s state is not 1 | state: %s"%(str_tag,int_mState)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
                 int_puppetState = mPuppet.getState() 
                 assert int_puppetState == 1,"Puppet state is not 1 | state: %s"%(int_puppetState)	    
-            except Exception,error:raise Exception,"[state check]{%s}"%(error)
+            except Exception as error:raise Exception("[state check]{%s}"%(error))
 
             try:#Change to define -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1605,10 +1605,10 @@ def ut_cgmLimb(*args, **kws):
                     try:
                         #mModule.doSize(sizeMode = 'manual',posList = l_sizeData)
                         mFactory.setState(mModule,0)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)  
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))  
                     int_mState = mModule.getState()
                     assert int_mState == 0,"%s state is not 0 now | state: %s"%(str_tag,int_mState)	    
-            except Exception,error:raise Exception,"[module down state to define]{%s}"%(error)      
+            except Exception as error:raise Exception("[module down state to define]{%s}"%(error))      
 
             try:#Size -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1616,13 +1616,13 @@ def ut_cgmLimb(*args, **kws):
                     l_sizeData = d_limbSizeData[str_tag]
                     try:
                         mModule.doSize(sizeMode = 'manual',posList = l_sizeData)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)    
-            except Exception,error:raise Exception,"[module size by doSize]{%s}"%(error)   
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))    
+            except Exception as error:raise Exception("[module size by doSize]{%s}"%(error))   
 
         def _template_(self,**kws):
             try:#Query -------------------------------------------------------------
                 mPuppet = self.mi_puppet
-            except Exception,error:raise Exception,"[Query]{%s}"%(error)
+            except Exception as error:raise Exception("[Query]{%s}"%(error))
 
             try:#Template -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1630,18 +1630,18 @@ def ut_cgmLimb(*args, **kws):
                     l_sizeData = d_limbSizeData[str_tag]
                     try:
                         mModule.doTemplate()
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)    
-            except Exception,error:raise Exception,"[module template call]{%s}"%(error)   
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))    
+            except Exception as error:raise Exception("[module template call]{%s}"%(error))   
 
             try:#State check -----------------------------------------------------
                 for str_tag in self.md_modules:
                     try:
                         mModule = self.md_modules[str_tag]
                         assert mModule.getState() == 2,"%s state is not 1 | state: %s"%(str_tag,mModule.getState())
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
                 int_puppetState = mPuppet.getState() 
                 assert int_puppetState == 2,"Puppet state is not 2 | state: %s"%(int_puppetState)		    
-            except Exception,error:raise Exception,"[state check]{%s}"%(error)
+            except Exception as error:raise Exception("[state check]{%s}"%(error))
 
             #try:#Template pose-----------------------------------------------------
             self.log_toDo("Need to add template pose tests")
@@ -1654,7 +1654,7 @@ def ut_cgmLimb(*args, **kws):
         def _skeleton_(self,**kws):
             try:#Query -------------------------------------------------------------
                 mPuppet = self.mi_puppet
-            except Exception,error:raise Exception,"[Query]{%s}"%(error)
+            except Exception as error:raise Exception("[Query]{%s}"%(error))
 
             try:#skeleton -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1662,23 +1662,23 @@ def ut_cgmLimb(*args, **kws):
                     l_sizeData = d_limbSizeData[str_tag]
                     try:
                         mModule.setState(3)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)    
-            except Exception,error:raise Exception,"[module setState to skeleton call]{%s}"%(error)   
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))    
+            except Exception as error:raise Exception("[module setState to skeleton call]{%s}"%(error))   
 
             try:#State check -----------------------------------------------------
                 for str_tag in self.md_modules:
                     try:
                         mModule = self.md_modules[str_tag]
                         assert mModule.getState() == 3,"%s state is not 1 | state: %s"%(str_tag,mModule.getState())
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
                 int_puppetState = mPuppet.getState() 
                 assert int_puppetState == 3,"Puppet state is not 3 | state: %s"%(int_puppetState)		    
-            except Exception,error:raise Exception,"[state check]{%s}"%(error)
+            except Exception as error:raise Exception("[state check]{%s}"%(error))
 
         def _rig_(self,**kws):
             try:#Query -------------------------------------------------------------
                 mPuppet = self.mi_puppet
-            except Exception,error:raise Exception,"[Query]{%s}"%(error)
+            except Exception as error:raise Exception("[Query]{%s}"%(error))
 
             try:#skeleton -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1686,18 +1686,18 @@ def ut_cgmLimb(*args, **kws):
                     l_sizeData = d_limbSizeData[str_tag]
                     try:
                         mModule.setState(4)
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)    
-            except Exception,error:raise Exception,"[module setState to rig call]{%s}"%(error)   
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))    
+            except Exception as error:raise Exception("[module setState to rig call]{%s}"%(error))   
 
             try:#State check -----------------------------------------------------
                 for str_tag in self.md_modules:
                     try:
                         mModule = self.md_modules[str_tag]
                         assert mModule.getState() == 4,"%s state is not 1 | state: %s"%(str_tag,mModule.getState())
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))
                 int_puppetState = mPuppet.getState() 
                 assert int_puppetState == 4,"Puppet state is not 3 | state: %s"%(int_puppetState)		    
-            except Exception,error:raise Exception,"[state check]{%s}"%(error)
+            except Exception as error:raise Exception("[state check]{%s}"%(error))
 
             try:#Rig state checks -----------------------------------------------------
                 for str_tag in self.md_modules:
@@ -1705,13 +1705,13 @@ def ut_cgmLimb(*args, **kws):
                         mModule = self.md_modules[str_tag]
                         assert mModule.isRigConnected() == True,"Not connected"
                         try:mModule.rigDisconnect()
-                        except Exception,error:raise Exception,"Rig disconnect fail"%(error)		    
+                        except Exception as error:raise Exception("Rig disconnect fail"%(error))		    
                         try:mModule.rigConnect()
-                        except Exception,error:raise Exception,"Rig reconnect fail"%(error)	
+                        except Exception as error:raise Exception("Rig reconnect fail"%(error))	
                         try:mFactory.rig_getReport(mModule)
-                        except Exception,error:raise Exception,"Rig Report"%(error)				
-                    except Exception,error:raise Exception,"['%s']{%s}"%(str_tag,error)		    
-            except Exception,error:raise Exception,"[Rig state]{%s}"%(error)
+                        except Exception as error:raise Exception("Rig Report"%(error))				
+                    except Exception as error:raise Exception("['%s']{%s}"%(str_tag,error))		    
+            except Exception as error:raise Exception("[Rig state]{%s}"%(error))
 
             self.log_toDo("Need to add mirror checks")
             self.log_toDo("Need to add pose space stuff")

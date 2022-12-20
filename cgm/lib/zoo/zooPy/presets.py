@@ -1,6 +1,6 @@
 
-from path import *
-from misc import removeDupes
+from .path import *
+from .misc import removeDupes
 
 
 LOCALES = LOCAL, GLOBAL = 'local', 'global'

@@ -8,11 +8,11 @@ from maya.cmds import *
 
 from cgm.lib.zoo.zooPy.path import Path
 
-from melUtils import printWarningStr
+from .melUtils import printWarningStr
 from cgm.lib.zoo.zooPyMaya.melUtils import mel
-from referenceUtils import stripNamespaceFromNamePath
+from .referenceUtils import stripNamespaceFromNamePath
 
-import skinWeights
+from . import skinWeights
 
 
 def getRefFilepathDictForNodes( nodes ):
@@ -78,7 +78,7 @@ def storeWeightsById( mesh, namespaceToStrip=None ):
 			vert = stripNamespaceFromNamePath( vert, namespaceToStrip )
 			jointList = [ stripNamespaceFromNamePath( j, namespaceToStrip ) for j in jointList ]
 
-		weightData.append( (vert, zip( jointList, weightList )) )
+		weightData.append( (vert, list(zip( jointList, weightList ))) )
 
 	return weightData
 
@@ -99,13 +99,13 @@ def propagateWeightChangesToModel( meshes ):
 		printWarningStr( "The current scene isn't saved - please save the current scene first before proceeding!" )
 		return
 
-	for refFilepath, refNodeMeshDict in referencedMeshes.iteritems():
+	for refFilepath, refNodeMeshDict in list(referencedMeshes.items()):
 		referencesToUnload = []
 
 		#make sure we don't visit any of the meshes more than once
 		meshesToUpdateWeightsOn = []
 		meshesToUpdateWeightsOn_withNS = []
-		for refNode, refMeshes in refNodeMeshDict.iteritems():
+		for refNode, refMeshes in list(refNodeMeshDict.items()):
 
 			#get the maya filepath for the reference (with the "copy number")
 			mayaFilepathForRef = referenceQuery( refNode, f=True )

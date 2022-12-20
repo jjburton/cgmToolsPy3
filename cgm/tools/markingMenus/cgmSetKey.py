@@ -165,7 +165,7 @@ class setKeyMarkingMenu(BaseMelWindow):
 			optionVar.toggle()
 			self.reload()
 		except:
-			print "MM change var and reset failed!"
+			print("MM change var and reset failed!")
 	
 		
 def killUI():
@@ -195,7 +195,7 @@ def setKey():
 		else:
 			mc.setKeyframe(breakdown = True)
 	else:#Let's check the channel box for objects
-		print 'cb mode'
+		print('cb mode')
 		selection = search.returnSelectedAttributesFromChannelBox(False) or []
 		if not selection:
 			selection = mc.ls(sl=True) or []

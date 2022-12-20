@@ -28,6 +28,7 @@ import cgm.core.tools.Project as PROJECT
 import Red9.core.Red9_General as r9General
 
 import cgm.core.classes.GuiFactory as cgmUI
+import importlib
 mUI = cgmUI.mUI
 
 import cgm.core.cgmPy.path_Utils as PATHS
@@ -93,7 +94,7 @@ example:
 
     TOOLNAME = 'cgmScene'
     WINDOW_TITLE = '%s - %s'%(TOOLNAME,__version__)    
-    reload(SCENEUTILS)
+    importlib.reload(SCENEUTILS)
 
     def insert_init(self,*args,**kws):
         
@@ -274,7 +275,7 @@ example:
     @property
     def path_asset(self):
         try:return os.path.normpath(os.path.join( self.path_dir_category, self.assetList['scrollList'].getSelectedItem() )) if self.assetList['scrollList'].getSelectedItem() else None
-        except Exception,err:
+        except Exception as err:
             log.debug(err)
             return False        
     @property
@@ -285,7 +286,7 @@ example:
     def path_subTypeDir(self):
         try:
             return os.path.normpath(os.path.join( self.path_asset, self.subType ))
-        except Exception,err:
+        except Exception as err:
             log.debug(err)
             return False
         
@@ -299,7 +300,7 @@ example:
                     return None
             else:
                 return os.path.normpath(os.path.join( self.path_asset, self.subType ))
-        except Exception,err:
+        except Exception as err:
             log.debug(err)
             return False
             
@@ -311,7 +312,7 @@ example:
     @property
     def path_variationDirectory(self):
         try:return os.path.normpath(os.path.join( self.path_subType, self.variationList['scrollList'].getSelectedItem() )) if self.variationList['scrollList'].getSelectedItem() else None
-        except Exception,err:
+        except Exception as err:
             log.debug(err)
             return False
         
@@ -326,7 +327,7 @@ example:
                     return os.path.normpath(os.path.join( self.path_subType))
             else:
                 return os.path.normpath(os.path.join( self.path_subType))   
-        except Exception,err:
+        except Exception as err:
             log.debug(err)
             return False            
 
@@ -386,7 +387,7 @@ example:
             for d in _l_directoryMask:
                 try:_dirs = _dirs.remove(d)
                 except:pass
-        except Exception,err:
+        except Exception as err:
             log.error(log_msg(_str_func, err))
             return False
                 
@@ -425,7 +426,7 @@ example:
             for d in _l_directoryMask:
                 try:_dirs = _dirs.remove(d)
                 except:pass
-        except Exception,err:
+        except Exception as err:
             log.error(log_msg(_str_func, err))
             return False
             
@@ -453,7 +454,7 @@ example:
             for d in _l_directoryMask:
                 try:_dirs = _dirs.remove(d)
                 except:pass
-        except Exception,err:
+        except Exception as err:
             log.error(log_msg(_str_func, err))
             return False
             
@@ -485,7 +486,7 @@ example:
                         
                 if _dirs:
                     _res = True
-        except Exception,err:
+        except Exception as err:
             log.error(log_msg(_str_func, err))
             return False
 
@@ -591,7 +592,7 @@ example:
             
     def QueryExportSets(self, *args):
         for n in 'bake','delete','export':
-            print mc.optionVar(q='cgm_{0}_set'.format(n))
+            print((mc.optionVar(q='cgm_{0}_set'.format(n))))
         
     def SetDeleteSet(self, *args):
         sel = mc.ls(sl=True)
@@ -626,7 +627,7 @@ example:
                 if k in _dat['split']:
                     idx_split = _dat['split'].index(k)
                     l_temp = _dat['split'][idx_split:]
-                    print ('Found: {0} | {1}'.format(k,l_temp))
+                    print(('Found: {0} | {1}'.format(k,l_temp)))
 
                     numItemsFound = len(l_temp)   
                     
@@ -1418,17 +1419,17 @@ example:
         try:
             _bgColor = self.mDat.d_colors['project']
             
-        except Exception,err:
+        except Exception as err:
             log.warning("No project color stored | {0}".format(err))
 
         try:self.uiImage_ProjectRow(edit=True, bgc = _bgColor)
-        except Exception,err:
+        except Exception as err:
             log.warning("Failed to set bgc: {0} | {1}".format(_bgColor,err))
 
         try:
             
             _c_secondary = self.mDat.d_colors['secondary']
-            print _c_secondary
+            print(_c_secondary)
             vTmp = _c_secondary
             vLite = [MATH.Clamp(1.7 * v, .5, 1.0) for v in vTmp]
 
@@ -1438,7 +1439,7 @@ example:
             self.uiScrollList_dirContent.v_hlc = vLite
             self.uiScrollList_dirExport.v_hlc = vLite
             
-        except Exception,err:
+        except Exception as err:
             log.error("Load project color set error | {0}".format(err))
             
             self._detailsToggleBtn(edit=True, bgc=(1.0, .445, .08))
@@ -1836,7 +1837,7 @@ example:
         except:
             _path = None
            
-        print _path
+        print(_path)
         if _path and os.path.isfile(_path):
             self.file_subType = _path
             return
@@ -2218,12 +2219,12 @@ example:
         
         _name = '.'.join(_l)
         
-        print ''
+        print('')
         _d.get('file')
         _file =  os.path.normpath(_d.get('file')).replace(os.path.normpath(self.mDat.userPaths_get()['content']), '')
         _l_asset = [_name,_file]
-        print ','.join(_l_asset)
-        print ''
+        print((','.join(_l_asset)))
+        print('')
         
         #Shots
         if _d.get('shots'):
@@ -2243,13 +2244,13 @@ example:
                 _highs.append(s[1][1])
                 
             
-            print ','.join(['clip','start','end',str(_total), "{0}".format(max(_highs) - min(_lows))])
-            print ''
+            print((','.join(['clip','start','end',str(_total), "{0}".format(max(_highs) - min(_lows))])))
+            print('')
             for s in _l_shots:
-                print ','.join(s)
+                print((','.join(s)))
                 
-        print 'Notes'
-        print _d.get('notes','None')
+        print('Notes')
+        print((_d.get('notes','None')))
         
         #pprint.pprint( self.getMetaDataFromCurrent() )
         
@@ -2777,10 +2778,10 @@ example:
             log.warning( "No asset selected" )
             return
         if not self.subTypeSearchList['scrollList'].getSelectedItem():
-            print "No animation selected"
+            print("No animation selected")
             return
         if not self.versionList['scrollList'].getSelectedItem() and self.hasSub:
-            print "No version selected"
+            print("No version selected")
             return
         
         VALID.fileOpen(self.versionFile,True,True)
@@ -3137,7 +3138,7 @@ example:
                 wantedName = "{0}_{1}.{2}".format(wantedName, 1, _fileType)
                 
                 
-            print wantedName
+            print(wantedName)
             baseFile = os.path.split(currentFile)[-1]
             baseName, ext = baseFile.split('.')
             
@@ -3218,11 +3219,11 @@ example:
         _bgColor = self.v_bgc
         try:
             _bgColor = self.mDat.d_colors['project']
-        except Exception,err:
+        except Exception as err:
             log.warning("No project color stored | {0}".format(err))
 
         try:self.uiImage_ProjectRow(edit=True, bgc = _bgColor)
-        except Exception,err:
+        except Exception as err:
             log.warning("Failed to set bgc: {0} | {1}".format(_bgColor,err))
 
         try:
@@ -3236,7 +3237,7 @@ example:
             self.uiScrollList_dirContent.v_hlc = vLite
             self.uiScrollList_dirExport.v_hlc = vLite
             
-        except Exception,err:
+        except Exception as err:
             log.error("Load project color set error | {0}".format(err))
             
             self._detailsToggleBtn(edit=True, bgc=(1.0, .445, .08))
@@ -3370,7 +3371,7 @@ example:
             #Do the rename pass...
             try:
                 CGMOS.rename_filesInPath(path, sourceName, newName)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 return log.warning(log_msg(_str_func, "Error on rename. Check if you have one of the directories open as file browsers"))
             
@@ -3734,7 +3735,7 @@ example:
                     continue
 
                 newRefFilename = os.path.normpath(refFile).replace(os.path.normpath(self.mDat.userPaths_get()['content']), os.path.normpath(newProject.userPaths_get()['content']))
-                print newRefFilename
+                print(newRefFilename)
                 if not os.path.exists(newRefFilename):
                     if not os.path.exists(os.path.dirname(newRefFilename)):
                         os.makedirs(os.path.dirname(newRefFilename))
@@ -3824,7 +3825,7 @@ example:
     def RemoveFromQueue(self, *args):
         if args[0] == 0:
             idxes = self.queueTSL.getSelectedIdxs()
-            print idxes
+            print(idxes)
             idxes.reverse()
 
             for idx in idxes:
@@ -4124,7 +4125,7 @@ def BatchExport(dataList = []):
     mFile = PATHS.Path(f)
 
     if not mFile.exists():
-        raise ValueError,"Invalid file: {0}".format(f)
+        raise ValueError("Invalid file: {0}".format(f))
 
     _path = mFile.asFriendly()
 
@@ -4170,7 +4171,7 @@ def BatchExport(dataList = []):
                 if l_fails:
                     log.info('The following failed...')
                     pprint.pprint(l_fails)
-                    raise ValueError,"Modules failed to rig: {0}".format(l_fails)
+                    raise ValueError("Modules failed to rig: {0}".format(l_fails))
 
                 log.info("Begin Rig Prep cleanup...")
                 '''
@@ -4193,7 +4194,7 @@ def BatchExport(dataList = []):
                     mPuppet.atUtils('rigNodes_setAttr','ihi',0)
                     log.info('rig connect...')                        
                     mPuppet.atUtils('rig_connectAll')
-    except Exception,err:
+    except Exception as err:
         log.error(err)
 
 
@@ -4249,7 +4250,7 @@ def ExportScene(mode = -1,
     
     #exec(self.exportCommand)
     import cgm.core.tools.bakeAndPrep as bakeAndPrep
-    reload(bakeAndPrep)
+    importlib.reload(bakeAndPrep)
     import cgm.core.mrs.Shots as SHOTS
     _str_func = 'ExportScene'
     log.info(log_start(_str_func))

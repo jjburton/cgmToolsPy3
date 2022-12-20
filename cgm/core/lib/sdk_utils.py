@@ -228,8 +228,8 @@ def set_sdk_fromDict(driverAttribute,targets, dat = {}):
     for o in targets:
         log.info(log_sub(_str_func,o))
         
-        for a,d in dat.iteritems():
-            for dv,d2 in d.iteritems():
+        for a,d in list(dat.items()):
+            for dv,d2 in list(d.items()):
                 mc.setDrivenKeyframe("{0}.{1}".format(o,a),
                                      currentDriver = driverAttribute,
                                      driverValue = dv, value = d2['v'])        

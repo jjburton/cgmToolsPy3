@@ -174,7 +174,7 @@ class cgmHotkeyer(object):
         _l_order = ['keyShortcut']
         _modifer = self.validateModifier()
         
-        if _modifer and _modifer+'Modifier' in _d.keys():
+        if _modifer and _modifer+'Modifier' in list(_d.keys()):
             _d[_modifer+'Modifier'] = True
             
         if mayaVersion < 2016:
@@ -213,9 +213,9 @@ class cgmHotkeyer(object):
         try:
             mel.eval(_str_runTimeArg)#...evaluate the runTime call cause maya sucks and doesn't have a python command for this
             return mc.nameCommand( _str_runTime_cmd + 'COMMAND', annotation=_str_runTime_cmd, command=_str_runTime_cmd)                        
-        except Exception,error:
+        except Exception as error:
             log.error("runTime arg failure..." + cgmGeneral._str_hardBreak)
-            print _str_runTimeArg
+            print(_str_runTimeArg)
             log.error(error)
             log.error(cgmGeneral._str_hardBreak)
             return False

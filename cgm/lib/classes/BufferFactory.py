@@ -65,7 +65,7 @@ class BufferFactory(object):
 
     def storeNameStrings(self,obj):
         """ Store the base, short and long names of an object to instance."""
-        buffer = mc.ls(obj,long=True)
+        buffer = mc.ls(obj,int=True)
         self.nameLong = buffer[0]
         buffer = mc.ls(obj,shortNames=True)        
         self.nameShort = buffer[0]
@@ -86,7 +86,7 @@ class BufferFactory(object):
         """ Get's the next available item number """        
         userAttrs = attributes.returnUserAttrsToDict(self.nameLong)
         countList = []
-        for key in userAttrs.keys():
+        for key in list(userAttrs.keys()):
             if 'item_' in key:
                 splitBuffer = key.split('item_')
                 countList.append(int(splitBuffer[-1]))
@@ -150,7 +150,7 @@ class BufferFactory(object):
         
         userAttrs = attributes.returnUserAttrsToDict(self.nameLong) or {}
         countList = []
-        for key in userAttrs.keys():
+        for key in list(userAttrs.keys()):
             if 'item_' in key:
                 splitBuffer = key.split('item_')
                 countList.append(int(splitBuffer[-1]))
@@ -188,7 +188,7 @@ class BufferFactory(object):
             guiFactory.warning("'%s' isn't already stored '%s'"%(info,self.nameLong))    
             return
         
-        for key in self.bufferDict.keys():
+        for key in list(self.bufferDict.keys()):
             if self.bufferDict.get(key) == info:
                 attributes.doDeleteAttr(self.nameLong,key)
                 self.bufferList.remove(info)

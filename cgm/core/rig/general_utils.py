@@ -135,7 +135,7 @@ def reset_channels(nodes=None,selectedChannels=False, transformsOnly=False, excl
                     default = mc.attributeQuery(a, listDefault=True, node=obj)[0]
                 ATTR.set(obj,a,default)
                 _reset[a] = default
-            except Exception,err:
+            except Exception as err:
                 log.error("{0}.{1} resetAttrs | error: {2}".format(obj, a,err))
     
     #pprint.pprint(vars())
@@ -172,24 +172,24 @@ def fbx_cleaner(delete = False, spaceString = '03FBXASC032'):
                 for a in _l:
                     _res[s].append(a)
 
-    print cgmGEN._str_hardBreak
+    print((cgmGEN._str_hardBreak))
     l_renamed = []
-    for k,l in _res.iteritems():
+    for k,l in list(_res.items()):
         if l:
-            print cgmGEN._str_subLine
-            print(cgmGEN._str_baseStart * 2 + " node: '{0}' | attrs: {1}...".format(k,len(l)))
+            print((cgmGEN._str_subLine))
+            print((cgmGEN._str_baseStart * 2 + " node: '{0}' | attrs: {1}...".format(k,len(l))))
             for i,a in enumerate(l):
-                print("   {0} | '{1}'".format(i,a))
+                print(("   {0} | '{1}'".format(i,a)))
                 if delete:
                     ATTR.delete(k,a)
         if spaceString:
             if spaceString in NAMES.get_base(k) and k not in l_renamed:
                 new = mc.rename(k, NAMES.get_base(k).replace(spaceString,'_'))
-                print(" Rename  {0} | '{1}'".format(k,new))
+                print((" Rename  {0} | '{1}'".format(k,new)))
                 l_renamed.append(k)
 
 
-    print cgmGEN._str_hardBreak
+    print((cgmGEN._str_hardBreak))
 
 
 def matchValue_iterator(matchObj = None,
@@ -210,8 +210,8 @@ def matchValue_iterator(matchObj = None,
     _str_func = 'matchValue_iterator'
     log.debug("|{0}| >> ...".format(_str_func))    
 
-    if type(minIn) not in [float,int]:raise ValueError,"matchValue_iterator>>> bad minIn: %s"%minIn
-    if type(maxIn) not in [float,int]:raise ValueError,"matchValue_iterator>>> bad maxIn: %s"%maxIn
+    if type(minIn) not in [float,int]:raise ValueError("matchValue_iterator>>> bad minIn: %s"%minIn)
+    if type(maxIn) not in [float,int]:raise ValueError("matchValue_iterator>>> bad maxIn: %s"%maxIn)
 
     __matchMode__ = False
 
@@ -229,7 +229,7 @@ def matchValue_iterator(matchObj = None,
     elif matchValue is not None:
         __matchMode__ = 'value'
     else:
-        raise ValueError,"|{0}| >> No match given. No matchValue given".format(_str_func)
+        raise ValueError("|{0}| >> No match given. No matchValue given".format(_str_func))
 
 
     __drivenMode__ = False
@@ -253,13 +253,13 @@ def matchValue_iterator(matchObj = None,
         log.debug("|{0}| >> Attr mode. Attr: {1} | baseValue: {2} ".format(_str_func,mPlug_driven.p_combinedShortName,f_baseValue))
 
     else:
-        raise ValueError,"|{0}| >> No driven given".format(_str_func)
+        raise ValueError("|{0}| >> No driven given".format(_str_func))
 
 
     d_driverAttr = cgmMeta.validateAttrArg(driverAttr,noneValid=False)
     mPlug_driver = d_driverAttr['mi_plug']
     if not mPlug_driver:
-        raise ValueError,"|{0}| >> No driver given".format(_str_func)
+        raise ValueError("|{0}| >> No driver given".format(_str_func))
 
 
     log.debug("|{0}| >> Source mode: {1} | Target mode: {2}| Driver: {3}".format(_str_func,__matchMode__,__drivenMode__,mPlug_driver.p_combinedShortName))
@@ -314,14 +314,14 @@ def matchValue_iterator(matchObj = None,
                     else:	
                         if f_minDist>f_maxDist:#if min dif greater, use half as new min
                             if f_half < minIn:
-                                raise StandardError, "half min less than minValue"
+                                raise Exception("half min less than minValue")
                                 f_half = minIn
                             minValue = f_half
                             #log.debug("matchValue_iterator>>>Going up")
                             f_closest = f_minDist
                         else:
                             if f_half > maxIn:
-                                raise StandardError, "half max less than maxValue"			    
+                                raise Exception("half max less than maxValue")			    
                                 f_half = maxIn			
                             maxValue = f_half
                             #log.debug("matchValue_iterator>>>Going down")  
@@ -423,7 +423,7 @@ def matchValue_iterator(matchObj = None,
                         f_stepBase = f_stepBase + (_stepBig)
                         f_stepEnd = f_stepBase + (_stepBig)
                     else:
-                        raise ValueError,"nope"
+                        raise ValueError("nope")
 
                     f_closest = f_stepBase
 
@@ -583,12 +583,12 @@ def check_nameMatches(self,mlControls,justReport = False):
         if mCtrl.getNameMatches(True):
             _nameMatches = True
     if _nameMatches and not justReport:
-        raise ValueError,"Fix this name match"
+        raise ValueError("Fix this name match")
     return True
 
 def store_and_name(mObj,d):
     _str_func = 'store_and_name'
-    for t,v in d.iteritems():
+    for t,v in list(d.items()):
         if v in [None]:
             continue
         log.debug("|{0}| >> {1} | {2}.".format(_str_func,t,v))            
@@ -604,7 +604,7 @@ def plug_insertNewValues(driven = None, drivers = [], replace = False, mode = 'm
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
 
         if mode not in ['multiply']:
-            raise ValueError,"Mode not supported: {0}".format(mode)
+            raise ValueError("Mode not supported: {0}".format(mode))
 
         d_driven = cgmMeta.validateAttrArg(driven)
         mPlug = d_driven['mPlug']
@@ -623,13 +623,13 @@ def plug_insertNewValues(driven = None, drivers = [], replace = False, mode = 'm
 
 
         if not ml_drivers:
-            raise ValueError, "No drivers validated"
+            raise ValueError("No drivers validated")
 
         if not replace:
             ml_drivers.insert(0,mPreDriver[0])
 
         if len(ml_drivers) < 2:
-            raise ValueError,"Must have more than two drivers. Found: {0}".format(ml_drivers)
+            raise ValueError("Must have more than two drivers. Found: {0}".format(ml_drivers))
         ATTR.break_connection(mPlug.p_combinedName)
 
         lastNode = None
@@ -653,10 +653,10 @@ def plug_insertNewValues(driven = None, drivers = [], replace = False, mode = 'm
 
 
 
-    except Exception,err:
+    except Exception as err:
         #pprint.pprint(vars())
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-        raise Exception,err
+        raise Exception(err)
     
 def split_blends(driven1 = None,
                  driven2 = None,
@@ -729,7 +729,7 @@ def split_blends(driven1 = None,
         normMin = maxValue * .1
         normMax = maxValue - normMin
 
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             mDriven = dat['driven']
 
             d_tmp = {'dist1':{'pos':pos1,
@@ -741,7 +741,7 @@ def split_blends(driven1 = None,
                      }
 
             for mObj in mDriven:
-                for n,d in d_tmp.iteritems():
+                for n,d in list(d_tmp.items()):
                     dTmp = DIST.get_distance_between_points(d['pos'],mObj.p_position)
                     if MATH.is_float_equivalent(dTmp,0.0):
                         dTmp = 0.0
@@ -879,15 +879,15 @@ def split_blends(driven1 = None,
         #pprint.pprint(d_dat)
         #return d_dat
 
-        for idx,dat in d_dat.iteritems():
-            for plugSet,mSet in dat['mPlugs'].iteritems():
-                for n,mPlug in mSet.iteritems():
+        for idx,dat in list(d_dat.items()):
+            for plugSet,mSet in list(dat['mPlugs'].items()):
+                for n,mPlug in list(mSet.items()):
                     mPlug.p_lock=True
                     mPlug.p_hidden = True
 
         return d_dat
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
         
@@ -914,13 +914,13 @@ def objectDat_get(nodes = []):
     for mNode in mNodes:
         try:
             _res[mNode.mNode] = {'pos':mNode.p_position, 'orient':mNode.p_orient}
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mNode,err))
     pprint.pprint(_res)
     return _res
 
 def objectDat_set(dat = {}, position = True, orient = True):
-    for Node,d in dat.iteritems():
+    for Node,d in list(dat.items()):
         try:
             log.info(Node)
             mNode = cgmMeta.asMeta(Node)
@@ -928,7 +928,7 @@ def objectDat_set(dat = {}, position = True, orient = True):
                 mNode.p_position = d['pos']
             if orient:
                 mNode.p_orient = d['orient']
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mNode,err))
     
     
@@ -1003,14 +1003,14 @@ def ratio(nodes = [],mode = 'finger', move = True):
         mc.select(nodes)
         return
     
-    raise ValueError, "Unknown Mode: {0}".format(mode)
+    raise ValueError("Unknown Mode: {0}".format(mode))
         
     _res = {}
     mNodes = cgmMeta.asMeta(nodes)
     for mNode in mNodes:
         try:
             _res[mNode.mNode] = {'pos':mNode.p_position, 'orient':mNode.p_orient}
-        except Exception,err:
+        except Exception as err:
             log.error("{0} | {1}".format(mNode,err))
     pprint.pprint(_res)
     return _res
@@ -1023,5 +1023,5 @@ def parentScaleForce(mObj,mStop=None):
     for mParent in ml_parents:
         try:
             mParent.scale = 1,1,1
-            print("Set: {}".format(mParent.mNode))
+            print(("Set: {}".format(mParent.mNode)))
         except:"Fail: {}".format(mParent.mNode)

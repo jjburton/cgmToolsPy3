@@ -39,11 +39,12 @@ from maya.OpenMayaAnim import MFnSkinCluster
 from maya.OpenMaya import MIntArray, MDagPathArray
 
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-reload (distance)
+importlib.reload (distance)
 
 
 # Maya version check
@@ -66,16 +67,16 @@ def controlSurfaceSmoothWeights(surface):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     cvList = (mc.ls ([surface+'.cv[*][*]'],flatten=True))
-    print cvList
+    print(cvList)
     skinCluster = querySkinCluster (surface)
     influenceObjects = queryInfluences (skinCluster)
-    print influenceObjects
+    print(influenceObjects)
     #find the closest influence object to the start
     startObject =  (distance.returnClosestObjToCV (cvList[0], influenceObjects))
-    print startObject
+    print(startObject)
     #find the closest influence object to the end
     endObject = (distance.returnClosestObjToCV (cvList[-1], influenceObjects))
-    print endObject
+    print(endObject)
     #getting the last cv list number
     cvChainLength =  ((len(cvList)-1)/2)
     #set the skin weights for the top and bottom
@@ -133,7 +134,7 @@ def simpleControlSurfaceSmoothWeights(surface,maxBlend = 3):
         blendInfluences.append(closestObject)
         distances = []
         cnt = 1
-        print objectsToCheck
+        print(objectsToCheck)
         while cnt < maxBlend and cnt < len(objectsToCheck):
             closestSubObj = distance.returnClosestObject(closestObject, objectsToCheck)
             blendInfluences.append(closestSubObj)
@@ -192,20 +193,20 @@ def nurbsCVSmoothWeights(cv):
         goodChoice =  (distance.returnClosestObjToCV (cv, culledList))
         culledList.remove(goodChoice)
         bestChoices.append (goodChoice)
-        print bestChoices
+        print(bestChoices)
         cnt-=1
     distanceList = []
     for obj in bestChoices:
         distanceList.append (distance.returnDistanceBetweenObjects(actualName[0],obj))
-        print distanceList
+        print(distanceList)
     """ return normalization value """
     buffer=0
     y = 1 + (x-A)*(10-1)/(B-A)
     for value in distanceList:
         buffer += value
-    print buffer
+    print(buffer)
     normalize = ((len(distanceList))*.1)
-    print normalize
+    print(normalize)
     mc.delete (actualName[0])
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -302,7 +303,7 @@ def copySkinWeightBetweenVertices(sourceVertice,targetVertice):
         if influenceValue != 0:
             skinValues.append([influence,influenceValue])
 
-    print skinValues
+    print(skinValues)
     for tvSet in skinValues:
         ''' set the weight and lock it after to avoid normalization errors '''
         mc.skinPercent(targetSkinCluster, targetVertice, tv= tvSet)
@@ -414,7 +415,7 @@ def copyWeightsByClosestVertice(sourceMesh, targetMesh):
 
         """ find the closest vert """
         closestVert = distance.returnClosestObject(v,sourceVertexList)
-        print ("Copying " + closestVert + " >>>> " + v)
+        print(("Copying " + closestVert + " >>>> " + v))
         """ rebuild our vert weighting data to set"""
         verticeBuffer.append(influenceData.get(closestVert))
         rebuiltVertWeightData.append(verticeBuffer)
@@ -433,20 +434,20 @@ def copyWeightsByClosestVerticeFromVert(sourceMesh, targetVert):
     assert mc.objExists(targetVert) is True,"'%s' doesn't exist" %targetVert
     
     targetMeshBuffer = targetVert.split('.')
-    print targetMeshBuffer
+    print(targetMeshBuffer)
     targetSkinCluster = querySkinCluster(targetMeshBuffer[0])
-    print  targetSkinCluster
+    print(targetSkinCluster)
     influenceData = returnVerticeJointWeightDataToDict(sourceMesh)
-    print influenceData
+    print(influenceData)
     sourceVertexList = (mc.ls ([sourceMesh+'.vtx[*]'],flatten=True))
-    print sourceVertexList
+    print(sourceVertexList)
     rebuiltVertWeightData = []
 
 
     """ find the closest vert """
     verticeBuffer = [targetVert]
     closestVert = distance.returnClosestObject(targetVert,sourceVertexList)
-    print ("Copying " + closestVert + " >>>> " + targetVert)
+    print(("Copying " + closestVert + " >>>> " + targetVert))
     """ rebuild our vert weighting data to set"""
     verticeBuffer.append(influenceData.get(closestVert))
     rebuiltVertWeightData.append(verticeBuffer)
@@ -553,11 +554,11 @@ def returnVerticeJointWeightDataToDict(sourceMesh):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     sourceSkinCluster = querySkinCluster(sourceMesh)
-    print sourceSkinCluster
+    print(sourceSkinCluster)
     sourceVertexList = (mc.ls ([sourceMesh+'.vtx[*]'],flatten=True))
-    print sourceVertexList
+    print(sourceVertexList)
     influenceList = queryInfluences(sourceSkinCluster)
-    print influenceList
+    print(influenceList)
     returnDict= {}
 
     for vertice in sourceVertexList:

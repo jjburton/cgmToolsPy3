@@ -77,9 +77,9 @@ def prerig(self):
 
 def prerigDelete(self):
     try:self.moduleTarget.delete()
-    except Exception,err:
+    except Exception as err:
         for a in err:
-            print a
+            print(a)
     return True   
 
 def is_prerig(self):
@@ -88,7 +88,7 @@ def is_prerig(self):
     
     _d_links = {self : ['moduleTarget']}
     
-    for plug,l_links in _d_links.iteritems():
+    for plug,l_links in list(_d_links.items()):
         for l in l_links:
             if not plug.getMessage(l):
                 _l_missing.append(plug.p_nameBase + '.' + l)
@@ -107,13 +107,13 @@ def rig(self):
         mJoint = self.doCreateAt('joint')
         mJoint.parent = self.moduleTarget.masterNull.skeletonGroup
         mJoint.connectParentNode(self,'module','rootJoint')
-    raise NotImplementedError,"Not done."
+    raise NotImplementedError("Not done.")
 
 def rigDelete(self):
     try:self.moduleTarget.masterControl.delete()
-    except Exception,err:
+    except Exception as err:
         for a in err:
-            print a
+            print(a)
     return True
             
 def is_rig(self):
@@ -122,7 +122,7 @@ def is_rig(self):
     
     _d_links = {'moduleTarget' : ['masterControl']}
     
-    for plug,l_links in _d_links.iteritems():
+    for plug,l_links in list(_d_links.items()):
         _mPlug = self.getMessage(plug,asMeta=True)
         if not _mPlug:
             _l_missing.append("{0} : {1}".format(plug,l_links))

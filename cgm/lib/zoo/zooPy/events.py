@@ -1,20 +1,18 @@
 
-import typeFactories
+from . import typeFactories
 
 
 class EventId(int): pass
 
 
-class EventManager(object):
-	__metaclass__ = typeFactories.SingletonType
-
+class EventManager(object, metaclass=typeFactories.SingletonType):
 	def __init__( self ):
 		self._events = {}
 	def createEventId( self ):
 		'''
 		returns a new, unique EventId object that can be used to register events using
 		'''
-		eventIds = self._events.keys()
+		eventIds = list(self._events.keys())
 		eventIds.sort()
 
 		if eventIds:
@@ -59,7 +57,7 @@ class EventManager(object):
 			except:
 				import traceback
 				traceback.print_exc()
-				print "Callback %s failed"
+				print("Callback %s failed")
 
 
 #end

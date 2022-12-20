@@ -109,7 +109,7 @@ def returnSplitList(listToSplit, mode=0, popMid = False):
     _str_funcName = 'returnSplitList'
     log.info(">>> %s >> "%_str_funcName + "="*75) 
     if not len(listToSplit)>=3:
-        raise StandardError,"%s >>> list length must be 3 or greater. len : %s | list: %s"%(_str_funcName,len(listToSplit),listToSplit)
+        raise Exception("%s >>> list length must be 3 or greater. len : %s | list: %s"%(_str_funcName,len(listToSplit),listToSplit))
     # if even...
     if len(listToSplit)%2==0:
         if mode == 0:
@@ -192,8 +192,8 @@ def returnFactoredConstraintList(listToFactor, factor):
     if len(keepSplittingList) > 0:
         while loopCnt > 0:
             for list in keepSplittingList:
-                print 'keep splitting....'
-                print list
+                print('keep splitting....')
+                print(list)
                 splitBuffer = []
                 if len(list) > (factor + 1):
                     culledList.append(returnFirstMidLastList(list))
@@ -450,7 +450,7 @@ def returnReplacedNameList(searchList,replaceWith = {'left':'right'}):
     """
     newList = []
     for i,term in enumerate(searchList):
-        for q in replaceWith.keys():
+        for q in list(replaceWith.keys()):
             if q in term:
                 newList.append(term.replace(q,replaceWith[q]))
     return newList

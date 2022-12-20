@@ -146,7 +146,7 @@ class GamePad(threading.Thread):
         # returns id of the respective thread 
         if hasattr(self, '_thread_id'): 
             return self._thread_id 
-        for id, thread in threading._active.items(): 
+        for id, thread in list(threading._active.items()): 
             if thread is self: 
                 return id
 

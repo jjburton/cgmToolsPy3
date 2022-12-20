@@ -60,7 +60,7 @@ import maya.mel as mm
 from maya import OpenMaya
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(2)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -130,7 +130,7 @@ def _buildCommand(*args):
     args = str()
     kwargs = _uiArgs()
     if kwargs:
-        for k in kwargs.keys():
+        for k in list(kwargs.keys()):
             args = args+k+'='+str(kwargs[k])+', '
         args = args[:-2]
 
@@ -140,7 +140,7 @@ def _buildCommand(*args):
 def _shelfButtonCallback(*args):
 
     description = 'Sets keys with the following options:'
-    for k in _uiArgs().keys():
+    for k in list(_uiArgs().keys()):
         description=description+' '+k
         
     utl.createShelfButton( _buildCommand(), "del", 'ml_deleteKey', description=description)
@@ -150,7 +150,7 @@ def _hotkeyCallback(*args):
 
     name = 'ml_deleteKey'
     description = 'Sets keys with the following options:'
-    for k in _uiArgs().keys():
+    for k in list(_uiArgs().keys()):
         name=name+'_'+k
         description=description+' '+k
         

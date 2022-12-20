@@ -26,11 +26,11 @@ import maya.cmds as mc
 
 def sceneSetup():
 	try:mc.file(new=True,f=True)
-	except Exception,err:
+	except Exception as err:
 		log.error("New File fail!")
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception,err  
+		raise Exception(err)  
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -51,8 +51,8 @@ def main(**kwargs):
 	for mod in modules:
 		#logging.info("Testing module: {0}".format(mod))
 		suite = unittest.TestSuite()
-		print(cgmGEN._str_hardBreak)
-		print(">>> Testing: {0} ".format(mod) + '-'*100)		
+		print((cgmGEN._str_hardBreak))
+		print((">>> Testing: {0} ".format(mod) + '-'*100))		
 		
 		module = "cgm.core.tests.test_cgmMeta.test_{0}".format(mod)
 		
@@ -60,11 +60,11 @@ def main(**kwargs):
 		try:
 			exec("import {0}".format(module))
 			exec("reload({0})".format(module))
-		except Exception,err:
+		except Exception as err:
 			log.error("New File fail!")
 			for arg in err.args:
 				log.error(arg)                
-			raise Exception,err		
+			raise Exception(err)		
 
 		tests = unittest.defaultTestLoader.loadTestsFromName(module)
 		suite.addTest( tests)		
@@ -74,14 +74,14 @@ def main(**kwargs):
 		if v == 1:
 			for t in tests:
 				for t2 in t:
-					print( "   > " + t2._testMethodName.split('test_')[-1] )
+					print(( "   > " + t2._testMethodName.split('test_')[-1] ))
 					_len_all += 1
-		print(cgmGEN._str_subLine)
-		print(">>> Module complete : {0} | {1} ...".format(mod,format(module)))		
+		print((cgmGEN._str_subLine))
+		print((">>> Module complete : {0} | {1} ...".format(mod,format(module))))		
 		
-	print("Completed [{0}] tests in [{1}] modules >> Time >> = {2} seconds".format(_len_all, len(modules), "%0.3f"%(time.clock()-_t_start))) 
+	print(("Completed [{0}] tests in [{1}] modules >> Time >> = {2} seconds".format(_len_all, len(modules), "%0.3f"%(time.clock()-_t_start)))) 
 	cgmGEN.report_enviornmentSingleLine()
-	print(cgmGEN._str_hardBreak)	
+	print((cgmGEN._str_hardBreak))	
 	
 
 def mainRunner(**kwargs):	
@@ -98,10 +98,10 @@ def mainRunner(**kwargs):
 	
 	try:
 		testRunner.run(tests)
-	except Exception,err:
+	except Exception as err:
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception,err	
+		raise Exception(err)	
 	
 	
 def mainBAK(**kwargs):	
@@ -120,11 +120,11 @@ def mainBAK(**kwargs):
 		try:
 			exec("import {0}".format(module))
 			exec("reload({0})".format(module))
-		except Exception,err:
+		except Exception as err:
 			log.error("New File fail!")
 			for arg in err.args:
 				log.error(arg)                
-			raise Exception,err		
+			raise Exception(err)		
 		#except ImportError:
 			#logging.exception("Couldn't import module: {0}".format(module))
 

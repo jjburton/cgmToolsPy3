@@ -20,6 +20,7 @@ import os
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -870,7 +871,7 @@ def define(self):
     l_mainHandles = []
     
     def get_handleScaleSpaces(d_base,d_scaleSpace,key,plug_left,plug_right):
-        for k,d in d_base.iteritems():
+        for k,d in list(d_base.items()):
             if plug_left in k:
                 k_use = str(k).replace(plug_left,plug_right)
                 _v = copy.copy(d_scaleSpace[_str_pose].get(k_use))
@@ -920,7 +921,7 @@ def define(self):
                 _d[k]['scaleSpace'] = _v"""
                 
         
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order.extend(_keys)
         d_creation.update(_d)
@@ -995,7 +996,7 @@ def define(self):
         #Process scaleSpace------------------------------------------------------------------
         get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
 
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order.extend(_keys)
         d_creation.update(_d)
@@ -1311,7 +1312,7 @@ def define(self):
         #Process scaleSpace------------------------------------------------------------------
         get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
    
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order.extend(_keys)
         d_creation.update(_d)
@@ -1373,7 +1374,7 @@ def define(self):
         #Process
         get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
 
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order.extend(_keys)
         d_creation.update(_d)        
@@ -1472,7 +1473,7 @@ def define(self):
         #Process
         get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
 
-        _keys = _d.keys()
+        _keys = list(_d.keys())
         _keys.sort()
         l_order.extend(_keys)
         d_creation.update(_d)
@@ -1504,7 +1505,7 @@ def define(self):
 
     #make em... ==============================================================================================
     size_locForm = self.jointRadius
-    for tag,d in d_creation.iteritems():
+    for tag,d in list(d_creation.items()):
         if tag in l_mainHandles:
             d_creation[tag]['shape'] = 'locatorForm'
             d_creation[tag]['jointScale'] = False
@@ -1521,15 +1522,15 @@ def define(self):
     md_handles = md_res['md_handles']
     ml_handles = md_res['ml_handles']
     
-    for k,p in d_toParent.iteritems():
+    for k,p in list(d_toParent.items()):
         try:md_handles[k].p_parent = md_handles[p]
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN.logString_msg(_str_func,'{0} | {1}'.format(k,err)))
     idx_ctr = 0
     idx_side = 0
     d = {}
     ml_toController = []
-    for tag,mHandle in md_handles.iteritems():
+    for tag,mHandle in list(md_handles.items()):
         if tag not in l_mainHandles:
             #if cgmGEN.__mayaVersion__ >= 2018:
             #    mController = mHandle.controller_get()
@@ -1538,7 +1539,7 @@ def define(self):
             
         mHandle._verifyMirrorable()
         _center = True
-        for p1,p2 in d_pairs.iteritems():
+        for p1,p2 in list(d_pairs.items()):
             if p1 == tag or p2 == tag:
                 _center = False
                 break
@@ -1550,7 +1551,7 @@ def define(self):
         mHandle.mirrorAxis = "translateX,rotateY,rotateZ"
 
     #Self mirror wiring -------------------------------------------------------
-    for k,m in d_pairs.iteritems():
+    for k,m in list(d_pairs.items()):
         md_handles[k].mirrorSide = 1
         md_handles[m].mirrorSide = 2
         md_handles[k].mirrorIndex = idx_side
@@ -1562,7 +1563,7 @@ def define(self):
     #Curves -------------------------------------------------------------------------
     log.debug("|{0}| >>  Make the curves...".format(_str_func))
     
-    for k,d in d_curveCreation.iteritems():
+    for k,d in list(d_curveCreation.items()):
         if "Left" in k:
             d_curveCreation[k]['color'] = 'blueWhite'
         elif "Right" in k:
@@ -2216,10 +2217,10 @@ def form(self):
                 for ii,v in enumerate(_l_left):
                     _d_pos_bulb['left'][_idx][ii] = v                
                 
-            for section,d_section in d_handlePosDat_nose.iteritems():
-                for side,d_crv in d_section.iteritems():
-                    for i,d_pos in d_crv.iteritems():
-                        for ii,p in d_pos.iteritems():
+            for section,d_section in list(d_handlePosDat_nose.items()):
+                for side,d_crv in list(d_section.items()):
+                    for i,d_pos in list(d_crv.items()):
+                        for ii,p in list(d_pos.items()):
                             _key = "{0}_{1}_{2}_{3}".format(section,i,ii,side)
                             
                             if side == 'left':d_pairs[_key] =  "{0}_{1}_{2}_{3}".format(section,i,ii,'right')
@@ -2237,21 +2238,21 @@ def form(self):
                             
             
             #Loop to gather handles
-            for section,d_section in d_noseHandles.iteritems():
+            for section,d_section in list(d_noseHandles.items()):
                 d_noseCurves[section] = {}
                 
                 #Loop to gather handles
                 l_crvIdx = []
-                for side,d_crv in d_section.iteritems():
+                for side,d_crv in list(d_section.items()):
                     d_noseCurves[section][side] = {}
 
-                    for i,d_handle in d_crv.iteritems():
+                    for i,d_handle in list(d_crv.items()):
                         if i not in l_crvIdx:
                             l_crvIdx.append(i)
                         k_crv = "{0}_{1}_{2}".format(section,i,side)
                         d_noseCurves[section][side][i] = {'key':k_crv,
                                                          'handles':[]}
-                        for ii,handle in d_handle.iteritems():
+                        for ii,handle in list(d_handle.items()):
                             d_noseCurves[section][side][i]['handles'].append(handle)
                             
                 
@@ -2478,10 +2479,10 @@ def form(self):
                 
                 mc.delete(_l_clean)
                 
-            for section,d_section in d_handlePosDat_jaw.iteritems():
-                for side,d_crv in d_section.iteritems():
-                    for i,d_pos in d_crv.iteritems():
-                        for ii,p in d_pos.iteritems():
+            for section,d_section in list(d_handlePosDat_jaw.items()):
+                for side,d_crv in list(d_section.items()):
+                    for i,d_pos in list(d_crv.items()):
+                        for ii,p in list(d_pos.items()):
                             _key = "{0}_{1}_{2}_{3}".format(section,i,ii,side)
                             
                             if side == 'left':d_pairs[_key] =  "{0}_{1}_{2}_{3}".format(section,i,ii,'right')
@@ -2499,16 +2500,16 @@ def form(self):
                             #LOC.create(position=p,name = "{0}_loc".format(_key))
                             
                         
-            for section,d_section in d_jawHandles.iteritems():
+            for section,d_section in list(d_jawHandles.items()):
                 d_jawCurves[section] = {}
-                for side,d_crv in d_section.iteritems():
+                for side,d_crv in list(d_section.items()):
                     d_jawCurves[section][side] = {}
-                    for i,d_handle in d_crv.iteritems():
+                    for i,d_handle in list(d_crv.items()):
                         k_crv = "{0}_{1}_{2}".format(section,i,side)
                         d_jawCurves[section][side][i] = {'key':k_crv,
                                                          'handles':[]}
                         
-                        for ii,handle in d_handle.iteritems():
+                        for ii,handle in list(d_handle.items()):
                             d_jawCurves[section][side][i]['handles'].append(handle)
                             
                         d_curveCreation[k_crv] = {'keys':d_jawCurves[section][side][i]['handles'],
@@ -3008,7 +3009,7 @@ def form(self):
                     #First get our start curves to split
                     log.debug(cgmGEN.logString_msg(_str_func,'Split...'))
 
-                    for side,d_side in d_bridgeTargets.iteritems():
+                    for side,d_side in list(d_bridgeTargets.items()):
                         d_tmpCurves = {}
                         d_dat = d_bridgeDat['upr']
                         d_dat[side] = {'handles':{},
@@ -3023,7 +3024,7 @@ def form(self):
                         d_curveCreation[k_startCrv] = {'keys':d_bridgeTargets[side]['start'],'rebuild':1}
                         d_curveCreation[k_endCrv] = {'keys':d_bridgeTargets[side]['end'],'rebuild':1}
                         
-                        for tag,keys in d_side.iteritems():
+                        for tag,keys in list(d_side.items()):
                             l_pos = []
                             for k in keys:
                                 l_pos.append(d_defPos[k])
@@ -3328,14 +3329,14 @@ def form(self):
         # ==========================================================================================
         #Hiding unused define handles
         l_dTagsUsed = []
-        for k,dat in d_curveCreation.iteritems():
+        for k,dat in list(d_curveCreation.items()):
             for t in dat['keys']:
                 if t not in l_dTagsUsed:
                     l_dTagsUsed.append(t)
         
         #l_dTagsUsed.sort()
         #pprint.pprint(l_dTagsUsed)        
-        for tag,d in d_creation.iteritems():
+        for tag,d in list(d_creation.items()):
             d_creation[tag]['jointScale'] = True
             
         md_res = self.UTILS.create_defineHandles(self, l_order, d_creation, _size / 10,
@@ -3349,7 +3350,7 @@ def form(self):
                                                crvType='formCrv')
         md_resCurves = md_res['md_curves']
         
-        for k,d in md_loftCreation.iteritems():
+        for k,d in list(md_loftCreation.items()):
             ml_curves = [md_resCurves[k2] for k2 in d['keys']]
             for mObj in ml_curves:
                 #mObj.template =1
@@ -3392,7 +3393,7 @@ def form(self):
         idx_side = 0
         d = {}
                 
-        for tag,mHandle in md_handles.iteritems():
+        for tag,mHandle in list(md_handles.items()):
             """
             if cgmGEN.__mayaVersion__ >= 2018:
                 mController = mHandle.controller_get()
@@ -3403,7 +3404,7 @@ def form(self):
             
             mHandle._verifyMirrorable()
             _center = True
-            for p1,p2 in d_pairs.iteritems():
+            for p1,p2 in list(d_pairs.items()):
                 if p1 == tag or p2 == tag:
                     _center = False
                     break
@@ -3425,7 +3426,7 @@ def form(self):
                 mHandle.v=True
                 
         #Self mirror wiring -------------------------------------------------------
-        for k,m in d_pairs.iteritems():
+        for k,m in list(d_pairs.items()):
             log.debug("{0} -|- {1}".format(k,m))
             try:
                 md_handles[k].mirrorSide = 1
@@ -3435,7 +3436,7 @@ def form(self):
                 md_handles[k].doStore('mirrorHandle',md_handles[m])
                 md_handles[m].doStore('mirrorHandle',md_handles[k])
                 idx_side +=1        
-            except Exception,err:
+            except Exception as err:
                 log.error('Mirror error: {0}'.format(err))
         
         self.atUtils('controller_wireHandles',ml_subHandles,'form')
@@ -3443,7 +3444,7 @@ def form(self):
         self.msgList_connect('formCurves',md_res['ml_curves'])#Connect        
         return
 
-    except Exception,err:
+    except Exception as err:
         #raise Exception,err
         cgmGEN.cgmExceptCB(Exception,err)
 
@@ -3570,7 +3571,7 @@ def prerig(self):
         _side = self.UTILS.get_side(self)
         
         if MATH.is_even(self.numConLips):
-            raise ValueError,"numConLips must be odd."
+            raise ValueError("numConLips must be odd.")
         
         self.atUtils('module_verify')
         mStateNull = self.UTILS.stateNull_verify(self,'prerig')
@@ -3825,7 +3826,7 @@ def prerig(self):
                     'ml_jointHandles':ml_jointHandles,
                 }
                 d_handleKWS.update(d_baseHandeKWS)
-                reload(BLOCKSHAPES)
+                importlib.reload(BLOCKSHAPES)
                 mAnchor,mShape,mDag = BLOCKSHAPES.create_face_anchorHandleCombo(self,
                                                                                 p_chinBase,
                                                                                 _tag,
@@ -3854,7 +3855,7 @@ def prerig(self):
                                                              **d_baseHandeKWS)            
                                                              """
             else:
-                raise ValueError,"Invalid chinSetup: {0}".format(str_chinSetup)
+                raise ValueError("Invalid chinSetup: {0}".format(str_chinSetup))
         
         if self.muzzleSetup:#Muzzle ============================================================
             log.debug(cgmGEN.logString_sub(_str_func,'muzzle'))
@@ -4119,7 +4120,7 @@ def prerig(self):
                                                    _tag,mNoTransformNull)
     
             else:
-                raise ValueError,"Invalid cheekSetup: {0}".format(str_cheekSetup)
+                raise ValueError("Invalid cheekSetup: {0}".format(str_cheekSetup))
             
         if self.cheekUprSetup:# cheek setup ============================================================
             log.debug(cgmGEN.logString_sub(_str_func,'Cheek Upr  setup'))
@@ -4236,7 +4237,7 @@ def prerig(self):
                 
                 
             else:
-                raise ValueError,"Invalid cheekSetup: {0}".format(str_cheekUprSetup)
+                raise ValueError("Invalid cheekSetup: {0}".format(str_cheekUprSetup))
         
         if self.smileSetup:# cheek setup ============================================================
             log.debug(cgmGEN.logString_sub(_str_func,'Smile setup'))
@@ -4354,7 +4355,7 @@ def prerig(self):
                         BLOCKSHAPES.create_visualTrack(self, mDag, md_handles['jawJoint'],
                                                        _tag,mNoTransformNull)       
             else:
-                raise ValueError,"Invalid cheekSetup: {0}".format(str_smileSetup)        
+                raise ValueError("Invalid cheekSetup: {0}".format(str_smileSetup))        
         
         
         if self.lipSetup:
@@ -4413,7 +4414,7 @@ def prerig(self):
                 
                 d_split = MATH.get_evenSplitDict(_l_split)
                 d_anchorDat[tag] = {}
-                for t,l in d_split.iteritems():
+                for t,l in list(d_split.items()):
                     d_anchorDat[tag][t] = l
                     
                     #for i,p in enumerate(l):
@@ -4426,7 +4427,7 @@ def prerig(self):
             
             mLipLoft = self.attachLipsFormLoft
 
-            for section,sectionDat in d_anchorDat.iteritems():
+            for section,sectionDat in list(d_anchorDat.items()):
                 md_anchors[section] = {}
                 #_d['cgmPosition'] = section
                 
@@ -4436,7 +4437,7 @@ def prerig(self):
                     
                 l_tags = ["{0}Lip".format(section)]
                 
-                for side,sideDat in sectionDat.iteritems():
+                for side,sideDat in list(sectionDat.items()):
                     if side == 'start':side='right'
                     elif side =='end':side = 'left'
                     
@@ -4526,7 +4527,7 @@ def prerig(self):
             #...make our driver curves...---------------------------------------------------------------
             log.debug(cgmGEN.logString_msg('driver curves'))
             d_curveCreation = {}
-            for section,sectionDat in md_anchorsLists.iteritems():
+            for section,sectionDat in list(md_anchorsLists.items()):
                 #for side,dat in sectionDat.iteritems():
                 d_curveCreation[section+'Driver'] = {'ml_handles': sectionDat,
                                                      'rebuild':1}
@@ -4535,8 +4536,8 @@ def prerig(self):
             #...anchor | aim ----------------------------------------------------------------------------
             log.debug(cgmGEN.logString_msg('anchor | aim'))
             
-            for tag,sectionDat in md_anchors.iteritems():
-                for side,sideDat in sectionDat.iteritems():
+            for tag,sectionDat in list(md_anchors.items()):
+                for side,sideDat in list(sectionDat.items()):
                     if side == 'center':
                         continue
                     
@@ -4589,7 +4590,7 @@ def prerig(self):
             _d = {'cgmName':''}
             
             #...get our driverSetup
-            for section,sectionDat in md_anchors.iteritems():
+            for section,sectionDat in list(md_anchors.items()):
                 log.debug(cgmGEN.logString_msg(section))
                 
                 #md_handles[section] = {}
@@ -4601,7 +4602,7 @@ def prerig(self):
                 else:
                     _mainShape = 'loftCircleHalfDown'
                     
-                for side,dat in sectionDat.iteritems():
+                for side,dat in list(sectionDat.items()):
                     log.debug(cgmGEN.logString_msg(side))
                     
                     #md_handles[section][side] = []
@@ -4714,7 +4715,7 @@ def prerig(self):
 
             #...make our driver curves...---------------------------------------------------------------
             log.debug(cgmGEN.logString_msg('driven curves'))
-            for section,sectionDat in md_handleCrvDrivers.iteritems():
+            for section,sectionDat in list(md_handleCrvDrivers.items()):
                 d_curveCreation[section+'Driven'] = {'ml_handles': sectionDat,
                                                      'rebuild':1}
                     
@@ -4754,13 +4755,13 @@ def prerig(self):
                 d_lipDrivenDat[tag] = {}
                 d_lipDriverDat[tag] = {}
                 
-                for t,l in d_split_driven.iteritems():
+                for t,l in list(d_split_driven.items()):
                     d_lipDrivenDat[tag][t] = l
                     
                     #for i,p in enumerate(l):
                         #LOC.create(position=p,name="{0}_{1}_{2}".format(tag,t,i))                    
                 
-                for t,l in d_split_driver.iteritems():
+                for t,l in list(d_split_driver.items()):
                     d_lipDriverDat[tag][t] = l
                 
 
@@ -4771,7 +4772,7 @@ def prerig(self):
             _sizeDirect = _size_sub * .4
             
             md_lipJoints = {}
-            for section,sectionDat in d_lipDrivenDat.iteritems():
+            for section,sectionDat in list(d_lipDrivenDat.items()):
                 mDriverCrv = md_resCurves[section+'Driver']
                 mDriverCrv.v = 0
                 
@@ -4788,7 +4789,7 @@ def prerig(self):
                     _base = 1
                 
                 
-                for side,sideDat in sectionDat.iteritems():
+                for side,sideDat in list(sectionDat.items()):
                     driverDat = d_lipDriverDat[section][side]
                     
                     if side == 'start':side='right'
@@ -4888,8 +4889,8 @@ def prerig(self):
             log.debug(cgmGEN.logString_msg('aim lip drivers'))
 
                 
-            for tag,sectionDat in md_lipDrivers.iteritems():
-                for side,sideDat in sectionDat.iteritems():
+            for tag,sectionDat in list(md_lipDrivers.items()):
+                for side,sideDat in list(sectionDat.items()):
                     ml_check = md_anchorsLists[tag]
                     l_check = [mObj.mNode for mObj in ml_check]
                     
@@ -4966,7 +4967,7 @@ def prerig(self):
             d_driven = {}
             #...make our driver curves...---------------------------------------------------------------
             log.debug(cgmGEN.logString_msg('driven curves'))
-            for section,sectionDat in md_crvDrivers.iteritems():
+            for section,sectionDat in list(md_crvDrivers.items()):
                 #for side,dat in sectionDat.iteritems():
                 d_driven[section+'Result'] = {'ml_handles': sectionDat,
                                               'rebuild':1}
@@ -5024,7 +5025,7 @@ def prerig(self):
         return
     
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
         
 #=============================================================================================================
@@ -5057,11 +5058,11 @@ def skeleton_build(self, forceNew = True):
     
     mRigNull = mModule.rigNull
     if not mRigNull:
-        raise ValueError,"No rigNull connected"
+        raise ValueError("No rigNull connected")
     
     mPrerigNull = self.prerigNull
     if not mPrerigNull:
-        raise ValueError,"No prerig null"
+        raise ValueError("No prerig null")
     
     mRoot = self.UTILS.skeleton_getAttachJoint(self)
     mLipRoot = mRoot
@@ -5196,7 +5197,7 @@ def skeleton_build(self, forceNew = True):
                     ml_joints.append(mJnt)
                     
         else:
-            raise ValueError,"Invalid noseSetup: {0}".format(str_noseSetup)
+            raise ValueError("Invalid noseSetup: {0}".format(str_noseSetup))
         
     if self.cheekSetup:
         log.debug("|{0}| >>  Cheeksetup".format(_str_func)+ '-'*40)
@@ -5213,7 +5214,7 @@ def skeleton_build(self, forceNew = True):
                 ml_joints.append(mJnt)
                 
         else:
-            raise ValueError,"Invalid cheekSetup: {0}".format(str_cheekSetup)
+            raise ValueError("Invalid cheekSetup: {0}".format(str_cheekSetup))
         
     if self.cheekUprSetup:
         log.debug("|{0}| >>  CheekUpr Setup".format(_str_func)+ '-'*40)
@@ -5247,7 +5248,7 @@ def skeleton_build(self, forceNew = True):
                     i+=1
                 
         else:
-            raise ValueError,"Invalid cheekUprSetup: {0}".format(str_cheekUprSetup)
+            raise ValueError("Invalid cheekUprSetup: {0}".format(str_cheekUprSetup))
         
     if self.smileSetup:
         log.debug("|{0}| >>  Smile Setup".format(_str_func)+ '-'*40)
@@ -5281,7 +5282,7 @@ def skeleton_build(self, forceNew = True):
                     ml_joints.append(mJnt)            
                     i+=1
         else:
-            raise ValueError,"Invalid smileSetup: {0}".format(str_smileSetup)    
+            raise ValueError("Invalid smileSetup: {0}".format(str_smileSetup))    
 
     if self.sneerSetup:
         log.debug("|{0}| >>  sneerSetup".format(_str_func)+ '-'*40)
@@ -5298,7 +5299,7 @@ def skeleton_build(self, forceNew = True):
                 ml_joints.append(mJnt)
                 
         else:
-            raise ValueError,"Invalid cheekSetup: {0}".format(str_sneerSetup)    
+            raise ValueError("Invalid cheekSetup: {0}".format(str_sneerSetup))    
                 
     #>> ===========================================================================
     mRigNull.msgList_connect('moduleJoints', ml_joints)
@@ -5337,7 +5338,7 @@ def skeleton_build(self, forceNew = True):
     #...name ----------------------------------------------------------------------------
     #mHead_jnt.doName()
     #mHead_jnt.rename(_l_namesToUse[-1])
-    for k,v in _l_namesToUse[-1].iteritems():
+    for k,v in list(_l_namesToUse[-1].items()):
         mHead_jnt.doStore(k,v)
     mHead_jnt.doName()
     
@@ -5368,7 +5369,7 @@ def skeleton_build(self, forceNew = True):
             ml_joints.append(mNeck_jnt)
             
             #mNeck_jnt.rename(_l_namesToUse[0])
-            for k,v in _l_namesToUse[0].iteritems():
+            for k,v in list(_l_namesToUse[0].items()):
                 mNeck_jnt.doStore(k,v)
             mNeck_jnt.doName()
         else:
@@ -5382,7 +5383,7 @@ def skeleton_build(self, forceNew = True):
             
             for i,mJnt in enumerate(ml_joints):
                 #mJnt.rename(_l_namesToUse[i])
-                for k,v in _l_namesToUse[i].iteritems():
+                for k,v in list(_l_namesToUse[i].items()):
                     mJnt.doStore(k,v)
                 mJnt.doName()                
             
@@ -6021,7 +6022,7 @@ def rig_shapes(self):
             log.debug("|{0}| >> Handles...".format(_str_func)+ '-'*80)
             for k in 'lipLwr','lipUpr':
                 log.debug("|{0}| >> {1}...".format(_str_func,k)+ '-'*40)
-                for side,ml in self.md_handles[k].iteritems():
+                for side,ml in list(self.md_handles[k].items()):
                     log.debug("|{0}| >> {1}...".format(_str_func,side)+ '-'*10)
                     for i,mHandle in enumerate(ml):
                         log.debug("|{0}| >> {1}...".format(_str_func,mHandle))
@@ -6039,9 +6040,9 @@ def rig_shapes(self):
         #Lip direct shapes
         ml_processed = []
         
-        for k,d in self.md_directJoints.iteritems():
+        for k,d in list(self.md_directJoints.items()):
             log.debug("|{0}| >> {1}...".format(_str_func,k)+ '-'*40)
-            for side,ml in d.iteritems():
+            for side,ml in list(d.items()):
                 log.debug("|{0}| >> {1}...".format(_str_func,side)+ '-'*10)
                 for i,mHandle in enumerate(ml):
                     log.debug("|{0}| >> {1}...".format(_str_func,mHandle))
@@ -6052,7 +6053,7 @@ def rig_shapes(self):
         
         
         _radius = mBlock.jointRadius
-        for k,d in self.md_rigJoints.iteritems():
+        for k,d in list(self.md_rigJoints.items()):
             log.debug("|{0}| >> {1}...".format(_str_func,k)+ '-'*40)
             
             if VALID.isListArg(d):
@@ -6069,7 +6070,7 @@ def rig_shapes(self):
                     CORERIG.shapeParent_in_place(mHandle.mNode,
                                                  crv,keepSource=False)                
             elif issubclass(type(d),dict):
-                for side,ml in d.iteritems():
+                for side,ml in list(d.items()):
                     log.debug("|{0}| >> {1}...".format(_str_func,side)+ '-'*10)
                     for i,mHandle in enumerate(ml):
                         if mHandle in ml_processed:continue
@@ -6101,7 +6102,7 @@ def rig_shapes(self):
             except:
                 mJnt.radius = .00001                
         return
-    except Exception,error:
+    except Exception as error:
         cgmGEN.cgmExceptCB(Exception,error,msg=vars())
 
 
@@ -6122,7 +6123,7 @@ def rig_controls(self):
         mSettings = self.mSettings
         
         if not mSettings:
-            raise ValueError,"Should have settings"
+            raise ValueError("Should have settings")
         
         #mPlug_visSub = self.atBuilderUtils('build_visSub')
         mPlug_visDirect = self.mPlug_visDirect_moduleParent
@@ -6239,9 +6240,9 @@ def rig_controls(self):
         
         #Handles ================================================================================
         log.debug("|{0}| >> Handles...".format(_str_func)+ '-'*80)
-        for k,d in self.md_handles.iteritems():
+        for k,d in list(self.md_handles.items()):
             log.debug("|{0}| >> {1}...".format(_str_func,k)+ '-'*40)
-            for side,ml in d.iteritems():
+            for side,ml in list(d.items()):
                 log.debug("|{0}| >> {1}...".format(_str_func,side)+ '-'*10)
                 for i,mHandle in enumerate(ml):
                     log.debug("|{0}| >> {1}...".format(_str_func,mHandle))
@@ -6314,7 +6315,7 @@ def rig_controls(self):
         mRigNull.moduleSet.extend(ml_controlsAll)
         mRigNull.faceSet.extend(ml_controlsAll)
         
-    except Exception,error:
+    except Exception as error:
         cgmGEN.cgmExceptCB(Exception,error,msg=vars())
 
 
@@ -6485,7 +6486,7 @@ def rig_frame(self):
                                        'mInfluences':[mRightCorner.lwrInfluence,mLwrCenter,mLeftCorner.lwrInfluence],
                                        'mHandles':ml_lwrLip}}
                 
-                for k,d in d_lipSetup.iteritems():
+                for k,d in list(d_lipSetup.items()):
                     #need our handle chain to make a ribbon
                     ml_chain = d['ml_chain']
                     mInfluences = d['mInfluences']
@@ -6534,7 +6535,7 @@ def rig_frame(self):
                                      'mInfluences':[mRightCorner.lwrInfluence,mLwrCenter,mLeftCorner.lwrInfluence],                                         
                                      'right':self.md_handles['lipLwr']['right']}}
 
-                for k,d in d_lipSetup.iteritems():
+                for k,d in list(d_lipSetup.items()):
                     #need our handle chain to make a ribbon
                     pprint.pprint(d)
                     ml_left = d['left']
@@ -6564,8 +6565,8 @@ def rig_frame(self):
                             'lwr':{'left':self.md_handles['lipLwr']['left'],
                                    'right':self.md_handles['lipLwr']['right']}}
                 
-                for tag,sectionDat in d_lipAim.iteritems():
-                    for side,sideDat in sectionDat.iteritems():
+                for tag,sectionDat in list(d_lipAim.items()):
+                    for side,sideDat in list(sectionDat.items()):
 
                         if side == 'left':
                             _aim = [-1,0,0]
@@ -7012,7 +7013,7 @@ def rig_frame(self):
                 pass
     
         return
-    except Exception,error:
+    except Exception as error:
         cgmGEN.cgmExceptCB(Exception,error)
 
 
@@ -7083,7 +7084,7 @@ def rig_lipSegments(self):
               'msgDriver':'driverJoint'}    
     
     #pprint.pprint(d_test)
-    reload(IK)
+    importlib.reload(IK)
     IK.ribbon_seal(**d_lips)
     
     mc.parentConstraint(mLeftCorner.mNode, ml_uprRig[-1].masterGroup.mNode, maintainOffset = True)
@@ -7200,7 +7201,7 @@ def rig_lipSegments(self):
                                'mInfluences':[mRightCorner,mLwrCenter,mLeftCorner],
                                'mHandles':ml_lwrLip}                      }
         
-        for k,d in d_lipSetup.iteritems():
+        for k,d in list(d_lipSetup.items()):
             #need our handle chain to make a ribbon
             ml_chain = d['ml_chain']
             mInfluences = d['mInfluences']
@@ -7370,7 +7371,7 @@ def asdfasdfasdf(self, forceNew = True, skin = False):
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError,"No rigJoints connected"
+        raise ValueError("No rigJoints connected")
 
     #>> If proxyMesh there, delete --------------------------------------------------------------------------- 
     _bfr = mRigNull.msgList_get('proxyMesh',asMeta=True)
@@ -7441,7 +7442,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, **kws):
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError,"No rigJoints connected"
+        raise ValueError("No rigJoints connected")
     self.v_baseSize = [mBlock.blockScale * v for v in mBlock.baseSize]
     
     #>> If proxyMesh there, delete --------------------------------------------------------------------------- 
@@ -7595,7 +7596,7 @@ def build_proxyMeshBAK(self, forceNew = True, puppetMeshMode = False):
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError,"No rigJoints connected"
+        raise ValueError("No rigJoints connected")
     self.v_baseSize = [mBlock.blockScale * v for v in mBlock.baseSize]
     
     #>> If proxyMesh there, delete --------------------------------------------------------------------------- 
@@ -7752,7 +7753,7 @@ def uiFunc_snapStateHandles(self,ml=None):
     
     for mObj in ml_handles:
         try:mObj.p_position = DIST.get_closest_point(mObj.mNode, ml[0].mNode)[0]
-        except Exception,err:
+        except Exception as err:
             log.warning("Failed to snap: {0} | {1}".format(mObj.mNode,err))
     
 def uiBuilderMenu(self,parent = None):

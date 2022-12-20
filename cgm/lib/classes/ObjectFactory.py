@@ -112,7 +112,7 @@ class ObjectFactory():
         targetCGM = NameFactory.returnObjectGeneratedNameDict(target,ignore = ignore)
         didSomething = False
         
-        for tag in targetCGM.keys():
+        for tag in list(targetCGM.keys()):
             if tag not in ignore and targetCGM[tag] is not None or False:
                 attributes.doCopyAttr(target,tag,
                                       self.nameLong,connectTargetToSource=True)
@@ -155,7 +155,7 @@ class ObjectFactory():
 
     def storeNameStrings(self,obj):
         """ Store the base, short and long names of an object to instance."""
-        buffer = mc.ls(obj,long=True)
+        buffer = mc.ls(obj,int=True)
         self.nameLong = buffer[0]
         buffer = mc.ls(obj,shortNames=True)        
         self.nameShort = buffer[0]
@@ -170,7 +170,7 @@ class ObjectFactory():
         assert mc.objExists(obj) is True, "'%s' doesn't exist" %obj
 
         try:
-            self.transform = mc.ls(obj,type = 'transform',long = True) or False
+            self.transform = mc.ls(obj,type = 'transform',int = True) or False
             self.storeNameStrings(obj) 
             self.getType()
             self.getFamily()
@@ -247,7 +247,7 @@ class ObjectFactory():
         assert mc.ls(self.nameLong,type='transform'),"'%s' has no transform"%self.nameLong	
 
         group = rigging.groupMeObject(self.nameLong,True,maintain) 
-        groupLong = mc.ls(group,long=True)
+        groupLong = mc.ls(group,int=True)
         self.update(groupLong[0]+'|'+self.nameBase)  
         return groupLong[0]
 
@@ -317,12 +317,12 @@ class ObjectFactory():
                 attributes.doSetAttr(self.nameLong,a,drawingOverrideAttrsDict[a])
 
         if type(attrs) is dict:
-            for a in attrs.keys():
+            for a in list(attrs.keys()):
                 if a in drawingOverrideAttrsDict:
                     try:
                         attributes.doSetAttr(self.nameLong,a,attrs[a])
                     except:
-                        raise AttributeError, "There was a problem setting '%s.%s' to %s"%(self.nameBase,a,drawingOverrideAttrsDict[a])
+                        raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.nameBase,a,drawingOverrideAttrsDict[a]))
                 else:
                     guiFactory.warning("'%s.%s' doesn't exist"%(self.nameBase,a))
                     
@@ -332,12 +332,12 @@ class ObjectFactory():
                     try:
                         attributes.doSetAttr(self.nameLong,a,drawingOverrideAttrsDict[a])
                     except:
-                        raise AttributeError, "There was a problem setting '%s.%s' to %s"%(self.nameBase,a,drawingOverrideAttrsDict[a])
+                        raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.nameBase,a,drawingOverrideAttrsDict[a]))
                 else:
                     guiFactory.warning("'%s.%s' doesn't exist"%(self.nameBase,a))       
                     
                     
         if pushToShapes:
-            raise NotImplementedError,"This feature isn't done yet"
+            raise NotImplementedError("This feature isn't done yet")
         
 

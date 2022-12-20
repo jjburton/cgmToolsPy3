@@ -636,7 +636,7 @@ def uiMenu(parent):
     
     _uiRoot = mc.menuItem(parent = parent, l='LightLoom Lite', subMenu=True,tearOff=True)
     
-    _keys = d_profiles.keys()
+    _keys = list(d_profiles.keys())
     _keys.sort()
     
     mUI.MelMenuItemDiv(_uiRoot,label='Setup')
@@ -715,7 +715,7 @@ def get_lightDict(lights=None):
 def clean_lights():
     _str_func = 'clean_lights'
     l_lights = []
-    for t in d_lightCalls.keys():
+    for t in list(d_lightCalls.keys()):
         l_lights.extend(mc.ls(type=t))
     if l_lights:
         log.debug("|{0}| >> existing Lights:  {1} | ...".format(_str_func,len(l_lights)))
@@ -782,7 +782,7 @@ class factory(object):
         self.ml_lights = []
         self.ml_lightDags = []
 
-        for n,d in _profile.iteritems():
+        for n,d in list(_profile.items()):
             _type = d.get('type')
             try:_light = d_lightCalls[_type]()  
             except:
@@ -793,7 +793,7 @@ class factory(object):
             mDag = mLight.getTransform(asMeta=True)
             mDag.rename("{0}_cgmLight".format(n))
             
-            for a,v in d['settings'].iteritems():
+            for a,v in list(d['settings'].items()):
                 log.debug("|{0}| >> setting {1} | {2}:{3}".format(_str_func,n,a,v))                
                 ATTR.set(mLight.mNode,a,v)
                 
@@ -819,8 +819,8 @@ class cgmLight(cgmMeta.cgmObject):
         #>>> TO USE Cached instance ---------------------------------------------------------
         _str_func = 'cgmLight.__init__'        
         if node is None:
-            if nodeType not in d_lightCalls.keys():
-                raise ValueError,"Unknown light node: {0}".format(nodeType)
+            if nodeType not in list(d_lightCalls.keys()):
+                raise ValueError("Unknown light node: {0}".format(nodeType))
             if name is None:
                 name = nodeType
             _light = d_lightCalls.get(nodeType)(name=name)
@@ -830,8 +830,8 @@ class cgmLight(cgmMeta.cgmObject):
             node = _dag
                 
         try: super(cgmLight, self).__init__(node,name, **kws)
-        except StandardError,error:
-            raise StandardError, "cgmLight.__init__ fail! | %s"%error
+        except Exception as error:
+            raise Exception("cgmLight.__init__ fail! | %s"%error)
         
         for a in ['mShape']:
             if a not in self.UNMANAGED:
@@ -870,11 +870,11 @@ class cgmLight(cgmMeta.cgmObject):
             _str_func = 'cgmLight.__getattribute__'            
             log.debug("|{0}| >> trying dag | {1}".format(_str_func,attr))            
             return r9Meta.MetaClass.__getattribute__(self,attr)
-        except Exception,err:
+        except Exception as err:
             try:
                 log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                 return r9Meta.MetaClass.__getattribute__(self.mShape,attr)
-            except Exception,err:
+            except Exception as err:
                 pass
         #finally:
         #    log.debug("|{0}| >> err: {1}".format(_str_func,err))
@@ -888,7 +888,7 @@ class cgmLight(cgmMeta.cgmObject):
                 if ATTR.has_attr(self.mShape.mNode,attr):
                     log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                     return r9Meta.MetaClass.__getattribute__(self.mShape,attr, value, force=True, **kws)
-            except Exception,err:
+            except Exception as err:
                 log.debug("|{0}| >> shape attempt err: {1}".format(_str_func,err))
         return r9Meta.MetaClass.__setattr__(self,attr, value, force=True, **kws)
         
@@ -898,11 +898,11 @@ class cgmLight(cgmMeta.cgmObject):
             log.debug("|{0}| >> trying dag | {1}".format(_str_func,attr))
             
             r9Meta.MetaClass.__setattr__(self,attr, value, force=True, **kws)
-        except Exception,err:
+        except Exception as err:
             try:
                 log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                 r9Meta.MetaClass.__getattribute__(self.mShape,attr, value, force=True, **kws)
-            except Exception,err:
+            except Exception as err:
                 pass
         #finally:
         #    log.debug("|{0}| >> err: {1}".format(_str_func,err))
@@ -913,8 +913,8 @@ class cgmLightShape(cgmMeta.cgmNode):
         #>>> TO USE Cached instance ---------------------------------------------------------
         _str_func = 'cgmLight.__init__'        
         if node is None:
-            if nodeType not in d_lightCalls.keys():
-                raise ValueError,"Unknown light node: {0}".format(nodeType)
+            if nodeType not in list(d_lightCalls.keys()):
+                raise ValueError("Unknown light node: {0}".format(nodeType))
             if name is None:
                 name = nodeType
             _light = d_lightCalls.get(nodeType)(name=name)
@@ -924,8 +924,8 @@ class cgmLightShape(cgmMeta.cgmNode):
             node = _dag
                 
         try: super(cgmLight, self).__init__(node,name, **kws)
-        except StandardError,error:
-            raise StandardError, "cgmLight.__init__ fail! | %s"%error
+        except Exception as error:
+            raise Exception("cgmLight.__init__ fail! | %s"%error)
         
         for a in ['mShape']:
             if a not in self.UNMANAGED:
@@ -964,11 +964,11 @@ class cgmLightShape(cgmMeta.cgmNode):
             _str_func = 'cgmLight.__getattribute__'            
             log.debug("|{0}| >> trying dag | {1}".format(_str_func,attr))            
             return r9Meta.MetaClass.__getattribute__(self,attr)
-        except Exception,err:
+        except Exception as err:
             try:
                 log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                 return r9Meta.MetaClass.__getattribute__(self.mShape,attr)
-            except Exception,err:
+            except Exception as err:
                 pass
         #finally:
         #    log.debug("|{0}| >> err: {1}".format(_str_func,err))
@@ -982,7 +982,7 @@ class cgmLightShape(cgmMeta.cgmNode):
                 if ATTR.has_attr(self.mShape.mNode,attr):
                     log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                     return r9Meta.MetaClass.__getattribute__(self.mShape,attr, value, force=True, **kws)
-            except Exception,err:
+            except Exception as err:
                 log.debug("|{0}| >> shape attempt err: {1}".format(_str_func,err))
         return r9Meta.MetaClass.__setattr__(self,attr, value, force=True, **kws)
         
@@ -992,11 +992,11 @@ class cgmLightShape(cgmMeta.cgmNode):
             log.debug("|{0}| >> trying dag | {1}".format(_str_func,attr))
             
             r9Meta.MetaClass.__setattr__(self,attr, value, force=True, **kws)
-        except Exception,err:
+        except Exception as err:
             try:
                 log.debug("|{0}| >> trying shape | {1}".format(_str_func,attr))                            
                 r9Meta.MetaClass.__getattribute__(self.mShape,attr, value, force=True, **kws)
-            except Exception,err:
+            except Exception as err:
                 pass
         #finally:
         #    log.debug("|{0}| >> err: {1}".format(_str_func,err))

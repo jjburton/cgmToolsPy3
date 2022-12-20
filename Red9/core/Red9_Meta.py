@@ -38,7 +38,7 @@ what each function is expected to return
 
 '''
 
-from __future__ import print_function
+
 
 import maya.cmds as cmds
 import maya.mel as mel
@@ -54,9 +54,9 @@ import traceback
 
 
 import Red9.startup.setup as r9Setup
-import Red9_General as r9General
-import Red9_CoreUtils as r9Core
-import Red9_AnimationUtils as r9Anim
+from . import Red9_General as r9General
+from . import Red9_CoreUtils as r9Core
+from . import Red9_AnimationUtils as r9Anim
 
 import logging
 logging.basicConfig()
@@ -205,7 +205,7 @@ def getMClassInstances(mInstances):
     subClasses = []
     if not type(mInstances) == list:
         mInstances = [mInstances]
-    for mClass in RED9_META_REGISTERY.values():
+    for mClass in list(RED9_META_REGISTERY.values()):
         for instance in mInstances:
             if issubclass(mClass, instance):
                 subClasses.append(mClass)
@@ -226,7 +226,7 @@ def mTypesToRegistryKey(mTypes):
         except:
             keys.append(cls)
     # remove the key if it's not registered!
-    return [key for key in keys if key in RED9_META_REGISTERY.keys()] or []
+    return [key for key in keys if key in list(RED9_META_REGISTERY.keys())] or []
 
 def getMClassDataFromNode(node, checkInstance=True):
     '''
@@ -254,10 +254,10 @@ def getMClassDataFromNode(node, checkInstance=True):
         # Node has no mClass attr BUT in certain circumstances we can register
         # default node Types to Meta (HIK for example) so we need to check
         _nodetype = cmds.nodeType(node)
-        if 'Meta%s' % _nodetype in RED9_META_REGISTERY.keys():
+        if 'Meta%s' % _nodetype in list(RED9_META_REGISTERY.keys()):
             return 'Meta%s' % _nodetype
         else:
-            for key in RED9_META_REGISTERY.keys():
+            for key in list(RED9_META_REGISTERY.keys()):
                 if key.lower() == _nodetype.lower():
                     return key
 
@@ -367,7 +367,7 @@ def registerMClassNodeCache(mNode):
     # Maya 2016 onwards UUID management  ---------
     if version >= 2016:
         UUID = cmds.ls(mNode.mNode, uuid=True)[0]
-        if UUID in RED9_META_NODECACHE.keys():
+        if UUID in list(RED9_META_NODECACHE.keys()):
             # log.debug('CACHE : UUID is already registered in cache')
             if not mNode == RED9_META_NODECACHE[UUID]:
                 log.debug('CACHE : %s : UUID is registered to a different node : modifying UUID: %s' % (UUID, mNode.mNode))
@@ -380,22 +380,22 @@ def registerMClassNodeCache(mNode):
             if not UUID:
                 # log.debug('CACHE : generating fresh UUID')
                 UUID = mNode.setUUID()
-            elif UUID in RED9_META_NODECACHE.keys():
+            elif UUID in list(RED9_META_NODECACHE.keys()):
                 # log.debug('CACHE : UUID is already registered in cache')
                 if not mNode == RED9_META_NODECACHE[UUID]:
                     log.debug('CACHE : %s : UUID is registered to a different node : modifying UUID: %s' % (UUID, mNode.mNode))
                     UUID = mNode.setUUID()
-        except StandardError, err:
+        except Exception as err:
             log.debug('CACHE : Failed to set UUID for mNode : %s' % mNode.mNode)
 
     else:
         # log.debug('CACHE : UUID attr not bound to this node, must be an older system')
-        if RED9_META_NODECACHE or mNode.mNode not in RED9_META_NODECACHE.keys():
+        if RED9_META_NODECACHE or mNode.mNode not in list(RED9_META_NODECACHE.keys()):
             # log.debug('CACHE : Adding to MetaNode Cache : %s' % mNode.mNode)
             RED9_META_NODECACHE[mNode.mNode] = mNode
             return
 
-    if RED9_META_NODECACHE or UUID not in RED9_META_NODECACHE.keys():
+    if RED9_META_NODECACHE or UUID not in list(RED9_META_NODECACHE.keys()):
         # log.debug('CACHE : Adding to MetaNode UUID Cache : %s > %s' % (mNode.mNode, UUID))
         RED9_META_NODECACHE[UUID] = mNode
 
@@ -441,7 +441,7 @@ def getMetaFromCache(mNode):
         else:
             UUID = cmds.ls(mNode, uuid=True)[0]
 
-        if UUID in RED9_META_NODECACHE.keys():
+        if UUID in list(RED9_META_NODECACHE.keys()):
             try:
                 if RED9_META_NODECACHE[UUID].isValidMObject():
                     if not RED9_META_NODECACHE[UUID]._MObject == getMObject(mNode):
@@ -456,7 +456,7 @@ def getMetaFromCache(mNode):
             except:
                 log.debug('CACHE : inspection failure')
     except:
-        if mNode in RED9_META_NODECACHE.keys():
+        if mNode in list(RED9_META_NODECACHE.keys()):
             try:
                 if RED9_META_NODECACHE[mNode].isValidMObject():
                     if not RED9_META_NODECACHE[mNode]._MObject == getMObject(mNode):
@@ -506,7 +506,7 @@ def printMetaCacheRegistry():
     currently invalid MObjects from the Cache.
     '''
     cleanCache()
-    for k, v in RED9_META_NODECACHE.items():
+    for k, v in list(RED9_META_NODECACHE.items()):
         print('%s : %s : %s' % (k, r9Core.nodeNameStrip(v.mNode), v))
 
 def cleanCache():
@@ -514,7 +514,7 @@ def cleanCache():
     Run through the current cache of metaNodes and confirm that they're
     all still valid by testing the MObjectHandles.
     '''
-    for k, v in RED9_META_NODECACHE.items():
+    for k, v in list(RED9_META_NODECACHE.items()):
         try:
             if not v.isValidMObject():
                 RED9_META_NODECACHE.pop(k)
@@ -526,7 +526,7 @@ def removeFromCache(mNodes):
     '''
     remove instanciated mNodes from the cache
     '''
-    for k, v in RED9_META_NODECACHE.items():
+    for k, v in list(RED9_META_NODECACHE.items()):
         if not type(mNodes) == list:
             mNodes = [mNodes]
         if v and v in mNodes:
@@ -622,7 +622,7 @@ def nodeLockManager(func):
                 # log.debug('nodeLockManager > func : %s : node being unlocked' % func.__name__)
                 cmds.lockNode(mNode.mNode, lock=False)
             res = func(*args, **kws)
-        except StandardError, error:
+        except Exception as error:
             err = error
         finally:
             if locked:
@@ -630,7 +630,7 @@ def nodeLockManager(func):
                 cmds.lockNode(mNode.mNode, lock=True)
             if err:
                 _traceback = sys.exc_info()[2]  # get the full traceback
-                raise StandardError(StandardError(err), _traceback)
+                raise Exception(Exception(err), _traceback)
             return res
     return wrapper
 
@@ -645,12 +645,12 @@ def pymelHandler(func):
             #    print 'type : ', args
             #    #args[0]=str(inputNodes)
             res = func(*args, **kws)
-        except StandardError, error:
+        except Exception as error:
             err = error
         finally:
             if err:
                 _traceback = sys.exc_info()[2]  # get the full traceback
-                raise StandardError(StandardError(err), _traceback)
+                raise Exception(Exception(err), _traceback)
             return res
     return wrapper
 
@@ -666,7 +666,7 @@ def attributeDataType(val):
     if issubclass(type(val), str):
         # log.debug('Val : %s : is a string' % val)
         return 'string'
-    if issubclass(type(val), unicode):
+    if issubclass(type(val), str):
         # log.debug('Val : %s : is a unicode' % val)
         return 'unicode'
     if issubclass(type(val), bool):
@@ -875,7 +875,7 @@ def getMetaNodes(mTypes=[], mInstances=[], mClassGrps=[], mAttrs=None, dataType=
         return mNodes
     if mAttrs:
         # lazy to avoid cyclic imports
-        import Red9_CoreUtils as r9Core
+        from . import Red9_CoreUtils as r9Core
         mNodes = r9Core.FilterNode().lsSearchAttributes(mAttrs, nodes=mNodes)
     if dataType == 'mClass':
         return[MetaClass(node, **kws) for node in mNodes]
@@ -1010,7 +1010,7 @@ def getConnectedMetaNodes(nodes, source=True, destination=True, mTypes=[], mInst
 
     if mAttrs:
         # lazy to avoid cyclic imports
-        import Red9_CoreUtils as r9Core
+        from . import Red9_CoreUtils as r9Core
         mNodes = r9Core.FilterNode().lsSearchAttributes(mAttrs, nodes=mNodes)
     if dataType == 'mClass':
         return [MetaClass(node, **kws) for node in set(mNodes)]
@@ -1098,12 +1098,12 @@ def convertMClassType(cls, newMClass, **kws):
             else:
                 cls.mClass = newMClass
             return MetaClass(cls.mNode, **kws)
-        except StandardError, err:
+        except Exception as err:
             log.debug('Failed to convert self to new mClassType : %s' % newMClass)
             _traceback = sys.exc_info()[2]  # get the full traceback
-            raise StandardError(StandardError(err), _traceback)
+            raise Exception(Exception(err), _traceback)
     else:
-        raise StandardError('given class is not in the mClass Registry : %s' % newMClass)
+        raise Exception('given class is not in the mClass Registry : %s' % newMClass)
 
 def convertNodeToMetaData(nodes, mClass):
     '''
@@ -1149,13 +1149,13 @@ def createMetaNode(mType=None, *args, **kws):
     '''
     _str_func = 'createMetaNode'
 
-    if not type(mType) in [unicode, str]:
+    if not type(mType) in [str, str]:
         try:
             mType = mType.__name__
-        except Exception, err:
-            raise ValueError, "mType not a string and not a usable class name. mType: {0}".format(mType)
+        except Exception as err:
+            raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))
     if mType not in RED9_META_REGISTERY:
-        raise ValueError, "mType not found in class registry. mType: {0}".format(mType)
+        raise ValueError("mType not found in class registry. mType: {0}".format(mType))
 
     _call = RED9_META_REGISTERY.get(mType)
 
@@ -1163,7 +1163,7 @@ def createMetaNode(mType=None, *args, **kws):
 
     try:
         return _call(*args, **kws)
-    except Exception, err:
+    except Exception as err:
         log.info("|{0}| >> mType: {1} | class: {2}".format(_str_func, mType, _call))
         if args:
             log.info("|{0}| >> Args...".format(_str_func))
@@ -1171,12 +1171,12 @@ def createMetaNode(mType=None, *args, **kws):
                 log.info("    arg {0}: {1}".format(i, arg))
         if kws:
             log.info("|{0}| >> Kws...".format(_str_func))
-            for items in kws.items():
+            for items in list(kws.items()):
                 log.info("    kw: {0}".format(items))
 
         for arg in err.args:
             log.error(arg)
-        raise Exception, err
+        raise Exception(err)
 
 
 class MClassNodeUI(object):
@@ -1472,7 +1472,7 @@ class MClassNodeUI(object):
                 width = len(name)
             baseNames.append(name)
         width += 3
-        entries = zip(self.mNodes, baseNames)
+        entries = list(zip(self.mNodes, baseNames))
         # fill the scroll list
         for meta, name in entries:
             cmds.textScrollList('slMetaNodeList', edit=True,
@@ -1575,7 +1575,7 @@ class MClassNodeUI(object):
         if len(indexes) == 1:
             mNode = MetaClass(self.mNodes[indexes[0] - 1])
         else:
-            raise StandardError('Connect Call only works with a single selected mNode from the UI')
+            raise Exception('Connect Call only works with a single selected mNode from the UI')
 
         r9Setup.PRO_PACK_STUBS().MetaDataUI.uiCB_connectNode(mNode)
 
@@ -1588,7 +1588,7 @@ class MClassNodeUI(object):
         if len(indexes) == 1:
             mNode = MetaClass(self.mNodes[indexes[0] - 1])
         else:
-            raise StandardError('Connect Call only works with a single selected mNode from the UI')
+            raise Exception('Connect Call only works with a single selected mNode from the UI')
 
         r9Setup.PRO_PACK_STUBS().MetaDataUI.uiCB_disconnectNode(mNode)
 
@@ -1616,7 +1616,7 @@ class MClassNodeUI(object):
         if len(indexes) == 1:
             mNode = MetaClass(self.mNodes[indexes[0] - 1])
         else:
-            raise StandardError('Connect Call only works with a single selected mNode from the UI')
+            raise Exception('Connect Call only works with a single selected mNode from the UI')
         r9Setup.PRO_PACK_STUBS().MetaDataUI.uiCB_addChildMetaNode(mNode, mClass)
         self.fillScroll()
         print('adding childMetaNode of mClass type : %s to %s' % (mClass, mNode.mNode))
@@ -1705,7 +1705,7 @@ class MetaClass(object):
                     log.debug('Failed to initialize mClass : %s' % _registeredMClass)
                     pass
             else:
-                raise StandardError('Node has an unRegistered mClass attr set')
+                raise Exception('Node has an unRegistered mClass attr set')
         else:
             log.debug("mClass not found, given or registered")
             return super(cls.__class__, cls).__new__(cls)
@@ -1851,7 +1851,7 @@ class MetaClass(object):
                 return False
             if self.hasAttr('mClass') and not cmds.listConnections(self.mNode):
                 return False
-        except MetaInstanceError, err:
+        except MetaInstanceError as err:
             print('Bailing caught exception')
             return False
         return True
@@ -1894,7 +1894,7 @@ class MetaClass(object):
                 if not mobjHandle.isValid():
                     # ...raise this error so that this stops calls on bad nodes as soon as possible. With just return, you get a series of errors
                     # raise ValueError,('MObject is no longer valid - Last good dag path was: "%s"' % object.__getattribute__(self, "_lastDagPath"))
-                    raise MetaInstanceError, ('MObject is no longer valid - Last good dag path was: "%s"' % object.__getattribute__(self, "_lastDagPath"))
+                    raise MetaInstanceError('MObject is no longer valid - Last good dag path was: "%s"' % object.__getattribute__(self, "_lastDagPath"))
                 # if we have an object thats a dagNode, ensure we return FULL Path
                 mobj = object.__getattribute__(self, "_MObject")
                 if OpenMaya.MObject.hasFn(mobj, OpenMaya.MFn.kDagNode):
@@ -1907,8 +1907,8 @@ class MetaClass(object):
                 # cache the dagpath on the object as a back-up for error reporting
                 object.__setattr__(self, '_lastDagPath', _result)
                 return _result
-            except StandardError, error:
-                raise StandardError(error)
+            except Exception as error:
+                raise Exception(error)
 
     @mNode.setter
     def mNode(self, node):
@@ -1927,8 +1927,8 @@ class MetaClass(object):
 #                    selList.getDagPath(0,dag)
 #                    object.__setattr__(self,'_MDagPath',dag)
 
-            except StandardError, error:
-                raise StandardError(error)
+            except Exception as error:
+                raise Exception(error)
 
     @property
     def mNodeID(self):
@@ -1968,8 +1968,8 @@ class MetaClass(object):
                     return
                 # if we have an object thats a dagNode, ensure we return FULL Path
                 return object.__getattribute__(self, "_MObject")
-            except StandardError, error:
-                raise StandardError(error)
+            except Exception as error:
+                raise Exception(error)
 
     def getInheritanceMap(self):
         '''
@@ -2167,7 +2167,7 @@ class MetaClass(object):
                     elif attrType in ['double3', 'float3'] and valueType == 'complex':
                         try:
                             cmds.setAttr(attrString, value[0], value[1], value[2])
-                        except ValueError, error:
+                        except ValueError as error:
                             raise ValueError(error)
                     elif attrType == 'doubleArray':
                         cmds.setAttr(attrString, value, type='doubleArray')
@@ -2179,9 +2179,9 @@ class MetaClass(object):
                     else:
                         try:
                             cmds.setAttr(attrString, value)
-                        except StandardError, error:
+                        except Exception as error:
                             log.debug('failed to setAttr %s - might be connected' % attrString)
-                            raise StandardError(error)
+                            raise Exception(error)
                     if logging_is_debug():
                         log.debug("setAttr : %s : type : '%s' to value : %s" % (attr, attrType, value))
                 if locked:
@@ -2278,10 +2278,10 @@ class MetaClass(object):
                         return data
                     else:
                         raise AttributeError('object instance has no attribute : %s' % attr)
-        except MetaInstanceError, error:
-            raise MetaInstanceError, ('MObject is no longer valid - Last good dag path was: "%s"' %
+        except MetaInstanceError as error:
+            raise MetaInstanceError('MObject is no longer valid - Last good dag path was: "%s"' %
                                      object.__getattribute__(self, "_lastDagPath"))
-        except AttributeError, error:
+        except AttributeError as error:
             raise AttributeError(error)
 
     def __serializeComplex(self, data):
@@ -2304,7 +2304,7 @@ class MetaClass(object):
         Deserialize data from a JSON string back to it's original complex data
         '''
         # log.debug('deserializing data via JSON')
-        if type(data) == unicode:
+        if type(data) == str:
             return json.loads(str(data))
         return json.loads(data)
 
@@ -2318,8 +2318,8 @@ class MetaClass(object):
                 cmds.setAttr('%s.%s' % (self.mNode, attr), l=False)
                 cmds.deleteAttr('%s.%s' % (self.mNode, attr))
 
-        except StandardError, error:
-            raise StandardError(error)
+        except Exception as error:
+            raise Exception(error)
 
     def attrType(self, attr):
         '''
@@ -2374,7 +2374,7 @@ class MetaClass(object):
             if not self.isReferenced():
                 for a in attr:
                     cmds.setAttr('%s.%s' % (self.mNode, a), l=state)
-        except StandardError, error:
+        except Exception as error:
             log.debug(error)
 
     def attrBreakConnections(self, attr, source=True, dest=False):
@@ -2409,8 +2409,8 @@ class MetaClass(object):
                 if force:
                     cmds.setAttr('%s.%s' % (self.mNode, attr), l=False)
                 cmds.deleteAttr(self.mNode, at=attr)
-            except StandardError, err:
-                raise StandardError('Failed to delete given attrs : %s : %s' % (attr, err))
+            except Exception as err:
+                raise Exception('Failed to delete given attrs : %s : %s' % (attr, err))
 
     @nodeLockManager
     def addAttr(self, attr, value=None, attrType=None, hidden=False, **kws):
@@ -2467,7 +2467,7 @@ class MetaClass(object):
         addkwsToEdit = {}
         setKwsToEdit = {}
         if kws:
-            for kw, v in kws.items():
+            for kw, v in list(kws.items()):
                 if kw in addCmdEditFlags:
                     addkwsToEdit[kw] = v
                 elif kw in setCmdEditFlags:
@@ -2547,8 +2547,8 @@ class MetaClass(object):
                         log.debug('setAttr Edit flags run : %s = %s' % (attr, setKwsToEdit))
 
                 added = True
-            except StandardError, error:
-                raise StandardError(error)
+            except Exception as error:
+                raise Exception(error)
         return added
 
     def listAttrsOfType(self, Type='message'):
@@ -2920,8 +2920,8 @@ class MetaClass(object):
                         # back-up for the previous behaviour
                         cmds.connectAttr('%s.%s' % (self.mNode, attr), '%s.%s' % (node, srcAttr), f=force)
                 else:
-                    raise StandardError('"%s" is already connected to metaNode "%s"' % (node, self.mNode))
-            except StandardError, error:
+                    raise Exception('"%s" is already connected to metaNode "%s"' % (node, self.mNode))
+            except Exception as error:
                 log.warning(error)
 
 #     @nodeLockManager
@@ -2999,8 +2999,8 @@ class MetaClass(object):
                     log.debug('connecting child via single-message')
                     cmds.connectAttr('%s.%s' % (self.mNode, attr), '%s.%s' % (node, srcAttr), f=force)
             else:
-                raise StandardError('%s is already connected to metaNode' % node)
-        except StandardError, error:
+                raise Exception('%s is already connected to metaNode' % node)
+        except Exception as error:
             log.warning(error)
 
     @nodeLockManager
@@ -3025,7 +3025,7 @@ class MetaClass(object):
             srcAttr = node.shortName()
         try:
             node.connectChild(self, attr, srcAttr, cleanCurrent=cleanCurrent)
-        except StandardError, error:
+        except Exception as error:
                 log.warning(error)
 
     @nodeLockManager
@@ -3087,7 +3087,7 @@ class MetaClass(object):
         cons = cmds.listConnections(node, s=True, d=False, p=True, c=True)
 
         if not cons:
-            raise StandardError('%s is not connected to the mNode %s' % (node, self.mNode))
+            raise Exception('%s is not connected to the mNode %s' % (node, self.mNode))
 
         for sPlug, dPlug in zip(cons[0::2], cons[1::2]):
             if logging_is_debug():
@@ -3117,7 +3117,7 @@ class MetaClass(object):
                         cmds.deleteAttr(attr)
                 else:
                     log.debug('deleteSourcePlug attr aborted as node still has connections')
-            except StandardError, error:
+            except Exception as error:
                 log.warning('Failed to Remove mNode Connection Attr')
                 log.debug(error)
         if deleteDestPlug:  # self
@@ -3136,7 +3136,7 @@ class MetaClass(object):
                     # cmds.deleteAttr(attr)
                 else:
                     log.debug('deleteDestPlug attr aborted as node still has connections')
-            except StandardError, error:
+            except Exception as error:
                 log.warning('Failed to Remove Node Connection Attr')
                 log.debug(error)
 
@@ -3392,7 +3392,7 @@ class MetaClass(object):
             poseFiles, allows you to craft the data you want to store against a node.
         '''
         if type(node) == list:
-            raise StandardError("getNodeConnectionMetaDataMap: node must be a single node, not an list")
+            raise Exception("getNodeConnectionMetaDataMap: node must be a single node, not an list")
         mNode_data = {}
         # why not use the r9Meta.getConnectedMetaNodes ?? > well here we're using
         # the c=True flag to get both plugs back in one go to process later
@@ -3478,14 +3478,14 @@ def deleteEntireMetaRigStructure(searchNode=None):
     This is a hard core unplug and cleanup of all attrs added by the
     MetaRig, all connections and all nodes. Use CAREFULLY!
     '''
-    import Red9_AnimationUtils as r9Anim  # lazy to stop cyclic as anim also import meta
+    from . import Red9_AnimationUtils as r9Anim  # lazy to stop cyclic as anim also import meta
     if searchNode and not cmds.objExists(searchNode):
-        raise StandardError('given searchNode doesnt exist')
+        raise Exception('given searchNode doesnt exist')
     if not searchNode:
         searchNode = cmds.ls(sl=True)[0]
     mRig = getConnectedMetaSystemRoot(searchNode)
     if not mRig:
-        raise StandardError('No root MetaData system node found from given searchNode')
+        raise Exception('No root MetaData system node found from given searchNode')
     mNodes = []
     mNodes.append(mRig)
     mNodes.extend(mRig.getChildMetaNodes(walk=True))
@@ -3718,7 +3718,7 @@ class MetaRig(MetaClass):
         # import Red9_AnimationUtils as r9Anim  # lazy load to avoid cyclic imports
 
         if isinstance(node, list):
-            raise StandardError('node must be a single Maya Object')
+            raise Exception('node must be a single Maya Object')
 
         if not ctrType:
             ctrType = r9Core.nodeNameStrip(node)
@@ -3737,7 +3737,7 @@ class MetaRig(MetaClass):
                                 axis=axis)
         if boundData:
             if issubclass(type(boundData), dict):
-                for key, value in boundData.iteritems():
+                for key, value in boundData.items():
                     if logging_is_debug():
                         log.debug('Adding boundData to node : %s:%s' % (key, value))
                     MetaClass(node).addAttr(key, value=value)
@@ -3927,7 +3927,7 @@ class MetaRig(MetaClass):
         self.connectChild(node, 'SUP_%s' % attr)
         if boundData:
             if issubclass(type(boundData), dict):
-                for key, value in boundData.iteritems():
+                for key, value in boundData.items():
                     if logging_is_debug():
                         log.debug('Adding boundData to node : %s:%s' % (key, value))
                     MetaClass(node).addAttr(key, value=value)
@@ -4067,7 +4067,7 @@ class MetaRig(MetaClass):
         ctrls = []
         if not self.MirrorClass or forceRefresh:
             self.MirrorClass = self.getMirrorData()
-        for _, value in self.MirrorClass.mirrorDict[set].items():
+        for _, value in list(self.MirrorClass.mirrorDict[set].items()):
             ctrls.append(value['node'])
         return ctrls
 
@@ -4080,8 +4080,8 @@ class MetaRig(MetaClass):
         '''
         if not self.MirrorClass or forceRefresh:
             self.MirrorClass = self.getMirrorData()
-        if side in self.MirrorClass.mirrorDict.keys() and self.MirrorClass.mirrorDict[side]:
-            return max([int(m) for m in self.MirrorClass.mirrorDict[side].keys()])
+        if side in list(self.MirrorClass.mirrorDict.keys()) and self.MirrorClass.mirrorDict[side]:
+            return max([int(m) for m in list(self.MirrorClass.mirrorDict[side].keys())])
         return 0
 
     def getMirror_nextSlot(self, side, forceRefresh=False):
@@ -4130,7 +4130,7 @@ class MetaRig(MetaClass):
         '''
         import pyperclip
         datamap = pyperclip.paste()
-        if type(datamap) == unicode:
+        if type(datamap) == str:
             try:
                 datamap = json.loads(str(datamap))
                 if 'poseDict' in datamap:
@@ -4288,7 +4288,7 @@ class MetaRig(MetaClass):
         :param skip: [] child attrs on the mNode to skip during the process allowing certain controllers not to be effected
         '''
         ctrlMap = self.getChildren(walk=True, asMap=True)
-        for plug, ctrl in ctrlMap.items():
+        for plug, ctrl in list(ctrlMap.items()):
             if not plug.split('.')[-1] in skip:
                 shapes = cmds.listRelatives(ctrl, type='shape', f=True)
                 for shape in shapes:
@@ -4667,7 +4667,7 @@ class MetaRig(MetaClass):
                 # responsible, at the client level for restoring things like audioNodes
                 # and exportLoops
                 self.animMap_postprocess(feedback, *args, **kws)
-            except StandardError, err:
+            except Exception as err:
                 log.warning(err)
             return feedback
 
@@ -4691,7 +4691,7 @@ class MetaRig(MetaClass):
             try:
                 if not self._Timecode:
                     self._Timecode = r9paudio.Timecode(self.timecode_ctrlnode)
-            except StandardError, err:
+            except Exception as err:
                 log.error(err)
                 # instantiate a blank Timecode class
                 if not self._Timecode:
@@ -4848,7 +4848,7 @@ class MetaRigSupport(MetaClass):
         self.connectChild(node, 'SUP_%s' % attr)
         if boundData:
             if issubclass(type(boundData), dict):
-                for key, value in boundData.iteritems():
+                for key, value in boundData.items():
                     if logging_is_debug():
                         log.debug('Adding boundData to node : %s:%s' % (key, value))
                     MetaClass(node).addAttr(key, value=value)
@@ -4920,7 +4920,7 @@ class MetaFacialRigSupport(MetaClass):
         self.connectChild(node, '%s_%s' % (self.CTRL_Prefix, attr))
         if boundData:
             if issubclass(type(boundData), dict):
-                for key, value in boundData.iteritems():
+                for key, value in boundData.items():
                     if logging_is_debug():
                         log.debug('Adding boundData to node : %s:%s' % (key, value))
                     MetaClass(node).addAttr(key, value=value)
@@ -5317,7 +5317,7 @@ class MetaHIKPropertiesNode(MetaClass):
         changes = {}
         defaults = r9General.readJson(self._resetfile)
         current = self.get_mapping()
-        for key, val in current.items():
+        for key, val in list(current.items()):
             try:
                 if not val == defaults[key]:
                     changes[key] = [defaults[key], val]
@@ -5346,7 +5346,7 @@ class MetaHIKPropertiesNode(MetaClass):
         try:
             data = self.get_mapping()
             if skip_measurements or skip_rolls:
-                for key in data.keys():
+                for key in list(data.keys()):
                     if key in self.measurements:
                         data.pop(key)
                     if key in self.roll_pitch:
@@ -5375,7 +5375,7 @@ class MetaHIKPropertiesNode(MetaClass):
             raise IOError('Filepath not found! %s' % filepath)
 
         log.info('HIKProperty Loading Preset from : %s' % filepath)
-        for key, val in r9General.readJson(filepath).items():
+        for key, val in list(r9General.readJson(filepath).items()):
             try:
                 if type(val) in dataTypes:
                     if skip_measurements and key in self.measurements:
@@ -5401,7 +5401,7 @@ class MetaHIKPropertiesNode(MetaClass):
             for attr, val in sorted(status['changed'].items()):
                 log.info('HIKProperty Changed : %s : from %s >  %s' % (attr, val[0], val[1]))
 
-            for attr, val in status['failed'].items():
+            for attr, val in list(status['failed'].items()):
                 log.info('HIKProperty Failed to set : %s : %s' % (attr, val[0]))
                 log.debug(val[1])
 
@@ -5416,7 +5416,7 @@ def monitorHUDaddCBAttrs():
     Adds selected attrs from the CB to a MetaHUD node for monitoring,
     if HUD node already exists this will simply add more attrs to it
     '''
-    import Red9_CoreUtils as r9Core
+    from . import Red9_CoreUtils as r9Core
     node = cmds.ls(sl=True, l=True)[0]
     attrs = cmds.channelBox('mainChannelBox', q=True, selectedMainAttributes=True)
     currentHUDs = getMetaNodes(mTypes=MetaHUDNode, mAttrs='mNodeID=CBMonitorHUD')
@@ -5469,7 +5469,7 @@ def monitorHUDremoveCBAttrs():
     '''
     ChannelBox wrappers for the HUD : remove attrs from the MetaHUD
     '''
-    import Red9_CoreUtils as r9Core
+    from . import Red9_CoreUtils as r9Core
     currentHUDs = getMetaNodes(mTypes=MetaHUDNode, mAttrs='mNodeID=CBMonitorHUD')
     if currentHUDs:
         metaHUD = currentHUDs[0]

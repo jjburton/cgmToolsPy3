@@ -55,7 +55,7 @@ import maya.cmds as mc
 import maya.mel as mm
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(21)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -67,7 +67,7 @@ except ImportError:
         mc.showHelp('http://morganloomis.com/download/animationScripts/ml_utilities.py',absolute=True)
     
 try:
-    import ml_parentShape
+    from . import ml_parentShape
 except ImportError:
     raise ImportError('This module requires ml_parentShape in order to work. Please download from http://morganloomis.com')
 

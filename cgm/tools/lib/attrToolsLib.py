@@ -76,7 +76,7 @@ def uiTransferAttributes(self):
 		    aInstance.doConnectOut(target)
 	    elif self.CopyAttrModeOptionVar.value == 1:
 		#Copy mode
-		print 'Copy Mode'
+		print('Copy Mode')
 		for target in targets:
 		    aInstance.doCopyTo(target,
 		                       convertToMatch = self.TransferConvertStateOptionVar.value,
@@ -280,7 +280,7 @@ def uiSelectActiveAttr(self,attr):
 	else:
 	    self.AttrConvertRow(e=True, vis = True)
 	
-	for option in attrTypesDict.keys():
+	for option in list(attrTypesDict.keys()):
 	    if self.activeAttr.form in attrTypesDict.get(option): 
 		indexAttr = option
 		if indexAttr == 'long':
@@ -709,7 +709,7 @@ def uiUpdateMessage(self):
     Sets the message value of a loaded attr in the modify menu
     """  
     #>>> Variables
-    selection = mc.ls(sl=True,flatten=True,long=True) or []
+    selection = mc.ls(sl=True,flatten=True,int=True) or []
     if self.activeAttr:
 	if selection:
 	    self.activeAttr.doStore(selection[0])             
@@ -743,7 +743,7 @@ def uiUpdateMinValue(self):
     #>>> Variables
     varCheck = self.MinField(q=True,text=True)
     if self.activeAttr:
-	if type(varCheck)is unicode and len(varCheck) < 1:
+	if type(varCheck)is str and len(varCheck) < 1:
 	    self.activeAttr.doMin(False)             
 	elif type(varCheck) is float or int:
 	    try:
@@ -763,7 +763,7 @@ def uiUpdateMaxValue(self):
     #>>> Variables
     varCheck = self.MaxField(q=True,text=True)
     if self.activeAttr:
-	if type(varCheck)is unicode and len(varCheck) < 1:
+	if type(varCheck)is str and len(varCheck) < 1:
 	    self.activeAttr.doMax(False)           
 	elif type(varCheck) is float or int:
 	    try:
@@ -785,7 +785,7 @@ def uiUpdateDefaultValue(self):
     varCheck = self.DefaultField(q=True,text=True)
 
     if self.activeAttr:
-	if type(varCheck)is unicode and len(varCheck) < 1:
+	if type(varCheck)is str and len(varCheck) < 1:
 	    self.activeAttr.doDefault(False)        
 	elif type(varCheck) is float or int:
 	    try:
@@ -805,7 +805,7 @@ def uiUpdateSoftMaxValue(self):
     #>>> Variables
     varCheck = self.SoftMaxField(q=True,text=True)
     if self.activeAttr:
-	if type(varCheck)is unicode and len(varCheck) < 1:
+	if type(varCheck)is str and len(varCheck) < 1:
 	    self.activeAttr.doSoftMax(0)             
 	elif type(varCheck) is float or int:
 	    try:
@@ -825,7 +825,7 @@ def uiUpdateSoftMinValue(self):
     #>>> Variables
     varCheck = self.SoftMinField(q=True,text=True)
     if self.activeAttr:
-	if type(varCheck)is unicode and len(varCheck) < 1:
+	if type(varCheck)is str and len(varCheck) < 1:
 	    self.activeAttr.doSoftMin(0)             
 	elif type(varCheck) is float or int:
 	    try:
@@ -884,7 +884,7 @@ def uiReorderAttributes(self,direction):
 	    bufferDict = attributes.returnAttrFamilyDict(self.SourceObject.nameLong,attr)
 	    flagDict = attributes.returnStandardAttrFlags(self.SourceObject.nameLong,attr)
 	    if flagDict.get('dynamic'):
-		if bufferDict and 'parent' in bufferDict.keys():
+		if bufferDict and 'parent' in list(bufferDict.keys()):
 		    checkedAttrs.append(bufferDict.get('parent'))
 		else:
 		    checkedAttrs.append(attr)

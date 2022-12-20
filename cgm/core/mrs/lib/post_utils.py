@@ -18,6 +18,7 @@ import os
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -98,10 +99,10 @@ def swimSettings_set(deformer = None,handle = None, d=None):
     mObj.rotate = d['node_r']
     mObj.scale = d['node_s']
     
-    for a,v in d.iteritems(): 
+    for a,v in list(d.items()): 
         try:ATTR.set(mObj.mNode, a, v)
-        except Exception,err:
-            print("{} | {} | {}".format(a,v,err))
+        except Exception as err:
+            print(("{} | {} | {}".format(a,v,err)))
     mHandle = cgmMeta.asMeta(handle)
     mHandle.translate =  d['handle_t'] 
     mHandle.rotated = ['handle_r'] 
@@ -282,7 +283,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
         
         if _target == 'deformer':
             if not mc.objExists('{}.{}'.format(mDeformer.mNode,a)):
-                print("{} doesn't exist".format(a))
+                print(("{} doesn't exist".format(a)))
                 continue
         
         _kws = {}
@@ -314,7 +315,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
     
     if setupCycle:
         import cgm
-        reload(cgm.lib.nodes)
+        importlib.reload(cgm.lib.nodes)
         cgm.lib.nodes.offsetCycleSpeedControlNodeSetup (mDeformer.mNode,(_settings+'.speed'),cycleLength,cycleOffset)
     
     pprint.pprint(vars())
@@ -366,7 +367,7 @@ def skin_mesh(mMesh,ml_joints,**kws):
         #mc.geomBind( skin, bindMethod=3, mi=3 )
         
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
     
 
@@ -381,9 +382,9 @@ def backup(self,ml_handles = None):
         _jointOrientation = self.d_orientation['str']
         
         if not ml_handles:
-            raise ValueError,"{0} | ml_handles required".format(_str_func)        
+            raise ValueError("{0} | ml_handles required".format(_str_func))        
       
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     
     
 
@@ -470,7 +471,7 @@ def SDK_wip(ml = [], matchType = False, settings = None,
     #pprint.pprint(d_int)
     #return
     
-    for a,d in d_attrs.iteritems():
+    for a,d in list(d_attrs.items()):
         log.info(cgmGEN.logString_sub(_str_func,a))
         for i,mSib in enumerate(mSiblings):
             log.info(cgmGEN.logString_sub(_str_func,mSib))  
@@ -520,7 +521,7 @@ def SDK_wip(ml = [], matchType = False, settings = None,
                     d_do = {d_use['d'] : d_use}
                     
                     
-                for k,d3 in d_do.iteritems():
+                for k,d3 in list(d_do.items()):
                     
                     if d3.get('skip'):
                         continue
@@ -840,7 +841,7 @@ def siblingSDK_wip(mTarget = 'L_ring_limb_part',matchType = False,
             
             
 
-        for a,d in d_attrs.iteritems():
+        for a,d in list(d_attrs.items()):
             log.info("{0} | ...".format(a))
             
             _aDriver = "{0}_{1}".format(a,i)
@@ -950,7 +951,7 @@ def settings_createRootHolder(mSettings = None):
         #Move attrs...----------------------------------------------------------------------------
         for a in ['FKIK', 'visSub', 'visSub_out', 'visRoot', 'visRoot_out', 'visDirect', 'visDirect_out',  'result_FKon', 'result_IKon', 'blendParam']:
             if mCtrl.hasAttr(a):
-                reload(ATTR)
+                importlib.reload(ATTR)
                 
                 #Move
                 ATTR.copy_to(_orig, a, _new, a,convertToMatch = True,
@@ -1063,8 +1064,8 @@ def gather_worldStuff(groupTo = 'worldStuff',parent=True):
         if mObj.isReferenced():
             continue
         
-        print mObj
-        print _type
+        print(mObj)
+        print(_type)
         ml.append(mObj)
         
         
@@ -1115,8 +1116,8 @@ def shaders_getUnused(delete=False):
                         if not l:
                             log.info("Unused shader | {0}".format(mObj))
                             ml.append(mObj)
-            except Exception,err:
-                print err
+            except Exception as err:
+                print(err)
             #if not mc.editDisplayLayerMembers(mObj.mNode, q=True):
                 #ml.append(mObj)
     
@@ -1161,7 +1162,7 @@ def defJointFix(start='none', addDynJoint = False, skip = ['DEFJOINT']):
             mDriver = mObj.getConstrainingObjects(asMeta=1)
             if mDriver:
                 mDriver = mDriver[0]
-                print("Setup: {}".format(mObj.p_nameShort))
+                print(("Setup: {}".format(mObj.p_nameShort)))
                 l_constraints = mObj.getConstraintsTo()
                 mc.delete(l_constraints)
                 
@@ -1201,10 +1202,10 @@ def defJointFix(start='none', addDynJoint = False, skip = ['DEFJOINT']):
                 RIGCONSTRAINTS.driven_connect(mObj.mNode, mDriver.mNode)
 
         if mObj not in ml:
-            print("No setup: {}".format(mObj.p_nameShort))
+            print(("No setup: {}".format(mObj.p_nameShort)))
             
     pprint.pprint(ml)
-    print("Setup {} joints".format(len(ml)))
+    print(("Setup {} joints".format(len(ml))))
     
     
 def dynJoints(start='none'):
@@ -1242,10 +1243,10 @@ def dynJoints(start='none'):
                 
     
             if mObj not in ml:
-                print("No setup: {}".format(mObj.p_nameShort))
+                print(("No setup: {}".format(mObj.p_nameShort)))
             
     pprint.pprint(ml)
-    print("Setup {} joints".format(len(ml)))
+    print(("Setup {} joints".format(len(ml))))
     
     
 def setup_shapes(d_shapes = {}):
@@ -1275,8 +1276,8 @@ def setup_shapes(d_shapes = {}):
         
         _setAttr = d.get('setAttr',{})
         if _setAttr:
-            for a,v in _setAttr.iteritems():
-                print("{}|{}".format(a,v))
+            for a,v in list(_setAttr.items()):
+                print(("{}|{}".format(a,v)))
                 mTarget.setMayaAttr(a,v)
         mTarget.p_parent = False
             
@@ -1284,7 +1285,7 @@ def setup_shapes(d_shapes = {}):
         CORERIG.shapeParent_in_place(mObj.mNode,mTarget.mNode,False,True)        
         
         
-    for o,d in d_shapes.iteritems():
+    for o,d in list(d_shapes.items()):
         log.info("{} | {}".format(o,d))
         if d.get('mirror'):
             for side in ['L','R']:
@@ -1333,26 +1334,26 @@ def setup_shapes(d_shapes = {}):
             
 
     if l_missing:
-        print(cgmGEN._str_hardBreak)
+        print((cgmGEN._str_hardBreak))
         print("Missing the following controls: ")
         for o in l_missing:
             print(o)
             
-    print(log_msg(_str_func,cgmGEN._str_hardBreak))
+    print((log_msg(_str_func,cgmGEN._str_hardBreak)))
     
 def setup_defaults(d_defaults = {}):
     _str_func = 'setup_defaults'
     log.info(log_start(_str_func))
     pprint.pprint(d_defaults)
     l_missing = []
-    for o,d in d_defaults.iteritems():
+    for o,d in list(d_defaults.items()):
         try:
             mObj = cgmMeta.validateObjArg(o,noneValid=True)
             if not mObj:
                 l_missing.append("Control: {}".format(o))
                 continue
             
-            for a,v in d.iteritems():
+            for a,v in list(d.items()):
                 if not mObj.hasAttr(a):
                     l_missing.append("Attribute: {}".format(a))
                     continue
@@ -1371,17 +1372,17 @@ def setup_defaults(d_defaults = {}):
                         mObj.defaultValues = _d
                     
                 try:ATTR.set_default(o,a,v)
-                except Exception,err:log.error(err)
+                except Exception as err:log.error(err)
                 ATTR.set(o,a,v)
-        except Exception,err:
+        except Exception as err:
             pprint.pprint(vars())
-            raise Exception,err
+            raise Exception(err)
     if l_missing:
-        print(cgmGEN._str_hardBreak)
+        print((cgmGEN._str_hardBreak))
         print("Missing the following controls: ")
         for o in l_missing:
             print(o)
-    print(log_msg(_str_func,cgmGEN._str_hardBreak))
+    print((log_msg(_str_func,cgmGEN._str_hardBreak)))
     
 def setup_limits(d_limits = {}):
     _str_func = 'setup_limits'
@@ -1389,7 +1390,7 @@ def setup_limits(d_limits = {}):
     pprint.pprint(d_limits)
     
     l_missing = []
-    for o,d in d_limits.iteritems():
+    for o,d in list(d_limits.items()):
         for side in ['L','R']:
             o_string = "{}_{}".format(side,o)
             mObj = cgmMeta.validateObjArg(o_string,noneValid=True)
@@ -1399,9 +1400,9 @@ def setup_limits(d_limits = {}):
             mc.transformLimits(o_string, **d)
     
     if l_missing:
-        print(cgmGEN._str_hardBreak)
+        print((cgmGEN._str_hardBreak))
         print("Missing the following controls: ")
         for o in l_missing:
             print(o)
-    print(log_msg(_str_func,cgmGEN._str_hardBreak))
+    print((log_msg(_str_func,cgmGEN._str_hardBreak)))
     

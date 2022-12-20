@@ -185,15 +185,15 @@ def reinitializeMetaClass(node):
         mObj = r9Meta.MetaClass(node)
     _buffer = mObj.mNode
 
-    _keyCheck = mc.ls(mObj.mNode,long=True)[0]
-    if _keyCheck in r9Meta.RED9_META_NODECACHE.keys():
+    _keyCheck = mc.ls(mObj.mNode,int=True)[0]
+    if _keyCheck in list(r9Meta.RED9_META_NODECACHE.keys()):
         log.debug('Cached already and class to be changed....')
 
         try:
             r9Meta.RED9_META_NODECACHE.pop(_keyCheck)
             log.debug("Pushed from cache: {0}".format(_buffer))
-        except Exception,error:
-            raise Exception,error
+        except Exception as error:
+            raise Exception(error)
 
     return r9Meta.MetaClass(_buffer)
 
@@ -203,7 +203,7 @@ def set_mClassInline(self, setClass = None):
         _str_func = "set_mClassInline( '{0}' )".format(self.mNode)	
 
         if self.isReferenced():
-            raise ValueError,"Cannot set a referenced node's mClass"
+            raise ValueError("Cannot set a referenced node's mClass")
 
         _currentMClass = ATTR.get(self.mNode,'mClass')#...use to avoid exceptions	
         _b_flushCacheInstance = False
@@ -227,8 +227,8 @@ def set_mClassInline(self, setClass = None):
                 _reinitialize = True
 
         return _reinitialize
-    except Exception,error:
-        raise Exception,"set_mClassInline fail >> %s"%error
+    except Exception as error:
+        raise Exception("set_mClassInline fail >> %s"%error)
 
 class cgmTest(r9Meta.MetaClass):
     def __bind__(self):pass	    
@@ -283,12 +283,12 @@ class cgmNode(r9Meta.MetaClass):
                 object.__setattr__(self, '__componentMode__', componentMode)
                 object.__setattr__(self, '__component__', component)
                 object.__setattr__(self, '__justCreatedState__', createdState)	    
-            except Exception, e:
+            except Exception as e:
                 log.error("|{0}| >> Failed to extend...".format(_str_func))                
                 r9Meta.printMetaCacheRegistry()                
                 for arg in e.args:
                     log.error(arg)            
-                raise Exception,e
+                raise Exception(e)
             
     def __repr__(self):
         try:
@@ -324,7 +324,7 @@ class cgmNode(r9Meta.MetaClass):
                     selList.getDependNode(0,mobj)		    
                     _result = self._MFnDependencyNode.findAlias(attr,mobj)
                 return _result
-            except Exception,e:
+            except Exception as e:
                 #log.error('hasAttr failure...{0}'.format(err))#...this was just to see if I had an error
                 for arg in e.args:
                     log.error(arg)                  
@@ -345,7 +345,7 @@ class cgmNode(r9Meta.MetaClass):
                     else:
                         value = VALID.mNodeString(value)
                 ATTR.set_message(self.mNode, attr, value)   
-        except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+        except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
         
     def addAttr(self, attr,value = None, attrType = None, enumName = None,initialValue = None,lock = None,keyable = None, hidden = None,*args,**kws):
         _str_func = 'addAttr'
@@ -374,7 +374,7 @@ class cgmNode(r9Meta.MetaClass):
                 if value is None and initialValue is not None:#If no value and initial value, use it
                     value = initialValue
             
-            if enumName is None and attrType is 'enum':
+            if enumName is None and attrType == 'enum':
                 enumName = "off:on"		
                 
             if value is not None and not attrType:
@@ -562,11 +562,11 @@ class cgmNode(r9Meta.MetaClass):
         if fastName:
             d_updatedNamesDict = self.getNameDict()
             ignore = kws.get('ignore') or []
-            if 'cgmName' not in d_updatedNamesDict.keys():
+            if 'cgmName' not in list(d_updatedNamesDict.keys()):
                 test = {}
                 if self.getMayaType() !='group' and 'cgmName' not in ignore:
                     _short = self.getShortName()
-                    for k,v in d_updatedNamesDict.iteritems():
+                    for k,v in list(d_updatedNamesDict.items()):
                         if v and v in _short:
                             _short = _short.replace(v,'')
                     _short = NAMES.clean(_short)
@@ -599,8 +599,8 @@ class cgmNode(r9Meta.MetaClass):
         Add tags and name in one fell swoop
         """
         if type(d_tags)is not dict:
-            raise ValueError, "%s.doTagAndName >> d_tags not dict : %s"(self.p_nameShort,d_tags)		    
-        for tag in d_tags.keys():
+            raise ValueError("{}.doTagAndName >> d_tags not dict : {}".format(self.p_nameShort,d_tags))		    
+        for tag in list(d_tags.keys()):
             self.doStore(tag,d_tags[tag])
         self.doName()
         return self.mNode
@@ -637,7 +637,7 @@ class cgmNode(r9Meta.MetaClass):
         didSomething = False
         
         
-        for tag,v in targetCGM.iteritems():
+        for tag,v in list(targetCGM.items()):
             if tag in ignore:continue
             if ATTR.has_attr(target,tag):
                 ATTR.copy_to(target,tag,self.mNode,inConnection=True)
@@ -761,7 +761,7 @@ class cgmNode(r9Meta.MetaClass):
                 mc.select(cl=True)
                 return pos
             else:
-                raise NotImplementedError,"Don't know how to position '%s's componentType: %s"%(self.getShortName,objType)
+                raise NotImplementedError("Don't know how to position '%s's componentType: %s"%(self.getShortName,objType))
 
         else:
             return POS.get(self.getComponent(),space = 'world')    
@@ -935,7 +935,7 @@ class cgmNode(r9Meta.MetaClass):
                     default = mc.attributeQuery(attr, listDefault=True, node=obj)[0]
                 ATTR.set(obj,attr,default)
                 _reset[attr] = default
-            except Exception,err:
+            except Exception as err:
                 log.error("{0}.{1} resetAttrs | error: {2}".format(obj, attr,err))   	
         return _reset
     
@@ -955,9 +955,9 @@ class cgmNode(r9Meta.MetaClass):
     
     def verifyAttrDict(self,d_attrs,**kws):
         if type(d_attrs) is not dict:
-            raise ValueError,"Not a dict: %s"%self.p_nameShort
+            raise ValueError("Not a dict: %s"%self.p_nameShort)
         
-        _keys = d_attrs.keys()
+        _keys = list(d_attrs.keys())
         _keys.sort()
         
         for attr in _keys:
@@ -967,7 +967,7 @@ class cgmNode(r9Meta.MetaClass):
                     self.addAttr(attr,attrType = 'enum', enumName= buffer,**kws)		    
                 else:
                     self.addAttr(attr,attrType = buffer,**kws)
-            except StandardError,error:
+            except Exception as error:
                 log.error("%s.verifyAttrDict >>> Failed to add attr: %s | data: %s | error: %s"%(self.p_nameShort,attr,d_attrs.get(attr),error))
         return True
     
@@ -1020,11 +1020,11 @@ class cgmNode(r9Meta.MetaClass):
             return False
         if '.' in buffer:
             try:return validateAttrArg(buffer)['mi_plug']
-            except Exception,e:
+            except Exception as e:
                 log.error("|{0}| >> Failed to query attr: {1}.{2} ...".format(_str_func,self.p_nameShort,attr))                                
                 for arg in e.args:
                     log.error(arg)      
-                raise Exception,e
+                raise Exception(e)
             
         if asList or len(buffer) > 1:
             return validateObjListArg(buffer)
@@ -1220,14 +1220,14 @@ class cgmNode(r9Meta.MetaClass):
         
         try:
             return getattr(module,func)(*args,**kws)
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err)
         if not kws:
             kws = {}
             _kwString = ''  
         else:
             _l = []
-            for k,v in kws.iteritems():
+            for k,v in list(kws.items()):
                 _l.append("{0}={1}".format(k,v))
             _kwString = ','.join(_l)  
             
@@ -1236,13 +1236,13 @@ class cgmNode(r9Meta.MetaClass):
             log.debug("|{0}| >> On: {1}.{2}".format(_str_func,module.__name__, _short))     
             log.debug("|{0}| >> {1}.{2}({3}{4})...".format(_str_func,_short,func,_str_args,_kwString))                                    
             _res = getattr(module,func)(*args,**kws)
-        except Exception,err:
+        except Exception as err:
             #print(cgmGEN._str_hardLine)
-            print(cgmGEN._str_subLine)            
-            print("  |{0}| >> Failure: {1}".format(_str_func, err.__class__))
-            print("  Node: {0}".format(_short))
-            print("  Module: {0} ".format(module))            
-            print("  Func: {0} ".format(func))            
+            print((cgmGEN._str_subLine))            
+            print(("  |{0}| >> Failure: {1}".format(_str_func, err.__class__)))
+            print(("  Node: {0}".format(_short)))
+            print(("  Module: {0} ".format(module)))            
+            print(("  Func: {0} ".format(func)))            
             """
             if args:
                 print(cgmGEN._str_headerDiv + "  Args...")
@@ -1326,10 +1326,10 @@ class cgmNode(r9Meta.MetaClass):
         #parentOnly = True, inputConnections = True,
         if self.isComponent():
             log.warning("doDuplicate fail. Cannot duplicate components")
-            raise ValueError,"doDuplicate fail. Cannot duplicate component: '%s'"%self.getShortName()
+            raise ValueError("doDuplicate fail. Cannot duplicate component: '%s'"%self.getShortName())
 
         breakMessagePlugsOut = kws.pop('breakMessagePlugsOut',False) 
-        _keys = kws.keys()
+        _keys = list(kws.keys())
         if 'po' not in _keys and 'parentOnly' not in _keys:
             kws['parentOnly'] = True
             
@@ -1360,7 +1360,7 @@ class cgmNode(r9Meta.MetaClass):
                     mc.setAttr(str_plug,lock=False)	
 
                 try: mc.setAttr(str_plug,lock=False)
-                except:raise StandardError, "%s.doDuplicate >> can't unlock '%s'"%(self.p_nameShort,str_plug)
+                except:raise Exception("%s.doDuplicate >> can't unlock '%s'"%(self.p_nameShort,str_plug))
 
                 mc.disconnectAttr(_str_messageCombined,plug)
                 if b_sourceLock:
@@ -1448,9 +1448,9 @@ class cgmNodeOLD(r9Meta.MetaClass):
             object.__setattr__(self, '__componentMode__', componentMode)
             object.__setattr__(self, '__component__', component)
             object.__setattr__(self, '__justCreatedState__', createdState)	    
-        except Exception,error:
+        except Exception as error:
             r9Meta.printMetaCacheRegistry()
-            raise Exception,"Failed to extend unmanaged | %s"%error	
+            raise Exception("Failed to extend unmanaged | %s"%error)	
 
         #self.update()
 
@@ -1474,7 +1474,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     selList.getDependNode(0,mobj)		    
                     _result = self._MFnDependencyNode.findAlias(attr,mobj)
                 return _result
-            except Exception,err:
+            except Exception as err:
                 #log.error('hasAttr failure...{0}'.format(err))#...this was just to see if I had an error
                 return mc.objExists("{0}.{1}".format(self.mNode, attr))
 
@@ -1513,7 +1513,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
             if buffer and asMeta:
                 return validateObjArg(buffer,mType = cgmObject)
             return buffer
-        except Exception,error:raise Exception,"[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error)
+        except Exception as error:raise Exception("[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error))
 
     def getParent_asMObject(self):
         pBuffer = search.returnParentObject(self.mNode) or False
@@ -1567,7 +1567,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 else:
                     return cgmAttr(self,attr).getMessage()
             return []
-        except Exception,err:
+        except Exception as err:
             log.error("getMessage fail | {0} | err:{1}".format(Exception,err))
             return []
         """if mc.objExists('%s.%s' % (self.mNode,attr)) and mc.getAttr('%s.%s' % (self.mNode,attr),type=True)  == 'message':
@@ -1604,7 +1604,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
             return False
         if '.' in buffer:
             try:return validateAttrArg(buffer)['mi_plug']
-            except Exception,error:log.error("[%s.getMessageAsAttr(%s) fail]{%s}"%(self.p_nameShort,attr,error))
+            except Exception as error:log.error("[%s.getMessageAsAttr(%s) fail]{%s}"%(self.p_nameShort,attr,error))
         if len(buffer) == 1:
             return validateObjArg(self.getMessage(attr)) or False
         else:
@@ -1651,7 +1651,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         """
         if arg:
             try:return mc.ls(['%s.%s[*]'%(self.mNode,arg)],flatten=True)
-            except StandardError,error:
+            except Exception as error:
                 log.error(error)
                 return False
         else:
@@ -1684,7 +1684,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     else:
                         return self.getComponent()
                 return False 
-            except StandardError,error:
+            except Exception as error:
                 log.warning("getComponents: %s"%error)	
                 return False
 
@@ -1753,7 +1753,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     except:pass
                     if not self._srcAttr:          
                         self._srcAttr = _mNodeSelf.message  #attr on the nodes source side for the child connection   		    
-                except Exception,error:raise StandardError, "[Query]{%s}"%(error)
+                except Exception as error:raise Exception("[Query]{%s}"%(error))
 
             def _act_(self):
                 ATTR.set_message(_mNodeSelf.mNode, self._attr, self._node)
@@ -1805,7 +1805,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
             #if srcAttr:attributes.storeObjectToMessage(node,self.mNode,srcAttr)
             return True
 
-        except StandardError,error:
+        except Exception as error:
             log.warning("connectParentNode: %s"%error)
 
     def connectChildrenNodes(self, nodes, attr, connectBack = None, force=True):
@@ -1832,7 +1832,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 if connectBack is not None:
                     ATTR.set_message(node, connectBack, self.mNode)                                
                     #attributes.storeObjectToMessage(self.mNode,node,connectBack)		
-            except StandardError,error:
+            except Exception as error:
                 log.warning("connectChildrenNodes: %s"%error)
 
     #msgList Functions =====================================================================
@@ -1859,15 +1859,15 @@ class cgmNodeOLD(r9Meta.MetaClass):
             for i,mi_node in enumerate(ml_nodes):
                 str_attr = "%s_%i"%(attr,i)
                 try:attributes.storeObjectToMessage(mi_node.mNode,self.mNode,str_attr)
-                except StandardError,error:log.error("%s >> i : %s | node: %s | attr : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,str_attr,error))
+                except Exception as error:log.error("%s >> i : %s | node: %s | attr : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,str_attr,error))
                 if connectBack is not None:
                     try:attributes.storeObjectToMessage(self.mNode,mi_node.mNode,connectBack)
-                    except StandardError,error:log.error("%s >> i : %s | node: %s | connectBack : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,connectBack,error))
+                    except Exception as error:log.error("%s >> i : %s | node: %s | connectBack : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,connectBack,error))
                 #log.debug("'%s.%s' <<--<< '%s.msg'"%(self.p_nameShort,str_attr,mi_node.p_nameShort))
             #log.debug("-"*100)            	
             return True
-        except StandardError,error:
-            raise StandardError, "%s.msgList_connect >>[Error]<< : %s"(self.p_nameShort,error)	
+        except Exception as error:
+            raise Exception("{}.msgList_connect >>[Error]<< : {}".format(self.p_nameShort,error))	
 
     def msgList_get(self,attr = None, dataAttr = None, asMeta = True, cull = True):
         """
@@ -1902,8 +1902,8 @@ class cgmNodeOLD(r9Meta.MetaClass):
             #log.debug("-"*100)  
             if asMeta:return ml_return
             return l_return
-        except StandardError,error:
-            raise StandardError, "%s.get_msgList >>[Error]<< : %s"(self.p_nameShort,error)
+        except Exception as error:
+            raise Exception("{}.get_msgList >>[Error]<< : {}".format(self.p_nameShort,error))
 
     def msgList_getMessage(self,attr = None, longNames = True, cull = True):
         """
@@ -1925,8 +1925,8 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 l_return = [o for o in l_return if o]
             #log.debug("-"*100)  
             return l_return
-        except StandardError,error:
-            raise StandardError, "%s.msgList_getMessage >>[Error]<< : %s"(self.p_nameShort,error)
+        except Exception as error:
+            raise Exception("{}.msgList_getMessage >>[Error]<< : {}".format(self.p_nameShort,error))
 
     def msgList_append(self, node, attr = None, dataAttr = None, connectBack = None):
         """
@@ -1941,7 +1941,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         #try:
         i_node = validateObjArg(node,noneValid=True)
         if not i_node:
-            raise StandardError, " %s.msgList_append >> invalid node: %s"%(self.p_nameShort,node)
+            raise Exception(" %s.msgList_append >> invalid node: %s"%(self.p_nameShort,node))
         #if not self.msgList_exists(attr):
             #raise StandardError, " %s.msgList_append >> invalid msgList attr: '%s'"%(self.p_nameShort,attr)		
 
@@ -1969,9 +1969,9 @@ class cgmNodeOLD(r9Meta.MetaClass):
     
         i_node = validateObjArg(node,noneValid=True)
         if not i_node:
-            raise StandardError, " %s.msgList_index >> invalid node: %s"%(self.p_nameShort,node)
+            raise Exception(" %s.msgList_index >> invalid node: %s"%(self.p_nameShort,node))
         if not self.msgList_exists(attr):
-            raise StandardError, " %s.msgList_index >> invalid msgList attr: '%s'"%(self.p_nameShort,attr)		
+            raise Exception(" %s.msgList_index >> invalid msgList attr: '%s'"%(self.p_nameShort,attr))		
         #log.debug(">>> %s.msgList_index(node = %s, attr = '%s') >> "%(self.p_nameShort,i_node.p_nameShort,attr) + "="*75)  
         ml_nodes = self.msgList_get(attr,asMeta=True)	
         if i_node in ml_nodes:
@@ -1989,9 +1989,9 @@ class cgmNodeOLD(r9Meta.MetaClass):
     
         ml_nodesToRemove = validateObjListArg(nodes,noneValid=True)
         if not ml_nodesToRemove:
-            raise StandardError, " %s.msgList_index >> invalid nodes: %s"%(self.p_nameShort,nodes)
+            raise Exception(" %s.msgList_index >> invalid nodes: %s"%(self.p_nameShort,nodes))
         if not self.msgList_exists(attr):
-            raise StandardError, " %s.msgList_append >> invalid msgList attr: '%s'"%(self.p_nameShort,attr)		
+            raise Exception(" %s.msgList_append >> invalid msgList attr: '%s'"%(self.p_nameShort,attr))		
         #log.debug(">>> %s.msgList_remove(nodes = %s, attr = '%s') >> "%(self.p_nameShort,nodes,attr) + "="*75)  
         ml_nodes = self.msgList_get(attr,asMeta=True)
         b_removedSomething = False
@@ -2021,8 +2021,8 @@ class cgmNodeOLD(r9Meta.MetaClass):
 
             #log.debug("-"*100)            	               	
             return True   
-        except StandardError,error:
-            raise StandardError, "%s.msgList_purge >>[Error]<< : %s"(self.p_nameShort,error)
+        except Exception as error:
+            raise Exception("{}.msgList_purge >>[Error]<< : {}".format(self.p_nameShort,error))
 
     def msgList_clean(self,attr,dataAttr = None, connectBack = None):
         """
@@ -2035,8 +2035,8 @@ class cgmNodeOLD(r9Meta.MetaClass):
             self.msgList_connect(l_attrs,attr,connectBack)
             #log.debug("-"*100)            	               	
             return True   
-        except StandardError,error:
-            raise StandardError, "%s.msgList_clean >>[Error]<< : %s"(self.p_nameShort,error)
+        except Exception as error:
+            raise Exception("{}.msgList_clean >>[Error]<< : {}".format(self.p_nameShort,error))
 
     def msgList_exists(self,attr, dataAttr = None):
         """
@@ -2052,8 +2052,8 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     return True
             #log.debug("-"*100)            	               	
             return False   
-        except StandardError,error:
-            raise StandardError, "%s.msgList_exists >>[Error]<< : %s"(self.p_nameShort,error)
+        except Exception as error:
+            raise Exception("{}.msgList_exists >>[Error]<< : {}".format(self.p_nameShort,error))
 
     def get_sequentialAttrDict(self,attr = None):
         """
@@ -2065,7 +2065,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         #log.debug(">>> %s.get_sequentialAttrDict(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)            		
         userAttrs = self.getUserAttrsAsDict()
         d_attrList = {}
-        for key in userAttrs.keys():
+        for key in list(userAttrs.keys()):
             if '_' in key:
                 _split = key.split('_')
                 _int_ = _split[-1]
@@ -2124,7 +2124,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                                 #'enum': "off:on",
                                 #'message':''} 
 
-            if enumName is None and attrType is 'enum':
+            if enumName is None and attrType == 'enum':
                 enumName = "off:on"		
 
             #Pass to Red9
@@ -2172,7 +2172,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 return False
             cnt =  ATTR.get_nextAvailableSequentialAttrIndex(self.mNode,attr)
             return "%s%s"%(attr,cnt)
-        except Exception,error:raise Exception,"[%s.get_nextSequentialAttr(attr = %s]{%s}"%(self.p_nameShort,attr,error)
+        except Exception as error:raise Exception("[%s.get_nextSequentialAttr(attr = %s]{%s}"%(self.p_nameShort,attr,error))
 
     def returnNextAvailableAttrCnt(self,attr = None):
         try:
@@ -2181,7 +2181,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 return False
             """ Get's the next available item number """ 
             return ATTR.get_nextAvailableSequentialAttrIndex(self.mNode,attr)
-        except Exception,error:raise Exception,"[%s.returnNextAvailableAttrCnt(attr = %s]{%s}"%(self.p_nameShort,attr,error)
+        except Exception as error:raise Exception("[%s.returnNextAvailableAttrCnt(attr = %s]{%s}"%(self.p_nameShort,attr,error))
 
     #def update(self):
         """ Update the instance with current maya info. For example, if another function outside the class has changed it. """ 
@@ -2270,7 +2270,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
     p_nameBase = property(getBaseName)
 
     def isTransform(self):
-        buffer = mc.ls(self.mNode,type = 'transform',long = True)
+        buffer = mc.ls(self.mNode,type = 'transform',int = True)
         if buffer and buffer[0]==self.getLongName():
             return True
         return False
@@ -2283,7 +2283,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         for t in _l_targets:
             l_targetAttrs = mc.listAttr(t,**kws)
             if not l_targetAttrs:
-                raise ValueError,"No attrs found. kws: {0}".format(kws)
+                raise ValueError("No attrs found. kws: {0}".format(kws))
             _t = names.getShortName(t)
             log.info("Comparing {0} to {1}...".format(self.getShortName(),_t))
             _l_matching = []
@@ -2300,12 +2300,12 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     _l_matching.append(a)
                         #print ("{0}.{1} != {2}.{1}".format(self.getShortName(),a,_t))
                         #log.info("%s.%s : %s != %s.%s : %s"%(self.getShortName(),a,selfBuffer,target,a,targetBuffer))
-                except Exception,error:
+                except Exception as error:
                     log.info(error)	
                     log.warning("'%s.%s'couldn't query"%(self.mNode,a))
             log.info("Matching attrs: {0} | Unmatching: {1}".format(len(_l_matching),len(_l_notMatching)))
             for b in _l_notMatching:
-                print b
+                print(b)
             log.info("{0} >>".format(_t) + cgmGEN._str_subLine)
         log.info(cgmGEN._str_hardLine)
         
@@ -2321,7 +2321,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         if fastName:
             d_updatedNamesDict = self.getNameDict()
             ignore = kws.get('ignore') or []
-            if 'cgmName' not in d_updatedNamesDict.keys():
+            if 'cgmName' not in list(d_updatedNamesDict.keys()):
                 if self.getMayaType() !='group' and 'cgmName' not in ignore:
                     d_updatedNamesDict['cgmName'] = self.getShortName()
 
@@ -2342,16 +2342,16 @@ class cgmNodeOLD(r9Meta.MetaClass):
         Add tags and name in one fell swoop
         """
         if type(d_tags)is not dict:
-            raise StandardError, "%s.doTagAndName >> d_tags not dict : %s"(self.p_nameShort,d_tags)		    
+            raise Exception("{}.doTagAndName >> d_tags not dict : {}".format(self.p_nameShort,d_tags))		    
         try:
-            for tag in d_tags.keys():
+            for tag in list(d_tags.keys()):
                 self.doStore(tag,d_tags[tag])
             self.doName()
-        except StandardError,error:
+        except Exception as error:
             #log.debug("#>>>Tags:")
-            for tag in d_tags.keys():
+            for tag in list(d_tags.keys()):
                 log.debug("    %s : %s"%(tag,d_tags.get(tag)))
-            raise StandardError, "[%s.doTagAndName]{%s}"(self.p_nameShort,error)	
+            raise Exception("[{}.doTagAndName] | {}".format(self.p_nameShort,error))	
 
     def doNameOLD(self,sceneUnique=False,nameChildren=False,**kws):
         """
@@ -2362,7 +2362,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
 
         """  
         def doNameChildren(self):
-            if not len(mc.ls(self.mNode,type = 'transform',long = True)) == 0:
+            if not len(mc.ls(self.mNode,type = 'transform',int = True)) == 0:
                 childrenObjects = search.returnAllChildrenObjects(self.mNode,True) or []
                 i_children = []
                 for c in childrenObjects:
@@ -2447,7 +2447,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
             if l_siblings and asMeta:
                 return validateObjListArg(l_siblings)
             return l_siblings   
-        except Exception,error:raise Exception,"[%s.getSiblings]{%s}"%(self.p_nameShort,error)
+        except Exception as error:raise Exception("[%s.getSiblings]{%s}"%(self.p_nameShort,error))
 
     #=========================================================================                   
     # Attribute Functions
@@ -2467,7 +2467,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
         try:
             ATTR.delete(self.mNode,attr)
             #ATTR.delete(self.mNode,attr)
-        except StandardError,error:
+        except Exception as error:
             log.error(error)	
             log.warning("'%s.%s' not found"%(self.mNode,attr))	    
             return False
@@ -2475,9 +2475,9 @@ class cgmNodeOLD(r9Meta.MetaClass):
     def verifyAttrDict(self,d_attrs,**kws):
         #log.debug(">>> %s.verifyAttrDict >> "%(self.p_nameShort) + "="*75)            	        	
         if type(d_attrs) is not dict:
-            raise StandardError,"Not a dict: %s"%self.p_nameShort
+            raise Exception("Not a dict: %s"%self.p_nameShort)
         
-        _keys = d_attrs.keys()
+        _keys = list(d_attrs.keys())
         _keys.sort()
         
         for attr in _keys:
@@ -2487,7 +2487,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     self.addAttr(attr,attrType = 'enum', enumName= buffer,**kws)		    
                 else:
                     self.addAttr(attr,attrType = buffer,**kws)
-            except StandardError,error:
+            except Exception as error:
                 log.error("%s.verifyAttrDict >>> Failed to add attr: %s | data: %s | error: %s"%(self.p_nameShort,attr,d_attrs.get(attr),error))
         return True
 
@@ -2515,14 +2515,14 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 self.doName(sceneUnique,nameChildren)            
                 return True
 
-            elif tag in self.__dict__.keys() and self.__dict__[tag] == value:
+            elif tag in list(self.__dict__.keys()) and self.__dict__[tag] == value:
                 #log.debug("'%s.%s' already has base name of '%s'."%(self.getShortName(),tag,value))
                 return False
             else:
                 self.doStore(tag,value,True,**kw)
                 self.doName(sceneUnique,nameChildren)            
                 return True
-        except StandardError,error:
+        except Exception as error:
             log.error(error)	
             return False
 
@@ -2547,7 +2547,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
             cgmGEN.log_info_dict(targetCGM)
             didSomething = False
 
-            for tag in targetCGM.keys():
+            for tag in list(targetCGM.keys()):
                 #log.debug("..."+tag)
                 if tag not in ignore and targetCGM[tag] not in [None,False]:
                     if ATTR.has_attr(target,tag):
@@ -2558,7 +2558,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                         didSomething = True
             #self.update()
             return didSomething
-        except StandardError,error:
+        except Exception as error:
             log.error(error)	
             return False
 
@@ -2573,7 +2573,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 if self.hasAttr(attr):
                     return "%s.%s"%(self.mNode,d_plugTypes.get(attr))
             return False
-        except Exception,error:raise Exception,"[%s.returnPositionOutPlug]{%s}"%(self.p_nameShort,error)
+        except Exception as error:raise Exception("[%s.returnPositionOutPlug]{%s}"%(self.p_nameShort,error))
 
 
     def resetAttrs(self, attrs = None):
@@ -2590,11 +2590,11 @@ class cgmNodeOLD(r9Meta.MetaClass):
                         ATTR.set(obj,attr,default)
                         #ATTR.set(obj, attr, default)
                         _reset.append(attr)
-                    except Exception,err:
+                    except Exception as err:
                         #ATTR.set(obj, attr, 0)
                         log.error("{0}.{1} resetAttrs | error: {2}".format(self.p_nameShort, attr,err))   	
             return _reset
-        except Exception,err:
+        except Exception as err:
             log.error("{0} resetAttrs | error: {1}".format(self.p_nameShort,err))   		    
             return False
 
@@ -2619,14 +2619,14 @@ class cgmNodeOLD(r9Meta.MetaClass):
                     mc.select(cl=True)
                     return pos
                 else:
-                    raise NotImplementedError,"Don't know how to position '%s's componentType: %s"%(self.getShortName,objType)
+                    raise NotImplementedError("Don't know how to position '%s's componentType: %s"%(self.getShortName,objType))
 
             else:
                 #if kws and 'ws' in kws.keys():ws = kws.pop('ws')
                 #log.debug('Standard self.getPosition()')
                 if worldSpace:return mc.xform(self.mNode, q=True, ws=True, rp=True)    
                 return mc.xform(self.mNode, q=True, os=True, t=True) 
-        except StandardError,error:
+        except Exception as error:
             log.error("%s.getPosition>>>isComponent: %s | error: %s"%(self.getShortName(),self.isComponent(),error))	
             return False
 
@@ -2681,7 +2681,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 #t1 = time.time()            
             #log.info("{0}>> total: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t_master)))            
             return i_loc
-        except Exception,error:raise Exception,"[%s.doLoc]{%s}"%(self.p_nameShort,error)
+        except Exception as error:raise Exception("[%s.doLoc]{%s}"%(self.p_nameShort,error))
 
     def doDuplicate(self, **kws):
         """
@@ -2694,10 +2694,10 @@ class cgmNodeOLD(r9Meta.MetaClass):
         try:
             if self.isComponent():
                 log.warning("doDuplicate fail. Cannot duplicate components")
-                raise ValueError,"doDuplicate fail. Cannot duplicate component: '%s'"%self.getShortName()
+                raise ValueError("doDuplicate fail. Cannot duplicate component: '%s'"%self.getShortName())
 
             breakMessagePlugsOut = kws.pop('breakMessagePlugsOut',False) 
-            _keys = kws.keys()
+            _keys = list(kws.keys())
             if 'po' not in _keys and 'parentOnly' not in _keys:
                 kws['parentOnly'] = True
                 
@@ -2730,7 +2730,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                         mc.setAttr(str_plug,lock=False)	
 
                     try: mc.setAttr(str_plug,lock=False)
-                    except:raise StandardError, "%s.doDuplicate >> can't unlock '%s'"%(self.p_nameShort,str_plug)
+                    except:raise Exception("%s.doDuplicate >> can't unlock '%s'"%(self.p_nameShort,str_plug))
 
                     mc.disconnectAttr(_str_messageCombined,plug)
                     if b_sourceLock:
@@ -2738,7 +2738,7 @@ class cgmNodeOLD(r9Meta.MetaClass):
                 if b_drivenLock:
                     mc.setAttr(_str_messageCombined,lock=False) 
             return i_obj
-        except Exception,error:raise Exception,"[%s.doDuplicate]{%s}"%(self.p_nameShort,error)
+        except Exception as error:raise Exception("[%s.doDuplicate]{%s}"%(self.p_nameShort,error))
 
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
@@ -2761,7 +2761,7 @@ class cgmObject(cgmNode):
             return
         
         if not VALID.is_transform(self.mNode):
-            raise ValueError, "[{0}] not a transform! The cgmObject class was designed to work with objects with transforms".format(self.mNode)
+            raise ValueError("[{0}] not a transform! The cgmObject class was designed to work with objects with transforms".format(self.mNode))
         
         self.p_translate = self.translate    
         self.p_rotate = self.rotate
@@ -2796,10 +2796,10 @@ class cgmObject(cgmNode):
             except:
                 try:
                     bfr_target = cgmNode(target).p_nameLong
-                except Exception,error:
+                except Exception as error:
                     if not mc.objExists(target):
-                        raise Exception,"'{0}' - target object doesn't exist" .format(target) 
-                    raise Exception,error
+                        raise Exception("'{0}' - target object doesn't exist" .format(target)) 
+                    raise Exception(error)
                     #raise Exception,error
 
             if bfr_target == self.getParent():
@@ -2813,9 +2813,9 @@ class cgmObject(cgmNode):
             try:
                 mc.parent(self.mNode, bfr_target)
                 return True
-            except Exception,error:
-                raise Exception,error
-            raise Exception,"Failed to parent"
+            except Exception as error:
+                raise Exception(error)
+            raise Exception("Failed to parent")
         else:#If not, do so to world
             rigging.doParentToWorld(self.mNode)
             return True
@@ -2958,7 +2958,7 @@ class cgmObject(cgmNode):
         _str_func = 'isVisible'
         try:
             if not OM2:
-                raise ValueError,"haven't implemented non OM2 version"
+                raise ValueError("haven't implemented non OM2 version")
             _state = None
             sel2 = OM2.MSelectionList()#...make selection list
             sel2.add(self.mNode)#...add to list
@@ -2975,7 +2975,7 @@ class cgmObject(cgmNode):
                 return False
             return True
             
-        except Exception,err:
+        except Exception as err:
             log.error(cgmGEN.logString_msg(_str_func,err))
     #========================================================================================================
     #>>> Position/Rotation/Scale ...
@@ -3077,7 +3077,7 @@ class cgmObject(cgmNode):
                'visible':visibilty,
                'keyable':keyable}
         if not state:
-            for k,v in kws.iteritems():
+            for k,v in list(kws.items()):
                 kws[k] = not v
         return ATTR.set_standardFlags(self.mNode,_attrs, **kws)
     
@@ -3358,7 +3358,7 @@ class cgmObjectOLD(cgmNode):
             if buffer and asMeta:
                 return validateObjArg(buffer,mType = cgmObject)
             return buffer
-        except Exception,error:raise Exception,"[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error)
+        except Exception as error:raise Exception("[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error))
 
 
     def doParent(self,target = False):
@@ -3378,10 +3378,10 @@ class cgmObjectOLD(cgmNode):
                 except:
                     try:
                         bfr_target = cgmNode(target).p_nameLong
-                    except Exception,error:
+                    except Exception as error:
                         if not mc.objExists(target):
-                            raise Exception,"'{0}' - target object doesn't exist" .format(target) 
-                        raise Exception,error
+                            raise Exception("'{0}' - target object doesn't exist" .format(target)) 
+                        raise Exception(error)
                         #raise Exception,error
 
                 if bfr_target == self.getParent():
@@ -3395,20 +3395,20 @@ class cgmObjectOLD(cgmNode):
                 try:
                     mc.parent(self.mNode, bfr_target)
                     return True
-                except Exception,error:
+                except Exception as error:
                     #log.error("target: {0}".format(target))
                     #If it fails, check that the object name exists and if so, initialize a new Object Factory instance
                     #assert mc.objExists(target) is True, "'%s' - parent object doesn't exist" %target    
                     #log.info(target.mNode)
-                    raise Exception,error
-                raise Exception,"Failed to parent"
+                    raise Exception(error)
+                raise Exception("Failed to parent")
             else:#If not, do so to world
                 #log.info("parenting to world")
                 rigging.doParentToWorld(self.mNode)
                 return True
                 #log.debug("'%s' parented to world"%self.mNode) 
-        except Exception,error:
-            raise Exception,"doParent fail | self: {0} | target: {1} | error: {2}".format(self.p_nameShort,target,error)
+        except Exception as error:
+            raise Exception("doParent fail | self: {0} | target: {1} | error: {2}".format(self.p_nameShort,target,error))
 
     parent = property(getParent, doParent)
     p_parent = property(getParent, doParent)
@@ -3464,7 +3464,7 @@ class cgmObjectOLD(cgmNode):
             if buffer and asMeta:
                 return validateObjListArg(buffer,mType = cgmObject)
             return buffer
-        except Exception,error:raise Exception,"[%s.getAllParents(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error)
+        except Exception as error:raise Exception("[%s.getAllParents(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
 
 
     def getChildren(self,fullPath=False,asMeta = False):
@@ -3476,7 +3476,7 @@ class cgmObjectOLD(cgmNode):
                 return []
             else:
                 return search.returnChildrenObjects(self.mNode,fullPath) or []
-        except Exception,error:raise Exception,"[%s.getChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error)
+        except Exception as error:raise Exception("[%s.getChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
 
     def getAllChildren(self,fullPath = True,asMeta = False):
         try:
@@ -3487,7 +3487,7 @@ class cgmObjectOLD(cgmNode):
                 return []
             else:
                 return search.returnAllChildrenObjects(self.mNode,fullPath) or []
-        except Exception,error:raise Exception,"[%s.getAllChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error)
+        except Exception as error:raise Exception("[%s.getAllChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
 
     def getShapes(self,fullPath = True, asMeta = False):
         try:
@@ -3495,7 +3495,7 @@ class cgmObjectOLD(cgmNode):
             if buffer and asMeta:
                 return validateObjListArg(buffer,mType = cgmNode)
             return buffer
-        except Exception,error:raise Exception,"[%s.getShapes(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error)
+        except Exception as error:raise Exception("[%s.getShapes(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
 
     def isChildOf(self,obj):
         try:
@@ -3504,10 +3504,10 @@ class cgmObjectOLD(cgmNode):
                 if i_obj.mNode == r9Meta.MetaClass(o).mNode:
                     return True
             return False
-        except StandardError,error:
+        except Exception as error:
             log.error("isChildOf>> error: %s"%error)	    
             log.error("isChildOf>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise StandardError,error 
+            raise Exception(error) 
 
     def isParentOf(self,obj):
         try:
@@ -3516,10 +3516,10 @@ class cgmObjectOLD(cgmNode):
                 if i_obj.mNode == r9Meta.MetaClass(o).mNode:
                     return True
             return False
-        except StandardError,error:
+        except Exception as error:
             log.error("isParentOf>> error: %s"%error)
             log.error("isParentOf>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise StandardError,error 
+            raise Exception(error) 
 
     def returnPositionOutPlug(self,autoLoc=True):
         try:
@@ -3537,9 +3537,9 @@ class cgmObjectOLD(cgmNode):
                         self.connectChildNode(i_loc,'positionLoc','owner')
                     return cgmNode(mc.listRelatives(i_loc.mNode,shapes=True)[0]).returnPositionOutPlug()	    		    
                 else:return buffer
-        except StandardError,error:
+        except Exception as error:
             log.error("returnPositionOutPlug(cgmObject overload)>> error: %s"%error)
-            raise StandardError,error 
+            raise Exception(error) 
 
     def getListPathTo(self,obj):
         try:
@@ -3572,10 +3572,10 @@ class cgmObjectOLD(cgmNode):
             else:
                 return False
             return l_path
-        except StandardError,error:
+        except Exception as error:
             log.error("getListPathTo>> error: %s"%error)	    
             log.error("getListPathTo>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise StandardError,error 
+            raise Exception(error) 
 
     def getMatchObject(self):
         """ Get match object of the object. """
@@ -3670,7 +3670,7 @@ class cgmObjectOLD(cgmNode):
             if buffer and asMeta:
                 return cgmObject(buffer)
             return buffer
-        except Exception,error:raise Exception,"[%s.doGroup(maintain = %s, asMeta = %s]{%s}"%(self.p_nameShort,maintain, asMeta,error)
+        except Exception as error:raise Exception("[%s.doGroup(maintain = %s, asMeta = %s]{%s}"%(self.p_nameShort,maintain, asMeta,error))
 
     def doZeroGroup(self,connect=True):
         """
@@ -3704,9 +3704,9 @@ class cgmObjectOLD(cgmNode):
                 i_obj.doRemove('cgmName')
                 mc.rename(i_obj.mNode, self.p_nameBase+'_Transform')
             return i_obj
-        except StandardError,error:
+        except Exception as error:
             log.error("doDuplicateTransform fail! | %s"%error) 
-            raise StandardError
+            raise Exception
 
     def duplicateTransform(self,copyAttrs = False):
         DeprecationWarning,"duplicateTransform is now doDuplicateTransform"
@@ -3761,11 +3761,11 @@ class cgmObjectOLD(cgmNode):
                     ATTR.set(t,a,drawingOverrideAttrsDict[a])
 
             if type(attrs) is dict:
-                for a in attrs.keys():
+                for a in list(attrs.keys()):
                     try:
                         ATTR.set(t,a,attrs[a])
                     except:
-                        raise AttributeError, "There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a])
+                        raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a]))
 
 
             if type(attrs) is list:
@@ -3774,7 +3774,7 @@ class cgmObjectOLD(cgmNode):
                         try:
                             ATTR.set(self.mNode,a,drawingOverrideAttrsDict[a])
                         except:
-                            raise AttributeError, "There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a])
+                            raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a]))
                     else:
                         log.warning("'%s.%s' doesn't exist"%(t,a))      
     #>>> Constraints
@@ -3785,7 +3785,7 @@ class cgmObjectOLD(cgmNode):
             if asMeta and buffer:
                 return validateObjListArg(buffer, mType = cgmNode)
             return buffer
-        except Exception,error:raise Exception,"[%s.getConstraintsTo(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error)
+        except Exception as error:raise Exception("[%s.getConstraintsTo(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
 
     def getConstraintsFrom(self,asMeta = False):
         try:
@@ -3793,7 +3793,7 @@ class cgmObjectOLD(cgmNode):
             if asMeta and buffer:
                 return validateObjListArg(buffer, mType = cgmNode)
             return buffer
-        except Exception,error:raise Exception,"[%s.getConstraintsFrom(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error)
+        except Exception as error:raise Exception("[%s.getConstraintsFrom(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
 
     def getConstrainingObjects(self,asMeta = False):
         try:
@@ -3807,7 +3807,7 @@ class cgmObjectOLD(cgmNode):
             if asMeta and buffer:
                 return validateObjListArg(l_constainingObjects, mType = cgmObject)
             return l_constainingObjects
-        except Exception,error:raise Exception,"[%s.getConstrainingObjects(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error)
+        except Exception as error:raise Exception("[%s.getConstrainingObjects(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
 
     def isConstrainedBy(self,obj):
         l_constraints = self.getConstraintsTo()
@@ -3850,11 +3850,11 @@ class cgmController(cgmNode):
         
         try:
             if node is None:
-                raise ValueError,"need an existing controller"
+                raise ValueError("need an existing controller")
             super(cgmController, self).__init__(node = node, name = name)
             
-        except StandardError,error:
-            raise StandardError, "cgmController.__init__ fail! | %s"%error
+        except Exception as error:
+            raise Exception("cgmController.__init__ fail! | %s"%error)
 
         #>>> TO USE Cached instance ---------------------------------------------------------
         if self.cached:return
@@ -3941,8 +3941,8 @@ class cgmControl(cgmObject):
         autoCreate(bool) - whether to create a transforum if need be
         """
         try: super(cgmControl, self).__init__(node = node, name = name,nodeType = 'transform')
-        except StandardError,error:
-            raise StandardError, "cgmControl.__init__ fail! | %s"%error
+        except Exception as error:
+            raise Exception("cgmControl.__init__ fail! | %s"%error)
 
         #>>> TO USE Cached instance ---------------------------------------------------------
         if self.cached:return
@@ -3954,7 +3954,7 @@ class cgmControl(cgmObject):
             if self.getAttr('module'):
                 return True
             return False
-        except StandardError,error:
+        except Exception as error:
             log.error("%s._hasModule>> _hasModule fail | %s"%(self.getShortName(),error))	    
             return False
 
@@ -3963,7 +3963,7 @@ class cgmControl(cgmObject):
             if self.module.rigNull.dynSwitch:
                 return True
             return False
-        except StandardError,error:
+        except Exception as error:
             log.error("%s._hasSwitch>> _hasSwitch fail | %s"%(self.getShortName(),error))
             return False	
         
@@ -3986,9 +3986,9 @@ class cgmControl(cgmObject):
                         #log.debug("%s >>> found %s | %s"%(_str_func,g,mi_group.p_nameShort))						
                         for a in l_attrs:
                             cgmAttr(mi_group,a,lock=lock)
-                except StandardError,error:raise StandardError,"%s >>> | %s"%(g,error)			    
-        except StandardError,error:
-            raise StandardError,"%s >>> Fail | %s"%(_str_func,error)
+                except Exception as error:raise Exception("%s >>> | %s"%(g,error))			    
+        except Exception as error:
+            raise Exception("%s >>> Fail | %s"%(_str_func,error))
     #>>> Aim stuff
     #========================================================================
     def _isAimable(self):
@@ -3996,7 +3996,7 @@ class cgmControl(cgmObject):
             if self.hasAttr('axisAim') and self.hasAttr('axisUp'):
                 return self._verifyAimable()
             return False
-        except StandardError,error:
+        except Exception as error:
             log.error("cgmControl._verifyAimable>> _verifyAimable fail | %s"%error)
             return False
 
@@ -4012,8 +4012,8 @@ class cgmControl(cgmObject):
             #self.addAttr('axisUp', attrType='enum',enumName = 'x+:y+:z+:x-:y-:z-',initialValue=1, keyable = True, lock = False, hidden = False) 
             #self.addAttr('axisOut', attrType='enum', enumName = 'x+:y+:z+:x-:y-:z-',initialValue=0, keyable = True, lock = False, hidden = False) 
             return True
-        except StandardError,error:
-            raise StandardError, "cgmControl._verifyAimable fail! | %s"%error	
+        except Exception as error:
+            raise Exception("cgmControl._verifyAimable fail! | %s"%error)	
 
     def doAim(self,target = None):
         try:
@@ -4036,8 +4036,8 @@ class cgmControl(cgmObject):
             #log.debug("outVector: %s"%outVector)
             aimConstraintBuffer = mc.aimConstraint(i_target.mNode,self.mNode,maintainOffset = False, weight = 1, aimVector = aimVector, upVector = upVector, worldUpType = 'scene' )
             mc.delete(aimConstraintBuffer)
-        except Exception,error:
-            raise StandardError, "%s.doAim fail! | %s"%(self.getShortName(),error)
+        except Exception as error:
+            raise Exception("%s.doAim fail! | %s"%(self.getShortName(),error))
 
     #>>> Mirror stuff
     #========================================================================
@@ -4056,8 +4056,8 @@ class cgmControl(cgmObject):
             self.addAttr('mirrorIndex',attrType = 'int',keyable = False, hidden = True, lock = True)
             self.addAttr('mirrorAxis',initialValue = '',attrType = 'string',lock=False)
             return True
-        except Exception,error:
-            raise StandardError,"%s >>> error: %s"%(_str_func,error) 
+        except Exception as error:
+            raise Exception("%s >>> error: %s"%(_str_func,error)) 
 
     def isMirrorable(self):
         _str_func = "%s.isMirrorable()"%self.p_nameShort
@@ -4072,8 +4072,8 @@ class cgmControl(cgmObject):
 		log.error("%s >> lacks mirrorMatch: '%s'"%(_str_func,a))
 		return False"""
             return True
-        except StandardError,error:
-            raise StandardError,"%s >>> error: %s"%(_str_func,error) 
+        except Exception as error:
+            raise Exception("%s >>> error: %s"%(_str_func,error)) 
 
     def doMirrorMe(self,mode = ''):
         _str_func = "%s.doMirrorMe()"%self .p_nameShort
@@ -4082,8 +4082,8 @@ class cgmControl(cgmObject):
             if not self.isMirrorable():
                 return False
             r9Anim.MirrorHierarchy([self.mNode]).mirrorData(mode = mode)
-        except StandardError,error:
-            raise StandardError,"%s >>> error: %s"%(_str_func,error) 
+        except Exception as error:
+            raise Exception("%s >>> error: %s"%(_str_func,error)) 
     """
     def doPushToMirrorObject2(self,method='Anim'):
         if not self.isMirrorable():
@@ -4118,8 +4118,8 @@ class cgmControl(cgmObject):
             inverseCall(i_mirrorObject,i_mirrorSystem.getMirrorAxis(i_mirrorObject))
 
             i_mirrorSystem.objs = [self.i_object.mNode,i_mirrorObject]#Overload as it was erroring out
-        except StandardError,error:
-            raise StandardError,"%s >>> error: %s"%(_str_func,error)
+        except Exception as error:
+            raise Exception("%s >>> error: %s"%(_str_func,error))
         
         
 
@@ -4243,7 +4243,7 @@ class cgmObjectSet(cgmNode):
         """
         buffer = search.returnTagInfo(self.mNode,'cgmType')
         if buffer:
-            for k in setTypes.keys():
+            for k in list(setTypes.keys()):
                 if buffer == setTypes[k]:
                     #log.debug('Found match')
                     return k
@@ -4261,7 +4261,7 @@ class cgmObjectSet(cgmNode):
 
         if setType is not None:
             doSetType = setType
-            if setType in setTypes.keys():
+            if setType in list(setTypes.keys()):
                 doSetType = setTypes.get(setType)
             if search.returnTagInfo(self.mNode,'cgmType') != doSetType:
                 if ATTR.store_info(self.mNode,'cgmType',doSetType):
@@ -4292,7 +4292,7 @@ class cgmObjectSet(cgmNode):
         return _res
     
     def log(self):
-        print cgmGEN._str_subLine
+        print((cgmGEN._str_subLine))
         _data = self.getList()        
 
         log.info(cgmGEN._str_baseStart * 2 + " objectSet: {0} | type: {1} | count: {2}".format(self.p_nameShort,self.getSetType(),len(_data)))
@@ -4355,11 +4355,11 @@ class cgmObjectSet(cgmNode):
 
                 if o.mNode not in self.getList():
                     try: mc.sets(o.mNode,add = self.mNode)
-                    except StandardError,error:
-                        raise StandardError," add: %s | error : %s"%(o.p_nameShort,error) 
+                    except Exception as error:
+                        raise Exception(" add: %s | error : %s"%(o.p_nameShort,error)) 
                 else:log.debug("%s >> already contain : %s"%(_str_func,o.p_nameShort))
-        except StandardError,error:
-            raise StandardError,"%s >>  error : %s"%(_str_func,error) 
+        except Exception as error:
+            raise Exception("%s >>  error : %s"%(_str_func,error)) 
 
     def append(self,info,*a,**kws):
         """ 
@@ -4382,7 +4382,7 @@ class cgmObjectSet(cgmNode):
         try:
             mc.sets(info,add = self.mNode)
             #log.debug("'%s' added to '%s'!"%(info,self.mNode))  	
-        except Exception, err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
 
     addObj = append
@@ -4525,10 +4525,10 @@ class cgmObjectSet(cgmNode):
                             try:
                                 default = mc.attributeQuery(attr, listDefault=True, node=obj)[0]
                                 mc.setAttr(obj+'.'+attr, default)
-                            except Exception,error:
+                            except Exception as error:
                                 mc.setAttr(obj+'.'+attr, 0)
                                 #log.error("'{0}' reset | error: {1}".format(attr,error))   				    
-                except Exception,error:
+                except Exception as error:
                     log.debug("'{0}' reset fail | obj: '{1}' | error: {2}".format(self.p_nameShort,obj,error))   
             return True
 
@@ -4580,7 +4580,7 @@ class cgmOptionVar(object):
         """
         #Default to creation of a var as an int value of 0
         if varName is None:
-            raise StandardError,"You must have a optionVar name on call even if it's creating one"
+            raise Exception("You must have a optionVar name on call even if it's creating one")
         ### input check
         self.name = varName
 
@@ -4622,7 +4622,7 @@ class cgmOptionVar(object):
             return mc.optionVar(q=self.name)
         else:
             #log.debug("'%s' no longer exists as an option var!"%self.name)
-            raise StandardError, "'%s' no longer exists as an option var!"%self.name
+            raise Exception("'%s' no longer exists as an option var!"%self.name)
 
     def setValue(self,value):
         if type(value) is list or type(value) is tuple:
@@ -4726,7 +4726,7 @@ class cgmOptionVar(object):
                     self.setValue(value)
 
     def returnVarTypeFromCall(self, varTypeCheck):    
-        for option in optionVarTypeDict.keys():
+        for option in list(optionVarTypeDict.keys()):
             if varTypeCheck in optionVarTypeDict.get(option):
                 return option
         return 'int'
@@ -4889,7 +4889,7 @@ class cgmOptionVar(object):
                 mc.select(selectList)
             else:
                 log.warning("'%s' is empty!"%self.name)
-        except Exception,err:
+        except Exception as err:
             return log.error("cgmOptionVar.select fail | {0}".format(err))
         
     def existCheck(self):
@@ -4947,7 +4947,7 @@ class cgmBufferNode(cgmNode):
         if not self.isReferenced():
             self.__verify__()	    
             if not self.__verify__():
-                raise StandardError,"cgmBufferNode.__init__>> failed to verify : '%s'!"%self.getShortName()
+                raise Exception("cgmBufferNode.__init__>> failed to verify : '%s'!"%self.getShortName())
             if value is not None:
                 self.value = value	
         self.updateData()
@@ -5007,7 +5007,7 @@ class cgmBufferNode(cgmNode):
                 self.l_buffer.append(data)
 
         #verify data order
-        for key in self.d_indexToAttr.keys():
+        for key in list(self.d_indexToAttr.keys()):
             self.l_buffer[key] = self.d_buffer[self.d_indexToAttr[key]]
 
     def rebuild(self,*a,**kw):
@@ -5085,7 +5085,7 @@ class cgmBufferNode(cgmNode):
             log.warning("'%s' isn't already stored '%s'"%(info,self.mNode))    
             return
 
-        for key in self.d_buffer.keys():
+        for key in list(self.d_buffer.keys()):
             if self.d_buffer.get(key) == info:
                 ATTR.delete(self.mNode,key)
                 self.l_buffer.remove(info)
@@ -5284,9 +5284,9 @@ class cgmAttr(object):
                      log.error("'%s' is an unknown form to this class"%(self.attrType))"""
                 initialCreate = True
 
-            except StandardError,error:
+            except Exception as error:
                 log.error("addAttr>>Failure! '%s' failed to add '%s' | type: '%s'"%(self.obj.mNode,attrName,self.attrType))
-                raise StandardError,error                  
+                raise Exception(error)                  
 
         if enum:
             try:
@@ -5358,14 +5358,14 @@ class cgmAttr(object):
                                 cInstance.value = value[i]
                             else:    
                                 ATTR.set(cInstance.obj.mNode,cInstance.attr, value, *a, **kw)
-                        except Exception,error:
+                        except Exception as error:
                             fmt_args = [c,error]
                             s_errorMsg = "On child: {0}| error: {1}".format(*fmt_args)			    
-                            raise Exception,s_errorMsg
+                            raise Exception(s_errorMsg)
                 else:
                     ATTR.set(self.obj.mNode,self.attr, value, *a, **kw)	
             object.__setattr__(self, self.attr, self.value)
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.set() | Value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)        
@@ -5383,7 +5383,7 @@ class cgmAttr(object):
                 #return attributes.returnMessageData(self.obj.mNode,self.attr)
             else:
                 return ATTR.get(self.obj.mNode,self.attr)
-        except Exception,error:
+        except Exception as error:
             log.warning("'%s.%s' failed to get | %s"%(self.obj.mNode,self.attr,error))
 
     def doDelete(self):
@@ -5435,7 +5435,7 @@ class cgmAttr(object):
                 else:log.info("%s | already set"%s_baseMsg)
             else:
                 log.warning("%s | not an enum. Invalid call"%(s_baseMsg))
-        except Exception,error:
+        except Exception as error:
             fmt_args = [s_baseMsg, error]
             s_errorMsg = "{0} | error: {1}".format(*fmt_args)	    
             log.error(s_errorMsg)     
@@ -5483,7 +5483,7 @@ class cgmAttr(object):
                 elif self.p_locked:
                     mc.setAttr((self.obj.mNode+'.'+self.attr),e=True,lock = False)           
                     #log.debug("'%s.%s' unlocked!"%(self.obj.mNode,self.attr))
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, arg, error]
             s_errorMsg = "{0}.{1}.doLocked() | arg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)   
@@ -5534,7 +5534,7 @@ class cgmAttr(object):
                 elif self.p_hidden:
                     mc.setAttr((self.obj.mNode+'.'+self.attr),e=True,channelBox = True)           
                     #log.debug("'%s.%s' unhidden!"%(self.obj.mNode,self.attr))
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, arg, error]
             s_errorMsg = "{0}.{1}.doHidden() | arg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)   	
@@ -5590,7 +5590,7 @@ class cgmAttr(object):
                     #log.debug("'%s.%s' unkeyable!"%(self.obj.mNode,self.attr))
                     if not mc.getAttr(self.p_combinedName,channelBox=True):
                         self.doHidden(False)  
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, arg, error]
             s_errorMsg = "{0}.{1}.doKeyable() | arg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)   
@@ -5628,7 +5628,7 @@ class cgmAttr(object):
                 if self.p_nameAlias:
                     self.attr = self.p_nameLong                
                     mc.aliasAttr(self.p_combinedName,remove=True)
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, arg, error]
             s_errorMsg = "{0}.{1}.doAlias() | arg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)   
@@ -5651,7 +5651,7 @@ class cgmAttr(object):
         try:
             if arg:
                 mc.addAttr(self.p_combinedName,edit = True, niceName = arg)
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, arg, error]
             s_errorMsg = "{0}.{1}.doNiceName() | arg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)   
@@ -5719,7 +5719,7 @@ class cgmAttr(object):
                             mc.addAttr((self.obj.mNode+'.'+self.attr),e=True,defaultValue = value)
                         except:
                             log.debug("'%s.%s' failed to set a default value"%(self.obj.mNode,self.attr))     
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.doDefault() | value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)    
@@ -5736,7 +5736,7 @@ class cgmAttr(object):
             if minValue is not False:
                 return minValue[0]
             return False
-        except StandardError,error:
+        except Exception as error:
             #log.debug(error)
             #log.debug("'%s' failed to query min value" %self.p_combinedName)
             return False
@@ -5768,7 +5768,7 @@ class cgmAttr(object):
             else:
                 #log.debug("'%s' is not a numeric attribute"%self.p_combinedName)	    
                 return False
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.doMin() | value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  		    
@@ -5810,7 +5810,7 @@ class cgmAttr(object):
                 else:
                     #log.debug("'%s' is not a numeric attribute"%self.p_combinedName)	    
                     return False
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.doSoftMin() | value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -5853,7 +5853,7 @@ class cgmAttr(object):
                 else:
                     #log.debug("'%s' is not a numeric attribute"%self.p_combinedName)	    
                     return False
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.doSoftMax() | value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -5900,7 +5900,7 @@ class cgmAttr(object):
             else:
                 log.error("'%s' is not a numeric attribute"%self.p_combinedName)	    
                 return False
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, value, error]
             s_errorMsg = "{0}.{1}.doMax() | value: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  		    
@@ -5954,7 +5954,7 @@ class cgmAttr(object):
                 log.warning("'%s' is not a numeric attribute. 'range' not relevant"%self.p_combinedName)	    
                 return False
             return mc.attributeQuery(self.p_nameLong, node = self.obj.mNode, range=True) or False 
-        except Exception,error:
+        except Exception as error:
             fmt_args = [s_funcMsg, error]
             s_errorMsg = "{0} |  error: {1}".format(*fmt_args)	    
             log.error(s_errorMsg)  	
@@ -5965,7 +5965,7 @@ class cgmAttr(object):
                 log.warning("'%s' is not a numeric attribute. 'range' not relevant"%self.p_combinedName)	    
                 return False
             return mc.attributeQuery(self.p_nameLong, node = self.obj.mNode, softRange=True) or False     
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getSoftRange()".format(*fmt_args)	    
             fmt_args = [s_funcMsg, error]
@@ -5980,7 +5980,7 @@ class cgmAttr(object):
             if asMeta:
                 return [cgmAttr(self.obj.mNode,c) for c in buffer]
             return buffer
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getChildren()".format(*fmt_args)		    
             fmt_args = [s_funcMsg, asMeta, error]
@@ -5994,7 +5994,7 @@ class cgmAttr(object):
             if asMeta:
                 return [cgmAttr(self.obj.mNode,c) for c in buffer]
             return buffer
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getParent()".format(*fmt_args)		    
             fmt_args = [s_funcMsg, asMeta, error]
@@ -6008,7 +6008,7 @@ class cgmAttr(object):
             if asMeta:
                 return [cgmAttr(self.obj.mNode,c) for c in buffer]
             return buffer
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getSiblings()".format(*fmt_args)		    
             fmt_args = [s_funcMsg, asMeta, error]
@@ -6034,7 +6034,7 @@ class cgmAttr(object):
             
             return buffer
 
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getDriven()".format(*fmt_args)		    
             fmt_args = [s_funcMsg, obj, skipConversionNodes, asMeta, error]
@@ -6053,7 +6053,7 @@ class cgmAttr(object):
                     return validateAttrListArg(buffer)['ml_plugs']
             
             return buffer
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.getDriven()".format(*fmt_args)		    
             fmt_args = [s_funcMsg, obj, skipConversionNodes, asMeta, error]
@@ -6073,7 +6073,7 @@ class cgmAttr(object):
 
             if self.isNumeric():
                 if not mPlug_target.isNumeric():
-                    raise StandardError, "source is numeric: '%s' | target is not: '%s'"%(self.p_combinedShortName,mPlug_target.p_combinedShortName)
+                    raise Exception("source is numeric: '%s' | target is not: '%s'"%(self.p_combinedShortName,mPlug_target.p_combinedShortName))
                 if self.p_defaultValue is not False:mPlug_target.p_defaultValue = self.p_defaultValue
                 if self.p_minValue is not False:mPlug_target.p_minValue = self.p_minValue
                 if self.p_maxValue is not False:mPlug_target.p_maxValue = self.p_maxValue
@@ -6084,7 +6084,7 @@ class cgmAttr(object):
             mPlug_target.p_locked = self.p_locked
             if mPlug_target.attrType not in ['string','message']:mPlug_target.p_keyable = self.p_keyable
             return True
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, attrArg, error]
             s_errorMsg = "{0}.{1}.doCopySettingsTo() | attrArg: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -6134,7 +6134,7 @@ class cgmAttr(object):
 
             self.attrType = mc.getAttr(self.p_combinedName,type=True)    
             #log.debug("'%s.%s' converted to '%s'"%(self.obj.mNode,self.attr,attrType))
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.doConvert()".format(*fmt_args)	    
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, attrType, error]
@@ -6159,7 +6159,7 @@ class cgmAttr(object):
             if search.returnObjectType(self.value) == 'reference':
                 if attributes.repairMessageToReferencedTarget(self.obj.mNode,self.attr,*a,**kw):
                     return attributes.returnMessageObject(self.obj.mNode,self.attr)"""                        
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, error]
             s_errorMsg = "{0}.{1}.getMessage() | error: {2}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -6198,7 +6198,7 @@ class cgmAttr(object):
             #mi_target = validateObjArg(target)
             return ATTR.get_compatible(self.obj.mNode,self.p_nameLong,target)
             #return attributes.returnCompatibleAttrs(self.obj.mNode,self.p_nameLong,mi_target.mNode,*a, **kw)
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, target, error]
             s_errorMsg = "{0}.{1}.returnCompatibleFromTarget() | target: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -6214,7 +6214,7 @@ class cgmAttr(object):
         #log.debug(">>> %s >>> "%(_str_func) + "="*75) 	
         try:
             try:d_target = validateAttrArg(target,noneValid=False)
-            except Exception,error:raise Exception,"%s failed to validate: %s"%(target,error)
+            except Exception as error:raise Exception("%s failed to validate: %s"%(target,error))
             mPlug_target = d_target.get('mi_plug')
 
             if mPlug_target:
@@ -6225,13 +6225,13 @@ class cgmAttr(object):
                         #attributes.doConnectAttr(self.p_combinedName,cInstance.p_combinedName)
                 else:
                     try:ATTR.connect(self.p_combinedName,mPlug_target.p_combinedName)
-                    except Exception,error:raise Exception,"connection fail: %s"%(error)		    
+                    except Exception as error:raise Exception("connection fail: %s"%(error))		    
             else:
                 log.warning("Source failed to validate: %s"%(source) + "="*75)            			    
                 return False	    
 
             #log.debug(">>> %s.doConnectOut >>-->>  %s "%(self.p_combinedShortName,mPlug_target.p_combinedName) + "="*75)            						
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.doConnectOut()".format(*fmt_args)	    
             fmt_args = [s_funcMsg, target, error]
@@ -6248,7 +6248,7 @@ class cgmAttr(object):
         """ 
         try:
             try:d_source = validateAttrArg(source,noneValid=False)
-            except StandardError,error:raise StandardError,"%s failed to validate: %s"%(source,error)
+            except Exception as error:raise Exception("%s failed to validate: %s"%(source,error))
             mPlug_source = d_source.get('mi_plug')
             if mPlug_source:
                 if self.getChildren() and not mPlug_source.getChildren():
@@ -6257,12 +6257,12 @@ class cgmAttr(object):
                         ATTR.connect(mPlug_source.p_combinedName,cInstance.p_combinedName)
                 else:
                     try:ATTR.connect(mPlug_source.p_combinedName,self.p_combinedName)
-                    except StandardError,error:raise StandardError,"connection fail: %s"%(error)		
+                    except Exception as error:raise Exception("connection fail: %s"%(error))		
                 #log.debug(">>> %s.doConnectIn <<--<<  %s "%(self.p_combinedShortName,mPlug_source.p_combinedName) + "="*75)            						
             else:
                 log.warning("Source failed to validate: %s"%(source) + "="*75)            			    
                 return False
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong]
             s_funcMsg = "{0}.{1}.doConnectIn()".format(*fmt_args)	    
             fmt_args = [s_funcMsg, source, error]
@@ -6293,7 +6293,7 @@ class cgmAttr(object):
         """
         try:
             assert mc.objExists(target),"'%s' doesn't exist"%target
-            assert mc.ls(target,long=True) != [self.obj.mNode], "Can't transfer to self!"
+            assert mc.ls(target,int=True) != [self.obj.mNode], "Can't transfer to self!"
             functionName = 'doCopyTo'
             if targetAttrName is None: targetAttrName = self.attr
             convertToMatch = kw.pop('convertToMatch',True)
@@ -6343,7 +6343,7 @@ class cgmAttr(object):
             self.doCopySettingsTo([target,targetAttrName])
 
             return True
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, target, targetAttrName, error]
             s_errorMsg = "{0}.{1}.doCopyTo() | target: {2} | | targetAttrName: {3} | error: {4}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -6375,7 +6375,7 @@ class cgmAttr(object):
                                   copySettings = True, driven = False)
             self.doDelete()
             return cgmAttr(mi_target,s_attrBuffer)
-        except Exception,error:
+        except Exception as error:
             fmt_args = [self.obj.p_nameShort, self.p_nameLong, target, error]
             s_errorMsg = "{0}.{1}.doTransferTo() | target: {2} | error: {3}".format(*fmt_args)	    
             log.error(s_errorMsg)  
@@ -6419,13 +6419,13 @@ class NameFactory(object):
             elif mc.objExists(node):
                 i_node = cgmNode(node)
             else:
-                raise StandardError,"NameFactory.isNameLinked >> node doesn't exist: '%s'"%node
+                raise Exception("NameFactory.isNameLinked >> node doesn't exist: '%s'"%node)
 
             if i_node.hasAttr('cgmName') and i_node.getMessage('cgmName'):
                 return True
             return False
-        except StandardError,error:
-            raise StandardError,"%s >>> node: %s |error : %s"%(_str_func,node,error)
+        except Exception as error:
+            raise Exception("%s >>> node: %s |error : %s"%(_str_func,node,error))
 
     #@r9General.Timer
     def getMatchedParents(self, node = None):  
@@ -6439,7 +6439,7 @@ class NameFactory(object):
             elif mc.objExists(node):
                 i_node = cgmNode(node)
             else:
-                raise StandardError,"NameFactory.getMatchedParents >> node doesn't exist: '%s'"%node
+                raise Exception("NameFactory.getMatchedParents >> node doesn't exist: '%s'"%node)
 
             parents = search.returnAllParents(i_node.mNode)
             self.i_nameParents = []
@@ -6453,8 +6453,8 @@ class NameFactory(object):
                         #log.debug("Name parent found: '%s'"%i_p.mNode)
                     else:break
             return self.i_nameParents
-        except StandardError,error:
-            raise StandardError,"%s >>> node: %s |error : %s"%(_str_func,node,error)
+        except Exception as error:
+            raise Exception("%s >>> node: %s |error : %s"%(_str_func,node,error))
 
     def getMatchedChildren(self, node = None):  
         _str_func = "NameFactory.getMatchedChildren"  
@@ -6467,7 +6467,7 @@ class NameFactory(object):
             elif mc.objExists(node):
                 i_node = cgmNode(node)
             else:
-                raise StandardError,"NameFactory.getMatchedChildren >> node doesn't exist: '%s'"%node
+                raise Exception("NameFactory.getMatchedChildren >> node doesn't exist: '%s'"%node)
 
             #>>> Count our matched name children range
             children = mc.listRelatives (i_node.mNode, allDescendents=True,type='transform',fullPath=True)
@@ -6482,8 +6482,8 @@ class NameFactory(object):
                         #log.debug("Name child found: '%s'"%i_c.mNode)
                     else:break
             return self.i_nameChildren
-        except StandardError,error:
-            raise StandardError,"%s >>> node: %s |error : %s"%(_str_func,node,error)
+        except Exception as error:
+            raise Exception("%s >>> node: %s |error : %s"%(_str_func,node,error))
 
     def getMatchedSiblings(self, node = None):
         _str_func = "NameFactory.getMatchedSiblings"  
@@ -6495,7 +6495,7 @@ class NameFactory(object):
         elif mc.objExists(node):
             i_node = cgmNode(node)
         else:
-            raise StandardError,"NameFactory.getMatchedSiblings >> node doesn't exist: '%s'"%node
+            raise Exception("NameFactory.getMatchedSiblings >> node doesn't exist: '%s'"%node)
 
         self.i_nameSiblings = []
         d_nameDict = i_node.getNameDict()        
@@ -6520,7 +6520,7 @@ class NameFactory(object):
 
             #If we have an assigned iterator, start with that
             d_nameDict = i_node.getNameDict()		
-            if 'cgmIterator' in d_nameDict.keys():
+            if 'cgmIterator' in list(d_nameDict.keys()):
                 #log.debug("%s >> Found cgmIterator : %s"%(_str_func,d_nameDict.get('cgmIterator')))               	
                 return int(d_nameDict.get('cgmIterator'))
 
@@ -6549,8 +6549,8 @@ class NameFactory(object):
 
             #log.debug("fastIterator: %s"%self.int_fastIterator)
             return self.int_fastIterator
-        except StandardError,error:
-            raise StandardError,"%s >>> node: %s |error : %s"%(_str_func,i_node.p_nameShort,error)
+        except Exception as error:
+            raise Exception("%s >>> node: %s |error : %s"%(_str_func,i_node.p_nameShort,error))
 
     #@r9General.Timer    
     def getBaseIterator(self, node = None):
@@ -6563,7 +6563,7 @@ class NameFactory(object):
         elif mc.objExists(node):
             i_node = cgmNode(node)
         else:
-            raise StandardError,"NameFactory.getBaseIterator >> node doesn't exist: '%s'"%node
+            raise Exception("NameFactory.getBaseIterator >> node doesn't exist: '%s'"%node)
 
         self.int_baseIterator = 0
         #If we have an assigned iterator, start with that
@@ -6695,7 +6695,7 @@ class NameFactory(object):
         if node is None:i_node = self.i_node
         elif issubclass(type(node),cgmNode):i_node = node
         elif mc.objExists(node):i_node = cgmNode(node)
-        else:raise StandardError,"NameFactory.getIterator >> node doesn't exist: '%s'"%node
+        else:raise Exception("NameFactory.getIterator >> node doesn't exist: '%s'"%node)
 
         if type(ignore) is not list:ignore = [ignore]
         #log.debug("ignore: %s"%ignore)
@@ -6703,7 +6703,7 @@ class NameFactory(object):
         #>>> Dictionary driven order first build
         d_updatedNamesDict = nameTools.returnObjectGeneratedNameDict(i_node.mNode,ignore)
 
-        if 'cgmName' not in d_updatedNamesDict.keys() and search.returnObjectType(i_node.mNode) !='group' and 'cgmName' not in ignore:
+        if 'cgmName' not in list(d_updatedNamesDict.keys()) and search.returnObjectType(i_node.mNode) !='group' and 'cgmName' not in ignore:
             i_node.addAttr('cgmName',i_node.getShortName(),attrType = 'string',lock = True)
             #d_updatedNamesDict = nameTools.returnObjectGeneratedNameDict(i_node.mNode,ignore)
             d_updatedNamesDict['cgmName'] = i_node.getShortName()
@@ -6726,12 +6726,12 @@ class NameFactory(object):
         if node is None:i_node = self.i_node
         elif issubclass(type(node),cgmNode):i_node = node
         elif mc.objExists(node):i_node = cgmNode(node)
-        else:raise StandardError,"NameFactory.doNameObject >> node doesn't exist: '%s'"%node
+        else:raise Exception("NameFactory.doNameObject >> node doesn't exist: '%s'"%node)
         #log.debug("Naming: '%s'"%i_node.getShortName())
         nameCandidate = self.returnUniqueGeneratedName(node = i_node, fastIterate=fastIterate,**kws)
         #log.debug("nameCandidate: %s"%nameCandidate)
         try:mc.rename(i_node.mNode,nameCandidate)
-        except StandardError,error:log.error("%s >> %s"%(_str_func,error))
+        except Exception as error:log.error("%s >> %s"%(_str_func,error))
         #i_node.rename(nameCandidate)
 
         str_baseName = i_node.getBaseName()
@@ -6748,7 +6748,7 @@ class NameFactory(object):
         if node is None:i_node = self.i_node
         elif issubclass(type(node),cgmNode):i_node = node
         elif mc.objExists(node):i_node = cgmNode(node)
-        else:raise StandardError,"NameFactory.doName >> node doesn't exist: '%s'"%node
+        else:raise Exception("NameFactory.doName >> node doesn't exist: '%s'"%node)
 
         #Try naming object
         self.doNameObject(node = i_node,fastIterate=fastIterate,**kws)
@@ -6765,8 +6765,8 @@ class NameFactory(object):
                 for i_s in l_iShapes:
                     #log.debug("on shape: '%s'"%i_s.mNode)
                     try:self.doNameObject(node = i_s, fastIterate=fastIterate,**kws)
-                    except StandardError,error:
-                        raise StandardError,"NameFactory.doName.doNameObject child ('%s') failed: %s"%i_node.getShortName(),error
+                    except Exception as error:
+                        raise Exception("NameFactory.doName.doNameObject child ('%s') failed: %s"%i_node.getShortName()).with_traceback(error)
 
         #Then the children
         if nameChildren:#Initialize them all so we don't lose them
@@ -6779,8 +6779,8 @@ class NameFactory(object):
                 for i_c in l_iChildren:
                     #log.debug("on child: '%s'"%i_c.mNode)		    
                     try:self.doNameObject(node = i_c,fastIterate=fastIterate,**kws)
-                    except StandardError,error:
-                        raise StandardError,"NameFactory.doName.doNameObject child ('%s') failed: %s"%i_node.getShortName(),error
+                    except Exception as error:
+                        raise Exception("NameFactory.doName.doNameObject child ('%s') failed: %s"%i_node.getShortName()).with_traceback(error)
 
 
 
@@ -6830,8 +6830,8 @@ class ModuleFunc(cgmGEN.cgmFuncCls):
             except:moduleInstance = args[0]
             try:
                 assert isModule(moduleInstance)
-            except Exception,error:raise StandardError,"Not a module instance : %s"%error	
-        except Exception,error:raise StandardError,"ModuleFunc failed to initialize | %s"%error
+            except Exception as error:raise Exception("Not a module instance : %s"%error)	
+        except Exception as error:raise Exception("ModuleFunc failed to initialize | %s"%error)
         self._str_func= "testFModuleFuncunc"		
         super(ModuleFunc, self).__init__(*args, **kws)
 
@@ -6878,7 +6878,7 @@ def asMeta(*args,**kws):
         if arg and VALID.isListArg(arg):#make sure it's not a list
             return validateObjListArg(*args,**kws)
         return validateObjArg(*args,**kws)
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         """
         log.error("cgmMeta.asMeta failure... --------------------------------------------------")
@@ -6890,11 +6890,11 @@ def asMeta(*args,**kws):
                 log.error("kw: {0}".format(items))	
         log.error("...cgmMeta.asMeta failure --------------------------------------------------")
         """
-        raise Exception,error
+        raise Exception(error)
     
 try:
     createMetaNode = r9Meta.createMetaNode
-except Exception,err:
+except Exception as err:
     log.error(" r9Meta.createMetaNode failed to link. You have an old red9 library in your pathing. Resolve for full functionality")
     for arg in err.args:
         log.error(arg)            
@@ -6904,12 +6904,12 @@ def createMetaNode(mType = None, *args, **kws):
     
     _r9ClassRegistry = r9Meta.getMClassMetaRegistry()
     
-    if not type(mType) in [unicode,str]:
+    if not type(mType) in [str,str]:
         try: mType = mType.__name__
-        except Exception,error:
-            raise ValueError,"mType not a string and not a usable class name. mType: {0}".format(mType)	
+        except Exception as error:
+            raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))	
     if mType not in _r9ClassRegistry:
-        raise ValueError,"mType not found in class registry. mType: {0}".format(mType)    
+        raise ValueError("mType not found in class registry. mType: {0}".format(mType))    
     
     _call = _r9ClassRegistry.get(mType)
     
@@ -6917,7 +6917,7 @@ def createMetaNode(mType = None, *args, **kws):
   
     try:    
         return _call(*args,**kws)
-    except Exception,err:
+    except Exception as err:
         log.info("|{0}| >> mType: {1} | class: {2}".format(_str_func,mType,_call))                     
         if args:
             log.info("|{0}| >> Args...".format(_str_func))                         
@@ -6925,7 +6925,7 @@ def createMetaNode(mType = None, *args, **kws):
                 log.info("    arg {0}: {1}".format(i,arg))
         if kws:
             log.info("|{0}| >> Kws...".format(_str_func))                                     
-            for items in kws.items():
+            for items in list(kws.items()):
                 log.info("    kw: {0}".format(items))   
                 
         for arg in err.args:
@@ -6965,12 +6965,12 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     
     if mType is not None:
         t1 = time.clock()
-        if not type(mType) in [unicode,str]:
+        if not type(mType) in [str,str]:
             try: mType = mType.__name__
-            except Exception,error:
-                raise ValueError,"mType not a string and not a usable class name. mType: {0}".format(mType)	
+            except Exception as error:
+                raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))	
         if mType not in _r9ClassRegistry:
-            raise ValueError,"mType not found in class registry. mType: {0}".format(mType)
+            raise ValueError("mType not found in class registry. mType: {0}".format(mType))
         t2 = time.clock()
         log.debug("initial mType... %0.6f"%(t2-t1))
     #------------------------------------------------------------------------------------
@@ -6982,11 +6982,11 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
             arg = arg[0]
         elif arg == []:
             arg = None
-        else:raise ValueError,"arg cannot be list or tuple or longer than 1 length: %s"%arg	
+        else:raise ValueError("arg cannot be list or tuple or longer than 1 length: %s"%arg)	
         
     if not noneValid:
         if arg in [None,False]:
-            raise ValueError,"Invalid arg({0}). noneValid = False".format(arg)
+            raise ValueError("Invalid arg({0}). noneValid = False".format(arg))
     else:
         if arg in [None,False]:
             if arg not in [None,False]:log.warning("%s arg fail: %s"%(__str_reportStart,arg))
@@ -6999,13 +6999,13 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     except:
         log.debug("not an instance arg...")
         try:_arg = names.getLongName(arg)
-        except Exception,err:
+        except Exception as err:
             if noneValid:return False
-            raise Exception,err
+            raise Exception(err)
     if not _arg:
         if noneValid:return False
         else:
-            raise ValueError,"'{0}' is not a valid arg. Validated to {1}".format(arg,_arg)
+            raise ValueError("'{0}' is not a valid arg. Validated to {1}".format(arg,_arg))
 
     _argShort = names.getShortName(_arg)
 
@@ -7023,7 +7023,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
             if noneValid:
                 log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(__str_reportStart,_argShort,str_type,l_mayaTypes))
                 return False
-            raise StandardError,"'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes)			    	
+            raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
         t2 = time.clock()
         log.debug("mayaType not None time... %0.6f"%(t2-t1))		    
 
@@ -7049,10 +7049,10 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     _wasCached = False
 
     #See if it's in the cache
-    _keys = r9Meta.RED9_META_NODECACHE.keys()
+    _keys = list(r9Meta.RED9_META_NODECACHE.keys())
     _cacheKey = None
     _cached = None
-    _unicodeArg = unicode( _arg)
+    _unicodeArg = str( _arg)
     _change = False
 
     if _UUID in _keys:
@@ -7116,7 +7116,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                     if setClass:
                         log.debug("subclass match not good enough")
                         _change = True
-            except Exception, err:
+            except Exception as err:
                 log.warning("cached subclass check failed | {0}".format(err))                
                 _change = True
 
@@ -7128,7 +7128,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                     _change = False
                 else:
                     log.debug("...not a subclass")			
-            except Exception, err:
+            except Exception as err:
                 log.warning("cachedType: {0}".format(_cachedType))
                 log.warning("mTypeClass: {0}".format(mTypeClass))                
                 log.warning("Change cached subclass check failed | {0}".format(err))                
@@ -7142,7 +7142,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                 if noneValid:
                     return False
                 else:
-                    raise ValueError,"'{0}' is not a valid arg. Not class or subclass: {1}".format(arg,mTypeClass)
+                    raise ValueError("'{0}' is not a valid arg. Not class or subclass: {1}".format(arg,mTypeClass))
             
             log.debug("conversion necessary.removing from cache")
             _wasCached = True
@@ -7184,45 +7184,45 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
 
         _mClass = ATTR.get(_argShort,'mClass')
         if _mClass and _mClass not in _r9ClassRegistry:
-            raise ValueError,"stored mClass not found in class registry. mClass: {0}".format(_mClass)		
+            raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))		
         _mi_arg =  mTypeClass(_argShort)
     else:
         t1 = time.clock()				    				
         log.debug("no mType arg...")
         if _mClass:
             if _mClass not in _r9ClassRegistry:
-                raise ValueError,"stored mClass not found in class registry. mClass: {0}".format(_mClass)			
+                raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))			
             mTypeClass = _r9ClassRegistry.get(_mClass)
             log.debug("mClass registered... '{0}' | {1}".format(_argShort,mTypeClass))		    
             _mi_arg =  mTypeClass(_argShort)
         else:
             if default_mType:
                 log.debug("no mType.Using default...")
-                if not type(default_mType) in [unicode,str]:
+                if not type(default_mType) in [str,str]:
                     try: default_mType = default_mType.__name__
-                    except Exception,error:
-                        raise ValueError,"mType not a string and not a usable class name. default_mType: {0}".format(default_mType)				
+                    except Exception as error:
+                        raise ValueError("mType not a string and not a usable class name. default_mType: {0}".format(default_mType))				
                 try:_mi_arg =  _r9ClassRegistry.get(default_mType)(_argShort)
-                except Exception,error:
-                    raise Exception,"default mType ({1}) initialization fail | {0}".format(error,default_mType)				
+                except Exception as error:
+                    raise Exception("default mType ({1}) initialization fail | {0}".format(error,default_mType))				
             else:
                 if not str_type:str_type = VALID.get_mayaType(_arg)
                 
                 if str_type == 'controller':
                     log.debug("controller...")
                     try:_mi_arg = cgmController(_argShort) 
-                    except Exception,error:
-                        raise Exception,"cgmController initialization fail | {0}".format(error)	
+                    except Exception as error:
+                        raise Exception("cgmController initialization fail | {0}".format(error))	
                 elif VALID.is_transform(_argShort):
                     log.debug("Transform...")
                     try:_mi_arg = cgmObject(_argShort) 
-                    except Exception,error:
-                        raise Exception,"cgmObject initialization fail | {0}".format(error)	
+                    except Exception as error:
+                        raise Exception("cgmObject initialization fail | {0}".format(error))	
                 else:
                     log.debug("Node...")
                     try:_mi_arg = cgmNode(_argShort) 
-                    except Exception,error:
-                        raise Exception,"cgmNode initialization fail | {0}".format(error)	
+                    except Exception as error:
+                        raise Exception("cgmNode initialization fail | {0}".format(error))	
         log.debug("leaving mType None...")
         t2 = time.clock()
         log.debug("... %0.6f"%(t2-t1))				
@@ -7272,12 +7272,12 @@ def validateObjArgOLD(*args,**kws):
 
             if mType is not None:
                 t1 = time.clock()
-                if not type(mType) in [unicode,str]:
+                if not type(mType) in [str,str]:
                     try: mType = mType.__name__
-                    except Exception,error:
-                        raise ValueError,"mType not a string and not a usable class name. mType: {0}".format(mType)	
+                    except Exception as error:
+                        raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))	
                 if mType not in _r9ClassRegistry:
-                    raise ValueError,"mType not found in class registry. mType: {0}".format(mType)
+                    raise ValueError("mType not found in class registry. mType: {0}".format(mType))
                 t2 = time.clock()
                 self.log_debug("initial mType... %0.6f"%(t2-t1))
             #------------------------------------------------------------------------------------
@@ -7289,10 +7289,10 @@ def validateObjArgOLD(*args,**kws):
                     arg = arg[0]
                 elif arg == []:
                     arg = None
-                else:raise ValueError,"arg cannot be list or tuple or longer than 1 length: %s"%arg	
+                else:raise ValueError("arg cannot be list or tuple or longer than 1 length: %s"%arg)	
             if not noneValid:
                 if arg in [None,False]:
-                    raise ValueError,"Invalid arg({0}). noneValid = False".format(arg)
+                    raise ValueError("Invalid arg({0}). noneValid = False".format(arg))
             else:
                 if arg in [None,False]:
                     if arg not in [None,False]:log.warning("%s arg fail: %s"%(self._str_reportStart,arg))
@@ -7305,13 +7305,13 @@ def validateObjArgOLD(*args,**kws):
             except:
                 self.log_debug("not an instance arg...")
                 try:_arg = names.getLongName(arg)
-                except Exception,err:
+                except Exception as err:
                     if noneValid:return False
-                    raise Exception,err
+                    raise Exception(err)
             if not _arg:
                 if noneValid:return False
                 else:
-                    raise ValueError,"'{0}' is not a valid arg. Validated to {1}".format(arg,_arg)
+                    raise ValueError("'{0}' is not a valid arg. Validated to {1}".format(arg,_arg))
 
             _argShort = names.getShortName(_arg)
 
@@ -7329,7 +7329,7 @@ def validateObjArgOLD(*args,**kws):
                     if noneValid:
                         log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(self._str_reportStart,_argShort,str_type,l_mayaTypes))
                         return False
-                    raise StandardError,"'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes)			    	
+                    raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
                 t2 = time.clock()
                 self.log_debug("mayaType not None time... %0.6f"%(t2-t1))		    
 
@@ -7354,10 +7354,10 @@ def validateObjArgOLD(*args,**kws):
             _wasCached = False
 
             #See if it's in the cache
-            _keys = r9Meta.RED9_META_NODECACHE.keys()
+            _keys = list(r9Meta.RED9_META_NODECACHE.keys())
             _cacheKey = None
             _cached = None
-            _unicodeArg = unicode( _arg)
+            _unicodeArg = str( _arg)
 
             if _UUID in _keys:
                 _cacheKey = _UUID
@@ -7480,37 +7480,37 @@ def validateObjArgOLD(*args,**kws):
 
                 _mClass = ATTR.get(_argShort,'mClass')
                 if _mClass and _mClass not in _r9ClassRegistry:
-                    raise ValueError,"stored mClass not found in class registry. mClass: {0}".format(_mClass)		
+                    raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))		
                 self.mi_arg =  mTypeClass(_argShort)
             else:
                 t1 = time.clock()				    				
                 self.log_debug("no mType arg...")
                 if _mClass:
                     if _mClass not in _r9ClassRegistry:
-                        raise ValueError,"stored mClass not found in class registry. mClass: {0}".format(_mClass)			
+                        raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))			
                     mTypeClass = _r9ClassRegistry.get(_mClass)
                     self.log_debug("mClass registered... '{0}' | {1}".format(_argShort,mTypeClass))		    
                     self.mi_arg =  mTypeClass(_argShort)
                 else:
                     if default_mType:
                         self.log_debug("no mType.Using default...")
-                        if not type(default_mType) in [unicode,str]:
+                        if not type(default_mType) in [str,str]:
                             try: default_mType = default_mType.__name__
-                            except Exception,error:
-                                raise ValueError,"mType not a string and not a usable class name. default_mType: {0}".format(default_mType)				
+                            except Exception as error:
+                                raise ValueError("mType not a string and not a usable class name. default_mType: {0}".format(default_mType))				
                         try:self.mi_arg =  _r9ClassRegistry.get(default_mType)(_argShort)
-                        except Exception,error:
-                            raise Exception,"default mType ({1}) initialization fail | {0}".format(error,default_mType)				
+                        except Exception as error:
+                            raise Exception("default mType ({1}) initialization fail | {0}".format(error,default_mType))				
                     elif isTransform(_argShort):
                         self.log_debug("Transform...")
                         try:self.mi_arg = cgmObject(_argShort) 
-                        except Exception,error:
-                            raise Exception,"cgmObject initialization fail | {0}".format(error)	
+                        except Exception as error:
+                            raise Exception("cgmObject initialization fail | {0}".format(error))	
                     else:
                         self.log_debug("Node...")
                         try:self.mi_arg = cgmNode(_argShort) 
-                        except Exception,error:
-                            raise Exception,"cgmNode initialization fail | {0}".format(error)	
+                        except Exception as error:
+                            raise Exception("cgmNode initialization fail | {0}".format(error))	
                 self.log_debug("leaving mType None...")
                 t2 = time.clock()
                 self.log_debug("... %0.6f"%(t2-t1))				
@@ -7701,9 +7701,9 @@ def validateAttrArg(arg,defaultType = 'float',noneValid = False,**kws):
                 obj = arg.split('.')[0]
                 attr = '.'.join(arg.split('.')[1:])
                 combined = arg
-            else:raise StandardError,"validateAttrArg>>>Bad attr arg: %s"%arg
+            else:raise Exception("validateAttrArg>>>Bad attr arg: %s"%arg)
         if not mc.objExists(obj):
-            raise StandardError,"validateAttrArg>>>obj doesn't exist: %s"%obj
+            raise Exception("validateAttrArg>>>obj doesn't exist: %s"%obj)
         if not mc.objExists(combined):
             if noneValid:
                 #log.debug("Not found: '%s'"%combined)
@@ -7715,13 +7715,13 @@ def validateAttrArg(arg,defaultType = 'float',noneValid = False,**kws):
         elif mi_obj:i_plug = cgmAttr(mi_obj,attr,**kws)	
         else:i_plug = cgmAttr(obj,attr,**kws)
         return {'obj':obj ,'attr':attr ,'combined':combined,'mi_plug':i_plug,'mPlug':i_plug}
-    except Exception,err:
+    except Exception as err:
         #log.debug("validateAttrArg>>Failure! arg: %s"%arg)	
         if noneValid:
             return False
-        raise Exception,"{0} >> arg: {1} | defaultType: {2} | noneValid: {3} | {4}".format(_str_func,
+        raise Exception("{0} >> arg: {1} | defaultType: {2} | noneValid: {3} | {4}".format(_str_func,
                                                                                            arg,
-                                                                                           defaultType,noneValid,err)
+                                                                                           defaultType,noneValid,err))
 
 def validateAttrListArg(l_args = None,defaultType = 'float',noneValid = False,**kws):
     try:
@@ -7740,13 +7740,13 @@ def validateAttrListArg(l_args = None,defaultType = 'float',noneValid = False,**
                 log.warning("validateAttrListArg>> Failed to validate: %s"%arg)		
         #log.debug("validateAttrListArg>> validated: %s"%l_combined)
         return {'ml_plugs':l_mPlugs,'combined':l_combined,'raw':l_raw}
-    except StandardError,error:
+    except Exception as error:
         log.error("validateAttrListArg>>Failure! l_args: %s | defaultType: %s"%(l_args,defaultType))
-        raise StandardError,error    
+        raise Exception(error)    
 
 class cgmBlendShape(cgmNode):
     def __init__(self):
-        raise DeprecationWarning,"cgmBlendshape moved to cgm_Deformers.cgmBlendshape"
+        raise DeprecationWarning("cgmBlendshape moved to cgm_Deformers.cgmBlendshape")
     
     
     

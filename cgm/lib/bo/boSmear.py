@@ -114,7 +114,7 @@ class Gui(object):
         items = self.uiGeoList.getAllItems()
         items.extend([str(i) for i in selected() if self.isGeo(i)])
         new = sorted(list(set(items)))
-        print new
+        print(new)
         self.uiGeoList.removeAll()
         self.uiGeoList.append(new)
     
@@ -246,7 +246,7 @@ class Smear(object):
                   (-p,  p,  p), ( p,  p,  p), ( p, -p,  p),
                   ( p, -p, -p), ( p,  p, -p), (-p,  p, -p),
                   (-p, -p, -p)]
-        self.depthGuide = curve(d=1, n='smearDepthBox', p=points, k=range(16))
+        self.depthGuide = curve(d=1, n='smearDepthBox', p=points, k=list(range(16)))
         parent(self.depthGuide, self.latticeScale)
         self.depthGuide.scaleX.set(self.sX)
         self.depthGuide.scaleY.set(self.sY)

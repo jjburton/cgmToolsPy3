@@ -143,7 +143,7 @@ def d_progress( **dec_kwargs ):
 		def func( *args, **kwargs ):
 			try:
 				cmd.progressWindow( **dec_kwargs )
-			except: print 'error init-ing the progressWindow'
+			except: print('error init-ing the progressWindow')
 
 			try:
 				return f( *args, **kwargs )

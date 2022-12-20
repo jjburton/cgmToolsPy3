@@ -21,7 +21,7 @@ try:
     import maya.cmds as mc   
     
 except ImportError:
-    raise StandardError('objString test can only be run in Maya')
+    raise Exception('objString test can only be run in Maya')
 import cgm.core.cgmPy.path_Utils as PATH
 import cgm.core.cgmPy.os_Utils as cgmOS
 
@@ -40,11 +40,11 @@ class Test_Path(unittest.TestCase):
         _dir = PATH.Path(cgm.__path__[0])
         _file = os.path.join(_dir.up(),'cgmToolbox.py')
         
-        self.assertEquals(os.path.exists(_dir),True)
-        self.assertEquals(os.path.exists(_file),True)
+        self.assertEqual(os.path.exists(_dir),True)
+        self.assertEqual(os.path.exists(_file),True)
         
-        self.assertEquals(_file.isFile(),True)
-        self.assertEquals(_file.asFile().endswith('cgmToolbox.py'),
+        self.assertEqual(_file.isFile(),True)
+        self.assertEqual(_file.asFile().endswith('cgmToolbox.py'),
                           True)
     
     def hold(self):

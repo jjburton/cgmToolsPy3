@@ -55,7 +55,7 @@ import maya.OpenMayaUI as mui
 import maya.cmds as mc
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(19)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -69,7 +69,7 @@ except ImportError:
 
 #get maya window as qt object
 main_window_ptr = mui.MQtUtil.mainWindow()
-qt_maya_window = shiboken.wrapInstance(long(main_window_ptr), QtCore.QObject)
+qt_maya_window = shiboken.wrapInstance(int(main_window_ptr), QtCore.QObject)
 
 def ui():
     '''

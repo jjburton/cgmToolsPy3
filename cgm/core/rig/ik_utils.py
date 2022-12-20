@@ -17,6 +17,7 @@ import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -128,7 +129,7 @@ def spline(jointList = None,
 
     if int_lenJoints<3:
         pprint.pprint(vars())
-        raise ValueError,"needs at least three joints"
+        raise ValueError("needs at least three joints")
     
     if parentGutsTo is None:
         mGroup = cgmMeta.cgmObject(name = 'newgroup')
@@ -349,8 +350,8 @@ def spline(jointList = None,
                     ATTR.connect("{}.output".format(mBlend.mNode),'{}.t{}'.format(ml_joints[i+1].mNode,str_orientation[0]))
                     
                     #mPlug_attrNormalDist.doConnectOut('%s.t%s'%(ml_driverJoints[i+1].mNode,str_orientation[0]))    	    
-                except Exception,error:
-                    raise Exception,"[Failed to connect joint attrs by scale: {0} | error: {1}]".format(mJnt.mNode,error)		
+                except Exception as error:
+                    raise Exception("[Failed to connect joint attrs by scale: {0} | error: {1}]".format(mJnt.mNode,error))		
                 
             else:
                 mi_mdNormalBaseDist = cgmMeta.cgmNode(nodeType='multiplyDivide')
@@ -391,7 +392,7 @@ def spline(jointList = None,
                     mPlug_attrDist.doConnectIn('%s.%s'%(ml_distanceShapes[i].mNode,'distance'))		        
                     mPlug_attrResult.doConnectOut('%s.s%s'%(mJnt.mNode,str_orientation[0]))
                     #mPlug_attrResult.doConnectOut('%s.s%s'%(ml_driverJoints[i].mNode,str_orientation[0]))
-                except Exception,error:raise Exception,"[Failed to connect joint attrs by scale: {0} | error: {1}]".format(mJnt.mNode,error)		    
+                except Exception as error:raise Exception("[Failed to connect joint attrs by scale: {0} | error: {1}]".format(mJnt.mNode,error))		    
 
                 ml_mainMDs.append(mi_mdSegmentScale)#store the md
 
@@ -471,9 +472,9 @@ def addSplineTwist(ikHandle = None, midHandle = None, advancedTwistSetup = False
     mMidHandle = cgmMeta.validateObjArg(midHandle,'cgmObject',noneValid=True)
     
     if mIKHandle.getMayaType() != 'ikHandle':
-        raise ValueError,("|{0}| >> Not an ikHandle ({2}). Type: {1}".format(_str_func, mIKHandle.getMayaType(), mIKHandle.p_nameShort))                                                    
+        raise ValueError("|{0}| >> Not an ikHandle ({2}). Type: {1}".format(_str_func, mIKHandle.getMayaType(), mIKHandle.p_nameShort))                                                    
     if mMidHandle and mMidHandle.getMayaType() != 'ikHandle':
-        raise ValueError,("|{0}| >> Mid ({2}) not an ikHandle. Type: {1}".format(_str_func, mMidHandle.getMayaType(),mMidHandle.p_nameShort))                                                    
+        raise ValueError("|{0}| >> Mid ({2}) not an ikHandle. Type: {1}".format(_str_func, mMidHandle.getMayaType(),mMidHandle.p_nameShort))                                                    
 
     ml_handles = [mIKHandle]
     if mMidHandle:
@@ -624,7 +625,7 @@ def addSplineTwistOLD(ikHandle, midHandle = None, advancedTwistSetup = False):
     #>>> Data gather and arg check
     mIKHandle = cgmMeta.validateObjArg(ikHandle,cgmMeta.cgmObject,noneValid=False)
     if mIKHandle.getMayaType() != 'ikHandle':
-        raise StandardError,"IKHandle_fixTwist>>> '%s' object not 'ikHandle'. Found type: %s"%(mIKHandle.getShortName(),mIKHandle.getMayaType())
+        raise Exception("IKHandle_fixTwist>>> '%s' object not 'ikHandle'. Found type: %s"%(mIKHandle.getShortName(),mIKHandle.getMayaType()))
 
     mi_crv = cgmMeta.validateObjArg(ATTR.get_driver("%s.inCurve"%mIKHandle.mNode,getNode=True),cgmMeta.cgmObject,noneValid=False)
     log.debug(mi_crv.mNode)
@@ -919,7 +920,7 @@ def ribbon_createSurface(jointList=[], createAxis = 'x', sectionSpans=1, extendE
                     cgmMeta.cgmAttr(_str_rigNull,'gutsVis',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideVisibility'))
                     cgmMeta.cgmAttr(_str_rigNull,'gutsLock',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideDisplayType'))                
         return _res_body
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
     
 def ribbon(jointList = None,
@@ -1066,7 +1067,7 @@ def ribbon(jointList = None,
     str_baseName = VALID.stringArg(baseName,noneValid=True)
     
     if specialMode and specialMode not in ['noStartEnd']:
-        raise ValueError,"Unknown special mode: {0}".format(specialMode)
+        raise ValueError("Unknown special mode: {0}".format(specialMode))
     
     
     ml_influences = cgmMeta.validateObjListArg(influences,mType = 'cgmObject', noneValid = True)
@@ -1141,7 +1142,7 @@ def ribbon(jointList = None,
             else:
                 loftAxis = str_orientation[1]
         else:
-            raise ValueError,"Not sure what to do with loftAxis: {0}".format(loftAxis)
+            raise ValueError("Not sure what to do with loftAxis: {0}".format(loftAxis))
     
     #Ramp values -------------------------------------------------------------------------
     if extraSquashControl:
@@ -1173,7 +1174,7 @@ def ribbon(jointList = None,
     
     #>>> Ribbon Surface ================================================================================        
     if mi_useSurface:
-        raise NotImplementedError,'Not done with passed surface'
+        raise NotImplementedError('Not done with passed surface')
     else:
         log.debug("|{0}| >> Creating surface...".format(_str_func))
         if liveSurface:
@@ -1465,18 +1466,18 @@ def ribbon(jointList = None,
             else:
                 d_attr = cgmMeta.validateAttrArg(masterScalePlug)
                 if not d_attr:
-                    raise ValueError,"Ineligible masterScalePlug: {0}".format(masterScalePlug)
+                    raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
                 mPlug_masterScale  = d_attr['mPlug']
                 
         if not mPlug_masterScale:
-            raise ValueError,"Should have a masterScale plug by now"        
+            raise ValueError("Should have a masterScale plug by now")        
     elif masterScalePlug is not None:
         if issubclass(type(masterScalePlug),cgmMeta.cgmAttr):
             mPlug_masterScale = masterScalePlug
         else:
             d_attr = cgmMeta.validateAttrArg(masterScalePlug)
             if not d_attr:
-                raise ValueError,"Ineligible masterScalePlug: {0}".format(masterScalePlug)
+                raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
             mPlug_masterScale  = d_attr['mPlug']        
             
 
@@ -1508,7 +1509,7 @@ def ribbon(jointList = None,
 
     f_offset = DIST.get_distance_between_targets(l_joints,True)
     
-    range_joints = range(len(ml_joints))
+    range_joints = list(range(len(ml_joints)))
     l_firstLastIndices = [range_joints[0],range_joints[-1]]
     
     
@@ -1523,7 +1524,7 @@ def ribbon(jointList = None,
                 log.debug("|{0}| >> Checking msgDriver: {1}".format(_str_func,msgDriver))                
                 mDriven = mJnt.getMessage(msgDriver,asMeta=True)
                 if not mDriven:
-                    raise ValueError,"Missing msgDriver: {0} | {1}".format(msgDriver,mJnt)
+                    raise ValueError("Missing msgDriver: {0} | {1}".format(msgDriver,mJnt))
                 mDriven = mDriven[0]
                 log.debug("|{0}| >> Found msgDriver: {1} | {2}".format(_str_func,msgDriver,mDriven))
                 
@@ -1846,7 +1847,7 @@ def ribbon(jointList = None,
             log.debug("|{0}| >> Found out follicles via stable...".format(_str_func))                
             ml_outFollicles = ml_folliclesStable
         elif driverSetup:
-            raise ValueError,"Must create out follicles"
+            raise ValueError("Must create out follicles")
         
         #Up follicles =================================================================================
         ml_upFollicles = []
@@ -1961,7 +1962,7 @@ def ribbon(jointList = None,
             for i,mJnt in enumerate(ml_joints):#Nodes =======================================================
                 try:
                     v_scaleFactor = l_scaleFactors[i]
-                except Exception,err:
+                except Exception as err:
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
@@ -2106,7 +2107,7 @@ def ribbon(jointList = None,
                 
                 try:
                     v_scaleFactor = l_scaleFactors[i]
-                except Exception,err:
+                except Exception as err:
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
@@ -2281,7 +2282,7 @@ def ribbon(jointList = None,
                     
                     try:
                         v_scaleFactor = l_scaleFactors[i]
-                    except Exception,err:
+                    except Exception as err:
                         log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                         v_scaleFactor = 1.0
                         
@@ -2494,13 +2495,13 @@ def ribbon(jointList = None,
             str_joint = mJnt.mNode
             
             if mJnt == ml_joints[0]:
-                print 'start'
+                print('start')
                 l_targets = [l_influences[0]]
             elif mJnt == ml_joints[-1]:
-                print 'end'
+                print('end')
                 l_targets = [l_influences[-1]]
             else:
-                print 'mid'
+                print('mid')
                 l_targets = l_influences
             
             
@@ -2523,7 +2524,7 @@ def ribbon(jointList = None,
                 _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode,
                                                               l_targets)
                 pprint.pprint(_vList)
-                reload(CONSTRAINT)
+                importlib.reload(CONSTRAINT)
                 CONSTRAINT.set_weightsByDistance(_scale[0],_vList)
                 
             mAdditiveScale = cgmMeta.cgmNode(nodeType='multiplyDivide')
@@ -2682,7 +2683,7 @@ def handle(startJoint,
     
         #>>> Data gather and arg check
         if solverType not in ['ikRPsolver','ikSCsolver','ikSpringSolver']:
-            raise ValueError,"|{0}| >> Invalid solverType: {1}".format(_str_func,solverType)
+            raise ValueError("|{0}| >> Invalid solverType: {1}".format(_str_func,solverType))
         
         if solverType == 'ikSpringSolver':
             mel.eval('ikSpringSolver;')
@@ -2708,13 +2709,13 @@ def handle(startJoint,
         mStart = cgmMeta.validateObjArg(startJoint,'cgmObject',noneValid=False)
         mEnd = cgmMeta.validateObjArg(endJoint,'cgmObject',noneValid=False)
         if not mEnd.isChildOf(mStart):
-            raise ValueError,"|{0}| >> {1} not a child of {2}".format(_str_func,endJoint,startJoint)
+            raise ValueError("|{0}| >> {1} not a child of {2}".format(_str_func,endJoint,startJoint))
             
         ml_jointChain = mStart.getListPathTo(mEnd,asMeta=True)
         #ml_jointChain = cgmMeta.validateObjListArg(l_jointChain,'cgmObject',noneValid=False)
         l_jointChain = [mObj.mNode for mObj in ml_jointChain]
         if len(ml_jointChain)<3 and solverType in ['rpSolver','ikSpringSolver']:
-            raise ValueError,"|{0}| >> {1} len less than 3 joints. solver: {2}".format(_str_func,len(ml_jointChain,solverType))
+            raise ValueError("|{0}| >> {1} len less than 3 joints. solver: {2}".format(_str_func,len(ml_jointChain,solverType)))
             
         _foundPrerred = False
         for mJnt in ml_jointChain:
@@ -2734,17 +2735,17 @@ def handle(startJoint,
             log.debug("|{0}| >> Invalid stretch arg: {1}. Using 'translate'".format(_str_func,stretch))
             stretch = 'translate'
         if stretch == 'scale':
-            raise NotImplementedError,"|{0}| >> Scale method not done".format(_str_func)
+            raise NotImplementedError("|{0}| >> Scale method not done".format(_str_func))
             
         #Handles =======================================================================================
         ml_handles = cgmMeta.validateObjListArg(handles,'cgmObject',noneValid=True)
         if len(ml_handles)>len(ml_jointChain):#Check handle length to joint list
-            raise ValueError,"|{0}| >> More handles than joints. joints: {1}| handles: {2}.".format(_str_func,len(ml_jointChain),len(ml_handles))
+            raise ValueError("|{0}| >> More handles than joints. joints: {1}| handles: {2}.".format(_str_func,len(ml_jointChain),len(ml_handles)))
             
     
         mRPHandle = cgmMeta.validateObjArg(rpHandle,'cgmObject',noneValid=True)
         if mRPHandle and mRPHandle in ml_handles:
-            raise NotImplementedError,"|{0}| >> rpHandle can't be a measure handle".format(_str_func)
+            raise NotImplementedError("|{0}| >> rpHandle can't be a measure handle".format(_str_func))
             
         #Control object
         mControl = cgmMeta.validateObjArg(controlObject,'cgmObject',noneValid=True)
@@ -3014,7 +3015,7 @@ def handle(startJoint,
                     #grab the plug
                     mPlug_driven = cgmMeta.cgmAttr(ml_jointChain[i+1],'t%s'%str_localAimSingle)
                     plug = ATTR.break_connection(mPlug_driven.p_combinedName)
-                    if not plug:raise StandardError,"create_IKHandle>>> Should have found a plug on: %s.t%s"%(ml_jointChain[i+1].mNode,str_localAimSingle)
+                    if not plug:raise Exception("create_IKHandle>>> Should have found a plug on: %s.t%s"%(ml_jointChain[i+1].mNode,str_localAimSingle))
     
                     ATTR.connect(plug,#>>
                                  '%s.input1%s'%(i_mdLengthMulti.mNode,l_mdAxis[i]))#Connect the old plug data
@@ -3072,7 +3073,7 @@ def handle(startJoint,
         #if not _foundPrerred:log.warning("create_IKHandle>>> No preferred angle values found. The chain probably won't work as expected: %s"%l_jointChain)
         
         return d_return   
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 
 
@@ -3085,18 +3086,18 @@ def handle_fixTwist(ikHandle, aimAxis = None):
     
     mIKHandle = cgmMeta.validateObjArg(ikHandle,'cgmObject',noneValid=False)
     if mIKHandle.getMayaType() != 'ikHandle':
-        raise ValueError,"|{0}| >> {1} not an 'ikHandle'. Type: ".format(_str_func,mIKHandle.mNode, mIKHandle.getMayaType())
+        raise ValueError("|{0}| >> {1} not an 'ikHandle'. Type: ".format(_str_func,mIKHandle.mNode, mIKHandle.getMayaType()))
         
 
     jointStart = mIKHandle.getMessage('jointStart')
     if not jointStart:
-        raise ValueError,"|{0}| >> {1} | no jointStart dataFound".format(_str_func,mIKHandle.mNode, mIKHandle.getMayaType())
+        raise ValueError("|{0}| >> {1} | no jointStart dataFound".format(_str_func,mIKHandle.mNode, mIKHandle.getMayaType()))
 
     mStartJoint = cgmMeta.validateObjArg(jointStart[0],'cgmObject',noneValid=False)
 
     #Find the aim axis
     if aimAxis == None:
-        raise NotImplementedError,"Need aimAxis. Not done migrating solver"
+        raise NotImplementedError("Need aimAxis. Not done migrating solver")
         log.debug("|{0}| >> find aim axis...".format(_str_func))
         
         return 
@@ -3302,7 +3303,7 @@ def ribbon_seal(driven1 = None,
                 if mObj not in ml_missingDrivers:
                     check_msgDriver(mObj)
             if ml_missingDrivers:
-                raise ValueError,"Missing drivers. See errors."
+                raise ValueError("Missing drivers. See errors.")
             log.debug("|{0}| >> msgDriver [Pass]...".format(_str_func))
 
 
@@ -3336,7 +3337,7 @@ def ribbon_seal(driven1 = None,
         str_secondaryAxis = VALID.stringArg(secondaryAxis,noneValid=True)        
 
         if specialMode and specialMode not in ['noStartEnd','endsToInfluences']:
-            raise ValueError,"Unknown special mode: {0}".format(specialMode)
+            raise ValueError("Unknown special mode: {0}".format(specialMode))
 
 
         #module -----------------------------------------------------------------------------------------------
@@ -3357,9 +3358,9 @@ def ribbon_seal(driven1 = None,
         d_check = {'driven1':d_dat[1]['int_driven'] ,
                    'driven2':d_dat[2]['int_driven'] }
 
-        for k,i in d_check.iteritems():
+        for k,i in list(d_check.items()):
             if i<3:
-                raise ValueError,"needs at least three driven. Found : {0} | {1}".format(k,i)
+                raise ValueError("needs at least three driven. Found : {0} | {1}".format(k,i))
 
         log.debug("|{0}| >> Group [Check]...".format(_str_func))                    
         if parentGutsTo is None:
@@ -3447,7 +3448,7 @@ def ribbon_seal(driven1 = None,
                              '2end':{'mObj':d_dat[2]['driven'][-1],
                                      'mDriver':d_dat[2]['mInfluences'][-1]}}"""
 
-                for n,dat in d_special.iteritems():
+                for n,dat in list(d_special.items()):
                     mObj = dat['mObj']
                     mDriven = md_drivers[mObj]
                     mDriver = dat['mDriver']
@@ -3492,7 +3493,7 @@ def ribbon_seal(driven1 = None,
                                           nameSealMid=sealNameMid,
                                           settingsControl = mSettings,
                                           maxValue=maxValue)
-            for k,d in d_split.iteritems():
+            for k,d in list(d_split.items()):
                 d_dat[k]['mPlugs'] = d['mPlugs']
 
         else:
@@ -3559,7 +3560,7 @@ def ribbon_seal(driven1 = None,
         #>>> Skinning ============================================================================
         log.debug("|{0}| >> Skinning Ribbons...".format(_str_func))
 
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             max_influences = 2
             mode_tighten = 'twoBlend'
             blendLength = int(dat['int_driven']/2)
@@ -3602,7 +3603,7 @@ def ribbon_seal(driven1 = None,
 
         #>>> Meat ============================================================================
         ml_processed = []
-        for idx,dat in d_dat.iteritems():
+        for idx,dat in list(d_dat.items()):
             idx_seal = 1
             if idx == 1:
                 idx_seal = 2
@@ -3649,7 +3650,7 @@ def ribbon_seal(driven1 = None,
                                  'mTrack':mTrackSeal},
                          }
 
-                for n,d in d_tmp.iteritems():
+                for n,d in list(d_tmp.items()):
                     mTrack = d['mTrack']
                     mSurf = d['mSurf']
 
@@ -3719,7 +3720,7 @@ def ribbon_seal(driven1 = None,
 
 
 
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
         
@@ -3861,7 +3862,7 @@ def curve(jointList = None,
     str_baseName = VALID.stringArg(baseName,noneValid=True)
     
     if specialMode and specialMode not in ['noStartEnd']:
-        raise ValueError,"Unknown special mode: {0}".format(specialMode)
+        raise ValueError("Unknown special mode: {0}".format(specialMode))
     
     
     ml_influences = cgmMeta.validateObjListArg(influences,mType = 'cgmObject', noneValid = True)
@@ -3940,7 +3941,7 @@ def curve(jointList = None,
     
     #>>> Curves  Creation ================================================================================        
     if mi_useCurve:
-        raise NotImplementedError,'Not done with passed curve'
+        raise NotImplementedError('Not done with passed curve')
     else:
         log.debug("|{0}| >> Creating curve...".format(_str_func))
         #_crv = CORERIG.create_at(create='curveLinear', l_pos=[mObj.p_position for mObj in ml_curveJoints])
@@ -4075,18 +4076,18 @@ def curve(jointList = None,
                 else:
                     d_attr = cgmMeta.validateAttrArg(masterScalePlug)
                     if not d_attr:
-                        raise ValueError,"Ineligible masterScalePlug: {0}".format(masterScalePlug)
+                        raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
                     mPlug_masterScale  = d_attr['mPlug']
                     
             if not mPlug_masterScale:
-                raise ValueError,"Should have a masterScale plug by now"        
+                raise ValueError("Should have a masterScale plug by now")        
         elif masterScalePlug is not None:
             if issubclass(type(masterScalePlug),cgmMeta.cgmAttr):
                 mPlug_masterScale = masterScalePlug
             else:
                 d_attr = cgmMeta.validateAttrArg(masterScalePlug)
                 if not d_attr:
-                    raise ValueError,"Ineligible masterScalePlug: {0}".format(masterScalePlug)
+                    raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
                 mPlug_masterScale  = d_attr['mPlug']          
     
     
@@ -4240,7 +4241,7 @@ def curve(jointList = None,
                 if extraSquashControl:
                     try:
                         v_scaleFactor = l_scaleFactors[i]
-                    except Exception,err:
+                    except Exception as err:
                         log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                         v_scaleFactor = 1.0                    
                     
@@ -4553,7 +4554,7 @@ def curve(jointList = None,
 
     f_offset = DIST.get_distance_between_targets(l_joints,True)
     
-    range_joints = range(len(ml_joints))
+    range_joints = list(range(len(ml_joints)))
     l_firstLastIndices = [range_joints[0],range_joints[-1]]
     
     for i,mJnt in enumerate(ml_joints):
@@ -4567,7 +4568,7 @@ def curve(jointList = None,
                 log.debug("|{0}| >> Checking msgDriver: {1}".format(_str_func,msgDriver))                
                 mDriven = mJnt.getMessage(msgDriver,asMeta=True)
                 if not mDriven:
-                    raise ValueError,"Missing msgDriver: {0} | {1}".format(msgDriver,mJnt)
+                    raise ValueError("Missing msgDriver: {0} | {1}".format(msgDriver,mJnt))
                 mDriven = mDriven[0]
                 log.debug("|{0}| >> Found msgDriver: {1} | {2}".format(_str_func,msgDriver,mDriven))
                 

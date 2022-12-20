@@ -12,8 +12,8 @@ import gc
 from zlib import crc32
 from modulefinder import ModuleFinder
 
-from path import Path
-from misc import removeDupes
+from .path import Path
+from .misc import removeDupes
 
 _MODULE_TYPE = type( os )
 
@@ -28,7 +28,7 @@ _LIB_PATHS = ( getPythonStdLibDir(), )
 
 
 def logMessage( *a ):
-	print ' '.join( map( str, a ) )
+	print((' '.join( map( str, a ) )))
 
 
 logWarning = logMessage
@@ -43,7 +43,7 @@ def getDeps( aModule ):
 	getfile = inspect.getfile
 	def _getDeps( module ):
 		#grab module dependencies
-		for n, o in aModule.__dict__.iteritems():
+		for n, o in list(aModule.__dict__.items()):
 			try:
 				objectFile = Path( getfile( o ) )
 			#this happens on builtins...  so skip em
@@ -107,7 +107,7 @@ class DependencyNode(dict):
 		return curDepNode
 	def findDependents( self, changedScriptPath ):
 		affected = []
-		for srcFile, depNode in self.iteritems():
+		for srcFile, depNode in list(self.items()):
 			if srcFile == changedScriptPath:
 				continue
 
@@ -207,7 +207,7 @@ class DependencyTree(DependencyNode):
 	@classmethod
 	def _convertDictDataTo( cls, theDict, keyCastMethod ):
 		def convToDict( theDict ):
-			for key in theDict.keys():
+			for key in list(theDict.keys()):
 				value = theDict.pop( key )
 				key = keyCastMethod( key )
 				theDict[ key ] = value
@@ -233,8 +233,8 @@ class DependencyTree(DependencyNode):
 		if not dirsToWalk:
 			dirsToWalk = sys.path[:]
 
-		dirsToWalk = map( Path, dirsToWalk )
-		dirsToExclude = map( Path, dirsToExclude )
+		dirsToWalk = list(map( Path, dirsToWalk ))
+		dirsToExclude = list(map( Path, dirsToExclude ))
 		if skipLib:
 			dirsToExclude += _LIB_PATHS
 
@@ -253,7 +253,7 @@ class DependencyTree(DependencyNode):
 					cls.FromSimpleDict( self._stats )
 
 					#remove any files from the cache that don't exist
-					for f in self.keys():
+					for f in list(self.keys()):
 						if not f.exists():
 							self.pop( f )
 				else:
@@ -377,7 +377,7 @@ class DependencyTree(DependencyNode):
 		secondaryAffected = set()
 
 		#add the primary affected dependencies
-		for script, depNode in self.iteritems():
+		for script, depNode in list(self.items()):
 			if script == changedScriptPath:
 				continue
 
@@ -390,7 +390,7 @@ class DependencyTree(DependencyNode):
 			#returns whether it has found any new dependencies
 			def gatherSecondaryDependencies( theDepNode ):
 				stillAdding = False
-				for script, depNode in theDepNode.iteritems():
+				for script, depNode in list(theDepNode.items()):
 					if script == changedScriptPath:
 						continue
 
@@ -399,7 +399,7 @@ class DependencyTree(DependencyNode):
 
 					#if its not, we had better recurse and see if it is somewhere deeper in the dependency tree for this script
 					else:
-						for sub_script in depNode.iterkeys():
+						for sub_script in list(depNode.keys()):
 							if sub_script in primaryAffected or sub_script in secondaryAffected:
 								secondaryAffected.add( script )
 								stillAdding = True
@@ -536,7 +536,7 @@ def makeScriptPathRelative( scriptFilepath ):
 	'''
 	scriptFilepath = Path( scriptFilepath )
 
-	sysPaths = map( Path, sys.path )
+	sysPaths = list(map( Path, sys.path ))
 	bestFitPath = None
 	for p in sysPaths:
 		if scriptFilepath.isUnder( p ) or len( p ) > len( bestFitPath ):
@@ -559,7 +559,7 @@ def packageScripts( scriptFilesToPackage, destPackageFilepath, dependencyTree ):
 	if destPackageFilepath.exists():
 		destPackageFilepath.delete()
 
-	filesToPackage = map( Path, scriptFilesToPackage )
+	filesToPackage = list(map( Path, scriptFilesToPackage ))
 	for f in scriptFilesToPackage:
 		filesToPackage += dependencyTree.findDependencies( f, None, False )
 
@@ -598,7 +598,7 @@ def getScriptTests( scriptFilepath, depTree=None ):
 
 	scriptTestCandidates = []
 
-	for test, testDependencies in testDependencyDict.iteritems():
+	for test, testDependencies in list(testDependencyDict.items()):
 		if scriptFilepath in testDependencies:
 			scriptTestCandidates.append( test )
 
@@ -624,7 +624,7 @@ def flush( dirsNeverToFlush=() ):
 	builtin_module_names = set( sys.builtin_module_names )
 	while True:
 		try:
-			for modName, mod in sys.modules.items():
+			for modName, mod in list(sys.modules.items()):
 				try:
 					modPath = Path( mod.__file__ )
 				except AttributeError: continue

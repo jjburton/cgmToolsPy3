@@ -177,7 +177,7 @@ class ui(cgmUI.cgmGUI):
         #             c= lambda *a: setToolsLib.uiToggleOptionCB(self,self.HideSetGroupOptionVar))        
         
         #Reference Prefixes ================================================================================
-        _refKeys = self.d_refSets.keys()
+        _refKeys = list(self.d_refSets.keys())
         _activeRefs = self.var_ActiveSetRefs.getValue()
         _str_activeSetRefs = self.var_ActiveSetRefs.name
         if _refKeys:# and len(_refKeys) > 1:
@@ -209,7 +209,7 @@ class ui(cgmUI.cgmGUI):
                              c=lambda *a: uiFunc_setOptionVarAndUpdate(self, self.var_ActiveSetRefs,[''] ))        
         
         #Types filtering  ================================================================================
-        _typeKeys = self.d_typeSets.keys()
+        _typeKeys = list(self.d_typeSets.keys())
         _activeTypes = self.var_ActiveSetTypes.getValue()
         _str_activeTypesVar = self.var_ActiveSetTypes.name
 
@@ -329,10 +329,10 @@ class ui(cgmUI.cgmGUI):
                     
         if _d_sets['referenced']:
             activePrefixes = self.var_ActiveSetRefs.value
-            for k,l in _d_sets['referenced'].iteritems():
+            for k,l in list(_d_sets['referenced'].items()):
                 if k =='From Scene':
                     continue
-                if k not in self.d_refSets.keys():
+                if k not in list(self.d_refSets.keys()):
                     #self.var_ActiveSetRefs.append(k)
                     self.d_refSets[k] = []                
                 if k not in activePrefixes:
@@ -345,9 +345,9 @@ class ui(cgmUI.cgmGUI):
             activeTypes = self.var_ActiveSetTypes.value
             log.debug("|{0}| >> activeTypes: {1}".format(_str_func, activeTypes))
             #pprint.pprint(_d_sets['cgmTypes'])
-            for k,l in _d_sets['cgmTypes'].iteritems():
-                k_uni = unicode(k)
-                if k not in self.d_typeSets.keys():
+            for k,l in list(_d_sets['cgmTypes'].items()):
+                k_uni = str(k)
+                if k not in list(self.d_typeSets.keys()):
                     #self.var_ActiveSetRefs.append(k)
                     self.d_typeSets[k] = []                
                 if k_uni not in activeTypes:
@@ -366,7 +366,7 @@ class ui(cgmUI.cgmGUI):
             try:
                 uiBuild_objectSetRow(self,self.uiScrollList_objectSets, oSet)
                 self.var_LoadedSets.append(oSet)
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Build row failed: {1} | err: {2}".format(_str_func,oSet, err))
             finally:pass
         return
@@ -414,7 +414,7 @@ class ui(cgmUI.cgmGUI):
         mc.evalDeferred(self.uiUpdate_objectSets,lp=True)
         
     def uiFunc_setAllActiveState(self,value = None):
-        for mSet,cb in self.d_activeStateCBs.iteritems():
+        for mSet,cb in list(self.d_activeStateCBs.items()):
             cb.setValue(value)
             _str = mSet.p_nameShort
 
@@ -453,7 +453,7 @@ class ui(cgmUI.cgmGUI):
                 else:
                     log.error("|{0}| >> unknown mode: {1}".format(_str_func, mode))   
                     return False
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Failed: {1} | mode: {2} | err: {3}".format(_str_func,mSet, mode,err)) 
         
         if l_sel:
@@ -492,7 +492,7 @@ class ui(cgmUI.cgmGUI):
                 for o in l_items:
                     _list.append(str(o))                
                 _list(e=True, vis = True)
-        except Exception,err:
+        except Exception as err:
             pprint.pprint(vars())
             log.info("|{0}| >> Failure: {1} | {2}".format(_str_func,mObjectSet,err))  
             
@@ -624,9 +624,9 @@ def uiFunc_multiSetsAction(mode = 'active', action = 'report', weight = None):
                     mode = 'active'
                 else:
                     mode = 'loaded'        
-        except Exception,err:
+        except Exception as err:
             log.error(err)
-            raise Exception,"Failed to resolve mode"
+            raise Exception("Failed to resolve mode")
     
     if mode == 'active':
         var = 'cgmVar_activeObjectSets'
@@ -657,7 +657,7 @@ def uiFunc_multiSetsAction(mode = 'active', action = 'report', weight = None):
             if mSet.getList():return True
             
     if action == 'report':
-        print cgmGEN._str_hardBreak
+        print((cgmGEN._str_hardBreak))
     
     if action in ['tween',
                   'bdAverage','bdPrevious','bdNext',
@@ -681,7 +681,7 @@ def uiFunc_multiSetsAction(mode = 'active', action = 'report', weight = None):
         elif action == 'holdAverage':
             ml_hold.average()            
         elif action == 'holdNext':
-            ml_hold.next()            
+            next(ml_hold)            
             
             
         if action not in ['tween'] and l_sel:
@@ -984,7 +984,7 @@ def buildSetsForm_main(self,parent):
 
     
     try:self.uiUpdate_objectSets()
-    except Exception,err:
+    except Exception as err:
         log.warning("|{0}| >> Failed to initial load. | err: {1}".format(_str_func,err)) 
     return _MainForm
 
@@ -1029,7 +1029,7 @@ def buildSetsForm_main(self,parent):
             i = self.setInstancesFastIndex[b] # get the index
             sInstance = self.setInstances[i] # fast link to the instance
         except:
-            raise StandardError("'%s' failed to query an active instance"%b)
+            raise Exception("'%s' failed to query an active instance"%b)
 
         #see if the no no fields are enabled
         enabledMenuLogic = True
@@ -1210,7 +1210,7 @@ def uiBuild_objectSetRow(self, parent = None, objectSet = None):
     try:
         #Get our data --------------------------------------------------------------------------
         try:mObjectSet = cgmMeta.validateObjArg(objectSet,'cgmObjectSet')
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Failed to validate objectSet: {1}".format(_str_func,objectSet))
             log.error(err)
             return False
@@ -1233,7 +1233,7 @@ def uiBuild_objectSetRow(self, parent = None, objectSet = None):
         refPrefix = mObjectSet.getReferencePrefix()
         
         if refPrefix:
-            if refPrefix not in self.d_refSets.keys():
+            if refPrefix not in list(self.d_refSets.keys()):
                 self.d_refSets[refPrefix] = []
             self.d_refSets[refPrefix].append(mObjectSet)
             
@@ -1431,8 +1431,8 @@ def uiBuild_objectSetRow(self, parent = None, objectSet = None):
     
         return
     
-    except Exception,err:
-        print err
+    except Exception as err:
+        print(err)
         #raise cgmGEN.cgmExceptCB(Exception,err)
     finally:return 
 

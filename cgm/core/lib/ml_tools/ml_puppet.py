@@ -50,9 +50,10 @@ import maya.cmds as mc
 import maya.mel as mm
 from functools import partial
 import math, re
+import importlib
 
 try:
-    import ml_utilities as utl
+    from . import ml_utilities as utl
     utl.upToDateCheck(21)
 except ImportError:
     result = mc.confirmDialog( title='Module Not Found', 
@@ -65,19 +66,19 @@ except ImportError:
     
 ml_convertRotationOrder = None
 try:
-    import ml_convertRotationOrder
+    from . import ml_convertRotationOrder
 except:
     pass
 
 ml_worldBake = None
 try:
-    import ml_worldBake
+    from . import ml_worldBake
 except:
     pass
 
 ml_resetChannels = None
 try:
-    import ml_resetChannels
+    from . import ml_resetChannels
 except:
     pass
 
@@ -164,7 +165,7 @@ def getWorldSpaceControls(nodes, *args):
         if not ssData:
             continue
         
-        for attr, value in ssData.items():
+        for attr, value in list(ssData.items()):
             if value['currentValue'] == 'World':
                 wsCtrls.append(ctrl)
                 break
@@ -335,7 +336,7 @@ def snap(node, snapTo):
         for b in ('x','y','z'):
             try:
                 mc.setAttr(node+a+b, mc.getAttr(dup+a+b))
-            except StandardError:
+            except Exception:
                 pass
 
     mc.delete(dup)
@@ -487,7 +488,7 @@ def fkIkSwitch(nodes=None, switchTo=None, switchRange=False, bakeOnOnes=False):
                 if keytimes:
                     elemDict[elem]['keytimes'] = list(set(keytimes))
                 else:
-                    elemDict[elem]['keytimes'] = range(int(start), int(end))
+                    elemDict[elem]['keytimes'] = list(range(int(start), int(end)))
                 #elemDict[elem]['controls'] = [data['ikControl'],data['pvControl']]
                 elemDict[elem]['controls'] = data['ikControls']
                 elemDict[elem]['controls'].append(data['pvControl'])
@@ -507,7 +508,7 @@ def fkIkSwitch(nodes=None, switchTo=None, switchRange=False, bakeOnOnes=False):
                 if keytimes:
                     elemDict[elem]['keytimes'] = list(set(keytimes))
                 else:
-                    elemDict[elem]['keytimes'] = range(int(start),int(end))
+                    elemDict[elem]['keytimes'] = list(range(int(start),int(end)))
                 elemDict[elem]['controls'] = data['fkChain']
                 
             selection.append(data['fkChain'][0])
@@ -613,13 +614,13 @@ def switchSpace(nodes=None, toSpace=None, switchRange=False, bakeOnOnes=False):
         ssData = getSpaceSwitchData(node)
         if not ssData:
             continue
-        if selChan and selChan[0] in ssData.keys():
+        if selChan and selChan[0] in list(ssData.keys()):
             ssAttr = selChan[0]
         else:
             #silly, but take the shortest one, as that's usually default
-            ssAttr = min(ssData.keys(), key=len)
+            ssAttr = min(list(ssData.keys()), key=len)
         
-        if isinstance(toSpace, basestring):
+        if isinstance(toSpace, str):
             for i, e in enumerate(ssData[ssAttr]['enumValues']):
                 if e.lower() == toSpace.lower():
                     value=i
@@ -627,7 +628,7 @@ def switchSpace(nodes=None, toSpace=None, switchRange=False, bakeOnOnes=False):
         elif isinstance(value, (float, int)):
             value = toSpace
         else:
-            print 'Space value not valid:',toSpace
+            print(('Space value not valid:',toSpace))
             continue
         
         controls.append(node)
@@ -899,7 +900,7 @@ def puppetContextMenu(parent, node):
     #attrs = mc.listAttr(node, userDefined=True, keyable=True)
     ssData = getSpaceSwitchData(node)
     if ssData:
-        for key, value in ssData.items():
+        for key, value in list(ssData.items()):
             mc.menuItem(label='Switch '+key, subMenu=True)
             for each in value['enumValues']:
                 if each == value['currentValue']:
@@ -935,8 +936,8 @@ def convertRotateOrderUI(nodes, *args):
         
 
 if __name__ == '__main__':
-    import ml_puppet
-    reload(ml_puppet)
+    from . import ml_puppet
+    importlib.reload(ml_puppet)
     #fkIkSwitchUI()
     initPuppetContextMenu()
     #switchSpace(['ctrlIK_Lf_HindLeg_'],'world')

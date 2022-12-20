@@ -140,7 +140,7 @@ def bUI_lower(self,parent):
                     if _optionVar_val_moduleOn:
                         try:
                             self._ml_modules.append(_mi_module)
-                        except Exception,err:
+                        except Exception as err:
                             log.debug("|{0}| >> obj: {1} | err: {2}".format(_str_func, _short, err))                
 
                 if _optionVar_val_puppetOn:
@@ -149,14 +149,14 @@ def bUI_lower(self,parent):
                             buffer = _mi_module.getMessage('modulePuppet')
                             if buffer:
                                 self._l_puppets.append(buffer[0])
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> No module puppet. obj: {1} | err: {2}".format(_str_func, _short, err))                
                     
                     try:
                         buffer = mObj.getMessage('puppet')
                         if buffer:
                             self._l_puppets.append(buffer[0])
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> No puppet. obj: {1} | err: {2}".format(_str_func, _short, err))                
         
     #>>> Module =====================================================================================================    
@@ -244,7 +244,7 @@ def bUI_moduleSection(self,parent = None):
                     mUI.MelMenuItem( mUI_toggle, l=a,
                                      c = cgmGen.Callback(mModule.atUtils,'anim_settings_toggle',a))
                 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Basic module menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
         continue
         try:#module children
@@ -272,7 +272,7 @@ def bUI_moduleSection(self,parent = None):
                             c = cgmGen.Callback(mModule.animSetAttr_children,'visSub',1,True,False))				
                 mc.menuItem(p = iSubM_Children, l="visSub Hide",
                             c = cgmGen.Callback(mModule.animSetAttr_children,'visSub',0,True,False))			
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> module children menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
             
         try:#module siblings
@@ -299,7 +299,7 @@ def bUI_moduleSection(self,parent = None):
                                 c = cgmGen.Callback(mModule.mirrorPush_siblings,False))
                     mc.menuItem(p = iSubM_Siblings, l="Mirror Pull",
                                 c = cgmGen.Callback(mModule.mirrorPull_siblings,False))
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> module sibling menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
             
         mc.menuItem(p=parent,l = "-"*25,en = False)
@@ -431,7 +431,7 @@ def bUI_puppetSection(self,parent = None):
             except Exception,err:
                 log.error("|{0}| >> puppet settings menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 """
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> Puppet: {1} | {2}".format(_str_func, _short,err))                
 
             mc.menuItem(p=parent,l = "-"*25,en = False)
@@ -474,7 +474,7 @@ def bUI_lowerBAK(self,parent):
                     if _optionVar_val_moduleOn:
                         try:
                             self._ml_modules.append(_mi_module)
-                        except Exception,err:
+                        except Exception as err:
                             log.debug("|{0}| >> obj: {1} | err: {2}".format(_str_func, _short, err))                
 
                 if _optionVar_val_puppetOn:
@@ -483,14 +483,14 @@ def bUI_lowerBAK(self,parent):
                             buffer = _mi_module.getMessage('modulePuppet')
                             if buffer:
                                 self._l_puppets.append(buffer[0])
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> No module puppet. obj: {1} | err: {2}".format(_str_func, _short, err))                
                     
                     try:
                         buffer = mObj.getMessage('puppet')
                         if buffer:
                             self._l_puppets.append(buffer[0])
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> No puppet. obj: {1} | err: {2}".format(_str_func, _short, err))                
         
     
@@ -535,7 +535,7 @@ def bUI_lowerBAK(self,parent):
                 for a in i_switch.l_dynSwitchAlias:
                     mc.menuItem(p = use_parent, l="%s"%a,
                                 c = cgmGen.Callback(i_switch.go,a))						
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> dynSwitch FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 
             try:#module basic menu
@@ -563,7 +563,7 @@ def bUI_lowerBAK(self,parent):
 
                 mUI.MelMenuItem( use_parent, l="Toggle Sub",
                                  c = cgmGen.Callback(mModule.toggle_subVis))			    
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Basic module menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 
             try:#module children
@@ -591,7 +591,7 @@ def bUI_lowerBAK(self,parent):
                                 c = cgmGen.Callback(mModule.animSetAttr_children,'visSub',1,True,False))				
                     mc.menuItem(p = iSubM_Children, l="visSub Hide",
                                 c = cgmGen.Callback(mModule.animSetAttr_children,'visSub',0,True,False))			
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> module children menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 
             try:#module siblings
@@ -618,7 +618,7 @@ def bUI_lowerBAK(self,parent):
                                     c = cgmGen.Callback(mModule.mirrorPush_siblings,False))
                         mc.menuItem(p = iSubM_Siblings, l="Mirror Pull",
                                     c = cgmGen.Callback(mModule.mirrorPull_siblings,False))
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> module sibling menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 
             mc.menuItem(p=parent,l = "-"*25,en = False)
@@ -679,7 +679,7 @@ def bUI_lowerBAK(self,parent):
                     mc.menuItem(p = use_parent, l="Mirror",c = cgmGen.Callback(mPuppet.mirrorMe))
                     mc.menuItem(p = use_parent, l="PushRight",c = cgmGen.Callback(mPuppet.mirror_do,'anim','symLeft'))
                     mc.menuItem(p = use_parent, l="PushLeft",c = cgmGen.Callback(mPuppet.mirror_do,'anim','symRight'))		    
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> Puppet basic menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
 
 
@@ -710,12 +710,12 @@ def bUI_lowerBAK(self,parent):
                                     mi_collectionMenu.createButton(mi_tmpMenu,l=' %s '%str_option,
                                                                    c = cgmGen.Callback(mc.setAttr,"%s"%mi_attr.p_combinedName,i),
                                                                    rb = b_state )					
-                        except Exception,err:
+                        except Exception as err:
                             log.info("option failed: %s | %s"%(attr,err))	
 
                     _d_moduleSettings = {'templates':{'options':['off','on'],'attr':'_tmpl'},
                                          'rigGuts':{'options':['off','lock','on'],'attr':'_rig'}}
-                    for attr in _d_moduleSettings.keys():
+                    for attr in list(_d_moduleSettings.keys()):
                         try:#Skeleton
                             _l_options = _d_moduleSettings[attr]['options']
                             _attr = _d_moduleSettings[attr]['attr']
@@ -723,12 +723,12 @@ def bUI_lowerBAK(self,parent):
                             for i,str_option in enumerate(_l_options):
                                 mc.menuItem(p = mi_tmpMenu, l=str_option,
                                             c = cgmGen.Callback(func_setPuppetControlSetting,mPuppet,_attr,i))				
-                        except Exception,err:
+                        except Exception as err:
                             log.error("option failed: %s | %s"%(attr,err))
-                except Exception,err:
+                except Exception as err:
                     log.error("|{0}| >> puppet settings menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                     
-            except Exception,err:
+            except Exception as err:
                 log.error("|{0}| >> Puppet: {1} | {2}".format(_str_func, _short,err))                
 
                 mc.menuItem(p=parent,l = "-"*25,en = False)
@@ -779,7 +779,7 @@ def func_multiDynSwitch(self):
     if self.ml_modules:
         for i_m in self.ml_modules:
             try:i_m.rigNull.dynSwitch.go(arg)
-            except Exception,error:log.error(error)
+            except Exception as error:log.error(error)
     if l_slBuffer:mc.select(l_slBuffer)		    
     killUI()	
 
@@ -790,7 +790,7 @@ def func_setPuppetControlSetting(self,mPuppet,attr,arg):
     l_slBuffer = mc.ls(sl=True) or []
     try:
         mPuppet.controlSettings_setModuleAttrs(attr,arg)
-    except Exception,error:
+    except Exception as error:
         log.error("[func_setPuppetControlSetting fail!]{%s}"%error)
     if l_slBuffer:mc.select(l_slBuffer)		    
     killUI()	
@@ -810,14 +810,14 @@ def func_multiChangeDynParentOLD(self,attr,option):
     """
     execute a command and let the menu know not do do the default button action but just kill the ui
     """	
-    l_objects = [i_o.getShortName() for i_o in self.d_objectsInfo.keys()]
+    l_objects = [i_o.getShortName() for i_o in list(self.d_objectsInfo.keys())]
     log.info("func_multiChangeDynParent>> attr: '%s' | option: '%s' | objects: %s"%(attr,option,l_objects))
     timeStart_tmp = time.clock()
-    for i_o in self.d_objectsInfo.keys():
+    for i_o in list(self.d_objectsInfo.keys()):
         try:
             mi_dynParent = self.d_objectsInfo[i_o]['dynParent'].get('mi_dynParent')
             mi_dynParent.doSwitchSpace(attr,option)
-        except Exception,error:
+        except Exception as error:
             log.error("func_multiChangeDynParent>> '%s' failed. | %s"%(i_o.getShortName(),error))    
 
     log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.clock()-timeStart_tmp) + '<'*10)  
@@ -832,7 +832,7 @@ def aimObjects(self):
             if i_obj.hasAttr('mClass') and i_obj.mClass == 'cgmControl':
                 if i_obj._isAimable():
                     i_obj.doAim(self.i_target)
-        except Exception,error:
+        except Exception as error:
             log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,i_obj.p_nameShort,error))
     if l_slBuffer:mc.select(l_slBuffer)
 
@@ -842,7 +842,7 @@ def mirrorObjects(self):
     l_slBuffer = mc.ls(sl=True) or []
     for i_obj in self.ml_objList:
         try:i_obj.doMirrorMe()
-        except Exception,error:
+        except Exception as error:
             log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,i_obj.p_nameShort,error))
     if l_slBuffer:mc.select(l_slBuffer)		    	    
 
@@ -851,12 +851,12 @@ def children_mirror(self,module):
     log.debug(">>> %s "%(_str_funcName) + "="*75)  
     l_slBuffer = mc.ls(sl=True) or []
     try:module.mirrorMe()
-    except Exception,error:
+    except Exception as error:
         log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,module.p_nameShort,error))	    
 
     for mMod in module.get_allModuleChildren():
         try:mMod.mirrorMe()
-        except Exception,error:
+        except Exception as error:
             log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,mMod.p_nameShort,error))
     if l_slBuffer:mc.select(l_slBuffer)		    	    
 
@@ -865,12 +865,12 @@ def children_mirrorPush(self,module):
     log.debug(">>> %s "%(_str_funcName) + "="*75)
     l_slBuffer = mc.ls(sl=True) or []
     try:module.mirrorPush()
-    except Exception,error:
+    except Exception as error:
         log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,module.p_nameShort,error))
 
     for mMod in module.get_allModuleChildren():
         try:mMod.mirrorPush()
-        except Exception,error:
+        except Exception as error:
             log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,mMod.p_nameShort,error))
     if l_slBuffer:mc.select(l_slBuffer)
 
@@ -880,11 +880,11 @@ def children_mirrorPull(self,module):
 
     l_slBuffer = mc.ls(sl=True) or []
     try:module.mirrorPull()
-    except Exception,error:
+    except Exception as error:
         log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,module.p_nameShort,error))
 
     for mMod in module.get_allModuleChildren():
         try:mMod.mirrorPull()
-        except Exception,error:
+        except Exception as error:
             log.error("%s >> obj: '%s' | error: %s"%(_str_funcName,mMod.p_nameShort,error))
     if l_slBuffer:mc.select(l_slBuffer)

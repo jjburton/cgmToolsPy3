@@ -110,7 +110,7 @@ def create(name = None, nodeType = None):
         name = 'i_should_have_given_a_name'
     _suffix = SHARED._d_node_to_suffix.get(nodeType,False)
     if _suffix == False:
-        raise ValueError,"Update cgm.core.lib.shared_data._d_node_to_suffix with nodeType: {0}".format(nodeType)
+        raise ValueError("Update cgm.core.lib.shared_data._d_node_to_suffix with nodeType: {0}".format(nodeType))
     
     _l_utilityNodes = ['plusMinusAverage','condition']
     
@@ -140,7 +140,7 @@ def curveInfo(curve,baseName = 'curveInfo'):
         l_shapes = mc.listRelatives(curve, s=True,fullPath = True)
     
     if len(l_shapes)>1:
-        raise ValueError,cgmGeneral.logString_msg(__str_func,"Must have one shape. Found {0} | {1}".format(len(l_shapes),l_shapes))
+        raise ValueError(cgmGeneral.logString_msg(__str_func,"Must have one shape. Found {0} | {1}".format(len(l_shapes),l_shapes)))
     
 
     infoNode = create(baseName,'curveInfo')
@@ -165,7 +165,7 @@ def createFollicleOnMesh(targetSurface, name = 'follicle'):
     else:
         l_shapes = mc.listRelatives(targetSurface, s=True,fullPath = True)
     if not l_shapes:
-        raise ValueError,"Must have shapes to check."
+        raise ValueError("Must have shapes to check.")
 
 
     _shape = l_shapes[0]
@@ -224,7 +224,7 @@ def optimize(nodeTypes='multiplyDivide'):
     
     for t in _nodeTypes:
         if t in ['plusMinusAverage']:
-            raise ValueError,"Don't handle type: {0}".format(t)
+            raise ValueError("Don't handle type: {0}".format(t))
         nodes = mc.ls(type=t)
         l_oldNodes.extend(nodes)
         for n in nodes:
@@ -262,7 +262,7 @@ def optimize(nodeTypes='multiplyDivide'):
                 if _out:
                     d_set = {'out':_out, 'in':[]}
                     log.debug("|{0}| >> Output found on: {1} ".format(_str_func,_out))
-                    _keys = d_plugs.keys()
+                    _keys = list(d_plugs.keys())
                     _keys.sort()
                     for k in _keys:
                         d_set['in'].append(d_plugValues[  d_plugs[k][i] ])
@@ -278,11 +278,11 @@ def optimize(nodeTypes='multiplyDivide'):
 
 
     l_inPlugs = ['input1','input2']
-    l_outplugs = [u'output']
+    l_outplugs = ['output']
     l_new = []
     _cnt = 0
         
-    for operator,d_sets in d_modeToPlugs.iteritems():
+    for operator,d_sets in list(d_modeToPlugs.items()):
         if operator == 1:
             for nodeSet in d_sets:
                 newNode = mc.createNode('multDoubleLinear')
@@ -303,7 +303,7 @@ def optimize(nodeTypes='multiplyDivide'):
                     ATTR.connect("{0}.output".format(newNode), out)
                     
         #pprint.pprint(d_setsSorted)
-        print len(d_sets)
+        print((len(d_sets)))
         #print len(d_setsSorted)    
     
     
@@ -382,7 +382,7 @@ def renderer_clean(check='Mayatomr',clean=False):
                 log.debug("|{0}| >> matches: {1}".format(_str_func,n))
                 if clean:
                     try:mc.delete(n)
-                    except Exception,err:
+                    except Exception as err:
                         log.debug("|{0}| >> Failed: {1} | {2}".format(_str_func,n,err))
         """
         for n in mc.ls():

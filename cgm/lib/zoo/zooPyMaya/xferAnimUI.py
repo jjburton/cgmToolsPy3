@@ -1,12 +1,12 @@
 
-from baseMelUI import *
-from apiExtensions import iterParents
-from melUtils import mel, melecho
+from .baseMelUI import *
+#from .apiExtensions import iterParents
+#from .melUtils import mel, melecho
 
 import maya.cmds as cmd
-import mappingEditor
-import mappingUtils
-import animClip
+from . import mappingEditor
+#from . import mappingUtils
+from . import animClip
 
 
 class XferAnimMappingLayout(mappingEditor.MappingLayout):

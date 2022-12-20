@@ -140,7 +140,7 @@ def define(self):
         
         try:mc.delete(self.getShapes())
         except:pass
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())    
     
 #=============================================================================================================
@@ -332,7 +332,7 @@ def resize_masterShape(self,sizeBy=None,resize=False):
         
         return True
     
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())    
     
     
@@ -354,7 +354,7 @@ def form(self):
         
         
         return True
-    except Exception,err:
+    except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 
 
@@ -408,14 +408,14 @@ def prerig(self):
             mMotionJoint = BLOCKSHAPES.rootMotionHelper(self,size=_sizeHandle)
             mMotionJoint.p_parent = mPrerigNull
             
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def prerigDelete(self):
     self.atBlockUtils('prerig_delete',formHandles=True)
     try:self.moduleTarget.masterNull.delete()
-    except Exception,err:
+    except Exception as err:
         for a in err:
-            print a
+            print(a)
     return True   
 
 def is_prerig(self):
@@ -424,7 +424,7 @@ def is_prerig(self):
     
     _d_links = {self : ['moduleTarget']}
     
-    for plug,l_links in _d_links.iteritems():
+    for plug,l_links in list(_d_links.items()):
         for l in l_links:
             if not plug.getMessage(l):
                 _l_missing.append(plug.p_nameBase + '.' + l)
@@ -689,11 +689,11 @@ def rigDelete(self):
         return True
         self.v = 1
         try:self.moduleTarget.masterControl.masterGroup.delete()
-        except Exception,err:
+        except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception,err
+            raise Exception(err)
         return True
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def is_rig(self):
     _str_func = 'is_rig'
@@ -701,7 +701,7 @@ def is_rig(self):
     
     _d_links = {'moduleTarget' : ['masterControl']}
     
-    for plug,l_links in _d_links.iteritems():
+    for plug,l_links in list(_d_links.items()):
         _mPlug = self.getMessage(plug,asMeta=True)[0]
         if not _mPlug:
             _l_missing.append("{0} : {1}".format(plug,l_links))
@@ -728,7 +728,7 @@ def skeleton_build(self):
         if self.addMotionJoint:
             mPuppet = self.moduleTarget
             if not mPuppet:
-                raise ValueError,"No moduleTarget connected"
+                raise ValueError("No moduleTarget connected")
             
             mJoint = self.rootMotionHelper.doCreateAt('joint')
             mPuppet.connectChildNode(mJoint,'rootJoint','module')
@@ -747,7 +747,7 @@ def skeleton_build(self):
                 mJoint.p_parent = self.moduleTarget.masterNull.skeletonGroup
             return mJoint.mNode
         
-    except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 def skeleton_check(self):
     if self.addMotionJoint:

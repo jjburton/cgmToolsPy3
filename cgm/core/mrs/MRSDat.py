@@ -158,13 +158,13 @@ class BlockDat(BaseDat):
         log.debug(log_start(_str_func))
         
         if not self.mBlock:
-            raise ValueError,"Must have mBlock to save"
+            raise ValueError("Must have mBlock to save")
         
         startDir = self.startDir_get()
         _path = "{}.{}".format( os.path.normpath(os.path.join(startDir,self.mBlock.p_nameBase)), BlockDat._ext)
         
         if not os.path.exists(_path):
-            raise ValueError,"Invalid path: {}".format(_path)
+            raise ValueError("Invalid path: {}".format(_path))
         pprint.pprint(_path)
         
         self.read(_path)
@@ -178,7 +178,7 @@ class BlockDat(BaseDat):
         log.debug(log_start(_str_func))
         
         if not self.mBlock and not self.dat:
-            raise ValueError,"Must have mBlock to save or dat"
+            raise ValueError("Must have mBlock to save or dat")
         
         if self.mBlock:
             _name = self.mBlock.p_nameBase
@@ -245,7 +245,7 @@ def blockDat_createBlock(self, autoPush = True, promptName = True):
     log.debug(log_start(_str_func))
     
     if not self.dat:
-        raise ValueError,"must have dat"
+        raise ValueError("must have dat")
     
     mDat = copy.deepcopy(self.dat)
     _blockType = mDat['blockType']
@@ -255,7 +255,7 @@ def blockDat_createBlock(self, autoPush = True, promptName = True):
     
     _size = mDat['baseDat'].get('baseSize') or mDat.get('baseSize') or "Fail"
     if _size == 'Fail':
-        raise ValueError,"No baseSize"
+        raise ValueError("No baseSize")
     
     
     _d = {'blockType':_blockType,
@@ -316,7 +316,7 @@ def blockDat_createBlock(self, autoPush = True, promptName = True):
         """
     ###mNew.blockDat = blockDat
     
-    for k,l in mDat.get('datLists',{}).iteritems():
+    for k,l in list(mDat.get('datLists',{}).items()):
         dTmp = {'enum':False}
         if k == 'loftList':
             dTmp['enum']  = BLOCKSHARE._d_attrsTo_make['loftShape']
@@ -395,7 +395,7 @@ def blockDat_get(self,report = True):
         except:_gen['lenParents'] = 0        
             
         
-        for k in _gen.keys():
+        for k in list(_gen.keys()):
             try:_l_ud.remove(k)
             except:pass
             
@@ -442,7 +442,7 @@ def blockDat_get(self,report = True):
                 else:
                     d[a] = ATTR.get(_short,a)            
         
-        for k,l in _d.iteritems():
+        for k,l in list(_d.items()):
             _dTmp = {}
             for a in l:
                 getBlockAttr(a,_dTmp)             
@@ -533,11 +533,11 @@ def blockDat_load(self, blockDat = None,
         blockDat = self.blockDat
 
     if not issubclass(type(blockDat),dict):
-        raise ValueError,"|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat) 
+        raise ValueError("|{0}| >> blockDat must be dict. type: {1} | blockDat: {2}".format(_str_func,type(blockDat),blockDat)) 
 
     _blockType = blockDat.get('blockType')
     if _blockType != self.blockType:
-        raise ValueError,"|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType) 
+        raise ValueError("|{0}| >> blockTypes don't match. self: {1} | blockDat: {2}".format(_str_func,self.blockType,_blockType)) 
 
     self.sy = blockDat['blockScale']
     
@@ -550,11 +550,11 @@ def blockDat_load(self, blockDat = None,
     _udFail = {}
     
     if not _settings:
-        raise ValueError,"|{0}| >> No settings data found".format(_str_func)
+        raise ValueError("|{0}| >> No settings data found".format(_str_func))
     
-    for k,d in _settings.iteritems():
+    for k,d in list(_settings.items()):
         log.info(log_sub(_str_func,k))
-        for a,v in d.iteritems():
+        for a,v in list(d.items()):
             _current = ATTR.get(_short,a)
             if _current != v:
                 try:
@@ -563,7 +563,7 @@ def blockDat_load(self, blockDat = None,
                     else:
                         log.debug("|{0}| >> settings '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
-                except Exception,err:
+                except Exception as err:
                     _udFail[a] = v
                     log.error("|{0}| >> settings '{1}' failed to change. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                     #r9Meta.printMetaCacheRegistry()                
@@ -623,7 +623,7 @@ def blockDat_load(self, blockDat = None,
     #>>Controls ====================================================================================
     def setAttr(node,attr,value):
         try:ATTR.set(node,attr,value)
-        except Exception,err:
+        except Exception as err:
             log.warning("|{0}| >> Failed to set: {1} | attr:{2} | value:{3} | err: {4}".format(_str_func,
                                                                                                node,
                                                                                                attr,value))
@@ -722,7 +722,7 @@ def blockDat_load(self, blockDat = None,
              
     if _d_warnings:
         try:
-            for k,d in _d_warnings.iteritems():
+            for k,d in list(_d_warnings.items()):
                 for i,w in enumerate(d):
                     if i == 0:log.warning(cgmGEN.logString_sub(_str_func,"{0} | Warnings".format(k)))
                     log.warning(w)
@@ -820,7 +820,7 @@ def blockDat_load_state(self,state = None,
         
         for i_loop in range(3):
             log.debug(cgmGEN.logString_sub(_str_func,"Loop: {0}".format(i_loop)))
-            for i,mObj in md_match.iteritems():
+            for i,mObj in list(md_match.items()):
                 if not i_loop:log.info(cgmGEN.logString_msg(_str_func,"Handle: {0}".format(mObj)))
                 
                 _handleType = mObj.getMayaAttr('handleType')
@@ -828,7 +828,7 @@ def blockDat_load_state(self,state = None,
                     try:
                         mObj.p_orient = _orientsTempl[i]
                         continue
-                    except Exception,err:
+                    except Exception as err:
                         _l_warnings.append('{0}...'.format(mObj.p_nameShort))
                         _l_warnings.append('Couldnt set vector handle orient | {0}'.format(err))
                 
@@ -874,7 +874,7 @@ def blockDat_load_state(self,state = None,
                                 if _s != None:
                                     if _scaleMode in ['bb','useLoft']:
                                         try:DIST.scale_to_axisSize(mLoftCurve.mNode,_ab,skip=2)
-                                        except Exception,err:
+                                        except Exception as err:
                                             log.error(err)
                                             TRANS.scale_to_boundingBox_relative(mLoftCurve.mNode,_bb,freeze=False)
                                     else:
@@ -888,12 +888,12 @@ def blockDat_load_state(self,state = None,
                 if _jointHelpersPre and _jointHelpersPre.get(i):
                     mObj.jointHelper.translate = _jointHelpersPre[i]                    
                         
-            for i,d_sub in _subShapers.iteritems():
+            for i,d_sub in list(_subShapers.items()):
                 try:
                     ml_subs = ml_handles[int(i)].msgList_get('subShapers')
                     log.debug ("|{0}| >> subShapers: {1}".format(_str_func,i))
                     if not ml_subs:
-                        raise ValueError,"Failed to find subShaper: {0} | {1}".format(i,d_sub)
+                        raise ValueError("Failed to find subShaper: {0} | {1}".format(i,d_sub))
                     _t = d_sub.get('t')
                     _r = d_sub.get('r')
                     _s = d_sub.get('s')
@@ -912,7 +912,7 @@ def blockDat_load_state(self,state = None,
                             if _noScale != True:
                                 if _scaleMode in ['bb','useLoft']:
                                     try:DIST.scale_to_axisSize(mObj.mNode,_ab[ii-1],skip=2)
-                                    except Exception,err:
+                                    except Exception as err:
                                         log.error(err)                                
                                         TRANS.scale_to_boundingBox_relative(mObj.mNode,_bb[ii-1],freeze=False)
                                 else:
@@ -926,12 +926,12 @@ def blockDat_load_state(self,state = None,
                         if _noScale != True:
                             if _scaleMode in ['bb','useLoft']:
                                 try:DIST.scale_to_axisSize(mObj.mNode,_ab[ii],skip=2)
-                                except Exception,err:
+                                except Exception as err:
                                     log.error(err)
                                     TRANS.scale_to_boundingBox_relative(mObj.mNode,_bb[ii],freeze=False)
                             else:
                                 ATTR.set(mObj.mNode,'s',_s[ii])
-                except Exception,err:
+                except Exception as err:
                     log.error(cgmGEN.logString_msg(_str_func,"subShapers: {0} | {1}".format(i,err)))
                     pprint.pprint(d_sub)
                     
@@ -948,13 +948,13 @@ def blockDat_getControlDat(self,mode = 'define',report = True):
                     'form':1,
                     'prerig':2}
     
-    if _mode_str not in _modeToState.keys():
-        raise ValueError,"Unknown mode: {0}".format(_mode_str)
+    if _mode_str not in list(_modeToState.keys()):
+        raise ValueError("Unknown mode: {0}".format(_mode_str))
     
     _blockState_int = self.blockState
     
     if not _blockState_int >= _modeToState[_mode_str]:
-        raise ValueError,'[{0}] not {1} yet. State: {2}'.format(_short,_mode_str,_blockState_int)
+        raise ValueError('[{0}] not {1} yet. State: {2}'.format(_short,_mode_str,_blockState_int))
         #_ml_formHandles = self.msgList_get('formHandles',asMeta = True)
     
     _d_controls = {'define':False,'form':False,'prerig':False}
@@ -1121,7 +1121,7 @@ class BlockConfig(BaseDat):
         if not ml_context and ml_context is not None:
             ml_context = BLOCKGEN.block_getFromSelected(True)
             if not ml_context:
-                raise ValueError, "{} | Must have a context to append".format(_str_func)
+                raise ValueError("{} | Must have a context to append".format(_str_func))
         
         _newDat = config_get(ml_context)
         
@@ -1149,11 +1149,11 @@ class BlockConfig(BaseDat):
         log.debug(log_start(_str_func))
         
         if idx is None:
-            raise ValueError, "{} | Must have an index".format(_str_func)
+            raise ValueError("{} | Must have an index".format(_str_func))
         
 
         if idx not in self.dat['indices']:
-            raise ValueError,"{} | Invalid idx - {} | {}".format(_str_func, idx, self.dat['indices'])
+            raise ValueError("{} | Invalid idx - {} | {}".format(_str_func, idx, self.dat['indices']))
         
 
         #try:self.mBlockDat.pop(idx)
@@ -1183,7 +1183,7 @@ class BlockConfig(BaseDat):
             #self.dat['indices'].append(k+_start)
             _i+=1
 
-        _newDat['indices'] = range(len(_newDat['blockList']))        
+        _newDat['indices'] = list(range(len(_newDat['blockList'])))        
 
         self.dat = _newDat
         return True
@@ -1203,7 +1203,7 @@ class BlockConfig(BaseDat):
             self.mBlockDat.append( BlockDat(dat= self.dat['config'][str(i)] ))
             
         if not self.dat.get('indices'):
-            self.dat['indices'] = range(len(self.dat['blockList']))        
+            self.dat['indices'] = list(range(len(self.dat['blockList'])))        
         
         #self.str_filepath = filepath
         return True    
@@ -1244,7 +1244,7 @@ def config_get(ml_context = [], report = True):
         _idx = ml.index(mBlock)
         d_order[_idx] = mBlock
         
-    _keys = d_order.keys()
+    _keys = list(d_order.keys())
     _keys.sort()
     for i,k in enumerate(_keys):
         _res['blockList'].append(d_order[k].p_nameBase)
@@ -1266,7 +1266,7 @@ def blockConfig_create(self, idx = None, autoPush = True, promptName = False):
     _str_func = 'blockDat_createBlock'        
     log.debug(log_start(_str_func))
     if not self.dat:
-        raise ValueError,"must have dat"
+        raise ValueError("must have dat")
     mc.select(cl=1)
 
     if idx is not None:
@@ -1458,7 +1458,7 @@ class ui(CGMDAT.ui):
                                         ann="{0} : {1}".format(b, self.uiFunc_block_create))
 
         
-        for c in _d[1].keys():
+        for c in list(_d[1].keys()):
             #d_sections[c] = []
             if c == 'blocks':continue
             for b in _d[1][c]:
@@ -1605,7 +1605,7 @@ class uiBlockDat(ui):
         
         if not kws:
             kws = {}
-            for k,cb in self._dCB_reg.iteritems():
+            for k,cb in list(self._dCB_reg.items()):
                 kws[k] = cb.getValue()
             pprint.pprint(kws)
 
@@ -1615,7 +1615,7 @@ class uiBlockDat(ui):
         for mBlock in mBlocks:
             log.debug(log_sub(_str_func,mBlock.mNode))
             try:blockDat_load(mBlock, self.uiDat.dat, **kws)
-            except Exception,err:
+            except Exception as err:
                 log.error("{} | err: {}".format(mBlock.mNode, err))
                     
         mc.undoInfo(closeChunk=True)
@@ -1678,7 +1678,7 @@ class uiBlockConfigDat(ui):
         log.debug(log_start(_str_func))
         try:_block = self.uiDat.dat['blockList'][idx]
         except:
-            raise ValueError,"{} | invalid idx: {}".format(_str_func,idx)
+            raise ValueError("{} | invalid idx: {}".format(_str_func,idx))
             
         result = mc.confirmDialog(title="Removing Dat| Dat {}".format(_block),
                                   message= "Remove: {}".format(_block),
@@ -1709,7 +1709,7 @@ class uiBlockConfigDat(ui):
         log.debug(log_start(_str_func))
         
         if idx == None:
-            raise ValueError,"No known index"
+            raise ValueError("No known index")
         
         if not mBlock:
             mBlock = BLOCKGEN.block_getFromSelected()
@@ -1744,8 +1744,8 @@ class uiBlockConfigDat(ui):
             self.uiDat.mBlockDat[idx].dat['blockParent'] = bfr_blockParent
             self.uiDat.dat['config'][str(idx)]['blockParent'] = bfr_blockParent
         
-            print self.uiDat.mBlockDat[idx].dat['blockParent']
-            print self.uiDat.dat['config'][str(idx)]['blockParent'] 
+            print((self.uiDat.mBlockDat[idx].dat['blockParent']))
+            print((self.uiDat.dat['config'][str(idx)]['blockParent'])) 
             log.warning("|{}| >> Using bfr'd blockParent.".format(_str_func))
         
         
@@ -1818,7 +1818,7 @@ class uiBlockConfigDat(ui):
                 blockConfig_create(self.uiDat, i)
                 
     def uiFunc_setToggles(self,arg):
-        for i,mCB in self._dCB_blocks.iteritems():
+        for i,mCB in list(self._dCB_blocks.items()):
             mCB.setValue(arg)
                 
     def uiFunc_dat_get(self):
@@ -1857,7 +1857,7 @@ class uiBlockConfigDat(ui):
         
         if not kws:
             kws = {}
-            for k,cb in self._dCB_reg.iteritems():
+            for k,cb in list(self._dCB_reg.items()):
                 kws[k] = cb.getValue()
             pprint.pprint(kws)
 
@@ -1867,7 +1867,7 @@ class uiBlockConfigDat(ui):
         for mBlock in mBlocks:
             log.debug(log_sub(_str_func,mBlock.mNode))
             try:blockDat_load(mBlock, self.uiDat.dat, **kws)
-            except Exception,err:
+            except Exception as err:
                 log.error("{} | err: {}".format(mBlock.mNode, err))
                     
         mc.undoInfo(closeChunk=True)
@@ -1876,12 +1876,12 @@ class uiBlockConfigDat(ui):
     
     def log_blockDat(self,idx = None):
         _d = self.uiDat.dat['config'][str(idx)]
-        pprint.pprint(_d.keys())
+        pprint.pprint(list(_d.keys()))
         
     def get_blockDatUI(self,idx=None):
         mUI = uiBlockDat()
         _dSource = self.uiDat.dat['config'][str(idx)]
-        _d = {k:_dSource[k] for k in _dSource.keys()}
+        _d = {k:_dSource[k] for k in list(_dSource.keys())}
         
         mDat = BlockDat(dat = _d)
         
@@ -2025,7 +2025,7 @@ class uiBlockConfigDat(ui):
                 _row.layout()
                 
                 mUI.MelSeparator(self.uiFrame_data,h=1)
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
         
         mc.setParent(self.uiFrame_data)
@@ -2042,7 +2042,7 @@ class uiBlockConfigDat(ui):
         mUI.MelLabel(self.uiFrame_data, label = "PPRINT", h = 13, 
                      ut='cgmUIHeaderTemplate',align = 'center')
         
-        for a in self.uiDat.dat.keys():
+        for a in list(self.uiDat.dat.keys()):
             mUI.MelButton(self.uiFrame_data,
                           c = cgmGEN.Callback(self.uiFunc_printDat,a),
                           ann="...",
@@ -2072,7 +2072,7 @@ class uiBlockConfigDat(ui):
         md_menus = {}
         for k in _categories.get('cgmBlockConfig',[]):
             f = _options.get(k)
-            print("{} | {}".format(k,f))
+            print(("{} | {}".format(k,f)))
             _useMenu = self.uiMenu_library
             if '.' in k:
                 _split = k.split('.')[:-1]
@@ -2114,7 +2114,7 @@ class uiBlockConfigDat(ui):
                                         ann="{0} : {1}".format(b, self.uiFunc_block_create))
 
         
-        for c in _d[1].keys():
+        for c in list(_d[1].keys()):
             #d_sections[c] = []
             if c == 'blocks':continue
             for b in _d[1][c]:
@@ -2187,13 +2187,13 @@ class ShapeDat(BaseDat):
         log.debug(log_start(_str_func))
         
         if not self.mBlock:
-            raise ValueError,"Must have mBlock to save"
+            raise ValueError("Must have mBlock to save")
         
         startDir = self.startDir_get()
         _path = "{}.{}".format( os.path.normpath(os.path.join(startDir,self.mBlock.p_nameBase)), data._ext)
         
         if not os.path.exists(_path):
-            raise ValueError,"Invalid path: {}".format(_path)
+            raise ValueError("Invalid path: {}".format(_path))
         pprint.pprint(_path)
         
         self.read(_path)
@@ -2206,7 +2206,7 @@ class ShapeDat(BaseDat):
         log.debug(log_start(_str_func))
         
         if not self.mBlock:
-            raise ValueError,"Must have mBlock to save"
+            raise ValueError("Must have mBlock to save")
         
         if self.dir_export:
             startDir = self.dir_export
@@ -2304,7 +2304,7 @@ def shapeDat_set(mBlock,data,
     if settings:
         log.info(log_sub(_str_func,'Settings...'))
         
-        for a,v in data['settings'].iteritems():
+        for a,v in list(data['settings'].items()):
             try:
                 if a in l_enumLists:
                     ATTR.datList_connect(_str_block,a,v,enum=1)
@@ -2312,7 +2312,7 @@ def shapeDat_set(mBlock,data,
                     ATTR.datList_connect(_str_block,a,v)
                 else:
                     ATTR.set(_str_block, a, v)
-            except Exception,err:
+            except Exception as err:
                 log.error("{} | {} | {}".format(a,v,err))
 
         if mBlock.blockState < 1:
@@ -2326,7 +2326,7 @@ def shapeDat_set(mBlock,data,
         ml_handles = get_handles(ml_handles)
         
         if mBlock in ml_handles:
-            raise ValueError,"mBlock cannot be in handles"
+            raise ValueError("mBlock cannot be in handles")
         
         pprint.pprint(ml_handles)
         
@@ -2480,7 +2480,7 @@ def shapeDat_set(mBlock,data,
                                         
                                     #mObj.p_position = _datTmp['pos']
                                     mObj.scale = _datTmp['scale']
-                                except Exception, err:
+                                except Exception as err:
                                     pprint.pprint(_datTmp)
                                     log.error("loft handle loop: {} | i: {} | ii:{} | err: {}".format(iii,i,ii,err))
                         
@@ -2491,7 +2491,7 @@ def shapeDat_set(mBlock,data,
                                                          ml_handles[i].mNode,
                                                          ml_handles[i+1].mNode,
                                                          dat_subRel[i] ) 
-                        except Exception,err:
+                        except Exception as err:
                             log.error("loft handle loop: {} | i: {} | ii:{} | err: {}".format(iii,i,ii,err))
                             
                     
@@ -2502,7 +2502,7 @@ def shapeDat_set(mBlock,data,
                         for ii,mObj in enumerate(_mSubShapers):
                             try:
                                 shapes_set(mObj, dat_subShapes[i][ii],shapeMode)
-                            except Exception, err:
+                            except Exception as err:
                                 log.error("loft shape loop: {} | i: {} | ii:{} | err: {}".format(iii,i,ii,err))
     #if loftShapes:
     #    log.info(log_sub(_str_func,'loftShapes...'))
@@ -2524,7 +2524,7 @@ def shapeDat_get(mBlock=None):
     
     #Check state. must be form state
     if mBlock.blockState < 1:
-        raise ValueError,"Must be in form state"
+        raise ValueError("Must be in form state")
     
     _type = mBlock.blockType
     _supported = ['limb','segment','handle','head']
@@ -2724,14 +2724,14 @@ def shapes_set(mObj, dat, mode = 'os'):
     _l_shapes_source = mc.listRelatives(_obj,shapes=True,fullPath=True)
     
     if len(_l_shapes_source) != len(_dat):
-        raise ValueError,"Len of source shape ({0}) != dat ({1})".format(len(_l_shapes_source),len(_dat)) 
+        raise ValueError("Len of source shape ({0}) != dat ({1})".format(len(_l_shapes_source),len(_dat))) 
     
     for i,s in enumerate(_l_shapes_source):
         _l_ep_source = mc.ls("{0}.cv[*]".format(s),flatten = True)
         _l_pos = _dat[i]
         
         if len(_l_ep_source) != len(_l_pos):
-            raise ValueError,"Len of source shape {} | ({}) != dat ({})".format(i,len(_l_ep_source),len(_l_pos))         
+            raise ValueError("Len of source shape {} | ({}) != dat ({})".format(i,len(_l_ep_source),len(_l_pos)))         
         
         for ii,ep in enumerate(_l_ep_source):
             POS.set(ep, _l_pos[ii],space=mode)  
@@ -2820,7 +2820,7 @@ def relativePointDat_setFromObjs(targets, start, end, d = {}):
     
     l_tarDat = d.get('tar',[])
     if len(ml_targets) < len(l_tarDat):
-        raise ValueError,"must have same number of targets as data"
+        raise ValueError("must have same number of targets as data")
     
     _pStart = mStart.p_position
     _pEnd = mEnd.p_position    
@@ -2977,7 +2977,7 @@ class uiShapeDat(ui):
         
         if not kws:
             kws = {}
-            for k,cb in self._dCB_reg.iteritems():
+            for k,cb in list(self._dCB_reg.items()):
                 kws[k] = cb.getValue()
             
             pprint.pprint(kws)
@@ -2990,7 +2990,7 @@ class uiShapeDat(ui):
         for mBlock in mBlocks:
             log.info(log_sub(_str_func,mBlock.mNode))
             try:shapeDat_set(mBlock, self.uiDat.dat, **kws)
-            except Exception,err:
+            except Exception as err:
                 log.error("{} | err: {}".format(mBlock.mNode, err))
                     
         mc.undoInfo(closeChunk=True)
@@ -3003,7 +3003,7 @@ class uiShapeDat(ui):
             for k in l:
                 d_dat = d_shapeDatLabels.get(k,{})
                 
-        for d,l in MRSBATCH.d_mrsPost_calls.iteritems():
+        for d,l in list(MRSBATCH.d_mrsPost_calls.items()):
             for k in l:# _l_post_order:
                 log.debug("|{0}| >> {1}...".format(_str_func,k)+'-'*20)
                 
@@ -3030,7 +3030,7 @@ class uiShapeDat(ui):
         
         sDat = self.uiDat.dat
         
-        print(log_sub(_str_func,mode))
+        print((log_sub(_str_func,mode)))
         if mode == 'all':
             pprint.pprint(self.uiDat.dat)
         elif mode == 'settings':

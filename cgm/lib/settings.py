@@ -36,7 +36,7 @@ def getNamesDictionaryFile():
         """
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cgmNames.conf')
         if not os.path.exists(path):
-                print "Names Dictionary Not Found! Creating..."
+                print("Names Dictionary Not Found! Creating...")
                 path = makeDefaultNamesDictionary()
 
         return path
@@ -56,7 +56,7 @@ def getTypesDictionaryFile():
         """
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cgmTypes.conf')
         if not os.path.exists(path):
-                print "Types Dictionary Not Found! Creating..."
+                print("Types Dictionary Not Found! Creating...")
                 path = makeDefaultTypesDictionary()
 
         return path
@@ -76,7 +76,7 @@ def getSettingsDictionaryFile():
         """
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cgmSettings.conf')
         if not os.path.exists(path):
-                print "Settings Dictionary Not Found! Creating..."
+                print("Settings Dictionary Not Found! Creating...")
                 path = makeDefaultSettingsDictionary()
 
         return path
@@ -163,7 +163,7 @@ toe5:pinky
                 f.write(defaultDictionary)
                 f.close()
         else:
-                print "File already exists. Will not overwrite!"
+                print("File already exists. Will not overwrite!")
                 return False
 
         return path
@@ -268,7 +268,7 @@ reverseNode:revNode
                 f.write(defaultDictionary)
                 f.close()
         else:
-                print "File already exists. Will not overwrite!"
+                print("File already exists. Will not overwrite!")
                 return False
 
         return path
@@ -371,7 +371,7 @@ module_ProcessSteps:initialized,templated,skeletonized,rigged
                 f.write(defaultDictionary)
                 f.close()
         else:
-                print "File already exists. Will not overwrite!"
+                print("File already exists. Will not overwrite!")
                 return False
 
         return path
@@ -397,5 +397,5 @@ def returnShortName(key,dictionary):
         if key in dictionary:
                 return (dictionary.get(key))        
         else:
-                print ('%s%s%s' %('No match for >>',key,'<<, add it to the dictionary or check your spelling/case'))
+                print(('%s%s%s' %('No match for >>',key,'<<, add it to the dictionary or check your spelling/case')))
                 return False

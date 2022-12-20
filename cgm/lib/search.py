@@ -80,13 +80,13 @@ def is_transform(node):
         def getLongName(arg):
             buffer = mc.ls(arg,l=True)        
             return buffer[0]  
-        buffer = mc.ls(node,type = 'transform',long = True)
+        buffer = mc.ls(node,type = 'transform',int = True)
         if buffer and buffer[0]==getLongName(node):
             return True
         if not mc.objExists(node):
             log.error("'{0}' doesn't exist".format(node))
         return False   
-    except Exception,error:raise Exception,"is_transform({0}) | error: {1}".format(node,error)
+    except Exception as error:raise Exception("is_transform({0}) | error: {1}".format(node,error))
 
 def get_transform(node):
     try:
@@ -102,7 +102,7 @@ def get_transform(node):
         if _buffer:
             return _buffer[0]
         return False    
-    except Exception,error:raise Exception,"get_transform({0}) | error: {1}".format(node,error)
+    except Exception as error:raise Exception("get_transform({0}) | error: {1}".format(node,error))
 
 
 def returnRandomName():
@@ -227,7 +227,7 @@ def returnObjectSets():
         if mc.referenceQuery(s, isNodeReferenced=True):
             refPrefix = returnReferencePrefix(s)
 
-            if refPrefix in refBuffer.keys():
+            if refPrefix in list(refBuffer.keys()):
                 refBuffer[refPrefix].append(s)
             else:
                 refBuffer[refPrefix] = [s]
@@ -236,9 +236,9 @@ def returnObjectSets():
 
         #Type sort
         buffer = returnTagInfo(s,'cgmType')
-        for tag in dictionary.setTypes.keys():
+        for tag in list(dictionary.setTypes.keys()):
             if dictionary.setTypes[tag] == buffer:
-                if tag in typeBuffer.keys():
+                if tag in list(typeBuffer.keys()):
                     typeBuffer[tag].append(s)
                 else:
                     typeBuffer[tag] = [s]
@@ -326,7 +326,7 @@ def returnDataType(data):
             return 'int'
         elif t is float:
             return 'float'
-        elif t is unicode or t is str:
+        elif t is str or t is str:
             return 'string'
         else:
             return False   
@@ -337,14 +337,14 @@ def returnDataType(data):
         stringFound = False
         # First if there is a single string in the data set, the rest of the list will be treated as a string set
         for o in data:
-            if type(o) is unicode or type(o) is str:
+            if type(o) is str or type(o) is str:
                 return 'string'
         # If not, check for floats
         for o in data:
             if type(o) is float:
                 return 'float'        
         # Else just use the first one
-        if type(data[0]) is unicode or type(data[0]) is str:
+        if type(data[0]) is str or type(data[0]) is str:
             return 'string'
         else:
             return simpleReturn(type(data[0]))
@@ -736,7 +736,7 @@ def seekUpStream(startingNode,endObjType = False,incPlugs=False):
 
         if destNodeType == 'pairBlend':
             pairBlendInPlug = mc.listConnections(currentNode, scn = True, p = True, s= False)
-            print ('pairBlendInPlug is %s' %pairBlendInPlug)
+            print(('pairBlendInPlug is %s' %pairBlendInPlug))
         else:
             currentNode = destNodeName[0]
         timeOut +=1
@@ -774,7 +774,7 @@ def seekDownStream(startingNode,endObjType,incPlugs=False):
         else:
             destNodeName = mc.listConnections(currentNode, scn = True, s= False)
             if not destNodeName:
-                print destNodeName
+                print(destNodeName)
                 endNode = 'not found'
                 break
             if incPlugs:
@@ -788,7 +788,7 @@ def seekDownStream(startingNode,endObjType,incPlugs=False):
 
             if destNodeType == 'pairBlend':
                 pairBlendInPlug = mc.listConnections(currentNode, scn = True, p = True, s= False)
-                print ('pairBlendInPlug is %s' %pairBlendInPlug)
+                print(('pairBlendInPlug is %s' %pairBlendInPlug))
             else:
                 currentNode = destNodeName[0]
             timeOut +=1
@@ -983,7 +983,7 @@ def returnObjectType(obj):
             if parent !=False:
                 parentShapes = mc.listRelatives(parent,shapes=True,fullPath=True)
                 if parentShapes != None:
-                    matchObjName = mc.ls(obj, long=True)
+                    matchObjName = mc.ls(obj, int=True)
                     if matchObjName[0] in parentShapes:
                         isShape = True
             if isShape == True:
@@ -1025,8 +1025,8 @@ def returnObjectType(obj):
                 else:
                     return buffer
             return mc.objectType(objShapes[0])
-    except Exception,err:
-        raise Exception,"returnObjectType | arg: '{0}' | error: {1}".format(obj,err)
+    except Exception as err:
+        raise Exception("returnObjectType | arg: '{0}' | error: {1}".format(obj,err))
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Joint Search stuff
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1232,7 +1232,7 @@ def returnParentsFromObjectToParent(obj,parentObject,fullpath=True):
 
     parentsList = []
     allParents = returnAllParents(obj,shortNames = False)#Get all the parents
-    str_parentlong = mc.ls(parentObject, long = True)[0]#Get the parent object arg's long name
+    str_parentlong = mc.ls(parentObject, int = True)[0]#Get the parent object arg's long name
 
     if str_parentlong not in allParents or not allParents:#if our parentObj argument isn't a parent, return False
         return False

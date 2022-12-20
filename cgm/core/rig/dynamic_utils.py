@@ -19,6 +19,7 @@ import pprint
 import copy
 import maya.mel as mel
 from cgm.core.cgmPy import validateArgs as VALID
+import importlib
 
 __MAYALOCAL = 'RIGDYN'
 
@@ -263,7 +264,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             if dat['chains'].get(idx):
                 l_do.append(idx)
         else:
-            l_do = dat['chains'].keys()
+            l_do = list(dat['chains'].keys())
             
         log.debug(cgmGEN.logString_msg(_str_func, 'To do: {0}'.format(l_do)))
         for idx in l_do:
@@ -878,18 +879,18 @@ class cgmDynFK(cgmMeta.cgmObject):
         
         pprint.pprint(_d)
         _nucleus = mNucleus.mNode
-        for a,v in d_n.iteritems():
+        for a,v in list(d_n.items()):
             log.debug("Nucleus || {0} | {1}".format(a,v))
             try:
                 mNucleus.__setattr__(a,v)
-            except Exception,err:
+            except Exception as err:
                 log.warning("Nucleus | Failed to set: {0} | {1} | {2}".format(a,v,err))
                 
-        for a,v in d_hs.iteritems():
+        for a,v in list(d_hs.items()):
             log.debug("mHairSys || {0} | {1}".format(a,v))            
             try:
                 mHairSysShape.__setattr__(a,v)
-            except Exception,err:
+            except Exception as err:
                 log.warning("mHairSys | Failed to set: {0} | {1} | {2}".format(a,v,err))
         return True
        
@@ -975,7 +976,7 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
     #pprint.pprint(_d)
     _res = {}
     _tar = mTar.mNode
-    for section,l in d_attrMap.get(_key).iteritems():
+    for section,l in list(d_attrMap.get(_key).items()):
         log.debug(cgmGEN.logString_msg(_str_func,section))        
         for a in l:
             if a in l_ignore:
@@ -984,7 +985,7 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
                 _v = ATTR.get(_tar,a)
                 log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(a,_v)))        
                 
-            except Exception,err:
+            except Exception as err:
                 log.error("Failed to query: {0} | {1} | {2}".format(_tar, a, err))
             if _v is not None:
                 _res[str(a)] = _v
@@ -996,7 +997,7 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
         if _d_baseSet:
             log.debug(cgmGEN.logString_msg(_str_func,"Found base set..."))
             _res_use = {}
-            for k,v in  _res.iteritems():
+            for k,v in  list(_res.items()):
                 if v != _d_baseSet[k]:
                     log.debug(cgmGEN.logString_msg(_str_func,"Storing: {0} | {1}".format(k,v)))                    
                     _res_use[k] = v
@@ -1008,7 +1009,7 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
     return _res
 
 def profile_get(arg = None, module = dynFKPresets ):
-    reload(module)
+    importlib.reload(module)
     return module.__dict__.get(arg)
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):
@@ -1038,12 +1039,12 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
         d_use = _d_type
     
     _node = mTar.mNode
-    for a,v in d_use.iteritems():
+    for a,v in list(d_use.items()):
         log.debug("{0} || {1} | {2}".format(_type, a,v))
         try:
             ATTR.set(_node, a, v)
             #mNucleus.__setattr__(a,v)
-        except Exception,err:
+        except Exception as err:
             log.warning("{3} | Failed to set: {0} | {1} | {2}".format(a,v,err, _type))    
     
     

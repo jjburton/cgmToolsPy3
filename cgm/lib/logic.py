@@ -53,15 +53,15 @@ class axisFactory():
         stringToVectorDict = {'x+':[1,0,0],'x-':[-1,0,0],'y+':[0,1,0],'y-':[0,-1,0],'z+':[0,0,1],'z-':[0,0,-1]}
         vectorToStringDict = {'[1,0,0]':'x+','[-1,0,0]':'x-','[0,1,0]':'y+','[0,-1,0]':'y-','[0,0,1]':'z+','[0,0,-1]':'z-'}
         
-        if input in shortStringsDict.keys():
+        if input in list(shortStringsDict.keys()):
             self.axisString = shortStringsDict.get(input)
             self.axisVector = stringToVectorDict.get(self.axisString)
             
-        elif input in stringToVectorDict.keys():
+        elif input in list(stringToVectorDict.keys()):
             self.axisVector = stringToVectorDict.get(input)
             self.axisString = input
             
-        elif str(input) in vectorToStringDict.keys():
+        elif str(input) in list(vectorToStringDict.keys()):
             self.axisString = vectorToStringDict.get(str(input))
             self.axisVector = stringToVectorDict.get(self.axisString)
             
@@ -72,8 +72,8 @@ class axisFactory():
             self.axisVector = stringToVectorDict.get(self.axisString)
             
         else:
-            print input
-            print str(input)
+            print(input)
+            print((str(input)))
             self.axisString = False
             self.axisVector = False
             guiFactory.warning("'%s' not recognized"%input)
@@ -166,5 +166,5 @@ def returnHorizontalOrVertical(objList):
         '''for loc in locList:
             mc.delete(loc)'''
         return generalDirection
-    except Exception,error:
-        raise Exception,"[returnHorizontalOrVertical fail | error:{0}]".format(error)
+    except Exception as error:
+        raise Exception("[returnHorizontalOrVertical fail | error:{0}]".format(error))

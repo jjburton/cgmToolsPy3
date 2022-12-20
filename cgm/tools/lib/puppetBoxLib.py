@@ -22,9 +22,10 @@ from cgm.lib.classes import NameFactory as NameFactoryOld
 from cgm.rigger import PuppetFactory
 from cgm.lib.classes import AttrFactory
 from cgm.rigger.lib import functions
+import importlib
 #reload(AttrFactory)
 #reload(NameFactoryOld)
-reload(PuppetFactory)
+importlib.reload(PuppetFactory)
 
 from cgm.rigger.PuppetFactory import *
 from cgm.rigger.lib.Limb.module import *
@@ -82,7 +83,7 @@ def doPuppetCreate(self):
 	
 def activatePuppet(self,name):
     try:
-	if name in self.PuppetBridge.keys(): # if the puppet is instanced to our bridge, just link it up
+	if name in list(self.PuppetBridge.keys()): # if the puppet is instanced to our bridge, just link it up
 	    self.Puppet = self.PuppetBridge[name]
 	else:
 	    self.Puppet = PuppetFactory(name)
@@ -103,7 +104,7 @@ def updateUIPuppet(self):
 	for uiItem in self.UI_StateRows['define']:
 	    uiItem(edit = True, vis = False)	
 	
-	for k in self.puppetStateButtonsDict.keys():
+	for k in list(self.puppetStateButtonsDict.keys()):
 	    self.puppetStateButtonsDict[k](edit = True, en=False)
 	
 	updatePuppetUIReport(self) 
@@ -347,7 +348,7 @@ def uiModuleUpdateFrameLabel(self,index):
     
     
     color = dictionary.guiDirectionColors['center']
-    if self.Puppet.Module[index].ModuleNull.cgm['cgmDirection'] in dictionary.guiDirectionColors.keys():
+    if self.Puppet.Module[index].ModuleNull.cgm['cgmDirection'] in list(dictionary.guiDirectionColors.keys()):
 	color = dictionary.guiDirectionColors[ self.Puppet.Module[index].ModuleNull.cgm['cgmDirection'] ]
     
     self.moduleFrames[index](edit=True,l=' | '.join(buffer),
@@ -374,7 +375,7 @@ def uiModuleToggleBool(self,attrClassInstanceName,index):
     Sets the default value of a loaded attr in the modify menu
     """  
     #>>> Variables
-    if self.Puppet.Module[index] and attrClassInstanceName in self.Puppet.Module[index].__dict__.keys():
+    if self.Puppet.Module[index] and attrClassInstanceName in list(self.Puppet.Module[index].__dict__.keys()):
 	self.Puppet.Module[index].__dict__[attrClassInstanceName].set( not self.Puppet.Module[index].__dict__[attrClassInstanceName].value )
     else:
 	guiFactory.warning("No idea what this is. Try reloading the GUI")
@@ -387,7 +388,7 @@ def uiModuleOptionMenuSet(self,OptionMenuDictInstance,MenuSourceList,tag,index):
     dataIndex =  OptionMenuDictInstance[index](q=True, select=True) -1
     data = MenuSourceList[dataIndex]
     if self.Puppet.Module[index]:
-	print data
+	print(data)
 	if data:
 	    moduleName = self.Puppet.ModulesBuffer.bufferList[index]	    
 	    self.Puppet.changeModuleCGMTag(moduleName,tag,data)	    
@@ -421,42 +422,42 @@ def printReport(self):
     Generates a report for the objectSets as the tool sees them.    
     """    
     guiFactory.doPrintReportStart()
-    print self.refSetsDict
-    print "# Object Sets found: "
+    print((self.refSetsDict))
+    print("# Object Sets found: ")
     for o in self.objectSetsRaw:
-        print "#    '%s'"%o
+        print(("#    '%s'"%o))
 
-    print "# Loaded Sets: "  
+    print("# Loaded Sets: ")  
     for o in self.objectSets:
-        print "#    '%s'"%o  
+        print(("#    '%s'"%o))  
 
     if self.ActiveObjectSetsOptionVar.value:
-        print "# Active Sets: "
+        print("# Active Sets: ")
         for o in self.ActiveObjectSetsOptionVar.value:
             if o:
-                print "#    '%s'"%o 
+                print(("#    '%s'"%o)) 
     if self.refSetsDict:
-        print "# Refs and sets: "
-        for o in self.refSetsDict.keys():
-            print "#     '%s':'%s'"%(o,"','".join(self.refSetsDict.get(o)))            
+        print("# Refs and sets: ")
+        for o in list(self.refSetsDict.keys()):
+            print(("#     '%s':'%s'"%(o,"','".join(self.refSetsDict.get(o)))))            
 
-    print "# Active Refs: "
+    print("# Active Refs: ")
     if self.ActiveRefsOptionVar.value:   
         for o in self.ActiveRefsOptionVar.value:
             if o:
-                print "#    '%s'"%o
+                print(("#    '%s'"%o))
     else:
-        print "#    None"
+        print("#    None")
 
 
 
-    print "# Active Types: "
+    print("# Active Types: ")
     if self.ActiveTypesOptionVar.value:    
         for o in self.ActiveTypesOptionVar.value:
             if o:
-                print "#    '%s'"%o 
+                print(("#    '%s'"%o)) 
     else:
-        print "#    None"
+        print("#    None")
 
     guiFactory.doPrintReportEnd()
 
@@ -486,7 +487,7 @@ def updateObjectSets(self):
 
             # Get our reference prefixes and sets sorted out
             if sInstance.refState:
-                if sInstance.refPrefix in self.refSetsDict.keys():
+                if sInstance.refPrefix in list(self.refSetsDict.keys()):
                     self.refSetsDict[sInstance.refPrefix].append(o)
                 else:
                     self.refSetsDict[sInstance.refPrefix] = [o]
@@ -499,7 +500,7 @@ def updateObjectSets(self):
 
             # Get our type tags, if none assign 'NONE'
             if sInstance.setType:
-                if sInstance.setType in self.setTypesDict.keys():
+                if sInstance.setType in list(self.setTypesDict.keys()):
                     self.setTypesDict[sInstance.setType].append(o)
                 else:
                     self.setTypesDict['NONE'].append(o)     
@@ -507,16 +508,16 @@ def updateObjectSets(self):
                 self.setTypesDict['NONE'].append(o)
 
 
-        if self.refSetsDict.keys():
-            self.refPrefixes.extend( self.refSetsDict.keys() )
+        if list(self.refSetsDict.keys()):
+            self.refPrefixes.extend( list(self.refSetsDict.keys()) )
 
 
         self.sortedSets = []
 
         #Sort for activeRefs
         tmpActiveRefSets = []
-        if self.refSetsDict.keys() and self.ActiveRefsOptionVar.value:
-            for r in self.refSetsDict.keys():
+        if list(self.refSetsDict.keys()) and self.ActiveRefsOptionVar.value:
+            for r in list(self.refSetsDict.keys()):
                 #If value, let's add or subtract based on if our set refs are found
                 if r in self.ActiveRefsOptionVar.value and self.refSetsDict.get(r):
                     tmpActiveRefSets.extend(self.refSetsDict.get(r))
@@ -524,8 +525,8 @@ def updateObjectSets(self):
 
         #Sort for active types  
         tmpActiveTypeSets = []
-        if self.setTypesDict.keys() and self.ActiveTypesOptionVar.value:
-            for t in self.setTypesDict.keys():
+        if list(self.setTypesDict.keys()) and self.ActiveTypesOptionVar.value:
+            for t in list(self.setTypesDict.keys()):
                 if t in self.ActiveTypesOptionVar.value and self.setTypesDict.get(t):
                     tmpActiveTypeSets.extend(self.setTypesDict.get(t))
 
@@ -1136,7 +1137,7 @@ def doSetAllRefState(self,value):
     value(int) -- on or off
     """     
     if self.activeRefsCBDict:
-        for i in self.activeRefsCBDict.keys():
+        for i in list(self.activeRefsCBDict.keys()):
             tmp = self.activeRefsCBDict.get(i)
             mc.menuItem(tmp,edit = True,cb=value)
             doSetRefState(self,i,value,False)
@@ -1150,7 +1151,7 @@ def doSetAllTypeState(self,value):
     value(int) -- on or off
     """  
     if self.activeTypesCBDict:
-        for i in self.activeTypesCBDict.keys():
+        for i in list(self.activeTypesCBDict.keys()):
             tmp = self.activeTypesCBDict.get(i)
             mc.menuItem(tmp,edit = True,cb=value)
             doSetTypeState(self,i,value,False)

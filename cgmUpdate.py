@@ -11,9 +11,9 @@ This is housed outside our core stuff to be able to access and update it.
 ================================================================
 """
 __version__ = '1.0.10092020'
-
-from urllib2 import Request, urlopen, URLError
-import urllib2
+from urllib.request import Request, urlopen
+from urllib.error import URLError
+import urllib.request, urllib.error, urllib.parse
 import webbrowser
 import json
 import pprint
@@ -93,7 +93,7 @@ def get_install_path(confirm = False,branch=_defaultBranch):
     
     if confirm:
         try:_dat = get_dat(branch,1)
-        except Exception,err:
+        except Exception as err:
             log.error(err)
             _dat = False
         if not _dat:
@@ -154,7 +154,7 @@ def clean_install_path(path = None):
                     os.unlink(_pathFile)
                 else:
                     rmtree(_pathFile)
-            except Exception,err:log.warning("Clean fail| {0} | {1}".format(f,err))
+            except Exception as err:log.warning("Clean fail| {0} | {1}".format(f,err))
                 
      
     
@@ -253,17 +253,17 @@ def unzip(zFile = zFile, deleteZip = True, cleanFirst = False, targetPath = None
             except:pass
             
         try:rmtree(_sep.join([_dir,_zipDir]))
-        except Exception,err:log.debug("Remove unzip temp fail | {0}".format(err))
+        except Exception as err:log.debug("Remove unzip temp fail | {0}".format(err))
             
 
         
-    except Exception, err:
+    except Exception as err:
         log.error("Zip exception: {0}".format(err))
     finally:
         if mayaMainProgressBar:mc.progressBar(mayaMainProgressBar, edit=True, endProgress=True)
         if deleteZip:
             try:os.unlink(zFile)
-            except Exception,err:log.error("Delete zip fail | {0}".format(err))        
+            except Exception as err:log.error("Delete zip fail | {0}".format(err))        
 
 def download(url='http://weknowyourdreams.com/images/mountain/mountain-03.jpg', mode = None):
     """
@@ -286,7 +286,7 @@ def download(url='http://weknowyourdreams.com/images/mountain/mountain-03.jpg', 
         _dir = get_install_path()
         file_name = _sep.join([_dir,url.split('/')[-1]])
         
-        u = urllib2.urlopen(url)
+        u = urllib.request.urlopen(url)
         f = open(file_name, 'wb')
         meta = u.info()
         
@@ -295,7 +295,7 @@ def download(url='http://weknowyourdreams.com/images/mountain/mountain-03.jpg', 
         except:pass
         
         msg = "Downloading: {0} | Bytes: {1}".format (file_name, file_size)
-        print msg
+        print(msg)
         
 
         
@@ -331,12 +331,12 @@ def download(url='http://weknowyourdreams.com/images/mountain/mountain-03.jpg', 
                 #print( status )
         f.close()
         return file_name
-    except URLError, e:
-            print 'It appears this is not working...URL or Timeout Error :(', e
+    except URLError as e:
+            print(('It appears this is not working...URL or Timeout Error :(', e))
     finally:
         if mayaMainProgressBar:mc.progressBar(mayaMainProgressBar, edit=True, endProgress=True)
         
-        print '...'            
+        print('...')            
     
 
 def get_download(branch = _defaultBranch, idx = 0,  mode = None):
@@ -367,7 +367,7 @@ def get_build_bit(branch = _defaultBranch, idx = 0, mode = None):
     
     """
     if idx is None:
-        idx = int(raw_input("Enter Commit # (1-10) to download a download associated .zip files: "))
+        idx = int(eval(input("Enter Commit # (1-10) to download a download associated .zip files: ")))
         if idx is None:
             return log.error("No idx. {0} | idx: {1}".format(branch,idx))
             
@@ -397,8 +397,8 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
     """
     """branch = raw_input("Enter the name of the Branch ('Master' or 'Stable') to see a summary of last 10 commits: ")"""
     _str_func = 'get_dat'
-    print '='*100            
-    print("|{0}| >> Branch: {1}".format(_str_func,branch))
+    print(('='*100))            
+    print(("|{0}| >> Branch: {1}".format(_str_func,branch)))
     
     global CGM_BUILDS_DAT
     #pprint.pprint(CGM_BUILDS_DAT)
@@ -414,7 +414,7 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
     route = 'https://api.github.com/repos/jjburton/cgmTools/commits?sha=' + branch
     
     #request = Request(route)
-    print("|{0}| >> Route: {1}".format(_str_func,route))
+    print(("|{0}| >> Route: {1}".format(_str_func,route)))
     
     try:
         response = urlopen(route)
@@ -425,7 +425,7 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
         for idx,d in enumerate(stable):
             if i >= limit:
                 break
-            print '-'*100
+            print(('-'*100))
             
             #pprint.pprint(d)
             _dCommit = d['commit']
@@ -444,11 +444,11 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
                            'dateRaw':_dateRaw,
                            'url':d['html_url'],
                            'dateRaw':_dateRaw})
-            print("{0} | {1} ...".format(idx,
+            print(("{0} | {1} ...".format(idx,
                                                   _date,
                                                   _msg,
-                                                  ))
-            print _msg
+                                                  )))
+            print(_msg)
             #print '...' + "{0}{1}".format(_pathMain,_hash)
 
             i+=1
@@ -458,18 +458,18 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
         
         #pprint.pprint(_l_res)
         CGM_BUILDS_DAT[branch] = _l_res
-        print '='*100        
+        print(('='*100))        
         
         if reportMode:
             return        
         return _l_res 
 
-    except URLError, e:
+    except URLError as e:
         pprint.pprint(vars())
-        print 'It appears this is not working...URL or Timeout Error :(', e
-        print 'More than likely your internet is down or the server is.'
+        print(('It appears this is not working...URL or Timeout Error :(', e))
+        print('More than likely your internet is down or the server is.')
     finally:
-        print '...'
+        print('...')
         
 def get_dat_bit(branch = 'master', limit = 3, update = False):
     """
@@ -529,11 +529,11 @@ def get_dat_bit(branch = 'master', limit = 3, update = False):
         CGM_BUILDS_DAT[branch] = _l_res
         return _l_res 
 
-    except URLError, e:
+    except URLError as e:
         pprint.pprint(vars())
-        print 'It appears this is not working...URL or Timeout Error :(', e
+        print(('It appears this is not working...URL or Timeout Error :(', e))
     finally:
-        print '...'
+        print('...')
 
 def get_branch_names():
     _str_func = 'get_branch_names'
@@ -577,10 +577,10 @@ def get_branch_names():
         CGM_BUILDS_DAT[branch] = _d_res
         return _d_res 
         """
-    except URLError, e:
-        print 'It appears this is not working...URL or Timeout Error :(', e
+    except URLError as e:
+        print(('It appears this is not working...URL or Timeout Error :(', e))
     finally:
-        print '...'
+        print('...')
 
 def here(branch = _defaultBranch, idx = 0, cleanFirst = True, run = True, reloadCGM = True):
     """
@@ -596,7 +596,7 @@ def here(branch = _defaultBranch, idx = 0, cleanFirst = True, run = True, reload
     try:
         #_zip = get_build(branch,idx)
         _zip = get_download(branch,idx)
-    except Exception,err:
+    except Exception as err:
         log.error(err)
         
         log.error("|{0}| >> Failed to acquire zip. Check branch name: {1}".format(_str_func,branch))
@@ -617,7 +617,7 @@ def here(branch = _defaultBranch, idx = 0, cleanFirst = True, run = True, reload
             import cgm
             if reloadCGM:cgm.core._reload()
             mel.eval('cgmToolbox')
-        except Exception,err:
+        except Exception as err:
             return log.error("Failed to load cgm | {0}".format(err))
 
 
@@ -629,7 +629,7 @@ def gitHub(branch = 'master'):
 def ryan():
 
     while 1==1:
-        branch = raw_input("Enter the name of the Branch ('Master' or 'Stable') to see a summary of last 10 commits: ")
+        branch = eval(input("Enter the name of the Branch ('Master' or 'Stable') to see a summary of last 10 commits: "))
         mount = 'https://api.bitbucket.org/2.0/repositories/jjburton/cgmtools/commits/?until='
         if (branch == 'master' or branch == 'Master' or branch== 'MASTER'):
             route = mount+'master'
@@ -644,29 +644,29 @@ def ryan():
         stable = json.load(response)
         idx = 1
         last10 = []
-        print 'Here Are the Last 10 Commits:'
+        print('Here Are the Last 10 Commits:')
     
         while idx < 11:
             hsh = stable['values'][idx]['hash']
             msg = stable['values'][idx]['message']
             last10.append({'hash':hsh, 'message':msg, 'index':idx})
-            print '#' + str(idx) + '. ' + 'https://bitbucket.org/jjburton/cgmtools/commits/' + hsh, ' msg: ' + msg
+            print(('#' + str(idx) + '. ' + 'https://bitbucket.org/jjburton/cgmtools/commits/' + hsh, ' msg: ' + msg))
             idx+=1
         match = 'no'
     
         while match == 'no' :
-            commitIdx = int(raw_input("Enter Commit # (1-10) to download a download associated .zip files: "))
+            commitIdx = int(eval(input("Enter Commit # (1-10) to download a download associated .zip files: ")))
             for commit in last10 :
                 if commit['index'] == commitIdx:
                     match = 'yes'
-                    print 'Success! Downloading Zip Files for this commit: ' + 'https://bitbucket.org/' + commit['hash']
+                    print(('Success! Downloading Zip Files for this commit: ' + 'https://bitbucket.org/' + commit['hash']))
                     url =  "https://bitbucket.org/jjburton/cgmtools/get/" + commit['hash'] + ".zip"
                     file = webbrowser.open(url, new=0, autoraise=True)
                 if match == 'no' :
-                    print 'Please enter a number 1-10'
+                    print('Please enter a number 1-10')
     
-    except URLError, e:
-        print 'It appears this is not working...URL or Timeout Error :(', e
+    except URLError as e:
+        print(('It appears this is not working...URL or Timeout Error :(', e))
         
 
 

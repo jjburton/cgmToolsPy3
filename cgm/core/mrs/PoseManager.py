@@ -17,6 +17,7 @@ import pprint
 import sys
 import os
 import logging
+import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -299,17 +300,17 @@ def walk_below_dir(arg = _pathTest, tests = None,uiStrings = True,
                 key = '.'.join(_splitUp + [name])    
                 if key:
                     log.debug("|{0}| >> ... {1}".format(_str_func,key))                      
-                    if name not in _d_modules.keys():
+                    if name not in list(_d_modules.keys()):
                         _d_files[key] = os.path.join(root,f)
                         _d_import[name] = key
                         _l_cat.append(name)
                         try:
                             module = __import__(key, globals(), locals(), ['*'], -1)
-                            reload(module) 
+                            importlib.reload(module) 
                             _d_modules[name] = module
                             #if not is_buildable(module):
                                 #_l_unbuildable.append(name)
-                        except Exception, e:
+                        except Exception as e:
                             log.warning("|{0}| >> Module failed: {1}".format(_str_func,key))                               
                             cgmGEN.cgmExceptCB(Exception,e,msg=vars())
 
@@ -317,26 +318,26 @@ def walk_below_dir(arg = _pathTest, tests = None,uiStrings = True,
                         _l_duplicates.append("{0} >> {1} ".format(key, os.path.join(root,f)))
             _i+=1
             
-    for k,d in _d_dir.iteritems():
+    for k,d in list(_d_dir.items()):
         if d.get('dir'):
             d['tokensSub'] = {}
             for subD in d.get('dir'):
-                for k,d2 in _d_dir.iteritems():
+                for k,d2 in list(_d_dir.items()):
                     if d2.get('token') == subD:
                         d['tokensSub'][k] = subD
 
     if _b_debug:
-        print(cgmGEN.logString_sub(_str_func,"Levels"))
+        print((cgmGEN.logString_sub(_str_func,"Levels")))
         pprint.pprint(_d_levels)
-        print(cgmGEN.logString_sub(_str_func,"Dat"))
+        print((cgmGEN.logString_sub(_str_func,"Dat")))
         pprint.pprint(_d_dir)
         
         if uiStrings:
-            print (cgmGEN.logString_sub(_str_func,'Ui Strings'))
+            print((cgmGEN.logString_sub(_str_func,'Ui Strings')))
             pprint.pprint(_d_uiStrings)
             
             for s in _l_uiStrings:
-                print s        
+                print(s)        
         
 
     if _l_duplicates and _b_debug:
@@ -344,7 +345,7 @@ def walk_below_dir(arg = _pathTest, tests = None,uiStrings = True,
         log.debug("|{0}| >> DUPLICATE ....".format(_str_func))
         for m in _l_duplicates:
             print(m)
-        raise Exception,"Must resolve"
+        raise Exception("Must resolve")
     
     #log.debug("|{0}| >> Found {1} modules under: {2}".format(_str_func,len(_d_files.keys()),_path))     
     if uiStrings:
@@ -709,8 +710,8 @@ def buildFrame_poses(self,parent):
 #>>> Root settings =============================================================
 __version__ = '1.09222019'
 
-__l_spaceModes = SHARED._d_spaceArgs.keys()
-__l_pivots = SHARED._d_pivotArgs.keys()
+__l_spaceModes = list(SHARED._d_spaceArgs.keys())
+__l_pivots = list(SHARED._d_pivotArgs.keys())
 
 class ui(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
@@ -791,7 +792,7 @@ class ui(cgmUI.cgmGUI):
         _column = mUI.MelScrollLayout(parent=_MainForm)
         
         self.mManager = manager(parent = _column)
-        for k in self.__dict__.keys():
+        for k in list(self.__dict__.keys()):
             if str(k).startswith('var_'):
                 self.mManager.__dict__[k] = self.__dict__[k]
         
@@ -1102,7 +1103,7 @@ class manager(mUI.MelColumn):
             if not path:
                 try:
                     path = self.uiPose_getSavePath()
-                except Exception, error:
+                except Exception as error:
                     raise Exception(error)
     
             poseHierarchy = False
@@ -1122,7 +1123,7 @@ class manager(mUI.MelColumn):
                                                           storeThumbnail=storeThumbnail)
             log.info('Pose Stored to : %s' % path)
             self.uiCB_fillPoses(rebuildFileList=True)
-        except Exception,error:
+        except Exception as error:
             raise cgmGEN.cgmExceptCB(Exception,error,msg=vars())
         
     def __validatePoseFunc(self, func):
@@ -1133,7 +1134,7 @@ class manager(mUI.MelColumn):
         '''
         if self.posePathMode == 'projectPoseMode':
             if self.poseProjectMute:
-                raise StandardError('%s : function disabled in Project Pose Mode!' % func)
+                raise Exception('%s : function disabled in Project Pose Mode!' % func)
             else:
                 result = mc.confirmDialog(
                     title='Project Pose Modifications',
@@ -1166,7 +1167,7 @@ class manager(mUI.MelColumn):
             d = configobj.ConfigObj(path)['poseData']
             nodes=[]
             l_start = []
-            for k in d.keys():
+            for k in list(d.keys()):
                 k_dat = d[k]
                 _longName = k_dat['longName']
                 _longmatch = _longName.split(':')[-1]
@@ -1334,7 +1335,7 @@ class manager(mUI.MelColumn):
     
         except r9Setup.ProPack_Error:
             log.warning('ProPack not Available')
-        except Exception, error:
+        except Exception as error:
             cgmGEN.cgmExceptCB(Exception,error,msg=vars())
             
         if objs and not func == 'HierarchyTest':
@@ -1407,7 +1408,7 @@ class manager(mUI.MelColumn):
     def create_guiOptionVar(self,varName,*args,**kws):
         fullName = "cgmVar_%s%s"%(self.__class__,varName)
         if args:args[0] = fullName
-        if kws and 'varName' in kws.keys():kws.pop('varName')
+        if kws and 'varName' in list(kws.keys()):kws.pop('varName')
         self.__dict__['var_%s'%varName] = cgmMeta.cgmOptionVar(varName = fullName, *args,**kws)
         log.debug('var_%s'%varName)
         if fullName not in self.l_optionVars:
@@ -1512,7 +1513,7 @@ class manager(mUI.MelColumn):
         if poseHandler:
             import imp
             import inspect
-            print 'Adding to menus From PoseHandler File!!!!'
+            print('Adding to menus From PoseHandler File!!!!')
             tempPoseFuncs = imp.load_source(poseHandler.split('.py')[0], os.path.join(self.getPoseDir(), poseHandler))
             if [func for name, func in inspect.getmembers(tempPoseFuncs, inspect.isfunction) if name == 'posePopupAdditions']:
                 # NOTE we pass in self so the new additions have the same access as everything else!
@@ -1624,8 +1625,8 @@ class manager(mUI.MelColumn):
             try:
                 self.uiGL_poses.clear()
                 #[mc.deleteUI(button) for button in self.uiGL_poses( q=True, ca=True)]
-            except Exception, error:
-                print error
+            except Exception as error:
+                print(error)
                 
             for pose in r9Core.filterListByString(self.poses, searchFilter, matchcase=False):  # self.buildFilteredPoseList(searchFilter):
                 #print pose
@@ -1643,8 +1644,8 @@ class manager(mUI.MelColumn):
                                         onc=cgmGEN.Callback(self.uiCB_iconGridSelection, pose),
                                         ofc="import maya.cmds as cmds;mc.iconTextCheckBox('_%s', e=True, v=True)" % pose)  # we DONT allow you to deselect
                     #print _b
-                except StandardError, error:
-                    raise StandardError(error)
+                except Exception as error:
+                    raise Exception(error)
     
             if searchFilter:
                 # with search scroll the list to the top as results may seem blank otherwise
@@ -1771,7 +1772,7 @@ class manager(mUI.MelColumn):
     
     def uiPose_getSelected(self):
         if not self.poseSelected:
-            raise StandardError('No Pose Selected in the UI')
+            raise Exception('No Pose Selected in the UI')
         return self.poseSelected
     
     
@@ -1790,12 +1791,12 @@ class manager(mUI.MelColumn):
         if result == 'Yes':
             try:
                 os.remove(self.uiPose_getPath())
-            except Exception,err:
+            except Exception as err:
                 log.error('Failed to Delete PoseFile | {0}'.format(err))
                 return
             try:
                 os.remove(self.uiPose_getIconPath())
-            except Exception,err:
+            except Exception as err:
                 log.error('Failed to Delete PoseIcon | {0}'.format(err))
             self.uiCB_fillPoses(rebuildFileList=1)
             #self._uiCB_fillPoses(rebuildFileList=True)
@@ -1816,7 +1817,7 @@ class manager(mUI.MelColumn):
             name = mc.promptDialog(query=True, text=True)
             try:
                 return os.path.join(self.posePath, '%s.pose' % r9Core.validateString(name, fix=True))
-            except ValueError, error:
+            except ValueError as error:
                 raise ValueError(error)
         else:
             return False
@@ -1842,15 +1843,15 @@ class manager(mUI.MelColumn):
                     mc.iconTextCheckBox(button, e=True, v=True, bgc=self.poseButtonHighLight)
             self.uiCB_setPoseSelected(current)
             #self.setPoseSelected(current)
-        except Exception,err:
-            print err
+        except Exception as err:
+            print(err)
     
     def uiPose_rename(self, *args):
         #if not self.__validatePoseFunc('PoseRename'):
             #return
         try:
             newName = self.uiPose_getSavePath(self.uiPose_getSelected())
-        except ValueError, error:
+        except ValueError as error:
             raise ValueError(error)
         
         if not newName:
@@ -1860,7 +1861,7 @@ class manager(mUI.MelColumn):
             _path = self.uiPose_getPath()
             os.rename(self.uiPose_getPath(), newName)
             os.rename(self.uiPose_getIconPath(), '%s.bmp' % newName.split('.pose')[0])
-        except Exception,err:
+        except Exception as err:
             log.info('Failed to Rename Pose | {0}'.format(err))
             
         self.uiCB_fillPoses(rebuildFileList=1)
@@ -1876,11 +1877,11 @@ class manager(mUI.MelColumn):
         _path = self.uiPose_getPath()
         
         if not os.path.exists(_path):
-            raise StandardError('Invalid path: {0}'.format(_path))
+            raise Exception('Invalid path: {0}'.format(_path))
         
         try:
             newName = self.uiPose_getSavePath(self.uiPose_getSelected())
-        except ValueError, error:
+        except ValueError as error:
             raise ValueError(error)        
         
         _newName = newName.split('.pose')[0]
@@ -1891,7 +1892,7 @@ class manager(mUI.MelColumn):
                          os.path.join(self.posePath, '%s.pose' % _newName))
             shutil.copy2(self.uiPose_getIconPath(),
                          os.path.join(self.posePath, '%s.bmp' % _newName))
-        except Exception,err:
+        except Exception as err:
             log.error(err)
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())            
         
@@ -1962,7 +1963,7 @@ class manager(mUI.MelColumn):
                 mc.select(cl=True)
                 [mc.select(node, add=True) for node in nodes]
         else:
-            raise StandardError('RootNode not Set for Hierarchy Processing')
+            raise Exception('RootNode not Set for Hierarchy Processing')
     
     def uiPoseMakeSubFolder(self, handlerFile=None, *args):
         '''
@@ -1972,7 +1973,7 @@ class manager(mUI.MelColumn):
         
         basePath = self.posePath#self.cgmUIField_posePath.getValue()
         if not os.path.exists(basePath):
-            raise StandardError('Base Pose Path is inValid or not yet set')
+            raise Exception('Base Pose Path is inValid or not yet set')
         
         promptstring = 'New Pose Folder Name'
         if handlerFile:
@@ -2010,7 +2011,7 @@ class manager(mUI.MelColumn):
         localPath = self.posePathLocal
         
         if not os.path.exists(self.posePathProject):
-            raise StandardError('Project Pose Path is inValid or not yet set')
+            raise Exception('Project Pose Path is inValid or not yet set')
         
         
         
@@ -2031,7 +2032,7 @@ class manager(mUI.MelColumn):
                         os.mkdir(projectPath)
                         log.debug('New Folder Added to ProjectPosePath: %s' % projectPath)
                     except:
-                        raise StandardError('Failed to make the SubFolder path')
+                        raise Exception('Failed to make the SubFolder path')
                 elif result == 'CopyToRoot':
                     projectPath = self.posePathProject
                 else:
@@ -2041,8 +2042,8 @@ class manager(mUI.MelColumn):
         try:
             shutil.copy2(self.getPosePath(), projectPath)
             shutil.copy2(self.getIconPath(), projectPath)
-        except Exception,err:
-            print ('Unable to copy pose : %s > to Project dirctory' % self.poseSelected)
+        except Exception as err:
+            print(('Unable to copy pose : %s > to Project dirctory' % self.poseSelected))
             
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
@@ -2118,11 +2119,11 @@ class manager(mUI.MelColumn):
                     self.posePath = mc.fileDialog2(fileMode=3,
                                                    dir=_dir)[0]
                 else:
-                    print 'Sorry Maya2009 and Maya2010 support is being dropped'
+                    print('Sorry Maya2009 and Maya2010 support is being dropped')
                     def setPosePath(fileName, fileType):
                         self.posePath = fileName
                     mc.fileBrowserDialog(m=4, fc=setPosePath, ft='image', an='setPoseFolder', om='Import')
-            except Exception,err:
+            except Exception as err:
                 log.warning('No Folder Selected or Given | {0}'.format(err))
         elif field:
             self.posePath = self.cgmUIField_posePath.getValue()
@@ -2544,11 +2545,11 @@ class mrsPoseDirList(mUI.BaseMelWidget):
         log.info("Dat: "+cgmGEN._str_subLine)
         return
         for i,mObj in enumerate(self._l_dat):
-            print ("{0} | {1} | {2}".format(i,self._l_strings[i],mObj))
+            print(("{0} | {1} | {2}".format(i,self._l_strings[i],mObj)))
             
         log.info("Loaded "+cgmGEN._str_subLine)
         for i,mObj in enumerate(self._ml_loaded):
-            print("{0} | {1}".format(i, mObj))
+            print(("{0} | {1}".format(i, mObj)))
             
         pprint.pprint(self._ml_scene)
         
@@ -2573,7 +2574,7 @@ class mrsPoseDirList(mUI.BaseMelWidget):
                 _color = [v*.7 for v in _color]
                 self(e =1, hlc = _color)
                 return
-            except Exception,err:
+            except Exception as err:
                 log.error(err)
                 
             try:self(e =1, hlc = [.5,.5,.5])
@@ -2720,13 +2721,13 @@ class mrsPoseDirList(mUI.BaseMelWidget):
                 try:self(e=1, itc = [(i+1,_color[0],_color[1],_color[2])])
                 except:pass
 
-        except Exception,err:
+        except Exception as err:
             log.error("|{0}| >> err: {1}".format(_str_func, err))  
             for a in err:
                 log.error(a)
 
     def selectCallBack(self,func=None,*args,**kws):
-        print self.getSelectedBlocks()
+        print((self.getSelectedBlocks()))
         
         
 def mrsPoseDirSelect(self,ui = None):
@@ -2763,7 +2764,7 @@ def mrsPoseDirSelect(self,ui = None):
 
     dirs = [subdir for subdir in os.listdir(basePath) if os.path.isdir(os.path.join(basePath, subdir))]
     if not dirs:
-        raise StandardError('Folder has no subFolders for pose scanning')
+        raise Exception('Folder has no subFolders for pose scanning')
     for subdir in dirs:
         mc.textScrollList(self.cgmUItslPoseSubFolders, edit=True,
                                         append='/%s' % subdir,

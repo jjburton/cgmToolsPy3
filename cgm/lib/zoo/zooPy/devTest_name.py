@@ -1,6 +1,6 @@
 
 from unittest import TestCase
-from name import Name, CamelCaseName
+from .name import Name, CamelCaseName
 
 class TestNames(TestCase):
 	def runTest( self ):
