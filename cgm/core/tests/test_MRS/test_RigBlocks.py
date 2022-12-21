@@ -76,7 +76,7 @@ class Test_RigBlocks(unittest.TestCase):
         _l_modulesToTest = ['master','doodad']
         
         for blockType in _l_modulesToTest:
-            _t_start = time.clock()
+            _t_start = time.time()
             mBlock = RBLOCKS.cgmRigBlock(blockType = blockType)
             #...initial...
             self.assertEqual(mBlock.blockType,
@@ -88,10 +88,10 @@ class Test_RigBlocks(unittest.TestCase):
                 log.error("[{0}] not a buildable blocktype. FIX")
                 continue
             for i in range(_state,4):
-                _t_step = time.clock()
+                _t_step = time.time()
                 mBlock.changeState(i)
-                print(("[{0}] Step: {1} complate in {2} seconds".format(blockType, i, "%0.3f"%(time.clock()-_t_step)) + '-'*80)) 
-            print(("[{0}] completed in  {1} seconds".format(blockType, "%0.3f"%(time.clock()-_t_start)))) 
+                print(("[{0}] Step: {1} complate in {2} seconds".format(blockType, i, "%0.3f"%(time.time()-_t_step)) + '-'*80)) 
+            print(("[{0}] completed in  {1} seconds".format(blockType, "%0.3f"%(time.time()-_t_start)))) 
     
     
       

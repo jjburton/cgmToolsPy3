@@ -519,7 +519,7 @@ def doNameObject(obj,sceneUnique = False):
         guiFactory.warning("'%s' is already named correctly."%nameFactory.nameBase)
         return name
     else:
-        objLong = mc.ls(obj,int=True)
+        objLong = mc.ls(obj,long=True)
         renameBuffer = mc.rename(objLong,name)
 
         shapes = mc.listRelatives(renameBuffer,shapes=True,fullPath=True)

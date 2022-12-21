@@ -49,7 +49,7 @@ class cgmMetaMM(mUI.BaseMelWindow):
         #>>>> Clock set
         #====================================================================
 
-        self.var_clockStart.value = time.clock()
+        self.var_clockStart.value = time.time()
         #log.info("{0} >> clockStart: {1}".format(self._str_MM,self.clockStartVar.value))
 
         self.var_isClicked.value = 0
@@ -188,7 +188,7 @@ class cgmMetaMM(mUI.BaseMelWindow):
             try:mc.deleteUI(c)
             except:log.info('failed to delete...')"""
             
-        #time_buildMenuStart =  time.clock()
+        #time_buildMenuStart =  time.time()
         self.setup_optionVars()#Setup our optionVars
         #mc.setParent(parent)
         
@@ -197,7 +197,7 @@ class cgmMetaMM(mUI.BaseMelWindow):
         #mUI.MelMenuItemDiv(parent)        
         #mUI.MelMenuItem(parent,l = '{0}'.format(self.__class__.POPWINDOW),en=False)   
         
-        #f_time = time.clock()-time_buildMenuStart
+        #f_time = time.time()-time_buildMenuStart
         #log.info('build menu took: %0.3f seconds  ' % (f_time) + '<'*10) 
               
 

@@ -28,7 +28,7 @@ import maya.OpenMaya as om
 #CANNOT IMPORT: LOC
 #from cgm.core import cgm_Meta as cgmMeta
 import Red9.core.Red9_Meta as r9Meta
-from cgm.core.rigger.lib import joint_Utils as jntUtils
+#from cgm.core.rigger.lib import joint_Utils as jntUtils
 from cgm.core.lib import rayCaster as RayCast
 from cgm.core import cgm_General as cgmGen
 from cgm.core.cgmPy import validateArgs as cgmValid
@@ -338,7 +338,7 @@ class clickMesh(ContextualPick):
         self.l_toSnap = cgmValid.listArg(toSnap)
         self.l_toAim = cgmValid.listArg(toAim)
         self._getUV = False
-        self._time_start = time.clock()
+        self._time_start = time.time()
         self._time_delayCheck = timeDelay
         self._l_folliclesToMake = []
         self._l_folliclesBuffer = []
@@ -393,7 +393,7 @@ class clickMesh(ContextualPick):
 
         if mesh is None and not self._str_castPlane:                
             log.warning("|clickMesh| >> Using all visible mesh!")
-            for l in mc.ls(type='mesh',visible = True, int=True), mc.ls(type='nurbsSurface',int=True, visible = True):
+            for l in mc.ls(type='mesh',visible = True, long=True), mc.ls(type='nurbsSurface',long=True, visible = True):
                 for o in l:
                     self.addTargetMesh( o )#             
 
@@ -889,9 +889,9 @@ class clickMesh(ContextualPick):
         if not self.l_mesh:
             return log.warning("No mesh objects have been added to '%s'"%(self.name)) 
         
-        #_time = "%0.3f" %(time.clock() - self._time_start)
+        #_time = "%0.3f" %(time.time() - self._time_start)
         if self._time_delayCheck is not None:
-            _time =  float( "%0.3f" %(time.clock() - self._time_start) )
+            _time =  float( "%0.3f" %(time.time() - self._time_start) )
             #log.info("time {0} | delay: {1}".format(_time,self._time_delayCheck))
             if _time <= self._time_delayCheck:
                 log.warning("Time delay, not starting...")

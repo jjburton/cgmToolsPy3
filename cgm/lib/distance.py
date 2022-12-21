@@ -485,7 +485,7 @@ def returnAbsoluteSizeCurve(curve):
     def duplicateShape(shape):
         parentObj = mc.listRelatives(shape, p=True, fullPath=True)
         shapes = mc.listRelatives(parentObj, shapes=True, fullPath=True)
-        matchObjName = mc.ls(shape, int=True)
+        matchObjName = mc.ls(shape, long=True)
         matchIndex = shapes.index(matchObjName[0])
 
         dupBuffer = mc.duplicate(parentObj)

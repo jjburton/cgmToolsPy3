@@ -1409,7 +1409,7 @@ def rig_skeleton(self):
     
     _str_func = '[{0}] > rig_skeleton'.format(_short)
     log.info("|{0}| >> ...".format(_str_func))  
-    _start = time.clock()
+    _start = time.time()
         
     mBlock = self.mBlock
     mRigNull = self.mRigNull
@@ -1445,14 +1445,14 @@ def rig_skeleton(self):
     self.fnc_connect_toRigGutsVis( ml_jointsToConnect )
     
     BUILDERUTILS.joints_connectToParent(self)
-    log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+    log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
     return
 
 def rig_shapes(self):
     _short = self.d_block['shortName']
     _str_func = '[{0}] > rig_shapes'.format(_short)
     log.info("|{0}| >> ...".format(_str_func))  
-    _start = time.clock()
+    _start = time.time()
     
     mBlock = self.mBlock
     ml_formHandles = self.ml_formHandles
@@ -1611,14 +1611,14 @@ def rig_shapes(self):
         #mBlock.atBlockUtils('pivots_buildShapes', mMainHandle.pivotHelper, mRigNull)
 
 
-    log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+    log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
     
 def rig_controls(self):
     try:
         _short = self.d_block['shortName']
         _str_func = '[{0}] > rig_controls'.format(_short)
         log.info("|{0}| >> ...".format(_str_func))  
-        _start = time.clock()
+        _start = time.time()
       
         mBlock = self.mBlock
         ml_formHandles = mBlock.msgList_get('formHandles')
@@ -1812,7 +1812,7 @@ def rig_controls(self):
         mRigNull.msgList_connect('controlsAll',ml_controlsAll)
         mRigNull.moduleSet.extend(ml_controlsAll)
         
-        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))                
+        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))                
         
         
         
@@ -1824,7 +1824,7 @@ def rig_frame(self):
         _short = self.d_block['shortName']
         _str_func = '[{0}] > rig_rigFrame'.format(_short)
         log.info("|{0}| >> ...".format(_str_func))  
-        _start = time.clock()
+        _start = time.time()
         
         mBlock = self.mBlock
         ml_formHandles = mBlock.msgList_get('formHandles')
@@ -1949,7 +1949,7 @@ def rig_frame(self):
         else:
             ml_rigJoints[0].parent = mDirectDriver
             
-        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
     except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
@@ -1957,7 +1957,7 @@ def rig_cleanUp(self):
     _short = self.d_block['shortName']
     _str_func = '[{0}] > rig_cleanUp'.format(_short)
     log.info("|{0}| >> ...".format(_str_func))  
-    _start = time.clock()
+    _start = time.time()
     
     mBlock = self.mBlock
     mRigNull = self.mRigNull
@@ -2184,7 +2184,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
     _short = self.p_nameShort
     _str_func = '[{0}] > build_proxyMesh'.format(_short)
     log.debug("|{0}| >> ...".format(_str_func))  
-    _start = time.clock()
+    _start = time.time()
 
     mBlock = self
     

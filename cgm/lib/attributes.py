@@ -2498,13 +2498,13 @@ def storeObjectToMessage (obj, storageObj, messageName):
 	assert mc.objExists(storageObj) is True,"'%s' doesn't exist"%(storageObj)
 
 	attrCache = (storageObj+'.'+messageName)
-	objLong = mc.ls(obj,int=True)
+	objLong = mc.ls(obj,long=True)
 	if len(objLong)>1:
 		log.warning("Can't find long name for storage, found '%s'"%objLong)
 		return False 
 	objLong = objLong[0]
 
-	storageLong = mc.ls(storageObj,int=True)
+	storageLong = mc.ls(storageObj,long=True)
 	if len(storageLong)>1:
 		log.warning("Can't find long name for storage, found '%s'"%storageLong)
 		return False

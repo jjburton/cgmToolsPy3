@@ -3275,7 +3275,7 @@ def skeleton_connectToParent(self):
 def skeleton_buildRigChain(self):
     _short = self.mNode
     _str_func = 'skeleton_buildRigChain ( {0} )'.format(_short)
-    start = time.clock()	
+    start = time.time()	
     _mRigNull = self.moduleTarget.rigNull
     
     #Get our segment joints
@@ -3307,7 +3307,7 @@ def skeleton_buildRigChain(self):
         mJnt.doName()	
         
     _mRigNull.msgList_connect('rigJoints',ml_rigJoints,'rigNull')#connect	
-    log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)	
+    log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.time()-start)) + "-"*75)	
     
     return ml_rigJoints
 
@@ -3370,7 +3370,7 @@ def skeleton_getHandleChain(self, typeModifier = None, jointHelpers = True, mOri
     """
     _short = self.mNode
     _str_func = 'skeleton_getHandleChain'
-    #start = time.clock()	
+    #start = time.time()	
     log.debug(cgmGEN.logString_start(_str_func))
     
     mRigNull = self.moduleTarget.rigNull
@@ -3417,14 +3417,14 @@ def skeleton_getHandleChain(self, typeModifier = None, jointHelpers = True, mOri
     else:
         log.debug("|{0}| >> Found fkJoints".format(_str_func))
         
-    #log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)	
+    #log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.time()-start)) + "-"*75)	
     return ml_fkJoints
 
 
 def skeleton_buildHandleChain(self,typeModifier = 'handle', connectNodesAs = False,clearType = False,mOrientHelper=None): 
     _short = self.mNode
     _str_func = 'skeleton_buildHandleChain [{0}]'.format(_short)
-    #start = time.clock()
+    #start = time.time()
     
     mRigNull = self.moduleTarget.rigNull
     ml_handleJoints = skeleton_getHandleChain(self,typeModifier,mOrientHelper=mOrientHelper)
@@ -3450,7 +3450,7 @@ def skeleton_buildHandleChain(self,typeModifier = 'handle', connectNodesAs = Fal
     if connectNodesAs and type(connectNodesAs) in [str,str]:
         self.moduleTarget.rigNull.msgList_connect(connectNodesAs,ml_handleChain,'rigNull')#Push back
 
-    #log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)
+    #log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.time()-start)) + "-"*75)
     return ml_handleChain
 
 
@@ -3562,7 +3562,7 @@ def prerig_getHandleTargets(self):
     """
     _short = self.mNode
     _str_func = 'prerig_getHandleTargets [{0}]'.format(_short)
-    start = time.clock()
+    start = time.time()
     
     ml_handles = self.msgList_get('prerigHandles',asMeta = True)
     if not ml_handles:
@@ -3573,7 +3573,7 @@ def prerig_getHandleTargets(self):
             log.debug("|{0}| >> Found jointHelper on : {1}".format(_str_func, mHandle.mNode))                    
             ml_handles[i] = mHandle.jointHelper
             
-    log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)	
+    log.debug("%s >> Time >> = %0.3f seconds " % (_str_func,(time.time()-start)) + "-"*75)	
     return ml_handles
 
 

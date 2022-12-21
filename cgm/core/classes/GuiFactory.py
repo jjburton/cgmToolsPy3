@@ -152,7 +152,7 @@ class markingMenu(object):#mUI.BaseMelWindow
             #>>>> Clock set
             #====================================================================
         
-            self.var_clockStart.value = time.clock()
+            self.var_clockStart.value = time.time()
         
             #log.debug( mc.getPanel(withFocus=True)) 
             

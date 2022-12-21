@@ -983,7 +983,7 @@ def returnObjectType(obj):
             if parent !=False:
                 parentShapes = mc.listRelatives(parent,shapes=True,fullPath=True)
                 if parentShapes != None:
-                    matchObjName = mc.ls(obj, int=True)
+                    matchObjName = mc.ls(obj, long=True)
                     if matchObjName[0] in parentShapes:
                         isShape = True
             if isShape == True:
@@ -1199,8 +1199,8 @@ def returnAllParents(obj,shortNames=False):
     tmpObj = obj
     noParent = False
     while noParent == False:
-        tmpParent = mc.listRelatives(tmpObj,allParents=True,fullPath=True)
-        if tmpParent > 0:
+        tmpParent = mc.listRelatives(tmpObj,allParents=True,fullPath=True) or []
+        if tmpParent:
             if shortNames:
                 buffer = mc.ls(tmpParent[0],shortNames=True)
                 parentList.append(buffer[0])

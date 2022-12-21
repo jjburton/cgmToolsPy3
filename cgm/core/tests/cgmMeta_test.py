@@ -12,7 +12,7 @@ import time
 import logging
 
 from cgm.lib import (distance,attributes)
-from cgm.core.lib import attribute_utils as ATTR
+#from cgm.core.lib import attribute_utils as ATTR
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -21,8 +21,8 @@ from cgm.core import cgm_General as cgmGeneral
 from cgm.core import cgm_Meta as cgmMeta
 #from cgm.core import cgm_PuppetMeta as cgmPM
 from cgm.core.classes import NodeFactory as NodeF
-from cgm.core.rigger import ModuleFactory as mFactory
-from cgm.core.rigger import PuppetFactory as pFactory
+#from cgm.core.rigger import ModuleFactory as mFactory
+#from cgm.core.rigger import PuppetFactory as pFactory
 #import cgm.core.tests.test_validateArgs as test_validateArgs
 from cgm.core.cgmPy import os_Utils as cgmOS
 from cgm.core.cgmPy import path_Utils as cgmPath
@@ -40,7 +40,7 @@ class MorpheusBase_Test():
     def __init__(self,**kws):
         function = 'Morpheus_Test'    
         log.info(">"*20  + "  Testing '%s' "%function + "<"*20 )         
-        start = time.clock()
+        start = time.time()
         self.setup()
         self.getMesh()
         self.sizeTest()        
@@ -52,7 +52,7 @@ class MorpheusBase_Test():
         mc.file(new=True,f=True)
         function = 'setup'
         log.info("-"*20  + "  Testing '%s' "%function + "-"*20 ) 
-        start = time.clock()       
+        start = time.time()       
 
         #Test name and node argument passing
         #==============      

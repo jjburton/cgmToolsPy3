@@ -52,7 +52,7 @@ from cgm.core.lib import math_utils as MATH
 from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import rigging_utils as RIGGING
-from cgm.core.rigger.lib import joint_Utils as JOINTS
+#from cgm.core.rigger.lib import joint_Utils as JOINTS
 from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import rayCaster as RAYS
 from cgm.core.cgmPy import validateArgs as VALID

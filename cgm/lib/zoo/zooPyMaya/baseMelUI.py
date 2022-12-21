@@ -2375,7 +2375,7 @@ class BaseMelWindow(BaseMelUI):
 		returns the layout parented to this window
 		'''
 		layoutNameStart = '%s|' % self
-		existingLayouts = cmd.lsUI( controlLayouts=True, int=True )
+		existingLayouts = cmd.lsUI( controlLayouts=True, long=True )
 		for existingLayout in existingLayouts:
 			if existingLayout.startswith( layoutNameStart ):
 				toks = existingLayout.split( '|' )

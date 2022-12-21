@@ -1185,7 +1185,7 @@ def get_rigGeo(self):
     mMasterNull = self.masterNull
     
     _res = []
-    _l_base = [o for o in mc.ls(type='mesh',visible = True, int=True)]
+    _l_base = [o for o in mc.ls(type='mesh',visible = True, long=True)]
     _l_dags = [VALID.getTransform(o) for o in _l_base]
     _l_dags = LISTS.get_noDuplicates(_l_dags)
     

@@ -94,7 +94,7 @@ class NameFactory():
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     
     def storeNameStrings(self,obj):
-        buffer = mc.ls(obj,int=True)
+        buffer = mc.ls(obj,long=True)
         self.nameLong = buffer[0]
         buffer = mc.ls(obj,shortNames=True)        
         self.nameShort = buffer[0]
@@ -1028,7 +1028,7 @@ def doNameObject(obj,sceneUnique = False,fastIterate = True):
         log.debug("'%s' is already named correctly."%nameFactory.nameBase)
         return name
     else:
-        objLong = mc.ls(obj,int=True)
+        objLong = mc.ls(obj,long=True)
         renameBuffer = mc.rename(objLong,name)
 
         shapes = mc.listRelatives(renameBuffer,shapes=True,fullPath=True)

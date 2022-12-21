@@ -10,11 +10,11 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 # From Python =============================================================
-import copy
-import re
-import time
-import pprint
-import os
+#import copy
+#import re
+#import time
+#import pprint
+#import os
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -23,27 +23,27 @@ log.setLevel(logging.INFO)
 import maya.cmds as mc
 
 import cgm.core.classes.GuiFactory as cgmUI
-from cgm.core import cgm_RigMeta as cgmRigMeta
+#from cgm.core import cgm_RigMeta as cgmRigMeta
 mUI = cgmUI.mUI
 
 from cgm.core.lib import shared_data as SHARED
-from cgm.core.lib import search_utils as SEARCH
-from cgm.core.lib import name_utils as NAMES
+#from cgm.core.lib import search_utils as SEARCH
+#from cgm.core.lib import name_utils as NAMES
 import cgm.core.lib.position_utils as POS
 #reload(POS)
-from cgm.core.cgmPy import validateArgs as VALID
+#from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.lib import attribute_utils as ATTR
 import cgm.core.lib.transform_utils as TRANS
-from cgm.core.lib import list_utils as LISTS
-from cgm.core.tools.markingMenus.lib import contextual_utils as CONTEXT
-from cgm.core.cgmPy import str_Utils as STRINGS
-from cgm.core.tools import attrTools as ATTRTOOLS
-from cgm.core.rigger.lib import spacePivot_utils as SPACEPIVOT
-from cgm.core.cgmPy import path_Utils as CGMPATH
+#from cgm.core.lib import list_utils as LISTS
+#from cgm.core.tools.markingMenus.lib import contextual_utils as CONTEXT
+#from cgm.core.cgmPy import str_Utils as STRINGS
+#from cgm.core.tools import attrTools as ATTRTOOLS
+#from cgm.core.rigger.lib import spacePivot_utils as SPACEPIVOT
+#from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
+#from cgm.lib import lists
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 

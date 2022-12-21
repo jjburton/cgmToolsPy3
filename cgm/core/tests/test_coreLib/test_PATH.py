@@ -38,7 +38,9 @@ class Test_Path(unittest.TestCase):
     def test_queries(self):
         import cgm
         _dir = PATH.Path(cgm.__path__[0])
-        _file = os.path.join(_dir.up(),'cgmToolbox.py')
+        
+        self.assertTrue(issubclass(type(_dir.up()),str))
+        _file = PATH.Path(os.path.join(_dir.up().asString(),'cgmToolbox.py'))
         
         self.assertEqual(os.path.exists(_dir),True)
         self.assertEqual(os.path.exists(_file),True)
@@ -54,8 +56,12 @@ class Test_Path(unittest.TestCase):
     def test_walk(self):
         import cgm.core as CORE
         _test = PATH.Path(CORE.__path__[0])
-        for root,dirs,files in os.walk(_test,True,True):
-            pass      
+        for root,dirs,files in os.walk(_test.asString(),True,True):
+            #print(root)
+            for d in dirs:
+                #print(d)
+                for f in files:
+                    print(f)
 
 
         

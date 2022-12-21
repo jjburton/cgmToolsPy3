@@ -1577,6 +1577,7 @@ class argsToNodes(object):
         #Fast check only checks connected nodes and not all nodes of that type
         """
         def verifyDriver(self,arg):
+            """
             if type(arg) == str:
                 #We should have already done this one
                 if arg not in list(self.d_good_NetworkOuts.keys()):
@@ -1584,7 +1585,11 @@ class argsToNodes(object):
                 log.debug(arg)
                 d = self.ml_attrs[ self.d_good_NetworkOuts[arg] ]
                 return d
-
+                
+"""
+            if arg in self.d_good_NetworkOuts.keys():
+                d = self.ml_attrs[ self.d_good_NetworkOuts[arg] ]
+                return d                
             elif type(arg) == int:
                 d = self.ml_attrs[arg]
                 return d
@@ -1606,15 +1611,23 @@ class argsToNodes(object):
             l_driverNames = []
             try:#Get our drivers
                 for v in d_arg['drivers']:
-                    if type(v) == str:
-                        #We should have already done this one
-                        if v not in list(self.d_good_NetworkOuts.keys()):
-                            raise Exception("Not built yet: '%s'"%v)
+                    _type = type(v)
+                    #print(_type)
+                    if v in self.d_good_NetworkOuts.keys():
                         log.debug(v)
                         d = self.ml_attrs[ self.d_good_NetworkOuts[v] ]
                         ml_drivers.append(d)
-                        ml_nodeDrivers.append(d)
-                    elif type(v) == int:
+                        ml_nodeDrivers.append(d)                    
+                        """
+                        if _type == unicode:
+                            #We should have already done this one
+                            if v not in list(self.d_good_NetworkOuts.keys()):
+                                raise Exception("Not built yet: '%s'"%v)
+                            log.debug(v)
+                            d = self.ml_attrs[ self.d_good_NetworkOuts[v] ]
+                            ml_drivers.append(d)
+                            ml_nodeDrivers.append(d)"""
+                    elif _type == int:
                         d = self.ml_attrs[v]
                         ml_drivers.append(d)
                         ml_nodeDrivers.append(d)			
@@ -1818,7 +1831,8 @@ class argsToNodes(object):
         if d_arg not in self.l_good_nodeNetworks:
             log.debug("argsToNodes>> Checking: %s"%d_arg)
             verifyNode(d_arg,nodeType)
-
+        #import pprint
+        #pprint.pprint(self.__dict__)
         """
 	if self.i_mdOutAttrIndex is not None:#Register our connection to make
 	    log.debug("adding connection: %s = [%s]"%(self.i_mdOutAttrIndex,buildNetworkIndex))

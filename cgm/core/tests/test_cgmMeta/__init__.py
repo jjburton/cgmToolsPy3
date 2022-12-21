@@ -45,7 +45,7 @@ def main(**kwargs):
 	cgm.core._reload() 
 	sceneSetup()
 	
-	_t_start = time.clock()
+	_t_start = time.time()
 	_len_all = 0
 	
 	for mod in modules:
@@ -79,7 +79,7 @@ def main(**kwargs):
 		print((cgmGEN._str_subLine))
 		print((">>> Module complete : {0} | {1} ...".format(mod,format(module))))		
 		
-	print(("Completed [{0}] tests in [{1}] modules >> Time >> = {2} seconds".format(_len_all, len(modules), "%0.3f"%(time.clock()-_t_start)))) 
+	print(("Completed [{0}] tests in [{1}] modules >> Time >> = {2} seconds".format(_len_all, len(modules), "%0.3f"%(time.time()-_t_start)))) 
 	cgmGEN.report_enviornmentSingleLine()
 	print((cgmGEN._str_hardBreak))	
 	

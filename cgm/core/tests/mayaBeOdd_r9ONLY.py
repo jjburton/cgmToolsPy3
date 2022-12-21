@@ -30,9 +30,9 @@ def speedTest_simpleLocator(iterations = 100):
     for i in range(iterations):
 	print(("On...{0}".format(i)))
 	
-	t1 = time.clock()		
+	t1 = time.time()		
 	mc.duplicate(_loc, po = False, ic = False, un = False)
-	t2 = time.clock()
+	t2 = time.time()
 	l_times.append(t2-t1)
 	
     for i,t in enumerate(l_times):
@@ -108,14 +108,14 @@ def speedTest_mNodeCall(*args, **kws):
 	    #pass 1....
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Call %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(_rootString)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( [self.test2_func(self._toCall)] )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)		
 		
 		#self.l_roots_1.extend( [jntUtils.duplicateJointInPlace(_rootString,asMeta=False)] )
@@ -208,15 +208,15 @@ def speedTest_substantiation(*args, **kws):
 		#string = mc.createNode('transform',n = "sameName".format(i))
 		#_group = mc.group(n = "obj_{0}".format(i), em=True)
 		#string = mc.parent(string,_group)[0]
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(_first)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		#self.l_roots_2.extend( [self.test2_func(self._toCall)] )  
 		self.call2_func(string)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 			
 		
@@ -316,17 +316,17 @@ def speedTest_cacheReturn(*args, **kws):
 		#string = mc.joint(n = "obj_{0}".format(i))
 		string = mc.createNode('network',n = "obj_{0}".format(i))
 		#string = mc.createNode('transform',n = "obj_{0}".format(i))
-		t1 = time.clock()	
+		t1 = time.time()	
 		n1 = self.test1_func(string)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 		r9Meta.registerMClassNodeCache(n1)
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		#self.l_roots_2.extend( [self.test2_func(self._toCall)] )  
 		self.call2_func(n1.mNode)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 			
 		
@@ -370,7 +370,7 @@ def speedTest_objectCount(iterations = 100,):
     """
     l_times = []
     mc.file(new=True,f=True)    
-    t_start = time.clock()
+    t_start = time.time()
     _jnt = mc.joint()
     for i in range(iterations):
 	log.info("On...{0}".format(i))	
@@ -378,16 +378,16 @@ def speedTest_objectCount(iterations = 100,):
 	#_jnt = mc.createNode('multiplyDivide')
 	#_jnt = mc.createNode('transform')
 	
-	t1 = time.clock()
+	t1 = time.time()
 	#r9Meta.MetaClass(name = 'test_{0}'.format(i),nodeType='transform')
 	#import maya.cmds as mc
 	
 	r9Meta.MetaClass(_jnt)
 	#r9Meta.MetaClass(_jnt,autofill='messageOnly')
-	t2 = time.clock()
+	t2 = time.time()
 	l_times.append(t2-t1)
 	
-    t_end = time.clock()
+    t_end = time.time()
 	
     #for i,t in enumerate(l_times):
 	#log.info("Step {0} |  {1}".format(i,"%0.3f"%t))
@@ -466,15 +466,15 @@ def speedTest_attrExists(*args, **kws):
                 self.progressBar_set(status = ("Pass 1: Substantiating Call %i"%i), progress = i, maxValue = self.int_targetCount)		
 		mObj.addAttr('test_{0}'.format(i),attrType='string')
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		n1 = self.test1_func(mObj)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 				
-		t1 = time.clock()	
+		t1 = time.time()	
 		#self.l_roots_2.extend( [self.test2_func(self._toCall)] )  
 		self.call2_func(mObj)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 			
 		

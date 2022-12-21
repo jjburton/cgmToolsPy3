@@ -709,7 +709,7 @@ def uiUpdateMessage(self):
     Sets the message value of a loaded attr in the modify menu
     """  
     #>>> Variables
-    selection = mc.ls(sl=True,flatten=True,int=True) or []
+    selection = mc.ls(sl=True,flatten=True,long=True) or []
     if self.activeAttr:
 	if selection:
 	    self.activeAttr.doStore(selection[0])             

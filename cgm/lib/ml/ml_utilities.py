@@ -1085,7 +1085,7 @@ class KeySelection(object):
         if not self.nodeSelection:
             return False
         
-        objs = mc.ls(self.nodeSelection, int=True)
+        objs = mc.ls(self.nodeSelection, long=True)
         tops = list()
         namespaces = list()
         for obj in objs:

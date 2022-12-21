@@ -28,18 +28,18 @@ mUI = cgmUI.mUI
 
 from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import search_utils as SEARCH
-from cgm.core.lib import name_utils as NAMES
+#from cgm.core.lib import name_utils as NAMES
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.lib import attribute_utils as ATTR
-from cgm.core.lib import list_utils as LISTS
+#from cgm.core.lib import list_utils as LISTS
 from cgm.core.tools.markingMenus.lib import contextual_utils as CONTEXT
 from cgm.core.cgmPy import str_Utils as STRINGS
 import cgm.core.lib.string_utils as CORESTRING
 from cgm.core.tools import attrTools as ATTRTOOLS
-from cgm.core.rigger.lib import spacePivot_utils as SPACEPIVOT
-from cgm.core.cgmPy import path_Utils as CGMPATH
+from cgm.core.rig import spacePivot_utils as SPACEPIVOT
+#from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
 from cgm.lib import lists
 #>>> Root settings =============================================================
@@ -1134,7 +1134,7 @@ def uiMenu_changeSpace(self, parent, showNoSel = False, d_timeContext = {}, Call
     _str_func='uiMenu_changeSpace'
     log.debug(cgmGEN.logString_start(_str_func))
     __int_maxObjects = 10
-    timeStart_objectList = time.clock()    
+    timeStart_objectList = time.time()    
 
     try:_ml_objList = self._ml_objList
     except:
@@ -1187,7 +1187,7 @@ def uiMenu_changeSpace(self, parent, showNoSel = False, d_timeContext = {}, Call
     #=========================================================================================
     log.debug(cgmGEN.logString_sub(None,'Common options...'))    
     #>> Find Common options 
-    #timeStart_commonOptions = time.clock()
+    #timeStart_commonOptions = time.time()
     l_commonAttrs = []
     d_sharedAttrsDat = {}
     d_sharedOptionsDat = {}
@@ -1233,7 +1233,7 @@ def uiMenu_changeSpace(self, parent, showNoSel = False, d_timeContext = {}, Call
         
         log.debug("Common Attrs: {0}".format(l_commonAttrs))
         log.debug("Options Dat: {0}".format(d_sharedAttrsDat))    
-    #log.info("|{0}| >> Common options build time: {1}".format(_str_func,  '%0.3f seconds  ' % (time.clock()-timeStart_commonOptions)))    
+    #log.info("|{0}| >> Common options build time: {1}".format(_str_func,  '%0.3f seconds  ' % (time.time()-timeStart_commonOptions)))    
     
 
     #>> Build ------------------------------------------------------------------
@@ -1422,7 +1422,7 @@ def func_multiChangeDynParent(md_spaceSwitchDat,attr,option):
     cgmGEN.log_info_dict(md_spaceSwitchDat,"Data...")
     l_objects = [i_o.getShortName() for i_o in list(md_spaceSwitchDat.keys())]
     log.info("func_multiChangeDynParent>> attr: '%s' | option: '%s' | objects: %s"%(attr,option,l_objects))
-    timeStart_tmp = time.clock()
+    timeStart_tmp = time.time()
     for i_o in list(md_spaceSwitchDat.keys()):
         try:
             mDynParent = md_spaceSwitchDat[i_o]['dynParent'].get('mDynParent')
@@ -1430,7 +1430,7 @@ def func_multiChangeDynParent(md_spaceSwitchDat,attr,option):
         except Exception as error:
             log.error("func_multiChangeDynParent>> '%s' failed. | %s"%(i_o.getShortName(),error))    
 
-    log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.clock()-timeStart_tmp) + '<'*10)  
+    log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.time()-timeStart_tmp) + '<'*10)  
     mc.select(l_objects)
     
     
@@ -1497,7 +1497,7 @@ def uiMenu_changeSpaceOverTime(self, parent, showNoSel = False,Callback=cgmGEN.C
 
     #=========================================================================================
     #>> Find Common options ------------------------------------------------------------------
-    timeStart_commonOptions = time.clock()    
+    timeStart_commonOptions = time.time()    
     l_commonAttrs = []
     d_sharedAttrsDat = {}
     bool_firstFound = False
@@ -1521,7 +1521,7 @@ def uiMenu_changeSpaceOverTime(self, parent, showNoSel = False,Callback=cgmGEN.C
 
     log.info("|{0}| >> Common Attrs: {1}".format(_str_func, l_commonAttrs))                
     log.info("|{0}| >> Common Options: {1}".format(_str_func, d_sharedAttrsDat))    
-    log.info("|{0}| >> Common options build time: {1}".format(_str_func,  '%0.3f seconds  ' % (time.clock()-timeStart_commonOptions)))    
+    log.info("|{0}| >> Common options build time: {1}".format(_str_func,  '%0.3f seconds  ' % (time.time()-timeStart_commonOptions)))    
     
 
     #>> Build ------------------------------------------------------------------

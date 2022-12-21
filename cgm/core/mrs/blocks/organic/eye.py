@@ -1040,7 +1040,7 @@ def form(self):
                         _crvShape = TRANS.shapes_get(_crv)[0]
                         
                         _crv = mc.rebuildCurve(_crv,rpo=True,ch=1, spans=10)
-                        _l_source = mc.ls("{0}.{1}[*]".format(_crvShape,'ep'),flatten=True,int=True)
+                        _l_source = mc.ls("{0}.{1}[*]".format(_crvShape,'ep'),flatten=True,long=True)
                         
                         for ii,cv in enumerate(_l_source):
                             if crvToDo == 'contact':

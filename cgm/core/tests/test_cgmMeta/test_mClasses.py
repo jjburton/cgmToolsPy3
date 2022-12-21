@@ -217,10 +217,11 @@ class Test_cgmObject(unittest.TestCase):
         _contraint = mc.parentConstraint([pCube.mNode,nCube.mNode], pCube2.mNode, maintainOffset = True)
         _mConstraint = cgmMeta.cgmObject(_contraint[0])
         
-        self.assertEqual(pCube2.getConstraintsByDrivingObject(pCube.mNode,True),
-                         [_mConstraint])
-        self.assertItemsEqual([mObj.mNode for mObj in pCube2.getConstrainingObjects(True)],
-                              [pCube.mNode,nCube.mNode])
+        _testEqual1 = pCube2.getConstraintsByDrivingObject(pCube.mNode,True) == [_mConstraint]
+        self.assertTrue( _testEqual1 )
+        
+        _testEqual2 = [mObj.mNode for mObj in pCube2.getConstrainingObjects(True)] == [pCube.mNode,nCube.mNode]
+        self.assertTrue(_testEqual2)
         
         self.assertEqual([_mConstraint],
                          pCube2.getConstraintsTo(True))
@@ -592,9 +593,17 @@ class Test_cgmNode(unittest.TestCase):
         
         
         testDict={'jsonFloat':1.05,'jsonInt':3,'jsonString':'string says hello','jsonBool':True}
-        mObj.addAttr('jsonTest',testDict,attrType = 'string')     
-        self.assertEqual( mc.getAttr('{0}.jsonTest'.format(_short)),
-                          '{"jsonFloat": 1.05, "jsonBool": true, "jsonString": "string says hello", "jsonInt": 3}')
+        
+        mObj.addAttr('jsonTest',testDict,attrType = 'string')
+        
+        
+        _returnDict = mObj.jsonTest
+        
+        for k,v in list(testDict.items()):
+            self.assertEqual(_returnDict[k],v)
+            
+        #self.assertEqual( mc.getAttr('{0}.jsonTest'.format(_short)),
+        #                  '{"jsonFloat": 1.05, "jsonBool": true, "jsonString": "string says hello", "jsonInt": 3}')
   
         
         for a in mc.listAttr(mObj.mNode, ud=True):

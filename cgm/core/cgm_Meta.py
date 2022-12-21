@@ -185,7 +185,7 @@ def reinitializeMetaClass(node):
         mObj = r9Meta.MetaClass(node)
     _buffer = mObj.mNode
 
-    _keyCheck = mc.ls(mObj.mNode,int=True)[0]
+    _keyCheck = mc.ls(mObj.mNode,long=True)[0]
     if _keyCheck in list(r9Meta.RED9_META_NODECACHE.keys()):
         log.debug('Cached already and class to be changed....')
 
@@ -1397,1349 +1397,8 @@ class cgmNode(r9Meta.MetaClass):
         self.cgm = {}
         for tag in l_cgmNameTags:
             if tag not in ignore:
-                self.cgm[tag] = search.findRawTagInfo(self.mNode,tag)
+                self.cgm[tag] = SEARCH.get_tagInfo(self.mNode,tag)
         return self.cgm        
-
-class cgmNodeOLD(r9Meta.MetaClass):
-    #def __bind__(self):pass	
-    def __init__(self,node = None, name = None,nodeType = 'network', **kws):
-        """ 
-        Utilizing Red 9's MetaClass. Intialized a node in cgm's system.
-        """
-        if node is None or name is not None and mc.objExists(name):
-            createdState = True
-        else:createdState = False
-
-        #ComponentMode ----------------------------------------------------------------------
-        componentMode = False
-        component = False	
-        if node is not None:
-            node = names.getShortName(node)
-            if '.' in node and VALID.get_mayaType(node) in l_componentTypes:
-                componentMode = True
-                component = node.split('.')[-1]
-
-        _setClass = kws.get('setClass')
-        _autofill = kws.get('autofill',False)
-        #log.info("{1} | setClass: {0}".format(_setClass,'in cgmNode'))
-        #log.info("{1} | kws: {0}".format(kws,'in cgmNode'))
-        #log.info("{1} | args: {0}".format(args,'in cgmNode'))
-
-        super(cgmNodeOLD, self).__init__(node,name = name,nodeType = nodeType,autofill = _autofill, **kws)
-
-
-        #>>> TO USE Cached instance ---------------------------------------------------------
-        #log.info(self)
-        if self.cached:
-            log.debug("using cache: {0}".format(self._lastDagPath))
-            return
-        elif _setClass:
-            log.error("Do not use 'setClass' flag - Object '{0}'".format(self.mNode))
-            '''if set_mClassInline(self, _setClass):
-		log.info('cgmNode init | reinitialize post set_mClass')
-		#super(cgmNode, self).__init__(self.mNode)
-		r9Meta.registerMClassNodeCache(self)'''
-        #====================================================================================
-        #...see if extending unmanaged is necessary    	
-        for a in '__justCreatedState__','__componentMode__','__component__':
-            if a not in self.UNMANAGED:
-                self.UNMANAGED.append(a)   	
-        try:
-            object.__setattr__(self, '__componentMode__', componentMode)
-            object.__setattr__(self, '__component__', component)
-            object.__setattr__(self, '__justCreatedState__', createdState)	    
-        except Exception as error:
-            r9Meta.printMetaCacheRegistry()
-            raise Exception("Failed to extend unmanaged | %s"%error)	
-
-        #self.update()
-
-    def __verify__(self):
-        pass#For overload
-
-    def hasAttr(self, attr):
-        '''
-        simple wrapper check for attrs on the mNode itself.
-        Note this is not run in some of the core internal calls in this baseClass
-        '''
-        if self.isValidMObject():
-            try:
-                _result = self._MFnDependencyNode.hasAttribute(attr)
-                if not _result:#..this pass gets the alias
-                    #Must rewrap the mobj, if you don't it kills the existing mNode and corrupts its cache entry
-                    #2011 bails because it lacks the api call anyway, 2012 and up work with this
-                    mobj=OM.MObject()
-                    selList=OM.MSelectionList()
-                    selList.add(self._MObject)
-                    selList.getDependNode(0,mobj)		    
-                    _result = self._MFnDependencyNode.findAlias(attr,mobj)
-                return _result
-            except Exception as err:
-                #log.error('hasAttr failure...{0}'.format(err))#...this was just to see if I had an error
-                return mc.objExists("{0}.{1}".format(self.mNode, attr))
-
-    def testWrap(self,*args,**kws):
-        _mNodeSelf = self
-        class fncWrap(cgmMetaFunc):
-            def __init__(self,*args,**kws):
-                """
-                """    
-                #args.insert(0,_mNodeSelf)
-                super(fncWrap, self).__init__(*args,**kws)
-                self.mi_mNode = _mNodeSelf
-                self._str_func= "testFunc(%s)"%self.mi_mNode.p_nameShort	
-
-                #EXTEND our args and defaults
-                self.__dataBind__(*args,**kws)	
-                self.l_funcSteps = [{'step':'Get Data','call':self._getData}]
-                #=================================================================
-
-            def _getData(self):
-                """
-                """
-                log.info(self.mi_mNode.p_nameShort)
-                self.report()  
-
-        return fncWrap(*args,**kws).go()
-
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Properties
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
-    #parent
-    #==============    
-    def getParent(self,asMeta = False):
-        try:
-            buffer = search.returnParentObject(self.mNode) or False
-            if buffer and asMeta:
-                return validateObjArg(buffer,mType = cgmObject)
-            return buffer
-        except Exception as error:raise Exception("[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error))
-
-    def getParent_asMObject(self):
-        pBuffer = search.returnParentObject(self.mNode) or False
-        if not pBuffer:
-            return False
-        return validateObjArg(pBuffer)
-
-    parent = property(getParent)
-    p_parent = property(getParent)
-
-    def __setMessageAttr__(self,attr,value, force = True, ignoreOverload = False,**kws):
-        if ignoreOverload:#just use Mark's
-            r9Meta.MetaClass.__setMessageAttr__(self,attr,value,**kws)
-        ATTR.set_message(self.mNode, attr, value)
-        
-        """elif type(value) is list:
-            attributes.storeObjectsToMessage(value,self.mNode,attr)
-        else:
-            attributes.storeObjectToMessage(value,self.mNode,attr)"""
-
-    """def __setattr__(self,attr,value, force = True, lock = None, **kws):
-	r9Meta.MetaClass.__setattr__(self,attr,value,**kws)
-	if lock is None:
-	    try:
-		if self.attrIsLocked(attr):
-		    lock = True	    
-	    except:pass
-	try:r9Meta.MetaClass.__setattr__(self,attr,value,**kws)
-	except StandardError,error:
-	    raise StandardError, "%s.__setattr__(attr  = %s,value= %s) | error: %s"%(self.getShortName(),attr,value,error)
-
-	if lock is not None and not self.isReferenced():
-	    mc.setAttr(('%s.%s'%(self.mNode,attr)),lock=lock)	"""  
-
-    def getMessage(self,attr,longNames = True):
-        """
-        This maybe odd to some, but we treat traditional nodes as regular message connections. However, sometimes, you want a message like connection
-        to an attribute. To do this, we devised a method of creating a compaptble attr on the object to recieve the message, 
-        connecting the attribute you want to connect to that attribute and then when you call an attribute as getMessage, if it is not a message attr
-        it tries to trace back that connection to an attribute.
-        """
-        _res = ATTR.get_message(self.mNode,attr,simple=True)
-        if _res and longNames:
-            return [names.getLongName(o) for o in _res]
-        return _res
-        
-        try:
-            if mc.objExists('%s.%s' % (self.mNode,attr)):#self.hasAttr(attr):
-                if mc.getAttr('%s.%s' % (self.mNode,attr),type=True)  == 'message':
-                    return attributes.returnMessageData(self.mNode,attr,longNames) or []
-                else:
-                    return cgmAttr(self,attr).getMessage()
-            return []
-        except Exception as err:
-            log.error("getMessage fail | {0} | err:{1}".format(Exception,err))
-            return []
-        """if mc.objExists('%s.%s' % (self.mNode,attr)) and mc.getAttr('%s.%s' % (self.mNode,attr),type=True)  == 'message':
-	    return attributes.returnMessageData(self.mNode,attr,longNames) or []
-	elif mc.objExists('%s.%s' % (self.mNode,attr)):
-	    return cgmAttr(self,attr).getMessage()
-	return [] """
-
-    def __getMessageAttr__OLD(self, attr):
-        '''
-        Overloaded Red9's for a default cgmNode
-        '''
-        msgLinks=mc.listConnections('%s.%s' % (self.mNode,attr),destination=True,source=True)
-        if msgLinks:
-            msgLinks=mc.ls(msgLinks,l=True)
-            if not mc.attributeQuery(attr, node=self.mNode, m=True):  # singular message
-                if r9Meta.isMetaNode(msgLinks[0]):
-                    return cgmNode(msgLinks[0])
-            for i,link in enumerate(msgLinks):
-                if r9Meta.isMetaNode(link) or self._forceAsMeta:
-                    msgLinks[i]=cgmNode(link)
-                    log.debug('%s :  Connected data is an mClass Object, returning the Class' % link)    
-            return msgLinks
-        else:
-            log.debug('nothing connected to msgLink %s.%s' % (self.mNode,attr))
-            return []
-
-    def getMessageAsMeta(self,attr):
-        """
-        This is for when you need to build a attr name in 
-        """
-        buffer = self.getMessage(attr)
-        if not buffer:
-            return False
-        if '.' in buffer:
-            try:return validateAttrArg(buffer)['mi_plug']
-            except Exception as error:log.error("[%s.getMessageAsAttr(%s) fail]{%s}"%(self.p_nameShort,attr,error))
-        if len(buffer) == 1:
-            return validateObjArg(self.getMessage(attr)) or False
-        else:
-            return validateObjListArg(self.getMessage(attr)) or False	    
-
-    def getComponent(self):
-        """
-        Replacement mNode call for component mode
-        """
-        if self.__componentMode__ and self.__component__:
-            buffer = '%s.%s'%(self.mNode,self.__component__)
-            if mc.objExists(buffer):return buffer
-            else:log.warning("Component no longer exists: %s"%self.__component__)
-            return self.mNode
-        return self.mNode
-
-    def isComponent(self):
-        """
-        Returns if what is stored is a component
-        """
-        if self.__componentMode__ and self.__component__:
-            buffer = '%s.%s'%(self.mNode,self.__component__)
-            if mc.objExists(buffer):return True
-            else:log.warning("Component no longer exists: %s"%self.__component__)
-            return False
-        return False 
-
-    def isAttrKeyed(self,attr):
-        """
-        Returns if attribute is keyed
-        """	
-        return ATTR.is_keyed([self.mNode,attr])
-
-    def isAttrConnected(self,attr):
-        """
-        Returns if attribute is connected
-        """		
-        return ATTR.is_connected([self.mNode,attr])
-
-    def getComponents(self,arg = False):
-        """
-        @arg
-        pass an arg through an mc.ls flatten call
-        """
-        if arg:
-            try:return mc.ls(['%s.%s[*]'%(self.mNode,arg)],flatten=True)
-            except Exception as error:
-                log.error(error)
-                return False
-        else:
-            try:
-                objType = self.getMayaType()
-                if objType in ['mesh','polyVertex','polyEdge','polyFace','nurbsCurve',
-                               'nurbsSurface','shape','surfaceCV']:
-                    if objType == 'mesh':
-                        return mc.ls([self.mNode+'.vtx[*]'],flatten=True)
-                    elif objType == 'polyVertex':
-                        return self.getComponent()
-                    elif objType in ['polyEdge','polyFace']:
-                        mc.select(cl=True)
-                        mc.select(self.mNode)
-                        mel.eval("PolySelectConvert 3")
-                        return mc.ls(sl=True,fl=True)
-                    elif objType in ['nurbsCurve','nurbsSurface']:
-                        l_components = []
-                        shapes = mc.listRelatives(self.mNode,shapes=True,fullPath=True)
-                        if shapes:
-                            for shape in shapes:
-                                l_components.extend(mc.ls ([shape+'.ep[*]'],flatten=True))
-                            return l_components
-                        else:
-                            return mc.ls([self.mNode+'.ep[*]'],flatten=True)
-                    elif objType == 'shape':
-                        return mc.ls ([self.mNode+'.ep[*]'],flatten=True)
-                    elif objType == 'surfaceCV':
-                        return self.getComponent()
-                    else:
-                        return self.getComponent()
-                return False 
-            except Exception as error:
-                log.warning("getComponents: %s"%error)	
-                return False
-
-    #Connection stuff =========================================================================
-    def exampleWrapFunc(self,*args,**kws):
-        '''
-        Wip rewrite of connectChildNode
-        '''
-        _mNodeSelf = self#>> MUST BE IN PLACE FOR METACLASS SUB CGMFUNCLS
-        class fncWrap(cgmMetaFunc):
-            def __init__(self,*args,**kws):
-                """
-                """    
-                #args.insert(0,_mNodeSelf)
-                super(fncWrap, self).__init__(*args,**kws)
-                self.mi_mNode = _mNodeSelf
-                self._str_funcHelp = "Fill in this help \nNew line!"		
-                self._str_func= "%s.exampleWrapFunc"%_mNodeSelf.p_nameShort	
-                self._l_ARGS_KWS_DEFAULTS = [{'kw':'node',"default":None,'help':"Node to connect","argType":"mObject/maya object"},
-                                             {'kw':'attr',"default":None,'help':"Attribute to connect to","argType":"string"},
-                                             {'kw':"connectBack","default":None,'help':"Attribute to connect back to on the source object","argType":"string"},
-                                             {'kw':"srcAttr","default":None,'help':"Node to connect","argType":"mObject/maya object"},
-                                             {'kw':"force","default":False}]		
-                self.__dataBind__(*args,**kws)#>> MUST BE IN PLACE FOR METACLASS SUB CGMFUNCLS
-                self.l_funcSteps = [{'step':'Gather Info','call':self.__func__}]	
-            def __func__(self):
-                self.report()
-                self.log_info("cleanKws: %s"%self.get_cleanKWS())
-        return fncWrap(*args,**kws).go()   
-
-    def connectChildNode(self,*args,**kws):
-        '''
-        Wip rewrite of connectChildNode
-        '''
-        _mNodeSelf = self#>> MUST BE IN PLACE FOR METACLASS SUB CGMFUNCLS
-        class fncWrap(cgmMetaFunc):
-            def __init__(self,*args,**kws):
-                """
-                """    
-                #args.insert(0,_mNodeSelf)
-                super(fncWrap, self).__init__(*args,**kws)
-                self.mi_mNode = _mNodeSelf
-                self._str_func= "%s.connectChildNode"%_mNodeSelf.p_nameShort	
-                self._l_ARGS_KWS_DEFAULTS = [{'kw':'node',"default":None,'help':"Node to connect","argType":"mObject/maya object"},
-                                             {'kw':'attr',"default":None,'help':"Attribute to connect to","argType":"string"},
-                                             {'kw':"connectBack","default":None,'help':"Attribute to connect back to on the source object","argType":"string"},
-                                             {'kw':"srcAttr","default":None,'help':"Node to connect","argType":"mObject/maya object"},
-                                             {'kw':"force","default":False}]		
-                self.__dataBind__(*args,**kws)#>> MUST BE IN PLACE FOR METACLASS SUB CGMFUNCLS
-                self.l_funcSteps = [{'step':'Gather Info','call':self._process_},
-                                    {'step':'Action','call':self._act_},
-                                    ]			
-            def _process_(self):
-                """
-                """
-                try:#Query ========================================================================
-                    _self = _mNodeSelf
-                    self._node = self.d_kws['node']
-                    self._attr = self.d_kws['attr']
-                    self._connectBack = self.d_kws['connectBack']
-                    self._srcAttr = self.d_kws['srcAttr']
-                    self._force = self.d_kws['force']
-
-                    #if issubclass(type(self._node),r9Meta.MetaClass):
-                    try:self._node = self._node.mNode 
-                    except:pass
-                    if not self._srcAttr:          
-                        self._srcAttr = _mNodeSelf.message  #attr on the nodes source side for the child connection   		    
-                except Exception as error:raise Exception("[Query]{%s}"%(error))
-
-            def _act_(self):
-                ATTR.set_message(_mNodeSelf.mNode, self._attr, self._node)
-                
-                """try:attributes.storeObjectToMessage(self._node, _mNodeSelf.mNode, self._attr)
-                except Exception,error:raise StandardError, "[Connect]{%s}"%(error)"""
-
-                if self._connectBack is not None:
-                    ATTR.set_message(self._node, self._connectBack, _mNodeSelf.mNode,)                    
-                    """try:attributes.storeObjectToMessage(_mNodeSelf.mNode,self._node,self._connectBack)
-                    except Exception,error:raise StandardError, "[ConnectBack]{%s}"%(error)"""
-                return True
-        return fncWrap(*args,**kws).go()
-
-    def connectParentNode(self, node, attr, connectBack = None, srcAttr=None):
-        """
-        Replacing Mark's connect Parent with our own which connects to .message connections.
-
-        Fast method of connecting message links to the mNode as parents
-        @param node: Maya nodes to connect to this mNode
-        @param attr: Name for the message attribute on self to connec to the parent
-
-        @param srcAttr: If given this becomes the attr on the node which connects it 
-                        to the parent. If NOT given the connection attr is the parent.message
-        """
-        #log.info(connectBack)
-        if issubclass(type(node), r9Meta.MetaClass):
-            #if not srcAttr:
-                #srcAttr=node.message
-            node=node.mNode        
-        try:
-            #if connectBack and not mc.attributeQuery(connectBack, exists=True, node=node):
-                #add to parent node
-                #mc.addAttr(node,longName=connectBack, at='message', m=False)
-            
-            ATTR.set_message(self.mNode, attr, node)            
-            #attributes.storeObjectToMessage(node,self.mNode,attr)
-            #try:cgmAttr(node,connectBack,attrType='message').doConnectIn("%s.msg"%self.mNode)	    
-            #except StandardError,error:raise StandardError,"connect Fail | %s"%error
-
-            if connectBack is not None:
-                ATTR.set_message(node, connectBack, self.mNode)            
-                #attributes.storeObjectToMessage(self.mNode,node,connectBack)
-                #try:cgmAttr(self,attr,attrType='message').doConnectIn("%s.msg"%node)
-                #except StandardError,error:raise StandardError,"connectBack Fail | %s"%error
-
-            #attributes.storeObjectToMessage(node,self.mNode,attr)
-
-            #if srcAttr:attributes.storeObjectToMessage(node,self.mNode,srcAttr)
-            return True
-
-        except Exception as error:
-            log.warning("connectParentNode: %s"%error)
-
-    def connectChildrenNodes(self, nodes, attr, connectBack = None, force=True):
-        """
-        Replacement connector using .msg connections
-        """
-        if type(nodes) not in [list,tuple]:nodes=[nodes]
-        nodesToDo = []
-        for node in nodes:
-            if issubclass(type(node), r9Meta.MetaClass):
-                nodesToDo.append(node.mNode) 
-            elif mc.objExists(node):
-                nodesToDo.append(node) 
-            else:
-                log.warning("connectChildrenNodes can't add: '%s'"%node)
-
-        ATTR.set_message(self.mNode, attr, nodesToDo)            
-        
-        #attributes.storeObjectsToMessage(nodesToDo,self.mNode,attr)
-
-        for i,node in enumerate(nodesToDo):
-            #attributes.storeObjectToMessage(node,self.mNode,"%s_%s"%(attr,i))
-            try:
-                if connectBack is not None:
-                    ATTR.set_message(node, connectBack, self.mNode)                                
-                    #attributes.storeObjectToMessage(self.mNode,node,connectBack)		
-            except Exception as error:
-                log.warning("connectChildrenNodes: %s"%error)
-
-    #msgList Functions =====================================================================
-    def msgList_connect(self, nodes, attr = None, connectBack = None, dataAttr = None):
-        """
-        Because multimessage data can't be counted on for important sequential connections we have
-        implemented this.
-
-        @param node: Maya node to connect to this mNode
-        @param attr: Base name for the message attribute sequence. It WILL be appended with '_' as in 'attr_0'
-        @param connectBack: attr name to connect back to self
-        @param purge: Whether to purge before build
-
-        """	
-        ATTR.msgList_connect(self.mNode, attr, nodes, connectBack,dataAttr)
-        
-        return True
-        _str_func = "%s.msgList_connect()"%self.p_nameShort  
-        #log.debug(">>> %s.msgList_connect( attr = '%s', connectBack = '%s') >> "%(self.p_nameShort,attr,connectBack) + "="*75) 	    
-        try:
-            #ml_nodes = VALID.objStringList(nodes,noneValid=True)	    
-            ml_nodes = validateObjListArg(nodes,noneValid=True)
-            if ml_nodes:self.msgList_purge(attr)#purge first
-            for i,mi_node in enumerate(ml_nodes):
-                str_attr = "%s_%i"%(attr,i)
-                try:attributes.storeObjectToMessage(mi_node.mNode,self.mNode,str_attr)
-                except Exception as error:log.error("%s >> i : %s | node: %s | attr : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,str_attr,error))
-                if connectBack is not None:
-                    try:attributes.storeObjectToMessage(self.mNode,mi_node.mNode,connectBack)
-                    except Exception as error:log.error("%s >> i : %s | node: %s | connectBack : %s | connect back error: %s"%(_str_func,str(i),mi_node.p_nameShort,connectBack,error))
-                #log.debug("'%s.%s' <<--<< '%s.msg'"%(self.p_nameShort,str_attr,mi_node.p_nameShort))
-            #log.debug("-"*100)            	
-            return True
-        except Exception as error:
-            raise Exception("{}.msgList_connect >>[Error]<< : {}".format(self.p_nameShort,error))	
-
-    def msgList_get(self,attr = None, dataAttr = None, asMeta = True, cull = True):
-        """
-        @param attr: Base name for the message attribute sequence. It WILL be appended with '_' as in 'attr_0'
-        @param asMeta: Returns a MetaClass object list
-        @param cull: Whether to remove empty entries in the returned list
-        """
-        _res = ATTR.msgList_get(self.mNode, attr, dataAttr,cull)
-        if asMeta:
-            return validateObjListArg(_res)
-        return _res
-    
-        try:
-            #log.debug(">>> %s.get_msgList(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)  
-            d_attrs = self.get_sequentialAttrDict(attr)
-            l_return = []
-            ml_return = []
-            for i,k in enumerate(d_attrs.keys()):
-                str_msgBuffer = self.getMessage(d_attrs[i],False)
-                if str_msgBuffer:str_msgBuffer = str_msgBuffer[0]
-
-                l_return.append(str_msgBuffer)
-                if asMeta:
-                    ml_return.append( validateObjArg(str_msgBuffer,noneValid=True) )
-                    #log.debug("index: %s | msg: '%s' | mNode: %s"%(i,str_msgBuffer,ml_return[i]))
-                else:log.debug("index: %s | msg: '%s' "%(i,str_msgBuffer))
-
-            if cull:
-                l_return = [o for o in l_return if o]
-                if asMeta: ml_return = [o for o in ml_return if o]
-
-            #log.debug("-"*100)  
-            if asMeta:return ml_return
-            return l_return
-        except Exception as error:
-            raise Exception("{}.get_msgList >>[Error]<< : {}".format(self.p_nameShort,error))
-
-    def msgList_getMessage(self,attr = None, longNames = True, cull = True):
-        """
-        msgList equivalent to regular getMessage call
-        @param attr: Base name for the message attribute sequence. It WILL be appended with '_' as in 'attr_0'
-        @param longNames: Returns a MetaClass object list
-        @param cull: Whether to remove empty entries in the returned list
-        """
-        try:
-            #log.debug(">>> %s.msgList_getMessage(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)  
-            d_attrs = self.get_sequentialAttrDict(attr)
-            l_return = []
-            for i,k in enumerate(d_attrs.keys()):
-                str_msgBuffer = self.getMessage(d_attrs[i],longNames = longNames)
-                if str_msgBuffer:str_msgBuffer = str_msgBuffer[0]
-                l_return.append(str_msgBuffer)
-                #log.debug("index: %s | msg: '%s' "%(i,str_msgBuffer))
-            if cull:
-                l_return = [o for o in l_return if o]
-            #log.debug("-"*100)  
-            return l_return
-        except Exception as error:
-            raise Exception("{}.msgList_getMessage >>[Error]<< : {}".format(self.p_nameShort,error))
-
-    def msgList_append(self, node, attr = None, dataAttr = None, connectBack = None):
-        """
-        Append node to msgList
-
-        Returns index
-        """
-        try:node = node.mNode
-        except:pass
-        return ATTR.msgList_append(self.mNode,attr,node,dataAttr,connectBack)
-        
-        #try:
-        i_node = validateObjArg(node,noneValid=True)
-        if not i_node:
-            raise Exception(" %s.msgList_append >> invalid node: %s"%(self.p_nameShort,node))
-        #if not self.msgList_exists(attr):
-            #raise StandardError, " %s.msgList_append >> invalid msgList attr: '%s'"%(self.p_nameShort,attr)		
-
-        #log.debug(">>> %s.msgList_append(node = %s, attr = '%s') >> "%(self.p_nameShort,i_node.p_nameShort,attr) + "="*75)  
-
-        ml_nodes = self.msgList_get(attr,asMeta=True)
-        if i_node in ml_nodes:
-            #log.debug(">>> %s.msgList_append >> Node already connected: %s "%(self.p_nameShort,i_node.p_nameShort) + "="*75) 
-            idx = ml_nodes.index(i_node)	    
-            return idx
-        else:
-            #log.debug("%s"%i_node.p_nameShort)
-            ml_nodes.append(i_node)
-            idx = ml_nodes.index(i_node)
-            self.msgList_connect(ml_nodes,attr,connectBack)
-            return idx
-        #log.debug("-"*100)            	               	
-        return True 
-
-    def msgList_index(self, node, attr = None,dataAttr = None):
-        """
-        Return the index of a node if it's in a msgList
-        """
-        return ATTR.msgList_index(self.mNode,attr,node,dataAttr)
-    
-        i_node = validateObjArg(node,noneValid=True)
-        if not i_node:
-            raise Exception(" %s.msgList_index >> invalid node: %s"%(self.p_nameShort,node))
-        if not self.msgList_exists(attr):
-            raise Exception(" %s.msgList_index >> invalid msgList attr: '%s'"%(self.p_nameShort,attr))		
-        #log.debug(">>> %s.msgList_index(node = %s, attr = '%s') >> "%(self.p_nameShort,i_node.p_nameShort,attr) + "="*75)  
-        ml_nodes = self.msgList_get(attr,asMeta=True)	
-        if i_node in ml_nodes:
-            #log.debug(">>> %s.msgList_index >> Node already connected: %s "%(self.p_nameShort,i_node.p_nameShort) + "="*75)  		
-            return ml_nodes.index(i_node)
-        #log.debug("-"*100)            	               	
-        return False
-
-    def msgList_remove(self, nodes, attr = None, dataAttr = None):
-        """
-        Return the index of a node if it's in a msgList
-        """
-        return ATTR.msgList_remove(self.mNode,attr,nodes,dataAttr)
-    
-    
-        ml_nodesToRemove = validateObjListArg(nodes,noneValid=True)
-        if not ml_nodesToRemove:
-            raise Exception(" %s.msgList_index >> invalid nodes: %s"%(self.p_nameShort,nodes))
-        if not self.msgList_exists(attr):
-            raise Exception(" %s.msgList_append >> invalid msgList attr: '%s'"%(self.p_nameShort,attr))		
-        #log.debug(">>> %s.msgList_remove(nodes = %s, attr = '%s') >> "%(self.p_nameShort,nodes,attr) + "="*75)  
-        ml_nodes = self.msgList_get(attr,asMeta=True)
-        b_removedSomething = False
-        for i_n in ml_nodesToRemove:
-            if i_n in ml_nodes:
-                ml_nodes.remove(i_n)
-                #log.debug(">>> %s.msgList_remove >> Node removed: %s "%(self.p_nameShort,i_n.p_nameShort) + "="*75)  				
-                b_removedSomething = True
-        if b_removedSomething:
-            self.msgList_connect(ml_nodes,attr)
-            return True	    
-        #log.debug("-"*100)            	               	
-        return False
-
-    def msgList_purge(self,attr, dataAttr = None):
-        """
-        Purge all the attributes of a msgList
-        """
-        return ATTR.msgList_purge(self.mNode,attr,dataAttr)
-        try:
-            #log.debug(">>> %s.get_msgList(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)  
-            d_attrs = self.get_sequentialAttrDict(attr)
-            for i,k in enumerate(d_attrs.keys()):
-                str_attr = d_attrs[i]
-                self.doRemove(str_attr)
-                #log.debug("Removed: '%s'"%str_attr)
-
-            #log.debug("-"*100)            	               	
-            return True   
-        except Exception as error:
-            raise Exception("{}.msgList_purge >>[Error]<< : {}".format(self.p_nameShort,error))
-
-    def msgList_clean(self,attr,dataAttr = None, connectBack = None):
-        """
-        Removes empty entries and pushes back
-        """
-        return ATTR.msgList_clean(self.mNode,attr,dataAttr)
-        try:
-            #log.debug(">>> %s.msgList_clean(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)  
-            l_attrs = self.msgList_get(attr,False,True)
-            self.msgList_connect(l_attrs,attr,connectBack)
-            #log.debug("-"*100)            	               	
-            return True   
-        except Exception as error:
-            raise Exception("{}.msgList_clean >>[Error]<< : {}".format(self.p_nameShort,error))
-
-    def msgList_exists(self,attr, dataAttr = None):
-        """
-        Fast check to see if we have data on this attr chain
-        """
-        return ATTR.msgList_exists(self.mNode,attr,dataAttr)
-        try:
-            #log.debug(">>> %s.msgList_exists(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)  
-            d_attrs = self.get_sequentialAttrDict(attr)
-            for i,k in enumerate(d_attrs.keys()):
-                str_attr = d_attrs[i]
-                if self.getMessage(d_attrs[i]):
-                    return True
-            #log.debug("-"*100)            	               	
-            return False   
-        except Exception as error:
-            raise Exception("{}.msgList_exists >>[Error]<< : {}".format(self.p_nameShort,error))
-
-    def get_sequentialAttrDict(self,attr = None):
-        """
-        Get a sequential attr dict. Our attr should be listed without the tail '_'
-        ex: {0: u'back_to_back_0', 1: u'back_to_back_1'}
-        """
-        return ATTR.get_sequentialAttrDict(self.mNode,attr)
-    
-        #log.debug(">>> %s.get_sequentialAttrDict(attr = '%s') >> "%(self.p_nameShort,attr) + "="*75)            		
-        userAttrs = self.getUserAttrsAsDict()
-        d_attrList = {}
-        for key in list(userAttrs.keys()):
-            if '_' in key:
-                _split = key.split('_')
-                _int_ = _split[-1]
-                _str_ = ('_').join(_split[:-1])
-                if "%s"%attr == _str_:
-                    try:
-                        d_attrList[int(_int_)] = key
-                        #log.debug("match: '%s'"%key)
-                    except:log.warning("%s failed to int | int: %s"%(key,_int_))
-
-        #log.debug("-"*100)            	               	
-        return d_attrList	
-
-    #Attr stuff =========================================================================
-    def addAttr(self, attr,value = None, attrType = None,enumName = None,initialValue = None,lock = None,keyable = None, hidden = None,*args,**kws):
-        _str_func = 'addAttr'
-        log.debug("|{0}| >> node: {1} | attr: {2} | attrType: {3}".format(_str_func,self.p_nameShort,attr, attrType))
-        
-        if attr not in self.UNMANAGED and not attr=='UNMANAGED':  
-            if self.hasAttr(attr):#Quick create check for initial value
-                initialCreate = False
-                if self.isReferenced():
-                    log.warning('This is a referenced node, cannot add attr: %s.%s'%(self.getShortName(),attr))
-                    return False
-                
-                #Conversion create
-                #validatedAttrType = attributes.validateRequestedAttrType(attrType)
-                if attrType is not None:
-                    validatedAttrType = ATTR.validate_attrTypeName(attrType)
-                    if validatedAttrType in ['string','float','double','long']:
-                        currentType = ATTR.get_type(self.mNode,attr)
-                        if currentType != validatedAttrType:
-                            log.info("cgmNode.addAttr >> %s != %s : %s.%s. Converting."%(validatedAttrType,currentType,self.getShortName(),attr))
-                            ATTR.convert_type(self.mNode,attr,validatedAttrType)
-                            #cgmAttr(self, attrName = attr, attrType=validatedAttrType)                
-            else:
-                initialCreate = True
-                if value is None and initialValue is not None:#If no value and initial value, use it
-                    value = initialValue
-            
-           
-
-            #If type is double3, handle with out own setup as Red's doesn't have it
-            #==============    
-            #if attributes.validateRequestedAttrType(attrType) == 'double3':
-                #cgmAttr(self.mNode, attrName = attr, value = value, attrType = attrType, enum = enum, initialValue = initialValue, lock=lock,keyable=keyable,hidden = hidden)
-                #object.__setattr__(self, attr, value)	
-
-            #Catch for no value flags
-            #DataTypeDefaults={'string': "",
-                                #'int': 0,
-                                #'bool': False,
-                                #'float': 0,
-                                #'float3': [0,0,0],
-                                #'double3':[0,0,0],
-                                #'enum': "off:on",
-                                #'message':''} 
-
-            if enumName is None and attrType == 'enum':
-                enumName = "off:on"		
-
-            #Pass to Red9
-            if attrType == 'enum':
-                r9Meta.MetaClass.addAttr(self,attr,value=value,attrType = attrType,enumName = enumName, *args,**kws)
-            else:
-                r9Meta.MetaClass.addAttr(self,attr,value=value,attrType = attrType, *args,**kws)	
-
-            if value is not None and r9Meta.MetaClass.__getattribute__(self,attr) != value: 
-                #log.debug("'%s.%s' Value (%s) was not properly set during creation to: %s"%(self.getShortName(),attr,r9Meta.MetaClass.__getattribute__(self,attr),value))
-                if ATTR.is_connected([self.mNode,attr]):
-                    ATTR.break_connection(self.mNode,attr)
-                self.__setattr__(attr,value,**kws)
-                #ATTR.set(self.mNode,attr,value)
-                #cgmAttr(self, attrName = attr, value=value)#Swictched back to cgmAttr to deal with connected attrs
-
-
-            #Easy carry for flag handling - until implemented
-            #==============  
-            if keyable is not None or hidden is not None:
-                cgmAttr(self, attrName = attr, keyable=keyable,hidden = hidden)
-            if lock is not None:
-                mc.setAttr(('%s.%s'%(self.mNode,attr)),lock=lock)	
-
-            return True
-        return False
-
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Properties
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
-    #Reference Prefix
-    #==============    
-    def getReferencePrefix(self):
-        return search.returnReferencePrefix(self.mNode)
-
-    p_referencePrefix = property(getReferencePrefix)
-
-    #=========================================================================      
-    # Get Info
-    #========================================================================= 
-    def get_nextSequentialAttr(self,attr = None):
-        try:
-            if attr in [None,False,True]:
-                log.warning("cgmNode.get_nextAvailableAttr>>> bad attr arg: '%s'"%attr)
-                return False
-            cnt =  ATTR.get_nextAvailableSequentialAttrIndex(self.mNode,attr)
-            return "%s%s"%(attr,cnt)
-        except Exception as error:raise Exception("[%s.get_nextSequentialAttr(attr = %s]{%s}"%(self.p_nameShort,attr,error))
-
-    def returnNextAvailableAttrCnt(self,attr = None):
-        try:
-            if attr in [None,False,True]:
-                log.warning("cgmNode.returnNextAvailableAttrCnt>>> bad attr arg: '%s'"%attr)
-                return False
-            """ Get's the next available item number """ 
-            return ATTR.get_nextAvailableSequentialAttrIndex(self.mNode,attr)
-        except Exception as error:raise Exception("[%s.returnNextAvailableAttrCnt(attr = %s]{%s}"%(self.p_nameShort,attr,error))
-
-    #def update(self):
-        """ Update the instance with current maya info. For example, if another function outside the class has changed it. """ 
-        #assert mc.objExists(self.mNode) is True, "'%s' doesn't exist" %obj
-        #if self.hasAttr('mNodeID') and not self.isReferenced():#experiment
-            #log.debug(self.mNodeID)
-            #ATTR.set(self.mNode,'mNodeID',self.getShortName())
-        #self.__dict__['__name__'] = self.getShortName()
-
-    def getCGMNameTags(self,ignore=[False]):
-        """
-        Get the cgm name tags of an object.
-        """
-        self.cgm = {}
-        for tag in l_cgmNameTags:
-            if tag not in ignore:
-                self.cgm[tag] = search.findRawTagInfo(self.mNode,tag)
-        return self.cgm    
-
-    def getAttrs(self,**kws):
-        return mc.listAttr(self.mNode,**kws) or []
-
-    def getKeyableAttrs(self):
-        return mc.listAttr(self.mNode, keyable = True) or []
-
-    def getUserAttrs(self):
-        return mc.listAttr(self.mNode, userDefined = True) or []
-
-    #def getUserAttrsAsDict(self):
-        #return attributes.returnUserAttrsToDict(self.mNode) or {}
-
-    def getNameDict(self):
-        return nameTools.returnObjectGeneratedNameDict(self.mNode) or {}  
-
-    def getNameAlias(self):
-        if self.hasAttr('cgmAlias'):
-            return self.cgmAlias
-        buffer =  nameTools.returnRawGeneratedName(self.mNode, ignore = ['cgmType'])
-        if buffer:return buffer
-        else:return self.getBaseName()
-
-    def getTransform(self):
-        """Find the transform of the object"""
-        buffer = mc.ls(self.mNode, type = 'transform') or False
-        if buffer:
-            return buffer[0]
-        else:
-            buffer = mc.listRelatives(self.mNode,parent=True,type='transform') or False
-        if buffer:
-            return buffer[0]
-        return False
-
-    def getMayaType(self):
-        """ get the type of the object """
-        return search.returnObjectType(self.getComponent())
-
-    def getMayaAttr(self,attr,**kws):
-        """ get the type of the object """
-        return ATTR.get(self.mNode,attr,**kws)  
-
-    def getAttr(self,attr):
-        """ Get the attribute. As an add on to Marks. I don't want errors if it doesn't have the attr, I just want None. """
-        try: return self.__getattribute__(attr)
-        except: return None
-
-    def getEnumValueString(self,attr):
-        """
-        For when a int value just won't do
-        """
-        enums=mc.attributeQuery(attr, node=self.mNode, listEnum=True)[0].split(':')
-        return enums[self.getAttr(attr)]
-
-    def getShortName(self):
-        return NAMES.get_short(self.mNode)
-
-    def getBaseName(self):
-        return NAMES.get_base(self.mNode)
-
-
-    def getLongName(self):
-        return NAMES.get_long(self.mNode)	
-
-    #Some name properties
-    p_nameShort = property(getShortName)
-    p_nameLong = property(getLongName)
-    p_nameBase = property(getBaseName)
-
-    def isTransform(self):
-        buffer = mc.ls(self.mNode,type = 'transform',int = True)
-        if buffer and buffer[0]==self.getLongName():
-            return True
-        return False
-
-    def compareAttrs(self,targets,**kws):
-        """ compare the attributes of one object to another """
-        _l_targets = VALID.objStringList(targets)
-        log.info(cgmGEN._str_hardLine)   
-        
-        for t in _l_targets:
-            l_targetAttrs = mc.listAttr(t,**kws)
-            if not l_targetAttrs:
-                raise ValueError("No attrs found. kws: {0}".format(kws))
-            _t = names.getShortName(t)
-            log.info("Comparing {0} to {1}...".format(self.getShortName(),_t))
-            _l_matching = []
-            _l_notMatching = []
-            for a in mc.listAttr(self.mNode,**kws):
-                try:
-                    #log.info("Checking %s"%a)
-                    selfBuffer = ATTR.get(self.mNode,a)
-                    targetBuffer = ATTR.get(t,a)
-                    if a in l_targetAttrs and selfBuffer != targetBuffer:
-                        bfr = ("{0} || {1} != {2}".format(a,selfBuffer,targetBuffer))
-                        _l_notMatching.append(bfr)
-                        continue
-                    _l_matching.append(a)
-                        #print ("{0}.{1} != {2}.{1}".format(self.getShortName(),a,_t))
-                        #log.info("%s.%s : %s != %s.%s : %s"%(self.getShortName(),a,selfBuffer,target,a,targetBuffer))
-                except Exception as error:
-                    log.info(error)	
-                    log.warning("'%s.%s'couldn't query"%(self.mNode,a))
-            log.info("Matching attrs: {0} | Unmatching: {1}".format(len(_l_matching),len(_l_notMatching)))
-            for b in _l_notMatching:
-                print(b)
-            log.info("{0} >>".format(_t) + cgmGEN._str_subLine)
-        log.info(cgmGEN._str_hardLine)
-        
-        return True
-
-    def doName(self,sceneUnique=False,nameChildren=False,fastIterate = True,fastName = True,**kws):
-        """
-        Function for naming a maya instanced object using the cgm.NameFactory class.
-        """
-        #if not self.getTransform() and self.__justCreatedState__:
-            #log.error("Naming just created nodes, causes recursive issues. Name after creation")
-            #return False
-        if fastName:
-            d_updatedNamesDict = self.getNameDict()
-            ignore = kws.get('ignore') or []
-            if 'cgmName' not in list(d_updatedNamesDict.keys()):
-                if self.getMayaType() !='group' and 'cgmName' not in ignore:
-                    d_updatedNamesDict['cgmName'] = self.getShortName()
-
-            _str_nameCandidate =  nameTools.returnCombinedNameFromDict(d_updatedNamesDict)
-            mc.rename(self.mNode, _str_nameCandidate	)
-            return _str_nameCandidate
-        else:
-            if sceneUnique:
-                log.error("Remove this cgmNode.doName sceneUnique call")
-            if self.isReferenced():
-                log.error("'%s' is referenced. Cannot change name"%self.mNode)
-                return False	
-            #Name it
-            NameFactory(self).doName(nameChildren = nameChildren,fastIterate=fastIterate,**kws)	    
-
-    def doTagAndName(self,d_tags,overideMessageCheck = False, **kws):
-        """
-        Add tags and name in one fell swoop
-        """
-        if type(d_tags)is not dict:
-            raise Exception("{}.doTagAndName >> d_tags not dict : {}".format(self.p_nameShort,d_tags))		    
-        try:
-            for tag in list(d_tags.keys()):
-                self.doStore(tag,d_tags[tag])
-            self.doName()
-        except Exception as error:
-            #log.debug("#>>>Tags:")
-            for tag in list(d_tags.keys()):
-                log.debug("    %s : %s"%(tag,d_tags.get(tag)))
-            raise Exception("[{}.doTagAndName] | {}".format(self.p_nameShort,error))	
-
-    def doNameOLD(self,sceneUnique=False,nameChildren=False,**kws):
-        """
-        Function for naming a maya instanced object using the cgm.NameFactory class.
-
-        Keyword arguments:
-        sceneUnique(bool) -- Whether to run a full scene dictionary check or the faster just objExists check (default False)
-
-        """  
-        def doNameChildren(self):
-            if not len(mc.ls(self.mNode,type = 'transform',int = True)) == 0:
-                childrenObjects = search.returnAllChildrenObjects(self.mNode,True) or []
-                i_children = []
-                for c in childrenObjects:
-                    i_c =  r9Meta.MetaClass(c)
-                    mc.rename(i_c.mNode,rename('xxx'))
-                    i_children.append(i_c )
-                for i_c in i_children:
-                    name = Old_Name.returnUniqueGeneratedName(i_c.mNode,sceneUnique =sceneUnique,**kws)
-                    mc.rename(i_c.mNode,name)  		    
-
-        #log.debug('Name dict: %s"'%self.getNameDict())
-        if self.isReferenced():
-            log.error("'%s' is referenced. Cannot change name"%self.mNode)
-            return False
-
-        name = Old_Name.returnUniqueGeneratedName(self.mNode,sceneUnique = sceneUnique,**kws)
-        currentShortName = self.getShortName()
-
-        if currentShortName == name:
-            #log.debug("'%s' is already named correctly."%currentShortName)
-            if nameChildren:
-                doNameChildren(self)
-            return currentShortName
-        else:
-            mc.rename(self.mNode,name)
-            shapes = mc.listRelatives(self.mNode,shapes=True,fullPath=True)
-            if shapes:
-                for shape in shapes:
-                    if not mc.referenceQuery(shape, isNodeReferenced=True):
-                        i_shape = r9Meta.MetaClass(shape)
-                        name = Old_Name.returnUniqueGeneratedName(i_shape.mNode,sceneUnique =sceneUnique,**kws)
-                        mc.rename(i_shape.mNode,name)  
-            if nameChildren:
-                doNameChildren(self)
-
-            return self.getShortName()
-
-    def getChildrenNodes(self, walk=True, mAttrs=None):
-        """Overload to push a conflicting command to a name we want as getChildren is used for cgmObjects to get dag children"""
-        return r9Meta.MetaClass.getChildren(self, walk, mAttrs)
-
-    def getSiblings(self,asMeta = False):
-        """Function to get siblings of an object"""
-        try:
-            _str_func = "%s.getSiblings"%self.p_nameShort
-            l_siblings = []
-            if not self.getTransform():
-                log.debug('%s | no transform...'%_str_func)
-                #See if there are more maya nodes of the same type
-                objType = mc.objectType(self.mNode)
-                l_buffer = mc.ls(type = objType)
-                #log.debug("typeCheck: '%s'"%objType)
-                #log.debug("l_buffer: %s"%l_buffer)
-                if l_buffer:
-                    for o in l_buffer:
-                        if str(o) != self.getLongName():
-                            l_siblings.append(o)
-                            #log.debug("Sibling found: '%s'"%o)
-                    return l_siblings
-            elif self.getMayaType() == 'shape':
-                log.debug('%s | shape...'%_str_func)		
-                for s in mc.listRelatives(self.parent,shapes = True,fullPath = True):
-                    if str(s) != self.getLongName():#str() for stupid unicode return
-                        l_siblings.append(s)
-                        #log.debug("Shape Sibling found: '%s'"%s)
-                return l_siblings
-            elif self.parent:
-                log.debug('%s | parented...'%_str_func)				
-                #i_p = cgmObject(self.parent)#Initialize the parent
-                for c in search.returnChildrenObjects(self.parent,True):
-                    if c != self.getLongName():
-                        l_siblings.append(c)
-                        #log.debug("Sibling found: '%s'"%c)
-            else:#We have a root transform
-                log.debug('%s | root...'%_str_func)				
-                l_rootTransforms = search.returnRootTransforms() or []
-                typeBuffer = self.getMayaType()
-                for c in l_rootTransforms:
-                    if c != self.getShortName() and search.returnObjectType(c) == typeBuffer:
-                        l_siblings.append(c)
-            #log.debug(l_siblings)
-            if l_siblings and asMeta:
-                return validateObjListArg(l_siblings)
-            return l_siblings   
-        except Exception as error:raise Exception("[%s.getSiblings]{%s}"%(self.p_nameShort,error))
-
-    #=========================================================================                   
-    # Attribute Functions
-    #=========================================================================                   
-    def doStore(self,attr,info,overideMessageCheck = False,*a,**kw):
-        """ Store information to an object in maya via case specific attribute. """
-        ATTR.store_info(self.mNode,attr,info,**kw)
-        #attributes.storeInfo(self.mNode,attr,info,overideMessageCheck = overideMessageCheck,*a,**kw)
-        #object.__setattr__(self, attr, info)
-        #self.update()
-
-    def doRemove(self,attr):
-        """ Removes an attr from the maya object instanced. """
-        return ATTR.delete(self.mNode,attr)
-        if self.isReferenced():
-            return log.warning("'%s' is referenced. Cannot delete attrs"%self.mNode)    	
-        try:
-            ATTR.delete(self.mNode,attr)
-            #ATTR.delete(self.mNode,attr)
-        except Exception as error:
-            log.error(error)	
-            log.warning("'%s.%s' not found"%(self.mNode,attr))	    
-            return False
-
-    def verifyAttrDict(self,d_attrs,**kws):
-        #log.debug(">>> %s.verifyAttrDict >> "%(self.p_nameShort) + "="*75)            	        	
-        if type(d_attrs) is not dict:
-            raise Exception("Not a dict: %s"%self.p_nameShort)
-        
-        _keys = list(d_attrs.keys())
-        _keys.sort()
-        
-        for attr in _keys:
-            try:	
-                buffer = d_attrs.get(attr)
-                if ':' in buffer:
-                    self.addAttr(attr,attrType = 'enum', enumName= buffer,**kws)		    
-                else:
-                    self.addAttr(attr,attrType = buffer,**kws)
-            except Exception as error:
-                log.error("%s.verifyAttrDict >>> Failed to add attr: %s | data: %s | error: %s"%(self.p_nameShort,attr,d_attrs.get(attr),error))
-        return True
-
-    def doChangeNameTag(self,tag,value = False,sceneUnique=False,nameChildren=False,**kw):
-        """
-        For changing a tag and renaming in one go
-        @ Tag(string)
-        Must be a cgm naming tag
-        @ Value(string)
-        what to change it to
-        @ sceneUnique(bool)
-        @ nameChildren(bool)
-        """
-        try:
-            if self.isReferenced():
-                return log.warning("'%s' is referenced. Cannot change name architecture"%self.mNode)   
-
-            if tag not in l_cgmNameTags:
-                #log.debug("'%s' is not a valid cgm name tag."%(tag))         
-                return False
-
-            if value in [None,False,'None','none']:
-                #log.debug("Removing '%s.%s'"%(self.getShortName(),tag))            
-                self.doRemove(tag)
-                self.doName(sceneUnique,nameChildren)            
-                return True
-
-            elif tag in list(self.__dict__.keys()) and self.__dict__[tag] == value:
-                #log.debug("'%s.%s' already has base name of '%s'."%(self.getShortName(),tag,value))
-                return False
-            else:
-                self.doStore(tag,value,True,**kw)
-                self.doName(sceneUnique,nameChildren)            
-                return True
-        except Exception as error:
-            log.error(error)	
-            return False
-
-    def doCopyNameTagsFromObject(self,target,ignore=[False]):
-        """
-        Get name tags from a target object (connected)
-
-        Keywords
-        ignore(list) - tags to ignore
-
-        Returns
-        success(bool)
-        """
-        _str_func = 'doCopyNameTagsFromObject'
-        log.info("|{0}| >> node: {1} | target: {2} | ignore: {3}".format(_str_func,self.p_nameShort,target, ignore))
-        
-        if type(ignore) not in [list,tuple]:ignore = [ignore]
-        try:
-            #log.debug(">>> cgmNode.doCopyNametagsFromObject")
-            assert mc.objExists(target),"Target doesn't exist"
-            targetCGM = nameTools.returnObjectGeneratedNameDict(target,ignore = ignore)
-            cgmGEN.log_info_dict(targetCGM)
-            didSomething = False
-
-            for tag in list(targetCGM.keys()):
-                #log.debug("..."+tag)
-                if tag not in ignore and targetCGM[tag] not in [None,False]:
-                    if ATTR.has_attr(target,tag):
-                        log.info('copy attr...')
-                        ATTR.copy_to(target,tag,self.mNode)
-                        #ATTR.copy_to(target,tag,
-                                              #self.mNode,connectTargetToSource=False)
-                        didSomething = True
-            #self.update()
-            return didSomething
-        except Exception as error:
-            log.error(error)	
-            return False
-
-    def returnPositionOutPlug(self):
-        """
-        Finds out plug of a node for connection to a distance node for example
-        """
-        try:
-            l_elibiblePlugs = ['worldPosition','position'] 
-            d_plugTypes= {'worldPosition':'worldPosition[0]','position':'position'}
-            for attr in l_elibiblePlugs:
-                if self.hasAttr(attr):
-                    return "%s.%s"%(self.mNode,d_plugTypes.get(attr))
-            return False
-        except Exception as error:raise Exception("[%s.returnPositionOutPlug]{%s}"%(self.p_nameShort,error))
-
-
-    def resetAttrs(self, attrs = None):
-        try:
-            obj = self.mNode
-
-            if attrs == None:
-                attrs = mc.listAttr(obj, keyable=True, unlocked=True) or False
-            _reset = []
-            if attrs:
-                for attr in attrs:
-                    try:
-                        default = mc.attributeQuery(attr, listDefault=True, node=obj)[0]
-                        ATTR.set(obj,attr,default)
-                        #ATTR.set(obj, attr, default)
-                        _reset.append(attr)
-                    except Exception as err:
-                        #ATTR.set(obj, attr, 0)
-                        log.error("{0}.{1} resetAttrs | error: {2}".format(self.p_nameShort, attr,err))   	
-            return _reset
-        except Exception as err:
-            log.error("{0} resetAttrs | error: {1}".format(self.p_nameShort,err))   		    
-            return False
-
-    def getPosition(self,worldSpace = True):
-        try:
-            if self.isComponent():
-                #log.debug("Component position mode")
-                objType = self.getMayaType()	    
-                if objType in ['polyVertex','polyUV','surfaceCV','curveCV','editPoint','nurbsUV','curvePoint']:
-                    if worldSpace:return mc.pointPosition(self.getComponent(),world = True)
-                    return mc.pointPosition(self.getComponent(),local = True)
-                elif objType in ['polyFace','polyEdge']:
-                    mc.select(cl=True)
-                    mc.select(self.getComponent())
-                    mel.eval("PolySelectConvert 3")
-                    verts = mc.ls(sl=True,fl=True)
-                    posList = []
-                    for vert in verts:
-                        if worldSpace:posList.append( mc.pointPosition(vert,world = True) )
-                        else:posList.append( mc.pointPosition(vert,local = True) )			    
-                    pos = DIST.get_average_position(posList)
-                    mc.select(cl=True)
-                    return pos
-                else:
-                    raise NotImplementedError("Don't know how to position '%s's componentType: %s"%(self.getShortName,objType))
-
-            else:
-                #if kws and 'ws' in kws.keys():ws = kws.pop('ws')
-                #log.debug('Standard self.getPosition()')
-                if worldSpace:return mc.xform(self.mNode, q=True, ws=True, rp=True)    
-                return mc.xform(self.mNode, q=True, os=True, t=True) 
-        except Exception as error:
-            log.error("%s.getPosition>>>isComponent: %s | error: %s"%(self.getShortName(),self.isComponent(),error))	
-            return False
-
-    def doLoc(self,forceBBCenter = False,nameLink = False, fastMode = False):
-        """
-        Create a locator from an object
-
-        Keyword arguments:
-        forceBBCenter(bool) -- whether to force a bounding box center (default False)
-        nameLink(bool) -- whether to copy name tags or link the object to cgmName
-        """
-        try:
-            #_str_func = '{0}.doLoc'.format(self.p_nameShort)
-            #t_master = time.time()	            
-            #t1 = time.time()	
-             
-            buffer = False
-            if self.isComponent():
-                buffer =  locators.locMeObject(self.getComponent(),forceBBCenter = forceBBCenter)
-                #log.info("{0}>> component loc: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t1)))
-                #t1 = time.time()	            
-            else:
-                #if self.isTransform():
-                #log.info("{0}>> transform loc: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t1)))
-                #t1 = time.time()     
-                if fastMode:
-                    buffer = cgmObject(mc.spaceLocator()[0])
-                    
-                    objTrans = mc.xform(self.mNode, q=True, ws=True, sp=True)
-                    objRot = mc.xform(self.mNode, q=True, ws=True, ro=True)
-                    objRotAxis = mc.xform(self.mNode, q=True, os=True, ra=True)
-                
-                    mc.move (objTrans[0],objTrans[1],objTrans[2], buffer.mNode)			
-                    mc.rotate (objRot[0], objRot[1], objRot[2], buffer.mNode, ws=True)
-                    for i,a in enumerate(['X','Y','Z']):
-                        ATTR.set(buffer.mNode, 'rotateAxis{0}'.format(a), objRotAxis[i])                    
-                    buffer.rotateOrder = self.rotateOrder
-                else:
-                    buffer = locators.locMeObject(self.mNode,forceBBCenter = forceBBCenter)                    
-            if not buffer:
-                return False
-            
-            i_loc = validateObjArg(buffer,'cgmObject',setClass = True)#setClass=True
-            #log.info("{0}>> validate: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t1)))
-            #t1 = time.time()            
-            #if nameLink:
-                #i_loc.connectChildNode(self,'cgmName')
-            if not nameLink:
-                i_loc.doCopyNameTagsFromObject(self.mNode,ignore=['cgmType'])
-                i_loc.doName()
-                #log.info("{0}>> name: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t1)))
-                #t1 = time.time()            
-            #log.info("{0}>> total: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t_master)))            
-            return i_loc
-        except Exception as error:raise Exception("[%s.doLoc]{%s}"%(self.p_nameShort,error))
-
-    def doDuplicate(self, **kws):
-        """
-        Return a duplicated object instance
-
-        @Keyword arguments:
-        breakMessagePlugsOut(bool) -- whether to break the outgoing message connections because Maya duplicates regardless of duplicate flags
-        """
-        #parentOnly = True, inputConnections = True,
-        try:
-            if self.isComponent():
-                log.warning("doDuplicate fail. Cannot duplicate components")
-                raise ValueError("doDuplicate fail. Cannot duplicate component: '%s'"%self.getShortName())
-
-            breakMessagePlugsOut = kws.pop('breakMessagePlugsOut',False) 
-            _keys = list(kws.keys())
-            if 'po' not in _keys and 'parentOnly' not in _keys:
-                kws['parentOnly'] = True
-                
-            if 'ic' not in _keys and 'inputConnections' not in _keys:
-                            kws['inputConnections'] = True
-                            
-            buffer = mc.duplicate(self.mNode,**kws)[0]
-            #log.debug("doDuplicate>> buffer: %s"%buffer)
-            buffer = mc.rename(buffer, self.getBaseName()+'_DUPLICATE')
-            i_obj = validateObjArg(buffer)	    
-            #log.debug("doDuplicate>> i_obj: %s"%i_obj)
-
-            if breakMessagePlugsOut:
-                b_sourceLock = False
-                b_drivenLock = False
-                _str_messageCombined = '%s.msg'%i_obj.mNode
-
-                if mc.getAttr(_str_messageCombined,lock=True):
-                    b_drivenLock = True
-                    mc.setAttr(_str_messageCombined,lock=False)
-
-                for plug in mc.listConnections(_str_messageCombined,plugs =True):
-                    b_sourceLock = False
-                    if '[' in plug:
-                        str_plug = plug.split('[')[0]
-                    else:str_plug = plug
-
-                    if mc.getAttr(str_plug,lock=True):#if locked, unlock
-                        b_sourceLock = True
-                        mc.setAttr(str_plug,lock=False)	
-
-                    try: mc.setAttr(str_plug,lock=False)
-                    except:raise Exception("%s.doDuplicate >> can't unlock '%s'"%(self.p_nameShort,str_plug))
-
-                    mc.disconnectAttr(_str_messageCombined,plug)
-                    if b_sourceLock:
-                        mc.setAttr(str_plug,lock=False)
-                if b_drivenLock:
-                    mc.setAttr(_str_messageCombined,lock=False) 
-            return i_obj
-        except Exception as error:raise Exception("[%s.doDuplicate]{%s}"%(self.p_nameShort,error))
-
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
 # cgmObject - sublass to cgmNode
@@ -3278,7 +1937,7 @@ class cgmObject(cgmNode):
                 targets = CONSTRAINT.get_targets(mConstraint)
                 if targets:l_constainingObjects.extend(targets)
 
-        if asMeta and buffer:
+        if asMeta and ml_buffer:
             return validateObjListArg(l_constainingObjects)
         if select:
             mc.select(l_constainingObjects)
@@ -3311,530 +1970,6 @@ class cgmObject(cgmNode):
         return False
         
         
-class cgmObjectOLD(cgmNode):  
-    def __init__(self,node = None, name = 'null', **kws):
-        """ 
-        Utilizing Red 9's MetaClass. Intialized a object in cgm's system. If no object is passed it 
-        creates an empty transform
-
-        Keyword arguments:
-        obj(string)     
-        autoCreate(bool) - whether to create a transforum if need be
-        """
-        '''
-	_NodeSelf = cgmNode(node = node, name = name,nodeType = 'transform')
-	if _NodeSelf.isTransform():
-	    super(cgmObject, self).__init__(_NodeSelf.mNode)
-	    if setClass:
-		self.addAttr('mClass','cgmObject',lock=True)	
-
-	log.error("'%s' has no transform"%_NodeSelf.mNode)
-
-	'''
-        super(cgmObjectOLD, self).__init__(node = node, name = name,nodeType = 'transform')
-        #log.info("{1} | setClass: {0}".format(setClass,'in cgmObject'))
-        #log.info("{1} | kws: {0}".format(kws,'in cgmObject'))	
-        #>>> TO Check the cache if it needs to be cleared ----------------------------------	
-        #if check_cacheClear(self,'cgmObject',setClass):
-            #log.info("Reinitialize")	    
-            #super(cgmObject, self).__init__(node=node, name = name, nodeType = 'transform')
-
-        #====================================================================================
-        #if not self.isTransform():
-            #log.error("'%s' has no transform"%self.mNode)	    
-            #raise StandardError, "The cgmObject class was designed to work with objects with transforms"
-
-        #>>> TO USE Cached instance ---------------------------------------------------------
-        if self.cached:return
-
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Properties
-    #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
-    #parent
-    #==============    
-    def getParent(self,asMeta = False):
-        try:
-            buffer = search.returnParentObject(self.mNode) or False
-            if buffer and asMeta:
-                return validateObjArg(buffer,mType = cgmObject)
-            return buffer
-        except Exception as error:raise Exception("[%s.getParent(asMeta = %s]{%s}"%(self.p_nameShort,asMeta,error))
-
-
-    def doParent(self,target = False):
-        """
-        Function for parenting a maya instanced object while maintaining a correct object instance.
-
-        Keyword arguments:
-        parent(string) -- Target parent
-        """
-        try:
-            if target: #if we have a target parent
-                if VALID.isListArg(target):
-                    target = target[0]
-                    print("Target arg is list, using first entry")
-                try:
-                    bfr_target = target.p_nameLong
-                except:
-                    try:
-                        bfr_target = cgmNode(target).p_nameLong
-                    except Exception as error:
-                        if not mc.objExists(target):
-                            raise Exception("'{0}' - target object doesn't exist" .format(target)) 
-                        raise Exception(error)
-                        #raise Exception,error
-
-                if bfr_target == self.getParent():
-                    return True
-
-                try:#...simply try 		
-                    mc.parent(self.mNode,bfr_target)
-                    return True
-                except:pass
-
-                try:
-                    mc.parent(self.mNode, bfr_target)
-                    return True
-                except Exception as error:
-                    #log.error("target: {0}".format(target))
-                    #If it fails, check that the object name exists and if so, initialize a new Object Factory instance
-                    #assert mc.objExists(target) is True, "'%s' - parent object doesn't exist" %target    
-                    #log.info(target.mNode)
-                    raise Exception(error)
-                raise Exception("Failed to parent")
-            else:#If not, do so to world
-                #log.info("parenting to world")
-                rigging.doParentToWorld(self.mNode)
-                return True
-                #log.debug("'%s' parented to world"%self.mNode) 
-        except Exception as error:
-            raise Exception("doParent fail | self: {0} | target: {1} | error: {2}".format(self.p_nameShort,target,error))
-
-    parent = property(getParent, doParent)
-    p_parent = property(getParent, doParent)
-    #_parent = property(getParent,doParent)
-    
-    #Make Dave happy stuff============================================================================
-    def do_snap(self,*a,**kws):
-        return TRANS.snap(self, *a,**kws)
-    p_snap = property(do_snap)
-    
-    def get_position(self,*a,**kws):
-        return TRANS.position_get(self, *a,**kws)
-    
-    
-    def get_localPosition(self,*a,**kws):
-        return TRANS.positionLocal_get(self,*a,**kws) 
-    def set_localPosition(self,*a,**kws):
-        return TRANS.positionLocal_set(self,*a,**kws)
-    p_posLocal = property(get_localPosition,set_localPosition)
-     
-    
-    def get_worldPosition(self,*a,**kws):
-        return TRANS.position_get(self,*a,**kws)
-    def set_worldPosition(self,position = None):
-        return TRANS.position_set(self,position)    
-    p_posWorld = property(get_worldPosition,set_worldPosition)
-    
-    
-    def get_worldMatrix(self,*a,**kws):
-        return TRANS.worldMatrix(self,*a,**kws) 
-    
-    p_worldMatrix = property(get_worldMatrix)
-    
-    
-    
-    #=========================================================================      
-    # Get Info
-    #========================================================================= 	
-    def getTransformAttrs(self):
-        self.transformAttrs = []
-        for attr in 'translate','translateX','translateY','translateZ','rotate','rotateX','rotateY','rotateZ','scaleX','scale','scaleY','scaleZ','visibility','rotateOrder':
-            if mc.objExists(self.mNode+'.'+attr):
-                self.transformAttrs.append(attr)
-        return self.transformAttrs
-
-    def getFamilyDict(self,asMeta = False):
-        """ Get the parent, child and shapes of the object."""
-        return {'parent':self.getParent(asMeta=asMeta),'children':self.getChildren(asMeta=asMeta),'shapes':self.getShapes(asMeta=asMeta)} or {}
-
-    def getAllParents(self,fullPath = False,asMeta = False):
-        try:
-            buffer = search.returnAllParents(self.mNode,not fullPath) or []
-            if buffer and asMeta:
-                return validateObjListArg(buffer,mType = cgmObject)
-            return buffer
-        except Exception as error:raise Exception("[%s.getAllParents(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
-
-
-    def getChildren(self,fullPath=False,asMeta = False):
-        try:
-            if asMeta:
-                buffer = search.returnChildrenObjects(self.mNode,True) or []
-                if buffer:
-                    return validateObjListArg(buffer,mType = cgmObject)
-                return []
-            else:
-                return search.returnChildrenObjects(self.mNode,fullPath) or []
-        except Exception as error:raise Exception("[%s.getChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
-
-    def getAllChildren(self,fullPath = True,asMeta = False):
-        try:
-            if asMeta:
-                buffer = search.returnAllChildrenObjects(self.mNode,True) or []
-                if buffer:
-                    return validateObjListArg(buffer,mType = cgmObject)
-                return []
-            else:
-                return search.returnAllChildrenObjects(self.mNode,fullPath) or []
-        except Exception as error:raise Exception("[%s.getAllChildren(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
-
-    def getShapes(self,fullPath = True, asMeta = False):
-        try:
-            buffer = mc.listRelatives(self.mNode,shapes=True,fullPath=fullPath) or []
-            if buffer and asMeta:
-                return validateObjListArg(buffer,mType = cgmNode)
-            return buffer
-        except Exception as error:raise Exception("[%s.getShapes(fullPath = %s, asMeta = %s]{%s}"%(self.p_nameShort,fullPath, asMeta,error))
-
-    def isChildOf(self,obj):
-        try:
-            i_obj = validateObjArg(obj,noneValid=False)
-            for o in self.getAllParents(True):
-                if i_obj.mNode == r9Meta.MetaClass(o).mNode:
-                    return True
-            return False
-        except Exception as error:
-            log.error("isChildOf>> error: %s"%error)	    
-            log.error("isChildOf>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise Exception(error) 
-
-    def isParentOf(self,obj):
-        try:
-            i_obj = validateObjArg(obj,noneValid=False)
-            for o in self.getAllChildren(True):
-                if i_obj.mNode == r9Meta.MetaClass(o).mNode:
-                    return True
-            return False
-        except Exception as error:
-            log.error("isParentOf>> error: %s"%error)
-            log.error("isParentOf>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise Exception(error) 
-
-    def returnPositionOutPlug(self,autoLoc=True):
-        try:
-            if self.getMayaType() == 'locator':
-                return cgmNode(mc.listRelatives(self.mNode,shapes=True)[0]).returnPositionOutPlug()	    
-            else:
-                buffer = cgmNode.returnPositionOutPlug(self)
-                if not buffer and autoLoc:
-                    #See if we have one
-                    if self.getMessage('positionLoc'):
-                        i_loc = cgmObject(self.getMessage('positionLoc')[0])		    
-                    else:
-                        i_loc = self.doLoc()
-                        i_loc.parent = self.mNode
-                        self.connectChildNode(i_loc,'positionLoc','owner')
-                    return cgmNode(mc.listRelatives(i_loc.mNode,shapes=True)[0]).returnPositionOutPlug()	    		    
-                else:return buffer
-        except Exception as error:
-            log.error("returnPositionOutPlug(cgmObject overload)>> error: %s"%error)
-            raise Exception(error) 
-
-    def getListPathTo(self,obj):
-        try:
-            i_obj = validateObjArg(obj,cgmObject,noneValid=False)
-            #log.debug("getListPathTo>>> target object: %s" %i_obj)
-            l_path = []
-            if self.isParentOf(i_obj):
-                l_parents = i_obj.getAllParents(True)
-                self_index = l_parents.index(self.mNode)
-                l_parents = l_parents[:self_index+1]
-                l_parents.reverse()
-                #log.debug(l_parents)
-                #l_path.append(self.getShortName())
-                for o in l_parents:
-                    i_o = cgmObject(o)
-                    l_path.append(i_o.getShortName())		    
-                    if i_obj.mNode == i_o.mNode:
-                        break	
-                l_path.append(i_obj.getShortName())
-
-            elif self.isChildOf(obj):
-                l_parents = self.getAllParents(True)
-                #l_parents.reverse()
-                l_path.append(self.getShortName())
-                for o in l_parents:
-                    i_o = cgmObject(o)
-                    l_path.append(i_o.getShortName())		    
-                    if i_obj.mNode == i_o.mNode:
-                        break	
-            else:
-                return False
-            return l_path
-        except Exception as error:
-            log.error("getListPathTo>> error: %s"%error)	    
-            log.error("getListPathTo>> Failed. self: '%s' | obj: '%s'"%(self.mNode,obj))
-            raise Exception(error) 
-
-    def getMatchObject(self):
-        """ Get match object of the object. """
-        matchObject = search.returnTagInfo(self.mNode,'cgmMatchObject')
-        if mc.objExists(matchObject):
-            #log.debug("Match object found")
-            return matchObject
-        return False
-
-    def getDeformers(self,deformerTypes = 'all',asMeta = False):
-        _deformers = []
-        _result = []	
-        _deformerTypes = VALID.listArg(deformerTypes)
-        objHistory = mc.listHistory(self.mNode,pruneDagObjects=True)
-        if objHistory:
-            for node in objHistory:
-                typeBuffer = mc.nodeType(node, inherited=True)
-                if 'geometryFilter' in typeBuffer:
-                    _deformers.append(node)
-        if len(_deformers)>0:
-            if _deformerTypes == ['all']:
-                _result = _deformers
-            else:
-                foundDeformers = []
-                #Do a loop to figure out if the types are there
-                _deformerTypes = [str(d).lower() for d in _deformerTypes]		
-                for d in _deformers:
-                    if str(search.returnObjectType(d)).lower() in _deformerTypes:
-                        foundDeformers.append(d)
-                if foundDeformers:
-                    _result = foundDeformers
-        if asMeta:
-            return validateObjListArg(_result,mType = cgmNode)
-        return _result	
-
-    #=========================================================================  
-    # Rigging Functions
-    #=========================================================================  
-    def doCopyRotateOrder(self,targetObject):
-        """ 
-        Copy the rotate order from a target object to the current instanced maya object.
-        """
-        try:
-            #If we have an Object Factory instance, link it
-            targetObject.mNode
-            targetObject = targetObject.mNode
-            #log.debug("Target is an instance")            
-        except:	
-            #log.debug("Target is not an instance")
-            assert mc.objExists(targetObject) is True, "'%s' - target object doesn't exist" %targetObject    
-        assert mc.ls(targetObject,type = 'transform'),"'%s' has no transform"%targetObject
-        buffer = mc.getAttr(targetObject + '.rotateOrder')
-        ATTR.set(self.mNode, 'rotateOrder', buffer) 
-
-    def doCopyPivot(self,sourceObject):
-        """ Copy the pivot from a source object to the current instanced maya object. """
-        try:
-            #If we have an Object Factory instance, link it
-            sourceObject.mNode
-            sourceObject = sourceObject.mNode
-            #log.debug("Source is an instance")                        
-        except:
-            #If it fails, check that the object name exists and if so, initialize a new Object Factory instance
-            assert mc.objExists(sourceObject) is True, "'%s' - source object doesn't exist" %sourceObject
-
-        assert mc.ls(sourceObject,type = 'transform'),"'%s' has no transform"%sourceObject
-        return RIGGING.copy_pivot(self.mNode,sourceObject)
-
-    def doCopyTransform(self,sourceObject):
-        """ Copy the transform from a source object to the current instanced maya object. """
-        try:
-            #If we have an Object Factory instance, link it
-            sourceObject = sourceObject.mNode
-            #log.debug("Source is an instance")                        
-        except:
-            #If it fails, check that the object name exists and if so, initialize a new Object Factory instance
-            assert mc.objExists(sourceObject) is True, "'%s' - source object doesn't exist" %sourceObject
-
-        #assert mc.ls(sourceObject,type = 'transform'),"'%s' has no transform"%sourceObject
-        return RIGGING.copy_transform(self.mNode, sourceObject)
-
-    def doGroup(self,maintain=False, asMeta = False):
-        """
-        Grouping function for a maya instanced object.
-
-        Keyword arguments:
-        maintain(bool) -- whether to parent the maya object in place or not (default False)
-
-        """
-        try:
-            buffer = rigging.groupMeObject(self.mNode,True,maintain)   
-            if buffer and asMeta:
-                return cgmObject(buffer)
-            return buffer
-        except Exception as error:raise Exception("[%s.doGroup(maintain = %s, asMeta = %s]{%s}"%(self.p_nameShort,maintain, asMeta,error))
-
-    def doZeroGroup(self,connect=True):
-        """
-        Zero Grouping function for a maya instanced object.
-
-        Keyword arguments:
-        maintain(bool) -- whether to parent the maya object in place or not (default False)
-        """
-        i_group = validateObjArg(self.doGroup(True), cgmObject)
-        i_group.addAttr('cgmTypeModifier','zero')
-        if connect:self.connectChildNode(i_group,'zeroGroup','cgmName')
-        i_group.doName()	
-        return i_group
-
-    def doDuplicateTransform(self,copyAttrs = False):
-        """
-        Duplicates an objects tranform
-
-        Keyword arguments:
-        copyAttrs(bool) -- whether to copy attrs to the new transform (default False)
-
-        """
-        try:
-            i_obj = cgmObject( rigging.groupMeObject(self.mNode,parent = False)) 
-            if copyAttrs:
-                for attr in self.getUserAttrs():
-                    cgmAttr(self,attr).doCopyTo(i_obj.mNode,attr,connectSourceToTarget = False)	    
-                self.addAttr('cgmType','null',lock=True)
-                i_obj.doName()
-            elif i_obj.hasAttr('cgmName'):
-                i_obj.doRemove('cgmName')
-                mc.rename(i_obj.mNode, self.p_nameBase+'_Transform')
-            return i_obj
-        except Exception as error:
-            log.error("doDuplicateTransform fail! | %s"%error) 
-            raise Exception
-
-    def duplicateTransform(self,copyAttrs = False):
-        DeprecationWarning,"duplicateTransform is now doDuplicateTransform"
-        return self.doDuplicateTransform(copyAttrs)
-
-    def doAddChild(self,child = False):
-        """
-        Function for adding a child
-
-        Keyword arguments:
-        child(string) -- Target child
-        """
-        if not mc.objExists(child):
-            log.warning("Specified child '%s' doesn't exist"%child)
-            return False
-
-        if child in self.getChildren():
-            return True
-
-        if child: #if we have a target child
-            #log.debug("Child is '%s'"%child)
-            try:
-                mc.parent(child,self.mNode)
-            except:
-                #log.debug("'%s' already has target as child"%self.mNode)
-                return False
-
-    def setDrawingOverrideSettings(self, attrs = None, pushToShapes = False):
-        """
-        Function for changing drawing override settings on on object
-
-        Keyword arguments:
-        attrs -- default will set all override attributes to default settings
-                 (dict) - pass a dict in and it will attempt to set the key to it's indexed value ('attr':1}
-                 (list) - if a name is provided and that attr is an override attr, it'll reset only that one
-        """
-        # First make sure the drawing override attributes exist on our instanced object
-        for a in drawingOverrideAttrsDict:
-            assert mc.objExists('%s.%s'%(self.mNode,a)),"'%s.%s' doesn't exist"%(self.mNode,a)
-
-        #Get what to act on
-        targets = [self.mNode]
-        if pushToShapes:
-            shapes = self.getShapes()
-            if shapes:
-                targets.extend(shapes)
-
-        for t in targets:
-            #Get to business
-            if attrs is None or False:
-                for a in drawingOverrideAttrsDict:
-                    ATTR.set(t,a,drawingOverrideAttrsDict[a])
-
-            if type(attrs) is dict:
-                for a in list(attrs.keys()):
-                    try:
-                        ATTR.set(t,a,attrs[a])
-                    except:
-                        raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a]))
-
-
-            if type(attrs) is list:
-                for a in attrs:
-                    if a in drawingOverrideAttrsDict:
-                        try:
-                            ATTR.set(self.mNode,a,drawingOverrideAttrsDict[a])
-                        except:
-                            raise AttributeError("There was a problem setting '%s.%s' to %s"%(self.mNode,a,drawingOverrideAttrsDict[a]))
-                    else:
-                        log.warning("'%s.%s' doesn't exist"%(t,a))      
-    #>>> Constraints
-    #==============================================================
-    def getConstraintsTo(self,asMeta = False):	
-        try:
-            buffer = constraints.returnObjectConstraints(self.mNode)
-            if asMeta and buffer:
-                return validateObjListArg(buffer, mType = cgmNode)
-            return buffer
-        except Exception as error:raise Exception("[%s.getConstraintsTo(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
-
-    def getConstraintsFrom(self,asMeta = False):
-        try:
-            buffer = constraints.returnObjectDrivenConstraints(self.mNode)
-            if asMeta and buffer:
-                return validateObjListArg(buffer, mType = cgmNode)
-            return buffer
-        except Exception as error:raise Exception("[%s.getConstraintsFrom(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
-
-    def getConstrainingObjects(self,asMeta = False):
-        try:
-            l_constainingObjects = []	    
-            ml_buffer = self.getConstraintsTo(True)
-            if ml_buffer:
-                for mConstraint in ml_buffer:
-                    targets = constraints.returnConstraintTargets(mConstraint.mNode)
-                    if targets:l_constainingObjects.extend(targets)
-
-            if asMeta and buffer:
-                return validateObjListArg(l_constainingObjects, mType = cgmObject)
-            return l_constainingObjects
-        except Exception as error:raise Exception("[%s.getConstrainingObjects(asMeta = %s]{%s}"%(self.p_nameShort, asMeta,error))
-
-    def isConstrainedBy(self,obj):
-        l_constraints = self.getConstraintsTo()
-        if not l_constraints:
-            return False
-        else:
-            try:
-                #If we have an Object Factory instance, link it
-                obj.mNode
-                i_obj = obj
-            except:
-                #If it fails, check that the object name exists and if so, initialize a new Object Factory instance
-                assert mc.objExists(obj) is True, "'%s' doesn't exist" %obj
-                i_obj = cgmNode(obj)
-            #log.debug("obj: %s"%i_obj.getShortName())
-            #log.debug("l_constraints: %s"%l_constraints)
-            #for i_c in [r9Meta.MetaClass(c) for c in l_constraints]:
-            returnList = []
-            for c in l_constraints:
-                targets = constraints.returnConstraintTargets(c)
-                #log.debug("%s : %s"%(cgmNode(c).getShortName(),targets))
-                if i_obj.getShortName() in targets:
-                    returnList.append(c)
-            if returnList:return returnList	
-        return False
-
-
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
 # cgmObjectSet - subclass to cgmNode
 #=========================================================================  
@@ -4150,7 +2285,7 @@ class cgmObjectSet(cgmNode):
         ### input check  
         if setName is not None:
             if mc.objExists(setName):
-                assert search.returnObjectType(setName) == __nodeType,"Not an object set"    
+                assert SEARCH.get_mayaType(setName) == __nodeType,"Not an object set"    
                 super(cgmObjectSet, self).__init__(node = setName)  
             else:
                 super(cgmObjectSet, self).__init__(node = None,name = setName,nodeType = __nodeType)
@@ -4241,7 +2376,7 @@ class cgmObjectSet(cgmNode):
         """
         Returns the objectSet type as defined by CG Monks
         """
-        buffer = search.returnTagInfo(self.mNode,'cgmType')
+        buffer = SEARCH.get_tagInfo(self.mNode,'cgmType')
         if buffer:
             for k in list(setTypes.keys()):
                 if buffer == setTypes[k]:
@@ -4263,7 +2398,7 @@ class cgmObjectSet(cgmNode):
             doSetType = setType
             if setType in list(setTypes.keys()):
                 doSetType = setTypes.get(setType)
-            if search.returnTagInfo(self.mNode,'cgmType') != doSetType:
+            if SEARCH.get_tagInfo(self.mNode,'cgmType') != doSetType:
                 if ATTR.store_info(self.mNode,'cgmType',doSetType):
                     #self.doName()
                     #log.debug("'%s' renamed!"%(self.mNode))  
@@ -4393,7 +2528,7 @@ class cgmObjectSet(cgmNode):
         # First look for attributes in the channel box
         SelectCheck = False
 
-        channelBoxCheck = search.returnSelectedAttributesFromChannelBox()
+        channelBoxCheck = SEARCH.get_selectedFromChannelBox()
         if channelBoxCheck:
             SelectCheck = True
             for item in channelBoxCheck:
@@ -4432,7 +2567,7 @@ class cgmObjectSet(cgmNode):
         SelectCheck = False
 
         # First look for attributes in the channel box
-        channelBoxCheck = search.returnSelectedAttributesFromChannelBox()
+        channelBoxCheck = SEARCH.get_selectedFromChannelBox()
         if channelBoxCheck:
             SelectCheck = True                            
             for item in channelBoxCheck:
@@ -5061,7 +3196,7 @@ class cgmBufferNode(cgmNode):
             log.warning('This function is not designed for referenced buffer nodes')
             return False
 
-        channelBoxCheck = search.returnSelectedAttributesFromChannelBox()
+        channelBoxCheck = SEARCH.get_selectedFromChannelBox()
         if channelBoxCheck:
             for item in channelBoxCheck:
                 self.store(item)
@@ -5102,7 +3237,7 @@ class cgmBufferNode(cgmNode):
             log.warning('This function is not designed for referenced buffer nodes')
             return False
 
-        channelBoxCheck = search.returnSelectedAttributesFromChannelBox()
+        channelBoxCheck = SEARCH.get_selectedFromChannelBox()
         if channelBoxCheck:
             for item in channelBoxCheck:
                 self.remove(item)
@@ -5140,12 +3275,12 @@ class cgmBufferNode(cgmNode):
             selectList = []
             # Need to dig down through the items
             for item in self.l_buffer:
-                if search.returnTagInfo(item,'cgmType') == 'objectBuffer':
+                if SEARCH.get_tagInfo(item,'cgmType') == 'objectBuffer':
                     tmpFactory = cgmBuffer(item)
                     selectList.extend(tmpFactory.l_buffer)
 
                     for item in tmpFactory.l_buffer:
-                        if search.returnTagInfo(item,'cgmType') == 'objectBuffer':
+                        if SEARCH.get_tagInfo(item,'cgmType') == 'objectBuffer':
                             subTmpFactory = cgmBuffer(item)   
                             selectList.extend(subTmpFactory.l_buffer)
 
@@ -6293,7 +4428,7 @@ class cgmAttr(object):
         """
         try:
             assert mc.objExists(target),"'%s' doesn't exist"%target
-            assert mc.ls(target,int=True) != [self.obj.mNode], "Can't transfer to self!"
+            assert mc.ls(target,long=True) != [self.obj.mNode], "Can't transfer to self!"
             functionName = 'doCopyTo'
             if targetAttrName is None: targetAttrName = self.attr
             convertToMatch = kw.pop('convertToMatch',True)
@@ -6431,30 +4566,31 @@ class NameFactory(object):
     def getMatchedParents(self, node = None):  
         _str_func = "NameFactory.getMatchedParents"  
         #log.debug(">>> %s >>> "%(_str_func) + "="*75)
-        try:
-            if node is None:
-                i_node = self.i_node
-            elif issubclass(type(node),cgmNode):
-                i_node = node
-            elif mc.objExists(node):
-                i_node = cgmNode(node)
-            else:
-                raise Exception("NameFactory.getMatchedParents >> node doesn't exist: '%s'"%node)
+        #try:
+        if node is None:
+            i_node = self.i_node
+        elif issubclass(type(node),cgmNode):
+            i_node = node
+        elif mc.objExists(node):
+            i_node = cgmNode(node)
+        else:
+            raise Exception("NameFactory.getMatchedParents >> node doesn't exist: '%s'"%node)
 
-            parents = search.returnAllParents(i_node.mNode)
-            self.i_nameParents = []
-            if parents:
-                #parents.reverse()
-                d_nameDict = i_node.getNameDict()
-                for p in parents :
-                    i_p = cgmNode(p)
-                    if i_p.getNameDict() == d_nameDict:
-                        self.i_nameParents.append(i_p)
-                        #log.debug("Name parent found: '%s'"%i_p.mNode)
-                    else:break
-            return self.i_nameParents
-        except Exception as error:
-            raise Exception("%s >>> node: %s |error : %s"%(_str_func,node,error))
+        parents = TRANS.parents_get(i_node.mNode)
+        self.i_nameParents = []
+        if parents:
+            #parents.reverse()
+            d_nameDict = i_node.getNameDict()
+            for p in parents :
+                i_p = cgmNode(p)
+                if i_p.getNameDict() == d_nameDict:
+                    self.i_nameParents.append(i_p)
+                    #log.debug("Name parent found: '%s'"%i_p.mNode)
+                else:break
+        return self.i_nameParents
+        #except Exception as error:
+        #    pprint.pprint(vars())
+        #    raise Exception("%s >>> node: %s |error : %s"%(_str_func,node,error))
 
     def getMatchedChildren(self, node = None):  
         _str_func = "NameFactory.getMatchedChildren"  
@@ -6703,7 +4839,7 @@ class NameFactory(object):
         #>>> Dictionary driven order first build
         d_updatedNamesDict = nameTools.returnObjectGeneratedNameDict(i_node.mNode,ignore)
 
-        if 'cgmName' not in list(d_updatedNamesDict.keys()) and search.returnObjectType(i_node.mNode) !='group' and 'cgmName' not in ignore:
+        if 'cgmName' not in list(d_updatedNamesDict.keys()) and SEARCH.get_mayaType(i_node.mNode) !='group' and 'cgmName' not in ignore:
             i_node.addAttr('cgmName',i_node.getShortName(),attrType = 'string',lock = True)
             #d_updatedNamesDict = nameTools.returnObjectGeneratedNameDict(i_node.mNode,ignore)
             d_updatedNamesDict['cgmName'] = i_node.getShortName()
@@ -6964,14 +5100,14 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     str_type = None
     
     if mType is not None:
-        t1 = time.clock()
+        t1 = time.time()
         if not type(mType) in [str,str]:
             try: mType = mType.__name__
             except Exception as error:
                 raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))	
         if mType not in _r9ClassRegistry:
             raise ValueError("mType not found in class registry. mType: {0}".format(mType))
-        t2 = time.clock()
+        t2 = time.time()
         log.debug("initial mType... %0.6f"%(t2-t1))
     #------------------------------------------------------------------------------------
     _mi_arg = False
@@ -7013,7 +5149,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     mTypeClass = _r9ClassRegistry.get(mType)
 
     if mayaType is not None and len(mayaType):
-        t1 = time.clock()		
+        t1 = time.time()		
         log.debug("Checking mayaType...")
         if type(mayaType) not in [tuple,list]:l_mayaTypes = [mayaType]
         else: l_mayaTypes = mayaType
@@ -7024,7 +5160,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                 log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(__str_reportStart,_argShort,str_type,l_mayaTypes))
                 return False
             raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
-        t2 = time.clock()
+        t2 = time.time()
         log.debug("mayaType not None time... %0.6f"%(t2-t1))		    
 
     #Get our cache key
@@ -7066,7 +5202,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
     log.debug("cacheKey: {0}".format(_cacheKey))
 
     if _cached is not None:
-        t1 = time.clock()		
+        t1 = time.time()		
         log.debug("Already cached")
         _cachedMClass = ATTR.get(_arg,'mClass') or False
         _cachedType = type(_cached)
@@ -7134,7 +5270,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                 log.warning("Change cached subclass check failed | {0}".format(err))                
                 
         if not _change and not _redo:
-            t2 = time.clock()
+            t2 = time.time()
             log.debug("Cache good %0.6f"%(t2-t1))		    
             return _cached
         elif _change:
@@ -7156,15 +5292,15 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                 #_cached.UUID = ''			
             r9Meta.RED9_META_NODECACHE.pop(_cacheKey)
 
-        t2 = time.clock()
+        t2 = time.time()
         log.debug("Cache check %0.6f"%(t2-t1))	
 
     if mType:
-        t1 = time.clock()				    		
+        t1 = time.time()				    		
         if setClass or _wasCached:
             log.debug("setClass...")
             #attributes.storeInfo(_arg, 'mClass', mType, overideMessageCheck=True)
-            t_attr = time.clock()				    		
+            t_attr = time.time()				    		
             try:ATTR.add(_argShort, 'mClass','string')
             except:pass		    
             try:
@@ -7175,11 +5311,11 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                 ATTR.add(_argShort,'mClass','string',value=mType,lock=True)
             else:
                 ATTR.set(_argShort,'mClass',mType,True)
-            t2 = time.clock()		    
+            t2 = time.time()		    
             log.debug("attrSet %0.6f"%(t2-t_attr))	
             log.debug("setClass %0.6f"%(t2-t1))	
         else:
-            t2 = time.clock()
+            t2 = time.time()
             log.debug("no setClass. Returning %0.6f"%(t2-t1))	
 
         _mClass = ATTR.get(_argShort,'mClass')
@@ -7187,7 +5323,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
             raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))		
         _mi_arg =  mTypeClass(_argShort)
     else:
-        t1 = time.clock()				    				
+        t1 = time.time()				    				
         log.debug("no mType arg...")
         if _mClass:
             if _mClass not in _r9ClassRegistry:
@@ -7224,7 +5360,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
                     except Exception as error:
                         raise Exception("cgmNode initialization fail | {0}".format(error))	
         log.debug("leaving mType None...")
-        t2 = time.clock()
+        t2 = time.time()
         log.debug("... %0.6f"%(t2-t1))				
 
     log.debug("Returning...{0}".format(_mi_arg))
@@ -7271,14 +5407,14 @@ def validateObjArgOLD(*args,**kws):
             _convert = False
 
             if mType is not None:
-                t1 = time.clock()
+                t1 = time.time()
                 if not type(mType) in [str,str]:
                     try: mType = mType.__name__
                     except Exception as error:
                         raise ValueError("mType not a string and not a usable class name. mType: {0}".format(mType))	
                 if mType not in _r9ClassRegistry:
                     raise ValueError("mType not found in class registry. mType: {0}".format(mType))
-                t2 = time.clock()
+                t2 = time.time()
                 self.log_debug("initial mType... %0.6f"%(t2-t1))
             #------------------------------------------------------------------------------------
             self.mi_arg = False
@@ -7319,18 +5455,18 @@ def validateObjArgOLD(*args,**kws):
             mTypeClass = _r9ClassRegistry.get(mType)
 
             if mayaType is not None and len(mayaType):
-                t1 = time.clock()		
+                t1 = time.time()		
                 self.log_debug("Checking mayaType...")
                 if type(mayaType) not in [tuple,list]:l_mayaTypes = [mayaType]
                 else: l_mayaTypes = mayaType
                 #str_type = search.returnObjectType(self.mi_arg.getComponent())
-                str_type = search.returnObjectType(_arg)
+                str_type = SEARCH.get_mayaType(_arg)
                 if str_type not in l_mayaTypes:
                     if noneValid:
                         log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(self._str_reportStart,_argShort,str_type,l_mayaTypes))
                         return False
                     raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
-                t2 = time.clock()
+                t2 = time.time()
                 self.log_debug("mayaType not None time... %0.6f"%(t2-t1))		    
 
             #Get our cache key
@@ -7370,7 +5506,7 @@ def validateObjArgOLD(*args,**kws):
             self.log_debug("cacheKey: {0}".format(_cacheKey))
 
             if _cached is not None:
-                t1 = time.clock()		
+                t1 = time.time()		
                 self.log_debug("Already cached")
                 _cachedMClass = ATTR.get(_arg,'mClass') or False
                 _cachedType = type(_cached)
@@ -7439,7 +5575,7 @@ def validateObjArgOLD(*args,**kws):
                         self.log_debug("...not a subclass")			
 
                 if not _change and not _redo:
-                    t2 = time.clock()
+                    t2 = time.time()
                     self.log_debug("Cache good %0.6f"%(t2-t1))		    
                     return _cached
                 elif _change:
@@ -7455,15 +5591,15 @@ def validateObjArgOLD(*args,**kws):
                         #_cached.UUID = ''			
                     r9Meta.RED9_META_NODECACHE.pop(_cacheKey)
 
-                t2 = time.clock()
+                t2 = time.time()
                 self.log_debug("Cache check %0.6f"%(t2-t1))	
 
             if mType:
-                t1 = time.clock()				    		
+                t1 = time.time()				    		
                 if setClass or _wasCached:
                     self.log_debug("setClass...")
                     #attributes.storeInfo(_arg, 'mClass', mType, overideMessageCheck=True)
-                    t_attr = time.clock()				    		
+                    t_attr = time.time()				    		
                     try:ATTR.add(_argShort, 'mClass','string')
                     except:pass		    
                     try:
@@ -7471,11 +5607,11 @@ def validateObjArgOLD(*args,**kws):
                             ATTR.add(_argShort,'UUID','string')
                     except:pass
                     ATTR.set(_argShort,'mClass',mType,True)
-                    t2 = time.clock()		    
+                    t2 = time.time()		    
                     self.log_debug("attrSet %0.6f"%(t2-t_attr))	
                     self.log_debug("setClass %0.6f"%(t2-t1))	
                 else:
-                    t2 = time.clock()
+                    t2 = time.time()
                     self.log_debug("no setClass. Returning %0.6f"%(t2-t1))	
 
                 _mClass = ATTR.get(_argShort,'mClass')
@@ -7483,7 +5619,7 @@ def validateObjArgOLD(*args,**kws):
                     raise ValueError("stored mClass not found in class registry. mClass: {0}".format(_mClass))		
                 self.mi_arg =  mTypeClass(_argShort)
             else:
-                t1 = time.clock()				    				
+                t1 = time.time()				    				
                 self.log_debug("no mType arg...")
                 if _mClass:
                     if _mClass not in _r9ClassRegistry:
@@ -7512,7 +5648,7 @@ def validateObjArgOLD(*args,**kws):
                         except Exception as error:
                             raise Exception("cgmNode initialization fail | {0}".format(error))	
                 self.log_debug("leaving mType None...")
-                t2 = time.clock()
+                t2 = time.time()
                 self.log_debug("... %0.6f"%(t2-t1))				
 
             self.log_debug("Returning...{0}".format(self.mi_arg))

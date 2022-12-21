@@ -76,7 +76,7 @@ class SetFactory(object):
 
     def storeNameStrings(self,obj):
         """ Store the base, short and long names of an object to instance."""
-        set = mc.ls(obj,int=True)
+        set = mc.ls(obj,long=True)
         self.nameLong = set[0]
         set = mc.ls(obj,shortNames=True)        
         self.nameShort = set[0]

@@ -485,7 +485,7 @@ def offsetShape_byVector(dag=None, distance = 1, origin = None, component = 'cv'
         else:
             _origin = _originUse
     
-        _l_source = mc.ls("{0}.{1}[*]".format(s,component),flatten=True,int=True)
+        _l_source = mc.ls("{0}.{1}[*]".format(s,component),flatten=True,long=True)
         
         for ii,c in enumerate(_l_source):
             log.debug("|{0}| >> Shape {1} | Comp: {2} | {3}".format(_str_func, i, ii, c))

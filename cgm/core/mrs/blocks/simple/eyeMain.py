@@ -417,7 +417,7 @@ def rig_cleanUp(self):
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         log.debug("{0}".format(self))
         
-        #_start = time.clock()
+        #_start = time.time()
     
         mBlock = self.mBlock
         mMasterControl= self.d_module['mMasterControl']
@@ -785,7 +785,7 @@ def rig_cleanUp(self):
         
         mMasterControl.doStore('version', self.d_block['buildVersion'])
         
-        #log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+        #log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
         #except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 

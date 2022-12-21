@@ -19,8 +19,8 @@ try:
     import maya.cmds as mc   
     #from Red9.core import Red9_Meta as r9Meta
     from cgm.core import cgm_Meta as cgmMeta
-    import cgm.core.cgm_General as cgmGEN
-    from cgm.core.cgmPy import validateArgs as VALID
+    #import cgm.core.cgm_General as cgmGEN
+    #from cgm.core.cgmPy import validateArgs as VALID
     import cgm.core.classes.NodeFactory as NODEFACTORY
 except ImportError:
     raise Exception('Test can only be run in Maya')

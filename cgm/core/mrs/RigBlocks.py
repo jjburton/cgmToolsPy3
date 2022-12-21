@@ -36,11 +36,11 @@ log.setLevel(logging.INFO)
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
-import cgm.core.cgm_RigMeta as RIGMETA
+#import cgm.core.cgm_RigMeta as RIGMETA
 ##from cgm.core import cgm_PuppetMeta as PUPPETMETA
 
 from cgm.core.lib import curve_Utils as CURVES
-import cgm.core.lib.shape_utils as SHAPES
+#import cgm.core.lib.shape_utils as SHAPES
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import position_utils as POS
 import cgm.core.lib.transform_utils as TRANS
@@ -48,9 +48,9 @@ from cgm.core.lib import math_utils as MATH
 from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import rigging_utils as CORERIG
-from cgm.core.rigger.lib import joint_Utils as JOINTS
+#from cgm.core.rigger.lib import joint_Utils as JOINTS
 from cgm.core.lib import search_utils as SEARCH
-from cgm.core.lib import rayCaster as RAYS
+#from cgm.core.lib import rayCaster as RAYS
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as PATH
 import cgm.core.classes.NodeFactory as NODEFAC
@@ -60,7 +60,7 @@ import cgm.core.mrs.lib.builder_utils as BUILDERUTILS
 import cgm.core.mrs.lib.block_utils as BLOCKUTILS
 import cgm.core.mrs.lib.puppet_utils as PUPPETUTILS
 import cgm.core.mrs.lib.module_utils as MODULEUTILS
-import cgm.core.rig.general_utils as RIGGEN
+#import cgm.core.rig.general_utils as RIGGEN
 from cgm.core.classes import GuiFactory as cgmUI
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 from cgm.core.lib import nameTools
@@ -1467,7 +1467,7 @@ class factory(object):
 
     def create_rigBlock(self, blockType = None, size = 1, blockParent = None):
         _str_func = 'create_rigBlock'
-        _start = time.clock()
+        _start = time.time()
         """
         _d = get_modules_dict()
 
@@ -1484,7 +1484,7 @@ class factory(object):
         _mObj = cgmRigBlock(blockType=blockType)
         #_module.build_rigBlock(_mObj,size = size)
 
-        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start))) 
+        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start))) 
 
         #self.set_rigBlock(_mObj)
         #self.verify(blockType)
@@ -2976,7 +2976,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
     try:
         for i,mBlock in enumerate(_l_context):
             try:
-                t1 = time.clock()                
+                t1 = time.time()                
                 _short = mBlock.getShortName()
                 if _progressBar:
                     cgmUI.progressBar_start(_progressBar)
@@ -2989,7 +2989,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
                                                                _kwString,)))
                 if res not in [True,None,False]:print(res)
                 _res.append(res)
-                t2 = time.clock()
+                t2 = time.time()
                 
                 l_timeReports.append([_short, cgmGEN.get_timeString(t2-t1)])
                 
@@ -3115,7 +3115,7 @@ class rigFactory(object):
 
         """
         _str_func = 'rigFactory._init_'
-        _start = time.clock()
+        _start = time.time()
 
         #>>Initial call ---------------------------------------------------------------------------------
         self.callBlock = None
@@ -3190,7 +3190,7 @@ class rigFactory(object):
         self.fnc_processBuild(**kws)
         
 
-        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
         
 
         #_verify = kws.get('verify',False)
@@ -3443,7 +3443,7 @@ class rigFactory(object):
         cgmMeta.cgmAttr(_str_moduleRigNull,'gutsVis',lock=False).doConnectOut("%s.%s"%(_str_moduleRigNull,'overrideVisibility'))
         cgmMeta.cgmAttr(_str_moduleRigNull,'gutsLock',lock=False).doConnectOut("%s.%s"%(_str_moduleRigNull,'overrideDisplayType'))    
 
-        #log.debug("%s >> Time >> = %0.3f seconds " % (_str_funcName,(time.clock()-start)) + "-"*75)   
+        #log.debug("%s >> Time >> = %0.3f seconds " % (_str_funcName,(time.time()-start)) + "-"*75)   
         
         #Block Vis ---------------------------------------------------------------------------------------
         _str_partVis = self.d_module['partName'] + '_vis'
@@ -3696,7 +3696,7 @@ class rigFactory(object):
         """
         _str_func = 'fnc_deformConstrainNulls'  
         _res = True
-        _start = time.clock()
+        _start = time.time()
 
         _blockType = self.mBlock.blockType
 
@@ -3812,7 +3812,7 @@ class rigFactory(object):
                 log.info("|{0}| >> No rollJoint mode...".format(_str_func))                    
 
 
-        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))            
+        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))            
 
         return _res
 
@@ -3821,17 +3821,17 @@ class rigFactory(object):
         Verify the module's rig visibility toggles and object set
         """
         _str_func = 'fnc_processBuild'  
-        _start = time.clock()
+        _start = time.time()
 
         if self.b_outOfDate and self.call_kws['autoBuild']:
             self.doBuild(**kws)
         else:log.error("|{0}| >> No autobuild condition met. Out of date: {1}".format(_str_func, self.b_outOfDate))
         
-        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))            
+        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))            
 
     def doBuild(self,buildTo = '',**kws):
         _str_func = 'doBuild'  
-        _start = time.clock()
+        _start = time.time()
         fnc = None
 
         try:
@@ -3900,12 +3900,12 @@ class rigFactory(object):
 
             #raise Exception,"|{}| >> {} | step: {} | err: {}".format(_str_func,self.mBlock.p_nameBase, fnc, err)
 
-        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))
+        log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
 
     def build_rigJoints(self):
         _str_func = 'build_rigJoints'  
         _res = True
-        _start = time.clock()
+        _start = time.time()
 
         _ml_skinJoints = self.d_joints['ml_skinJoints']
 
@@ -3938,7 +3938,7 @@ class rigFactory(object):
         self.mRigNull.msgList_connect(ml_rigJoints,'rigJoints','rigNull')#connect	
 
 
-        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start)))                
+        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))                
         return ml_rigJoints
 
 #========================================================================================================

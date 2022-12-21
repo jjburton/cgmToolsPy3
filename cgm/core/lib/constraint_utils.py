@@ -11,9 +11,9 @@ Unified location for transform calls. metanode instances may by passed
 __MAYALOCAL = 'CONSTRAINTS'
 
 # From Python =============================================================
-import copy
-import re
-import random
+#import copy
+#import re
+#import random
 import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -24,7 +24,7 @@ log.setLevel(logging.INFO)
 
 # From Maya =============================================================
 import maya.cmds as mc
-from maya import mel
+#from maya import mel
 # From Red9 =============================================================
 
 # From cgm ==============================================================
@@ -169,7 +169,7 @@ def get_targets(node=None, fullPath = True, select = False):
     """   
     _str_func = 'get_targets'
     if node == None:
-        _sel = mc.ls(sl=True,int=True)
+        _sel = mc.ls(sl=True,long=True)
         if _sel:
             node = _sel[0]
         else:

@@ -311,7 +311,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
     # Get info
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     controlTypes = {'controlSettings':'gear','controlVisibility':'eye'}
-    start = time.clock()       
+    start = time.time()       
 
     if getFont:
         masterNull = search.returnObjectMasterNull(baseControl)
@@ -322,13 +322,13 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
     else:
         font = 'Arial'
         
-    log.debug('font =  %0.3f' % (time.clock()-start))
+    log.debug('font =  %0.3f' % (time.time()-start))
     
     """ our size """
     #absSize = distance.returnAbsoluteSizeCurve(baseControl)
     absSize = distance.returnBoundingBoxSize(baseControl)
     controlScale = max(absSize) * scaleMultiplier
-    log.debug('size =  %0.3f' % (time.clock()-start))
+    log.debug('size =  %0.3f' % (time.time()-start))
     
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Make Controls 
@@ -354,7 +354,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
             attributes.storeInfo(baseControl,('childControl'+ (control.capitalize())), controlBuffer)
             attributes.storeInfo(controlBuffer,"textFont",(settingsInfoNull+'.font'))
             controlsMade[control] = controlBuffer 
-    log.debug('build control =  %0.3f' % (time.clock()-start))
+    log.debug('build control =  %0.3f' % (time.time()-start))
     
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Prepping the transform group
@@ -393,7 +393,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
     for loc in locs:
         mc.delete(loc)
         
-    log.debug('locators =  %0.3f' % (time.clock()-start))
+    log.debug('locators =  %0.3f' % (time.time()-start))
     
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Positioning of controls
@@ -435,7 +435,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
         
         mc.parent(control,baseControlTransformGroup)
         
-    log.debug('position =  %0.3f' % (time.clock()-start))
+    log.debug('position =  %0.3f' % (time.time()-start))
         
     #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Finish Out
@@ -449,7 +449,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
         else:
             controlColor = baseColors[0]
             
-        log.debug('color =  %0.3f' % (time.clock()-start))
+        log.debug('color =  %0.3f' % (time.time()-start))
         
     position.moveParentSnap(baseControlTransformGroup,baseControl)
     
@@ -461,7 +461,7 @@ def childControlMaker(baseControl, controls = ['controlVisibility'], mode = ['in
             rigging.groupMeObject(control,True,True)
         if lockHide == True:
             attributes.doSetLockHideKeyableAttr(control)
-    log.debug('finish =  %0.3f' % (time.clock()-start))
+    log.debug('finish =  %0.3f' % (time.time()-start))
             
     mc.delete(baseControlTransformGroup)     
     

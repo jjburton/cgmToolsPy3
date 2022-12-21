@@ -110,18 +110,18 @@ def speedTest_duplicate(*args, **kws):
 	    #pass 1....
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_1.extend( self.test1_func(_rootString) )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 	    mc.delete(self.l_roots_1)
 		
 	    for i in range(self.int_iterations):
 		self.progressBar_set(status = ("Pass 2: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( self.test2_func(_rootString) )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)
 		
 		
@@ -200,18 +200,18 @@ def speedTest_duplicateInPlace(*args, **kws):
 	    #pass 1....
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_1.extend( self.test1_func(_jointToDup) )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 	    #mc.delete(self.l_roots_1)
 		
 	    for i in range(self.int_iterations):
 		self.progressBar_set(status = ("Pass 2: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( [self.test2_func(_jointToDup)] )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)
 		
 		
@@ -290,9 +290,9 @@ def speedTest_duplicateCurve(*args, **kws):
 	    
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_1.extend( self.test1_func(_toDup) )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 	    mc.file(new=True,f=True)
@@ -300,9 +300,9 @@ def speedTest_duplicateCurve(*args, **kws):
 		
 	    for i in range(self.int_iterations):
 		self.progressBar_set(status = ("Pass 2: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( [self.test2_func(_toDup)] )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)
 		
 		
@@ -381,18 +381,18 @@ def speedTest_duplicateLocator(*args, **kws):
 	    
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_1.extend( self.test1_func(_toDup) )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 	    mc.delete(self.l_roots_1)
 		
 	    for i in range(self.int_iterations):
 		self.progressBar_set(status = ("Pass 2: Iterating Duplicate %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( [self.test2_func(_toDup)] )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)
 		
 		
@@ -433,9 +433,9 @@ def speedTest_simpleLocator(iterations = 100):
     for i in range(iterations):
 	print(("On...{0}".format(i)))
 	
-	t1 = time.clock()		
+	t1 = time.time()		
 	mc.duplicate(_loc, po = False, ic = False, un = False)
-	t2 = time.clock()
+	t2 = time.time()
 	l_times.append(t2-t1)
 	
     for i,t in enumerate(l_times):
@@ -506,14 +506,14 @@ def speedTest_mNodeCall(*args, **kws):
 	    #pass 1....
             for i in range(self.int_iterations):
                 self.progressBar_set(status = ("Pass 1: Iterating Call %i"%i), progress = i, maxValue = self.int_iterations)		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(_rootString)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.l_roots_2.extend( [self.test2_func(self._toCall)] )              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)		
 		
 		#self.l_roots_1.extend( [jntUtils.duplicateJointInPlace(_rootString,asMeta=False)] )
@@ -617,19 +617,19 @@ def speedTest_substantiation(*args, **kws):
             for i in range(self.int_targetCount):
                 self.progressBar_set(status = ("Pass 1: Substantiating Call %i"%i), progress = i, maxValue = self.int_targetCount)		
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.call2_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 		
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test3_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_3.append(t2-t1)	
 		
 	def _reportHowMayaIsStupid_(self):
@@ -742,25 +742,25 @@ def speedTest_cgmValidateObjArgKWS(*args, **kws):
             for i in range(self.int_targetCount):
                 self.progressBar_set(status = ("Pass 1: Substantiating Call %i"%i), progress = i, maxValue = self.int_targetCount)		
 		self.l_objects.append(mc.createNode( self.str_nodeType, n = "obj_{0}".format(i) ))
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 		#_string = mc.createNode( self.str_nodeType, n = "old_{0}".format(i) )
 		_string = cgmMeta.cgmObject(n = "old_{0}".format(i))
-		t1 = time.clock()
+		t1 = time.time()
 		self.test2_func(_string)              
 		#self.test2_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 		
 		#_string = mc.createNode( self.str_nodeType, n = "new_{0}".format(i) )
 		_string = cgmMeta.cgmObject(n = "new_{0}".format(i))		
-		t1 = time.clock()
+		t1 = time.time()
 		self.test3_func(_string)  
 		#self.test3_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_3.append(t2-t1)	
 
 	def _reportHowMayaIsStupid_(self):
@@ -812,19 +812,19 @@ def speedTest_reloadMetaFile(iterations = 100):
     Test to see how meta reloading affects file new/open
     """
     l_times = []
-    t_start = time.clock()
+    t_start = time.time()
     for i in range(iterations):
 	log.info("On...{0}".format(i))
 	cgm.core._reload()
 	
-	t1 = time.clock()
+	t1 = time.time()
 	#r9Meta.MetaClass(name = 'test_{0}'.format(i),nodeType='network')
 	mc.file(new=True,f=True)
 	
-	t2 = time.clock()
+	t2 = time.time()
 	l_times.append(t2-t1)
 	
-    t_end = time.clock()
+    t_end = time.time()
 	
     #for i,t in enumerate(l_times):
 	#log.info("Step {0} |  {1}".format(i,"%0.3f"%t))
@@ -852,18 +852,18 @@ def speedTest_reloadMeta(iterations = 100,):
     Test to see how meta reloading affects file new/open
     """
     l_times = []
-    t_start = time.clock()
+    t_start = time.time()
     for i in range(iterations):
 	log.info("On...{0}".format(i))
 	#cgm.core._reload()
 	
-	t1 = time.clock()
+	t1 = time.time()
 	r9Meta.MetaClass(name = 'test_{0}'.format(i),nodeType='transform')
 	
-	t2 = time.clock()
+	t2 = time.time()
 	l_times.append(t2-t1)
 	
-    t_end = time.clock()
+    t_end = time.time()
 	
     #for i,t in enumerate(l_times):
 	#log.info("Step {0} |  {1}".format(i,"%0.3f"%t))
@@ -933,16 +933,16 @@ def speedTest_conversion(*args, **kws):
                 self.progressBar_set(status = ("Pass 1: Substantiating Call %i"%i), progress = i, maxValue = self.int_targetCount)		
 		#self.l_objects.append(mc.createNode( self.str_nodeType, n = "obj_{0}".format(i) ))
 		_string = r9Meta.MetaClass(name  = "r9_{0}".format(i), nodeType = 'network')
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(_string)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 		#_string = mc.createNode( self.str_nodeType, n = "old_{0}".format(i) )
 		_string = r9Meta.MetaClass(name = "cgm_{0}".format(i), nodeType = 'network')
-		t1 = time.clock()
+		t1 = time.time()
 		self.test2_func(_string)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 				
 
@@ -1061,23 +1061,23 @@ def speedTest_jointDepth(*args, **kws):
 		#_last = mi_child.mNode
 		
 		self.l_objects.append(mc.createNode( self.str_nodeType, n = "obj_{0}".format(i) ))
-		t1 = time.clock()	
+		t1 = time.time()	
 		self.test1_func(_last)              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_1.append(t2-t1)
 		
 		#_string = mc.createNode( self.str_nodeType, n = "old_{0}".format(i) )
-		t1 = time.clock()
+		t1 = time.time()
 		self.test2_func(_last)              
 		#self.test2_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_2.append(t2-t1)	
 		
 		#_string = mc.createNode( self.str_nodeType, n = "new_{0}".format(i) )
-		t1 = time.clock()
+		t1 = time.time()
 		self.test3_func(_last)  
 		#self.test3_func(self.l_objects[i])              
-		t2 = time.clock()
+		t2 = time.time()
 		self.l_times_3.append(t2-t1)	
 		
 		self._str_last = _last

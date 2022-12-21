@@ -181,7 +181,7 @@ def doParentReturnName(obj,parentObj):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     #assert mc.objExists(parentObj),"Parent object doesn't exist: %s"%str(parentObj)
-    if parentObj in str(mc.ls(obj,int=True)):
+    if parentObj in str(mc.ls(obj,long=True)):
         return obj
     else:
         returnBuffer = mc.parent(obj,parentObj)

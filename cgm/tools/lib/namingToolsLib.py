@@ -313,7 +313,7 @@ def uiUpdateAutoNameTag(self,tag):
 # Naming functions
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def uiGetObjectInfo(self):
-	selected = mc.ls(sl=True,int=True)
+	selected = mc.ls(sl=True,long=True)
 	from cgm.lib.classes import NameFactory as NameFactoryOld
 	#reload(NameFactoryOld)
 	
@@ -347,7 +347,7 @@ def uiReturnSceneUniqueName(self):
 		print((NameFactoryOld.returnUniqueGeneratedName(obj,True)))
 			
 def uiNameObject(self,sceneUnique):
-	selected = mc.ls(sl=True,flatten=True,int=True)
+	selected = mc.ls(sl=True,flatten=True,long=True)
 	newNames = []
 	
 	if not selected:

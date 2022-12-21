@@ -76,7 +76,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
 
         _str_func = "returnBaseControlSize(%s)"%mi_obj.p_nameShort
         log.debug(">> %s "%(_str_func) + "="*75)
-        start = time.clock()
+        start = time.time()
 
         log.debug("%s >> mesh: %s "%(_str_func,mesh))  
         log.debug("%s >> axis: %s "%(_str_func,axis)) 
@@ -133,7 +133,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
         log.debug("%s >> d_returnDistances: %s "%(_str_func,d_returnDistances))        	
         d_returnDistances['average'] = (sum([d_returnDistances.get(k) for k in list(d_returnDistances.keys())]))/len(list(d_returnDistances.keys()))
 
-        log.info("%s >> Complete Time >> %0.3f seconds " % (_str_func,(time.clock()-start)) + "-"*75)     	
+        log.info("%s >> Complete Time >> %0.3f seconds " % (_str_func,(time.time()-start)) + "-"*75)     	
         return d_returnDistances    
     except Exception as error:
         raise Exception(" returnBaseControlSize | {0}".format(error))

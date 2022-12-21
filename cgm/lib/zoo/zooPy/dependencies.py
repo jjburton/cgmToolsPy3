@@ -317,7 +317,7 @@ class DependencyTree(DependencyNode):
 		'''
 		padding = 15
 
-		start = time.clock()
+		start = time.time()
 		files = self.getFiles()
 
 		extraSearchPaths = self._extraPaths
@@ -350,7 +350,7 @@ class DependencyTree(DependencyNode):
 			crcs[ f ] = currentCrc
 
 		self.writeCache()
-		logMessage( 'Time to update cache: %0.2g' % (time.clock()-start) )
+		logMessage( 'Time to update cache: %0.2g' % (time.time()-start) )
 		logMessage()
 	def findDependents( self, changedScriptPath ):
 		'''

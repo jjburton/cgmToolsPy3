@@ -47,9 +47,9 @@ def d_timer(f):
 	simply reports the time taken by the decorated function
 	'''
 	def newFunc( *a, **kw ):
-		s = time.clock()
+		s = time.time()
 		ret = f( *a, **kw )
-		print(('Time Taken by %s:  %0.3g' % (f.__name__, time.clock()-s)))
+		print(('Time Taken by %s:  %0.3g' % (f.__name__, time.time()-s)))
 
 		return ret
 

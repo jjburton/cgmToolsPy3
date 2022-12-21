@@ -1,15 +1,15 @@
-import cgm.core.cgm_Meta as cgmMeta
-import cgm.core.cgm_RigMeta as RIGMETA
-from cgm.core.cgmPy import validateArgs as VALID
+#import cgm.core.cgm_Meta as cgmMeta
+#import cgm.core.cgm_RigMeta as RIGMETA
+#from cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.attribute_utils as ATTR
-from cgm.core.rigger.lib import rig_Utils as rUtils
+#from cgm.core.rigger.lib import rig_Utils as rUtils
 #reload(rUtils)
-from cgm.core.classes import NodeFactory as NodeF
-import cgm.core.lib.distance_utils as DIST
+#from cgm.core.classes import NodeFactory as NodeF
+#import cgm.core.lib.distance_utils as DIST
 
 import maya.mel as mel
 import maya.cmds as mc
-import pprint
+#import pprint
 
 import logging
 logging.basicConfig()

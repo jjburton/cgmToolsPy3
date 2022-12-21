@@ -85,7 +85,7 @@ class cgmMarkingMenu2(cgmUI.markingMenu):
         #    for a in err.args():
         #        print a
                 
-        self.var_clockStart.value = time.clock()
+        self.var_clockStart.value = time.time()
                 
         
         mc.showWindow('cgmMM')
@@ -1763,7 +1763,7 @@ def killUI():
         #>>> Timer stuff
         #=============================================================================
         var_clockStart = cgmMeta.cgmOptionVar('cgmVar_cgmMarkingMenu_clockStart', defaultValue = 0.0)    
-        f_seconds = time.clock()-var_clockStart.value
+        f_seconds = time.time()-var_clockStart.value
         log.debug(">"*10  + '   cgmMarkingMenu =  %0.3f seconds  ' % (f_seconds) + '<'*10)    
     
         if sel and f_seconds <= .5:#and not mmActionOptionVar.value:

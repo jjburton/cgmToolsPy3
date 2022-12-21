@@ -52,7 +52,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         #>>>> Clock set
         #====================================================================
         self.clockStartVar = cgmMeta.cgmOptionVar('cgmVar_PuppetKeyClockStart', defaultValue = 0.0)	
-        self.clockStartVar.value = time.clock()
+        self.clockStartVar.value = time.time()
         log.debug("cgmPuppetKey.clockStart: %s"%self.clockStartVar.value)
 
         IsClickedOptionVar.value = 0
@@ -94,7 +94,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         Create the UI
         """	
         log.info("{0}".format(self._str_funcName))
-        time_buildMenuStart =  time.clock()
+        time_buildMenuStart =  time.time()
         self.setupVariables()#Setup our optionVars
 
         def buttonAction(command):
@@ -168,7 +168,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
             """	
             l_objects = [i_o.getShortName() for i_o in list(self.d_objectsInfo.keys())]
             log.info("func_multiChangeDynParent>> attr: '%s' | option: '%s' | objects: %s"%(attr,option,l_objects))
-            timeStart_tmp = time.clock()
+            timeStart_tmp = time.time()
             for i_o in list(self.d_objectsInfo.keys()):
                 try:
                     mi_dynParent = self.d_objectsInfo[i_o]['dynParent'].get('mi_dynParent')
@@ -176,7 +176,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                 except Exception as error:
                     log.error("func_multiChangeDynParent>> '%s' failed. | %s"%(i_o.getShortName(),error))    
 
-            log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.clock()-timeStart_tmp) + '<'*10)  
+            log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.time()-timeStart_tmp) + '<'*10)  
             mc.select(l_objects)
 
         def aimObjects(self):
@@ -273,14 +273,14 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         self.i_target = False
         log.info("ml_objList: %s"%self.ml_objList)
         if len(self.ml_objList)>=2:
-            time_aimStart = time.clock()	    
+            time_aimStart = time.time()	    
             for i_obj in self.ml_objList[1:]:
                 if i_obj.hasAttr('mClass') and i_obj.mClass == 'cgmControl':
                     if i_obj._isAimable():
                         b_aimable = True
                         self.i_target = self.ml_objList[0]
                         break
-            log.info(">"*10  + 'Aim check =  %0.3f seconds  ' % (time.clock()-time_aimStart) + '<'*10)  
+            log.info(">"*10  + 'Aim check =  %0.3f seconds  ' % (time.time()-time_aimStart) + '<'*10)  
 
         #ShowMatch = search.matchObjectCheck()
 
@@ -317,7 +317,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                     c = lambda *a:deleteKey(),
                     rp = 'SW')	
 
-        timeStart_objectList = time.clock()
+        timeStart_objectList = time.time()
         if self.ml_objList:
             self.d_objectsInfo = {}
             #first we validate
@@ -370,7 +370,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                                 self.l_puppets.append(buffer[0])
                         except Exception as error:
                             log.info("Failed to append puppet for: %s | %s"%(i_o.getShortName(),error))			
-            log.info(">"*10  + ' Object list build =  %0.3f seconds  ' % (time.clock()-timeStart_objectList) + '<'*10)  
+            log.info(">"*10  + ' Object list build =  %0.3f seconds  ' % (time.time()-timeStart_objectList) + '<'*10)  
             for k in list(self.d_objectsInfo.keys()):
                 log.debug("%s: %s"%(k.getShortName(),self.d_objectsInfo.get(k)))
 
@@ -378,7 +378,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
             #Build the menu
             #=========================================================================================
             #>> Find Common options ------------------------------------------------------------------
-            timeStart_commonOptions = time.clock()    
+            timeStart_commonOptions = time.time()    
             l_commonAttrs = []
             d_commonOptions = {}
             bool_firstFound = False
@@ -403,7 +403,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
 
             log.debug("Common Attrs: %s"%l_commonAttrs)
             log.debug("Common Options: %s"%d_commonOptions)
-            log.info(">"*10  + ' Common options build =  %0.3f seconds  ' % (time.clock()-timeStart_commonOptions) + '<'*10)  
+            log.info(">"*10  + ' Common options build =  %0.3f seconds  ' % (time.time()-timeStart_commonOptions) + '<'*10)  
 
             #>> Build ------------------------------------------------------------------
             int_lenObjects = len(list(self.d_objectsInfo.keys()))
@@ -450,7 +450,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                         log.debug("'%s':lacks dynParent"%i_o.getShortName())
 
         #>>> Module =====================================================================================================
-        timeStart_ModuleStuff = time.clock()  	    
+        timeStart_ModuleStuff = time.time()  	    
         if self.BuildModuleOptionVar.value and self.ml_modules:
             #MelMenuItem(parent,l="-- Modules --",en = False)	    
             self.ml_modules = lists.returnListNoDuplicates(self.ml_modules)
@@ -570,10 +570,10 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                     log.info("Failed to build basic module menu for: %s | %s"%(i_o.getShortName(),error))					
 
                 mUI.MelMenuItemDiv(parent)						
-        log.info(">"*10  + ' Module options build =  %0.3f seconds  ' % (time.clock()-timeStart_ModuleStuff) + '<'*10)  
+        log.info(">"*10  + ' Module options build =  %0.3f seconds  ' % (time.time()-timeStart_ModuleStuff) + '<'*10)  
 
         #>>> Puppet =====================================================================================================
-        timeStart_PuppetStuff = time.clock()  	    
+        timeStart_PuppetStuff = time.time()  	    
         if self.BuildPuppetOptionVar.value and self.l_puppets:
             #MelMenuItem(parent,l="-- Puppets --",en = False)	    
             self.l_puppets = lists.returnListNoDuplicates(self.l_puppets)
@@ -670,7 +670,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
                     log.info("Puppet failure: {0} | {1}".format(i_puppet.mNode,error))	
 
                 mUI.MelMenuItemDiv(parent)						
-        log.info(">"*10  + ' Puppet options build =  %0.3f seconds  ' % (time.clock()-timeStart_PuppetStuff) + '<'*10)  		
+        log.info(">"*10  + ' Puppet options build =  %0.3f seconds  ' % (time.time()-timeStart_PuppetStuff) + '<'*10)  		
 
 
         #>>> Options menus
@@ -766,7 +766,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         mUI.MelMenuItem(parent, l="Reset",
                     c=lambda *a: guiFactory.resetGuiInstanceOptionVars(self.optionVars))
 
-        f_time = time.clock()-time_buildMenuStart
+        f_time = time.time()-time_buildMenuStart
         log.info('build menu took: %0.3f seconds  ' % (f_time) + '<'*10)  
 
     def toggleVarAndReset(self, optionVar):
@@ -789,7 +789,7 @@ def killUI():
     #>>> Timer stuff
     #=============================================================================
     var_clockStart = cgmMeta.cgmOptionVar('cgmVar_PuppetKeyClockStart', defaultValue = 0.0)    
-    f_seconds = time.clock()-var_clockStart.value
+    f_seconds = time.time()-var_clockStart.value
     log.debug(">"*10  + '   cgmPuppetKey =  %0.3f seconds  ' % (f_seconds) + '<'*10)    
 
     #>>>Delete our gui and default behavior

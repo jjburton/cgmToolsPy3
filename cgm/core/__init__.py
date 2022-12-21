@@ -12,15 +12,7 @@ It is built heavily and modeled on Mark Jackson (Red 9)'s great wwork.
     
 ===============================================================================
 '''
-import Red9.core
-from Red9.core import (Red9_General,
-                       Red9_Meta,
-                       Red9_Tools,
-                       Red9_CoreUtils,
-                       Red9_AnimationUtils,
-                       Red9_PoseSaver) 
-import importlib
-import pprint
+
 """import cgm_General
 import cgm_Meta
 import cgm_Deformers
@@ -41,7 +33,7 @@ import lib.meta_Utils
 import lib.shapeCaster"""
 
 from . import cgm_General as cgmGen
-import os
+#import os
 import maya.mel as mel
 #import reloadFactory as RELOAD
 #import cgm.core.cgmPy.path_Utils as PATH
@@ -61,13 +53,13 @@ _l_core_order = ['cgm_General',
                  'rig.dynamic_utils',
                  'tools.lightLoomLite',
                  'cgmPy.validateArgs',
-                 'rigger.ModuleFactory',
-                 'rigger.JointFactory',
-                 'rigger.TemplateFactory',
-                 'rigger.PuppetFactory',
-                 'rigger.RigFactory',
-                 'rigger.ModuleShapeCaster',
-                 'rigger.ModuleControlFactory',
+                 #'rigger.ModuleFactory',
+                 #'rigger.JointFactory',
+                 #'rigger.TemplateFactory',
+                 #'rigger.PuppetFactory',
+                 #'rigger.RigFactory',
+                 #'rigger.ModuleShapeCaster',
+                 #'rigger.ModuleControlFactory',
                  'classes.DraggerContextFactory',
                  'lib.zoo.baseMelUI',
                  'lib.euclid',
@@ -81,7 +73,7 @@ _l_ignoreTags = ['cgm.core.examples',
                  'cgm.lib.gigs',
                  'cgm.lib.zoo',
                  'cgm.projects',
-                 'cgm.core.rigger',
+                 #'cgm.core.rigger',
                  'cgmMeta_test']
 
 import cgm
@@ -89,16 +81,30 @@ import copy
 import maya.cmds as mc
 from cgm.core.cgmPy import os_Utils as cgmOS
 #reload(cgmOS)
+import importlib
+import pprint
 
 @cgmGen.Timer
 def _reload(stepConfirm=False):
-    
+    """
+    import Red9.core
+    from Red9.core import (Red9_General,
+                           Red9_Meta,
+                           Red9_Tools,
+                           Red9_CoreUtils,
+                           Red9_AnimationUtils,
+                           Red9_PoseSaver) 
+
+    """
     _str_func = '_reload'
     
     _d_modules, _l_ordered, _l_pycd = cgmOS.get_module_data(cgm.__path__[0],cleanPyc=True)
     _l_finished = []
     _l_cull = copy.copy(_l_ordered)
     
+    import Red9
+    import Red9.core
+    Red9.setup.addPythonPackages()
     Red9.core._reload()
     importlib.reload(cgmOS)
     _d_failed = {}
@@ -211,72 +217,6 @@ def _reload(stepConfirm=False):
     print('CGM Core Reload complete')     
 
         
-
-        
-            
-
-
-
-def _reloadBAK():
-    '''
-    reload carefully and re-register the RED9_META_REGISTRY
-    '''
-    Red9.core._reload()
-    importlib.reload(cgm_General)    
-    importlib.reload(cgm_Meta)
-    importlib.reload(cgm_Deformers)
-    importlib.reload(cgm_PuppetMeta)
-    importlib.reload(cgm_RigMeta)
-    importlib.reload(cgmPy.validateArgs)
-    importlib.reload(rigger.ModuleFactory)
-    importlib.reload(rigger.JointFactory)
-    importlib.reload(rigger.TemplateFactory)
-    importlib.reload(rigger.PuppetFactory)
-    importlib.reload(rigger.RigFactory)
-    importlib.reload(rigger.ModuleShapeCaster)
-    importlib.reload(rigger.ModuleControlFactory)
-    
-    importlib.reload(classes.DraggerContextFactory)
-    importlib.reload(classes.SnapFactory)
-    importlib.reload(lib.rayCaster)
-    importlib.reload(lib.meta_Utils)
-    importlib.reload(lib.shapeCaster)
-    try:importlib.reload(morpheusRig_v2.core.morpheus_meta)
-    except:print("Morpheus Rig core not found.")
-    
-    
-    Red9_Meta.registerMClassNodeMapping(nodeTypes = ['transform','objectSet','clamp','setRange','pointOnCurveInfo','decomposeMatrix','remapValue','ramp',
-                                                     'ikSplineSolver','blendColors','blendTwoAttr','addDoubleLinear','condition','multiplyDivide','plusMinusAverage'])
-
-    print('CGM Core Reloaded and META REGISTRY updated') 
-    #print '=' * 100
-    #Red9_Meta.printSubClassRegistry()  
-    #print '=' * 100    
-    
-def _setlogginglevel_debug():
-    '''
-    Dev wrapper to set the logging level to debug
-    '''
-    Red9.core._setlogginglevel_debug()
-    cgm_Meta.log.setLevel(cgm_Meta.logging.DEBUG)
-    cgm_PuppetMeta.log.setLevel(cgm_PuppetMeta.logging.DEBUG)
-    rigger.ModuleFactory.log.setLevel(rigger.ModuleFactory.logging.DEBUG)
-    rigger.JointFactory.log.setLevel(rigger.JointFactory.logging.DEBUG)
-    
-    print('cgm Core set to DEBUG state')
-    
-def _setlogginglevel_info():
-    '''
-    Dev wrapper to set the logging to Info, usual state
-    '''
-    Red9.core._setlogginglevel_info()
-    cgm_Meta.log.setLevel(cgm_Meta.logging.INFO)
-    cgm_PuppetMeta.log.setLevel(cgm_PuppetMeta.logging.INFO)
-    rigger.ModuleFactory.log.setLevel(rigger.ModuleFactory.logging.INFO)
-    rigger.JointFactory.log.setLevel(rigger.JointFactory.logging.INFO)
-    
-    print('cgm Core set to Info state')
-
 
 
 #========================================================================

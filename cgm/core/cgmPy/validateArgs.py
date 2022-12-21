@@ -758,7 +758,7 @@ def is_shape(node = None):
     _node = stringArg(node,False,_str_func)
     log.debug("|{0}| >> node: '{1}' ".format(_str_func,_node))    
     
-    _shape = mc.ls(node,type='shape',int=True)
+    _shape = mc.ls(node,type='shape',long=True)
     if _shape:
         if len(_shape) == 1:
             if _shape[0] == NAME.get_long(_node):
@@ -1011,7 +1011,9 @@ d_vectorToString = {
 class simpleAxis(object):
     """ 
     """
+    """
     def __new__(cls,*args,**kws):
+        
         log.debug('simpleAxis | new...')
         simpleAxis.cached = None
         
@@ -1024,9 +1026,26 @@ class simpleAxis(object):
             #else:
                 #return False
         
-        return super(cls.__class__, cls).__new__(simpleAxis,*args,**kws)
+        return super(cls.__class__, cls).__new__(cls,*args,**kws)"""
+    def __new__(cls,*args,**kws):
+        
+        log.debug('simpleAxis | new...')
+        simpleAxis.cached = None
+        
+        if args:
+            check = args[0]
+            if issubclass(type(check),simpleAxis):
+                log.debug('simpleAxis | isClass')
+                simpleAxis.cached = args[0]
+                return args[0]
+            #else:
+                #return False
+        
+        #return super(cls.__class__, cls).__new__(cls,*args,**kws)
+        return super(cls.__class__, cls).__new__(cls)    
         
     def __init__(self,arg,calledFrom = None):
+        
         if simpleAxis.cached:
             log.debug('simpleAxis | cache')
             return 

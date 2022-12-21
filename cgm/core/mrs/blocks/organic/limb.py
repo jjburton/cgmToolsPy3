@@ -9125,7 +9125,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
         _str_func = '[{0}] > build_proxyMesh'.format(_short)
         log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
       
-        _start = time.clock()
+        _start = time.time()
         mBlock = self
         
         if not mBlock.meshBuild:

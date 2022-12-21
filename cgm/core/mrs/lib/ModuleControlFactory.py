@@ -24,13 +24,13 @@ from cgm.core import cgm_RigMeta as cgmRigMeta
 from cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.attribute_utils as ATTR
-import cgm.core.lib.curve_Utils as CURVES
-from cgm.core.classes import SnapFactory as Snap
+#import cgm.core.lib.curve_Utils as CURVES
+#from cgm.core.classes import SnapFactory as Snap
 from cgm.core.classes import NodeFactory as NodeF
-from cgm.core.lib import rayCaster as RayCast
-from cgm.core.rigger.lib import rig_Utils as rUtils
-import cgm.core.rigger.lib.spacePivot_utils as SPACEPIVOTS
-import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+#from cgm.core.lib import rayCaster as RayCast
+#from cgm.core.rigger.lib import rig_Utils as rUtils
+import cgm.core.rig.spacePivot_utils as SPACEPIVOTS
+#import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 from cgm.core.lib import constraint_utils as CONSTRAINTS
 
 """

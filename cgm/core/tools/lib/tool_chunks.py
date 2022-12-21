@@ -1208,10 +1208,12 @@ def uiSection_dev(parent):
                               l='Debug ' + m)   
         _mTest = mc.menuItem(parent = _test,subMenu = True,tearOff = True,
                              l='Test ' + m)   
-        for t in ['all'] + l:
+        for t in l + ['all']:
             _t = t
             if t == 'all':
                 _t = m
+                mUI.MelMenuItemDiv(_mCheck)
+                mUI.MelMenuItemDiv(_mTest)                
             mc.menuItem(parent = _mCheck,
                         l=t,
                         ann = "TEST LIST ONLY - {0} | {1}".format(m,t),
@@ -1221,8 +1223,10 @@ def uiSection_dev(parent):
             mc.menuItem(parent = _mTest,
                         l=t,
                         ann = "WARNING - Opens new file.... Test: {0} | {1}".format(m,t),
-                        c=cgmGEN.Callback(ut_cgmTestCall,_t, **{'testCheck':False}))   
-    
+                        c=cgmGEN.Callback(ut_cgmTestCall,_t, **{'testCheck':False}))
+
+                
+    """
     mc.menuItem(parent = _unitTests, l = '----------------')
     
     mc.menuItem(parent = _unitTests,
@@ -1240,7 +1244,7 @@ def uiSection_dev(parent):
     mc.menuItem(parent = _unitTests,
                 l='OLD - limb',
                 ann = "WARNING - Opens new file...Unit test cgm.core",
-                c=lambda *a: ut_limbOLD()) 
+                c=lambda *a: ut_limbOLD()) """
     
     #Capture ------------------------------------------
     _screenGrab = mc.menuItem(parent = parent,subMenu = True,tearOff = True,

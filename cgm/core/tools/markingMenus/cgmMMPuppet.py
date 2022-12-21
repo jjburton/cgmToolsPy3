@@ -114,7 +114,7 @@ def bUI_lower(self,parent):
     #Change space menu
     DYNPARENTTOOL.uiMenu_changeSpace(self,parent,False)
     
-    timeStart_objectList = time.clock() 
+    timeStart_objectList = time.time() 
     
     return
     #>>  Individual objects....  ============================================================================
@@ -173,7 +173,7 @@ def bUI_lower(self,parent):
                 l='MRS - WIP',
                 c=lambda *a: mc.evalDeferred(TOOLCALLS.mrsUI))    
     
-    f_time = time.clock()-timeStart_objectList    
+    f_time = time.time()-timeStart_objectList    
     log.debug("|{0}| >> Build menu: {1}".format(_str_func,  '%0.3f seconds  ' % (f_time)))    
 
 @cgmGen.Timer
@@ -447,7 +447,7 @@ def bUI_lowerBAK(self,parent):
     #Change space menu
     DYNPARENTTOOL.uiMenu_changeSpace(self,parent,False)                 
     
-    timeStart_objectList = time.clock() 
+    timeStart_objectList = time.time() 
     
     #>>  Individual objects....  ============================================================================
     if self._ml_objList:
@@ -495,7 +495,7 @@ def bUI_lowerBAK(self,parent):
         
     
     #>>> Module =====================================================================================================
-    timeStart_ModuleStuff = time.clock() 
+    timeStart_ModuleStuff = time.time() 
     
     if _optionVar_val_moduleOn and self._ml_modules:
         #MelMenuItem(parent,l="-- Modules --",en = False)	    
@@ -622,12 +622,12 @@ def bUI_lowerBAK(self,parent):
                 log.error("|{0}| >> module sibling menu FAILURE: {1} | {2}".format(_str_func, _short,err))                
                 
             mc.menuItem(p=parent,l = "-"*25,en = False)
-    log.debug("|{0}| >> Module options build: {1}".format(_str_func,  '%0.3f seconds  ' % (time.clock()-timeStart_ModuleStuff)))    
+    log.debug("|{0}| >> Module options build: {1}".format(_str_func,  '%0.3f seconds  ' % (time.time()-timeStart_ModuleStuff)))    
     
     
     
     #>>> Puppet =====================================================================================================
-    timeStart_PuppetStuff = time.clock()
+    timeStart_PuppetStuff = time.time()
     
     if _optionVar_val_puppetOn and self._l_puppets:
         #MelMenuItem(parent,l="-- Puppets --",en = False)	    
@@ -732,10 +732,10 @@ def bUI_lowerBAK(self,parent):
                 log.error("|{0}| >> Puppet: {1} | {2}".format(_str_func, _short,err))                
 
                 mc.menuItem(p=parent,l = "-"*25,en = False)
-    log.debug("|{0}| >> Puppet options build: {1}".format(_str_func,  '%0.3f seconds  ' % (time.clock()-timeStart_PuppetStuff)))    
+    log.debug("|{0}| >> Puppet options build: {1}".format(_str_func,  '%0.3f seconds  ' % (time.time()-timeStart_PuppetStuff)))    
     
     
-    f_time = time.clock()-timeStart_objectList    
+    f_time = time.time()-timeStart_objectList    
     log.debug("|{0}| >> Build menu: {1}".format(_str_func,  '%0.3f seconds  ' % (f_time)))    
     
     
@@ -812,7 +812,7 @@ def func_multiChangeDynParentOLD(self,attr,option):
     """	
     l_objects = [i_o.getShortName() for i_o in list(self.d_objectsInfo.keys())]
     log.info("func_multiChangeDynParent>> attr: '%s' | option: '%s' | objects: %s"%(attr,option,l_objects))
-    timeStart_tmp = time.clock()
+    timeStart_tmp = time.time()
     for i_o in list(self.d_objectsInfo.keys()):
         try:
             mi_dynParent = self.d_objectsInfo[i_o]['dynParent'].get('mi_dynParent')
@@ -820,7 +820,7 @@ def func_multiChangeDynParentOLD(self,attr,option):
         except Exception as error:
             log.error("func_multiChangeDynParent>> '%s' failed. | %s"%(i_o.getShortName(),error))    
 
-    log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.clock()-timeStart_tmp) + '<'*10)  
+    log.info(">"*10  + ' func_multiChangeDynParent =  %0.3f seconds  ' % (time.time()-timeStart_tmp) + '<'*10)  
     mc.select(l_objects)
 
 def aimObjects(self):

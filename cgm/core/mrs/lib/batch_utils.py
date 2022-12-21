@@ -474,17 +474,17 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('mirror_verify...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         mPuppet.atUtils('mirror_verify',1)
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['mirrorVerify', get_time(t2-t1)
 ])
                         
                     if kws.get('gatherSpaceDrivers',1):
                         log.info('collect worldSpace...')
-                        t1 = time.clock()                                                
+                        t1 = time.time()                                                
                         mPuppet.atUtils('collect_worldSpaceObjects')
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['gatherSpaceDrivers', get_time(t2-t1)
 ])
                         
@@ -492,9 +492,9 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('qss...')
-                        t1 = time.clock()                                                
+                        t1 = time.time()                                                
                         mPuppet.atUtils('qss_verify',puppetSet=1,bakeSet=1,deleteSet=1,exportSet=1)
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['qss', get_time(t2-t1)
 ])
                         
@@ -502,20 +502,20 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Delete unused shaders...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         MRSPOST.shaders_getUnused(delete=True)
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['deleteUnusedShaders', get_time(t2-t1)])
                                               
                     if kws.get('deleteCGMLightGroup'):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Delete cgm shaders...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         try:mc.delete('cgmLightGroup')
                         except:pass
                         
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['deleteUnusedShaders', get_time(t2-t1)])
                         
                         
@@ -523,7 +523,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                         
                         log.info('hideVisSub...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         for i,mSubBlock in enumerate(ml_context):
                             if not i:
@@ -535,18 +535,18 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                                 log.error(err)
 
                         
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['hideVisSub', get_time(t2-t1)])
                         
                     if kws.get('hideJointAxis'):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Hide axis on all joints...')   
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         for mObj in cgmMeta.asMeta(mc.ls(type='joint')):
                             mObj.displayLocalAxis = 0
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['hideJointAxis', get_time(t2-t1)
 ])
                         
@@ -554,33 +554,33 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Remove Refs...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         MRSPOST.refs_remove()
                             
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['removeRefs', get_time(t2-t1)
 ])                    
                     if kws.get('ihi',1):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('ihi...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         mPuppet.atUtils('rigNodes_setAttr','ihi',0)
                         
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['ihi', get_time(t2-t1)
 ])                        
                     if kws.get('connectRig',1):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('rig connect...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         mPuppet.atUtils('rig_connectAll')
                         
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['connectRig', get_time(t2-t1)
 ])                        
                     log.info('...')
@@ -590,25 +590,25 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                                                 
                         if cgmGEN.__mayaVersion__ >= 2018:
                             log.info('controller_verify...')
-                            t1 = time.clock()
+                            t1 = time.time()
                             
                             mPuppet.atUtils('controller_verify')
                             log.info('...')
                             
-                            t2 = time.clock()
+                            t2 = time.time()
                             l_timeReports.append(['controllerVerify', get_time(t2-t1)
 ])                            
                     
                     if kws.get('blocksGather',1):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
-                        t1 = time.clock()
+                        t1 = time.time()
                         mGrp = BUILDERUTILS.gather_rigBlocks()
                         
                         if kws.get('blocksParent',1):
                             mGrp.p_parent = mPuppet                        
                             mGrp.v = False
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['blocksGather', get_time(t2-t1)])
                                               
 
@@ -616,18 +616,18 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
 
                         log.info('proxyMesh...')
-                        t1 = time.clock()                        
+                        t1 = time.time()                        
                         mPuppet.atUtils('proxyMesh_verify',1)
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['proxyMesh', get_time(t2-t1)])
                         
                     if kws.get('puppetMesh',1):
                         print((cgmGEN._str_hardBreak))                                                
                         
                         log.info('puppetMesh...')
-                        t1 = time.clock()                                                
+                        t1 = time.time()                                                
                         mPuppet.atUtils('puppetMesh_create', **{'unified':True,'skin':True, 'proxy':True})
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['puppetMesh', get_time(t2-t1)])
 
                         
@@ -635,20 +635,20 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                                                 
                         log.info('Gathering world dags...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         MRSPOST.gather_worldStuff()
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['worldGather', get_time(t2-t1)
 ])                    
                     
                     if kws.get('deleteUnusedLayers'):
                         print((cgmGEN._str_hardBreak))                                                
                         log.info('Deleting Unused Layers...')
-                        t1 = time.clock()
+                        t1 = time.time()
                         
                         MRSPOST.layers_getUnused(delete=True)
-                        t2 = time.clock()
+                        t2 = time.time()
                         l_timeReports.append(['deleteUnusedLayers', get_time(t2-t1)
 ])
                     print((cgmGEN._str_hardBreak))            

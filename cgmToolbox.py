@@ -25,22 +25,22 @@ log.setLevel(logging.INFO)
 from cgm.core import cgm_General as cgmGen
 __version__ = cgmGen.__RELEASESTRING
 
-import cgm.core.classes.GuiFactory as cgmUI
+#import cgm.core.classes.GuiFactory as cgmUI
 #try:
 #    import wingdbstub
 #except ImportError: pass
 
 import maya.cmds as mc
 import maya
-import maya.mel as mel
-from maya.mel import eval as evalMel
+#import maya.mel as mel
+#from maya.mel import eval as evalMel
 
 #>>>>> Bridge to get our sub zoo stuff working
 #from cgm import cgmInitialize
 #cgmInitialize.setupContributorPaths()
 
 #import cgm.lib.zoo.zooPyMaya.baseMelUI as mUI
-import cgm.core.classes.HotkeyFactory as HKEY
+#import cgm.core.classes.HotkeyFactory as HKEY
 
 #>>>>>
 
@@ -49,14 +49,14 @@ from cgm.core.cgmPy import path_Utils as cgmPath
 #from cgm.lib.zoo.zooPyMaya import baseMelUI as mUI
 from cgm.core.lib.zoo import baseMelUI as mUI
 #from cgm.lib.zoo.zooPyMaya.melUtils import printErrorStr
-import Red9
+#import Red9
 
 #==========================================================================
-from cgm.core import cgm_Meta as cgmMeta
-from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
-from cgm.core.lib import shared_data as SHARED
+#from cgm.core import cgm_Meta as cgmMeta
+#from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
+#from cgm.core.lib import shared_data as SHARED
 import cgm.core.tools.toolbox as TOOLBOX
-
+"""
 from cgm.lib.ml import (ml_breakdownDragger,
                         ml_resetChannels,
                         ml_deleteKey,
@@ -66,7 +66,7 @@ from cgm.lib.ml import (ml_breakdownDragger,
                         ml_arcTracer,
                         ml_convertRotationOrder,
                         ml_copyAnim)
-
+"""
 _2016 = False
 if cgmGen.__mayaVersion__ >=2016:
     _2016 = True

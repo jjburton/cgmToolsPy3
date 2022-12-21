@@ -14,9 +14,9 @@ It is uses Mark Jackson (Red 9)'s as a base.
 __MAYALOCAL = 'cgmRIGMETA'
 
 import maya.cmds as mc
-import maya.mel as mel
-import copy
-import pprint
+#import maya.mel as mel
+#import copy
+#import pprint
 # From Red9 =============================================================
 from Red9.core import Red9_Meta as r9Meta
 from cgm.core.cgmPy import validateArgs as VALID
@@ -24,20 +24,22 @@ from cgm.core.cgmPy import validateArgs as VALID
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.cgm_General as cgmGEN
+import cgm.core.lib.rigging_utils as CORERIG
 
-from cgm.core.rigger.lib import rig_Utils as rUtils
+#from cgm.core.rigger.lib import rig_Utils as rUtils
 from cgm.core.lib import attribute_utils as ATTR
-from cgm.core.lib import transform_utils as TRANS
-from cgm.lib import (lists,
-                     search,
+#from cgm.core.lib import transform_utils as TRANS
+from cgm.lib import (#lists,
+                     #search,
                      attributes,
-                     distance,
-                     constraints,
-                     dictionary,
-                     rigging,
-                     settings,
-                     guiFactory,
-                     locators)
+                     #distance,
+                     #constraints,
+                     #dictionary,
+                     #rigging,
+                     #settings,
+                     #guiFactory,
+                     #locators
+                     )
 
 
 #=========================================================================
@@ -820,14 +822,14 @@ class cgmDynamicMatch(cgmMeta.cgmObject):
                     log.debug("%s.doIter>> drivenAttr: %s"%(self.getShortName(),mPlug_drivenAttr.p_combinedShortName))
                     log.debug("%s.doIter>>"%(self.getShortName()) + "="*60)
 
-                    rUtils.matchValue_iterator(driverAttr= mPlug_driverAttr.p_combinedName,
+                    CORERIG.matchValue_iterator(driverAttr= mPlug_driverAttr.p_combinedName,
                                                drivenAttr = mPlug_drivenAttr.p_combinedName, 
                                                matchValue = matchValue,
                                                minIn=minValue,maxIn=maxValue,
                                                maxIterations=maxIter)
 
                 else:
-                    rUtils.matchValue_iterator(i_matchObject,drivenObj=i_drivenObject,driverAttr=mPlug_driverAttr.p_combinedName,minIn=minValue,maxIn=maxValue,maxIterations=maxIter)
+                    CORERIG.matchValue_iterator(i_matchObject,drivenObj=i_drivenObject,driverAttr=mPlug_driverAttr.p_combinedName,minIn=minValue,maxIn=maxValue,maxIterations=maxIter)
         except Exception as error:
             log.error("%s.doIter>> Failure!"%(self.getShortName()))
             raise Exception(error)

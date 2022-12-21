@@ -30,20 +30,20 @@ import maya.cmds as mc
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGEN
-import cgm.core.lib.snap_utils as SNAP
-from cgm.core.lib import curve_Utils as CURVES
+#import cgm.core.lib.snap_utils as SNAP
+#from cgm.core.lib import curve_Utils as CURVES
 from cgm.core.cgmPy import validateArgs as VALID
 #from cgm.core.classes import SnapFactory as Snap
 from cgm.core.lib import nameTools
-from cgm.core.rigger.lib import rig_Utils
+#from cgm.core.rigger.lib import rig_Utils
 from cgm.core.classes import NodeFactory as NODEFACTORY
-import cgm.core.rig.joint_utils as JOINTS
+#import cgm.core.rig.joint_utils as JOINTS
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.constraint_utils as CONSTRAINT
 import cgm.core.lib.shape_utils as SHAPES
 import cgm.core.lib.node_utils as NODES
-import cgm.core.lib.transform_utils as TRANS
+#import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.list_utils as LISTS
 from cgm.core.lib import rigging_utils as CORERIG
 from cgm.core.lib import math_utils as MATHUTILS

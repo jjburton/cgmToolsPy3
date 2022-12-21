@@ -29,14 +29,14 @@ import maya.mel as mel
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGEN
-import cgm.core.lib.snap_utils as SNAP
+#import cgm.core.lib.snap_utils as SNAP
 from cgm.core.lib import curve_Utils as CURVES
 from cgm.core.cgmPy import validateArgs as VALID
 #from cgm.core.classes import SnapFactory as Snap
-from cgm.core.lib import nameTools
-from cgm.core.rigger.lib import rig_Utils
+#from cgm.core.lib import nameTools
+#from cgm.core.rigger.lib import rig_Utils
 from cgm.core.classes import NodeFactory as NODEFAC
-import cgm.core.rig.joint_utils as JOINTS
+#import cgm.core.rig.joint_utils as JOINTS
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.distance_utils as DIST

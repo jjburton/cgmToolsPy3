@@ -47,12 +47,13 @@ from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import rigging_utils as CORERIG
 import cgm.core.lib.rigging_utils as CORERIG
-from cgm.core.rigger.lib import joint_Utils as JOINTS
+#from cgm.core.rigger.lib import joint_Utils as JOINTS
+from cgm.core.rig import joint_utils as RIGJOINTS
 from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import rayCaster as RAYS
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as PATH
-import cgm.core.lib.node_utils as NODES
+#import cgm.core.lib.node_utils as NODES
 import cgm.core.rig.joint_utils as COREJOINTS
 import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.locator_utils as LOC
@@ -60,14 +61,14 @@ import cgm.core.mrs.lib.shared_dat as BLOCKSHARE
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
 import cgm.core.rig.general_utils as RIGGEN
 import cgm.core.lib.surface_Utils as SURF
-import cgm.core.lib.string_utils as STRING
+#import cgm.core.lib.string_utils as STRING
 #reload(STRING)
 import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.list_utils as LISTS
 import cgm.core.classes.NodeFactory as NodeF
 import cgm.core.mrs.lib.ModuleControlFactory as MODULECONTROL
 from cgm.core.classes import GuiFactory as cgmUI
-from cgm.core.cgmPy import dict_utils as CGMDICT
+#from cgm.core.cgmPy import dict_utils as CGMDICT
 
 #for m in BLOCKSHARE,MATH,DIST,RAYS,RIGGEN,SNAPCALLS:
 #    reload(m)
@@ -1110,7 +1111,7 @@ def create_remesh(mesh = None, joints = None, curve=None, positions = None,
     #>>Cast our Loft curves
     
 def build_visSub(self):
-    _start = time.clock()    
+    _start = time.time()    
     _str_func = 'build_visSub'
         
     mSettings = self.mRigNull.settings
@@ -1275,7 +1276,7 @@ def get_switchTarget(self,mControl,parentTo=False):
 
 def register_mirrorIndices(self, ml_controls = []):
     raise ValueError("Don't use this")
-    _start = time.clock()    
+    _start = time.time()    
     _str_func = 'register_mirrorIndices'
     
     mPuppet = self.mPuppet
@@ -1300,7 +1301,7 @@ def register_mirrorIndices(self, ml_controls = []):
     for i,mCtrl in enumerate(ml_controls):
         mCtrl.addAttr('mirrorIndex', value = (int_strt + i))
 
-    log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start))) 
+    log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start))) 
     
     return ml_controls
 
@@ -2292,7 +2293,7 @@ def joints_flipChainForBehavior(self,ml_chain=None):
     for i,mJoint in enumerate(ml_chain[1:]):
         mJoint.parent = ml_chain[i]
 
-    JOINTS.freezeJointOrientation(ml_chain)
+    RIGJOINTS.freezeOrientation(ml_chain)
     
     for i,mJoint in enumerate(ml_chain):
         if d_children.get(mJoint):
@@ -2675,7 +2676,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
 
 def joints_connectToParent(self):
     try:
-        _start = time.clock()    
+        _start = time.time()    
         _str_func = 'joints_connectToParent'
             
         mRigNull = self.mRigNull
@@ -2696,7 +2697,7 @@ def joints_connectToParent(self):
             ml_joints[0].p_parent = mSkeletonGroup
             
         
-        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.clock()-_start))) 
+        log.debug("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start))) 
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 

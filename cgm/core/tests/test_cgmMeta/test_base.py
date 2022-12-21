@@ -132,21 +132,11 @@ class Test_general(unittest.TestCase):
     
     def test_createMetaNode(self):
         _r9ClassRegistry = r9Meta.getMClassMetaRegistry()
-        _l_mask = ['cgmBlendShape','cgmBufferNode',
-                   'cgmPuppet','cgmDynParentGroup','cgmDynamicMatch',#RESOLVE ASAP
-                   'cgmMorpheusPuppet',
-                   'cgmInfoNode2','cgmModuleBufferNode','cgmTest',
-                   'cgmMasterControl',
-                   'cgmEyeballBlock','cgmMouthNoseBlock','cgmEyebrowBlock',
-                   #...these pass but don't need
-                   'cgmNodeOLD','cgmEyelids','cgmMouthNose','cgmEyebrow','cgmSimpleBSFace','cgmEyeball','cgmObjectOLD']
         #for mType in ['cgmNode','cgmObject','cgmControl','cgmObjectList']:
-        #for mType in _r9ClassRegistry.keys():
-            #if 'cgm' in mType and mType not in _l_mask:
         for mType in ['cgmNode','cgmObject','cgmControl','cgmObjectSet',
-                      'cgmPuppet','cgmModule',
-                      'cgmDynParentGroup','cgmDynamicMatch','cgmPuppet','cgmModule']:
-            _t_start = time.clock()
+                      'cgmRigModule',
+                      'cgmDynParentGroup','cgmDynamicMatch']:
+            _t_start = time.time()
             try:
                 mObj = cgmMeta.createMetaNode(mType,name = 'createTest_{0}'.format(mType))
             except Exception as err:
@@ -157,8 +147,8 @@ class Test_general(unittest.TestCase):
                 raise Exception(err)
             
             self.assertEqual(issubclass(type(mObj),_r9ClassRegistry[mType]),True, mObj)
-            mObj.delete()   
-            print(("[{0}] completed in  {1} seconds".format(mType, "%0.3f"%(time.clock()-_t_start)))) 
+            #mObj.delete()   
+            print(("[{0}] completed in  {1} seconds".format(mType, "%0.3f"%(time.time()-_t_start)))) 
                 
             
         

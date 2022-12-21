@@ -41,7 +41,7 @@ kAPPEND = 0
 kREPLACE = 1
 @d_showWaitCursor
 def saveWeights( geos, filepath=None ):
-	start = time.clock()
+	start = time.time()
 	miscData = {}
 
 	#if filepath is None, then generate a default filepath based on the location of the file
@@ -130,7 +130,7 @@ def saveWeights( geos, filepath=None ):
 
 	filepath = Path( filepath )
 	filepath.pickle( toWrite)
-	print(('Weights Successfully Saved to %s: time taken %.02f seconds' % (filepath, time.clock()-start)))
+	print(('Weights Successfully Saved to %s: time taken %.02f seconds' % (filepath, time.time()-start)))
 
 	return filepath
 
@@ -154,7 +154,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 		print(('File does not exist %s' % filepath))
 		return
 
-	start = time.clock()
+	start = time.time()
 
 
 	#setup the mappings
@@ -349,7 +349,7 @@ def loadWeights( objects, filepath=None, usePosition=True, tolerance=TOL, axisMu
 		cmd.skinCluster( skinCluster, edit=True, removeUnusedInfluence=True )
 		curItem += 1
 
-	end = time.clock()
+	end = time.time()
 	print(('time for weight load %.02f secs' % (end-start)))
 
 

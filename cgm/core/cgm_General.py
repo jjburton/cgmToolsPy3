@@ -302,7 +302,7 @@ class cgmFuncCls(object):
         if self.d_kws.get('setLogLevel'):
             self.set_logging(self.d_kws.get('setLogLevel'))
 
-        t_start = time.clock()
+        t_start = time.time()
         try:
             if not self.l_funcSteps: self.l_funcSteps = [{'call':self.__func__}]
             int_keys = list(range(0,len(self.l_funcSteps)-1))
@@ -330,7 +330,7 @@ class cgmFuncCls(object):
                     _str_step = d_step.get('step', False)
                     self.log_info("Step: {0} | {1}".format(ii + self._int_stopStep, _str_step))		    
                 break
-            t1 = time.clock()	    
+            t1 = time.time()	    
             try:
                 try:
                     _str_step = d_step.get('step',False)
@@ -360,12 +360,12 @@ class cgmFuncCls(object):
 		    break"""
             except Exception as error:
                 self._str_failStep = _str_step
-                self._str_failTime = "%0.3f"%(time.clock()-t1)
+                self._str_failTime = "%0.3f"%(time.time()-t1)
                 self._Exception = Exception
                 self._ExceptionError = error
                 break
 
-            t2 = time.clock()
+            t2 = time.time()
             _str_time = "%0.3f"%(t2-t1)
             pair_time = [_str_step,_str_time]
             self._l_funcTimes.append([_str_step,_str_time])	
@@ -386,7 +386,7 @@ class cgmFuncCls(object):
 
         if self._b_reportTimes:
             try:
-                f_total = (time.clock()-t_start)	    
+                f_total = (time.time()-t_start)	    
                 if int_lenSteps > 2:
                     self.log_info(_str_headerDiv + " Times " + _str_headerDiv + _str_subLine)			    	    
                     #if self.int_max != 0:
@@ -1255,16 +1255,16 @@ def funcClassWrap(funcClass):
         try:_str_funcName = args[0]._str_funcName
         except Exception as error:log.info(error)
 
-        t1 = time.clock()
+        t1 = time.time()
         try:res=funcClass(*args,**kws) 
         except Exception as error:
             log.info(">"*3 + " %s "%_str_funcName + _str_hardLine)	    
             log.error(">"*3 + " Step: %s "%args[0]._str_funcStep)	    
             log.error(">"*3 + " Args: %s "%args[0]._str_funcArgs)
             log.error(">"*3 + " KWs: %s "%args[0]._str_funcKWs)	    
-            log.info("%s >> Time to Fail >> = %0.3f seconds " % (_str_funcName,(time.clock()-t1)) + _str_subLine)			    
+            log.info("%s >> Time to Fail >> = %0.3f seconds " % (_str_funcName,(time.time()-t1)) + _str_subLine)			    
             raise error            
-        t2 = time.clock()
+        t2 = time.time()
 
         #Initial print
         log.info(">"*3 + " %s "%_str_funcName + _str_hardLine)
@@ -1631,23 +1631,26 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
     except:pass
     print((" file: {0}".format(db_file)))
     
-    _d = tb.tb_frame.f_locals
-
-    if 'args' in list(_d.keys()):
-        _args = _d.pop('args')
-        if _args:
-            print(("  Args... " + '-'*80))
-            for a in _args:
-                print(("      {0}".format(a)))
-    if 'kws' in list(_d.keys()):
-        _kws = _d.pop('kws')
-        if _kws:
-            print(("  KWS..." + '-'*80))
-            for k,v in _kws.items():
-                print(("      {0} : {1}".format(k,v)))
+    try:
+        _d = tb.tb_frame.f_locals
+    
+        if 'args' in list(_d.keys()):
+            _args = _d.pop('args')
+            if _args:
+                print(("  Args... " + '-'*80))
+                for a in _args:
+                    print(("      {0}".format(a)))
+        if 'kws' in list(_d.keys()):
+            _kws = _d.pop('kws')
+            if _kws:
+                print(("  KWS..." + '-'*80))
+                for k,v in _kws.items():
+                    print(("      {0} : {1}".format(k,v)))
             
-    print("  Local dat...")
-    pprint.pprint(_d)
+        print("  Local dat...")
+        pprint.pprint(_d)
+    except:
+        pass
     #pprint.pprint(tb.tb_frame.f_locals)
     if msg:
         print (msg)

@@ -65,7 +65,7 @@ class BufferFactory(object):
 
     def storeNameStrings(self,obj):
         """ Store the base, short and long names of an object to instance."""
-        buffer = mc.ls(obj,int=True)
+        buffer = mc.ls(obj,long=True)
         self.nameLong = buffer[0]
         buffer = mc.ls(obj,shortNames=True)        
         self.nameShort = buffer[0]

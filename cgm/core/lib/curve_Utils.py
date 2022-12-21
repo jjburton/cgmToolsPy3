@@ -1025,7 +1025,7 @@ def join_shapes(targets = None, component = 'ep',mode='all'):
         log.debug("|{0}| >> Shapes {1} | {2}".format(_str_func,i,shps))
         for ii,shp in enumerate(shps):
             log.debug("|{0}| >> Shape {1} | {2}".format(_str_func,ii,shp))            
-            for iii,comp in enumerate(mc.ls("{0}.{1}[*]".format(shp,component),flatten=True,int=True)):
+            for iii,comp in enumerate(mc.ls("{0}.{1}[*]".format(shp,component),flatten=True,long=True)):
                 _key = "{0},{1}".format(ii,iii)
                 if not d_compPos.get(_key):
                     d_compPos[_key] = []
