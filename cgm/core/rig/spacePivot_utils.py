@@ -35,7 +35,8 @@ from cgm.core.lib import nameTools
 from cgm.core.classes import NodeFactory as NodeF
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import distance_utils as DIST
-from cgm.lib import curves
+from cgm.core.lib import rigging_utils as CORERIG
+#from cgm.lib import curves
 
 def delete():
     """   
@@ -102,10 +103,11 @@ def create(obj,parentTo = False, size = False, prefix = 'pivot', shape = 'jack',
     #CURVES.create_controlCurve(i_obj.mNode,'jack')
     i_control = cgmMeta.asMeta(CURVES.create_controlCurve(i_obj.mNode,shape,size = size, sizeMode = _sizeMode)[0],'cgmObject',setClass=True)
     log.debug(i_control)
-    try:l_color = curves.returnColorsFromCurve(i_obj.mNode)
-    except Exception as error:raise Exception("color | %s"%(error))          
-    log.debug("l_color: %s"%l_color)
-    curves.setColorByIndex(i_control.mNode,l_color[0])
+    #try:l_color =  curves.returnColorsFromCurve(i_obj.mNode)
+    #except Exception as error:raise Exception("color | %s"%(error))          
+    #log.debug("l_color: %s"%l_color)
+    
+    #curves.setColorByIndex(i_control.mNode,l_color[0])
     
     #>>>Snap and Lock
     #====================================================	
@@ -118,7 +120,9 @@ def create(obj,parentTo = False, size = False, prefix = 'pivot', shape = 'jack',
     #Need to move this to default cgmNode stuff
     mBuffer = i_control
     i_newTransform.doCopyNameTagsFromObject(i_control.mNode)
-    curves.parentShapeInPlace(i_newTransform.mNode,i_control.mNode)#Parent shape
+    
+    CORERIG.shapeParent_in_place(i_newTransform.mNode,i_control.mNode)#Parent shape   
+    #curves.parentShapeInPlace(i_newTransform.mNode,i_control.mNode)#Parent shape
     i_newTransform.parent = mBuffer.parent#Copy parent
     i_control = i_newTransform
     mc.delete(mBuffer.mNode)

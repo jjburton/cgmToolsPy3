@@ -3492,19 +3492,20 @@ class ui_stepBuild(cgmUI.cgmGUI):
         self.uiStatus(edit=True,label="Started: {0}".format(_fncShort))
         err=None
         _short = self.mBlock.mNode
-        
+        _fail = True
         if _fncShort not in ['dataBuffer']:
             ATTR.store_info(_short, 'rigStepBuffer',_fncShort )
         try:
-            getattr(self.mRigFac.d_block['buildModule'],fnc)(self.mRigFac)            
+            getattr(self.mRigFac.d_block['buildModule'],fnc)(self.mRigFac)
+            _fail = False
         except Exception as err:
             log.error(err)
-        
+            raise
+            #cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
         finally:
             mc.undoInfo(closeChunk=True)
             #self.uiStatus(edit=True,vis=True,label="Done: {0}".format(_fncShort))
-            if err is not None:
-                cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+            if _fail:
                 self.uiStatus(edit=True,label="Failed: {0}".format(_fncShort))
             elif fnc == self.l_buildOrder[-1]:
                 self.uiStatus(edit=True,label="Done")
@@ -5849,7 +5850,7 @@ class ui(cgmUI.cgmGUI):
                     log.info(a)
                     
                 cgmGEN.cgmExceptCB(Exception,err)
-                raise Exception(err)
+                raise err 
             finally:
                 self._ui.uiRow_progress(edit=1,vis=0)
                 self._ui.uiProgressText(edit=True,label='...')
@@ -8033,7 +8034,7 @@ class uiCallback_withUpdate(object):
                 log.debug("kws: {0}".format(self._kwargs))
             for a in err.args:
                 log.debug(a)
-            raise Exception(err)
+            raise err 
         
         #if self._mBlock == self._ui._blockCurrent:
             #log.debug("|{0}| resetting active block".format('uiCallback_withUpdate'))            
@@ -8205,7 +8206,7 @@ class cgmScrollList(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception(err)
+                    raise err 
         except:pass
         finally:
             self.rebuild()
@@ -8461,7 +8462,7 @@ class BlockScrollListBAK(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception(err)
+                    raise err 
         except:pass
         finally:
             self.rebuild()

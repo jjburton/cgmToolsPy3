@@ -656,7 +656,7 @@ def plug_insertNewValues(driven = None, drivers = [], replace = False, mode = 'm
     except Exception as err:
         #pprint.pprint(vars())
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-        raise Exception(err)
+        raise err 
     
 def split_blends(driven1 = None,
                  driven2 = None,

@@ -144,7 +144,7 @@ class Test_general(unittest.TestCase):
                 for arg in err.args:
                     log.error(arg)  
                 #log.error(cgmGEN._str_subLine)
-                raise Exception(err)
+                raise err 
             
             self.assertEqual(issubclass(type(mObj),_r9ClassRegistry[mType]),True, mObj)
             #mObj.delete()   

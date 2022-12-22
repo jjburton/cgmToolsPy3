@@ -5890,7 +5890,7 @@ class mrsScrollList(mUI.BaseMelWidget):
                         log.debug("kws: {0}".format(kws))
                     for a in err.args:
                         log.debug(a)
-                    raise Exception(err)
+                    raise err 
         except:pass
         finally:
             self.rebuild()

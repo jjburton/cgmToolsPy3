@@ -1141,94 +1141,7 @@ def testException(message = 'cat'):
         raise Exception(message)
     except Exception as err:
         cgmExceptCB(Exception,err,fncDat=vars())
-def cgmExceptCB_BAK(etype = None, value = None, tb = None, detail=2, localDat = None, processed = False,tracebackCap=1,**kws):
-    if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
-    
-    if localDat is None:
-        localDat = kws.get('fncDat',None)
-        
-    if detail == None:
-        if mel.eval('stackTrace -q -state;') == 1:
-            detail = 2
-    if detail == 2:	
-        #report_enviornment()
-        try:db_file = tb.tb_frame.f_code.co_filename
-        except:db_file = "<maya console>"
-        print((_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine))		
-        
-        try:
-            for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
-                try:
-                    if i >= tracebackCap:
-                        break
-                    print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
-                    print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
-                    #for item in inspect.getinnerframes(tb):
-                        #print ' File "{1}", line {2}, in {3}\n'.format(*item)
-                    if item[4] is not None:
-                        for line in item[4]:
-                            try:
-                                print(' ' + line.lstrip())
-                            except Exception as err:
-                                print("Item [4] Failed: {0} | {1}".format(i,err))                            
-                except Exception as err:
-                    print("Failed: {0} | {1}".format(i,err))
-                    print(item)
-        except Exception as err:
-            print("Traceback Failed: {0}".format(err))
-                
-    
-    if value:
-        print((_str_headerDiv + " Error log " + _str_headerDiv + _str_subLine))		        
-        for i,a in enumerate(value.args):
-            print((" {0} : {1}".format(i,a)))
-    if localDat:
-        print((_str_headerDiv + " Local " + _str_headerDiv + _str_subLine))		
-        pprint.pprint(localDat)
-    print(_str_hardBreak)
-    if etype:raise etype(value)
-    
-    
-def cgmExceptCB2(etype, value, tb = None, detail=2, processed = False):
-    # @param processed -- whether this exception has already been processed
-    try:
-        if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
 
-        try:db_file = tb.tb_frame.f_code.co_filename
-        except:db_file = "<maya console>"
-        #print("-- db_file: %s"%db_file)	
-        #db_names = tb.tb_frame.f_code.co_names	
-        #print("-- db_names: %s"%db_names)	
-
-        if detail == 2:	    
-            if not processed:
-                if db_file != "<maya console>":
-                    for item in reversed(inspect.getouterframes(tb.tb_frame)[1:]):
-                        print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
-                        for line in item[4]:
-                            print(' ' + line.lstrip(), end=' ')
-                        for item in inspect.getinnerframes(tb):
-                            print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
-                        for line in item[4]:
-                            print(' ' + line.lstrip())		    
-                    #lineno = tb.tb_lineno
-                    #line = linecache.getline(db_file, lineno)
-                    #print("-- Traceback File: %s"%db_file)
-                    #print("-- Traceback Line #: %d"%lineno)
-                    #print("-- Traceback Line: %s"%line)
-                print((_str_headerDiv + "Exception encountered..." + _str_headerDiv + _str_hardLine))	    		
-                print("-- Coming from cgmExceptCB")		
-                print(("-- etype: %s"%etype))
-                print(("-- value: %s"%value))
-                #print("-- tb: %s"%tb)
-                #print("-- detail: %s"%detail)
-
-            print("")
-            #report_enviornment()
-        #return value
-        return mUtils._formatGuiException(etype, value, tb, detail)
-    except Exception as error:
-        log.info("Exception Exception....{%s}"%error)
 
 #mUtils.formatGuiException = cgmExceptCB
 
@@ -1471,8 +1384,8 @@ def Func(func):
                     print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
                     for items in list(kws.items()):
                         print(("    kw: {0}".format(items)))   
-                traceback = sys.exc_info()[2]  # get the full traceback
-                cgmException(Exception,err,traceback)
+                tb = sys.exc_info()[2]  # get the full traceback
+                cgmException(Exception,err,tb)
             return res
     return wrapper
 
@@ -1491,29 +1404,49 @@ def Timer(func):
             res=func(*args,**kws) 
             t2 = time.time()            
             print(("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 )))) 
+            return res
             
         except Exception as error:
             err = error
-        finally:
-            if err:
-                #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)		                
-                try:print(("Func: {0}".format(func.__name__)))
-                except:print(("Func: {0}".format(func)))                
-                if args:
-                    print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))		        
-                    for i, arg in enumerate(args):
-                        print(("    arg {0}: {1}".format(i, arg)))
-                if kws:
-                    print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
-                    for items in list(kws.items()):
-                        print(("    kw: {0}".format(items)))   
-                        
-                traceback = sys.exc_info()  # get the full traceback
-                pprint.pprint(traceback)
-                if traceback:
-                    traceback = traceback[2]
-                cgmException(Exception,err,traceback)
-            return res
+        #finally:
+        #    if err:
+            #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)		                
+            try:print(("Func: {0}".format(func.__name__)))
+            except:print(("Func: {0}".format(func)))                
+            if args:
+                print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))		        
+                for i, arg in enumerate(args):
+                    print(("    arg {0}: {1}".format(i, arg)))
+            if kws:
+                print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
+                for items in list(kws.items()):
+                    print(("    kw: {0}".format(items)))   
+                    
+            #raise err
+            """
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print("*** print_tb:")
+            traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+            print("*** print_exception:")
+            traceback.print_exception(exc_value, limit=2, file=sys.stdout)
+            print("*** print_exc:")
+            traceback.print_exc(limit=2, file=sys.stdout)
+            print("*** format_exc, first and last line:")
+            formatted_lines = traceback.format_exc().splitlines()
+            print(formatted_lines[0])
+            print(formatted_lines[-1])
+            print("*** format_exception:")
+            print(repr(traceback.format_exception(exc_value)))
+            print("*** extract_tb:")
+            print(repr(traceback.extract_tb(exc_traceback)))
+            print("*** format_tb:")
+            print(repr(traceback.format_tb(exc_traceback)))
+            print("*** tb_lineno:", exc_traceback.tb_lineno)                
+            """
+            #raise type(etype)((etype)(value), tb)    
+            #cgmException(err)
+            raise
+            cgmException(err,None,tb)
     return wrapper
 
 @Timer
@@ -1538,6 +1471,7 @@ def getModule(arg):
 def whoami():
     import sys
     return sys._getframe(1).f_code.co_name
+
 def queryCode(v=1):
     import sys
     print('name')
@@ -1557,28 +1491,12 @@ def queryCode(v=1):
     print('free vars')
     pprint.pprint(sys._getframe(v).f_code.co_freevars)
     print('constants')
-    pprint.pprint(sys._getframe(v).f_code.co_consts)      
+    pprint.pprint(sys._getframe(v).f_code.co_consts)
+    
 def callersname():
     import sys
     return sys._getframe(2).f_code.co_name
 
-def cgmExceptionBAK(etype = None, value = None, localDat = None, func = None, module = None, tb = None):
-    #if tb is None: tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
-
-    print(_str_hardLine)
-    if module:
-        print((_str_headerDiv + " Module: {0} ".format(module) + _str_headerDiv ))		        
-    if func:
-        print((_str_headerDiv + " Func: {0} ".format(func) + _str_headerDiv ))		    
-    
-    if localDat:
-        print(_str_subLine)        
-        print((_str_headerDiv + " Local " + _str_headerDiv ))		
-        pprint.pprint(localDat)
-    print(_str_subLine)
-    #print "caller: " + callersname()
-
-    if etype:raise etype(value)
 
 def func_snapShot(dat = None):
     import sys    
@@ -1600,20 +1518,34 @@ def test_rawValueError(*args,**kws):
     _l = list(range(12))
     raise ValueError("Bob's not home")
 
-def testExceptionNested(*args,**kws):
+def test_ExceptionNested(*args,**kws):
     try:
         hi = 'mike'
         _nestedDictTest = {1:2,3:4}
         return testException()
-    except Exception as err:cgmException(Exception,err)
-    
+    except Exception as err:
+        #_traceback = sys.exc_info()[2]  # get the full traceback        
+        cgmException(err)
+        
 def test_cgmException(*args,**kws):
     try:
         bye = 'fred'
         _l = list(range(12))
         raise ValueError("Bob's not home")
-    except Exception as err:cgmException(Exception,err)
-    
+    except Exception as err:
+        #_traceback = sys.exc_info()[2]  # get the full traceback        
+        cgmException(err)
+
+@Timer
+def test_cgmExceptionTimer(*args,**kws):
+    try:
+        bye = 'fred'
+        _l = list(range(12))
+        raise ValueError("Bob's not home")
+    except Exception as err:
+        #_traceback = sys.exc_info()[2]  # get the full traceback        
+        cgmException(err)
+
 def test_cgmExceptCB(*args,**kws):
     try:
         bye = 'fred'
@@ -1662,6 +1594,14 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
             print(" {0} : {1}".format(i,a))
             """
     log.info("Release: "+get_releaseString())
-    if etype:raise etype(value).with_traceback(tb)
+    #if etype:
+    #_traceback = sys.exc_info()[2]  # get the full traceback
+    #raise Exception(type(etype)(etype), tb)
+    if etype:
+        raise
+    #raise etype,value,tb
+    #raise Exception(type(etype)(etype))
+    #raise type(etype)((etype)(value), tb)    
+    #raise type(etype)(value)#.with_traceback(tb)
 
 cgmExceptCB = cgmException

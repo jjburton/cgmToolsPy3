@@ -32,7 +32,7 @@ import copy
 import pprint
 
 # Audio
-import pyaudio
+#import pyaudio
 import wave
 
 class RecordingThread(threading.Thread): 

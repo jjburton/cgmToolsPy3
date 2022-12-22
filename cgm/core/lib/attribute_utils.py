@@ -414,7 +414,7 @@ def delete(*a):
         return False
     except Exception as err:
         pprint.pprint(vars())
-        raise Exception(err)
+        raise err 
         
 def get(*a, **kws):
     """   
@@ -3965,7 +3965,7 @@ def OLDdoSetOverrideSettings(obj,enabled=True,displayType=1,levelOfDetail = 0,ov
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
     shapes = mc.listRelatives(obj,shapes = True)
-    if shapes > 0:
+    if len(shapes) > 0:
         for shape in shapes:
             doSetAttr(shape, 'overrideEnabled', enabled)
             doSetAttr(shape, 'overrideDisplayType', displayType)

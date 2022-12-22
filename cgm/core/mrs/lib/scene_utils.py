@@ -193,7 +193,7 @@ def fncMayaSett_do(self,world=False,anim=False):
                            'weightedTangents':MAYASET.weightedTangets_set},}
     
     #pprint.pprint(d_toDo)
-    for k,l in d_toDo.iteritems():
+    for k,l in list(d_toDo.items()):#d_toDo.iteritems():
         log.debug(cgmGEN.logString_sub(_str_func,k))
         
         #_d = self.d_tf[k]
@@ -235,7 +235,7 @@ def fncMayaSett_query(self):
                            'weightedTangents':MAYASET.weightedTangents_get},}
 
     #pprint.pprint(d_toDo)
-    for k,l in d_settings.iteritems():
+    for k,l in list(d_settings.items()):#d_toDo.iteritems():
         log.debug(cgmGEN.logString_sub(_str_func,k))
         
         _d = self.mDat.__dict__.get(d_nameToKey.get(k))

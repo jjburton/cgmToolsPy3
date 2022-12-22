@@ -25,7 +25,7 @@ log.setLevel(logging.INFO)
 import maya.cmds as mc
 
 # From Red9 =============================================================
-from Red9.core import Red9_Meta as r9Meta
+#from Red9.core import Red9_Meta as r9Meta
 import cgm.core.cgm_General as cgmGEN
 from cgm.core.lib import curve_Utils as CURVES
 from cgm.core.lib import rigging_utils as RIG
@@ -38,11 +38,11 @@ import cgm.core.mrs.lib.ModuleControlFactory as MODULECONTROL
 import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 #reload(BLOCKSHAPES)
-import cgm.core.lib.distance_utils as DIST
+#import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.math_utils as MATH
 import cgm.core.rig.joint_utils as JOINT
-import cgm.core.rigger.lib.spacePivot_utils as SPACEPIVOTS
+import cgm.core.rig.spacePivot_utils as SPACEPIVOTS
 
 
 # From cgm ==============================================================
@@ -452,7 +452,7 @@ def rig_prechecks(self):
     
     return True
 
-@cgmGEN.Timer
+#@cgmGEN.Timer
 def rig_cleanUp(self):
     _short = self.d_block['shortName']
     _str_func = 'rig_cleanUp'.format(_short)
@@ -643,7 +643,7 @@ def rig_cleanUp(self):
     #log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
     #except Exception,err:cgmGEN.cgmExceptCB(Exception,err)
 
-@cgmGEN.Timer
+#@cgmGEN.Timer
 def rigDelete(self):
     try:
         _str_func = 'rigDelete'
@@ -691,7 +691,7 @@ def rigDelete(self):
         try:self.moduleTarget.masterControl.masterGroup.delete()
         except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception(err)
+            raise err 
         return True
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 

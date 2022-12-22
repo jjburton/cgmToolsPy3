@@ -25,6 +25,11 @@ log.setLevel(logging.INFO)
 from cgm.core import cgm_General as cgmGen
 __version__ = cgmGen.__RELEASESTRING
 
+import Red9
+Red9.setup.addPythonPackages()
+
+
+
 #import cgm.core.classes.GuiFactory as cgmUI
 #try:
 #    import wingdbstub
@@ -253,10 +258,10 @@ class AutoStartInstaller(object):
 
     def getUserSetupFile( self ):
         pyUserSetup, melUserSetup = None, None
-        """try:
+        try:
             pyUserSetup = cgmPath.Path(cgmPath.findInPyPath( 'userSetup.py'))#findInPyPath)
             log.info("Py user file is '%s'"%pyUserSetup)
-        except: log.info ('No py user setup')"""
+        except: log.info ('No py user setup')
 
         try:
             melUserSetup = cgmPath.Path(cgmPath.findFirstInEnv( 'userSetup.mel', 'MAYA_SCRIPT_PATH' ))

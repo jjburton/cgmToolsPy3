@@ -5137,7 +5137,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
         try:_arg = names.getLongName(arg)
         except Exception as err:
             if noneValid:return False
-            raise Exception(err)
+            raise err 
     if not _arg:
         if noneValid:return False
         else:
@@ -5443,7 +5443,7 @@ def validateObjArgOLD(*args,**kws):
                 try:_arg = names.getLongName(arg)
                 except Exception as err:
                     if noneValid:return False
-                    raise Exception(err)
+                    raise err 
             if not _arg:
                 if noneValid:return False
                 else:

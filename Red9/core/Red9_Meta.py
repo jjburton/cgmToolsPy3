@@ -1176,7 +1176,7 @@ def createMetaNode(mType=None, *args, **kws):
 
         for arg in err.args:
             log.error(arg)
-        raise Exception(err)
+        raise err 
 
 
 class MClassNodeUI(object):

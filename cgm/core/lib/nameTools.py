@@ -151,7 +151,7 @@ def returnRawGeneratedName(obj,ignore=[False],removeDups=True):
         #>>> Dictionary driven order
         for item in order:
             buffer = rawNamesDict.get(item)
-            if buffer > 0 and item not in ignore:
+            if buffer and item not in ignore:
                 if removeDups:
                     if str(buffer) in nameBuilder:
                         continue

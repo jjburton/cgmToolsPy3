@@ -293,7 +293,7 @@ class ui(cgmUI.cgmGUI):
                 log.error("|{0}| >> err: {1}".format(_str_func, err))  
                 cgmUI.doEndMayaProgressBar(_progressBar)
             except:
-                raise Exception(err)
+                raise err 
 
         cgmUI.doEndMayaProgressBar(_progressBar)
         

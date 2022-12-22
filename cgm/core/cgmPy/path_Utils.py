@@ -599,8 +599,8 @@ class Path(str):
         '''
         newPath = Path( newName )
         if nameIsLeaf:
-            newPath = self.up() / newName
-
+            #newPath = self.up() / newName
+            newPath = Path(os.path.join(self.up().asString(), newName))
         if self.isfile():
             if newPath != self:
                 if newPath.exists():
@@ -620,7 +620,8 @@ class Path(str):
         if self.isfile():
             target = Path( target )
             if nameIsLeaf:
-                asPath = self.up() / target
+                #asPath = self.up() / target
+                asPath = Path(os.path.join(self.up().asString(), target.asString()))
                 target = asPath
 
             if self == target:
@@ -879,7 +880,8 @@ def findFirstInPaths( filename, paths ):
     in the given list of search paths
     '''
     for p in map( Path, paths ):
-        loc = p / filename
+        #loc = p / filename
+        loc = Path(os.path.join(p.asString(), filename))
         if loc.exists():
             return loc
 

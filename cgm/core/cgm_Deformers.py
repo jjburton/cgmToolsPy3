@@ -118,7 +118,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                                                  self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputGeomTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
                         #_data = mc.getAttr(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputPointsTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
                     except Exception as err:
-                        raise Exception(err)
+                        raise err 
                     #self.bsShape_replace(self.bsShape_createGeoFromIndex(i,ii), i, ii)
 
 
@@ -577,7 +577,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
 
             return targetDict
         except Exception as err:
-            raise Exception(err)
+            raise err 
 
     def bsShape_get(self, index = None, weight = None):
         """

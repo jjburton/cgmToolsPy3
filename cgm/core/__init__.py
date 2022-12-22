@@ -73,6 +73,12 @@ _l_ignoreTags = ['cgm.core.examples',
                  'cgm.lib.gigs',
                  'cgm.lib.zoo',
                  'cgm.projects',
+                 'cgm.core.lib.ml_tools',
+                 'cgm.lib',
+                 'cgm.core.lib.zoo',
+                 'cgm.tools',
+                 'cgm.core.lib.wing',
+                 'cgm.core.mrs.help',
                  #'cgm.core.rigger',
                  'cgmMeta_test']
 
@@ -170,8 +176,8 @@ def _reload(stepConfirm=False):
                 log.debug("|{0}| >> Skipping {1} | contain ignore tag".format(_str_func,m))                
                 _l_skip.append(m)        
     
-    for m in _l_pycd:
-    #for m in _l_ordered:
+    #for m in _l_pycd:
+    for m in _l_ordered:
         if m in _l_skip:
             log.debug("|{0}| >> Skipping {1} | contains skip tag".format(_str_func,m))
             continue

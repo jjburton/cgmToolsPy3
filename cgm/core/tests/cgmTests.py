@@ -19,7 +19,7 @@ def sceneSetup():
 		log.error("New File fail!")
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception(err)  
+		raise err   
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -116,7 +116,7 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 			log.error("New File fail!")
 			for arg in err.args:
 				log.error(arg)                
-			raise Exception(err)		
+			raise err 		
 
 		tests = unittest.defaultTestLoader.loadTestsFromName(module)
 		

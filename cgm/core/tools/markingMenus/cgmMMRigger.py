@@ -16,7 +16,7 @@ from cgm.core.lib import snap_utils as SNAP
 #reload(RIGGING)
 #reload(mmTemplate)
 from cgm.core.lib.zoo import baseMelUI as mUI
-from cgm.lib import search
+#from cgm.lib import search
 from cgm.lib import locators
 from cgm.tools.lib import tdToolsLib#...REFACTOR THESE!!!!
 

@@ -323,7 +323,7 @@ def gather_rigBlocks(progressBar=False):
         log.info("|{0}| >> Gathered {1} dags".format(_str_func,len(ml_gathered)))
         return mGroup
     except Exception as err:
-        raise Exception(err)
+        raise err 
     finally:
         if progressBar:cgmUI.progressBar_end(progressBar)
 

@@ -1379,7 +1379,7 @@ def setup_defaults(d_defaults = {}):
                 ATTR.set(o,a,v)
         except Exception as err:
             pprint.pprint(vars())
-            raise Exception(err)
+            raise err 
     if l_missing:
         print((cgmGEN._str_hardBreak))
         print("Missing the following controls: ")

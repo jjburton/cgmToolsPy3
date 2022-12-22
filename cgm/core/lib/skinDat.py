@@ -1065,7 +1065,7 @@ def gather_skinning_dict(*args,**kws):
             
             _d_componentWeights[_key] = skinValues 
     except Exception as err:
-        raise Exception(err)
+        raise err 
     finally:
         cgmGEN.doEndMayaProgressBar(_bar)
         #progressBar_end()

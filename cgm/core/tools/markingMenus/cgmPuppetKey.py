@@ -6,16 +6,16 @@ from cgm.core.lib.zoo import baseMelUI as mUI
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGeneral
 from cgm.core import cgm_RigMeta as cgmRigMeta
-from cgm.core import cgm_PuppetMeta as cgmPM
+#from cgm.core import cgm_PuppetMeta as cgmPM
 from cgm.core.classes import GuiFactory as cgmUI
 
 from cgm.lib import guiFactory
 from cgm.lib import (lists,search)
 from cgm.tools.lib import animToolsLib
-from cgm.tools.lib import tdToolsLib
-from cgm.tools.lib import locinatorLib
+#from cgm.tools.lib import tdToolsLib
+#from cgm.tools.lib import locinatorLib
 #reload(animToolsLib)
-from cgm.lib import locators
+#from cgm.lib import locators
 
 
 import time

@@ -1178,7 +1178,7 @@ def findMeshIntersections_OM1(mesh, raySource, rayDir, maxDistance = 1000, toler
                     d_return['normals'] = l_normals
             except Exception as err:
                 log.debug(">>> {0} >> Processing fail".format(_str_func))
-                raise Exception(err)
+                raise err 
         return d_return 
     except Exception as error:
         log.error(">>> {0} >> Failure! mesh: '{1}' | raysource: {2} | rayDir {3}".format(_str_func,mesh,raySource,rayDir))

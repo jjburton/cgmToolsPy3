@@ -30,14 +30,14 @@ log.debug("load...")
 import maya.cmds as mc
 
 # From Red9 =============================================================
-from Red9.core import Red9_Meta as r9Meta
+#from Red9.core import Red9_Meta as r9Meta
 #r9Meta.cleanCache()#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TEMP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 import cgm.core.cgm_General as cgmGEN
 
-from cgm.core.rigger import ModuleShapeCaster as mShapeCast
+#from cgm.core.rigger import ModuleShapeCaster as mShapeCast
 
-import cgm.core.cgmPy.os_Utils as cgmOS
+#import cgm.core.cgmPy.os_Utils as cgmOS
 import cgm.core.cgmPy.path_Utils as cgmPATH
 import cgm.core.mrs.assets as MRSASSETS
 path_assets = cgmPATH.Path(MRSASSETS.__file__).up().asFriendly()
@@ -50,16 +50,16 @@ import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
 import cgm.core.classes.NodeFactory as NODEFACTORY
 from cgm.core import cgm_RigMeta as cgmRigMeta
-import cgm.core.lib.list_utils as LISTS
+#import cgm.core.lib.list_utils as LISTS
 import cgm.core.lib.nameTools as NAMETOOLS
-import cgm.core.lib.name_utils as CORENAMES
+#import cgm.core.lib.name_utils as CORENAMES
 from cgm.core.lib import string_utils as CORESTRING
-import cgm.core.rig.create_utils as RIGCREATE
+#import cgm.core.rig.create_utils as RIGCREATE
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 
 #Prerig handle making. refactor to blockUtils
 import cgm.core.lib.snap_utils as SNAP
-import cgm.core.lib.rayCaster as RAYS
+#import cgm.core.lib.rayCaster as RAYS
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.curve_Utils as CURVES
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
@@ -70,11 +70,11 @@ import cgm.core.rig.ik_utils as IK
 import cgm.core.mrs.lib.block_utils as BLOCKUTILS
 import cgm.core.mrs.lib.builder_utils as BUILDUTILS
 import cgm.core.cgm_RigMeta as cgmRIGMETA
-import cgm.core.rig.skin_utils as CORESKIN
+#import cgm.core.rig.skin_utils as CORESKIN
 import cgm.core.mrs.lib.rigShapes_utils as RIGSHAPES
 import cgm.core.mrs.lib.rigFrame_utils as RIGFRAME
 import cgm.core.mrs.lib.shared_dat as BLOCKSHARE
-from cgm.core.lib import locator_utils as LOC
+#from cgm.core.lib import locator_utils as LOC
 import cgm.core.mrs.lib.post_utils as MRSPOST
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 

@@ -1425,7 +1425,7 @@ def doSetOverrideSettings(obj,enabled=True,displayType=1,levelOfDetail = 0,overr
 	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	"""
 	shapes = mc.listRelatives(obj,shapes = True)
-	if shapes > 0:
+	if len(shapes) > 0:
 		for shape in shapes:
 			doSetAttr(shape, 'overrideEnabled', enabled)
 			doSetAttr(shape, 'overrideDisplayType', displayType)
@@ -1458,7 +1458,7 @@ def doToggleTemplateDisplayMode(obj):
 	"""
 	shapes = mc.listRelatives(obj,shapes = True)  
 
-	if shapes > 0:
+	if len(shapes) > 0:
 		for shape in shapes:
 			currentState = doGetAttr(shape,'template')
 			doSetAttr(shape, 'template', not currentState)
@@ -1829,8 +1829,8 @@ def returnUserAttributes(obj,*a,**kw):
 	messageList - nested list in terms of [[attrName, target],[etc][etc]]
 	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	"""
-	buffer = mc.listAttr(obj,ud=True)
-	if buffer > 0:
+	buffer = mc.listAttr(obj,ud=True) or []
+	if len(buffer) > 0:
 		return buffer
 	else:
 		return False

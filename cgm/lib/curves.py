@@ -255,7 +255,7 @@ def setColorByIndex(obj,colorIndex):
 	else:
 		shapes = mc.listRelatives (obj, shapes=True,fullPath = True)
 
-		if shapes > 0:
+		if len(shapes) > 0:
 			for shape in shapes:
 				attributes.doSetAttr(shape, 'overrideEnabled', True)
 				attributes.doSetAttr(shape, 'overrideColor', colorIndex)

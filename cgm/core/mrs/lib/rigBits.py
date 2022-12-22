@@ -36,11 +36,15 @@ from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 #from cgm.core import cgm_PuppetMeta as PUPPETMETA
 import cgm.core.cgm_RigMeta as cgmRIGMETA
-import cgm.core.lib.geo_Utils as GEO
+#import cgm.core.lib.geo_Utils as GEO
 from cgm.core.lib import curve_Utils as CURVES
-from cgm.core.lib import attribute_utils as ATTR
-from cgm.core.lib import position_utils as POS
+#from cgm.core.lib import attribute_utils as ATTR
+#from cgm.core.lib import position_utils as POS
 from cgm.core.lib import math_utils as MATH
+import cgm.core.lib.list_utils as LISTS
+import cgm.core.mrs.lib.ModuleControlFactory as MODULECONTROL
+
+"""
 from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import rigging_utils as CORERIG
@@ -60,12 +64,10 @@ import cgm.core.rig.general_utils as RIGGEN
 import cgm.core.lib.surface_Utils as SURF
 import cgm.core.lib.string_utils as STRING
 import cgm.core.lib.transform_utils as TRANS
-import cgm.core.lib.list_utils as LISTS
 import cgm.core.classes.NodeFactory as NodeF
-import cgm.core.mrs.lib.ModuleControlFactory as MODULECONTROL
 from cgm.core.classes import GuiFactory as cgmUI
 from cgm.core.cgmPy import os_Utils as cgmOS
-
+"""
 
 class eyeLook(object):
     def __init__(self,dag=None):

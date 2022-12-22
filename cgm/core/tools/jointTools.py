@@ -688,7 +688,7 @@ def uiFunc_getVectorOfSelected(self,axis = 'x+'):
         try:vec = MATH.get_vector_of_two_points(POS.get(_sel[0]),POS.get(_sel[-1]))
         except Exception as err:
             log.error("Query fail: {0}".format(_sel))
-            raise Exception(err)
+            raise err 
     else:
         vec = MATH.get_obj_vector(_sel[0],axis)
     log.info("Found vector: {0}".format(vec))

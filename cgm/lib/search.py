@@ -974,7 +974,7 @@ def returnObjectType(obj):
         objShapes = mc.listRelatives(obj,shapes=True,fullPath=True)
     
         # Standard
-        if objShapes > 0:
+        if len(objShapes) > 0:
             return mc.objectType(objShapes[0])
         else:
             """ see if it's a shape """

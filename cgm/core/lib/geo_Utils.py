@@ -1704,7 +1704,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
                 #normal = fnMesh.getFaceVertexNormals (index,om.MSpace.kWorld)
             except Exception as err:
                 print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
-                raise Exception(err)
+                raise err 
             
             _vec = [v for v in mNormal[0]]
             #_vec = MATH.normalizeList(_vec)
@@ -1771,7 +1771,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
                 #normal = fnMesh.getFaceVertexNormals (index,om.MSpace.kWorld)
             except Exception as err:
                 print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
-                raise Exception(err)
+                raise err 
             _vec = [v for v in mNormal[0]]
             DIST.create_vectorCurve([vert.x,vert.y,vert.z],_vec ,10)
             

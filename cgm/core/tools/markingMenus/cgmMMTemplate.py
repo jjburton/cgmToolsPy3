@@ -1,5 +1,5 @@
 import maya.cmds as mc
-import maya.mel as mel
+#import maya.mel as mel
 
 #from cgm.lib.zoo.zooPyMaya.baseMelUI import *
 from cgm.core.lib.zoo import baseMelUI as mUI
@@ -7,8 +7,8 @@ import cgm.core.classes.GuiFactory as cgmUI
 
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGeneral
-from cgm.core import cgm_RigMeta as cgmRigMeta
-from cgm.core import cgm_PuppetMeta as cgmPM
+#from cgm.core import cgm_RigMeta as cgmRigMeta
+#from cgm.core import cgm_PuppetMeta as cgmPM
 from cgm.core.lib import name_utils as NAMES
 #reload(cgmUI)
 

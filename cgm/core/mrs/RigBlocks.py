@@ -1792,7 +1792,7 @@ class factory(object):
                 log.error("|{0}| Add attr Failure >> '{1}' | defaultValue: {2} ".format(_str_func,a,v,blockType)) 
                 cgmGEN.cgmExceptCB(Exception,err,msg=vars())
                 if not forceReset:                
-                    raise Exception(err)
+                    raise err 
 
         _mBlock.addAttr('blockType', value = blockType,lock=True)	
         #_mBlock.blockState = 'base'
@@ -2994,7 +2994,7 @@ def contextual_rigBlock_method_call(mBlock, context = 'self', func = 'getShortNa
                 l_timeReports.append([_short, cgmGEN.get_timeString(t2-t1)])
                 
             except Exception as err:
-                raise Exception(err)
+                raise err 
                 cgmGEN.cgmExceptCB(Exception,err)
                 log.error(cgmGEN._str_hardLine)
                 log.error("|{0}| >> Failure: {1}".format(_str_func, err.__class__))
@@ -3572,7 +3572,7 @@ class rigFactory(object):
 
             #cgmGEN.log_info_dict(self.__dict__,'rigFactory')
 
-            raise Exception(err)
+            raise err 
         return _res
 
     #@cgmGEN.Timer
@@ -3687,7 +3687,7 @@ class rigFactory(object):
             return True
         except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception(err)
+            raise err 
 
 
     def fnc_deformConstrainNulls(self):
@@ -3833,6 +3833,7 @@ class rigFactory(object):
         _str_func = 'doBuild'  
         _start = time.time()
         fnc = None
+        self._fail = None
 
         try:
             _l_buildOrder = self.d_block['buildModule'].__dict__.get('__l_rigBuildOrder__')
@@ -3850,6 +3851,7 @@ class rigFactory(object):
             for i,fnc in enumerate(_l_buildOrder):
                 _str_func = '_'.join(fnc.split('_')[1:])
                 self.step_start = fnc
+                
                 if mayaMainProgressBar:
                     mc.progressBar(mayaMainProgressBar, edit=True,
                                    status = "|{0}| >>Rig>> step: {1}...".format(self.d_block['shortName'],fnc), progress=i+1)                    
@@ -3857,22 +3859,20 @@ class rigFactory(object):
                 mc.undoInfo(openChunk=True,chunkName=fnc)
                 
                 
-                err=None
                 try:
                     getattr(self.d_block['buildModule'],fnc)(self)
                     self.step_complete = fnc                    
                 except Exception as err:
-                    log.error(err)
-                    self.step_fail = fnc                    
+                    #log.error(err)
+                    self.step_fail = fnc
                     
+                    
+                    mc.undoInfo(closeChunk=True)            
+                    raise                         
             
                 finally:
-                    mc.undoInfo(closeChunk=True)            
-                    if err is not None:
-                        self.log_self()
-                        cgmGEN.cgmExceptCB(Exception,err)                        
-                
-                
+                    mc.undoInfo(closeChunk=True)
+
                     if buildTo is not None:
                         _Break = False
                         if VALID.stringArg(buildTo):
@@ -3892,7 +3892,7 @@ class rigFactory(object):
         except Exception as err:
             log.error("|{}| >> {} | step: {} | err: {}".format(_str_func,self.mBlock.p_nameBase, fnc, err))
             CGMUI.doEndMayaProgressBar()#Close out this progress bar
-            raise Exception(err)
+            raise 
         
         #finally:CGMUI.doEndMayaProgressBar()#Close out this progress bar
 
@@ -3990,75 +3990,75 @@ class cgmRigPuppet(cgmMeta.cgmNode):
         RETURNS:
         success(bool)
         """
-        try:
-            _short = self.p_nameShort
-            _str_func = "cgmRigPuppet.__verify__"
-            log.debug("|{0}| >> ...".format(_str_func))            
-            log.debug("|{0}| >> name : {1}".format(_str_func,name))                                
-    
-            #Puppet Network Node 
-            #---------------------------------------------------------------------------
-            self.addAttr('mClass', initialValue='cgmRigPuppet',lock=True)  
-            self.addAttr('cgmName',initialValue=name, attrType='string', lock = True)
-            
-            if name is not None:
-                ATTR.set(_short, 'cgmName', name)
-            if self.cgmName is None:
-                ATTR.set(_short, 'cgmName', 'puppet')
-                
-            self.addAttr('cgmType','puppetNetwork')
-            self.addAttr('version',initialValue = '', lock=True)  
-            self.addAttr('masterNull',attrType = 'messageSimple',lock=True)
-            self.addAttr('masterControl',attrType = 'messageSimple',lock=True)  	
-            self.addAttr('moduleChildren',attrType = 'message',lock=True) 
-            self.addAttr('unifiedGeo',attrType = 'messageSimple',lock=True) 
-            self.addAttr('displayLayer',attrType = 'messageSimple',lock=True)              
-    
-            #Settings 
-            #---------------------------------------------------------------------------
-            #defaultFont = modules.returnSettingsData('defaultTextFont')
-            defaultFont = BLOCKSHARE.str_defaultFont
-            self.addAttr('font',attrType = 'string',initialValue=defaultFont,lock=True)   
-            self.addAttr('axisAim',enumName = 'x+:y+:z+:x-:y-:z-',attrType = 'enum',initialValue=2) 
-            self.addAttr('axisUp',enumName = 'x+:y+:z+:x-:y-:z-', attrType = 'enum',initialValue=1) 
-            self.addAttr('axisOut',enumName = 'x+:y+:z+:x-:y-:z-',attrType = 'enum',initialValue=0) 
-            self.addAttr('skinDepth',attrType = 'float',initialValue=.75,lock=True)   
-    
-            self.doName()
-            
-            if kws.get('rigBlock'):
-                _moduleLink = kws.get('puppetLink','moduleTarget')
-                mRigBlock = cgmMeta.validateObjArg(kws.get('rigBlock'),'cgmRigBlock')
-                if mRigBlock:
-                    log.debug("|{0}| >> rigBlock on call: {1}".format(_str_func,mRigBlock))
-                    ATTR.set_message(mRigBlock.mNode, _moduleLink, self.mNode,simple = True)
-                    ATTR.set_message(self.mNode, 'rigBlock', mRigBlock.mNode,simple = True)            
-            
-            # Layers ---------------------------------------------------------------------------            
-            self.atUtils('layer_verify')
-    
-            #MasterNull 
-            #---------------------------------------------------------------------------
-            self.verify_masterNull()
+        #try:
+        _short = self.p_nameShort
+        _str_func = "cgmRigPuppet.__verify__"
+        log.debug("|{0}| >> ...".format(_str_func))            
+        log.debug("|{0}| >> name : {1}".format(_str_func,name))                                
 
-                
+        #Puppet Network Node 
+        #---------------------------------------------------------------------------
+        self.addAttr('mClass', initialValue='cgmRigPuppet',lock=True)  
+        self.addAttr('cgmName',initialValue=name, attrType='string', lock = True)
+        
+        if name is not None:
+            ATTR.set(_short, 'cgmName', name)
+        if self.cgmName is None:
+            ATTR.set(_short, 'cgmName', 'puppet')
+            
+        self.addAttr('cgmType','puppetNetwork')
+        self.addAttr('version',initialValue = '', lock=True)  
+        self.addAttr('masterNull',attrType = 'messageSimple',lock=True)
+        self.addAttr('masterControl',attrType = 'messageSimple',lock=True)  	
+        self.addAttr('moduleChildren',attrType = 'message',lock=True) 
+        self.addAttr('unifiedGeo',attrType = 'messageSimple',lock=True) 
+        self.addAttr('displayLayer',attrType = 'messageSimple',lock=True)              
+
+        #Settings 
+        #---------------------------------------------------------------------------
+        #defaultFont = modules.returnSettingsData('defaultTextFont')
+        defaultFont = BLOCKSHARE.str_defaultFont
+        self.addAttr('font',attrType = 'string',initialValue=defaultFont,lock=True)   
+        self.addAttr('axisAim',enumName = 'x+:y+:z+:x-:y-:z-',attrType = 'enum',initialValue=2) 
+        self.addAttr('axisUp',enumName = 'x+:y+:z+:x-:y-:z-', attrType = 'enum',initialValue=1) 
+        self.addAttr('axisOut',enumName = 'x+:y+:z+:x-:y-:z-',attrType = 'enum',initialValue=0) 
+        self.addAttr('skinDepth',attrType = 'float',initialValue=.75,lock=True)   
+
+        self.doName()
+        
+        if kws.get('rigBlock'):
+            _moduleLink = kws.get('puppetLink','moduleTarget')
+            mRigBlock = cgmMeta.validateObjArg(kws.get('rigBlock'),'cgmRigBlock')
+            if mRigBlock:
+                log.debug("|{0}| >> rigBlock on call: {1}".format(_str_func,mRigBlock))
+                ATTR.set_message(mRigBlock.mNode, _moduleLink, self.mNode,simple = True)
+                ATTR.set_message(self.mNode, 'rigBlock', mRigBlock.mNode,simple = True)            
+        
+        # Layers ---------------------------------------------------------------------------            
+        self.atUtils('layer_verify')
+
+        #MasterNull 
+        #---------------------------------------------------------------------------
+        self.verify_masterNull()
+
+            
+        #if self.masterNull.getShortName() != self.cgmName:
+            #self.masterNull.doName()
             #if self.masterNull.getShortName() != self.cgmName:
-                #self.masterNull.doName()
-                #if self.masterNull.getShortName() != self.cgmName:
-                    #log.warning("Master Null name still doesn't match what it should be.")
-            
-            ATTR.set_standardFlags(self.masterNull.mNode,attrs=['tx','ty','tz','rx','ry','rz','sx','sy','sz'])
-            
-            #Quick select sets
-            #---------------------------------------------------------------------------
-            #self.verify_objectSet()
-            self.atUtils('qss_verify')
-    
-            # Groups ---------------------------------------------------------------------------
-            self.atUtils('groups_verify')
-            
-            return True
-        except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
+                #log.warning("Master Null name still doesn't match what it should be.")
+        
+        ATTR.set_standardFlags(self.masterNull.mNode,attrs=['tx','ty','tz','rx','ry','rz','sx','sy','sz'])
+        
+        #Quick select sets
+        #---------------------------------------------------------------------------
+        #self.verify_objectSet()
+        self.atUtils('qss_verify')
+
+        # Groups ---------------------------------------------------------------------------
+        self.atUtils('groups_verify')
+        
+        return True
+        #except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
     def atUtils(self, func = '', *args,**kws):
         """
@@ -4711,7 +4711,67 @@ class cgmRigMaster(cgmMeta.cgmObject):
             return self._blockModule
         return get_blockModule('master')
     p_blockModule = property(getBlockModule)
-    
+
+class cgmMasterNull(cgmMeta.cgmObject):
+    """"""
+    #----------------------------------------------------------------------
+    ##@r9General.Timer    
+    def __init__(self,node = None, name = 'Master',doVerify = False, *args,**kws):
+        """Constructor"""
+        #>>>Keyword args
+        if mc.objExists(name) and node is None:
+            node = name
+
+        super(cgmMasterNull, self).__init__(node=node, name = name)
+        #>>> TO USE Cached instance ---------------------------------------------------------
+        if self.cached:
+            #log.debug('CACHE : Aborting __init__ on pre-cached %s Object' % self.mNode)
+            return
+        #====================================================================================	
+
+        #====================================================================================
+        if not self.isReferenced():   
+            if self.__justCreatedState__ or doVerify:
+                if not self.__verify__(**kws):
+                    raise Exception("Failed!")
+
+    ##@r9General.Timer    
+    def __verify__(self,**kws):
+        """"""
+        """ 
+        Verifies the various components a puppet network for a character/asset. If a piece is missing it replaces it.
+
+        RETURNS:
+        success(bool)
+        """ 
+        puppet = kws.pop('puppet',False)
+        if puppet and not self.isReferenced():
+            #if log.getEffectiveLevel() == 10:log.debug("Puppet provided!")
+            #if log.getEffectiveLevel() == 10:log.debug(puppet.cgmName)
+            #if log.getEffectiveLevel() == 10:log.debug(puppet.mNode)
+            #self.doStore('cgmName',puppet.mNode+'.cgmName')
+            ATTR.copy_to(puppet.mNode,'cgmName',self.mNode,driven='target')
+            self.addAttr('puppet',attrType = 'messageSimple')
+            if not self.connectParentNode(puppet,'puppet','masterNull'):
+                raise Exception("Failed to connect masterNull to puppet network!")
+
+        self.addAttr('mClass',value = 'cgmMasterNull',lock=True)
+        self.addAttr('cgmName',initialValue = '',lock=True)
+        self.addAttr('cgmType',initialValue = 'ignore',lock=True)
+        self.addAttr('cgmModuleType',value = 'master',lock=True)   
+        self.addAttr('partsGroup',attrType = 'messageSimple',lock=True)   
+        self.addAttr('deformGroup',attrType = 'messageSimple',lock=True)   	
+        self.addAttr('noTransformGroup',attrType = 'messageSimple',lock=True)   
+        self.addAttr('geoGroup',attrType = 'messageSimple',lock=True)   
+
+        #See if it's named properly. Need to loop back after scene stuff is querying properly
+        self.doName()
+        return True
+
+    def __bindData__(self):
+        pass
+
+
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # MODULE Base class
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 

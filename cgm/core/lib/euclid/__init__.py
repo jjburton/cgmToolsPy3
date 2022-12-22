@@ -583,7 +583,7 @@ class Vector3:
         except Exception as err:
             #if self.cross(other) == (0.0,0.0,0.0):
             return 0.0
-            raise Exception(err)
+            raise err 
         
     def project(self, other):
         """Return one vector projected on the vector other"""

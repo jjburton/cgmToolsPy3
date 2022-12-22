@@ -2081,7 +2081,7 @@ def ui_CallAndKill(func, *a, **kws ):
                 log.info("kws: {0}".format(kws))
             for a in err.args:
                 log.info(a)
-            raise Exception(err)
+            raise err 
     except Exception as err:
         log.info("Failed...")
         print(Exception)

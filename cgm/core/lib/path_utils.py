@@ -79,7 +79,7 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
     _i = 0
     
     _rootKey = None
-    for root, dirs, files in os.walk(_path, True, None):
+    for root, dirs, files in os.walk(_path.asString(), True, None):
 
         if hardCap and _i > hardCap:
             log.warning(cgmGEN.logString_msg(_str_func,"hit cap...{0}".format(hardCap)))

@@ -30,7 +30,7 @@ def sceneSetup():
 		log.error("New File fail!")
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception(err)  
+		raise err   
 
 # LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
@@ -64,7 +64,7 @@ def main(**kwargs):
 			log.error("New File fail!")
 			for arg in err.args:
 				log.error(arg)                
-			raise Exception(err)		
+			raise err 		
 
 		tests = unittest.defaultTestLoader.loadTestsFromName(module)
 		suite.addTest( tests)		
@@ -101,7 +101,7 @@ def mainRunner(**kwargs):
 	except Exception as err:
 		for arg in err.args:
 			log.error(arg)                
-		raise Exception(err)	
+		raise err 	
 	
 	
 def mainBAK(**kwargs):	
@@ -124,7 +124,7 @@ def mainBAK(**kwargs):
 			log.error("New File fail!")
 			for arg in err.args:
 				log.error(arg)                
-			raise Exception(err)		
+			raise err 		
 		#except ImportError:
 			#logging.exception("Couldn't import module: {0}".format(module))
 

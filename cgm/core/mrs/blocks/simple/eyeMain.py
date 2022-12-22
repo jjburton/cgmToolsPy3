@@ -841,7 +841,7 @@ def rigDelete(self):
         try:self.moduleTarget.masterControl.masterGroup.delete()
         except Exception as err:
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())
-            raise Exception(err)
+            raise err 
         return True
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 

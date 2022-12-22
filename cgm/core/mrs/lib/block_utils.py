@@ -7922,7 +7922,8 @@ def rig(self,**kws):
     try:self.asRigFactory(**kws)
     except Exception as err:
         self.blockState = 'skeleton'
-        raise Exception(err)
+        #cgmGEN.cgmException(Exception,err)
+        raise err
     
     if not is_rigged(self):
         log.error("|{0}| >> Failed to return is_rigged...".format(_str_func))                    

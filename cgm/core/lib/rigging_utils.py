@@ -1029,6 +1029,92 @@ def create_controlResizeObj(target=None):
     return handle
     
     
+def get_curve_color(target = None):
+    """ 
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    DESCRIPTION:
+    Returns the colors used on the shapes of a curve as a list in order
+    of volume used
+
+    ARGUMENTS:
+    curve(string
+
+    RETURNS:
+    Success(bool)
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    """
+    """ first get the shapes """
+    _str_func = "get_curve_color"
+    
+    if not target:raise ValueError("|{0}|  >> Must have a target".format(_str_func))
+        
+    l_targets = VALID.listArg(target)
+    
+    _res = []
+    _b_RBGMode = False
+    _b_2016Plus = False
+    if cgmGEN.__mayaVersion__ >=2016:
+        _b_2016Plus = True
+    
+    _colors = {}
+    _color = False
+    for t in l_targets:
+        _shapes = []
+        #If it's accepable target to color
+        
+        #mTarget = r9Meta.MetaClass(target, autoFill=False)
+        
+        if ATTR.has_attr(t,'overrideEnabled'):
+            log.debug("|{0}|  >> overrideEnabled  on target...".format(_str_func))            
+            _shapes.append(t)
+            _bfr = mc.listRelatives(t, s=True, fullPath=True)
+            if _bfr:
+                _shapes.extend(_bfr)
+                
+        if not _shapes:
+            raise ValueError("|{0}|  >> Not a shape and has no shapes: '{1}'".format(_str_func,t))        
+        
+        for i,s in enumerate(_shapes):
+            mShape = r9Meta.MetaClass(s)
+            if mShape.overrideEnabled:
+                if _b_2016Plus:
+                    if mShape.overrideRGBColors:
+                        #if mShape.overrideRGBColors:
+                        _color = mShape.overrideColorRGB
+                    else:
+                        _color = mShape.overrideColor
+                else:
+                    _color = mShape.overrideColor
+                    
+                if _color:
+                    return _color
+    return _color
+    
+    
+    """
+    try:
+        shapes = mc.listRelatives(curve,shapes=True,fullPath=True)
+        colorsCatcher = []
+        for shape in shapes:
+            colorsCatcher.append(mc.getAttr(shape+'.overrideColor'))
+        colorVolumes = {}
+        for color in colorsCatcher:
+            volmesBuffer = 0
+            for shape in shapes:
+                if (mc.getAttr(shape+'.overrideColor')) == color:
+                    volmesBuffer = volmesBuffer + mc.arclen(shape)
+            colorVolumes[color] = volmesBuffer
+
+        orderedDictList = dictionary.returnDictionarySortedToList (colorVolumes,True)
+        returnList = []
+        orderedDictList.reverse()
+        for set in orderedDictList:
+            returnList.append(set[0])
+        return returnList
+    except Exception as error:
+        log.error("%s >> Failed to find color, returning default. Error: %s"%(_str_func,error))
+        return [17]"""
+    
     
 def override_color(target = None, key = None, index = None, rgb = None, pushToShapes = True):
     """
@@ -1503,13 +1589,14 @@ def mirror(obj = None, mode = ''):
         log.error("|{0}| >> failure. obj: {1} | mirrorable: {2} | mode: {3} | err: {4}".format(_str_func,obj,_mirrorable,mode,err))
 
 
+
 def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, drivenAttr = None, driverAttr = None, 
                         minIn = -180, maxIn = 180, maxIterations = 40, matchValue = None):
     """
     Started with Jason Schleifer's afr js_iterator and have 'tweaked'
     """
-    if type(minIn) not in [float,int]:raise StandardError,"matchValue_iterator>>> bad minIn: %s"%minIn
-    if type(maxIn) not in [float,int]:raise StandardError,"matchValue_iterator>>> bad maxIn: %s"%maxIn
+    if type(minIn) not in [float,int]:raise Exception("matchValue_iterator>>> bad minIn: %s"%minIn)
+    if type(maxIn) not in [float,int]:raise Exception("matchValue_iterator>>> bad maxIn: %s"%maxIn)
 
     __matchMode__ = False
     #>>> Data gather and arg check        
@@ -1525,7 +1612,7 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
     elif matchValue is not None:
         __matchMode__ = 'value'
     else:
-        raise StandardError,"matchValue_iterator>>> No match given. No matchValue given"
+        raise Exception("matchValue_iterator>>> No match given. No matchValue given")
 
     __drivenMode__ = False
     mi_drivenObj = cgmMeta.validateObjArg(drivenObj,cgmMeta.cgmObject,noneValid=True)
@@ -1541,12 +1628,12 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
         mPlug_driven
         log.debug("matchValue_iterator>>> Attr mode. Attr: %s  | baseValue: %s "%(mPlug_driven.p_combinedShortName,f_baseValue))						
     else:
-        raise StandardError,"matchValue_iterator>>> No driven given"
+        raise Exception("matchValue_iterator>>> No driven given")
 
     d_driverAttr = cgmMeta.validateAttrArg(driverAttr,noneValid=False)
     mPlug_driver = d_driverAttr['mi_plug']
     if not mPlug_driver:
-        raise StandardError,"matchValue_iterator>>> No driver"	
+        raise Exception("matchValue_iterator>>> No driver")	
 
     log.debug("matchValue_iterator>>> Source mode: %s | Target mode: %s | Driver: %s"%(__matchMode__,__drivenMode__,mPlug_driver.p_combinedShortName))  
     #===========================================================================================================
@@ -1596,14 +1683,14 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
                 else:	
                     if f_minDist>f_maxDist:#if min dif greater, use half as new min
                         if f_half < minIn:
-                            raise StandardError, "half min less than minValue"
+                            raise Exception("half min less than minValue")
                             f_half = minIn
                         minValue = f_half
                         #log.debug("matchValue_iterator>>>Going up")
                         f_closest = f_minDist
                     else:
                         if f_half > maxIn:
-                            raise StandardError, "half max less than maxValue"			    
+                            raise Exception("half max less than maxValue")			    
                             f_half = maxIn			
                         maxValue = f_half
                         #log.debug("matchValue_iterator>>>Going down")  
@@ -1729,3 +1816,5 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
         return b_matchFound
     #log.warning("matchValue_iterator>>> Failed to find value for: %s"%mPlug_driven.p_combinedShortName)    
     return False
+
+

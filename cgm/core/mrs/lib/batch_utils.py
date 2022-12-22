@@ -33,6 +33,8 @@ import maya.cmds as mc
 import maya.mel as mel    
 
 # From Red9 =============================================================
+import Red9
+Red9.setup.addPythonPackages()
 from Red9.core import Red9_Meta as r9Meta
 import cgm.core.cgm_General as cgmGEN
 import cgm.core.cgmPy.validateArgs as VALID
@@ -91,6 +93,8 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
     l_pre = ['import maya',
     'from maya import standalone',
     'standalone.initialize()',
+    'import Red9',
+    'Red9.setup.addPythonPackages()',    
     'from cgm.core.mrs import Scene',
     'import maya.mel as mel',
     'from maya.api import OpenMaya as om2',
@@ -236,7 +240,8 @@ def create_MRS_batchFile(f=None, blocks = [None], process = False,
     l_pre = ['import maya',
     'from maya import standalone',
     'standalone.initialize()',
-    
+    'import Red9',
+    'Red9.setup.addPythonPackages()',       
     'from maya.api import OpenMaya as om2',
     'om2.MGlobal.displayInfo("Begin")',
     'import maya.cmds as mc',

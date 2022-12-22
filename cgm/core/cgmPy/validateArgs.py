@@ -354,7 +354,7 @@ def vectorArg(arg,noneValid = True):
         return arg
     except Exception as err:
         if noneValid:return False
-        raise Exception(err)
+        raise err 
     
 def isVectorEquivalent(lhs, rhs, **kwargs):
     """
@@ -618,7 +618,7 @@ def euclidVector3(arg):
         try:
             return EUCLID.Vector3(arg)
         except Exception as err:
-            raise Exception(err)
+            raise err 
     
     return arg
 

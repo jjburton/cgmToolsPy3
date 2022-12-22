@@ -76,7 +76,7 @@ class Test_cgmPuppet(unittest.TestCase):
                 print(("{0} attr failed...".format(attr)))
                 for arg in err:
                     log.error(arg)
-                raise Exception(err)        
+                raise err         
         
         
             
@@ -104,7 +104,7 @@ class Test_cgmPuppet(unittest.TestCase):
                     print(("{0} attr failed...".format(attr)))
                     for arg in err:
                         log.error(arg)
-                    raise Exception(err)
+                    raise err 
     
       
 

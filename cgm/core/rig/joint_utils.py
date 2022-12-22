@@ -210,7 +210,7 @@ def orientChain(joints = None, axisAim = 'z+', axisUp = 'y+',
                         axisWorldOrient = SHARED._d_axisToJointOrient[str_aim][str_up]
                     except Exception as err:
                         log.error("{0}>> World axis query. {1} | {2}".format(_str_func, str_aim, str_up))
-                        raise Exception(err)
+                        raise err 
                     
                     log.debug("|{0}| >> World joint: {1} | {2}".format(_str_func,mJnt.mNode, axisWorldOrient))
                     mJnt.rotate = 0,0,0
