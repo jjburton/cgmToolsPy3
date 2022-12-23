@@ -37,7 +37,7 @@ import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 import cgm.core.rig.ik_utils as IK
-from cgm.core.classes import NodeFactory as NODEFAC
+import cgm.core.classes.NodeFactory as NODEFACTORY
 
 """
 from Red9.core import Red9_Meta as r9Meta
@@ -49,7 +49,6 @@ import cgm.core.rig.general_utils as CORERIGGEN
 import cgm.core.lib.transform_utils as TRANS
 
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
-import cgm.core.classes.NodeFactory as NODEFACTORY
 from cgm.core import cgm_RigMeta as cgmRigMeta
 import cgm.core.lib.list_utils as LISTS
 import cgm.core.lib.nameTools as NAMETOOLS
@@ -752,7 +751,7 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
                                                       _jointOrientation[0],
                                                       mPlug_addEnd.p_combinedName)    
             
-            NODEFAC.argsToNodes(arg1).doBuild()
+            NODEFACTORY.argsToNodes(arg1).doBuild()
             
             #start...
             mPlug_addEnd = cgmMeta.cgmAttr(mIKBaseControl.mNode,'twistBaseAdd',attrType='float',keyable=True, hidden=False)            
@@ -761,7 +760,7 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
                                                         _jointOrientation[0],
                                                         mPlug_addEnd.p_combinedName)    
             
-            NODEFAC.argsToNodes(arg1).doBuild()            
+            NODEFACTORY.argsToNodes(arg1).doBuild()            
         else:
             ATTR.copy_to(mSplineCurve.mNode,'twistEnd',mSettings.mNode, driven='source')
             

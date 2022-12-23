@@ -26,6 +26,8 @@ from cgm.core.lib import math_utils as MATH
 from cgm.core.lib import name_utils as NAMES
 import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.shape_utils as SHAPE
+import cgm.core.lib.rigging_utils as CORERIG
+
 #reload(DIST)
 from cgm.core import cgm_General as cgmGEN
 from cgm.lib import locators
@@ -1306,7 +1308,8 @@ def findMeshMidPointFromObject(mesh,obj,axisToCheck = ['x','z'],
             if a not in axis:
                 raise Exception("findMeshMidPointFromObject>>> Not a valid axis : %s not in ['x','y','z']"%axisToCheck)
         l_lastPos = []
-        loc = locators.locMeObjectStandAlone(obj)
+        loc = CORERIG.simpleLoc(obj)
+        #loc = locators.locMeObjectStandAlone(obj)
         for i in range(maxIterations):
             l_positions = []
             for a in axisToCheck:

@@ -2889,6 +2889,11 @@ def get_datListKeys(node, skipMsg = True):
 
             
 
+def get_sequentialAttrList(node, attr = None):
+    d = get_sequentialAttrDict(node, attr)
+    _keys = sorted(d)
+    return [d[i] for i in _keys]
+
 def get_sequentialAttrDict(node, attr = None):
     """   
     Get dict of sequential attrs. This is mainly used for our own storage methods
@@ -2913,7 +2918,7 @@ def get_sequentialAttrDict(node, attr = None):
                     _res[int(_int_)] = a
                 except:
                     log.debug("|{0}| >> {1}.{2} failed to int. | int: {3}".format(_str_func,NAMES.get_short(node),a,_int_))     	               	
-    return _res
+    return {k:_res[k] for k in sorted(_res)}
 
 def get_nextAvailableSequentialAttrIndex(node, attr = None):
     """   
@@ -3186,23 +3191,22 @@ def datList_get(node = None, attr = None, mode = None, dataAttr = None, cull = F
     d_attrs = get_sequentialAttrDict(node,attr)
     
     l_return = []
-    ml_return = []
     
-    for k in list(d_attrs.keys()):
+    for k,a in list(d_attrs.items()):
         if _mode == 'message':
-            _res = get_message(node,d_attrs[k], dataAttr, k ) or None
+            _res = get_message(node,a, dataAttr, k ) or None
             if _res:_res = _res[0]
         else:
             try:
                 if enum:
-                    if get_type(node,d_attrs[k]) == 'enum':
-                        _res = get_enumValueString(node,d_attrs[k])
+                    if get_type(node,a) == 'enum':
+                        _res = get_enumValueString(node,a)
                     else:
-                        _res = get(node,d_attrs[k])
+                        _res = get(node,a)
                 else:
-                    _res = get(node,d_attrs[k])
+                    _res = get(node,a)
             except Exception as err:
-                log.warning("|{0}| >> {1}.{2} Failed! || err: {3}".format(_str_func,node,d_attrs[k],err))
+                log.warning("|{0}| >> {1}.{2} Failed! || err: {3}".format(_str_func,node,a,err))
                 _res = None
         if issubclass(type(_res),list):
             if _mode == 'message' or mc.objExists(_res[0]):
@@ -3232,9 +3236,10 @@ def datList_getAttrs(node = None, attr = None):
         status(bool)
     """
     _str_func = 'datList_get'
-    
-    d_attrs = get_sequentialAttrDict(node,attr)
-    return [d_attrs[i] for i in list(d_attrs.keys())]
+    return get_sequentialAttrList(node,attr)
+    #d_attrs = get_sequentialAttrDict(node,attr)
+    #return [d_attrs[i] for i in list(d_attrs.keys())]
+
 msgList_getAttrs = datList_getAttrs
 
 def msgList_index(node = None, attr = None, data = None, dataAttr = None):

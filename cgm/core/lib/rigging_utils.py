@@ -151,7 +151,7 @@ def match_orientation(obj = None, source = None,
         _restoreRO = mc.xform (obj, q=True, roo=True )
                     
         #We do our stuff with a locator to get simple transferrable values after matching parents and what not...
-        loc = locators.locMeObject(source)
+        loc = simpleLoc(source)
         #..match ro before starting to do values
         
         parent_set(loc, parent_get(obj))#...match parent
@@ -1816,5 +1816,22 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
         return b_matchFound
     #log.warning("matchValue_iterator>>> Failed to find value for: %s"%mPlug_driven.p_combinedShortName)    
     return False
+
+def simpleLoc(obj,forceBBCenter=False):
+    _loc = mc.spaceLocator()[0]
+    
+    _d = POS.get_info(obj,forceBBCenter)
+
+    ATTR.set(_loc,'rotateOrder', _d['rotateOrder'])
+    objRot = _d['rotation']
+    objRotAxis = _d['rotateAxis']
+    
+    POS.set(_loc,_d['position'])
+    
+    mc.rotate (objRot[0], objRot[1], objRot[2], _loc, ws=True)
+    for i,a in enumerate(['X','Y','Z']):
+        ATTR.set(_loc, 'rotateAxis{0}'.format(a), objRotAxis[i])
+        
+    return mc.rename(_loc, "{}_loc".format(NAMES.clean(NAMES.get_base(obj))))
 
 

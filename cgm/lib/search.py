@@ -961,72 +961,69 @@ def returnObjectType(obj):
     type(string)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
-    try:
-        if len(mc.ls(obj))>1:
-            log.error("returnObjectType>> There is more than one object named '%s'. Please specify which"%obj)
-            return False
-    
-        intialCheck = mc.objectType(obj)
-    
-        if intialCheck == 'objectSet':
-            return 'objectSet'
-    
-        objShapes = mc.listRelatives(obj,shapes=True,fullPath=True)
-    
-        # Standard
-        if len(objShapes) > 0:
-            return mc.objectType(objShapes[0])
+    if len(mc.ls(obj))>1:
+        log.error("returnObjectType>> There is more than one object named '%s'. Please specify which"%obj)
+        return False
+
+    intialCheck = mc.objectType(obj)
+
+    if intialCheck == 'objectSet':
+        return 'objectSet'
+
+    objShapes = mc.listRelatives(obj,shapes=True,fullPath=True) or []
+
+    # Standard
+    if len(objShapes) > 0:
+        return mc.objectType(objShapes[0])
+    else:
+        """ see if it's a shape """
+        parent = returnParentObject(obj)
+        isShape = False
+        if parent !=False:
+            parentShapes = mc.listRelatives(parent,shapes=True,fullPath=True)
+            if parentShapes != None:
+                matchObjName = mc.ls(obj, long=True)
+                if matchObjName[0] in parentShapes:
+                    isShape = True
+        if isShape == True:
+            return 'shape'
         else:
-            """ see if it's a shape """
-            parent = returnParentObject(obj)
-            isShape = False
-            if parent !=False:
-                parentShapes = mc.listRelatives(parent,shapes=True,fullPath=True)
-                if parentShapes != None:
-                    matchObjName = mc.ls(obj, long=True)
-                    if matchObjName[0] in parentShapes:
-                        isShape = True
-            if isShape == True:
-                return 'shape'
-            else:
-                # Case specific
-                if '.vtx[' in obj:
-                    return 'polyVertex'
-    
-                if '.cv[' in obj:
-                    mainObjType = mc.objectType(obj)
-                    if mainObjType == 'nurbsCurve':
-                        return 'curveCV'
-                    else:
-                        return 'surfaceCV'
-    
-                if '.e[' in obj:
-                    return 'polyEdge'
-                if '.f[' in obj:
-                    return 'polyFace'
-                if '.map[' in obj:
-                    return 'polyUV'
-                if '.uv[' in obj:
-                    return 'nurbsUV'
-                if '.sf[' in obj:
-                    return 'surfacePatch'
-                if '.u[' or '.v' in obj:
-                    mainObjType = mc.objectType(obj)
-                    if mainObjType == 'nurbsCurve':
-                        return 'curvePoint'
-                    if mainObjType == 'nurbsSurface':
-                        return 'isoparm'
-                if '.ep[' in obj:
-                    return 'editPoint'
-    
-                buffer =  mc.objectType(obj)
-                if buffer == 'transform' and returnAllChildrenObjects(obj):#if just a tranform with children, it's a group
-                    return 'group'
+            # Case specific
+            if '.vtx[' in obj:
+                return 'polyVertex'
+
+            if '.cv[' in obj:
+                mainObjType = mc.objectType(obj)
+                if mainObjType == 'nurbsCurve':
+                    return 'curveCV'
                 else:
-                    return buffer
-            return mc.objectType(objShapes[0])
-    except Exception as err:
-        raise Exception("returnObjectType | arg: '{0}' | error: {1}".format(obj,err))
+                    return 'surfaceCV'
+
+            if '.e[' in obj:
+                return 'polyEdge'
+            if '.f[' in obj:
+                return 'polyFace'
+            if '.map[' in obj:
+                return 'polyUV'
+            if '.uv[' in obj:
+                return 'nurbsUV'
+            if '.sf[' in obj:
+                return 'surfacePatch'
+            if '.u[' or '.v' in obj:
+                mainObjType = mc.objectType(obj)
+                if mainObjType == 'nurbsCurve':
+                    return 'curvePoint'
+                if mainObjType == 'nurbsSurface':
+                    return 'isoparm'
+            if '.ep[' in obj:
+                return 'editPoint'
+
+            buffer =  mc.objectType(obj)
+            if buffer == 'transform' and returnAllChildrenObjects(obj):#if just a tranform with children, it's a group
+                return 'group'
+            else:
+                return buffer
+        return mc.objectType(objShapes[0])
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Joint Search stuff
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1129,8 +1126,7 @@ def returnAllChildrenObjects(obj,fullPath=False):
     children(list)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
-    childrenBuffer = []
-    childrenBuffer = mc.listRelatives (obj, allDescendents=True,type='transform',fullPath=fullPath)
+    childrenBuffer = mc.listRelatives (obj, allDescendents=True,type='transform',fullPath=fullPath) or []
     return childrenBuffer
 
 def returnChildrenObjects(obj,fullPath=False):
@@ -1177,8 +1173,8 @@ def returnParentObject(obj,fullPath=True):
     parent(obj)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
-    parentBuffer = mc.listRelatives(obj,parent=True,type='transform',fullPath=fullPath)
-    if parentBuffer > 0:
+    parentBuffer = mc.listRelatives(obj,parent=True,type='transform',fullPath=fullPath) or []
+    if len(parentBuffer) > 0:
         return parentBuffer[0]
     return False
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

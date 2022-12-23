@@ -11,9 +11,9 @@ Class Factory for building node networks
 ================================================================
 """
 # From Python =============================================================
-import copy
-import re
-import time
+#import copy
+#import re
+#import time
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 import logging
@@ -25,8 +25,8 @@ log.setLevel(logging.INFO)
 import maya.cmds as mc
 
 # From Red9 =============================================================
-from Red9.core import Red9_Meta as r9Meta
-from Red9.core import Red9_General as r9General
+#from Red9.core import Red9_Meta as r9Meta
+#from Red9.core import Red9_General as r9General
 from cgm.core.cgmPy import str_Utils as strUtils
 
 # From cgm ==============================================================
@@ -35,10 +35,12 @@ from cgm.core import cgm_General as cgmGeneral
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.cgmPy import validateArgs as cgmValid
 from cgm.core.lib import attribute_utils as ATTR
-from cgm.lib import (lists,
-                     cgmMath,
-                     search,
-                     attributes)
+from cgm.core.lib import list_utils as LISTS
+from cgm.core.lib import math_utils as MATH
+from cgm.core.lib import search_utils as SEARCH
+from cgm.core.lib import transform_utils as TRANS
+
+
 #reload(search)
 
 def createNormalizedClosestPointNode(objToAttach = None, targetSurface = None, **kws):
@@ -100,7 +102,7 @@ def createNormalizedClosestPointNode(objToAttach = None, targetSurface = None, *
             self.mPlug_vNormal = cgmMeta.cgmAttr(mi_cpos,'out_vNormal',attrType='float',lock=True,keyable=False,hidden=True)
 
             #Connections ----------------------------------------------------------------------------------
-            attributes.doConnectAttr((self.mi_shape.mNode+'.worldSpace'),(mi_cpos.mNode+'.inputSurface'))
+            ATTR.connect((self.mi_shape.mNode+'.worldSpace'),(mi_cpos.mNode+'.inputSurface'))
 
             self.mPlug_uMin.doConnectIn("%s.mnu"%self.mi_shape.mNode)
             self.mPlug_uMax.doConnectIn("%s.mxu"%self.mi_shape.mNode)
@@ -295,7 +297,7 @@ def connect_controlWiring(*args, **kws):
             for a_driven in list(self._d_wiringData.keys()):
                 l_drivers.append(self._d_wiringData[a_driven]['driverAttr'])
             l_drivers = [o.split('-')[-1] for o in l_drivers]
-            l_drivers = lists.returnListNoDuplicates(l_drivers)
+            l_drivers = LISTS.get_noDuplicates(l_drivers)
             l_drivers.sort()
             for o in l_drivers:
                 self.get_driverPlug(o)	
@@ -403,7 +405,7 @@ def connect_controlWiring(*args, **kws):
                     mPlugResult = cgmMeta.cgmAttr(mdNode,_plugOut)
                     _drivenPlug = "{0}.{1}".format(mdNode.mNode,_plugIn)
                     self.log_info("Our mdNode: {0} >> {1} >> {2} ".format(driver, _drivenPlug, _plugOut))		
-                    attributes.doConnectAttr(driver,_drivenPlug)
+                    ATTR.connect(driver,_drivenPlug)
                     #mPlug = cgmMeta.cgmAttr()
 
                     self._d_negative_mdConnections[_index].append(_plugOut)
@@ -516,7 +518,7 @@ def connect_controlWiring(*args, **kws):
                         mNode_clamp.minG = 0
                         mNode_clamp.maxG = 1
 
-                        attributes.doConnectAttr("{0}.output".format(mNode_add.mNode), "{0}.inputR".format(mNode_clamp.mNode))			
+                        ATTR.connect("{0}.output".format(mNode_add.mNode), "{0}.inputR".format(mNode_clamp.mNode))			
                         ml_plugs[1].doConnectOut("{0}.inputG".format(mNode_clamp.mNode))
 
                         #Create MD Node
@@ -524,9 +526,9 @@ def connect_controlWiring(*args, **kws):
                         mNode_md.addAttr('cgmName','{0}'.format(self._str_baseName))
                         mNode_md.doName()
 
-                        attributes.doConnectAttr("{0}.outputR".format(mNode_clamp.mNode), "{0}.input1X".format(mNode_md.mNode))
-                        attributes.doConnectAttr("{0}.outputG".format(mNode_clamp.mNode), "{0}.input2X".format(mNode_md.mNode))
-                        attributes.doConnectAttr("{0}.outputX".format(mNode_md.mNode),_drivenPlug)
+                        ATTR.connect("{0}.outputR".format(mNode_clamp.mNode), "{0}.input1X".format(mNode_md.mNode))
+                        ATTR.connect("{0}.outputG".format(mNode_clamp.mNode), "{0}.input2X".format(mNode_md.mNode))
+                        ATTR.connect("{0}.outputX".format(mNode_md.mNode),_drivenPlug)
 
                     elif _mode is 'negVNeg':
                         '''
@@ -554,13 +556,13 @@ def connect_controlWiring(*args, **kws):
                         mNode_clamp.minG = 0
                         mNode_clamp.maxG = 1
 
-                        attributes.doConnectAttr(ml_plugs[0].p_combinedShortName, "{0}.inputG".format(mNode_clamp.mNode))			
+                        ATTR.connect(ml_plugs[0].p_combinedShortName, "{0}.inputG".format(mNode_clamp.mNode))			
 
                         #add
                         #print "{0}.inputR = -{0}.outputG - {1}".format(mNode_clamp.getShortName(), ml_plugs[1].p_combinedShortName )
                         argsToNodes("{0}.inputR = {0}.outputG - {1}".format(mNode_clamp.getShortName(), ml_plugs[1].p_combinedShortName )).doBuild()
 
-                        attributes.doConnectAttr("{0}.outputR".format(mNode_clamp.mNode), _mPlug_driven.p_combinedShortName)	
+                        ATTR.connect("{0}.outputR".format(mNode_clamp.mNode), _mPlug_driven.p_combinedShortName)	
                         _mPlug_driven.p_lock = True
 
                     elif _mode is 'multMinusFactoredValue':
@@ -601,8 +603,8 @@ def connect_controlWiring(*args, **kws):
                         argsToNodes("{0}.input1D[1] = {1} * {2}".format(mNode_add.getShortName(),ml_plugs[2].p_combinedShortName,ml_plugs[3].p_combinedShortName )).doBuild()
 
                         #Wire
-                        attributes.doConnectAttr("{0}.output1D".format(mNode_add.mNode), "{0}.inputR".format(mNode_clamp.mNode))	
-                        attributes.doConnectAttr("{0}.outputR".format(mNode_clamp.mNode), _mPlug_driven.p_combinedShortName)	
+                        ATTR.connect("{0}.output1D".format(mNode_add.mNode), "{0}.inputR".format(mNode_clamp.mNode))	
+                        ATTR.connect("{0}.outputR".format(mNode_clamp.mNode), _mPlug_driven.p_combinedShortName)	
                         #Lock
                         _mPlug_driven.p_lock = True	  
 
@@ -736,11 +738,11 @@ def createSingleBlendNetwork(driver, result1, result2, maxValue = 1,minValue = 0
     i_pma.operation = 2#subtraction
 
     #Make our connections
-    attributes.doSetAttr(i_pma.mNode,'input1D[0]',maxValue)
+    ATTR.set(i_pma.mNode,'input1D[0]',maxValue)
     #d_result1['mi_plug'].doConnectOut("%s.input1D[0]"%i_pma.mNode)    
     d_driver['mi_plug'].doConnectOut("%s.input1D[1]"%i_pma.mNode)
 
-    attributes.doConnectAttr("%s.output1D"%i_pma.mNode,d_result2['combined'])
+    ATTR.connect("%s.output1D"%i_pma.mNode,d_result2['combined'])
 
     i_pma.addAttr('cgmName',"_".join([d_result1['mi_plug'].attr,d_result2['mi_plug'].attr,]),lock=True)	
     i_pma.addAttr('cgmTypeModifier','blend',lock=True)
@@ -827,7 +829,7 @@ class build_mdNetwork(object):
                 target = self.d_iAttrs.get(targetIndex)#Get the instance
                 log.debug("target: '%s'"%target.p_combinedName)	    		
                 #source.doConnectOut(target.p_combinedName)#Connect
-                attributes.doConnectAttr(source.p_combinedName,target.p_combinedName)
+                ATTR.connect(source.p_combinedName,target.p_combinedName)
 
     def validateArg(self,arg,defaultAttrType,*args,**kws):
         assert type(arg) is list,"Argument must be list"
@@ -953,7 +955,7 @@ class build_mdNetwork(object):
                 log.debug("|{0}| >> 1Driven:{1}".format(_str_func,source1Driven))                
                 for c in source1Driven:
                     log.debug("|{0}| >> c:{1}".format(_str_func,c))
-                    if search.returnObjectType(c) == 'multiplyDivide':
+                    if SEARCH.get_mayaType(c) == 'multiplyDivide':
                         matchCandidates.append(c)
             source2Driven = source2.getDriven(obj=True)
             if matchCandidates and source2Driven:
@@ -1724,7 +1726,7 @@ class argsToNodes(object):
                                 log.debug("%s.input1D[%s]"%(i_nodeTmp.mNode,i))
                                 log.debug("d: %s"%d)												
                                 log.debug("pma v: %s"%v)
-                                if not cgmMath.isFloatEquivalent(v,d):
+                                if not MATH.is_float_equivalent(v,d):
                                     log.debug("argsToNodes.verifyNode>> match fail: getAttr: %s != %s"%(v,d))
                                     matchFound = False	
                                     falseCnt.append(1)				    
@@ -1733,7 +1735,7 @@ class argsToNodes(object):
                                 v = mc.getAttr("%s.%s"%(i_nodeTmp.mNode,d_nodeType_to_input[nodeType][i]))
                                 log.debug("d: %s"%d)								
                                 log.debug("v: %s"%v)				
-                                if not cgmMath.isFloatEquivalent(v,d):
+                                if not MATH.is_float_equivalent(v,d):
                                     log.debug("argsToNodes.verifyNode>> match fail: getAttr: %s != %s"%(v,d))
                                     matchFound = False	
                                     falseCnt.append(1)				    
@@ -2038,7 +2040,7 @@ class build_conditionNetworkFromGroup(object):
             log.error("Group doesn't exist: '%s'"%group)
             return
         elif not cgmValid.is_transform(group):
-            log.error("Object is not a transform: '%s'"%search.returnObjectType(group))
+            log.error("Object is not a transform: '%s'"%SEARCH.get_mayaType(group))
             return
         self.i_group = cgmMeta.cgmObject(group)
         if not self.i_group.getChildren():
@@ -2076,7 +2078,7 @@ class build_conditionNetworkFromGroup(object):
         for i,c in enumerate(children[1:]):
             i_c = cgmMeta.cgmNode(c)
             #see if the node exists
-            condNodeTest = attributes.returnDriverObject('%s.%s'%(c,self.connectToAttr))
+            condNodeTest = ATTR.get_driver('%s.%s'%(c,self.connectToAttr),getNode=True)
             if condNodeTest:
                 i_node = cgmMeta.cgmNode(condNodeTest)
             else:
@@ -2088,13 +2090,13 @@ class build_conditionNetworkFromGroup(object):
             i_node.addAttr('cgmType','condNode')
             i_node.doName()
             i_node.secondTerm = i+1
-            attributes.doSetAttr(i_node.mNode,'colorIfTrueR',1)
-            attributes.doSetAttr(i_node.mNode,'colorIfFalseR',0)
+            ATTR.set(i_node.mNode,'colorIfTrueR',1)
+            ATTR.set(i_node.mNode,'colorIfFalseR',0)
             #i_node.colorIfTrueR = 1
             #i_node.colorIfTrueR = 0
 
             self.i_attr.doConnectOut('%s.firstTerm'%i_node.mNode)
-            attributes.doConnectAttr('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))
+            ATTR.connect('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))
 
         return True
 
@@ -2120,7 +2122,7 @@ def createAverageNode(drivers,driven = None,operation = 3):
     #Make our connections
     for i,d in enumerate(l_driverReturns):
         log.debug("Driver %s: %s"%(i,d['combined']))
-        attributes.doConnectAttr(d['combined'],'%s.input1D[%s]'%(i_pma.mNode,i),True)
+        ATTR.connect(d['combined'],'%s.input1D[%s]'%(i_pma.mNode,i),True)
         l_objs.append(mc.ls(d['obj'],sn = True)[0])#Get the name
     log.debug(3)
 
@@ -2129,7 +2131,7 @@ def createAverageNode(drivers,driven = None,operation = 3):
     i_pma.doName()
 
     if driven is not None:
-        attributes.doConnectAttr('%s.output1D'%i_pma.mNode,drivenCombined,True)
+        ATTR.connect('%s.output1D'%i_pma.mNode,drivenCombined,True)
 
     return i_pma
 
@@ -2137,7 +2139,7 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
     """
     Hack job for the gig to make a visibility switcher for all the first level of children of a group
     """
-    children = search.returnChildrenObjects(group) #Check for children
+    children = TRANS.children_get(group) #Check for children
 
     if not children: #If none, break out
         log.error("'%s' has no children! Aborted."%group)
@@ -2158,7 +2160,7 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
         #print i
         #print c
         #see if the node exists
-        condNodeTest = attributes.returnDriverObject('%s.%s'%(c,connectTo))
+        condNodeTest = ATTR.get_driver('%s.%s'%(c,connectTo),getNode=True)
         if condNodeTest:
             buffer = condNodeTest
         else:
@@ -2166,12 +2168,12 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
                 mc.delete('%s_condNode'%c)
             buffer = nodes.createNamedNode('%s_picker'%c,'condition') #Make our node
         #print buffer
-        attributes.doSetAttr(buffer,'secondTerm',i+1)
-        attributes.doSetAttr(buffer,'colorIfTrueR',1)
-        attributes.doSetAttr(buffer,'colorIfFalseR',0)
+        ATTR.set(buffer,'secondTerm',i+1)
+        ATTR.set(buffer,'colorIfTrueR',1)
+        ATTR.set(buffer,'colorIfFalseR',0)
 
         a.doConnectOut('%s.firstTerm'%buffer)
-        attributes.doConnectAttr('%s.outColorR'%buffer,'%s.%s'%(c,connectTo))
+        ATTR.connect('%s.outColorR'%buffer,'%s.%s'%(c,connectTo))
 
 def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
     """
@@ -2224,8 +2226,8 @@ def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
 
                 #mAttr = cgmMeta.cgmAttr(mObj,a)
                 try:
-                    bfr_driver = attributes.returnDriverAttribute(_str_attrCombined,False)
-                    bfr_driven = attributes.returnDrivenAttribute(_str_attrCombined,False) or []
+                    bfr_driver = ATTR.get_driver(_str_attrCombined,False)
+                    bfr_driven = ATTR.get_driven(_str_attrCombined,False) or []
                     if bfr_driver in bfr_driven:
                         log.warning("Driver in driven!")
                         bfr_driven.remove(bfr_driver)
@@ -2261,14 +2263,14 @@ def rewire_resultAttrs(arg = None, reportOnly = True,**kwargs):
                         _str_attrCombined = _d['combinedName']	
                         _plugFrom = _d['driver']
                         try:
-                            attributes.doBreakConnection(mObj.mNode, _d['attr'])
+                            ATTR.break_connection(mObj.mNode, _d['attr'])
                         except Exception as error:
                             log.error("{0} | {1} failed to break connection | error: {2}".format(_str_funcRoot,_str_attrCombined,error))
                         for plugTo in _d['driven']:
                             try:
                                 log.info("From >> {0}".format(_plugFrom))
                                 log.info("To >> {0}".format(plugTo))					
-                                attributes.doConnectAttr(_plugFrom,plugTo)
+                                ATTR.connect(_plugFrom,plugTo)
                             except Exception as error:
                                 log.error("-"*70)
                                 log.error("{0} | {1} failed to rewire...".format(_str_funcRoot,_str_attrCombined))

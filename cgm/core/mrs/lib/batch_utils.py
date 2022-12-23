@@ -404,6 +404,7 @@ d_dat = {'qss':{'ann':"Setup expected qss sets", 'label':'Add Qss Sets'},
          
          }
 
+@cgmGEN.Timer
 def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _str_func = 'process_blocks_rig'
     #cgmGEN.log_start(_str_func)
@@ -434,7 +435,6 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     T1 = time.time()
     
     get_time = cgmGEN.get_timeString
-
     try:
         if not blocks:
             #cgmGEN.logString_sub(_str_func,'No blocks arg')
@@ -660,12 +660,20 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                     print((cgmGEN.logString_sub("Batch",'Times')))
                     for i,pair_time in enumerate(l_timeReports):
                         print((" {0} | ['{1}'] | {2} ".format(i,pair_time[0],pair_time[1])))
-                    print(('Completed: {}'.format(datetime.datetime.now())))                        
-
+                    print(('Completed: {}'.format(datetime.datetime.now())))
+    
     except Exception as err:
-        log.error(err)
+        T2 = time.time()
+        log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
         
-        
+    
+        #cgmGEN.logString_msg(_str_func,'File Save...')
+        newFile = mc.file(rename = _newPath)
+        mc.file(save = 1)
+        log.info(newFile)        
+        raise cgmGEN.cgmException(err)
+    #    log.error(err)
+    
     T2 = time.time()
     log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
     

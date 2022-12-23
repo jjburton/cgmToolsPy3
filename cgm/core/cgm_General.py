@@ -1393,7 +1393,7 @@ def Timer(func):
     '''
     '''
     @wraps(func)
-    def wrapper(*args, **kws):
+    def TimerWrapper(*args, **kws):
         res=None
         err=None
         try:_str_func = func_getTraceString(func)
@@ -1407,10 +1407,11 @@ def Timer(func):
             return res
             
         except Exception as error:
-            err = error
         #finally:
         #    if err:
             #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)		                
+            print(_str_hardBreak + _str_hardBreak)
+            print(_str_hardBreak + _str_hardBreak)            
             try:print(("Func: {0}".format(func.__name__)))
             except:print(("Func: {0}".format(func)))                
             if args:
@@ -1422,32 +1423,61 @@ def Timer(func):
                 for items in list(kws.items()):
                     print(("    kw: {0}".format(items)))   
                     
+            tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
+            try:db_file = tb.tb_frame.f_code.co_filename
+            except:db_file = "<maya console>"
+            
+            try:print((_str_headerDiv + " {0}   ".format(tb.tb_frame.f_code.co_name) + _str_headerDiv + _str_subLine))		
+            except:pass
+            print((" file: {0}".format(db_file)))
+            
+            
+            try:
+                _d = tb.tb_frame.f_locals
+            
+                if 'args' in list(_d.keys()):
+                    _args = _d.pop('args')
+                    if _args:
+                        print(("  Args... " + '-'*80))
+                        for a in _args:
+                            print(("      {0}".format(a)))
+                if 'kws' in list(_d.keys()):
+                    _kws = _d.pop('kws')
+                    if _kws:
+                        print(("  KWS..." + '-'*80))
+                        for k,v in _kws.items():
+                            print(("      {0} : {1}".format(k,v)))
+                    
+                print("  Traceback local..." + _str_subLine)
+                pprint.pprint(_d)
+            except:pass
             #raise err
-            """
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            print("*** print_tb:")
-            traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
-            print("*** print_exception:")
-            traceback.print_exception(exc_value, limit=2, file=sys.stdout)
-            print("*** print_exc:")
-            traceback.print_exc(limit=2, file=sys.stdout)
-            print("*** format_exc, first and last line:")
-            formatted_lines = traceback.format_exc().splitlines()
-            print(formatted_lines[0])
-            print(formatted_lines[-1])
-            print("*** format_exception:")
-            print(repr(traceback.format_exception(exc_value)))
-            print("*** extract_tb:")
-            print(repr(traceback.extract_tb(exc_traceback)))
-            print("*** format_tb:")
-            print(repr(traceback.format_tb(exc_traceback)))
-            print("*** tb_lineno:", exc_traceback.tb_lineno)                
-            """
+            
+            #exc_type, exc_value, exc_traceback = sys.exc_info()
+            
+            #print("*** print_tb:")
+            #traceback.print_tb(tb, limit=1, file=sys.stdout)
+            #print("*** print_exception:")
+            #traceback.print_exception(exc_value, limit=2, file=sys.stdout)
+            #print("*** print_exc:")
+            #traceback.print_exc(limit=2, file=sys.stdout)
+            #print("*** format_exc, first and last line:")
+            #formatted_lines = traceback.format_exc().splitlines()
+            #print(formatted_lines[0])
+            #print(formatted_lines[-1])
+            #print("*** format_exception:")
+            #print(repr(traceback.format_exception(exc_value)))
+            #print("*** extract_tb:")
+            pprint.pprint(traceback.extract_tb(tb))
+            #print("*** format_tb:")
+            #pprint.pprint((traceback.format_tb(tb)))
+            #print("*** tb_lineno:", tb.tb_lineno)                
+            
             #raise type(etype)((etype)(value), tb)    
             #cgmException(err)
             raise
-            cgmException(err,None,tb)
-    return wrapper
+            #cgmException(err,None,tb)
+    return TimerWrapper
 
 @Timer
 def testTimer(sleep = .5):

@@ -4677,8 +4677,12 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
         for i,o in enumerate(l_headGeo):
             log.debug("|{0}| >> geo: {1}...".format(_str_func,o))                    
             if ATTR.get(o,'v'):
-                log.debug("|{0}| >> visible head: {1}...".format(_str_func,o))            
+                log.debug("|{0}| >> visible head: {1}...".format(_str_func,o))
                 mObj = cgmMeta.validateObjArg(mc.duplicate(o, po=False, ic = False)[0])
+                if mObj.getMayaType() not in ['mesh']:
+                    mObj.delete()
+                    continue
+                
                 ml_headStuff.append(  mObj )
                 mObj.p_parent = False
                 if parent:

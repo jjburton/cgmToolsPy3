@@ -439,7 +439,7 @@ def spline(jointList = None,
         raise Exception,err"""
 
     #SplineIK Twist =======================================================================================
-    d_twistReturn = rig_Utils.IKHandle_addSplineIKTwist(mIKHandle.mNode,b_advancedTwistSetup)
+    d_twistReturn = IKHandle_addSplineIKTwist(mIKHandle.mNode,b_advancedTwistSetup)
     mPlug_twistStart = d_twistReturn['mi_plug_start']
     mPlug_twistEnd = d_twistReturn['mi_plug_end']
     _res['mPlug_twistStart'] = mPlug_twistStart
@@ -4717,3 +4717,65 @@ def curve(jointList = None,
     
     _res = {'mlCurves':ml_curves}
     return _res
+
+
+
+def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
+    """
+    ikHandle(arg)
+    advancedTwistSetup(bool) -- Whether to setup ramp setup or not (False)
+    """
+    #>>> Data gather and arg check
+    mi_ikHandle = cgmMeta.validateObjArg(ikHandle,cgmMeta.cgmObject,noneValid=False)
+    if mi_ikHandle.getMayaType() != 'ikHandle':
+        raise Exception("IKHandle_fixTwist>>> '%s' object not 'ikHandle'. Found type: %s"%(mi_ikHandle.getShortName(),mi_ikHandle.getMayaType()))
+
+    mi_crv = cgmMeta.validateObjArg(ATTR.get_driver("%s.inCurve"%mi_ikHandle.mNode,getNode=True),cgmMeta.cgmObject,noneValid=False)
+    log.debug(mi_crv.mNode)
+
+    mPlug_start = cgmMeta.cgmAttr(mi_crv.mNode,'twistStart',attrType='float',keyable=True, hidden=False)
+    mPlug_end = cgmMeta.cgmAttr(mi_crv.mNode,'twistEnd',attrType='float',keyable=True, hidden=False)
+    #mPlug_equalizedRoll = cgmMeta.cgmAttr(mi_ikHandle.mNode,'result_twistEqualized',attrType='float',keyable=True, hidden=False)
+    d_return = {"mi_plug_start":mPlug_start,"mi_plug_end":mPlug_end}    
+    
+    if not advancedTwistSetup:
+        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle.mNode,'twist',attrType='float',keyable=True, hidden=False)	
+    else:
+        mi_ikHandle.dTwistControlEnable = True
+        mi_ikHandle.dTwistValueType = 2
+        mi_ikHandle.dWorldUpType = 7
+        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle,'dTwistRampMult')
+        mi_ramp = cgmMeta.cgmNode(nodeType= 'ramp')
+        mi_ramp.doStore('cgmName',mi_ikHandle)
+        mi_ramp.doName()
+
+        #Fix Ramp
+        ATTR.connect("%s.outColor"%mi_ramp.mNode,"%s.dTwistRamp"%mi_ikHandle.mNode)
+        d_return['mi_ramp'] = mi_ramp
+
+    mPlug_start.doConnectOut("%s.roll"%mi_ikHandle.mNode)
+    d_return['mi_plug_twist']=mPlug_twist
+    #ikHandle1.twist = (ikHandle1.roll *-.77) + curve4.twistEnd # to implement
+    arg1 = "%s = %s - %s"%(mPlug_twist.p_combinedShortName,mPlug_end.p_combinedShortName,mPlug_start.p_combinedShortName)
+    log.debug("arg1: '%s'"%arg1)    
+    log.debug( NODEFAC.argsToNodes(arg1).doBuild() )       
+
+    if advancedTwistSetup:
+        mc.select(mi_ramp.mNode)
+        log.debug( mc.attributeInfo("%s.colorEntryList"%mi_ramp.mNode) )
+        for c in mc.ls("%s.colorEntryList[*]"%mi_ramp.mNode,flatten = True):
+            log.debug(c)
+            log.debug( mc.removeMultiInstance( c, b = True) )
+        mc.setAttr("%s.colorEntryList[0].color"%mi_ramp.mNode,0, 0, 0)
+        mc.setAttr("%s.colorEntryList[1].color"%mi_ramp.mNode,1, 1, 1)
+        mc.setAttr("%s.colorEntryList[1].position"%mi_ramp.mNode,1)
+
+        mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ramp,'interpolation')
+        mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+    else:
+        mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
+        mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
+        mPlug_twistType.twistType = 'linear'	
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+    return d_return

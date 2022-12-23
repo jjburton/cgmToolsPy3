@@ -300,9 +300,7 @@ def is_even(f1):
     return False
 
 def get_midIndex(v):
-    if is_even(v):
-        return int(v/2)
-    return v/2 
+    return int(v/2) 
 
 def is_float_equivalent(f1,f2,places=4):
     """
@@ -567,7 +565,7 @@ def find_valueInList(v,l,mode='near'):
     if mode in ['near','previous','next']:return _d[min(_l)]
     elif mode == 'far':return _d[max(_l)]
 
-
+@cgmGEN.Timer
 def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
     '''
     Get a factored list 

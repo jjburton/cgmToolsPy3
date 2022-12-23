@@ -3501,6 +3501,7 @@ class ui_stepBuild(cgmUI.cgmGUI):
         except Exception as err:
             log.error(err)
             raise
+            #If in a timer, we don't need to pass cgmExceptio handlder
             #cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
         finally:
             mc.undoInfo(closeChunk=True)

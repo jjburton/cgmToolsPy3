@@ -41,7 +41,7 @@ from cgm.core.lib import attribute_utils as ATTR
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.list_utils as LISTS
 from cgm.lib import (distance,
-                     locators,
+                     #locators,
                      attributes,
                      curves,
                      deformers,
@@ -1859,7 +1859,7 @@ def convertCurve(*args, **kws):
             if self.str_arg.lower() == 'ep':
                 l_pos = []
                 for cv in mi_crv.getComponents('cv'):
-                    locatorName = locators.locMeObject(cv)
+                    locatorName = CORERIG.simpleLoc(cv)
                     pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
                     mc.delete(locatorName)
                     l_pos.append( pos )	
@@ -2047,7 +2047,7 @@ def mirrorCurve(*args, **kws):
                     for cv in l_cvs:
                         l_cvPos.append( mc.pointPosition(cv,w=True) )	 
                         #Get an ep value
-                        locatorName = locators.locMeObject(cv)
+                        locatorName = CORERIG.simpleLoc(cv)
                         pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
                         mc.delete(locatorName)
                         l_epPos.append( pos )	 

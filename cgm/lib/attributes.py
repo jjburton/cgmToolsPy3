@@ -1916,7 +1916,7 @@ def returnObjAttrSplit(attr):
 
 	if '.' in list(attr):
 		splitBuffer = attr.split('.')
-		if splitBuffer >= 2:
+		if len(splitBuffer) >= 2:
 			returnBuffer = [splitBuffer[0],'.'.join(splitBuffer[1:])]
 
 		if returnBuffer:

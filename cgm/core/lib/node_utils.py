@@ -26,11 +26,11 @@ from cgm.core.lib import search_utils as SEARCH
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import attribute_utils as ATTR
-import cgm.core.lib.list_utils as LISTS
+#import cgm.core.lib.list_utils as LISTS
 #reload(SHARED)
 
 #CANNOT IMPORT: DIST, LOC
-
+from cgm.core.lib import attribute_utils as ATTR
 from cgm.lib import attributes
 
 #>>> Utilities
@@ -57,19 +57,19 @@ def add_follicle(mesh, name = 'follicle'):
     _type = VALID.get_mayaType(_surface)
     _trans = SEARCH.get_transform(_node)
     
-    attributes.doConnectAttr((_surface+'.worldMatrix[0]'),(_node+'.inputWorldMatrix'))#surface to follicle node 
+    ATTR.connect((_surface+'.worldMatrix[0]'),(_node+'.inputWorldMatrix'))#surface to follicle node 
     if _type == 'mesh': 
-        attributes.doConnectAttr((_surface+'.outMesh'),(_node+'.inputMesh'))    #surface mesh to follicle input mesh
+        ATTR.connect((_surface+'.outMesh'),(_node+'.inputMesh'))    #surface mesh to follicle input mesh
     else:
-        attributes.doConnectAttr((_surface+'.local'),(_node+'.inputSurface'))    #surface mesh to follicle input mesh
+        ATTR.connect((_surface+'.local'),(_node+'.inputSurface'))    #surface mesh to follicle input mesh
         
-    attributes.doConnectAttr((_node+'.outTranslate'),(_trans+'.translate'))
-    attributes.doConnectAttr((_node+'.outRotate'),(_trans+'.rotate'))    
+    ATTR.connect((_node+'.outTranslate'),(_trans+'.translate'))
+    ATTR.connect((_node+'.outRotate'),(_trans+'.rotate'))    
     
     #ATTR.set_message(_node,'follTrans',_trans)
     #ATTR.set_message(_trans,'follNode',_node)
     
-    attributes.doSetLockHideKeyableAttr(_trans)
+    ATTR.set_standardFlags(_trans)
         
     return [_node,_trans]    
     
@@ -79,16 +79,16 @@ def add_follicle(mesh, name = 'follicle'):
     controlSurface = mc.listRelatives(mesh,shapes=True)[0]
     follicleTransform = mc.listRelatives(follicleNode,p=True)[0]
     
-    attributes.doConnectAttr((controlSurface+'.worldMatrix[0]'),(follicleNode+'.inputWorldMatrix'))#surface to follicle node 
+    ATTR.connect((controlSurface+'.worldMatrix[0]'),(follicleNode+'.inputWorldMatrix'))#surface to follicle node 
     if objType == 'mesh': 
-        attributes.doConnectAttr((controlSurface+'.outMesh'),(follicleNode+'.inputMesh'))    #surface mesh to follicle input mesh
+        ATTR.connect((controlSurface+'.outMesh'),(follicleNode+'.inputMesh'))    #surface mesh to follicle input mesh
     else:
-        attributes.doConnectAttr((controlSurface+'.local'),(follicleNode+'.inputSurface'))    #surface mesh to follicle input mesh
+        ATTR.connect((controlSurface+'.local'),(follicleNode+'.inputSurface'))    #surface mesh to follicle input mesh
         
-    attributes.doConnectAttr((follicleNode+'.outTranslate'),(follicleTransform+'.translate'))
-    attributes.doConnectAttr((follicleNode+'.outRotate'),(follicleTransform+'.rotate'))    
+    ATTR.connect((follicleNode+'.outTranslate'),(follicleTransform+'.translate'))
+    ATTR.connect((follicleNode+'.outRotate'),(follicleTransform+'.rotate'))    
     
-    attributes.doSetLockHideKeyableAttr(follicleTransform)
+    ATTR.set_standardFlags(follicleTransform)
     
     return [follicleNode,follicleTransform] """
     
@@ -182,17 +182,17 @@ def createFollicleOnMesh(targetSurface, name = 'follicle'):
     #controlSurface = mc.listRelatives(_shape,shapes=True)[0]
     follicleTransform = mc.listRelatives(follicleNode,p=True,fullPath = True)[0]
     
-    attributes.doConnectAttr((_shape+'.worldMatrix[0]'),(follicleNode+'.inputWorldMatrix'))#surface to follicle node 
+    ATTR.connect((_shape+'.worldMatrix[0]'),(follicleNode+'.inputWorldMatrix'))#surface to follicle node 
     
     if _type == 'mesh': 
-        attributes.doConnectAttr((_shape+'.outMesh'),(follicleNode+'.inputMesh'))    #surface mesh to follicle input mesh
+        ATTR.connect((_shape+'.outMesh'),(follicleNode+'.inputMesh'))    #surface mesh to follicle input mesh
     else:
-        attributes.doConnectAttr((_shape+'.local'),(follicleNode+'.inputSurface'))    #surface mesh to follicle input mesh
+        ATTR.connect((_shape+'.local'),(follicleNode+'.inputSurface'))    #surface mesh to follicle input mesh
         
-    attributes.doConnectAttr((follicleNode+'.outTranslate'),(follicleTransform+'.translate'))
-    attributes.doConnectAttr((follicleNode+'.outRotate'),(follicleTransform+'.rotate'))    
+    ATTR.connect((follicleNode+'.outTranslate'),(follicleTransform+'.translate'))
+    ATTR.connect((follicleNode+'.outRotate'),(follicleTransform+'.rotate'))    
     
-    attributes.doSetLockHideKeyableAttr(follicleTransform)
+    ATTR.set_standardFlags(follicleTransform)
     
     return [follicleNode,follicleTransform]
 

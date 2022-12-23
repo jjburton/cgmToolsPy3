@@ -65,161 +65,151 @@ import cgm.core.mrs.lib.general_utils as BLOCKGEN
 #=============================================================================================================
 #>> Queries
 #=============================================================================================================
+@cgmGEN.Timer
 def example(self):
-    try:
-        _short = self.p_nameShort
-        _str_func = ' example'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    _short = self.p_nameShort
+    _str_func = ' example'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
+
+@cgmGEN.Timer
 def get_shapeOffset(self):
     """
     Get the shape offset value 
     """
-    try:
-        _str_func = ' get_shapeOffset'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        if self.getMessage('rigBlock'):
-            mRigBlock = self.rigBlock
-            l_attrs = ['controlOffset','skinOffset']
-            for a in l_attrs:
-                if mRigBlock.hasAttr(a):
-                    v = mRigBlock.getMayaAttr(a)
-                    log.debug("|{0}| >> {1} attr found on rigBlock: {2}".format(_str_func,a,v))                
-                    return v            
-        
-        l_attrs = ['loftOffset','skinOffset']
+    _str_func = ' get_shapeOffset'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    
+    if self.getMessage('rigBlock'):
+        mRigBlock = self.rigBlock
+        l_attrs = ['controlOffset','skinOffset']
         for a in l_attrs:
-            if self.hasAttr(a):
-                v = self.getMayaAttr(a)
-                log.debug("|{0}| >> {1} attr found: {2}".format(_str_func,a,v))                
-                return v
+            if mRigBlock.hasAttr(a):
+                v = mRigBlock.getMayaAttr(a)
+                log.debug("|{0}| >> {1} attr found on rigBlock: {2}".format(_str_func,a,v))                
+                return v            
+    
+    l_attrs = ['loftOffset','skinOffset']
+    for a in l_attrs:
+        if self.hasAttr(a):
+            v = self.getMayaAttr(a)
+            log.debug("|{0}| >> {1} attr found: {2}".format(_str_func,a,v))                
+            return v
+    
+    if self.getMessage('masterControl'):
+        log.debug("|{0}| >> Master control found...".format(_str_func))
+        _bb = DIST.get_bb_size(self.getMessage('masterControl'))
+        return MATH.average(_bb[0],_bb[2])/50
         
-        if self.getMessage('masterControl'):
-            log.debug("|{0}| >> Master control found...".format(_str_func))
-            _bb = DIST.get_bb_size(self.getMessage('masterControl'))
-            return MATH.average(_bb[0],_bb[2])/50
-            
-        log.debug("|{0}| >> default return".format(_str_func))
-        return 1
-        
-        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    log.debug("|{0}| >> default return".format(_str_func))
+    return 1
+
 
 @cgmGEN.Timer
 def modules_getHeirarchal(self,rewire=False):
-    try:
-        _str_func = ' modules_getHeirarchal'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        if not rewire:
-            try:
-                _res = self.mModulesAll
-                if _res:
-                    log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
-                    return _res
-            except Exception as err:
-                log.error(err)
-        else:
-            modules_get(self,True)
+    _str_func = ' modules_getHeirarchal'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    
+    if not rewire:
+        try:
+            _res = self.mModulesAll
+            if _res:
+                log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
+                return _res
+        except Exception as err:
+            log.error(err)
+    else:
+        modules_get(self,True)
+            
+    
+    
+    try:ml_initialModules = self.moduleChildren
+    except:ml_initialModules = []
+    
+
+    ml_allModules = BLOCKGEN.get_puppet_heirarchy_context(ml_initialModules[0],'root',asList=True,report=False)
                 
-        
-        
-        try:ml_initialModules = self.moduleChildren
-        except:ml_initialModules = []
-        
+    if rewire:
+        ATTR.set_message(self.mNode, 'mModulesAll', [mObj.mNode for mObj in ml_allModules])
+        #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
+                
+    return ml_allModules        
 
-        ml_allModules = BLOCKGEN.get_puppet_heirarchy_context(ml_initialModules[0],'root',asList=True,report=False)
-                    
-        if rewire:
-            ATTR.set_message(self.mNode, 'mModulesAll', [mObj.mNode for mObj in ml_allModules])
-            #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
-                    
-        return ml_allModules        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
-
-#@cgmGEN.Timer
+@cgmGEN.Timer
 def modules_get(self,rewire=False):
-    try:
-        _str_func = ' modules_get'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        if not rewire:
-            try:
-                _res = VALID.listArg(self.mModulesAll)
-                if _res:
-                    log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
-                    return _res
-            except Exception as err:
-                log.debug(err)    
-        
+    _str_func = ' modules_get'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    
+    if not rewire:
+        try:
+            _res = VALID.listArg(self.mModulesAll)
+            if _res:
+                log.debug(cgmGEN.logString_msg(_str_func,'mModulesAll buffer...'))
+                return _res
+        except Exception as err:
+            log.debug(err)    
+    
 
-        
-        try:ml_initialModules = self.moduleChildren
-        except:ml_initialModules = []
-        
-        int_lenModules = len(ml_initialModules)  
     
-        ml_allModules = copy.copy(ml_initialModules)
-        for i,m in enumerate(ml_initialModules):
-            log.debug("|{0}| >> checking: {1}".format(_str_func,m))
-            _str_module = m.p_nameShort
-            for m in m.get_allModuleChildren():
-                if m not in ml_allModules:
-                    ml_allModules.append(m)
-                    
-        if rewire:
-            ATTR.set_message(self.mNode, 'mModulesAll', [mObj.mNode for mObj in ml_allModules])
-            #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
-                    
-        return ml_allModules        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    try:ml_initialModules = self.moduleChildren
+    except:ml_initialModules = []
     
+    int_lenModules = len(ml_initialModules)  
+
+    ml_allModules = copy.copy(ml_initialModules)
+    for i,m in enumerate(ml_initialModules):
+        log.debug("|{0}| >> checking: {1}".format(_str_func,m))
+        _str_module = m.p_nameShort
+        for m in m.get_allModuleChildren():
+            if m not in ml_allModules:
+                ml_allModules.append(m)
+                
+    if rewire:
+        ATTR.set_message(self.mNode, 'mModulesAll', [mObj.mNode for mObj in ml_allModules])
+        #self.connectChildren(_res, 'mControlsAll', srcAttr='msg')
+                
+    return ml_allModules
+
+@cgmGEN.Timer
 def modules_gather(self,**kws):
-    try:
-        _short = self.p_nameShort
-        _str_func = ' modules_gather'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        ml_modules = modules_get(self)
-        int_lenModules = len(ml_modules)
+    _short = self.p_nameShort
+    _str_func = ' modules_gather'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
-        for i,mModule in enumerate(ml_modules):
-            _str_module = mModule.p_nameShort
-            module_connect(self,mModule,**kws)
-        return ml_modules
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    ml_modules = modules_get(self)
+    int_lenModules = len(ml_modules)
+
+    for i,mModule in enumerate(ml_modules):
+        _str_module = mModule.p_nameShort
+        module_connect(self,mModule,**kws)
+    return ml_modules
     
+@cgmGEN.Timer
 def module_connect(self,mModule,**kws):
-    try:
-        _short = self.p_nameShort
-        _str_func = ' module_connect'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        ml_buffer = copy.copy(self.getMessage('moduleChildren',asMeta=True)) or []#Buffer till we have have append functionality	
-            #self.i_masterNull = self.masterNull
-        
-        mModule = cgmMeta.validateObjArg(mModule,'cgmRigModule')
+    _short = self.p_nameShort
+    _str_func = ' module_connect'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    
+    ml_buffer = copy.copy(self.getMessage('moduleChildren',asMeta=True)) or []#Buffer till we have have append functionality	
+        #self.i_masterNull = self.masterNull
+    
+    mModule = cgmMeta.validateObjArg(mModule,'cgmRigModule')
 
-        if mModule not in ml_buffer:
-            ml_buffer.append(mModule)
-            self.__setMessageAttr__('moduleChildren',[mObj.mNode for mObj in ml_buffer]) #Going to manually maintaining these so we can use simpleMessage attr  parents
-        
-        mModule.modulePuppet = self.mNode
+    if mModule not in ml_buffer:
+        ml_buffer.append(mModule)
+        self.__setMessageAttr__('moduleChildren',[mObj.mNode for mObj in ml_buffer]) #Going to manually maintaining these so we can use simpleMessage attr  parents
+    
+    mModule.modulePuppet = self.mNode
 
-        mModule.parent = self.masterNull.partsGroup.mNode
-    
-        if mModule.getMessage('moduleMirror'):
-            log.debug("|{0}| >> moduleMirror found. connecting...".format(_str_func))
-            #module_connect(self,mModule.moduleMirror)        
-    
-        return True        
-       
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
-    
-    
+    mModule.parent = self.masterNull.partsGroup.mNode
+
+    if mModule.getMessage('moduleMirror'):
+        log.debug("|{0}| >> moduleMirror found. connecting...".format(_str_func))
+        #module_connect(self,mModule.moduleMirror)        
+
+    return True        
+     
+
 def is_upToDate(self,report = True):
     _res = []
     
@@ -585,161 +575,149 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
         
     return
 
-
+@cgmGEN.Timer
 def mirror_getNextIndex(self,side):
-    try:
-        _str_func = ' mirror_getNextIndex'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        l_return = []
-        ml_modules = modules_get(self)
-        int_lenModules = len(ml_modules)
-        str_side = cgmGEN.verify_mirrorSideArg(side)
-        for i,mModule in enumerate(ml_modules):
-            #self.log.info("Checking: '%s'"%mModule.p_nameShort)
-            _str_module = mModule.p_nameShort
-            if mModule.get_mirrorSideAsString() == str_side :
-                #self.progressBar_set(status = "Checking Module: '%s' "%(_str_module),progress = i, maxValue = int_lenModules)		    				    
-                try:mi_moduleSet = mModule.rigNull.moduleSet.getMetaList()
-                except:mi_moduleSet = []
-                for mObj in mi_moduleSet:
-                    int_side = mObj.getAttr('mirrorSide')
-                    int_idx = mObj.getAttr('mirrorIndex')
-                    str_side = mObj.getEnumValueString('mirrorSide')		    
-                    l_return.append(int_idx)
-                    l_return.sort()
-
-        if l_return:
-            return max(l_return)+1
-        else:return 0        
-     
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    _str_func = ' mirror_getNextIndex'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
-    
-    
-def mirror_getDict(self):
-    try:
-        _str_func = ' mirror_getDict'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        d_return = {}
-        ml_modules = modules_get(self)
-        int_lenModules = len(ml_modules)
-    
-        for i,mModule in enumerate(ml_modules):
-            _str_module = mModule.p_nameShort
+    l_return = []
+    ml_modules = modules_get(self)
+    int_lenModules = len(ml_modules)
+    str_side = cgmGEN.verify_mirrorSideArg(side)
+    for i,mModule in enumerate(ml_modules):
+        #self.log.info("Checking: '%s'"%mModule.p_nameShort)
+        _str_module = mModule.p_nameShort
+        if mModule.get_mirrorSideAsString() == str_side :
+            #self.progressBar_set(status = "Checking Module: '%s' "%(_str_module),progress = i, maxValue = int_lenModules)		    				    
             try:mi_moduleSet = mModule.rigNull.moduleSet.getMetaList()
             except:mi_moduleSet = []
             for mObj in mi_moduleSet:
+                int_side = mObj.getAttr('mirrorSide')
+                int_idx = mObj.getAttr('mirrorIndex')
+                str_side = mObj.getEnumValueString('mirrorSide')		    
+                l_return.append(int_idx)
+                l_return.sort()
+
+    if l_return:
+        return max(l_return)+1
+    else:return 0        
+ 
     
-                if mObj.hasAttr('mirrorSide') and mObj.hasAttr('mirrorIndex'):
-                    int_side = mObj.getAttr('mirrorSide')
-                    int_idx = mObj.getAttr('mirrorIndex')
-                    str_side = mObj.getEnumValueString('mirrorSide')
     
-                    if not d_return.get(int_side):
-                        d_return[int_side] = []
+@cgmGEN.Timer
+def mirror_getDict(self):
+    _str_func = ' mirror_getDict'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
-                    if int_idx in d_return[int_side]:
-                        pass
-                        #self.log_debug("%s mModule: %s | side: %s | idx :%s already stored"%(self._str_reportStart,_str_module, str_side,int_idx))
-                    else:
-                        d_return[int_side].append(int_idx)
-        return d_return
-     
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
-    
+    d_return = {}
+    ml_modules = modules_get(self)
+    int_lenModules = len(ml_modules)
+
+    for i,mModule in enumerate(ml_modules):
+        _str_module = mModule.p_nameShort
+        try:mi_moduleSet = mModule.rigNull.moduleSet.getMetaList()
+        except:mi_moduleSet = []
+        for mObj in mi_moduleSet:
+
+            if mObj.hasAttr('mirrorSide') and mObj.hasAttr('mirrorIndex'):
+                int_side = mObj.getAttr('mirrorSide')
+                int_idx = mObj.getAttr('mirrorIndex')
+                str_side = mObj.getEnumValueString('mirrorSide')
+
+                if not d_return.get(int_side):
+                    d_return[int_side] = []
+
+                if int_idx in d_return[int_side]:
+                    pass
+                    #self.log_debug("%s mModule: %s | side: %s | idx :%s already stored"%(self._str_reportStart,_str_module, str_side,int_idx))
+                else:
+                    d_return[int_side].append(int_idx)
+    return d_return
+         
 #=============================================================================================================
 #>> Anim
 #=============================================================================================================
+@cgmGEN.Timer
 def modules_settings_set(self,**kws):
-    try:
-        _str_func = ' modules_settings_set'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        
-        for mModule in modules_get(self):
-            if mModule.rigNull.getMessage('settings'):
-                mSettings = mModule.rigNull.settings
-                _short_settings = mSettings.mNode
-                for k,v in list(kws.items()):
-                    try:
-                        ATTR.set(_short_settings,k,v)
-                    except Exception as err:
-                        #if mSettings.hasAttr(k):
-                        log.debug("|{0}| >>  Failed to set: mModule:{1} | k:{2} | v:{3} | {4}".format(_str_func,mModule.mNode,k,v,err))
-            else:
-                log.debug("|{0}| >>  Missing settings: {1}".format(_str_func,mModule))
-        return True        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    _str_func = ' modules_settings_set'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
+    for mModule in modules_get(self):
+        if mModule.rigNull.getMessage('settings'):
+            mSettings = mModule.rigNull.settings
+            _short_settings = mSettings.mNode
+            for k,v in list(kws.items()):
+                try:
+                    ATTR.set(_short_settings,k,v)
+                except Exception as err:
+                    #if mSettings.hasAttr(k):
+                    log.debug("|{0}| >>  Failed to set: mModule:{1} | k:{2} | v:{3} | {4}".format(_str_func,mModule.mNode,k,v,err))
+        else:
+            log.debug("|{0}| >>  Missing settings: {1}".format(_str_func,mModule))
+    return True
+
+@cgmGEN.Timer
 def anim_reset(self,transformsOnly = True):
-    try:
-        _str_func = ' anim_reset'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        _result = False
-        _sel = mc.ls(sl=True)
-        
-        self.puppetSet.select()
-        if mc.ls(sl=True):
-            RIGGEN.reset_channels(transformsOnly = transformsOnly)
-            #ml_resetChannels.main(transformsOnly = transformsOnly)
-            _result = True
-        if _sel:mc.select(_sel)
-        return _result
-        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    _str_func = ' anim_reset'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    _result = False
+    _sel = mc.ls(sl=True)
     
+    self.puppetSet.select()
+    if mc.ls(sl=True):
+        RIGGEN.reset_channels(transformsOnly = transformsOnly)
+        #ml_resetChannels.main(transformsOnly = transformsOnly)
+        _result = True
+    if _sel:mc.select(_sel)
+    return _result
+        
+@cgmGEN.Timer
 def anim_select(self):
-    try:
-        _str_func = ' anim_select'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        self.puppetSet.select()
-        return True        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
-    
+    _str_func = ' anim_select'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    self.puppetSet.select()
+    return True
+
+@cgmGEN.Timer
 def anim_key(self,**kws):
-    try:
-        _str_func = ' anim_key'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
-        _result = False
-        _sel = mc.ls(sl=True)
+    _str_func = ' anim_key'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    _result = False
+    _sel = mc.ls(sl=True)
+    
+    l_objs = self.puppetSet.getList() or []
+    
+    if l_objs:
+        mc.select(l_objs)
+        mc.setKeyframe(**kws)
+        b_return =  True
         
-        l_objs = self.puppetSet.getList() or []
+    if _sel:mc.select(_sel)
+    return _result
         
-        if l_objs:
-            mc.select(l_objs)
-            mc.setKeyframe(**kws)
-            b_return =  True
-            
-        if _sel:mc.select(_sel)
-        return _result
-        
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
     
 @cgmGEN.Timer
 def layer_verify(self,**kws):
-    try:
-        _str_func = ' layer_verify'.format(self)
-        log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    _str_func = ' layer_verify'.format(self)
+    log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
+    
+    if not self.getMessage('displayLayer'):
+        mLayer = cgmMeta.validateObjArg(mc.createDisplayLayer(),'cgmNode',setClass=True)
         
-        if not self.getMessage('displayLayer'):
-            mLayer = cgmMeta.validateObjArg(mc.createDisplayLayer(),'cgmNode',setClass=True)
-            
-            ATTR.copy_to(self.mNode,'cgmName',mLayer.mNode,driven='target')
-            mLayer.doStore('cgmName','main')
-            mLayer.doName()
-            self.connectChildNode(mLayer.mNode,'displayLayer')
-            
-        if not self.getMessage('controlLayer'):
-            mLayer = cgmMeta.validateObjArg(mc.createDisplayLayer(),'cgmNode',setClass=True)
-            
-            #ATTR.copy_to(self.mNode,'cgmName',mLayer.mNode,driven='target')
-            mLayer.doStore('cgmName','control')
-            mLayer.doName()
-            self.connectChildNode(mLayer.mNode,'controlLayer')
+        ATTR.copy_to(self.mNode,'cgmName',mLayer.mNode,driven='target')
+        mLayer.doStore('cgmName','main')
+        mLayer.doName()
+        self.connectChildNode(mLayer.mNode,'displayLayer')
         
-        return self.displayLayer, self.controlLayer
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+    if not self.getMessage('controlLayer'):
+        mLayer = cgmMeta.validateObjArg(mc.createDisplayLayer(),'cgmNode',setClass=True)
+        
+        #ATTR.copy_to(self.mNode,'cgmName',mLayer.mNode,driven='target')
+        mLayer.doStore('cgmName','control')
+        mLayer.doName()
+        self.connectChildNode(mLayer.mNode,'controlLayer')
+    
+    return self.displayLayer, self.controlLayer
     
     
 def armature_verify(self):
@@ -1024,50 +1002,48 @@ def qss_verify(self,puppetSet=True,bakeSet=True,deleteSet=False, exportSet = Fal
                 mSet.addObj(mChild.mNode)
         #for mObj in get_joints(self,'bind') + get_rigGeo(self):
             #mSet.addObj(mObj.mNode)    
-        
+@cgmGEN.Timer
 def groups_verify(self):
-    try:
-        _str_func = "groups_verify".format()
-        log.debug("|{0}| >> ...".format(_str_func))
-    
-        mMasterNull = self.masterNull
-    
-        if not mMasterNull:
-            raise ValueError("No masterNull")
-    
-        for attr in ['rig','deform','noTransform','geo','skeleton',
-                     'parts','worldSpaceObjects','puppetSpaceObjects','spacePivots']:
-            _link = attr+'Group'
-            mGroup = mMasterNull.getMessage(_link,asMeta=True)# Find the group
-            if mGroup:mGroup = mGroup[0]
-    
-            if not mGroup:
-                mGroup = mMasterNull.doCreateAt(setClass=True)
-                mGroup.connectParentNode(mMasterNull.mNode,'puppet', attr+'Group')
+    _str_func = "groups_verify".format()
+    log.debug("|{0}| >> ...".format(_str_func))
+
+    mMasterNull = self.masterNull
+
+    if not mMasterNull:
+        raise ValueError("No masterNull")
+
+    for attr in ['rig','deform','noTransform','geo','skeleton',
+                 'parts','worldSpaceObjects','puppetSpaceObjects','spacePivots']:
+        _link = attr+'Group'
+        mGroup = mMasterNull.getMessage(_link,asMeta=True)# Find the group
+        if mGroup:mGroup = mGroup[0]
+
+        if not mGroup:
+            mGroup = mMasterNull.doCreateAt(setClass=True)
+            mGroup.connectParentNode(mMasterNull.mNode,'puppet', attr+'Group')
+            
+        mGroup.rename(attr)
+        log.debug("|{0}| >> attr: {1} | mGroup: {2}".format(_str_func, attr, mGroup))
+
+        # Few Case things
+        #----------------------------------------------------
+        if attr in ['rig','geo','skeleton']:
+            mGroup.p_parent = mMasterNull
+        elif attr in ['deform','puppetSpaceObjects'] and self.getMessage('masterControl'):
+            mGroup.p_parent = self.getMessage('masterControl')[0]	    
+        else:    
+            mGroup.p_parent = mMasterNull.rigGroup
+
+        ATTR.set_standardFlags(mGroup.mNode)
+
+        if attr == 'worldSpaceObjects':
+            mGroup.addAttr('cgmAlias','world')
+        elif attr == 'puppetSpaceObjects':
+            mGroup.addAttr('cgmAlias','puppet')
+            
+        if attr == 'spacePivots':
+            mGroup.p_parent = mMasterNull.puppetSpaceObjectsGroup
                 
-            mGroup.rename(attr)
-            log.debug("|{0}| >> attr: {1} | mGroup: {2}".format(_str_func, attr, mGroup))
-    
-            # Few Case things
-            #----------------------------------------------------
-            if attr in ['rig','geo','skeleton']:
-                mGroup.p_parent = mMasterNull
-            elif attr in ['deform','puppetSpaceObjects'] and self.getMessage('masterControl'):
-                mGroup.p_parent = self.getMessage('masterControl')[0]	    
-            else:    
-                mGroup.p_parent = mMasterNull.rigGroup
-    
-            ATTR.set_standardFlags(mGroup.mNode)
-    
-            if attr == 'worldSpaceObjects':
-                mGroup.addAttr('cgmAlias','world')
-            elif attr == 'puppetSpaceObjects':
-                mGroup.addAttr('cgmAlias','puppet')
-                
-            if attr == 'spacePivots':
-                mGroup.p_parent = mMasterNull.puppetSpaceObjectsGroup
-                
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
 def collect_worldSpaceObjects(self,progressBar = None):
     _str_func = 'collect_worldSpaceObjects'
@@ -2082,159 +2058,158 @@ def controller_purge(self,progressBar = None,progressEnd=True):
         
     return
 
-
+@cgmGEN.Timer
 def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True):
-    try:
+    _str_func = 'puppetMesh_create'
+    log.debug("|{0}| >>  Unified: {1} | Skin: {2} ".format(_str_func,unified,skin)+ '-'*80)
+    log.debug("{0}".format(self))
+    
+    mPuppet = self
+    mParent = False
+    if skin:
+        #mModuleTarget = self.getMessage('moduleTarget',asMeta=True)
+        #if not mModuleTarget:
+        #    return log.error("|{0}| >> Must have moduleTarget for skining mode".format(_str_func))
+        #mModuleTarget = mModuleTarget[0]        
         
-        _str_func = 'puppetMesh_create'
-        log.debug("|{0}| >>  Unified: {1} | Skin: {2} ".format(_str_func,unified,skin)+ '-'*80)
-        log.debug("{0}".format(self))
-        
-        mPuppet = self
-        mParent = False
-        if skin:
-            #mModuleTarget = self.getMessage('moduleTarget',asMeta=True)
-            #if not mModuleTarget:
-            #    return log.error("|{0}| >> Must have moduleTarget for skining mode".format(_str_func))
-            #mModuleTarget = mModuleTarget[0]        
-            
-            #mPuppet = puppet_get(self,mModuleTarget)
-            #if not mPuppet:
-            #    return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))        
-            """
-            mPuppet = mModuleTarget.getMessageAsMeta('modulePuppet')
+        #mPuppet = puppet_get(self,mModuleTarget)
+        #if not mPuppet:
+        #    return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))        
+        """
+        mPuppet = mModuleTarget.getMessageAsMeta('modulePuppet')
+        if not mPuppet:
+            mRoot = self.p_blockRoot
+            if mRoot:
+                log.debug("|{0}| >>  Checking root for puppet: {1} ".format(_str_func,mRoot))
+                mPuppetTest = mRoot.getMessageAsMeta('moduleTarget')
+                log.debug("|{0}| >>  root target: {1} ".format(_str_func,mPuppetTest))
+                if mPuppetTest and mPuppetTest.mClass == 'cgmRigPuppet':
+                    mPuppet = mPuppetTest
+                else:
+                    mPuppet = False
             if not mPuppet:
-                mRoot = self.p_blockRoot
-                if mRoot:
-                    log.debug("|{0}| >>  Checking root for puppet: {1} ".format(_str_func,mRoot))
-                    mPuppetTest = mRoot.getMessageAsMeta('moduleTarget')
-                    log.debug("|{0}| >>  root target: {1} ".format(_str_func,mPuppetTest))
-                    if mPuppetTest and mPuppetTest.mClass == 'cgmRigPuppet':
-                        mPuppet = mPuppetTest
-                    else:
-                        mPuppet = False
-                if not mPuppet:
-                    return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))"""
-                
-            mGeoGroup = mPuppet.masterNull.geoGroup
-            mParent = mGeoGroup
-            log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
-            log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
-            #log.debug("|{0}| >> mModuleTarget: {1}".format(_str_func,mModuleTarget))
+                return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))"""
+            
+        mGeoGroup = mPuppet.masterNull.geoGroup
+        mParent = mGeoGroup
+        log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
+        log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
+        #log.debug("|{0}| >> mModuleTarget: {1}".format(_str_func,mModuleTarget))
+    
+    
+    if proxy:
+        if not mPuppet.masterControl.controlSettings.skeleton:
+            log.warning("|{0}| >> Skeleton was off. proxy mesh in puppetMeshMode needs a visible skeleton to see. Feel free to turn it back off if you like.".format(_str_func, self.mNode))            
+            mPuppet.masterControl.controlSettings.skeleton = 1        
+    
+    
+    #Check for existance of mesh ========================================================================
+    if mPuppet:
+        bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
+        if skin and bfr:
+            log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
+            if forceNew:
+                log.debug("|{0}| >> force new...".format(_str_func))                            
+                mc.delete([mObj.mNode for mObj in bfr])
+            else:
+                return bfr
+    
+    #if proxy:
+        #if unified:
+        #    log.warning("|{0}| >> Proxy mode detected, unified option overridden".format(_str_func))
+        #    unified = False
+        #if skin:
+        #    log.warning("|{0}| >> Proxy mode detected, skin option overridden".format(_str_func))
+        #    skin = False
+    
+    #Process-------------------------------------------------------------------------------------
+    #if self.blockType == 'master':
+    #    mRoot = self
+    #else:
+    #    mRoot = self.getBlockParents()[-1]
+    mRoot = self.rigBlock
         
+    log.debug("|{0}| >> mRoot: {1}".format(_str_func,mRoot))
+    ml_ordered = mRoot.getBlockChildrenAll()
+    ml_mesh = []
+    subSkin = False
+    if skin:
+        #if not unified:
+        subSkin=True
+            
+    for mBlock in ml_ordered:
+        if mBlock.blockType in ['master', 'eyeMain']:
+            log.debug("|{0}| >> unmeshable: {1}".format(_str_func,mBlock))
+            continue
+        log.debug("|{0}| >> Meshing... {1}".format(_str_func,mBlock))
         
         if proxy:
-            if not mPuppet.masterControl.controlSettings.skeleton:
-                log.warning("|{0}| >> Skeleton was off. proxy mesh in puppetMeshMode needs a visible skeleton to see. Feel free to turn it back off if you like.".format(_str_func, self.mNode))            
-                mPuppet.masterControl.controlSettings.skeleton = 1        
-        
-        
-        #Check for existance of mesh ========================================================================
-        if mPuppet:
-            bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-            if skin and bfr:
-                log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
-                if forceNew:
-                    log.debug("|{0}| >> force new...".format(_str_func))                            
-                    mc.delete([mObj.mNode for mObj in bfr])
-                else:
-                    return bfr
-        
-        #if proxy:
-            #if unified:
-            #    log.warning("|{0}| >> Proxy mode detected, unified option overridden".format(_str_func))
-            #    unified = False
-            #if skin:
-            #    log.warning("|{0}| >> Proxy mode detected, skin option overridden".format(_str_func))
-            #    skin = False
-        
-        #Process-------------------------------------------------------------------------------------
-        #if self.blockType == 'master':
-        #    mRoot = self
-        #else:
-        #    mRoot = self.getBlockParents()[-1]
-        mRoot = self.rigBlock
+            _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True,skin=subSkin)
+            if _res:ml_mesh.extend(_res)
             
-        log.debug("|{0}| >> mRoot: {1}".format(_str_func,mRoot))
-        ml_ordered = mRoot.getBlockChildrenAll()
-        ml_mesh = []
-        subSkin = False
+        else:
+            _res = mBlock.UTILS.create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
+            if _res:ml_mesh.extend(_res)
+        
+        """
         if skin:
-            #if not unified:
-            subSkin=True
-                
-        for mBlock in ml_ordered:
-            if mBlock.blockType in ['master', 'eyeMain']:
-                log.debug("|{0}| >> unmeshable: {1}".format(_str_func,mBlock))
-                continue
-            log.debug("|{0}| >> Meshing... {1}".format(_str_func,mBlock))
+            mModuleTarget = mBlock.getMessage('moduleTarget',asMeta=True)
+            if not mModuleTarget:
+                return log.error("|{0}| >> Must have moduleTarget for skining mode".format(_str_func))
+            mModuleTarget = mModuleTarget[0]
+            mModuleTarget.atUtils('rig_connect')
+            ml_joints = mModuleTarget.rigNull.msgList_get('moduleJoints')
+            if not ml_joints:
+                return log.error("|{0}| >> Must have moduleJoints for skining mode".format(_str_func))
+            ml_moduleJoints.extend(ml_joints)"""
+        
+    if unified:
+        if skin:
+            #self.msgList_connect('simpleMesh',ml_mesh)
+            mMesh = None
+            for mObj in ml_mesh:
+                TRANS.pivots_zeroTransform(mObj)
+                mObj.dagLock(False)
+                mObj.p_parent = False
+            #Have to dup and copy weights because the geo group isn't always world center
+            if len(ml_mesh)>1:
+                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_mesh],ch=0))
+                mMesh = mMesh[0]
+            elif ml_mesh:
+                mMesh = ml_mesh[0]
             
-            if proxy:
-                _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True,skin=subSkin)
-                if _res:ml_mesh.extend(_res)
+            if mMesh:
+                mMesh.dagLock(False)
                 
-            else:
-                _res = mBlock.UTILS.create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
-                if _res:ml_mesh.extend(_res)
+                #mMeshBase = mMeshBase[0]
+                #mMesh = mMeshBase.doDuplicate(po=False,ic=False)
+                mMesh.rename('{0}_unified_geo'.format(mPuppet.p_nameBase))
+                mMesh.p_parent = mParent
+                cgmGEN.func_snapShot(vars())
+                
+                #now copy weights
+                #CORESKIN.transfer_fromTo(mMeshBase.mNode, [mMesh.mNode])
+                #mMeshBase.delete()
+                
+                ml_mesh = [mMesh]
+                #ml_mesh[0].p_parent = mGeoGroup
+                mMesh.dagLock(True)
             
-            """
-            if skin:
-                mModuleTarget = mBlock.getMessage('moduleTarget',asMeta=True)
-                if not mModuleTarget:
-                    return log.error("|{0}| >> Must have moduleTarget for skining mode".format(_str_func))
-                mModuleTarget = mModuleTarget[0]
-                mModuleTarget.atUtils('rig_connect')
-                ml_joints = mModuleTarget.rigNull.msgList_get('moduleJoints')
-                if not ml_joints:
-                    return log.error("|{0}| >> Must have moduleJoints for skining mode".format(_str_func))
-                ml_moduleJoints.extend(ml_joints)"""
-            
-        if unified:
-            if skin:
-                #self.msgList_connect('simpleMesh',ml_mesh)
-                mMesh = None
-                for mObj in ml_mesh:
-                    TRANS.pivots_zeroTransform(mObj)
-                    mObj.dagLock(False)
-                    mObj.p_parent = False
-                #Have to dup and copy weights because the geo group isn't always world center
-                if len(ml_mesh)>1:
-                    mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_mesh],ch=0))
-                    mMesh = mMesh[0]
-                elif ml_mesh:
-                    mMesh = ml_mesh[0]
-                
-                if mMesh:
-                    mMesh.dagLock(False)
-                    
-                    #mMeshBase = mMeshBase[0]
-                    #mMesh = mMeshBase.doDuplicate(po=False,ic=False)
-                    mMesh.rename('{0}_unified_geo'.format(mPuppet.p_nameBase))
-                    mMesh.p_parent = mParent
-                    cgmGEN.func_snapShot(vars())
-                    
-                    #now copy weights
-                    #CORESKIN.transfer_fromTo(mMeshBase.mNode, [mMesh.mNode])
-                    #mMeshBase.delete()
-                    
-                    ml_mesh = [mMesh]
-                    #ml_mesh[0].p_parent = mGeoGroup
-                    mMesh.dagLock(True)
-                
 
-            else:
-                if len(ml_mesh)>1:
-                    ml_mesh = cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_mesh],ch=False))
-            
-            if ml_mesh:
-                ml_mesh[0].rename('{}_puppetMesh_unified_geo'.format(mRoot.cgmName))
-            
-        if skin or proxy and ml_mesh:
-            mPuppet.msgList_connect('puppetMesh',ml_mesh)
-            
-        #for mGeo in ml_mesh:
-        #    CORERIG.color_mesh(mGeo.mNode,'puppetmesh')
-            
-        return ml_mesh
-    except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+        else:
+            if len(ml_mesh)>1:
+                ml_mesh = cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_mesh],ch=False))
+        
+        if ml_mesh:
+            ml_mesh[0].rename('{}_puppetMesh_unified_geo'.format(mRoot.cgmName))
+        
+    if skin or proxy and ml_mesh:
+        mPuppet.msgList_connect('puppetMesh',ml_mesh)
+        
+    #for mGeo in ml_mesh:
+    #    CORERIG.color_mesh(mGeo.mNode,'puppetmesh')
+        
+    return ml_mesh
+
+    #except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
     
