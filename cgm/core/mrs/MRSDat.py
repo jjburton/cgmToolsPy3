@@ -283,7 +283,7 @@ def blockDat_createBlock(self, autoPush = True, promptName = True):
             _d['cgmName'] = _v
             mDat['settings']['name']['cgmName'] = _v
             
-            if mDat.get('blockPosition') and mDat['blockPosition'] is not 'none':
+            if mDat.get('blockPosition') and mDat['blockPosition'] != 'none':
                 _d['cgmPosition'] = mDat.get('blockPosition')
                     
         else:
@@ -1244,8 +1244,7 @@ def config_get(ml_context = [], report = True):
         _idx = ml.index(mBlock)
         d_order[_idx] = mBlock
         
-    _keys = list(d_order.keys())
-    _keys.sort()
+    _keys = sorted(d_order)
     for i,k in enumerate(_keys):
         _res['blockList'].append(d_order[k].p_nameBase)
         _res['config'][str(i)] = blockDat_get(d_order[k],False)    

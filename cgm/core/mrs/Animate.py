@@ -2502,8 +2502,7 @@ def uiCB_contextualAction(self,**kws):
     #Frame Processing ============================================================================
     log.info(cgmGEN.logString_sub(None,'Frame Processing: {0}'.format(_mode)))
     
-    _keys = list(_res.keys())
-    _keys.sort()
+    _keys = sorted(_res)#list(_res.keys())
     _int_keys = len(_keys)
     
     mc.undoInfo(openChunk=True,chunkName="undo{0}".format(_mode))

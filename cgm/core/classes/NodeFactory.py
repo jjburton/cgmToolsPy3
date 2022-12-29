@@ -471,7 +471,7 @@ def connect_controlWiring(*args, **kws):
                         cgmMeta.cgmAttr(self.mi_controlObject,a_driven,attrType = 'float',lock = True,hidden=False).doConnectIn(_mPlug_driven)
                         #_mPlug_driven.doCopyTo(self.mi_controlObject.mNode, connectToSource = True)
 
-                    if _mode is 'singleChannel':
+                    if _mode == 'singleChannel':
                         _driverPlug = self.get_driverPlug(_driver)			
                         if '-' in _driver:
                             mPlug_negative = self.get_negativeConnection(_driverPlug)
@@ -487,7 +487,7 @@ def connect_controlWiring(*args, **kws):
                             self.log_info(arg_positive)
                             argsToNodes(arg_positive).doBuild()
 
-                    elif _mode is 'cornerBlend':
+                    elif _mode == 'cornerBlend':
                         try:
                             _driver2 = _d_sub['driverAttr2']
                         except:raise ValueError("Missing driverAttr2")
@@ -530,7 +530,7 @@ def connect_controlWiring(*args, **kws):
                         ATTR.connect("{0}.outputG".format(mNode_clamp.mNode), "{0}.input2X".format(mNode_md.mNode))
                         ATTR.connect("{0}.outputX".format(mNode_md.mNode),_drivenPlug)
 
-                    elif _mode is 'negVNeg':
+                    elif _mode == 'negVNeg':
                         '''
 			result = clamp(0,1, -clamp(-1,0,driver1) - driver2)
 			'''
@@ -565,7 +565,7 @@ def connect_controlWiring(*args, **kws):
                         ATTR.connect("{0}.outputR".format(mNode_clamp.mNode), _mPlug_driven.p_combinedShortName)	
                         _mPlug_driven.p_lock = True
 
-                    elif _mode is 'multMinusFactoredValue':
+                    elif _mode == 'multMinusFactoredValue':
                         '''
 			driven = clamp(0,1, (driver * driver2) - (driver3 * driver4) )
 			'''
@@ -609,7 +609,7 @@ def connect_controlWiring(*args, **kws):
                         _mPlug_driven.p_lock = True	  
 
 
-                    elif _mode is 'This is old stuff':
+                    elif _mode == 'This is old stuff':
                         if '-' in _driver:
                             self.log_info(_driver + ' need to do')
                             mPlug_negative = self.get_negativeConnection("{0}.{1}".format(self.mi_controlObject.mNode, _driver.split('-')[-1]))

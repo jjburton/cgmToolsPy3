@@ -461,8 +461,8 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d_s)
+        
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
         for k in l_check:
@@ -503,8 +503,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -597,8 +596,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d)
                 
         for s in l_keys:
             d = d_s[s]
@@ -616,8 +614,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -1360,8 +1357,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
         
         _short = mBlock.mNode
         
-        _keys = list(_d.keys())
-        _keys.sort()
+        _keys = sorted(_d)
         l_order =['define','profile','basic','name',
                   'form','proxySurface','prerig',
                   'skeleton',
@@ -2146,8 +2142,8 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d_s)
+        
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
         for k in l_check:
@@ -2282,8 +2278,8 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d_s)
+        
                 
         for s in l_keys:
             d = d_s[s]
@@ -2301,8 +2297,8 @@ class ui_blockEditor(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
+                
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -2824,8 +2820,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
         
         _short = mBlock.mNode
         
-        _keys = list(_d.keys())
-        _keys.sort()
+        _keys = sorted(_d)
         l_order =['define','profile','basic','name',
                   'form','proxySurface','prerig',
                   'skeleton',
@@ -5242,8 +5237,8 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItemDiv(_menu)                
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d_s)
+        
         l_check = ['Define','Form','Prerig','Skeleton','Rig','General','Mirror','Blockdat']
         l_check.reverse()
         for k in l_check:
@@ -5284,8 +5279,7 @@ class ui(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -5346,8 +5340,7 @@ class ui(cgmUI.cgmGUI):
         self.d_multiSet_d = _d
         self.d_multiSet_types = _dTypes        
 
-        _states = list(_d.keys())
-        _states.sort()
+        _states = sorted(_d)
         
         for state in _states:
             if state in ['profile', 'advanced', 'data', 'wiring', 'vis']:
@@ -5383,48 +5376,7 @@ class ui(cgmUI.cgmGUI):
                     
                   
                     
-        return
-        _keys = list(_d.keys())
-        _keys.sort()
-        l_order =['define','profile','basic','name',
-                  'form','proxySurface','prerig',
-                  'skeleton',
-                  'rig','squashStretch']
-        l_order.reverse()
-        
-        for k in l_order:
-            if k in _keys:
-                _keys.remove(k)
-                _keys.insert(0,k)
-                
-        l_end = ['data','wiring','advanced']
-        for k in l_end:
-            if k in _keys:
-                _keys.remove(k)
-                _keys.append(k)        
-        
-        
-        d_keyColors = {'profile':'define',
-                       'basic':'define',
-                       'name':'define',
-                       'proxySurface':'form',
-                       'squashStretch':'rig',
-                       'post':'rig'}
-        
-        for k in _keys:
-            log.debug(cgmGEN.logString_sub(_str_func,k))                
-            
-            l = _d.get(k)
-            if not l:
-                log.debug("|{0}| >> No attrs in : {1}".format(_str_func,k))                
-                continue
-            
-            _sub = mUI.MelMenuItem(_menu, subMenu = True,tearOff=True,
-                            label = k, en=True,)
-            
-            for a in _d.get(k):
-                mUI.MelMenuItem(_sub, tearOff=True,
-                                label = a, en=True,)                
+        return       
             
             
     def buildMenu_vis(self,*args,**kws):
@@ -5464,8 +5416,8 @@ class ui(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
+                
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -5744,8 +5696,7 @@ class ui(cgmUI.cgmGUI):
                  }}
         
         
-        l_keys = list(d_s.keys())
-        l_keys.sort()
+        l_keys = sorted(d_s)
         l_check = ['Define','Form','Prerig','Skeleton','Rig']
         l_check.reverse()
         for k in l_check:
@@ -5781,8 +5732,7 @@ class ui(cgmUI.cgmGUI):
                     if k not in l_keys2:
                         l_keys2.append(k)
             else:
-                l_keys2 = list(d.keys())
-                l_keys2.sort()
+                l_keys2 = sorted(d)
             for l in l_keys2:
                 if l in ['divTags','headerTags','order']:
                     continue
@@ -7113,8 +7063,7 @@ class ui(cgmUI.cgmGUI):
         for i in range(4):
             d_attrDat['rollCount_{0}'.format(i)] = 'int'
         
-        _keys = list(d_attrDat.keys())
-        _keys.sort()
+        _keys = sorted(d_attrDat)
         
         l_mask = ['baseAim','basePoint','baseUp','controlOffset','moduleTarget','nameIter','nameList',
                   'namesHandles','namesJoints']
@@ -8879,8 +8828,7 @@ def uiFunc_updateBlock(self):
     self._d_attrFields = {}
     
     
-    _keys = list(_d.keys())
-    _keys.sort()
+    _keys = sorted(_d)
     l_order =['define','profile','basic','name',
               'form','proxySurface','prerig',
               'skeleton',
@@ -9548,7 +9496,7 @@ class ui_createBlock(CGMUI.cgmGUI):
             
             _v = ui.getValue()
             if _v:
-                if a is 'nameList' and ',' in _v:
+                if a == 'nameList' and ',' in _v:
                     _v = ['{}'.format(v) for v in _v.split(',')]
                 d_create[a] = _v
         

@@ -2172,8 +2172,8 @@ def log_selfReport(self):
         log.info("="*100)		
         log.info("{0} GUI = {1} {0}".format(cgmGEN._str_headerDiv, self))
         log.info("="*100)	
-        l_keys = list(self.__dict__.keys())
-        l_keys.sort()		    
+        l_keys = sorted(self.__dict__)
+        
         log.info(" Self Stored: " + cgmGEN._str_subLine)
         for i,str_k in enumerate(l_keys):
             try:

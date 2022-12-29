@@ -41,7 +41,7 @@ def duplicateJointChain(joint):
 		mDup.rotateOrder = mObj.rotateOrder
 		mDup.jointOrient = mObj.jointOrient
 		mc.rename(mDup.mNode, mObj.getBaseName())
-		if i is 0:
+		if i == 0:
 			mDup.parent = mObj.parent	    
 		else:
 			mDup.parent = ml_dups[-1]

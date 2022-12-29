@@ -4331,7 +4331,7 @@ def rig_highlightSetup(self):
     log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
     log.debug(self)
 
-    if self.str_highlightSetup is not 'none':
+    if self.str_highlightSetup != 'none':
         log.debug("|{0}| >> No highlight setup...".format(_str_func))
         return True
     

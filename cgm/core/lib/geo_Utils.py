@@ -302,7 +302,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
             raise ValueError,"'{0}' expandBy arg not found in : {1}".format(expandBy, __l_expandBy)
         """
     #Validate our expand amount =======================================================================================================
-    if expandAmount is 'default':
+    if expandAmount == 'default':
         expandAmount = distance.returnBoundingBoxSizeToAverage(sourceObj)    
 
     #Get our objects if we don't have them
@@ -333,7 +333,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                                 statusMessage='Progress...', 
                                 startingProgress=1, 
                                 interruptableState=True)
-    if _mode is 'bounding box':
+    if _mode == 'bounding box':
         log.info('bounding box mode...')        
         try:#Get our source bb info
             sel.getDagPath(0,_dagPath)
@@ -370,7 +370,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
             bb_target.transformUsing(matrix_target)         
 
             if bb_source.contains( cgmOM.Point(mc.xform(_tar, q=True, ws=True, t=True))) or bb_source.intersects(bb_target):
-                if _returnMode is 0:#...object
+                if _returnMode == 0:#...object
                     _l_found.add(_dagPath)
                     continue
             iter = OM.MItGeometry(_dagPath)
@@ -380,7 +380,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                     _l_found.add(_dagPath, iter.currentItem())
                 next(iter)                
 
-    elif _mode is 'raycast interior':
+    elif _mode == 'raycast interior':
         log.info('Ray cast Mode...')
         sel.remove(0)#...remove the source        
         for i in range(sel.length()):
@@ -397,7 +397,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
 
             iter = OM.MItGeometry(_dagPath)
             _cnt = 0            
-            if _returnMode is 0:#...if the object intersects
+            if _returnMode == 0:#...if the object intersects
                 _found = False
                 while not iter.isDone():
                     guiFactory.doUpdateProgressWindow("Checking vtx[{0}]".format(_cnt), _cnt, 
@@ -452,28 +452,28 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
         return False
 
     #Expand ========================================================================================
-    if _expandBy is not 'none' and returnMode > 0:
+    if _expandBy != 'none' and returnMode > 0:
         log.info("Expanding result by '{0}'...".format(_expandBy))   
         _sel = mc.ls(sl=True) or []        
         _expandFactor = int(expandAmount)  
         mc.select(matching)        
-        if _expandBy is 'expandSelection':
+        if _expandBy == 'expandSelection':
             for i in range(_expandFactor):
                 mel.eval("PolySelectTraverse 1;")
             matching = mc.ls(sl = True)
-        if _expandBy is 'softSelect':
+        if _expandBy == 'softSelect':
             mc.softSelect(softSelectEnabled=True,ssc='1,0,0,0,1,2', softSelectFalloff = 1, softSelectDistance = _expandFactor)
             matching = selUtils.get_softSelectionItems()   
             mc.softSelect(softSelectEnabled=False)
         #if _sel:mc.select(_sel)   
 
-    if _returnMode > 0 and _returnMode is not 3 and matching:#...need to convert
+    if _returnMode > 0 and _returnMode != 3 and matching:#...need to convert
         log.info("Return conversion necessary")
-        if _returnMode is 1:#...face
+        if _returnMode == 1:#...face
             matching = mc.polyListComponentConversion(matching, fv=True, tf=True, internal = True)
-        elif _returnMode is 2:#...edge
+        elif _returnMode == 2:#...edge
             matching = mc.polyListComponentConversion(matching, fv=True, te=True, internal = True )
-        elif _returnMode is 4:#...proximity mesh
+        elif _returnMode == 4:#...proximity mesh
             #Get our faces
             matching = mc.polyListComponentConversion(matching, fv=True, tf=True, internal = True)
 
@@ -546,11 +546,11 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
 
     #Validate our expand amount =======================================================================================================
     _expandAmount = expandAmount
-    if expandAmount is 'default':
+    if expandAmount == 'default':
         _expandAmount = distance.returnBoundingBoxSizeToAverage(sourceObj)
 
     #Get our faces =======================================================================================================
-    _dat = get_contained(sourceObj, target, mode = mode, returnMode = 1, expandBy = expandBy, expandAmount = _expandAmount)
+    _dat = get_proximityGeo(sourceObj, target, mode = mode, returnMode = 1, expandBy = expandBy, expandAmount = _expandAmount)
 
     if not _dat:
         raise ValueError("No data found on get_contained call!")

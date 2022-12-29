@@ -10,9 +10,9 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '22.12.17.1'
+__RELEASE = '22.12.29.1'
 
-__BRANCH = 'MRSDAILY'
+__BRANCH = 'Python3'
 
 import maya.cmds as mc
 import maya.mel as mel
@@ -20,11 +20,11 @@ import maya.utils as mUtils
 import copy
 import time
 import inspect
-import platform
+#import platform
 import sys
 import traceback
-import linecache
-import datetime
+#import linecache
+#import datetime
 import pprint
 from time import gmtime
 from time import strftime
@@ -1451,6 +1451,7 @@ def Timer(func):
                 print("  Traceback local..." + _str_subLine)
                 pprint.pprint(_d)
             except:pass
+            
             #raise err
             
             #exc_type, exc_value, exc_traceback = sys.exc_info()

@@ -874,7 +874,7 @@ CGM_RIGBLOCK_DAT = None
 def get_modules_dict(update=False):
     return get_modules_dat(update)[0]
 
-#@cgmGEN.Timer
+@cgmGEN.Timer
 def get_modules_dat(update = False):
     """
     Data gather for available blocks.
@@ -897,16 +897,18 @@ def get_modules_dat(update = False):
     _b_debug = log.isEnabledFor(logging.DEBUG)
 
     import cgm.core.mrs.blocks as blocks
-    _path = PATH.Path(blocks.__path__[0])
+    _path = blocks.__path__[0]
+    mPath = PATH.Path(_path)
+
     _l_duplicates = []
     _l_unbuildable = []
-    _base = _path.split()[-1]
+    _base = mPath.split()[-1]
     _d_files =  {}
     _d_modules = {}
     _d_import = {}
     _d_categories = {}
 
-    log.info("|{0}| >> Checking base: {1} | path: {2}".format(_str_func,_base,_path))   
+    log.info("|{}| >> Checking base: {} | path: {}".format(_str_func,_base,_path))   
     _i = 0
     for root, dirs, files in os.walk(_path, True, None):
         # Parse all the files of given path and reload python modules
@@ -947,7 +949,7 @@ def get_modules_dat(update = False):
                         _d_import[name] = key
                         _l_cat.append(name)
                         try:
-                            module = __import__('cgm.core.mrs.{0}'.format(key), globals(), locals(), ['*'], -1)
+                            module = __import__('cgm.core.mrs.{0}'.format(key), globals(), locals(), ['*'])
                             #reload(module) 
                             _d_modules[name] = module
                             #if not is_buildable(module):

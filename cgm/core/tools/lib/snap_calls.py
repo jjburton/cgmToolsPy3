@@ -396,12 +396,12 @@ def snap(obj = None, targets = None,
 
         #Mode type defaults...
         if objMode is None:
-            if _pivotObj is 'boundingBox':
+            if _pivotObj in ['boundingBox','bb']:
                 objMode = 'center'
             elif _pivotObj in ['castCenter','castFar','castNear','axisBox']:
                 objMode = 'z+'            
         if targetMode is None:
-            if _pivotTar is 'boundingBox':
+            if _pivotTar in ['boundingBox','bb']:
                 targetMode = 'center'
             elif _pivotTar in ['castCenter','castFar','castNear','axisBox']:
                 targetMode = 'z+'
