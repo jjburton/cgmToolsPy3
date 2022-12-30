@@ -24,7 +24,8 @@ log.setLevel(logging.INFO)
 
 import maya.cmds as mc
 import maya.mel as mel
-
+import Red9
+import Red9.core
 import Red9.core.Red9_CoreUtils as r9Core
 import Red9.core.Red9_General as r9General
 from Red9.core import Red9_Meta as r9Meta
@@ -177,6 +178,7 @@ class pathList(object):
         self.mOptionVar.clear()
         self.l_paths = []
 
+
 def walk_below_dir(arg = _pathTest, tests = None,uiStrings = True,
                    fileTest=None):
     """
@@ -194,14 +196,15 @@ def walk_below_dir(arg = _pathTest, tests = None,uiStrings = True,
     
     _b_debug = log.isEnabledFor(logging.DEBUG)
 
-    _path = PATHS.Path(arg)
-    if not _path.exists():
+    mPath = PATHS.Path(arg)
+    _path = mPath.asFriendly()
+    if not mPath.exists():
         log.debug(cgmGEN.logString_msg(_str_func,"Path doesn't exists: {0}".format(arg)))
         return False
     
     _l_duplicates = []
     _l_unbuildable = []
-    _base = _path.split()[-1]
+    _base = mPath.split()[-1]
     #_d_files =  {}
     #_d_modules = {}
     #_d_import = {}

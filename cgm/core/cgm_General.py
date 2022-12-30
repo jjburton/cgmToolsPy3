@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '22.12.29.1'
+__RELEASE = '22.12.29.2'
 
 __BRANCH = 'Python3'
 
@@ -253,13 +253,13 @@ class cgmFuncCls(object):
                         log.error("Failed to report last log: {0}".format(error))		
                 for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
                     print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
-                    print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
+                    print(' File "{1}", line {2}, in {3}\n'.format(*item))
                     for item in inspect.getinnerframes(tb):
                         if 'go' not in item:#Path to get our wrapper stuff out of the traceback report
-                            if '__func__' not in item:print(' File "{1}", line {2}, in {3}\n'.format(*item), end=' ')
+                            if '__func__' not in item:print(' File "{1}", line {2}, in {3}\n'.format(*item))
                     if item[4] is not None:
                         for line in item[4]:
-                            print(' ' + line.lstrip(), end=' ')			
+                            print(' ' + line.lstrip())
                     #for line in item[4]:
                         #print ' ' + line.lstrip(),		
                 '''if db_file != "<maya console>":
