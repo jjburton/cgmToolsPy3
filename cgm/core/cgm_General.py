@@ -1395,7 +1395,6 @@ def Timer(func):
     @wraps(func)
     def TimerWrapper(*args, **kws):
         res=None
-        err=None
         try:_str_func = func_getTraceString(func)
         except:_str_func = func
     
@@ -1411,9 +1410,8 @@ def Timer(func):
         #    if err:
             #print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)		                
             print(_str_hardBreak + _str_hardBreak)
-            print(_str_hardBreak + _str_hardBreak)            
-            try:print(("Func: {0}".format(func.__name__)))
-            except:print(("Func: {0}".format(func)))                
+            try:print(("Func: {0} ".format(func.__name__) + ">"*100))
+            except:print(("Func: {0} ".format(func) + ">"*100))                
             if args:
                 print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))		        
                 for i, arg in enumerate(args):
@@ -1448,34 +1446,18 @@ def Timer(func):
                         for k,v in _kws.items():
                             print(("      {0} : {1}".format(k,v)))
                     
-                print("  Traceback local..." + _str_subLine)
-                pprint.pprint(_d)
+                #print("  Traceback local..." + _str_subLine)
+                #pprint.pprint(_d)
             except:pass
             
-            #raise err
+            #traceback.print_tb(tb)
+            #pprint.pprint(traceback.extract_tb(tb))
+
+            print(_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine)		
+            log_tb(tb)
             
-            #exc_type, exc_value, exc_traceback = sys.exc_info()
-            
-            #print("*** print_tb:")
-            #traceback.print_tb(tb, limit=1, file=sys.stdout)
-            #print("*** print_exception:")
-            #traceback.print_exception(exc_value, limit=2, file=sys.stdout)
-            #print("*** print_exc:")
-            #traceback.print_exc(limit=2, file=sys.stdout)
-            #print("*** format_exc, first and last line:")
-            #formatted_lines = traceback.format_exc().splitlines()
-            #print(formatted_lines[0])
-            #print(formatted_lines[-1])
-            #print("*** format_exception:")
-            #print(repr(traceback.format_exception(exc_value)))
-            #print("*** extract_tb:")
-            pprint.pprint(traceback.extract_tb(tb))
-            #print("*** format_tb:")
-            #pprint.pprint((traceback.format_tb(tb)))
-            #print("*** tb_lineno:", tb.tb_lineno)                
-            
-            #raise type(etype)((etype)(value), tb)    
             #cgmException(err)
+            print(_str_subLine + _str_subLine)            
             raise
             #cgmException(err,None,tb)
     return TimerWrapper
@@ -1486,6 +1468,19 @@ def testTimer(sleep = .5):
     time.sleep(float(sleep))   # delays for 5 seconds. You can Also Use Float Value.
     return True
 
+def log_tb(tb):
+    for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
+        print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
+        if item[3].count('TimerWrapper'):
+            continue
+        print(' [File "{1}"], [call {3}], [line {2}]'.format(*item))
+        for item2 in inspect.getinnerframes(tb):
+            if 'go' not in item2:#Path to get our wrapper stuff out of the traceback report
+                if not item2[3].count('TimerWrapper'):
+                    print(' [File "{1}"], [call {3}], [line {2}]'.format(*item2))
+        if item[4] is not None:
+            for line in item[4]:
+                print(' ' + line.lstrip())          
 
 @Func
 def testFunc(*args,**kws):
@@ -1612,6 +1607,9 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
             
         print("  Local dat...")
         pprint.pprint(_d)
+        
+        log_tb(tb)        
+        
     except:
         pass
     #pprint.pprint(tb.tb_frame.f_locals)
@@ -1625,6 +1623,7 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
             print(" {0} : {1}".format(i,a))
             """
     log.info("Release: "+get_releaseString())
+    
     #if etype:
     #_traceback = sys.exc_info()[2]  # get the full traceback
     #raise Exception(type(etype)(etype), tb)

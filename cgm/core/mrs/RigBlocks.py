@@ -1165,6 +1165,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         return self.moduleTarget.modulePuppet.atUtils(func,*args,**kws)
         #except Exception,err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
+    @cgmGEN.Timer
     def atBlockUtils(self, func = '', *args,**kws):
         """
         Function to call a blockModule function by string. For menus and other reasons
