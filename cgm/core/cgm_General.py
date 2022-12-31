@@ -1139,8 +1139,11 @@ def testException(message = 'cat'):
     cat = 1
     try:
         raise Exception(message)
-    except Exception as err:
-        cgmExceptCB(Exception,err,fncDat=vars())
+    except:
+        log_tb()
+        raise    
+    #except Exception as err:
+    #    cgmExceptCB(Exception,err,fncDat=vars())
 
 
 #mUtils.formatGuiException = cgmExceptCB
@@ -1389,20 +1392,21 @@ def Func(func):
             return res
     return wrapper
 
-def Timer(func):
+
+
+def Wrap_exception(func):
     '''
     '''
     @wraps(func)
-    def TimerWrapper(*args, **kws):
+    def Exception_Wrapper(*args, **kws):
         res=None
         try:_str_func = func_getTraceString(func)
         except:_str_func = func
+        
+        print(logString_start(_str_func))
     
         try:
-            t1 = time.time()
             res=func(*args,**kws) 
-            t2 = time.time()            
-            print(("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 )))) 
             return res
             
         except Exception as error:
@@ -1420,7 +1424,8 @@ def Timer(func):
                 print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))		        
                 for items in list(kws.items()):
                     print(("    kw: {0}".format(items)))   
-                    
+
+            """
             tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
             try:db_file = tb.tb_frame.f_code.co_filename
             except:db_file = "<maya console>"
@@ -1452,31 +1457,137 @@ def Timer(func):
             
             #traceback.print_tb(tb)
             #pprint.pprint(traceback.extract_tb(tb))
-
-            print(_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine)		
-            log_tb(tb)
+            """
             
+            print(_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine)		
+            log_tb()
+            
+            print("\n Release: [{}] \n".format(get_releaseString()))
             #cgmException(err)
             print(_str_subLine + _str_subLine)            
             raise
+        finally:
+            print(logString_sub(_str_func,'fail post'))
+            if res:
+                return res        
             #cgmException(err,None,tb)
+    return Exception_Wrapper
+
+    
+    
+def SuspendCall(func):
+    '''
+    Call to handle the typical pre/post do stuff calls like:
+    - undoChunk
+    - suspend refresh
+    - cached playback (maya 2019+)
+    - autokey status
+    - closing the maya progress bar if it was stuck open from an exception
+    '''
+    @wraps(func)
+    def SuspendCall(*args, **kws):
+        _str_func = 'SuspendCall {}'.format(func)
+        res = None
+        print(logString_sub(_str_func,'pre'))
+
+        _cachedPlaybackEnable = mc.optionVar(q='cachedPlaybackEnable')
+        if _cachedPlaybackEnable:
+            mc.optionVar( iv=('cachedPlaybackEnable', 0))
+        mc.undoInfo(openChunk=True,chunkName="undo{0}".format(func))
+        #mc.undoInfo(openChunk=True)
+        _autoKey = mc.autoKeyframe(q=True,state=True)
+        mc.refresh(su=1)
+        
+        print(logString_sub(_str_func,'do'))
+        try:
+            res=func(*args,**kws) 
+        finally:
+            print(logString_sub(_str_func,'post'))
+            
+            mc.undoInfo(closeChunk=True)#...close our chunk
+            if _autoKey:#turn back on if it was
+                mc.autoKeyframe(state=True)
+                
+            mc.refresh(su=0) #turn off suspension
+    
+            if _cachedPlaybackEnable:
+                mc.optionVar( iv=('cachedPlaybackEnable', 1))
+                
+            try:
+                mayaMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
+                mc.progressBar(mayaMainProgressBar, edit=True, endProgress=True)                    
+            except:pass
+            if res:
+                return res
+    return SuspendCall
+
+def Timer(func):
+    '''
+    '''
+    @wraps(func)
+    @Wrap_exception    
+    def TimerWrapper(*args, **kws):
+        res=None
+        try:_str_func = func_getTraceString(func)
+        except:_str_func = func
+    
+        try:
+            t1 = time.time()
+            res=func(*args,**kws) 
+            t2 = time.time()            
+            print(("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 )))) 
+            return res
+        finally:
+            pass
     return TimerWrapper
 
 @Timer
 def testTimer(sleep = .5):
-    log.info("Sleep time: {0}".format(sleep))
+    print("Sleep time: {0}".format(sleep))
     time.sleep(float(sleep))   # delays for 5 seconds. You can Also Use Float Value.
     return True
 
-def log_tb(tb):
+def log_tb(tb=None):
+    if tb == None:
+        tb = sys.exc_info()[2]
+    
+    frame,filename,line_number,function_name,lines,index = inspect.stack()[1]
+    #print(frame,filename,line_number,function_name,lines,index)
+    
+    print(("\n>> TRACE >>  [func: {}]|| [module: {}]...".format(function_name,filename) + _str_hardBreak*2))
+    
+    #try:db_file = tb.tb_frame.f_code.co_filename
+    #except:db_file = "<maya console>"
+    #print((" file: {0}".format(db_file)))
+    
+    print("\n Locals..." + _str_subLine*2)
+    _d = tb.tb_frame.f_locals
+    pprint.pprint(_d)
+    print("\n")
+    #inspect.getinnerframes
+    
+    #print(("Locals..." + _str_subLine))		        
+    #pprint.pprint(tb.tb_frame.f_locals)
+    #print(("Globals..." + _str_subLine))		            
+    #pprint.pprint(tb.tb_frame.f_globals)
+        
+    """
+    while tb.tb_next:
+        tb2 = tb.tb_next
+
+        print(sys.stderr, 'Locals:',  tb2.tb_frame.f_locals)
+        print(sys.stderr, 'Globals:', tb2.tb_frame.f_globals)    
+    """
+    
     for i,item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
+
         print(("traceback frame[{0}]".format(i+1) + _str_subLine))		    
-        if item[3].count('TimerWrapper'):
+        if item[3].endswith('Wrapper'):
             continue
         print(' [File "{1}"], [call {3}], [line {2}]'.format(*item))
         for item2 in inspect.getinnerframes(tb):
             if 'go' not in item2:#Path to get our wrapper stuff out of the traceback report
-                if not item2[3].count('TimerWrapper'):
+                if not item2[3].endswith('Wrapper'):
                     print(' [File "{1}"], [call {3}], [line {2}]'.format(*item2))
         if item[4] is not None:
             for line in item[4]:
@@ -1548,8 +1659,11 @@ def test_ExceptionNested(*args,**kws):
     try:
         hi = 'mike'
         _nestedDictTest = {1:2,3:4}
-        return testException()
-    except Exception as err:
+        testException()
+    except:
+        pprint.pprint(vars())
+        raise
+    #except Exception as err:
         #_traceback = sys.exc_info()[2]  # get the full traceback        
         cgmException(err)
         
@@ -1559,8 +1673,17 @@ def test_cgmException(*args,**kws):
         _l = list(range(12))
         raise ValueError("Bob's not home")
     except Exception as err:
-        #_traceback = sys.exc_info()[2]  # get the full traceback        
         cgmException(err)
+
+def test_cgmTraceback(*args,**kws):
+    try:
+        bye = 'fred'
+        _l = list(range(12))
+        raise ValueError("Bob's not home")
+    except Exception as err:
+        log_tb()
+        raise
+
 
 @Timer
 def test_cgmExceptionTimer(*args,**kws):
@@ -1568,8 +1691,10 @@ def test_cgmExceptionTimer(*args,**kws):
         bye = 'fred'
         _l = list(range(12))
         raise ValueError("Bob's not home")
-    except Exception as err:
-        #_traceback = sys.exc_info()[2]  # get the full traceback        
+    except:
+        raise
+    #except Exception as err:
+    #    #_traceback = sys.exc_info()[2]  # get the full traceback        
         cgmException(err)
 
 def test_cgmExceptCB(*args,**kws):

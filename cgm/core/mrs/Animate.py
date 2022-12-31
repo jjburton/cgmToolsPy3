@@ -2211,6 +2211,7 @@ def uiCB_contextualActionMM(self,**kws):
         return _res
     
 @cgmGEN.Timer
+@cgmGEN.SuspendCall
 def uiCB_contextualAction(self,**kws):
     _str_func='uiCB_contextualTime'
     log.debug(cgmGEN.logString_start(_str_func))
@@ -2223,7 +2224,7 @@ def uiCB_contextualAction(self,**kws):
     #_context = kws.get('context') or self.var_mrsContext_mode.value
     #_contextTime = kws.get('contextTime') or self.var_mrsContext_time.value
     #_contextKeys = kws.get('contextKeys') or self.var_mrsContext_keys.value
-    
+        
     try:contextArg = self.__class__.TOOLNAME 
     except:contextArg = False
         
@@ -2270,6 +2271,7 @@ def uiCB_contextualAction(self,**kws):
             mc.select(self.mDat._sel)
         if report:log.info("Context: {0} | mode: {1} | {2} - {3} | done.".format(_context, _mode,
                                                                                  _contextTime,_contextKeys))
+
         return 
     
     self.var_resetMode = cgmMeta.cgmOptionVar('cgmVar_ChannelResetMode', defaultValue = 0)
@@ -2505,7 +2507,7 @@ def uiCB_contextualAction(self,**kws):
     _keys = sorted(_res)#list(_res.keys())
     _int_keys = len(_keys)
     
-    mc.undoInfo(openChunk=True,chunkName="undo{0}".format(_mode))
+    #mc.undoInfo(openChunk=True,chunkName="undo{0}".format(_mode))
     _resetMode = self.var_resetMode.value
     d_buffer = {}
     _primeAxis = False
@@ -2719,15 +2721,16 @@ def uiCB_contextualAction(self,**kws):
         pprint.pprint(vars())
         log.error(err)
     finally:
-        mc.undoInfo(closeChunk=True)
+        #mc.undoInfo(closeChunk=True)
         mc.currentTime(self.mDat.d_timeContext.get('frameInitial',1.0))
-        if _autoKey:mc.autoKeyframe(state=True)
-        mc.refresh(su=0)
-        if err:
-            cgmGEN.cgmExceptCB(Exception,err,localDat=vars())    
-            
+        #if _autoKey:mc.autoKeyframe(state=True)
+        #mc.refresh(su=0)
+
         try:cgmUI.progressBar_end(self.uiProgressBar)
         except:pass
+        
+        if err:
+            cgmGEN.cgmExceptCB(Exception,err,localDat=vars())            
         return endCall(self)            
         
         
