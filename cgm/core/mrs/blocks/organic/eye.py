@@ -4331,7 +4331,7 @@ def rig_highlightSetup(self):
     log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
     log.debug(self)
 
-    if self.str_highlightSetup != 'none':
+    if self.str_highlightSetup == 'none':
         log.debug("|{0}| >> No highlight setup...".format(_str_func))
         return True
     
@@ -5756,24 +5756,25 @@ def rig_cleanUp(self):
 
 def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws):
     _str_func = 'create_simpleMesh'
-    log.info("|{0}| >>  ".format(_str_func)+ '-'*80)
-    log.info("{0}".format(self))
+    log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
+    log.debug("{0}".format(self))
     
     if not self.meshBuild:
+        log.warning(" MeshBuild [off] | {}".format(self))        
         return []    
     
     mBlock = self
     mModule = self.moduleTarget
     mRigNull = mModule.rigNull
-    mDeformNull = mModule.deformNull
-    mSettings = mRigNull.settings
+    #mDeformNull = mModule.deformNull
+    #mSettings = mRigNull.settings
     
-    mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl    
-    mPuppetSettings = mMaster.controlSettings
+    #mPuppet = self.atUtils('get_puppet')
+    #mMaster = mPuppet.masterControl    
+    #mPuppetSettings = mMaster.controlSettings
     str_partName = mModule.get_partNameBase()
     mPrerigNull = mBlock.prerigNull
-    directProxy = mBlock.proxyDirect
+    #directProxy = mBlock.proxyDirect
     
     _side = BLOCKUTILS.get_side(self)    
     
@@ -5791,6 +5792,7 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
                                        'cgmObject',setClass=True)"""
     
     mOrb = mBlock.getMessageAsMeta('bbHelper')
+    mOrb.rz=90
     str_meshShape = mOrb.getShapes()[0]
     minU = ATTR.get(str_meshShape,'minValueU')
     maxU = ATTR.get(str_meshShape,'maxValueU')
@@ -5823,7 +5825,7 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
         l_delete.append(mDup.mNode)
         md_helpers[k] =[mDup.mNode]
         
-        mDup.rz = _r
+        #mDup.rz = _r
         
         
         if k == 'iris' and not mBlock.getMessage('pupilHelper'):
@@ -5914,15 +5916,221 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
         CORERIG.colorControl(_meshPupil,'special','pupil',transparent=False,proxy=True)
         l_combine.append(_meshPupil)
     
-    
-    
     _mesh = mc.polyUnite(l_combine, ch=False )[0]
     mProxyEye = cgmMeta.validateObjArg(_mesh,'cgmObject',setClass=True)
+        
+        
+    #mProxyEye.doSnapTo(mDirect)
+    if skin:
+        MRSPOST.skin_mesh(mProxyEye,[mDirect])
+    else:
+        mProxyEye.p_parent = mDirect
+        
+    ml_proxy = [mProxyEye]
+    ml_noFreeze = []
+    
+    
+    if mBlock.lidBuild:
+        
+        str_lidBuild = mBlock.getEnumValueString('lidBuild')
+        #>>Lid setup ================================================
+        if str_lidBuild in ['clam']:
+            #Need to make our lid roots and orient
+            for k in 'upr','lwr':
+                log.debug("|{0}| >> {1}...".format(_str_func,k))
+                _keyHandle = '{0}LidHandle'.format(k)
+                
+                mLidSkin = mPrerigNull.getMessageAsMeta('{0}LidJoint'.format(k))
+                mRigJoint = mLidSkin.rigJoint
+                
+                mEndCurve = mBlock.getMessageAsMeta('{0}EdgeFormCurve'.format(k)).doDuplicate(po=False)
+                mEndCurve.dagLock(False)
+                mEndCurve.p_parent = False
+                mEndCurve.p_parent = mDeformNull
+                mEndCurve.v = False
+                
+                #mStartCurve = mRigNull.getMessageAsMeta(k+'LineFormCurve')#.doDuplicate(po=False)
+                mStartCurve = mRigNull.getMessageAsMeta(k+'LidCurve')#.doDuplicate(po=False)
+                
+                """
+                mHandle = mRigNull.getMessageAsMeta(_keyHandle)
+                
+                ml_uprSkinJoints = [self.d_lidData['upr']['mHandle']]#ml_uprLidHandles
+                ml_lwrSkinJoints = [self.d_lidData['lwr']['mHandle']]#[ml_uprLidHandles[0]] + ml_lwrLidHandles + [ml_uprLidHandles[-1]]
+                md_skinSetup = {'upr':{'ml_joints':ml_uprSkinJoints,'mi_crv':md['upr']['mDriver']},
+                                'lwr':{'ml_joints':ml_lwrSkinJoints,'mi_crv':md['lwr']['mDriver']}}
+                
+                for k in md_skinSetup.keys():
+                    d_crv = md_skinSetup[k]
+                    str_crv = d_crv['mi_crv'].p_nameShort
+                    l_joints = [mi_obj.p_nameShort for mi_obj in d_crv['ml_joints']]
+                    log.debug(" %s | crv : %s | joints: %s"%(k,str_crv,l_joints))
+                    try:
+                        mi_skinNode = cgmMeta.cgmNode(mc.skinCluster ([mi_obj.mNode for mi_obj in d_crv['ml_joints']],
+                                                                      d_crv['mi_crv'].mNode,
+                                                                      tsb=True,
+                                                                      maximumInfluences = 3,
+                                                                      normalizeWeights = 1,dropoffRate=2.5)[0])
+                    except Exception,error:raise StandardError,"skinCluster : %s"%(error)  	                
+                    """
+                
+                
+                #Loft ------------------------------------------------
+                _res_body = mc.loft([mStartCurve.mNode,mEndCurve.mNode], 
+                                    o = True, d = 1, po = 3, c = False,autoReverse=False)
+                mLoftSurface = cgmMeta.validateObjArg(_res_body[0],'cgmObject',setClass= True)
+                _loftNode = _res_body[1]
+                _inputs = mc.listHistory(mLoftSurface.mNode,pruneDagObjects=True)
+                _rebuildNode = _inputs[0]            
+                mLoftSurface = cgmMeta.validateObjArg(_res_body[0],'cgmObject',setClass= True)
+            
+                #if polyType == 'bezier':
+                mc.reverseSurface(mLoftSurface.mNode, direction=1,rpo=True)
+            
+                _d = {'keepCorners':False}#General}
+            
+    
+            
+                mLoftSurface.overrideEnabled = 1
+                mLoftSurface.overrideDisplayType = 2
+            
+                mLoftSurface.p_parent = mModule
+                mLoftSurface.resetAttrs()
+            
+                mLoftSurface.doStore('cgmName',"{0}_{1}Lid".format(str_partName,k),attrType='string')
+                mLoftSurface.doStore('cgmType','proxy')
+                mLoftSurface.doName()
+                log.debug("|{0}| loft node: {1}".format(_str_func,_loftNode))             
+    
+                ml_proxy.append(mLoftSurface)
+                
+        elif str_lidBuild in ['clamSimple']:
+            _baseSize = [v * 1.1 for v in mBlock.baseSize]
+            
+            for k in 'upr','lwr':
+                log.debug("|{0}| >> lid handle| {1}...".format(_str_func,k))                      
+                _key = '{0}LidHandle'.format(k)
+                mLidSkin = mPrerigNull.getMessageAsMeta('{0}LidJoint'.format(k))
+                
+                _d_create = {"ax":[1,0,0], 'ch':0}
+                if k == 'upr':
+                    _color = 'main'
+                    _d_create['ssw'] = 180
+                    _d_create['esw'] = 360
+                    _d_create['r'] = _baseSize[0] /2 * .9
+                else:
+                    _color = 'sub'
+                    _d_create['ssw'] = 0
+                    _d_create['esw'] = 180
+                    _d_create['r'] = _baseSize[0]/2 * .8                    
+                    
+                _sphere = mc.sphere(**_d_create)
+                
+                mShapeSource = RIGCREATE.get_meshFromNurbs(_sphere[0],
+                                                    mode = 'general')
+                                                    #uNumber = self.loftSplit, vNumber=self.loftSides)
+                
+                mc.delete(_sphere)
+                mc.polyExtrudeFacet(mShapeSource.mNode, ltz=1.0, kft=True)
+                #mShapeSource = cgmMeta.asMeta(_sphere[0])
+                
+                #mShapeSource.scale = _baseSize
+                
+                mShapeSource.doSnapTo(mLidSkin)            
+                CORERIG.colorControl(mShapeSource.mNode,_side,_color,transparent=False,proxy=True)
+            
+            
+                mShapeSource.overrideEnabled = 1
+                mShapeSource.overrideDisplayType = 2
+            
+                #mShapeSource.resetAttrs()
+            
+                mShapeSource.doStore('cgmName',"{0}_{1}Lid".format(str_partName,k),attrType='string')
+                mShapeSource.doStore('cgmType','proxy')
+                mShapeSource.doName()
+    
+                ml_proxy.append(mShapeSource)
+                
+                if skin:
+                    MRSPOST.skin_mesh(mShapeSource,[mLidSkin.rigJoint])
+                else:
+                    mShapeSource.p_parent = mLidSkin.rigJoint#mModule
+            
+            
+        else:
+            log.debug("|{0}| >> ...".format(_str_func))
+            ml_proxyJoints = []
+            
+            log.debug(cgmGEN.logString_sub(_str_func,'proxy joints'))        
+            md_defineObjs = {}
+            ml_formHandles = self.msgList_get('formHandles')
+            for mObj in ml_formHandles:
+                md_defineObjs[mObj.handleTag] = mObj
+                
+            _d_joints = {'upr':[],
+                         'lwr':[]}
+                
+            for k,l in list(_d_joints.items()):
+                _key = k+'Orb'
+                for k2,mObj in list(md_defineObjs.items()):
+                    if _key in k2:
+                        mJoint = self.doCreateAt('joint')
+                        mJoint.p_position = mObj.p_position
+                        mJoint.p_parent = mRoot #mDeformNull
+                        mJoint.v=False
+                        mJoint.dagLock()
+                        ml_proxyJoints.append(mJoint)
+                        l.append(mJoint)
+        
+            mRigNull.msgList_connect('proxyJoints', ml_proxyJoints)        
+            
+            md_map = {}
+            for k in 'upr','lwr','lidCorner':
+                md_map[k] = []
+                
+                for mJnt in ml_rigJoints:
+                    if '_{0}'.format(k) in mJnt.p_nameBase:
+                        md_map[k].append(mJnt)        
+            
+            pprint.pprint(md_map)
+            _d_mesh = {}
+            for k in 'upr','lwr':
+                mMesh = self.getMessageAsMeta('{0}LidFormLoft'.format(k))
+                d_kws = {'mode':'default',
+                         'uNumber':self.numLidSplit_u,
+                         'vNumber':self.numLidSplit_v,
+                         }
+    
+                        
+                mMesh = RIGCREATE.get_meshFromNurbs(mMesh,**d_kws)    
+                ml_proxy.append(mMesh)
+                ml_noFreeze.append(mMesh)
+                CORERIG.colorControl(mMesh.mNode,_side,'main',transparent=False,proxy=True)
+                
+                mc.skinCluster ([mJnt.mNode for mJnt in md_map[k] + md_map['lidCorner'] + _d_joints[k]],
+                                mMesh.mNode,
+                                tsb=True,
+                                bm=0,
+                                wd=0,
+                                sm=0,
+                                maximumInfluences = 4,
+                                heatmapFalloff = 1.0,
+                                dropoffRate=4,                            
+                                normalizeWeights = 1)            
+
+    
+    
+    
+    
+    
+    
+    #_mesh = mc.polyUnite(l_combine, ch=False )[0]
+    #mProxyEye = cgmMeta.validateObjArg(_mesh,'cgmObject',setClass=True)
     
     mc.delete(l_delete)
     
-    mProxyEye.p_parent = False
-    return [mProxyEye]
+    #mProxyEye.p_parent = False
+    return ml_proxy
 
 
     
@@ -6002,7 +6210,7 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False)
     mModule = self.moduleTarget
     mRigNull = mModule.rigNull
     mDeformNull = mModule.deformNull
-    mSettings = mRigNull.settings
+    #mSettings = mRigNull.settings
     mRoot = mRigNull.getMessageAsMeta('rigRoot')
     if not mRoot:
         mRoot = mDeformNull
@@ -6012,10 +6220,9 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False)
     mPuppetSettings = mMaster.controlSettings
     str_partName = mModule.get_partNameBase()
     mPrerigNull = mBlock.prerigNull
-    directProxy = mBlock.proxyDirect
+    #directProxy = mBlock.proxyDirect
     
     _side = BLOCKUTILS.get_side(self)
-    ml_neckProxy = []
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
@@ -6059,6 +6266,7 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False)
                                        'cgmObject',setClass=True)"""
     
     mOrb = mBlock.getMessageAsMeta('bbHelper')
+    mOrb.rz = 90
     str_meshShape = mOrb.getShapes()[0]
     minU = ATTR.get(str_meshShape,'minValueU')
     maxU = ATTR.get(str_meshShape,'maxValueU')
@@ -6091,7 +6299,7 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False)
         l_delete.append(mDup.mNode)
         md_helpers[k] =[mDup.mNode]
         
-        mDup.rz = _r
+        #mDup.rz = _r
         
         
         if k == 'iris' and not mBlock.getMessage('pupilHelper'):

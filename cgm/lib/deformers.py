@@ -115,7 +115,7 @@ def polyUniteGeo(objList,name='unitedGeo'):
 		try:
 			index = objList.index(obj)
 			print((geoOutNodes[index]))
-			if search.returnObjectType( (geoOutNodes[index]) ) is 'shape':
+			if search.returnObjectType( (geoOutNodes[index]) ) == 'shape':
 				mc.connectAttr(('%s%s'% (geoOutNodes[index],'.outMesh')),('%s%s%i%s'% (uniteNode,'.inputPoly[',index,']')),f=True)
 				mc.connectAttr(('%s%s'% (obj,'.worldMatrix[0]')),('%s%s%i%s'% (uniteNode,'.inputMat[',index,']')),f=True)
 			else:
@@ -221,7 +221,7 @@ def removePolyUniteNode(polyUniteNode):
 	mc.delete(polyUniteNode)
 
 	for obj in rawDrivers:
-		if search.returnObjectType(obj) is 'shape':
+		if search.returnObjectType(obj) == 'shape':
 			transform = mc.listRelatives (obj,parent=True, type ='transform')
 			nameBuffer = mc.listRelatives (obj,parent=True, type ='transform')
 			mc.setAttr((transform[0]+'.visibility'),1)
@@ -248,7 +248,7 @@ def isSkinned(obj = None):
 		return False
 	except Exception as error:
 		log.error("obj: {0}".format(obj))
-		raise Exception("{0} fail | error: {1}"(_str_funcName,error))    
+		raise Exception("{0} fail | error: {1}".format(_str_funcName,error))    
 
 
 def returnObjectDeformers(obj, deformerTypes = 'all'):
@@ -779,13 +779,13 @@ def bakeBlendShapeNodesToTargetObject(targetObject = None,sourceObject = None, b
 	attributes.doSetLockHideKeyableAttr(targetObject, lock = False, visible = True, keyable=True)#...make sure our target geo can be wrapped
 
 	l_delete = []
-	if _wrapMethod is 0:
+	if _wrapMethod == 0:
 		wrapBuffer = wrapDeformObject(targetObject,sourceObject,True)
 		l_delete = [wrapBuffer[0]]
-	elif _wrapMethod is 1:
+	elif _wrapMethod == 1:
 		wrapBuffer = influenceWrapObject(targetObject,sourceObject,True,polySmoothness)
 		l_delete = [wrapBuffer[0],wrapBuffer[2]]
-	elif _wrapMethod is 2:
+	elif _wrapMethod == 2:
 		wrapBuffer = proximityWrapObject(targetObject, sourceObject, 
                                      True, proximityMode, expandBy,expandAmount)
 		l_delete = [wrapBuffer[0], wrapBuffer[2], wrapBuffer[3]]

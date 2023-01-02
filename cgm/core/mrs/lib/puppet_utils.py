@@ -2143,7 +2143,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             continue
         log.debug("|{0}| >> Meshing... {1}".format(_str_func,mBlock))
         
-        if proxy:
+        if proxy and mBlock.blockType not in ['eye']:
             _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True,skin=subSkin)
             if _res:ml_mesh.extend(_res)
             

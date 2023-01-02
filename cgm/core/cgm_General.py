@@ -1467,7 +1467,7 @@ def Wrap_exception(func):
             print(_str_subLine + _str_subLine)            
             raise
         finally:
-            print(logString_sub(_str_func,'fail post'))
+            log.debug(logString_sub(_str_func,'fail post'))
             if res:
                 return res        
             #cgmException(err,None,tb)
@@ -1526,7 +1526,7 @@ def Timer(func):
     '''
     @wraps(func)
     @Wrap_exception    
-    def TimerWrapper(*args, **kws):
+    def Timer_Wrapper(*args, **kws):
         res=None
         try:_str_func = func_getTraceString(func)
         except:_str_func = func
@@ -1539,7 +1539,7 @@ def Timer(func):
             return res
         finally:
             pass
-    return TimerWrapper
+    return Timer_Wrapper
 
 @Timer
 def testTimer(sleep = .5):
