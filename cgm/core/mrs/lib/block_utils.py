@@ -246,7 +246,7 @@ def verify_blockAttrs(self, blockType = None, forceReset = False, queryMode = Tr
             mBlockModule = self.p_blockModule
         elif not mBlockModule:
             raise NotImplementedError("Haven't implemented blocktype changing...")
-        importlib.reload(mBlockModule)
+        cgmGEN._reloadMod(mBlockModule)
         try:d_attrsFromModule = mBlockModule.d_attrsToMake
         except:d_attrsFromModule = {}
         
@@ -732,7 +732,7 @@ def color_outliner(self,mNodes = None, arg = 'main', stateLinks = True):
     _str_func = 'color'
     log.debug(cgmGEN.logString_start(_str_func))
 
-    importlib.reload(BLOCKSHARE)
+    cgmGEN._reloadMod(BLOCKSHARE)
     
     d_color = BLOCKSHARE.d_outlinerColors.get(self.blockType)
     if not d_color:
@@ -6956,13 +6956,22 @@ def formDelete(self):
 def templateAttrLock(self,v=1):
     self.template = v
 
-@cgmGEN.Timer
+#@cgmGEN.Wrap_exception
 def test_exception(self,*args,**kws):
-    raise ValueError("here")
+    try:
+        localTest = 'hello world'
+        raise ValueError("here")
+    except:
+        cgmGEN.log_tb()
+        raise
 
-@cgmGEN.Timer
 def test_nestedException(self,*args,**kws):
-    test_exception(self,*args,**kws)
+    try:
+        localTest = 'hello nested world'    
+        test_exception(self,*args,**kws)
+    except:
+        cgmGEN.log_tb()
+        raise    
     
 def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
                      loftShape=None,l_basePos = None, baseSize=1.0,
@@ -9842,71 +9851,84 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     for uValue in l_uIsos:
         mCrv = getCurve(uValue,l_newCurves)
         
-@cgmGEN.Timer
 def create_defineCurve(self,d_definitions,md_handles, mParentNull = None,crvType='defineCurve'):
-    _short = self.p_nameShort
-    _str_func = 'create_defineCurve'
-    log.debug("|{0}| >>...".format(_str_func)+ '-'*80)
-    log.debug(self)
-    
-    md_defineCurves = {}
-    ml_defineCurves =[]
-    
-    if mParentNull == None:
-        mParentNull = self.atUtils('stateNull_verify','define')
+    try:
         
-    mHandleFactory = self.asHandleFactory()
-    for k in list(d_definitions.keys()):
-        log.debug("|{0}| >>  curve: {1}...".format(_str_func,k))            
-        _dtmp = d_definitions[k]
+        _short = self.p_nameShort
+        _str_func = 'create_defineCurve'
+        log.debug("|{0}| >>...".format(_str_func)+ '-'*80)
+        log.debug(self)
         
-        str_name = _dtmp.get('name') or "{0}_{1}".format(self.blockProfile,k)
-        _tagOnly = _dtmp.get('tagOnly',False)
-        _handleKeys = _dtmp.get('keys')
+        md_defineCurves = {}
+        ml_defineCurves =[]
         
-        ml_handles = _dtmp.get('ml_handles') or [md_handles[k2] for k2 in _handleKeys]
-    
-        l_pos = []
-        for mHandle in ml_handles:
-            l_pos.append(mHandle.p_position)
-    
-        _crv = mc.curve(d=1,p=l_pos)
-        #CORERIG.create_at(create='curve',l_pos = l_pos)
-        mCrv = cgmMeta.validateObjArg(_crv,'cgmObject',setClass=True)
-        mCrv.p_parent = mParentNull
-        
-        _color = _dtmp.get('color')
-        if _color:
-            CORERIG.override_color(mCrv.mNode, _color)
-        else:
-            mHandleFactory.color(mCrv.mNode)
+        if mParentNull == None:
+            mParentNull = self.atUtils('stateNull_verify','define')
             
-        mCrv.rename('{0}_{1}'.format(k,crvType))
-        mCrv.doStore('handleTag',k,attrType='string')
-        #mCrv.v=False
-        #md_loftCurves[tag] = mCrv
-    
-        self.connectChildNode(mCrv, k+STR.capFirst(crvType),'block')
-        ml_defineCurves.append(mCrv)
-        md_defineCurves[k] = mCrv
-    
-        l_clusters = []
-        for i,cv in enumerate(mCrv.getComponents('cv')):
-            _res = mc.cluster(cv, n = 'test_{0}_{1}_pre_cluster'.format(ml_handles[i].p_nameBase,i))
-            mCluster = cgmMeta.asMeta(_res[1])
-            mCluster.p_parent = ml_handles[i].mNode
-            mCluster.v = 0
-            l_clusters.append(_res)
+        mHandleFactory = self.asHandleFactory()
+        for k in list(d_definitions.keys()):
+            log.debug("|{0}| >>  curve: {1}...".format(_str_func,k))            
+            _dtmp = d_definitions[k]
             
-        if _dtmp.get('rebuild'):
-            _node = mc.rebuildCurve(mCrv.mNode, d=3, keepControlPoints=False,
-                                    ch=1,s=len(ml_handles),
-                                    n="{0}_reparamRebuild".format(mCrv.p_nameBase))
-            mc.rename(_node[1],"{0}_reparamRebuild".format(mCrv.p_nameBase))
+            str_name = _dtmp.get('name') or "{0}_{1}".format(self.blockProfile,k)
+            _tagOnly = _dtmp.get('tagOnly',False)
+            _handleKeys = _dtmp.get('keys')
             
-        mCrv.dagLock()
-    return {'md_curves':md_defineCurves,
-            'ml_curves':ml_defineCurves}
+            _handleKeys = LISTS.get_noDuplicates(_handleKeys)
+            
+            ml_handles = _dtmp.get('ml_handles') or [md_handles[k2] for k2 in _handleKeys]
+        
+            #l_pos = []
+            #for mHandle in ml_handles:
+            #    l_pos.append(mHandle.p_position)
+        
+            #_crv = mc.curve(d=1,p=l_pos)
+            _tmpRes = CORERIG.create_at([mHandle.mNode for mHandle in ml_handles],
+                                        create='linearTrack')
+            _crv = _tmpRes[0]
+            
+            #CORERIG.create_at(create='curve',l_pos = l_pos)
+            mCrv = cgmMeta.validateObjArg(_crv,'cgmObject',setClass=True)
+            mCrv.p_parent = mParentNull
+            
+            _color = _dtmp.get('color')
+            if _color:
+                CORERIG.override_color(mCrv.mNode, _color)
+            else:
+                mHandleFactory.color(mCrv.mNode)
+                
+            mCrv.rename('{0}_{1}'.format(k,crvType))
+            mCrv.doStore('handleTag',k,attrType='string')
+            #mCrv.v=False
+            #md_loftCurves[tag] = mCrv
+        
+            self.connectChildNode(mCrv, k+STR.capFirst(crvType),'block')
+            ml_defineCurves.append(mCrv)
+            md_defineCurves[k] = mCrv
+            
+            mCrv.msgList_connect('handles',ml_handles)
+            
+            """
+            l_clusters = []
+            for i,cv in enumerate(mCrv.getComponents('cv')):
+                _res = mc.cluster(cv, n = 'test_{0}_{1}_pre_cluster'.format(ml_handles[i].p_nameBase,i))
+                mCluster = cgmMeta.asMeta(_res[1])
+                mCluster.p_parent = ml_handles[i].mNode
+                mCluster.v = 0
+                l_clusters.append(_res)"""
+                
+            if _dtmp.get('rebuild'):
+                _node = mc.rebuildCurve(mCrv.mNode, d=3, keepControlPoints=False,
+                                        ch=1,s=len(ml_handles),
+                                        n="{0}_reparamRebuild".format(mCrv.p_nameBase))
+                mc.rename(_node[1],"{0}_reparamRebuild".format(mCrv.p_nameBase))
+                
+            mCrv.dagLock()
+        return {'md_curves':md_defineCurves,
+                'ml_curves':ml_defineCurves}
+    except Exception as err:
+        cgmGEN.func_snapShot(vars())
+        raise
 
 @cgmGEN.Timer
 def create_define_rotatePlane(self, md_handles,md_vector,mStartParent=None):
@@ -12702,7 +12724,7 @@ def blockScale_bake(self,sizeMethod = 'axisSize',force=False,):
                     elif sizeMethod in ['bb','bbSize']:
                         if _d.get('bbSize'):
                             try:
-                                importlib.reload(TRANS)
+                                cgmGEN._reloadMod(TRANS)
                                 TRANS.scale_to_boundingBox(_d['str'],_d['bbSize'],freeze=False)
                             except Exception as err:
                                 log.warning(cgmGEN.logString_msg(_str_func, "{0} | failed to axisSize {1}".format(_d['str'],err)))
