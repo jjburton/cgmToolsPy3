@@ -20,7 +20,7 @@ import maya.utils as mUtils
 import copy
 import time
 import inspect
-#import platform
+import platform
 import sys
 import traceback
 #import linecache
@@ -48,6 +48,15 @@ _d_KWARG_stopAtStep = {'kw':'stopAtStep',"default":None, 'help':"Step of a cgmFu
 
 #Shared data...
 _l_moduleStates = ['define','size','template','skeleton','rig']
+
+
+_b_py3 = False
+if platform.python_version().startswith('3'):
+    _b_py3 = True
+    _reloadMod = importlib.reload
+else:
+    _reloadMod = reload
+
 
 def get_timeString(v):
     if v > 1:
@@ -1149,7 +1158,7 @@ def testException(message = 'cat'):
 #mUtils.formatGuiException = cgmExceptCB
 
 def reset_mayaException():
-    importlib.reload(mUtils)    
+    _reloadMod(mUtils)    
 """
 example subFunctionClass(object)
 class sampleClass(cgmFunctionClass):
@@ -1474,8 +1483,8 @@ def Wrap_exception(func):
     return Exception_Wrapper
 
     
-    
-def SuspendCall(func):
+
+def Wrap_suspendCall(func):
     '''
     Call to handle the typical pre/post do stuff calls like:
     - undoChunk
@@ -1485,41 +1494,47 @@ def SuspendCall(func):
     - closing the maya progress bar if it was stuck open from an exception
     '''
     @wraps(func)
-    def SuspendCall(*args, **kws):
-        _str_func = 'SuspendCall {}'.format(func)
+    def SuspendCall_Wrapper(*args, **kws):
+        _str_func = 'SuspendCall_Wrapper {}'.format(func)
         res = None
-        print(logString_sub(_str_func,'pre'))
-
-        _cachedPlaybackEnable = mc.optionVar(q='cachedPlaybackEnable')
-        if _cachedPlaybackEnable:
-            mc.optionVar( iv=('cachedPlaybackEnable', 0))
+        log.debug(logString_sub(_str_func,'pre'))
+        mc.refresh(su=1)
         mc.undoInfo(openChunk=True,chunkName="undo{0}".format(func))
         #mc.undoInfo(openChunk=True)
         _autoKey = mc.autoKeyframe(q=True,state=True)
-        mc.refresh(su=1)
         
-        print(logString_sub(_str_func,'do'))
+        
+        if __mayaVersionInt__ >= 2019:
+            log.debug("maya current")
+            _cachedPlaybackEnable = mc.optionVar(q='cachedPlaybackEnable')
+            if _cachedPlaybackEnable:
+                log.debug("cacheOff")                
+                mc.optionVar( iv=('cachedPlaybackEnable', 0))
+
+        log.debug(logString_sub(_str_func,'do'))
         try:
             res=func(*args,**kws) 
         finally:
-            print(logString_sub(_str_func,'post'))
+            log.debug(logString_sub(_str_func,'post'))
             
             mc.undoInfo(closeChunk=True)#...close our chunk
             if _autoKey:#turn back on if it was
                 mc.autoKeyframe(state=True)
                 
-            mc.refresh(su=0) #turn off suspension
     
-            if _cachedPlaybackEnable:
-                mc.optionVar( iv=('cachedPlaybackEnable', 1))
-                
+            if __mayaVersionInt__ >= 2019:
+                if _cachedPlaybackEnable:
+                    mc.optionVar( iv=('cachedPlaybackEnable', 1))
             try:
                 mayaMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
                 mc.progressBar(mayaMainProgressBar, edit=True, endProgress=True)                    
             except:pass
+            
+            mc.refresh(su=0) #turn off suspension
+            
             if res:
                 return res
-    return SuspendCall
+    return SuspendCall_Wrapper
 
 def Timer(func):
     '''

@@ -14,7 +14,7 @@ from cgm.core.lib import math_utils as MATH
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import locator_utils as LOC
-from cgm.core import cgm_General as cgmGeneral
+from cgm.core import cgm_General as cgmGEN
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core import cgm_General as cgmGEN
 
@@ -59,7 +59,7 @@ class PostBake(object):
 
         self.startTime = int(mc.playbackOptions(q=True, min=True))
         self.endTime = int(mc.playbackOptions(q=True, max=True))
-
+        
     def bake(self, startTime=None, endTime=None):
         _str_func = 'PostBake.bake'
 

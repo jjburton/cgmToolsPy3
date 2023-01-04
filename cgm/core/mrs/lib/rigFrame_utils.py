@@ -331,7 +331,7 @@ def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
     
     
         #Build the IK ---------------------------------------------------------------------
-        importlib.reload(IK)
+        cgmGEN._reloadMod(IK)
         """
         if mIKControlEnd and str_ikEnd in ['tipCombo']:
             mMainIKControl = mIKControlEnd

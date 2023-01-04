@@ -218,8 +218,8 @@ def mayaScanner_batch(path= None, process=True):
     'om2.MGlobal.displayInfo("Go")',
 ]
     
-    l_post = ['except Exception,err:',
-              '    print err',
+    l_post = ['except Exception as err:',
+              '    print(err)',
     '    import msvcrt#...waits for key',
     '    om2.MGlobal.displayInfo("Hit a key to continue")',
     '    msvcrt.getch()',

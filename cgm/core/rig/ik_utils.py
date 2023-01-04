@@ -2524,7 +2524,7 @@ def ribbon(jointList = None,
                 _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode,
                                                               l_targets)
                 pprint.pprint(_vList)
-                importlib.reload(CONSTRAINT)
+                cgmGEN._reloadMod(CONSTRAINT)
                 CONSTRAINT.set_weightsByDistance(_scale[0],_vList)
                 
             mAdditiveScale = cgmMeta.cgmNode(nodeType='multiplyDivide')

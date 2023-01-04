@@ -2901,8 +2901,8 @@ def rig_controls(self):
 
 #@cgmGEN.Timer
 def rig_segments(self):
-    importlib.reload(DIST)
-    importlib.reload(IK)
+    cgmGEN._reloadMod(DIST)
+    cgmGEN._reloadMod(IK)
     _short = self.d_block['shortName']
     _str_func = 'rig_segments'
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
@@ -2989,7 +2989,7 @@ def rig_segments(self):
             
             
             
-        importlib.reload(IK)
+        cgmGEN._reloadMod(IK)
 
         
         _d.update(self.d_squashStretch)
@@ -3118,7 +3118,7 @@ def rig_frame(self):
         mRigNull = self.mRigNull
         mRootParent = self.mDeformNull
         mModule = self.mModule
-        importlib.reload(IK)
+        cgmGEN._reloadMod(IK)
         ml_rigJoints = mRigNull.msgList_get('rigJoints')
         ml_fkJoints = mRigNull.msgList_get('fkJoints')
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
@@ -3429,7 +3429,7 @@ def rig_frame(self):
                     _d['parentDeformTo'] = mIKGroup
                     _d['setupAim'] = 1
                     
-                    importlib.reload(IK)
+                    cgmGEN._reloadMod(IK)
                     #_l_segJoints = _d['jointList']
                     #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                     IK.curve(**_d)                                    
@@ -3462,7 +3462,7 @@ def rig_frame(self):
                 
                     
                     
-                importlib.reload(IK)
+                cgmGEN._reloadMod(IK)
                 log.debug("|{0}| >> ribbon ik handles...".format(_str_func))
                 
                 if mIKBaseControl:

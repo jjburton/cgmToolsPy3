@@ -1598,7 +1598,7 @@ def rig_shapes(self):
     #Pivots =======================================================================================
     if mBlock.getMessage('pivotHelper'):
         if self.str_addPivot == 'wobbleOnly':
-            importlib.reload(RIGSHAPES)
+            cgmGEN._reloadMod(RIGSHAPES)
             #_l = ['center','front','spin','tilt']
             _l = ['spin','tilt','center']
             RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)
@@ -1859,7 +1859,7 @@ def rig_frame(self):
             mAimDriver = mPivotResultDriver
             mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
             
-            importlib.reload(mBlock.UTILS)
+            cgmGEN._reloadMod(mBlock.UTILS)
             
             _pivot_kws = {}
             pivotSetup = 'default'

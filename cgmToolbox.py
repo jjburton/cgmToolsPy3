@@ -13,9 +13,9 @@ Website : https://github.com/jjburton/cgmTools/wiki
 #from __future__ import with_statement
 
 import os
-import re
-import sys
-import webbrowser
+#import re
+#import sys
+#import webbrowser
 import logging
 import importlib
 logging.basicConfig()
@@ -27,8 +27,6 @@ __version__ = cgmGen.__RELEASESTRING
 
 import Red9
 Red9.setup.addPythonPackages()
-
-
 
 #import cgm.core.classes.GuiFactory as cgmUI
 #try:

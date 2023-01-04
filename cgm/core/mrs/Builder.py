@@ -146,7 +146,7 @@ def reloadMRSStuff():
               BLOCKGEN,CONTEXT,BLOCKSHAPES,NAMETOOLS,CGMUI,RIGSHAPES,MRSPOST,MODULEUTILS,PUPPETUTILS,
               MODULECONTROLFACTORY,MODULESHAPECASTER]:
         print(m)
-        importlib.reload(m)
+        cgmGEN._reloadMod(m)
     log.info(cgmGEN._str_subLine)
     
 
@@ -3571,12 +3571,12 @@ class ui_stepBuild(cgmUI.cgmGUI):
         
         
         def reloadStuff():
-            importlib.reload(mModule)
-            importlib.reload(BUILDERUTILS)
-            importlib.reload(BLOCKGEN)
-            importlib.reload(BLOCKSHARE)
-            importlib.reload(BLOCKUTILS)
-            importlib.reload(RIGFRAME)
+            cgmGEN._reloadMod(mModule)
+            cgmGEN._reloadMod(BUILDERUTILS)
+            cgmGEN._reloadMod(BLOCKGEN)
+            cgmGEN._reloadMod(BLOCKSHARE)
+            cgmGEN._reloadMod(BLOCKUTILS)
+            cgmGEN._reloadMod(RIGFRAME)
         
         #SingleChecks======================================================================
         mRow_buttons = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 2)
@@ -3931,7 +3931,7 @@ class ui_post(cgmUI.cgmGUI):
         
         
 import cgm.core.mrs.lib.batch_utils as MRSBATCH
-importlib.reload(MRSBATCH)
+cgmGEN._reloadMod(MRSBATCH)
 _l_post_order = MRSBATCH.l_mrsPost_order
 
 
@@ -3972,7 +3972,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
     def insert_init(self,*args,**kws):
         self.l_files = []
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        importlib.reload(MRSBATCH)        
+        cgmGEN._reloadMod(MRSBATCH)        
         #global UISTANDALONE
         #UISTANDALONE = self
         
@@ -4024,7 +4024,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         log.info("Batch file creating...")
     
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        importlib.reload(MRSBATCH)
+        cgmGEN._reloadMod(MRSBATCH)
         MRSBATCH.create_MRS_batchFile(process=True)
 
     @cgmGEN.Timer
@@ -4035,7 +4035,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         
         _str_func = 'uiFunc_process[{0}]'.format(self.__class__.TOOLNAME)
         log.debug("|{0}| >>...".format(_str_func))
-        importlib.reload(MRSBATCH)
+        cgmGEN._reloadMod(MRSBATCH)
                 
         ml_masters = r9Meta.getMetaNodes(mTypes = 'cgmRigBlock',
                                          nTypes=['transform','network'],
@@ -4486,6 +4486,14 @@ class ui(cgmUI.cgmGUI):
                         c=cgmGEN.Callback(self.uiFunc_contextBlockCall,
                               'atUtils','get_tagMessage','settingsHelper',
                               **{'selectResult':1,'updateUI':0}))
+        
+        mUI.MelMenuItemDiv( self.uiMenu_select, label = 'Define')
+        mUI.MelMenuItem(_menu, l="Handles",
+                        ann='Select  Define Handles',
+                        c=cgmGEN.Callback(self.uiFunc_contextBlockCall,
+                              'atUtils','get_tagMessage',
+                              **{'selectResult':1,'updateUI':0,'msgList':'defineSubHandles'}))
+        
         
         mUI.MelMenuItemDiv( self.uiMenu_select, label = 'Form')
         mUI.MelMenuItem(_menu, l="Orient Helper",
@@ -5545,7 +5553,7 @@ class ui(cgmUI.cgmGUI):
         log.info("Batch file creating...")
     
         import cgm.core.mrs.lib.batch_utils as MRSBATCH
-        importlib.reload(MRSBATCH)
+        #cgmGEN._reloadMod(MRSBATCH)
         
         MRSBATCH.create_MRS_batchFile(process=True)
         
@@ -9882,7 +9890,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         
         #Helpers Frame -------------------------------------------------------------------------------
-        importlib.reload(HELPERS)
+        #cgmGEN._reloadMod(HELPERS)
         HELPERS.buildFrame_helpers(self,_inside)
         
         

@@ -173,7 +173,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItem( self.uiMenu_help, l="Get Pose Nodes",
                          c=lambda *a: self.get_poseNodes(select=True) )
         mUI.MelMenuItem( self.uiMenu_help, l="Reset Animate Module",
-                         c=lambda *a: importlib.reload(MRSANIMUTILS) )        
+                         c=lambda *a: cgmGEN._reloadMod(MRSANIMUTILS) )        
 
         mc.menuItem(parent=self.uiMenu_help,
                     l = 'Get Help',
@@ -442,7 +442,7 @@ class ui(cgmUI.cgmGUI):
         #buildTab_poses(self,uiTab_poses)
         
         #buildTab_anim(self,uiTab_poses)
-        importlib.reload(TOOLBOX)
+        cgmGEN._reloadMod(TOOLBOX)
         TOOLBOX.optionVarSetup_basic(self)
         TOOLBOX.buildTab_options(self,uiTab_settings)
         TOOLBOX.buildTab_anim(self,uiTab_anim)
@@ -2211,7 +2211,7 @@ def uiCB_contextualActionMM(self,**kws):
         return _res
     
 @cgmGEN.Timer
-@cgmGEN.SuspendCall
+@cgmGEN.Wrap_suspendCall
 def uiCB_contextualAction(self,**kws):
     _str_func='uiCB_contextualTime'
     log.debug(cgmGEN.logString_start(_str_func))
@@ -4966,7 +4966,7 @@ def deleteKey():
 def uiCB_bufferDat(self,update=True):
     _str_func='uiCB_bufferDat'
     log.info(cgmGEN.logString_msg(_str_func))
-    importlib.reload(MRSANIMUTILS)
+    cgmGEN._reloadMod(MRSANIMUTILS)
     self.mDat = MRSANIMUTILS.get_sharedDatObject()#MRSANIMUTILS.MRSDAT
         
 def uiCB_resetSliderDrop(self):

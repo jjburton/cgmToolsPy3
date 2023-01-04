@@ -106,8 +106,6 @@ __l_rigBuildOrder__ = ['rig_dataBuffer',
                        'rig_cleanUp']
 
 
-
-
 d_wiring_skeleton = {'msgLinks':[],
                      'msgLists':['moduleJoints','skinJoints']}
 d_wiring_prerig = {'msgLinks':['moduleTarget','prerigNull','noTransPrerigNull']}
@@ -125,7 +123,8 @@ d_attrStateMask = {'define':[
     'cheekUprSetup',
     'chinSetup',
     'faceType',
-    'jawSetup',
+    'jawLwrSetup',
+    'jawUprSetup',
     'lipSetup',
      'muzzleSetup',
      'noseSetup',
@@ -136,7 +135,6 @@ d_attrStateMask = {'define':[
      'teethLwrSetup',
      'teethUprSetup',
      'tongueSetup',
-     'uprJawSetup'     
     ],
                    'form':[ 'numLipOverSplit',
                             'numLipShapersLwr',
@@ -187,7 +185,7 @@ d_block_profiles = {'default':{},
                            'faceType':'default',
                            'muzzleSetup':'dag',
                            'noseSetup':'none',
-                           'jawSetup':'simple',
+                           'jawLwrSetup':'simple',
                            'lipSetup':'none',
                            'teethSetup':'none',
                            'cheekSetup':'none',
@@ -195,12 +193,12 @@ d_block_profiles = {'default':{},
                            'uprJaw':False,
                            'chinSetup':'none',
                                },
-                    'canine':{'jawSetup':'simple',
+                    'canine':{'jawLwrSetup':'simple',
                               'lipSetup':'default',
                               'noseSetup':'simple',
                               'chinSetup':'none',
                               'nostrilSetup':'simple'},
-                    'human':{'jawSetup':'simple',
+                    'human':{'jawLwrSetup':'simple',
                              'lipSetup':'default',
                              'muzzleSetup':'dag',                             
                              'noseSetup':'simple',
@@ -238,7 +236,7 @@ l_attrsStandard = ['side',
 d_attrsToMake = {'faceType':'default:muzzle:beak',
                  'muzzleSetup':'none:dag:joint',
                  'noseSetup':'none:simple',
-                 'jawSetup':'none:simple:slide',
+                 'jawLwrSetup':'none:simple:slide',
                  'lipSetup':'none:default',
                  'teethUprSetup':'none:simple',
                  'teethLwrSetup':'none:simple',
@@ -250,7 +248,7 @@ d_attrsToMake = {'faceType':'default:muzzle:beak',
                  'smileSetup':'none:single:lineSimple',
                  
                  #Jaw...
-                 'uprJawSetup':'none:default',
+                 'jawUprSetup':'none:simple',
                  'chinSetup':'none:single',
                  #Nose...
                  'nostrilSetup':'none:default',
@@ -799,7 +797,7 @@ def define(self):
     _str_faceType = self.getEnumValueString('faceType')
     _str_muzzleSetup = self.getEnumValueString('muzzleSetup')
     _str_noseSetup = self.getEnumValueString('noseSetup')
-    _str_uprJawSetup = self.getEnumValueString('uprJawSetup')    
+    _str_jawLwrSetup = self.getEnumValueString('jawLwrSetup')    
     _str_lipsSetup = self.getEnumValueString('lipsSetup')
     _str_teethSetup = self.getEnumValueString('teethSetup')
     _str_cheekSetup = self.getEnumValueString('cheekSetup')
@@ -884,9 +882,9 @@ def define(self):
                 d_base[k]['scaleSpace'] = _v        
     
     #Jaw ---------------------------------------------------------------------
-    if self.jawSetup:
-        _str_jawSetup = self.getEnumValueString('jawSetup')
-        log.debug(cgmGEN.logString_sub(_str_func,'jawSetup: {0}'.format(_str_jawSetup)))
+    if self.jawLwrSetup:
+        _str_jawLwrSetup = self.getEnumValueString('jawLwrSetup')
+        log.debug(cgmGEN.logString_sub(_str_func,'jawLwrSetup: {0}'.format(_str_jawLwrSetup)))
         
         _d_pairs = {}
         _d = {}
@@ -1115,7 +1113,7 @@ def define(self):
         if self.noseSetup:
             _d_curveCreation['lipCrossUpr']['keys'].append('noseBase')        
         
-        if _str_pose in ['canine','beak']:
+        if _str_pose in ['canine','beak','muzzle']:
             _d_curveCreation['lipCrossLwrOutRight'] = {'keys':['lwrGumOutRight','lwrBackOutRight',
                                                                'lwrFrontOutRight','lwrPeakOutRight',
                                                                'lwrOverOutRight'],
@@ -1204,7 +1202,7 @@ def define(self):
             _d_curveCreation['smileLineRight']['keys'].remove('jawFrontRight')
             
             
-        if self.chinSetup:
+        if self.chinSetup or self.jawLwrSetup:
             _d_curveCreation['lipCrossLwrLeft']['keys'].append('chinLeft')
             _d_curveCreation['lipCrossLwrRight']['keys'].append('chinRight')
             
@@ -1213,14 +1211,12 @@ def define(self):
             
             
         d_curveCreation.update(_d_curveCreation)
-        
-        
-        
+
         if self.noseSetup:
             d_curveCreation['cheekLineLeft']['keys'].append('sneerLeft')
             d_curveCreation['cheekLineRight']['keys'].append('sneerRight')
             
-            if _str_pose == 'canine':
+            if _str_pose in ['canine','muzzle']:
                 d_curveCreation['smileLineLeft']['keys'].insert(0,'sneerLeft')
                 d_curveCreation['smileLineRight']['keys'].insert(0,'sneerRight')
                 
@@ -1256,7 +1252,7 @@ def define(self):
             #d_curveCreation['overLip'] = {'keys':['uprPeak','noseBase',],
                                                 #'color':'yellowWhite',
                                                 #'rebuild':0}            
-        if self.jawSetup:
+        if self.jawLwrSetup:
             #if _str_pose not in ['canine']:
                 #d_curveCreation['smileLineLeft']['keys'].insert(0,'cheekBoneLeft')
                 #d_curveCreation['smileLineRight']['keys'].insert(0,'cheekBoneRight')            
@@ -1269,7 +1265,7 @@ def define(self):
             d_curveCreation['smileCrossLeft']['keys'].append('cheekLeft')
             d_curveCreation['smileCrossRight']['keys'].append('cheekRight')            
         
-        if self.chinSetup:
+        if self.chinSetup or self.jawLwrSetup:
             #d_curveCreation['smileLineLeft']['keys'][-1] = 'chinLeft'
             #d_curveCreation['smileLineRight']['keys'][-1] = 'chinRight'
             
@@ -1432,7 +1428,7 @@ def define(self):
         d_curveCreation['cheekLineLeft']['keys'].append('sneerLeft')
         d_curveCreation['cheekLineRight']['keys'].append('sneerRight')
         
-        if self.jawSetup:
+        if self.jawLwrSetup:
             if _str_pose in ['human']:
                 d_curveCreation['frontPlaneLeft'] = {'keys':['nostrilTopLeft','cheekBoneLeft'],
                                                      'color':'blueWhite',
@@ -1449,7 +1445,7 @@ def define(self):
             d_curveCreation['noseBridge']['keys'].insert(0,'bridgeOuterRight')
             
     
-    if self.chinSetup:
+    if self.chinSetup or self.jawLwrSetup:
         _str_chinSetup = self.getEnumValueString('chinSetup')
         log.debug(cgmGEN.logString_sub(_str_func,'chinSetup: {0}'.format(_str_chinSetup)))
         
@@ -1497,7 +1493,7 @@ def define(self):
                 d_curveCreation['lipToChinLeft']['keys'].insert(-1,'chinLeft')
                 d_curveCreation['lipToChinRight']['keys'].insert(-1,'chinRight')
             
-        #if self.jawSetup:
+        #if self.jawLwrSetup:
             #d_curveCreation['cheekFrameLeft']['keys'][-1] = 'chinLeft'
             #d_curveCreation['cheekFrameRight']['keys'][-1] = 'chinRight'
             
@@ -2252,9 +2248,10 @@ def form(self):
                         k_crv = "{0}_{1}_{2}".format(section,i,side)
                         d_noseCurves[section][side][i] = {'key':k_crv,
                                                          'handles':[]}
-                        for ii,handle in list(d_handle.items()):
-                            d_noseCurves[section][side][i]['handles'].append(handle)
-                            
+                        #for ii,handle in list(d_handle.items()):
+                        #    d_noseCurves[section][side][i]['handles'].append(handle)
+                        for ii in sorted(d_handle):
+                            d_noseCurves[section][side][i]['handles'].append(d_handle[ii])
                 
                 #Now we need to sort those handles
                 for i in l_crvIdx:
@@ -2283,9 +2280,9 @@ def form(self):
             #pprint.pprint(d_curveCreation)
             mc.delete(_l_clean)
         
-        if self.jawSetup:
+        if self.jawLwrSetup:
             log.debug("|{0}| >>  Jaw setup...".format(_str_func))
-            _str_jawSetup = self.getEnumValueString('jawSetup')
+            _str_jawLwrSetup = self.getEnumValueString('jawLwrSetup')
             
             _d_pairs = {}
             d_handlePosDat_jaw = {}
@@ -2509,8 +2506,10 @@ def form(self):
                         d_jawCurves[section][side][i] = {'key':k_crv,
                                                          'handles':[]}
                         
-                        for ii,handle in list(d_handle.items()):
-                            d_jawCurves[section][side][i]['handles'].append(handle)
+                        #for ii,handle in list(d_handle.items()):
+                        #    d_jawCurves[section][side][i]['handles'].append(handle)
+                        for ii in sorted(d_handle):
+                            d_jawCurves[section][side][i]['handles'].append(d_handle[ii])
                             
                         d_curveCreation[k_crv] = {'keys':d_jawCurves[section][side][i]['handles'],
                                                   'rebuild':True}
@@ -2968,7 +2967,7 @@ def form(self):
         
         
         
-        if self.jawSetup:#Bridge...chin------------------------------------------------------------------
+        if self.jawLwrSetup:#Bridge...chin------------------------------------------------------------------
             log.debug(cgmGEN.logString_sub(_str_func,'Bridge | jaw dat'))
             
             
@@ -3446,7 +3445,7 @@ def form(self):
 
     except Exception as err:
         #raise Exception,err
-        cgmGEN.cgmExceptCB(Exception,err)
+        cgmGEN.cgmException(err)
 
 
 #=============================================================================================================
@@ -3645,7 +3644,7 @@ def prerig(self):
         
         
         
-        if self.jawSetup:#   Jaw setup ============================================================
+        if self.jawLwrSetup:#   Jaw setup ============================================================
             log.debug(cgmGEN.logString_sub(_str_func,'jaw'))
             
             #Shape...
@@ -3826,7 +3825,7 @@ def prerig(self):
                     'ml_jointHandles':ml_jointHandles,
                 }
                 d_handleKWS.update(d_baseHandeKWS)
-                importlib.reload(BLOCKSHAPES)
+                cgmGEN._reloadMod(BLOCKSHAPES)
                 mAnchor,mShape,mDag = BLOCKSHAPES.create_face_anchorHandleCombo(self,
                                                                                 p_chinBase,
                                                                                 _tag,
@@ -5091,7 +5090,7 @@ def skeleton_build(self, forceNew = True):
         mLipRoot = mJnt
         
 
-    if self.jawSetup:
+    if self.jawLwrSetup:
         mObj = mPrerigNull.getMessageAsMeta('jaw'+'DagHelper')
         mJaw = create_jointFromHandle(mObj,mRoot)
         mPrerigNull.doStore('jawJoint',mJaw)
@@ -5430,9 +5429,9 @@ def rig_prechecks(self):
     if str_faceType not in ['default']:
         self.l_precheckErrors.append("faceType setup not completed: {0}".format(str_faceType))
 
-    str_jawSetup = mBlock.getEnumValueString('jawSetup')
-    if str_jawSetup not in ['none','simple']:
-        self.l_precheckErrors.append("Jaw setup not completed: {0}".format(str_jawSetup))
+    str_jawLwrSetup = mBlock.getEnumValueString('jawLwrSetup')
+    if str_jawLwrSetup not in ['none','simple']:
+        self.l_precheckErrors.append("Jaw setup not completed: {0}".format(str_jawLwrSetup))
     
     str_muzzleSetup = mBlock.getEnumValueString('muzzleSetup')
     if str_muzzleSetup not in ['none','simple','joint','dag']:
@@ -5647,7 +5646,7 @@ def rig_skeleton(self):
             
             
     #Jaw ---------------------------------------------------------------
-    if self.str_jawSetup:
+    if self.str_jawLwrSetup:
         log.debug("|{0}| >> jaw...".format(_str_func))
         mJntSkin = mPrerigNull.getMessageAsMeta('jawJoint')
         mJntRig = mJntSkin.getMessageAsMeta('rigJoint')
@@ -7084,7 +7083,7 @@ def rig_lipSegments(self):
               'msgDriver':'driverJoint'}    
     
     #pprint.pprint(d_test)
-    importlib.reload(IK)
+    cgmGEN._reloadMod(IK)
     IK.ribbon_seal(**d_lips)
     
     mc.parentConstraint(mLeftCorner.mNode, ml_uprRig[-1].masterGroup.mNode, maintainOffset = True)

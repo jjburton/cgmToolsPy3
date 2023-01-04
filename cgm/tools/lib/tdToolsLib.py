@@ -336,7 +336,7 @@ def doLoadPolyUnite(self):
 	#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	selection = mc.ls(sl=True, flatten = True)
 	if selection:
-		if search.returnObjectType(selection[0]) is 'polyUnite':
+		if search.returnObjectType(selection[0]) == 'polyUnite':
 			self.SourceObjectField(edit = True, text = selection[0])
 			uniteNode = selection[0]
 		else:

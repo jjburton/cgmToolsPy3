@@ -3980,7 +3980,7 @@ def rig_frame(self):
                             
 
                         ml_ribbonIkHandles[-1].parent = mIKControl
-                        importlib.reload(RIGFRAME)
+                        cgmGEN._reloadMod(RIGFRAME)
 
                         if _ikNeck == 'spline':
                             for i,mJnt in enumerate(ml_ikJoints[1:]):
@@ -4090,7 +4090,7 @@ def rig_frame(self):
                             _d['parentDeformTo'] = mIKGroup
                             _d['setupAim'] = 1
                             
-                            importlib.reload(IK)
+                            cgmGEN._reloadMod(IK)
                             #_l_segJoints = _d['jointList']
                             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                             IK.curve(**_d)                                  

@@ -186,7 +186,6 @@ def get_objDat(obj=None, mode = 'self', report = False):
     
     return _res
         
-
 def bake_match(targets = None, move = True, rotate = True, boundingBox = False, pivot = 'rp',
                timeMode = 'slider',timeRange = None, keysMode = 'loc', keysDirection = 'all',
                matchMode = 'self',dynMode=None):

@@ -94,7 +94,7 @@ example:
 
     TOOLNAME = 'cgmScene'
     WINDOW_TITLE = '%s - %s'%(TOOLNAME,__version__)    
-    importlib.reload(SCENEUTILS)
+    cgmGEN._reloadMod(SCENEUTILS)
 
     def insert_init(self,*args,**kws):
         
@@ -4250,7 +4250,7 @@ def ExportScene(mode = -1,
     
     #exec(self.exportCommand)
     import cgm.core.tools.bakeAndPrep as bakeAndPrep
-    importlib.reload(bakeAndPrep)
+    cgmGEN._reloadMod(bakeAndPrep)
     import cgm.core.mrs.Shots as SHOTS
     _str_func = 'ExportScene'
     log.info(log_start(_str_func))

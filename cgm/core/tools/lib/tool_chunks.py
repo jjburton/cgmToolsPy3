@@ -62,9 +62,9 @@ import cgm.core.rig.joint_utils as JOINTS
 from cgm.core.lib import transform_utils as TRANS
 from cgm.core.lib import constraint_utils as CONSTRAINTS
 from cgm.core.lib import search_utils as SEARCH
-importlib.reload(SEARCH)
+cgmGEN._reloadMod(SEARCH)
 import cgm.core.lib.mayaBeOdd_utils as MAYABEODD
-importlib.reload(MMCONTEXT)
+cgmGEN._reloadMod(MMCONTEXT)
 
 from cgm.core.lib.ml_tools import (ml_breakdownDragger,
                                    ml_breakdown,
@@ -1062,9 +1062,9 @@ def uiSection_hotkeys(parent):
 
 from cgm.lib import optionVars
 from cgm.core.lib.wing import mayaWingServer as mWingServer
-importlib.reload(mWingServer)
+cgmGEN._reloadMod(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
-importlib.reload(cgmDeveloperLib)
+cgmGEN._reloadMod(cgmDeveloperLib)
 from cgm.core.tests import cgmMeta_test as testCGM
 import cgm.core.tests.cgmTests as CGMTEST
 #reload(CGMTEST)
@@ -1079,7 +1079,7 @@ def load_MorpheusMaker( *a ):
     try:
         print("Trying to load Morheus Maker 2014")
         from morpheusRig_v2.core.tools import MorpheusMaker as mMaker
-        importlib.reload(mMaker)    
+        cgmGEN._reloadMod(mMaker)    
         mMaker.go()	
     except Exception as error:
         log.error("You appear to be missing the Morpheus pack. Or maybe angered the spirits...")
@@ -1269,20 +1269,20 @@ def uiSection_dev(parent):
     
 def ut_cgmTestCall(*args,**kws):
     import cgm.core.tests.cgmTests as cgmTests
-    importlib.reload(cgmTests)
+    cgmGEN._reloadMod(cgmTests)
     cgmTests.main(*args,**kws)    
 
 def ut_allOLD():
-    importlib.reload(testCGM)
+    cgmGEN._reloadMod(testCGM)
     testCGM.ut_AllTheThings()
 def ut_metaOLD():
-    importlib.reload(testCGM)
+    cgmGEN._reloadMod(testCGM)
     testCGM.ut_cgmMeta()
 def ut_puppetOLD():
-    importlib.reload(testCGM)
+    cgmGEN._reloadMod(testCGM)
     testCGM.ut_cgmPuppet()
 def ut_limbOLD():
-    importlib.reload(testCGM)
+    cgmGEN._reloadMod(testCGM)
     testCGM.ut_cgmLimb()
     
 def uiSection_createFromSel(parent, selection = None):
@@ -1501,7 +1501,7 @@ def uiSection_riggingUtils(parent, selection = None):
 from cgm.core.tools.lib import snap_calls as SNAPCALLS
 
 def call_optionVar_ui():
-    importlib.reload(SNAPCALLS)    
+    cgmGEN._reloadMod(SNAPCALLS)    
     SNAPCALLS.ui_optionVars()
 
 def uiSection_utils(parent = None, selection = None, pairSelected = True):
@@ -1749,7 +1749,7 @@ def uiFunc_createOneOfEach():
     CURVES.create_oneOfEach(var_createSizeValue.value)
 
 def uiFunc_createCurve():
-    importlib.reload(CURVES)
+    cgmGEN._reloadMod(CURVES)
     var_createAimAxis = cgmMeta.cgmOptionVar('cgmVar_createAimAxis', defaultValue = 2)
     var_curveCreateType = cgmMeta.cgmOptionVar('cgmVar_curveCreateType', defaultValue = 'circle')
     var_defaultCreateColor = cgmMeta.cgmOptionVar('cgmVar_defaultCreateColor', defaultValue = 'yellow')

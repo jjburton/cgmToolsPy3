@@ -105,8 +105,8 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
     'import cgm.core.mrs.lib.batch_utils as MRSBATCH',
     '']
     
-    l_post = ['except Exception,err:',
-              '    print err',
+    l_post = ['except Exception as err:',
+              '    print(err)',
     '    import msvcrt#...waits for key',
     '    om2.MGlobal.displayInfo("Hit a key to continue")',
     '    msvcrt.getch()',

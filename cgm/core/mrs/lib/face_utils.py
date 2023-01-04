@@ -607,7 +607,7 @@ class poseBuffer():
     def connect_to_controls(self,d_type = None):
         _str_func = 'connect_to_controls'
         mBuffer = self.mBuffer
-        importlib.reload(NODEF)
+        cgmGEN._reloadMod(NODEF)
         
         if not d_type:
             d_type = _d_faceControlsToConnect.get(mBuffer.cgmName)

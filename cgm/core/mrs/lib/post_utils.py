@@ -318,7 +318,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
     
     if setupCycle:
         import cgm
-        importlib.reload(cgm.lib.nodes)
+        cgmGEN._reloadMod(cgm.lib.nodes)
         cgm.lib.nodes.offsetCycleSpeedControlNodeSetup (mDeformer.mNode,(_settings+'.speed'),cycleLength,cycleOffset)
     
     pprint.pprint(vars())
@@ -954,7 +954,7 @@ def settings_createRootHolder(mSettings = None):
         #Move attrs...----------------------------------------------------------------------------
         for a in ['FKIK', 'visSub', 'visSub_out', 'visRoot', 'visRoot_out', 'visDirect', 'visDirect_out',  'result_FKon', 'result_IKon', 'blendParam']:
             if mCtrl.hasAttr(a):
-                importlib.reload(ATTR)
+                cgmGEN._reloadMod(ATTR)
                 
                 #Move
                 ATTR.copy_to(_orig, a, _new, a,convertToMatch = True,

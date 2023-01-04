@@ -267,7 +267,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
         if _doVerify:
             if blockType:
                 _blockModule =  get_blockModule(blockType)
-                importlib.reload(_blockModule)
+                cgmGEN._reloadMod(_blockModule)
                 self.doStore('blockType',blockType,attrType='string')
             else:
                 _blockModule = False
@@ -679,7 +679,7 @@ class cgmRigBlock(cgmMeta.cgmControl):
     def getBlockModule(self,update = False,reloadMod=False):
         def ret(mod,reloadMod=False):
             if reloadMod:
-                importlib.reload(mod)
+                cgmGEN._reloadMod(mod)
                 log.info("Reloaded: {0}".format(mod))
             return mod
         
@@ -2637,7 +2637,7 @@ def get_blockTypeProfile(blockType = None, blockProfile = 'default', buildProfil
 
     
     mBlockModule = get_blockModule(blockType)
-    importlib.reload(mBlockModule)
+    cgmGEN._reloadMod(mBlockModule)
     
     
     try:d_attrsFromModule = mBlockModule.d_attrsToMake

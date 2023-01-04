@@ -32,7 +32,7 @@ import lib.rayCaster
 import lib.meta_Utils
 import lib.shapeCaster"""
 
-from . import cgm_General as cgmGen
+from . import cgm_General as cgmGEN
 #import os
 import maya.mel as mel
 #import reloadFactory as RELOAD
@@ -90,7 +90,7 @@ from cgm.core.cgmPy import os_Utils as cgmOS
 import importlib
 import pprint
 
-@cgmGen.Timer
+@cgmGEN.Timer
 def _reload(stepConfirm=False):
     """
     import Red9.core
@@ -112,7 +112,7 @@ def _reload(stepConfirm=False):
     import Red9.core
     Red9.setup.addPythonPackages()
     Red9.core._reload()
-    importlib.reload(cgmOS)
+    cgmGEN._reloadMod(cgmOS)
     _d_failed = {}
     
     def loadLocal(str_module, module):
@@ -133,7 +133,7 @@ def _reload(stepConfirm=False):
         else:
             try:
                 module = __import__(_k, globals(), locals(), ['*'])
-                importlib.reload(module) 
+                cgmGEN._reloadMod(module) 
                 log.info("|{0}| >> ... {1}".format(_str_func,_k))  
                 _l_finished.append(_k)
                 _l_cull.remove(_k)
@@ -146,7 +146,7 @@ def _reload(stepConfirm=False):
                 for arg in e.args:
                     log.error(arg)"""
                 #raise Exception,e
-                cgmGen.cgmExceptCB(Exception,e)
+                cgmGEN.cgmExceptCB(Exception,e)
             """log.debug("|{0}| >> Cull: {1} | Ordered: {2}".format(_str_func,
                                                                  len(_l_cull),
                                                                  len(_l_ordered)))"""            
@@ -190,7 +190,7 @@ def _reload(stepConfirm=False):
             else:
                 try:
                     module = __import__(m, globals(), locals(), ['*'],)
-                    importlib.reload(module) 
+                    cgmGEN._reloadMod(module) 
                     log.debug("|{0}| >> ... {1}".format(_str_func,m))  
                     _l_finished.append(m)
                     _l_cull.remove(m)
@@ -214,9 +214,9 @@ def _reload(stepConfirm=False):
                         return False                    
                     
     if _d_failed:   
-        log.info(cgmGen._str_subLine)        
+        log.info(cgmGEN._str_subLine)        
         #log.info("|{0}| >> {1} modules failed to import".format(_str_func,len(_d_failed.keys())))  
-        cgmGen.log_info_dict(_d_failed,"|{0}| >> {1} modules failed to import".format(_str_func,len(list(_d_failed.keys()))))
+        cgmGEN.log_info_dict(_d_failed,"|{0}| >> {1} modules failed to import".format(_str_func,len(list(_d_failed.keys()))))
         
         for k in _d_failed.keys():
             print("import {}".format(k))

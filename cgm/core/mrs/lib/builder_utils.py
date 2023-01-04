@@ -417,7 +417,7 @@ def get_block_lib_dat():
                         _l_cat.append(name)
                         try:
                             module = __import__(key, globals(), locals(), ['*'], -1)
-                            importlib.reload(module) 
+                            cgmGEN._reloadMod(module) 
                             _d_modules[name] = module
                             if not is_buildable(module):
                                 _l_unbuildable.append(name)

@@ -1009,7 +1009,7 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
     return _res
 
 def profile_get(arg = None, module = dynFKPresets ):
-    importlib.reload(module)
+    cgmGEN._reloadMod(module)
     return module.__dict__.get(arg)
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):

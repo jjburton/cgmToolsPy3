@@ -129,8 +129,8 @@ mi_aimObj.translate = 0,0,0#...let's reset
 mi_aimObj.rotate = 0,0,0#...let's reset 
 str_castTo = str_mesh #...Link our mesh as our current cast to object
 
-importlib.reload(ShapeCast)
-importlib.reload(cgmGeneral)
+cgmGEN._reloadMod(ShapeCast)
+cgmGEN._reloadMod(cgmGeneral)
 
 #We're gonna setup up some options here so we can easily change them 
 latheAxis = 'z'

@@ -332,10 +332,10 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         TOOLBOX.uiSetupOptionVars_curveCreation(self)
         
     def reloadLib(self):
-        importlib.reload(cgmUI)
-        importlib.reload(MMUTILS)
-        importlib.reload(DYNPARENTTOOL)
-        importlib.reload(MRSANIMATE)
+        cgmGEN._reloadMod(cgmUI)
+        cgmGEN._reloadMod(MMUTILS)
+        cgmGEN._reloadMod(DYNPARENTTOOL)
+        cgmGEN._reloadMod(MRSANIMATE)
         
     #@cgmGEN.Timer
     def bUI_radialRoot_td(self,parent):

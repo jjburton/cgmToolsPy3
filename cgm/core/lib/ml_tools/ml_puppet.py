@@ -937,7 +937,7 @@ def convertRotateOrderUI(nodes, *args):
 
 if __name__ == '__main__':
     from . import ml_puppet
-    importlib.reload(ml_puppet)
+    cgmGEN._reloadMod(ml_puppet)
     #fkIkSwitchUI()
     initPuppetContextMenu()
     #switchSpace(['ctrlIK_Lf_HindLeg_'],'world')

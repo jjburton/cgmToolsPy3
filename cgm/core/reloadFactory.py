@@ -59,7 +59,7 @@ class ModuleFactory(object):
             modName = item.split('.')[0]
             if modName == name:
                 impmod = __import__('witch.modules.'+modName, {}, {}, [modName])
-                importlib.reload(impmod)
+                cgmGEN._reloadMod(impmod)
                 theClass = impmod.__getattribute__( modName )
                 return(theClass)
 
@@ -134,7 +134,7 @@ class Reloader(object):
 
                     try:
                         module = __import__(name, globals(), locals(), ['*'], -1)
-                        importlib.reload(module)
+                        cgmGEN._reloadMod(module)
 
                     except ImportError as e:
                         for arg in e.args:

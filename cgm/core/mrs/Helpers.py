@@ -170,7 +170,7 @@ def uiFunc_helper_build(self):
     
     for i,mObj in enumerate(ml_helpers):
         mBlock = self.ml_blocksMade[i]
-        importlib.reload(SNAPCALLS)
+        cgmGEN._reloadMod(SNAPCALLS)
         
         
         _shapeDirection = self.d_blockCreate.get('shapeDirection','y+')
@@ -394,7 +394,7 @@ def helpers_raycast(self = None, targets = [], create = None, drag = False, snap
     '''
     self = data storage
     '''
-    importlib.reload(dragFactory)
+    cgmGEN._reloadMod(dragFactory)
     class helperRayCaster(dragFactory.clickMesh):
         """Sublass to get the functs we need in there"""
         def __init__(self,mStorage = None,**kws):

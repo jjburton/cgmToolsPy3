@@ -2726,7 +2726,7 @@ def rig_dataBuffer(self):
     log.debug(cgmGEN._str_subLine)
     
     #eyeLook =============================================================================
-    importlib.reload(self.UTILS)
+    cgmGEN._reloadMod(self.UTILS)
     self.mEyeLook = False
     
     if self.str_ballSetup != 'fixed':

@@ -913,23 +913,26 @@ def objectDat_get(nodes = []):
     mNodes = cgmMeta.asMeta(nodes)
     for mNode in mNodes:
         try:
-            _res[mNode.mNode] = {'pos':mNode.p_position, 'orient':mNode.p_orient}
+            _res[mNode.mNode] = {'baseName':mNode.p_nameBase,'pos':mNode.p_position, 'orient':mNode.p_orient, 'scale':mNode.scale}
         except Exception as err:
             log.error("{0} | {1}".format(mNode,err))
     pprint.pprint(_res)
     return _res
 
-def objectDat_set(dat = {}, position = True, orient = True):
+def objectDat_set(dat = {}, position = True, orient = True,scale=False):
     for Node,d in list(dat.items()):
         try:
             log.info(Node)
-            mNode = cgmMeta.asMeta(Node)
+            try:mNode = cgmMeta.asMeta(d['baseName'])
+            except:mNode = cgmMeta.asMeta(Node)
             if position:
                 mNode.p_position = d['pos']
             if orient:
                 mNode.p_orient = d['orient']
+            if scale:
+                mNode.p_orient = d['scale']            
         except Exception as err:
-            log.error("{0} | {1}".format(mNode,err))
+            log.error("{0} | {1}".format(Node,err))
     
     
 def get_planeIntersect(planeSource = None, target = None, planeAxis = 'z+', objAxis = 'z+', mark = False):

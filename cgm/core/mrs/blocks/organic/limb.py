@@ -6149,12 +6149,12 @@ def rig_controls(self):
 @cgmGEN.Timer
 def rig_segments(self):
     _short = self.d_block['shortName']
-    importlib.reload(RIGCONSTRAINT)
+    cgmGEN._reloadMod(RIGCONSTRAINT)
     _str_func = 'rig_segments'
     log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
     log.debug(self)
     
-    importlib.reload(IK)
+    cgmGEN._reloadMod(IK)
     mBlock = self.mBlock
     mRigNull = self.mRigNull
     ml_rigJoints = mRigNull.msgList_get('rigJoints')
@@ -6641,7 +6641,7 @@ def rig_segments(self):
                     log.debug("|{0}| >> Last segment, buildEnd dag attachEndToInfluence = on".format(_str_func))                    
                     _d['attachEndToInfluence'] = True
                     
-                importlib.reload(IK)
+                cgmGEN._reloadMod(IK)
                 _l_segJoints = _d['jointList']
                 _ml_segTmp = cgmMeta.asMeta(_l_segJoints)
                 pprint.pprint(_d)
@@ -7524,7 +7524,7 @@ def rig_frame(self):
                         'nameSuffix':'ikFull',
                         'controlObject':mIKControl.mNode,
                         'moduleInstance':self.mModule.mNode}
-                importlib.reload(IK)
+                cgmGEN._reloadMod(IK)
                 
                 if self.str_ikExtendSetup == 'rpFull':
                     _d_ik['solverType'] = 'ikRPsolver'

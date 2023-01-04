@@ -327,7 +327,7 @@ class data(object):
         # write to ConfigObject
         # =========================
         if self.dataformat == 'config':
-            importlib.reload(configobj)
+            cgmGEN._reloadMod(configobj)
             ConfigObj = configobj.ConfigObj(indent_type='\t', encoding='utf-8')
             self.fillDatHolder(ConfigObj)
             """

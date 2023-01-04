@@ -111,7 +111,7 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 		print((">>> Testing Module: {0} | {1}".format(mod,module) + '-'*100))		
 		try:
 			exec("import {0}".format(module))
-			exec("importlib.reload({0})".format(module))
+			exec("cgmGEN._reloadMod({0})".format(module))
 		except Exception as err:
 			log.error("New File fail!")
 			for arg in err.args:

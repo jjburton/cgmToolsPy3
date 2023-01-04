@@ -1315,7 +1315,7 @@ def mirror_reportSetup(self):
 def get_controllerDat(self,rewire = True,report = False):
     _d = {}
     mModule = self.getBlockModule()
-    importlib.reload(mModule)
+    cgmGEN._reloadMod(mModule)
     if mModule.__dict__.get('controller_getDat'):
         log.debug("get_controllerDat | getting from module: {}".format(self))
         _d = mModule.controller_getDat(self)
