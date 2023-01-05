@@ -313,6 +313,28 @@ def get_nonintermediateShape(shape):
     else:
         return shape
 
+def find_from_string(name = None):
+    _str_func = 'find_from_string'
+    if name:
+        if name.count('|'):
+            _check = name.split('|')[-1]
+            #log.debug(_check)
+            _subCheck = mc.ls(_check)
+            
+            if _subCheck and len(_subCheck) ==1:
+                return _subCheck[0]
+            else:
+                log.error(cgmGEN.logString_msg(_str_func," Too many options: {}".format(_subCheck)))
+        else:
+            _check = mc.ls(name)
+            if not _check:
+                return False
+            if len(_check) ==1:
+                return _check[0]
+            else:
+                log.error(cgmGEN.logString_msg(_str_func," Too many options: {}".format(_check)))
+    return False
+
 def get_all_parents(node = None, shortNames = True):
     """
     Get all the parents of a given node where the last parent is the top of the heirarchy
@@ -681,7 +703,7 @@ def seek_upStream(startingNode,endObjType = None, mode = 'objType', getPlug=Fals
     while not _done and timeOut < 50:
         destNodeName = mc.listConnections(currentNode, scn = True, d=False, s= True)
         if not destNodeName:
-            endNode = 'not found'
+            endNode = False
             break
         if getPlug:
             destNodeNamePlug = mc.listConnections(currentNode, scn = True, p = True,d=False, s= True)
@@ -764,7 +786,7 @@ def seek_downStream(startingNode, endObjType = None, mode = 'objType', getPlug=F
             destNodeName = mc.listConnections(currentNode, scn = True, s= False)
             if not destNodeName:
                 log.warning("|{0}| >> Node not found: {1}".format(_str_func,destNodeName))
-                endNode = 'not found'
+                endNode = False
                 break
             if getPlug:
                 destNodeNamePlug = mc.listConnections(currentNode, scn = True, p = True, s= False)

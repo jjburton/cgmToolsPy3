@@ -5154,8 +5154,8 @@ def skeleton_build(self, forceNew = True):
         else:
             return _bfr
         
-    _baseNameAttrs = ATTR.datList_getAttrs(self.mNode,'nameList')
-    _l_baseNames = ATTR.datList_get(self.mNode, 'nameList')
+    #_baseNameAttrs = ATTR.datList_getAttrs(self.mNode,'nameList')
+    #_l_baseNames = ATTR.datList_get(self.mNode, 'nameList')
     
     if self.muzzleSetup == 2:
         log.debug("|{0}| >>  muzzle joint...".format(_str_func)+ '-'*40)
@@ -5167,17 +5167,24 @@ def skeleton_build(self, forceNew = True):
         
         mLipRoot = mJnt
         
-
+    mJawUpr or False
     if self.jawLwrSetup:
         mObj = mPrerigNull.getMessageAsMeta('jaw'+'DagHelper')
         mJaw = create_jointFromHandle(mObj,mRoot)
         mPrerigNull.doStore('jawJoint',mJaw)
         ml_joints.append(mJaw)
+        mJawUpr = mJaw
     else:
         mJaw = mRoot
+        mJawUpr = mRoot
         
+    if self.jawUprSetup:
+        mObj = mPrerigNull.getMessageAsMeta('jawUpr'+'DagHelper')
+        mJawUpr = create_jointFromHandle(mObj,mRoot)
+        mPrerigNull.doStore('jawUprJoint',mJawUpr)
+        ml_joints.append(mJawUpr)
+                
     if self.lipSetup:
-        str_lipSetup = self.getEnumValueString('lipSetup')
         log.debug("|{0}| >>  lipSetup...".format(_str_func)+ '-'*40)
         
         _d_lip = {'cgmName':'lip'}
@@ -5219,7 +5226,7 @@ def skeleton_build(self, forceNew = True):
         mObj = mPrerigNull.getMessageAsMeta('teethUpr'+'DagHelper')
         mJnt = create_jointFromHandle(mObj,mRoot)
         mPrerigNull.doStore('teethUprJoint',mJnt)
-        mJnt.p_parent = mRoot
+        mJnt.p_parent = mJawUpr
         ml_joints.append(mJnt)
             
     if self.teethLwrSetup:
@@ -5563,10 +5570,10 @@ def rig_dataBuffer(self):
     self.b_scaleSetup = mBlock.scaleSetup
     
     
-    for k in ['jaw','muzzle','nose','nostril','cheek','bridge',
+    for k in ['muzzle','nose','nostril','cheek','bridge',
               'teethUpr','teethLwr',
-              'chin','sneer','cheekUpr',
-              'lip','lipSeal','teeth','tongue','uprJaw','smile']:
+              'chin','sneer','cheekUpr','jawLwr','jawUpr',
+              'lip','lipSeal','teeth','tongue','smile']:
         _tag = "{0}Setup".format(k)
         self.__dict__['str_{0}'.format(_tag)] = False
         _v = mBlock.getEnumValueString(_tag)
@@ -5733,6 +5740,19 @@ def rig_skeleton(self):
         md_skinJoints['jaw'] = mJntSkin
         md_rigJoints['jaw'] = mJntRig
         md_driverJoints['jaw'] = mJntDriver
+        
+    if self.str_jawUprSetup:
+        log.debug("|{0}| >> jawUpr...".format(_str_func))
+        mJntSkin = mPrerigNull.getMessageAsMeta('jawUprJoint')
+        mJntRig = mJntSkin.getMessageAsMeta('rigJoint')
+        mJntDriver = mJntSkin.getMessageAsMeta('driverJoint')
+        
+        md_skinJoints['jawUpr'] = mJntSkin
+        md_rigJoints['jawUpr'] = mJntRig
+        md_driverJoints['jawUpr'] = mJntDriver
+
+        md_driverJoints['jawUpr'].p_parent = False
+    
         
     if self.str_tongueSetup:
         doSingleJoint('tongue')

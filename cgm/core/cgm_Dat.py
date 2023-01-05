@@ -819,7 +819,7 @@ class ui(CGMUI.cgmGUI):
 #def get_modules_dict(update=False):
 #    return get_modules_dat(update)[0]
 
-#@cgmGEN.Timer
+@cgmGEN.Wrap_exception
 def get_ext_options(update = False,debug=None, path= None, skipRoot = True, extensions = ['cgmBlockConfig','cgmBlockDat','cgmShapeDat']):
     """
     Data gather for available blocks.
@@ -848,11 +848,12 @@ def get_ext_options(update = False,debug=None, path= None, skipRoot = True, exte
         
     if path == None:
         path = os.path.join(startDir_getBase('dev'), 'cgmDat','mrs')
-    _path = PATHS.Path(path)
+    mPath = PATHS.Path(path)
+    _path = mPath.asFriendly()
     
     _l_duplicates = []
     _l_unbuildable = []
-    _base = _path.split()[-1]
+    _base = mPath.split()[-1]
     _d_files =  {}
     _d_import = {}
     _d_modules = {}

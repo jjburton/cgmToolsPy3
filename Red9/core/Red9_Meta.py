@@ -2286,8 +2286,8 @@ class MetaClass(object):
         except MetaInstanceError as error:
             #...this is to match previous function where a dead mNode wouldn't throw an exception but AttributeError would
             log.error(error)
-        #except AttributeError as error:
-        #    raise error
+        except AttributeError as error:
+            raise error
         except Exception as error:
             raise error
 

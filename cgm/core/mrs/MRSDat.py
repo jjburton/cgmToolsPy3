@@ -70,6 +70,8 @@ import cgm.core.mrs.RigBlocks as RIGBLOCKS
 from cgm.core.classes import GuiFactory as CGMUI
 mUI = CGMUI.mUI
 import cgm.core.lib.rigging_utils as CORERIG
+import cgm.core.lib.search_utils as CORESEARCH
+
 import cgm.core.lib.position_utils as POS
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.locator_utils as LOC
@@ -258,13 +260,15 @@ def blockDat_createBlock(self, autoPush = True, promptName = True):
         raise ValueError("No baseSize")
     
     
+    
+    
     _d = {'blockType':_blockType,
           'autoForm':False,
           'side':_side,
           'baseSize':_size,#mDat['baseSize'],
           'blockProfile':mDat.get('blockProfile'),
           'buildProfile':mDat.get('buildProfile'),
-          'blockParent': mDat.get('blockParent')}    
+          'blockParent': CORESEARCH.find_from_string(mDat.get('blockParent'))}    
     
     
     #...prompt ------------------------------------------------------------------------------------------------------------------------------------------------
