@@ -64,9 +64,9 @@ _d_annotations = {'me':'Create a loc from selected objects',
                   'attach':'Create a loc of the selected object AND start a clickMesh instance to setup an attach point on a mesh in scene'}
 
 class fOverTimeBAK:
-    def __init__(self, start_frame = None, end_frame=None, interval=None):
-        self.start_frame = start_frame
-        self.end_frame = end_frame
+    def __init__(self, frame_start = None, frame_end=None, interval=None):
+        self.frame_start = frame_start
+        self.frame_end = frame_end
         self.interval = interval
         self.frames = []
         self.errors = []
@@ -89,8 +89,8 @@ class fOverTimeBAK:
 
     def run(self, function = None, *args, **kwargs):
         current_time = mc.currentTime(query=True)
-        current_frame = self.start_frame
-        while current_frame <= self.end_frame:
+        current_frame = self.frame_start
+        while current_frame <= self.frame_end:
             mc.currentTime(current_frame)            
             try:
                 if self.func:
@@ -134,10 +134,10 @@ class fOverTimeBAK:
     def post_run(self):
         pass
 
-    def set_start(self,start_frame):
-        self.start_frame = start_frame
-    def set_end(self,end_frame):
-        self.end_frame = end_frame
+    def set_start(self,frame_start):
+        self.frame_start = frame_start
+    def set_end(self,frame_end):
+        self.frame_end = frame_end
     def set_interval(self,interval):
         self.interval = interval
 
@@ -148,33 +148,51 @@ class fOverTimeBAK:
                 print(f"Frame {error[0]}: {error[1]} with args={error[2]} and kwargs={error[3]}")
 
 class overload_call:
-    def __init__(self, start_frame = None, end_frame=None, interval=None):
-        self.start_frame = start_frame
-        self.end_frame = end_frame
+    def __init__(self, frame_start = None, frame_end=None, interval=None):
+        self.frame_start = frame_start
+        self.frame_end = frame_end
         self.interval = interval
         self.frames = []
         self.errors = []
+        
+        self.call = None
+        self.func_pre = None
+        self.func_post = None
+        
+        self.call_args = []
+        self.call_kws = {}
+        self.pre_args = []
+        self.pre_kws = {}
+                
+        self.post_args = []
+        self.post_kws = {}       
 
     @cgmGEN.Wrap_exception
-    def call(self):
-        pass
-        
     def run(self):
-        current_time = mc.currentTime(query=True)
-        current_frame = self.start_frame
+        _str_func = 'run[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
         
-        self.pre_run()        
-        while current_frame <= self.end_frame:
+        pprint.pprint(self.__dict__)
+        
+        current_time = mc.currentTime(query=True)
+        current_frame = self.frame_start
+        
+        self.pre_run()
+        
+        while current_frame <= self.frame_end:
+            self.updateFrame()
+
             mc.currentTime(current_frame)            
-            try:
-                self.call()
-            except Exception as e:
-                self.errors.append((current_frame, e, args, kwargs))
+                
             current_frame += self.interval
         mc.currentTime(current_time)
         self.post_run()
-
+        
+    @cgmGEN.Wrap_exception
     def run_frames(self, function = None, *args, **kwargs):
+        _str_func = 'run_frames[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
         if not self.frames:
             raise ValueError("{} | No frames set".format(self.__class__))
         
@@ -182,36 +200,95 @@ class overload_call:
         current_time = mc.currentTime(query=True)
         for f in self.frames:
             mc.currentTime(f)
-            try:
-                self.call()
-            except Exception as e:
-                self.errors.append((f, e, args, kwargs))
+            self.updateFrame()
+
         mc.currentTime(current_time)
         self.post_run()
         
+    def updateFrame(self):
+        _str_func = 'updateFrame[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
+        try:self.call( *self.call_args, **self.call_kws )
+        except Exception as err:
+            log.info("Frame: {}".format(mc.currentTime(query=True)))            
+            try:log.info("Func: {0}".format(self.call.__name__))
+            except:log.info("Func: {0}".format(self.call))
+            if self.call_args:
+                log.info("args: {0}".format(self.call_args))
+            if self.call_kws:
+                log.info("kws: {0}".format(self.call_kws))
+            for a in err.args:
+                log.info(a)
+                
     @cgmGEN.Wrap_exception
     def run_on_current_frame(self, function=None, *args, **kwargs):
+        _str_func = 'run_on_current_frame[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
         self.pre_run()
-        try:
-            self.call()
-        except Exception as e:
-            self.errors.append((current_frame, e, args, kwargs))
+        
+        self.updateFrame()
+        
         self.post_run()
         
     @cgmGEN.Wrap_exception
     def pre_run(self):
-        pass
+        _str_func = 'pre_run[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
+        if self.func_pre:
+            try:self.func_pre( *self.pre_args, **self.pre_kws )
+            except Exception as err:
+                try:log.info("Func: {0}".format(self.func_pre.__name__))
+                except:
+                    log.info("Func: {0}".format(self.func_pre))
+                    if self.pre_args:
+                        log.info("args: {0}".format(self.pre_args))
+                    if self.pre_kws:
+                        log.info("kws: {0}".format(self.pre_kws))
+                    for a in err.args:
+                        log.info(a)
     
     @cgmGEN.Wrap_exception    
     def post_run(self):
-        pass
+        _str_func = 'post_run[{0}]'.format(self.__class__.__name__)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
+        if self.func_post:
+            try:return self.func_post( *self.post_args, **self.post_kws )
+            except Exception as err:
+                try:log.info("Func: {0}".format(self.func_post.__name__))
+                except:log.info("Func: {0}".format(self.func_post))
+                if self.post_args:
+                    log.info("args: {0}".format(self.post_args))
+                if self.post_kws:
+                    log.info("kws: {0}".format(self.post_kws))
+                for a in err.args:
+                    log.info(a)
 
-    def set_start(self,start_frame):
-        self.start_frame = start_frame
-    def set_end(self,end_frame):
-        self.end_frame = end_frame
+    def set_start(self,frame_start):
+        self.frame_start = frame_start
+    def set_end(self,frame_end):
+        self.frame_end = frame_end
     def set_interval(self,interval):
         self.interval = interval
+        
+    def set_func(self,func,*args,**kws):
+        self.call = func
+        self.call_args = args
+        self.call_kws = kws
+        
+    def set_pre(self,func,*args,**kws):
+        self.func_pre = func
+        self.pre_args = args
+        self.pre_kws = kws
+                
+    def set_post(self,func,*args,**kws):
+        self.func_post = func
+        self.post_args = args
+        self.post_kws = kws
+
 
     def print_errors(self):
         if self.errors:
@@ -226,7 +303,7 @@ class ui(CGMUI.cgmGUI):
     TOOLNAME = 'ui_FuncOverTime'
     WINDOW_NAME = "{}UI".format(TOOLNAME)
     WINDOW_TITLE = 'FOT | {0}'.format(__version__)
-    DEFAULT_SIZE = 200, 275
+    DEFAULT_SIZE = 225, 275
     DEFAULT_MENU = None
     RETAIN = True
     MIN_BUTTON = False
@@ -239,18 +316,23 @@ class ui(CGMUI.cgmGUI):
         self.mFOT.call = self.uiFunc
         
         self.create_guiOptionVar('keysMode', defaultValue='loc')
+        self.create_guiOptionVar('interval', defaultValue=1.0)
         
         self.WINDOW_TITLE = ui.WINDOW_TITLE
         self.DEFAULT_SIZE = ui.DEFAULT_SIZE
         
+    def log_dat(self):
+        _str_func = 'log_self[{0}]'.format(self.__class__.TOOLNAME)            
+        log.debug("|{0}| >>...".format(_str_func))
+        pprint.pprint(self.mFOT.__dict__)        
         
+
     def build_menus(self):
-        pass
         #self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc = cgmGEN.Callback(self.buildMenu_file))
-        #self.uiMenu_SetupMenu = mUI.MelMenu(l='Dev', pmc = cgmGEN.Callback(self.buildMenu_dev))
+        self.uiMenu_DevMenu = mUI.MelMenu(l='Dev', pmc = cgmGEN.Callback(self.buildMenu_dev))
         
-    def uiFunc(self):
-        print('{} | Hello'.format(mc.currentTime(q=True)))
+    def uiFunc(self,*args,**kws):
+        print('{} | do something here...'.format(mc.currentTime(q=True)))
         
     def buildMenu_file(self):
         self.uiMenu_FileMenu.clear()
@@ -299,30 +381,41 @@ class ui(CGMUI.cgmGUI):
         
     
     def buildMenu_dev(self):
-        self.uiMenu_SetupMenu.clear()
-        _menu = self.uiMenu_SetupMenu
+        self.uiMenu_DevMenu.clear()
+        
+        _menu = self.uiMenu_DevMenu
         mUI.MelMenuItem( _menu, l="Ui | ...",
                          c=lambda *a: self.log_self())               
         mUI.MelMenuItem( _menu, l="Dat | class",
-                         c=lambda *a: self.uiDat.log_self())        
-        mUI.MelMenuItem( _menu, l="Dat | stored",
-                         c=lambda *a: self.uiDat.log_dat())            
+                         c=lambda *a: self.log_dat())        
+
     def log_self(self):
         _str_func = 'log_self[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
         pprint.pprint(self.__dict__)
         
-            
-
-    def uiData_checkState(self):
-        return self.uiDat.checkState()                
+    def set_func(self,func,*args,**kws):
+        self.mFOT.call = func
+        self.mFOT.call_args = args
+        self.mFOT.call_kws = kws
+        
+    def set_pre(self,func,*args,**kws):
+        self.mFOT.func_pre = func
+        self.mFOT.pre_args = args
+        self.mFOT.pre_kws = kws
+                
+    def set_post(self,func,*args,**kws):
+        self.mFOT.func_post = func
+        self.mFOT.post_args = args
+        self.mFOT.post_kws = kws
+                
         
     def uiUpdate_top(self):
         _str_func = 'uiUpdate_top[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
         self.uiSection_top.clear()
-        CGMUI.add_Header('Put stuff here')
-        mUI.MelLabel(self.uiSection_top, label = "No really, put some \n content here")
+        #CGMUI.add_Header('Put stuff here')
+        mUI.MelLabel(self.uiSection_top, label = "You can add functions: \n uiFOT.set_func | set_pre | set_post")
             
     def build_layoutWrapper(self,parent):
         _str_func = 'build_layoutWrapper[{0}]'.format(self.__class__.TOOLNAME)            
@@ -419,8 +512,11 @@ class ui(CGMUI.cgmGUI):
                                               width = 40)
         
         mUI.MelLabel(_row_time,l='int')        
-        self.uiFF_interval = mUI.MelFloatField(_row_time,value=1, precision = 1,
-                                                  width = 40, min=0.1)        
+        self.uiFF_interval = mUI.MelFloatField(_row_time,precision = 1,
+                                               value = self.var_interval.getValue(),
+                                               width = 40, min=0.1)
+        
+        self.uiFF_interval(edit =True, cc = lambda *a:self.var_interval.setValue(self.uiFF_interval.getValue()))
         
         self.uiFunc_updateTimeRange()
     
@@ -465,6 +561,9 @@ class ui(CGMUI.cgmGUI):
             self.uiFieldInt_end(edit = True, value = _range[1])            
 
     def uiFunc_bake(self,mode='all'):
+        _str_func = 'bake[{0}]'.format(self.__class__.TOOLNAME)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
         if mode == 'range':
             _range = [self.uiFieldInt_start.getValue(),self.uiFieldInt_end.getValue()]
         else:
@@ -474,8 +573,8 @@ class ui(CGMUI.cgmGUI):
         if not _range:
             return log.warning("No frames in range")
         
-        self.mFOT.start_frame = _range[0]
-        self.mFOT.end_frame = _range[1]
+        self.mFOT.frame_start = _range[0]
+        self.mFOT.frame_end = _range[1]
         self.mFOT.interval = self.uiFF_interval.getValue()
         
         self.mFOT.run()

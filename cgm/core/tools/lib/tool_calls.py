@@ -17,7 +17,8 @@ import maya.mel as mel
 def FuncOverTime():
     import cgm.core.tools.funcOverTime as FOT
     cgmGEN._reloadMod(FOT)
-    FOT.ui()
+    mel.eval('python "import cgm.core.tools.funcOverTime as FOT;uiFOT = FOT.ui()"')
+    
 
 def red9( *a ):
     import Red9
