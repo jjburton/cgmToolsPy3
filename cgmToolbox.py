@@ -505,7 +505,6 @@ def uiBuild_cgmMenu( *args ):
     
     UICHUNKS.uiSection_attributes(_utils)
     UICHUNKS.uiSection_rayCast(_utils)
-    UICHUNKS.uiSection_distance(_utils)
     UICHUNKS.uiSection_joints(_utils)
     UICHUNKS.uiSection_sdk(_utils)
     UICHUNKS.uiSection_shapes(_utils)
@@ -526,7 +525,7 @@ def uiBuild_cgmMenu( *args ):
 
         
     #>>MRS ==========================================================================
-    mUI.MelMenuItemDiv(menu,label='MRS')
+    mUI.MelMenuItemDiv(menu,label='Production')
     
     _pipeline = mc.menuItem(p=menu,l='Pipeline',subMenu = True, tearOff = True)
     UICHUNKS.uiSection_mrsManage(_pipeline)

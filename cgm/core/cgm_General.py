@@ -1775,3 +1775,79 @@ def cgmException(etype = None, value = None, tb = None,msg=None,**kws):
     #raise type(etype)(value)#.with_traceback(tb)
 
 cgmExceptCB = cgmException
+
+class FuncOverTime:
+    def __init__(self, start_frame, end_frame, interval):
+        self.start_frame = start_frame
+        self.end_frame = end_frame
+        self.interval = interval
+        self.frames = []
+        self.errors = []
+        self.func = None
+        self._args = None
+        self._kws = None
+
+    def set_func(self, func, *args, **kws):
+        self.func = func
+        self._args = args
+        self._kws = kws
+          
+    def get_func(self,func = None,*args,**kwargs):
+        if self.func:
+            return self.func, self._args, self._kws
+        if func == None:
+            raise ValueError("{} | Need a function".format(self.__class__))
+        
+        return func,args,kwargs
+    
+    def run(self, function, *args, **kwargs):
+        current_time = mc.currentTime(query=True)
+        current_frame = self.start_frame
+        while current_frame <= self.end_frame:
+            mc.currentTime(current_frame)            
+            try:
+                function(*args, **kwargs)
+            except Exception as e:
+                self.errors.append((current_frame, e, args, kwargs))
+            current_frame += self.interval
+        mc.currentTime(current_time)
+    
+    def run_frames(self, function, *args, **kwargs):
+        if not self.frames:
+            raise ValueError("{} | No frames set".format(self.__class__))
+        
+        current_time = mc.currentTime(query=True)
+        for f in self.frames:
+            mc.currentTime(f)
+            try:
+                function(*args, **kwargs)
+            except Exception as e:
+                self.errors.append((f, e, args, kwargs))
+        mc.currentTime(current_time)    
+
+    def run_on_current_frame(self, function, *args, **kwargs):
+        current_frame = mc.currentTime(query=True)
+        try:
+            function(current_frame, *args, **kwargs)
+        except Exception as e:
+            self.errors.append((current_frame, e, args, kwargs))
+        
+    def pre_run(self):
+        pass
+    def post_run(self):
+        pass
+    
+    def set_start(self,start_frame):
+        self.start_frame = start_frame
+    def set_end(self,end_frame):
+        self.end_frame = end_frame
+    def set_interval(self,interval):
+        self.interval = interval
+
+    def print_errors(self):
+        if self.errors:
+            print("{} | Errors occurred during processing:".__class__)
+            for error in self.errors:
+                print(f"Frame {error[0]}: {error[1]} with args={error[2]} and kwargs={error[3]}")
+
+

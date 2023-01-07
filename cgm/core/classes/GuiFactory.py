@@ -328,21 +328,22 @@ def uiWindow_thanks(achieve = True):
     mUI.MelLabel(column, label=msg, ut = 'cgmUISubTemplate', h =125)
     mUI.MelSpacer(column, h=10 )
     
-    mc.button(parent = column,
-              ut = 'cgmUITemplate',
-              l='Basic Docs',
-              ann = "Basic cgmDocs",
-              c=lambda *a: webbrowser.open("http://docs.cgmonks.com/index.html"))    
-    mc.button(parent = column,
-              ut = 'cgmUITemplate',
-              l='MRS Docs',
-              ann = "MRS Docs",
-              c=lambda *a: webbrowser.open("http://mrsdocs.cgmonastery.com/"))    
-    mc.button(parent = column,
-              ut = 'cgmUITemplate',
-              l='Support our Work',
-              ann = "Support our work",
-              c=lambda *a: webbrowser.open("https://www.patreon.com/mrsmakers"))
+    
+    d_learn = {'cgmTools Wiki':'https://bit.ly/cgmToolsWiki',
+               'CGM Tools Docs': 'https://bit.ly/cgmToolsDocs',
+               'MRS Docs' : 'https://bit.ly/MRSDocs',
+               'cgmRigs': 'https://bit.ly/cgmRigsDoc',
+               }
+    
+    for k,l in list(d_learn.items()):
+        mc.button(parent = column,
+                  ut = 'cgmUITemplate',
+                  l=k,
+                  ann = "{} | ...".format(k),
+                  c=cgmGEN.Callback(webbrowser.open,l))   
+    
+    
+
     
     
     

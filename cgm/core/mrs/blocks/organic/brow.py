@@ -59,7 +59,7 @@ import cgm.core.rig.general_utils as RIGGEN
 #import cgm.core.lib.locator_utils as LOC
 #import cgm.core.lib.rayCaster as RAYS
 #import cgm.core.lib.shape_utils as SHAPES
-#import cgm.core.mrs.lib.block_utils as BLOCKUTILS
+import cgm.core.mrs.lib.block_utils as BLOCKUTILS
 #import cgm.core.mrs.lib.builder_utils as BUILDERUTILS
 #import cgm.core.mrs.lib.shared_dat as BLOCKSHARE
 #import cgm.core.tools.lib.snap_calls as SNAPCALLS

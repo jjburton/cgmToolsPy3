@@ -14,6 +14,11 @@ import cgm.core.cgm_General as cgmGEN
 import webbrowser
 import maya.mel as mel
 
+def FuncOverTime():
+    import cgm.core.tools.funcOverTime as FOT
+    cgmGEN._reloadMod(FOT)
+    FOT.ui()
+
 def red9( *a ):
     import Red9
     cgmGEN._reloadMod(Red9)

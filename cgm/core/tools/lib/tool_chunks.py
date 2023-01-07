@@ -126,15 +126,6 @@ def uiSection_help(parent):
                 c=lambda *a: mc.evalDeferred(TOOLCALLS.cgmUpdateTool,lp=True))
 
     mUI.MelMenuItemDiv(parent,label = 'Other')    
-    mc.menuItem(parent = parent,
-                l='Support our Work',
-                ann = "Support our work",
-                c=lambda *a: webbrowser.open("https://www.patreon.com/mrsmakers"))  
-    
-    mc.menuItem(parent = parent,
-                l='CGM Docs',
-                ann = "Find help for various tools",
-                c=lambda *a: webbrowser.open("http://docs.cgmonks.com"))  
     
     mc.menuItem(parent = parent,
                 l='Report issue',
@@ -144,6 +135,7 @@ def uiSection_help(parent):
                 l='Get Builds',
                 ann = "Get the latest builds of cgmTools from gitHub",
                 c=lambda *a: webbrowser.open("https://github.com/jjburton/cgmTools")) 
+    """
     _vids = mc.menuItem(parent = parent,subMenu = True,
                         l='Videos')
     
@@ -155,7 +147,7 @@ def uiSection_help(parent):
                 l='Red9',
                 ann = "Red 9 Vimeo Channel",
                 c=lambda *a: webbrowser.open("http://vimeo.com/user9491246"))    
-   
+   """
     mc.menuItem(parent = parent,
                 l='Coding questions',
                 ann = "Get help on stack overflow for your coding questions",
@@ -224,6 +216,7 @@ def uiSection_query(parent = None):
               ut = 'cgmUITemplate',
               c = lambda *a:printLen(),
               ann = 'Size all')            
+    uiSection_distance(uiQuery)
     
     #General...---------------------------------------------------------------
     #_sub = mc.menuItem(p=uiQuery, l='Size',
@@ -261,6 +254,9 @@ def uiSection_query(parent = None):
                 ut = 'cgmUITemplate',
                 ann = "Get target value dict from obj channel box selections",
                 c = cgmGEN.Callback(MMCONTEXT.func_process, SEARCH.get_selectedFromChannelBox, None, 'each','Get targets',True,report = True, **{'valueDict':True}))
+    
+    
+    
     return uiQuery
 
 
@@ -461,10 +457,12 @@ def uiSection_controlCurves(parent, selection = None):
     var_defaultCreateColor = cgmMeta.cgmOptionVar('cgmVar_defaultCreateColor', defaultValue = 'yellow')
     var_createAimAxis = cgmMeta.cgmOptionVar('cgmVar_createAimAxis', defaultValue = 2)
     var_createSizeValue = cgmMeta.cgmOptionVar('cgmVar_createSizeValue', defaultValue=1.0)
+    
 
     uiCurve = mc.menuItem(parent = parent, l='Control Curves',
                           ann = "Functions and tools for dealing with curves",                                                                                                  
                           subMenu=True)
+    mUI.MelMenuItemDiv(uiCurve,label='Create')
     
 
     mc.menuItem(parent=uiCurve,
@@ -479,15 +477,17 @@ def uiSection_controlCurves(parent, selection = None):
                 #c=lambda *a:TOOLBOX.uiFunc_createOneOfEach(),
                 ann='Create one of each curve stored in cgm libraries. Size: {0} '.format(var_createSizeValue.value) )       
     
-    mc.menuItem(parent = uiCurve, l = '_______________________')
+    mUI.MelMenuItemDiv(uiCurve,label='Resize Object')
     mc.menuItem(parent=uiCurve,
-                l = 'Make resizeObj',
+                l = 'Make',
                 ann = 'Make control a resize object so you can more easily shape it',                
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_controlResizeObj, None,'each','Resize obj'))        
     mc.menuItem(parent=uiCurve,
-                l = 'Push resizeObj changes',
+                l = 'Push changes',
                 ann = 'Push the control changes back to control',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.push_controlResizeObj, None,'each','Resize obj'))        
+                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.push_controlResizeObj, None,'each','Resize obj'))
+    
+    mUI.MelMenuItemDiv(uiCurve,label='Other')    
     mc.menuItem(parent=uiCurve,
                 l = 'Mirror World Space To target',
                 ann = 'Given a selection of two curves, mirror across X (for now only x)',
@@ -834,15 +834,18 @@ def uiSection_mrsLearn(parent):
     _str_func = 'uiSection_layout'  
     
     mUI.MelMenuItemDiv(parent,label='Learn')
-    mc.menuItem(parent = parent,
-                l='cgmTools Documentation',
-                ann = "cgmTools Docs | ...",
-                c=lambda *a: webbrowser.open("http://docs.cgmonks.com/"))    
+    d_learn = {'cgmTools Wiki':'https://bit.ly/cgmToolsWiki',
+               'CGM Tools Docs': 'https://bit.ly/cgmToolsDocs',
+               'MRS Docs' : 'https://bit.ly/MRSDocs',
+               'cgmRigs': 'https://bit.ly/cgmRigsDoc',
+               }
     
-    mc.menuItem(parent = parent,
-                l='MRS Documentation',
-                ann = "Access to MRS Docmenation |",
-                c=lambda *a: webbrowser.open("http://mrsdocs.cgmonastery.com/"))
+    for k,l in list(d_learn.items()):
+        mc.menuItem(parent = parent,
+                    l=k,
+                    ann = "{} | ...".format(k),
+                    c=cgmGEN.Callback(webbrowser.open,l))    
+
 
 def uiSection_mrsTD(parent):
     _str_func = 'uiSection_layout'  
@@ -927,12 +930,7 @@ def uiSection_mrsManage(parent):
                 l='Scene',
                 ann = "Scene Management Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsScene())
-    
-    mc.menuItem(parent = parent,
-                l='Scene | Legacy',
-                ann = "Scene Management Tool | Pre Merge Version",
-                c=lambda *a:TOOLCALLS.mrsSceneLegacy())
-    
+        
     mUI.MelMenuItemDiv(parent,label='Utils')
     
     mc.menuItem(parent = parent,
@@ -960,7 +958,8 @@ def uiSection_mrs(parent):
     
     mUI.MelMenuItemDiv(parent,label='TD')
     
-                
+    mUI.MelMenuItemDiv(parent,label='MRS')
+
     mc.menuItem(parent = parent,
                 l='Builder',
                 ann = "MRS Rigging Tool | Beta",
@@ -1140,6 +1139,11 @@ def uiSection_dev(parent):
     #...------------------------------------------------------------------
     _wipTools = mc.menuItem(parent = parent,subMenu = True,tearOff = True,
                              l='WIP Tools:')
+    
+    mc.menuItem(parent = _wipTools,
+                l='FuncOverTime',
+                ann = "Testing",
+                c=lambda *a: TOOLCALLS.FuncOverTime())        
     mc.menuItem(parent = _wipTools,
                 l='animDraw',
                 ann = "Draw animation. If you can....",
@@ -1412,33 +1416,6 @@ def uiSection_riggingUtils(parent, selection = None):
     #Control stuff -------------------------------------------------------------------------------------------   
     uiSection_controlCurves(_p,selection)
     
-    #Create stuff -------------------------------------------------------------------------------------------
-    """
-    mc.menuItem(parent=_create,
-                l = 'Transform',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'each','Create Tranform',**{'create':'null'}),          
-                rp = "N")        
-    mc.menuItem(parent=_create,
-                l = 'Joint',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_joint_at, None,'each','Create Joint'),          
-                #c = cgmGEN.Callback(self.button_action_per_sel,RIGGING.create_joint_at,'Create Joint'),
-                rp = "NW")   
-    mc.menuItem(parent=_create,
-                l = 'Locator',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, LOC.create, None,'each','Create Loc'),                          
-                #c = cgmGEN.Callback(self.button_action_per_sel,RIGGING.create_at,'Create Curve',**{'create':'curve'}),
-                rp = "S")      
-    mc.menuItem(parent=_create,
-                l = 'Curve',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curve'}),                          
-                #c = cgmGEN.Callback(self.button_action_per_sel,RIGGING.create_at,'Create Curve',**{'create':'curve'}),
-                rp = "S")  
-    mc.menuItem(parent=_create,
-                l = 'Linear Curve',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Linear Curve',**{'create':'curveLinear'}),                          
-                #c = cgmGEN.Callback(self.button_action_per_sel,RIGGING.create_at,'Create Curve',**{'create':'curve'}),
-                rp = "S")  
-    """
     
     #Group stuff -------------------------------------------------------------------------------------------
     mc.menuItem(parent=_gSet,
@@ -1483,6 +1460,11 @@ def uiSection_riggingUtils(parent, selection = None):
                 l = 'scalePivot',
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match SP', **{'rotatePivot':False,'scalePivot':True}),                                               
                 ann = "Copy the scalePivot from:to")
+    
+    mc.menuItem(parent = _piv,
+                l = 'both',
+                c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match SP', **{'rotatePivot':True,'scalePivot':True}),                                               
+                ann = "Copy the rp/sp from:to")    
     
     #Copy stuff -------------------------------------------------------------------------------------------
     l_modes = ['parent',

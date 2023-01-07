@@ -386,6 +386,10 @@ def get_time(mode = 'current'):
         return [mc.playbackOptions(q=True,animationStartTime=True), mc.playbackOptions(q=True,animationEndTime=True)]
     elif mode == 'slider':
         return [mc.playbackOptions(q=True,min=True), mc.playbackOptions(q=True,max=True)]
+    elif mode == 'forward':
+        return [mc.currentTime(q=True), mc.playbackOptions(q=True,max=True)]
+    elif mode == 'back':
+        return [mc.playbackOptions(q=True,min=True), mc.currentTime(q=True)]    
     elif mode == 'selected':
         #Thanks to Brad Clark for this one
         aPlayBackSliderPython = mel.eval('$tmpVar=$gPlayBackSlider')

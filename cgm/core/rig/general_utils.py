@@ -930,7 +930,7 @@ def objectDat_set(dat = {}, position = True, orient = True,scale=False):
             if orient:
                 mNode.p_orient = d['orient']
             if scale:
-                mNode.p_orient = d['scale']            
+                mNode.scale = d['scale']            
         except Exception as err:
             log.error("{0} | {1}".format(Node,err))
     
