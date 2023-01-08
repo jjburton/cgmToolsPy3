@@ -19,7 +19,7 @@ import pprint
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -99,7 +99,7 @@ class fOverTimeBAK:
             raise ValueError("{} | Need a function".format(self.__class__))
 
         return func,args,kwargs
-
+ 
     def run(self, function = None, *args, **kwargs):
         current_time = mc.currentTime(query=True)
         current_frame = self.frame_start
@@ -905,7 +905,7 @@ class ui(CGMUI.cgmGUI):
                 return        
             
             self.mFOT.run_frames()
-                
+            return
             """
             #Now we're gonna get our data per item
             if not _keysAll:
