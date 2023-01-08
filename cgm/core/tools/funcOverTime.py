@@ -32,13 +32,26 @@ from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import locator_utils as LOC
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import name_utils as NAMES
-import cgm.core.lib.shared_data as CORESHARE
-import cgm.core.lib.string_utils as CORESTRINGS
+#import cgm.core.lib.shared_data as CORESHARE
+#import cgm.core.lib.string_utils as CORESTRINGS
 from cgm.core.lib import search_utils as SEARCH
-import cgm.core.classes.GuiFactory as cgmUI
+#import cgm.core.classes.GuiFactory as cgmUI
 from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
+#import cgm.core.mrs.lib.animate_utils as MRSANIMUTILS
+import cgm.core.lib.list_utils as CORELIST
 
 __version__ = cgmGEN.__RELEASESTRING
+_l_contextTime = ['back',
+                  #'previous',
+                  #'current',
+                  'input',
+                  #'bookEnd',
+                  #'next',
+                  'forward',
+                  'slider',
+                  'scene',
+                  'selected']
+#_l_contextTime = MRSANIMUTILS._l_contextTime + ['input']
 
 import cgm.core.classes.GuiFactory as CGMUI
 #reload(cgmUI)
@@ -155,6 +168,8 @@ class overload_call:
         self.frames = []
         self.errors = []
         
+        self.showBake = False
+        
         self.call = None
         self.func_pre = None
         self.func_post = None
@@ -167,13 +182,14 @@ class overload_call:
         self.post_args = []
         self.post_kws = {}       
 
-    @cgmGEN.Wrap_exception
+    #@cgmGEN.Wrap_exception
+    @cgmGEN.Timer    
     def run(self):
         _str_func = 'run[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
         
-        pprint.pprint(self.__dict__)
-        
+        #pprint.pprint(self.__dict__)            
+            
         current_time = mc.currentTime(query=True)
         current_frame = self.frame_start
         
@@ -188,8 +204,9 @@ class overload_call:
         mc.currentTime(current_time)
         self.post_run()
         
-    @cgmGEN.Wrap_exception
-    def run_frames(self, function = None, *args, **kwargs):
+    #@cgmGEN.Wrap_exception
+    @cgmGEN.Timer
+    def run_frames(self):
         _str_func = 'run_frames[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
         
@@ -221,7 +238,8 @@ class overload_call:
             for a in err.args:
                 log.info(a)
                 
-    @cgmGEN.Wrap_exception
+    #@cgmGEN.Wrap_exception
+    @cgmGEN.Timer    
     def run_on_current_frame(self, function=None, *args, **kwargs):
         _str_func = 'run_on_current_frame[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
@@ -232,10 +250,17 @@ class overload_call:
         
         self.post_run()
         
-    @cgmGEN.Wrap_exception
+    #@cgmGEN.Wrap_exception
+    @cgmGEN.Timer    
     def pre_run(self):
         _str_func = 'pre_run[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
+        
+        if not self.showBake:
+            mc.refresh(su=1)
+            
+        mc.undoInfo(openChunk=True,chunkName="undo{0}".format(self.call.__name__))
+        self._autoKey = mc.autoKeyframe(q=True,state=True)            
         
         if self.func_pre:
             try:self.func_pre( *self.pre_args, **self.pre_kws )
@@ -250,22 +275,29 @@ class overload_call:
                     for a in err.args:
                         log.info(a)
     
-    @cgmGEN.Wrap_exception    
+    #@cgmGEN.Wrap_exception    
+    @cgmGEN.Timer
     def post_run(self):
         _str_func = 'post_run[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
+        try:
+            if self.func_post:
+                try:return self.func_post( *self.post_args, **self.post_kws )
+                except Exception as err:
+                    try:log.info("Func: {0}".format(self.func_post.__name__))
+                    except:log.info("Func: {0}".format(self.func_post))
+                    if self.post_args:
+                        log.info("args: {0}".format(self.post_args))
+                    if self.post_kws:
+                        log.info("kws: {0}".format(self.post_kws))
+                    for a in err.args:
+                        log.info(a)
         
-        if self.func_post:
-            try:return self.func_post( *self.post_args, **self.post_kws )
-            except Exception as err:
-                try:log.info("Func: {0}".format(self.func_post.__name__))
-                except:log.info("Func: {0}".format(self.func_post))
-                if self.post_args:
-                    log.info("args: {0}".format(self.post_args))
-                if self.post_kws:
-                    log.info("kws: {0}".format(self.post_kws))
-                for a in err.args:
-                    log.info(a)
+        finally:
+            mc.refresh(su=0)        
+            if self._autoKey:#turn back on if it was
+                mc.autoKeyframe(state=True)        
+            mc.undoInfo(closeChunk=True,chunkName="undo{0}".format(self.call.__name__))
 
     def set_start(self,frame_start):
         self.frame_start = frame_start
@@ -303,7 +335,7 @@ class ui(CGMUI.cgmGUI):
     TOOLNAME = 'ui_FuncOverTime'
     WINDOW_NAME = "{}UI".format(TOOLNAME)
     WINDOW_TITLE = 'FOT | {0}'.format(__version__)
-    DEFAULT_SIZE = 225, 275
+    DEFAULT_SIZE = 225, 350
     DEFAULT_MENU = None
     RETAIN = True
     MIN_BUTTON = False
@@ -314,9 +346,14 @@ class ui(CGMUI.cgmGUI):
     def insert_init(self, *args, **kws):
         self.mFOT = overload_call()
         self.mFOT.call = self.uiFunc
+        self.uiButton_bake = None
+        self.ml_watch = []
         
         self.create_guiOptionVar('keysMode', defaultValue='loc')
         self.create_guiOptionVar('interval', defaultValue=1.0)
+        self.create_guiOptionVar('showBake', defaultValue=0)
+        self.create_guiOptionVar('context_keys', defaultValue='each')
+        self.create_guiOptionVar('context_time', defaultValue='current')
         
         self.WINDOW_TITLE = ui.WINDOW_TITLE
         self.DEFAULT_SIZE = ui.DEFAULT_SIZE
@@ -326,13 +363,110 @@ class ui(CGMUI.cgmGUI):
         log.debug("|{0}| >>...".format(_str_func))
         pprint.pprint(self.mFOT.__dict__)        
         
-
+    def watchTargets_set(self,arg = None):
+        _str_func = '[{0}]watchTargets_set'.format(self.__class__.TOOLNAME)                    
+        if not arg:
+            arg = mc.ls(sl=1)
+        self.ml_watch = cgmMeta.validateObjListArg(arg, noneValid=True)
+        print("{} | Watch Targets: ".format(_str_func))
+        pprint.pprint(self.ml_watch)
+        
+    def watchTargets_clear(self):
+        _str_func = '[{0}]watchTargets_clear'.format(self.__class__.TOOLNAME)                            
+        self.ml_watch = []
+        mc.warning("{} | Watch Targets cleared ".format(_str_func))
+    
     def build_menus(self):
+        self.uiMenu_options = mUI.MelMenu( l='Options', pmc = cgmGEN.Callback(self.buildMenu_options) )        
         #self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc = cgmGEN.Callback(self.buildMenu_file))
         self.uiMenu_DevMenu = mUI.MelMenu(l='Dev', pmc = cgmGEN.Callback(self.buildMenu_dev))
         
     def uiFunc(self,*args,**kws):
         print('{} | do something here...'.format(mc.currentTime(q=True)))
+        
+    def buildMenu_options( self, *args):
+        self.uiMenu_options.clear()   
+        _menu = self.uiMenu_options
+        
+        
+        #Dyn mode...
+        uiDyn = mc.menuItem(p=_menu, l='ShowBake ', subMenu=True)        
+        uiRC = mc.radioMenuItemCollection()
+        _v = self.var_showBake.value
+        
+        for i in range(2):
+            if i == _v:
+                _rb = True
+            else:_rb = False
+            mc.menuItem(p=uiDyn,collection = uiRC,
+                        label=bool(i),
+                        c = cgmGEN.Callback(self.var_showBake.setValue,i),
+                        rb = _rb)
+            
+            
+        mUI.MelMenuItemDiv(_menu,l='WatchTargets')
+        mUI.MelMenuItem(_menu,
+                        l='Set',
+                        ann = 'Set watch targets',
+                        c = lambda *a:self.watchTargets_set(),
+                        )
+        mUI.MelMenuItem(_menu,
+                        l='Clear',
+                        ann = 'clear watch targets',
+                        c = lambda *a:self.watchTargets_clear(),
+                        )
+        return
+        #>>> 
+        uiMenu_keysModes = mc.menuItem(parent = _menu,subMenu = True,
+                                       l='Bake Keys')
+        
+        uiRC = mc.radioMenuItemCollection(parent = uiMenu_keysModes)
+        _v = self.var_keysMode.value
+    
+        _d_annos = {'loc':'Use keys of the loc',
+                    'source':'Use keys of the source',
+                    'combine':'Combine keys of the loc and source',
+                    'frames':'Within specified range, every frame',
+                    'twos':'Within specified range, on twos',
+                    'threes':'Within specified range, on threes'}
+        
+        """
+        timeMode(str):
+            :slider/range
+            :scene
+            :custom
+        keysMode(str)
+            :loc
+            :source
+            :combine
+            :frames -- bake every frame
+            :twos
+            :threes
+        """
+    
+        for i,item in enumerate(['loc','source','combine','frames','twos','threes']):
+            if item == _v:
+                _rb = True
+            else:_rb = False
+            mc.menuItem(parent=uiMenu_keysModes,collection = uiRC,
+                        label=item,
+                        ann=_d_annos.get(item,'Fill out the dict!'),                        
+                        c = cgmGEN.Callback(self.var_keysMode.setValue,item),                                  
+                        rb = _rb) 
+    
+
+        mc.menuItem(p=_menu,l='----------------',en=False)
+        
+        mc.menuItem(parent=_menu,
+                    l = 'Tag Selected',
+                    ann = 'Tag to last as cgmMatchTarget',
+                    c = cgmGEN.Callback(MMCONTEXT.func_process, SNAP.matchTarget_set, None,'eachToLast','Tag cgmMatchTarget',False),                                                                                      
+                    rp = 'SE') 
+        mc.menuItem(parent=_menu,
+                    l = 'Clear Selected',
+                    ann = 'Clear match Target data from selected objects',
+                    c = cgmGEN.Callback(MMCONTEXT.func_process, SNAP.matchTarget_clear, None,'each','Clear cgmMatch data',True),                                                                                                      
+                    rp = 'S')
         
     def buildMenu_file(self):
         self.uiMenu_FileMenu.clear()
@@ -433,7 +567,10 @@ class ui(CGMUI.cgmGUI):
         _current = mUI.MelButton(_inside, label = 'Current',ut='cgmUITemplate',
                                  c = cgmGEN.Callback(self.mFOT.run_on_current_frame,self.mFOT),                                 
                                  )
-  
+        
+        
+        self.buildFrame_timeContext(_inside)
+        """
         #Bake frame...------------------------------------------------------
         self.create_guiOptionVar('bake',defaultValue = 0)
         mVar_frame = self.var_bake
@@ -449,7 +586,8 @@ class ui(CGMUI.cgmGUI):
                                     collapseCommand = lambda:mVar_frame.setValue(1)
                                     )	
         self.uiFrame_bake = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate') 
-
+        self.uiFrame_buildBake()"""
+        
 
         
 
@@ -472,7 +610,6 @@ class ui(CGMUI.cgmGUI):
                         ],
                   attachNone = [(_row_cgm,"top")])
         
-        self.uiFrame_buildBake()
         
     def uiFrame_buildBake(self):
         self.uiFrame_bake.clear()
@@ -522,12 +659,8 @@ class ui(CGMUI.cgmGUI):
     
         mUI.MelSpacer(_row_time)
         _row_time.layout()   
-        
-        
-        
 
         #>>>Update Row ---------------------------------------------------------------------------------------
-        
         mc.setParent(_frame_inside)
         CGMUI.add_LineSubBreak()
         
@@ -552,23 +685,281 @@ class ui(CGMUI.cgmGUI):
         mUI.MelButton(_frame_inside,label = 'Selected Time',
                       ut='cgmUITemplate',
                       c = cgmGEN.Callback(self.uiFunc_bake,'selected'),                         
-                      ann=_d_annotations.get('Selected','fix'))        
+                      ann=_d_annotations.get('Selected','fix'))
+        
+        
+    def buildFrame_timeContext(self,parent):
+        def setContext_time(self,arg):
+            self.var_context_time.setValue(arg)
+            updateHeader(self)
+        def setContext_keys(self,arg):
+            self.var_context_keys.setValue(arg)
+            updateHeader(self)        
+            
+        def updateHeader(self):
+            self.uiFrame_time(edit=True, label = "Freq: [{0}] | Time: [{1}]".format(self.var_context_keys.value,
+                                                                                          self.var_context_time.value))
+            
+            if self.uiButton_bake:
+                self.uiButton_bake(edit=True, label = "Bake: {}".format(self.var_context_time.value))
+            
+        try:self.var_timeContextFrameCollapse
+        except:self.create_guiOptionVar('timeContextFrameCollapse',defaultValue = 0)
+        mVar_frame = self.var_timeContextFrameCollapse
+        
+        _frame = mUI.MelFrameLayout(parent,label = 'Bake',vis=True,
+                                    collapse=mVar_frame.value,
+                                    collapsable=True,
+                                    enable=True,
+                                    w=180,                                    
+                                    #ann='Contextual MRS functionality',
+                                    useTemplate = 'cgmUIHeaderTemplate',
+                                    expandCommand = lambda:mVar_frame.setValue(0),
+                                    collapseCommand = lambda:mVar_frame.setValue(1)
+                                    )	
+        self.uiFrame_time = _frame
+        _inside = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate') 
+        
+        #>>>Anim ===================================================================================== 
+        #>>>Keys Context Options -------------------------------------------------------------------------------
+        #bgc=_subLineBGC
+        _rowContextKeys = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+        #_rowContextKeys = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding=5,bgc=_subLineBGC)
+    
+    
+        mUI.MelSpacer(_rowContextKeys,w=5)                          
+        #mUI.MelLabel(_rowContextKeys,l='Keys: ')
+        _rowContextKeys.setStretchWidget( mUI.MelSeparator(_rowContextKeys) )
+    
+        uiRC = mUI.MelRadioCollection()
+    
+        mVar = self.var_context_keys
+        _on = mVar.value
+    
+        for i,item in enumerate(_l_contextKeys):
+            if item == _on:
+                _rb = True
+            else:_rb = False
+            _label = str(_d_timeShorts.get(item,item))
+            uiRC.createButton(_rowContextKeys,label=_label,sl=_rb,
+                              ann = "Set keys context to: {0}".format(item),                          
+                              onCommand = cgmGEN.Callback(setContext_keys,self,item))
+        
+        
+        self.uiFF_interval = mUI.MelFloatField(_rowContextKeys,precision = 1,
+                                               value = self.var_interval.getValue(),
+                                               width = 40, min=0.1)
+        
+        self.uiFF_interval(edit =True, cc = lambda *a:self.var_interval.setValue(self.uiFF_interval.getValue()))        
+        
+        mUI.MelSpacer(_rowContextKeys,w=2)                          
+        
+        _rowContextKeys.layout()    
+    
+        #>>>Time Context Options -------------------------------------------------------------------------------
 
+        mVar = self.var_context_time
+        _on = mVar.value
+        
+        import cgm.core.lib.list_utils as LISTS
+        _split = LISTS.get_chunks(_l_contextTime,3)
+        
+        for s in _split:
+            _rowContextTime = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding=3,)            
+            for i,item in enumerate(s):
+                _label = str(_d_timeShorts.get(item,item))
+                mUI.MelButton(_rowContextTime,label=_label,
+                              ann = "Set time context to: {0}".format(item),
+                              ut='cgmUITemplate',
+                              c = cgmGEN.Callback(setContext_time,self,item)) 
+            _rowContextTime.layout()
+            mUI.MelSpacer(_inside,h=3)
+        updateHeader(self)
+        
+        
+        """
+        # TimeInput Row ----------------------------------------------------------------------------------
+        _row_time = mUI.MelHRowLayout(_inside,ut='cgmUISubTemplate')
+        mUI.MelSpacer(_row_time)
+        mUI.MelLabel(_row_time,l='start')
+    
+        self.uiFieldInt_start = mUI.MelIntField(_row_time,
+                                                width = 40)
+        #_row_time.setStretchWidget( mUI.MelSpacer(_row_time) )
+        mUI.MelLabel(_row_time,l='end')
+    
+        self.uiFieldInt_end = mUI.MelIntField(_row_time,
+                                              width = 40)
+        
+        
+        self.uiFunc_updateTimeRange()
+    
+        mUI.MelSpacer(_row_time)
+        _row_time.layout()                   
+        """
+        #cgmUI.add_Header("Input Time")        
+        
+        #>>>Update Row ---------------------------------------------------------------------------------------
+        mc.setParent(_inside)
+        _row_timeSet = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 3)
+        mUI.MelSpacer(_row_timeSet,w=2)                          
+        mUI.MelLabel(_row_timeSet,label="Input Utils")
+        _row_timeSet.setStretchWidget( mUI.MelSeparator(_row_timeSet) )
+    
+        CGMUI.add_Button(_row_timeSet,'Slider',
+                         cgmGEN.Callback(self.uiFunc_updateTimeRange,'slider'),                         
+                         #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
+                         _d_annotations.get('sliderRange','fix sliderRange'))
+        CGMUI.add_Button(_row_timeSet,'Sel',
+                                 cgmGEN.Callback(self.uiFunc_updateTimeRange,'selected'),                         
+                                 #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
+                                 _d_annotations.get('selectedRange','fix selectedRange'))        
+    
+        CGMUI.add_Button(_row_timeSet,'Scene',
+                         cgmGEN.Callback(self.uiFunc_updateTimeRange,'scene'),                         
+                         _d_annotations.get('sceneRange','fix sceneRange'))
+        
+        mUI.MelSpacer(_row_timeSet,w=2)                          
+        _row_timeSet.layout()
+        mUI.MelSpacer(_inside,h=3)
+        
+        
+        _row_timeSet2 = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 3)
+        mUI.MelSpacer(_row_timeSet2,w=2)
+        
+        _row_timeSet2.setStretchWidget( mUI.MelSeparator(_row_timeSet2) )        
+        
+        mUI.MelLabel(_row_timeSet2,l='start')
+        self.uiFieldInt_start = mUI.MelIntField(_row_timeSet2,
+                                                width = 40)
+        
+        mUI.MelLabel(_row_timeSet2,l='end')
+        self.uiFieldInt_end = mUI.MelIntField(_row_timeSet2,
+                                              width = 40)
+        _row_timeSet2.layout()
+        mUI.MelSpacer(_inside,h=3)
+        
+        
+        
+        
+        _row_timeSet3 = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 3)
+        mUI.MelSpacer(_row_timeSet3,w=2)                          
+                
+        mUI.MelButton(_row_timeSet3,label='Q',
+                      ann='Query the time context',
+                      c=cgmGEN.Callback(self.uiFunc_bake,**{'debug':True}))     
+        
+        _row_timeSet3.setStretchWidget( mUI.MelSeparator(_row_timeSet3) )        
+        self.uiButton_bake = mUI.MelButton(_row_timeSet3,l='Bake',
+                                           ut='cgmUITemplate',
+                                           w=150,
+                                           c = cgmGEN.Callback(self.uiFunc_bake),                         
+                                           ann=_d_annotations.get('All','fix'))
+        mUI.MelSpacer(_row_timeSet3,w=2)                          
+        _row_timeSet3.layout()
+        
+        
+        self.uiFunc_updateTimeRange()  
+        
+        
+
+        
+        
     def uiFunc_updateTimeRange(self,mode = 'slider'):
         _range = SEARCH.get_time(mode)
         if _range:
             self.uiFieldInt_start(edit = True, value = _range[0])
             self.uiFieldInt_end(edit = True, value = _range[1])            
 
-    def uiFunc_bake(self,mode='all'):
-        _str_func = 'bake[{0}]'.format(self.__class__.TOOLNAME)            
+    def uiFunc_bake(self, debug=False):
+        _str_func = '[{0}] bake'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
         
-        if mode == 'range':
+        var_keys = self.var_context_keys.getValue()
+        var_time = self.var_context_time.getValue()
+        
+        #Initial range...
+        if var_time == 'input':
             _range = [self.uiFieldInt_start.getValue(),self.uiFieldInt_end.getValue()]
         else:
-            _range = SEARCH.get_time(mode)
-        pprint.pprint(_range)
+            _range = SEARCH.get_time(var_time)        
+        
+        if var_keys == 'keys':
+            if not self.ml_watch:
+                return mc.warning("{} | Must have watch targets for keys mode".format(_str_func))
+            
+            cgmGEN._reloadMod(SEARCH)
+            l_keys  = []
+            for mObj in self.ml_watch:
+                _keys = SEARCH.get_key_indices_from( mObj.mNode ,mode = var_time)
+                #pprint.pprint(_keys)
+                l_keys.extend(_keys)
+                
+            
+            l_keys = CORELIST.get_noDuplicates(l_keys)
+            self.mFOT.frames = l_keys
+            
+            
+            if debug:
+                pprint.pprint(vars())
+                return        
+            
+            self.mFOT.run_frames()
+                
+            """
+            #Now we're gonna get our data per item
+            if not _keysAll:
+                if keysMode == 'loc':
+                    _keys = SEARCH.get_key_indices_from( SEARCH.get_transform( _d['loc']),mode = keysDirection)
+                elif keysMode == 'source':
+                    _keys = SEARCH.get_key_indices_from( SEARCH.get_transform( _d['source']),mode = keysDirection)
+                elif keysMode in ['combine','both']:
+                    _source = SEARCH.get_key_indices_from( SEARCH.get_transform( _d['loc']),mode = keysDirection)
+                    _loc = SEARCH.get_key_indices_from( SEARCH.get_transform( _d['source']),mode= keysDirection)
+                    
+                    _keys = _source + _loc
+                    _keys = lists.returnListNoDuplicates(_keys)
+                elif keysMode == 'frames':
+                    _keys = list(range(_start,_end +1))
+                else:raise ValueError("|{0}| >> Unknown keysMode: {1}".format(_str_func,keysMode))
+            
+                _l_cull = []
+                for k in _keys:
+                    if k < _d_keyDat['frameStart'] or k > _d_keyDat['frameEnd']:
+                        log.info("|{0}| >> Removing key from list: {1}".format(_str_func,k))                
+                    else:
+                        _l_cull.append(k)
+                        
+                    if timeRange is not None:
+                        if k < timeRange[0] or k > timeRange[1]:
+                            log.info("|{0}| >> Key not in time range({2}). Removing: {1}".format(_str_func,k,timeRange))                
+                        else:
+                            _l_cull.append(k)
+                            
+                keys = _l_cull
+                        
+                if not _keys:
+                    log.error("|{0}| >> No keys found for: '{1}'".format(_str_func,o))
+                    break            
+                
+                _d_keysOfTarget[o] = _keys
+                _keysToProcess.extend(_keys)  
+                log.info("|{0}| >> Keys: {1}".format(_str_func,_keys))            
+            else: _d_keysOfTarget[o] = _keysAll            
+            """
+        
+        
+        
+        
+            
+        
+
+
+        
+        if debug:
+            pprint.pprint(vars())
+            return        
+        
         
         if not _range:
             return log.warning("No frames in range")
@@ -577,6 +968,7 @@ class ui(CGMUI.cgmGUI):
         self.mFOT.frame_end = _range[1]
         self.mFOT.interval = self.uiFF_interval.getValue()
         
+
         self.mFOT.run()
         
         return
@@ -593,7 +985,21 @@ class ui(CGMUI.cgmGUI):
         pprint.pprint(_kws)    
         #MMCONTEXT.func_process(bake_match, _targets,'all','Bake',False,**_kws)       
 
-
+_d_timeShorts = {'combined':'comb',
+                 'interval':'int',
+                 'back':'<-',
+                 'previous':'|<',
+                 'bookEnd':'|--|',
+                 'current':'now',
+                 'selected':'sel',
+                 'next':'>|',
+                 'slider':'[ ]',
+                 'input': '[...]',
+                 'forward':'->'}
+_l_contextKeys = [#'each',
+                  #'combined',
+                  'keys',
+                  'interval']
 
 
 

@@ -531,7 +531,7 @@ def get_key_indices_from(node = None, mode = 'all'):
         if mode == 'previous' and keyFrames:
             keyFrames = [keyFrames[-1]]
 
-    elif mode in ['all','selected','slider']:
+    elif mode in ['all','selected','slider','scene']:
         firstKey = mc.findKeyframe(node,which = 'first',an='objects')
         lastKey = mc.findKeyframe(node,which = 'last',an='objects')
         keyCheck = [firstKey]
@@ -564,7 +564,7 @@ def get_key_indices_from(node = None, mode = 'all'):
     
         # Put the time back where we found it
         #mc.currentTime(initialTimeState)
-        if mode in ['selected','slider']:
+        if mode in ['selected','slider','scene']:
             _range = get_time(mode)
             if not _range:
                 return False
