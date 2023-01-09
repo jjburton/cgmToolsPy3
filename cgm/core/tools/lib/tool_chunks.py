@@ -785,7 +785,17 @@ def uiSection_mrsAnim(parent):
     mc.menuItem(parent = parent,
                 l='cgmAnimFilterTool',
                 ann = "Launch cgm's animFilterTool - a tool for simple dynamics",
+                
                 c=lambda *a: TOOLCALLS.animFilter())        
+    mc.menuItem(parent = parent,
+                l='cgmFuncIterTime',
+                ann = "Launch cgm's funcIterTime - a tool for doing stuff over time via the script editor",
+                c=lambda *a: TOOLCALLS.FuncIterTime())        
+    mc.menuItem(parent = parent,
+                l='cgmRandomizeAttribute',
+                ann = "Launch cgm's new randomizeAttribute - a tool for using FuncIterTime with attribute values",
+                c=lambda *a: TOOLCALLS.RandomAttr())        
+    
     
     mc.menuItem(parent = parent,
                 l='cgmMocapBakeTool',
@@ -1141,9 +1151,9 @@ def uiSection_dev(parent):
                              l='WIP Tools:')
     
     mc.menuItem(parent = _wipTools,
-                l='FuncOverTime',
+                l='FuncIterTime',
                 ann = "Testing",
-                c=lambda *a: TOOLCALLS.FuncOverTime())
+                c=lambda *a: TOOLCALLS.FuncIterTime())
     mc.menuItem(parent = _wipTools,
                 l='RandomAttr',
                 ann = "Testing",

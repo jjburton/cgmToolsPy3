@@ -1,6 +1,6 @@
 """
 ------------------------------------------
-funcOverTime: cgm.core
+funcIterTime: cgm.core
 Author: Josh Burton
 email: cgmonks.info@gmail.com
 
@@ -356,10 +356,10 @@ class overload_call:
 
 class ui(CGMUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
-    _toolname = 'FuncOverTime'
-    TOOLNAME = 'ui_FuncOverTime'
+    _toolname = 'FuncIterTime'
+    TOOLNAME = 'ui_FuncIterTime'
     WINDOW_NAME = "{}UI".format(TOOLNAME)
-    WINDOW_TITLE = 'FOT | {0}'.format(__version__)
+    WINDOW_TITLE = 'FIT | {0}'.format(__version__)
     DEFAULT_SIZE = 225, 350
     DEFAULT_MENU = None
     RETAIN = True
@@ -369,7 +369,7 @@ class ui(CGMUI.cgmGUI):
 
  
     def insert_init(self, *args, **kws):
-        self.mFOT = overload_call()
+        self.mFIT = overload_call()
         self.uiButton_bake = None
         self.ml_watch = []
         
@@ -383,13 +383,13 @@ class ui(CGMUI.cgmGUI):
         self.DEFAULT_SIZE = ui.DEFAULT_SIZE
     
     def post_init(self,*args,**kws):
-        self.mFOT.call = self.uiFunc
+        self.mFIT.call = self.uiFunc
         
     
     def log_dat(self):
         _str_func = 'log_self[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
-        pprint.pprint(self.mFOT.__dict__)        
+        pprint.pprint(self.mFIT.__dict__)        
         
     def watchTargets_set(self,arg = None):
         _str_func = '[{0}]watchTargets_set'.format(self.__class__.TOOLNAME)                    
@@ -508,21 +508,21 @@ class ui(CGMUI.cgmGUI):
         pprint.pprint(self.__dict__)
         
     def set_func(self,func=None,*args,**kws):
-        self.mFOT.call = func
-        self.mFOT.call_args = args
-        self.mFOT.call_kws = kws
+        self.mFIT.call = func
+        self.mFIT.call_args = args
+        self.mFIT.call_kws = kws
         
         self.uiUpdate_base()
         
     def set_pre(self,func=None,*args,**kws):
-        self.mFOT.func_pre = func
-        self.mFOT.pre_args = args
-        self.mFOT.pre_kws = kws
+        self.mFIT.func_pre = func
+        self.mFIT.pre_args = args
+        self.mFIT.pre_kws = kws
                 
     def set_post(self,func=None,*args,**kws):
-        self.mFOT.func_post = func
-        self.mFOT.post_args = args
-        self.mFOT.post_kws = kws
+        self.mFIT.func_post = func
+        self.mFIT.post_args = args
+        self.mFIT.post_kws = kws
                 
         
     def uiBuild_top(self):
@@ -530,11 +530,11 @@ class ui(CGMUI.cgmGUI):
         log.debug("|{0}| >>...".format(_str_func))
         self.uiSection_top.clear()
         #CGMUI.add_Header('Put stuff here')
-        mUI.MelLabel(self.uiSection_top, label = "You can add functions: \n uiFOT.set_func | set_pre | set_post")
+        mUI.MelLabel(self.uiSection_top, label = "You can add functions: \n uiFIT.set_func | set_pre | set_post")
     
     def uiUpdate_base(self):
-        if self.mFOT.call:
-            self.uiButton_current(edit=True,label = self.mFOT.call.__name__)
+        if self.mFIT.call:
+            self.uiButton_current(edit=True,label = self.mFIT.call.__name__)
     
     def build_layoutWrapper(self,parent):
         _str_func = 'build_layoutWrapper[{0}]'.format(self.__class__.TOOLNAME)            
@@ -543,17 +543,16 @@ class ui(CGMUI.cgmGUI):
         #Declare form frames...------------------------------------------------------
         _MainForm = mUI.MelFormLayout(parent,ut='CGMUITemplate')#mUI.MelColumnLayout(ui_tabs)
 
-        _inside = mUI.MelColumn(_MainForm,ut='CGMUITemplate')
+        #_inside = mUI.MelColumn(_MainForm,ut='CGMUITemplate')
+        _inside = mUI.MelScrollLayout(_MainForm,ut='CGMUITemplate')
         
         #Top Section -----------
         self.uiSection_top = mUI.MelColumn(_inside, w = 180, 
                                            useTemplate = 'cgmUISubTemplate',vis=True)         
         self.uiBuild_top()
         
-        
-        
         self.uiButton_current = mUI.MelButton(_inside, label = 'Current',ut='cgmUITemplate',
-                                              c = cgmGEN.Callback(self.mFOT.run_on_current_frame,self.mFOT),                                 
+                                              c = cgmGEN.Callback(self.mFIT.run_on_current_frame,self.mFIT),                                 
                                               )
         
         
@@ -885,14 +884,14 @@ class ui(CGMUI.cgmGUI):
                 
             
             l_keys = CORELIST.get_noDuplicates(l_keys)
-            self.mFOT.frames = l_keys
+            self.mFIT.frames = l_keys
             
             
             if debug:
                 pprint.pprint(vars())
                 return        
             
-            self.mFOT.run_frames()
+            self.mFIT.run_frames()
             return
 
         
@@ -904,11 +903,11 @@ class ui(CGMUI.cgmGUI):
         if not _range:
             return log.warning("No frames in range")
         
-        self.mFOT.frame_start = _range[0]
-        self.mFOT.frame_end = _range[1]
-        self.mFOT.interval = self.uiFF_interval.getValue()
+        self.mFIT.frame_start = _range[0]
+        self.mFIT.frame_end = _range[1]
+        self.mFIT.interval = self.uiFF_interval.getValue()
 
-        self.mFOT.run()
+        self.mFIT.run()
         
         return
         

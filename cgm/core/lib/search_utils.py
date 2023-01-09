@@ -42,6 +42,9 @@ is_shape = VALID.is_shape
 is_transform = VALID.is_transform    
 get_mayaType = VALID.get_mayaType
 get_transform = VALID.get_transform 
+log_msg = cgmGEN.logString_msg
+log_sub = cgmGEN.logString_sub
+log_start = cgmGEN.logString_start
 
 def get_nodeTagInfo(node = None, tag = None):
     """
@@ -582,7 +585,23 @@ def get_key_indices_from(node = None, mode = 'all'):
     #mc.currentTime(initialTimeState)
     return lists.returnListNoDuplicates(keyFrames)
     
-
+def get_anim_value_by_time(node = None, attributes = [], time = 0.0):
+    _str_func = 'get_anim_value_by_time'    
+    _res = []
+    for a in attributes:
+        _comb = f"{node}.{a}"
+        anim_curve_node = mc.listConnections(_comb, source=True, destination=False, type="animCurve")
+        if anim_curve_node:
+            anim_curve_node = anim_curve_node[0]
+        else:
+            log.error(log_msg(_str_func,"| Doesn't have anim: {}".format(_comb)))
+            continue
+        _res.append(mc.getAttr(f"{anim_curve_node}.output", time = time))
+        
+    if _res and len(_res)==1:
+        return _res[0]
+    return _res
+    
 def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict = False, report= True ):
     """ 
     Returns a list of selected object attributes from the channel box

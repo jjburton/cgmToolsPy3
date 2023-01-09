@@ -1,6 +1,6 @@
 """
 ------------------------------------------
-attributeRandomizer: cgm.core.tools
+randomizeAttribute: cgm.core.tools
 Author: Josh Burton
 email: cgmonks.info@gmail.com
 
@@ -45,7 +45,7 @@ __version__ = cgmGEN.__RELEASESTRING
 import cgm.core.classes.GuiFactory as CGMUI
 mUI = CGMUI.mUI
 
-from . import funcOverTime as FOT
+from . import funcIterTime as FIT
 
 log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
@@ -73,22 +73,22 @@ d_attrNames = {'tx':'translateX',
 
 
 
-class ui(FOT.ui):
+class ui(FIT.ui):
     USE_Template = 'cgmUITemplate'
-    _toolname = 'RandomAttr'
-    TOOLNAME = 'ui_RandomAttr'
+    _toolname = 'RandomizeAttribute'
+    TOOLNAME = 'ui_RandomizeAttribute'
     WINDOW_NAME = "{}UI".format(TOOLNAME)
-    WINDOW_TITLE = 'RandomAttr| {0}'.format(__version__)
-    DEFAULT_SIZE = 300, 350
+    WINDOW_TITLE = 'RandomizeAttribute| {0}'.format(__version__)
+    DEFAULT_SIZE = 400, 350
     #DEFAULT_MENU = None
-    #RETAIN = True
+    RETAIN = True
     #MIN_BUTTON = False
     #MAX_BUTTON = False
-    FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created
+    FORCE_DEFAULT_SIZE = False  #always resets the size of the window when its re-created
 
  
     def insert_init(self, *args, **kws):
-        FOT.ui.insert_init(self,*args,**kws)
+        FIT.ui.insert_init(self,*args,**kws)
         #super(FOT.ui, self).insert_init(*args, **kws)
         self.create_guiOptionVar('random_mode', defaultValue='absolute')
         self.create_guiOptionVar('blend_mode', defaultValue='peak')
@@ -106,8 +106,9 @@ class ui(FOT.ui):
         #self.create_guiOptionVar('context_time', defaultValue='current')
 
     def post_init(self,*args,**kws):
-        self.mFOT.set_func(self.uiFunc_call,[],{})
-        self.mFOT.set_pre(self.uiFunc_pre,[],{})
+        self.mFIT.set_func(self.uiFunc_call,[],{})
+        self.mFIT.set_pre(self.uiFunc_pre,[],{})
+        self.mFIT.set_post(self.uiFunc_post,[],{})
         
         self.uiFunc_attrs_add()
         pass#...clearing parent call here
@@ -115,7 +116,7 @@ class ui(FOT.ui):
     def log_dat(self):
         _str_func = 'log_self[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
-        pprint.pprint(self.mFOT.__dict__)        
+        pprint.pprint(self.mFIT.__dict__)        
                 
     def uiFunc_attrs_add(self):
         _str_func = 'uiFunc_attrs_add[{0}]'.format(self.__class__.TOOLNAME)            
@@ -130,6 +131,12 @@ class ui(FOT.ui):
                 self.l_attrs.append(a)
                 
         self.uiFunc_refreshAttrList()
+        
+    def uiFunc_post(self,*args,**kws):
+        _str_func = 'uiFunc_post[{0}]'.format(self.__class__.TOOLNAME)
+        
+        for mObj in self.ml_targets:
+            mc.dgdirty(mObj.mNode)#...mark it dirty to update in viewport without a time change
 
     def uiFunc_pre(self,*args,**kws):
         _str_func = 'uiFunc_pre[{0}]'.format(self.__class__.TOOLNAME)                    
@@ -201,8 +208,11 @@ class ui(FOT.ui):
                     
                     _value = _value + _base
                     #ATTR.set(_node, a, _value + _base)
-
-                mc.setKeyframe( _node, t=[_current_time], at=a, v=_value )
+                
+                if not SEARCH.get_anim_value_by_time(_node,[a], _current_time):
+                    ATTR.set(_node,a,_value)
+                else:
+                    mc.setKeyframe( _node, t=[_current_time], at=a, v=_value )
                 #mc.setKeyframe(_node, at=a)
         
     def uiFunc_attrs_clear(self):
@@ -211,6 +221,28 @@ class ui(FOT.ui):
         
         self.l_attrs = []
         self.uiFunc_refreshAttrList()
+        
+    def uiFunc_flipBlend(self,mode = '<'):
+        _str_func = 'uiFunc_flipBlend[{0}]'.format(self.__class__.TOOLNAME)            
+        log.debug("|{0}| >>...".format(_str_func))
+        
+        if mode == 'f':
+            _pre = -self.uiFF_postOffset.getValue()
+            _post = -self.uiFF_preOffset.getValue()
+            
+            self.uiFF_preOffset.setValue(_pre)
+            self.uiFF_postOffset.setValue(_post)
+
+            
+        elif mode == '<':
+            self.uiFF_preOffset.setValue(-self.uiFF_postOffset.getValue())
+            
+        else:
+            self.uiFF_postOffset.setValue(-self.uiFF_preOffset.getValue())
+        
+        self.var_postOffset.setValue(self.uiFF_postOffset.getValue())
+        self.var_preOffset.setValue(self.uiFF_preOffset.getValue())
+            
         
     def uiFunc_removeData(self,idx=None):
         _str_func = 'uiFunc_removeData[{0}]'.format(self.__class__.TOOLNAME)
@@ -259,7 +291,12 @@ class ui(FOT.ui):
                 #Row...
                 _label = d_attrNames.get(a,a)
                 
-                _row = mUI.MelHSingleStretchLayout(self.uiFrame_attrs,)            
+                if MATH.is_even(i):
+                    _ut = 'cgmUIInstructionsTemplate'
+                else:
+                    _ut = 'cgmUISubTemplate'
+                    
+                _row = mUI.MelHSingleStretchLayout(self.uiFrame_attrs,ut = _ut)            
                 
                 mUI.MelSpacer(_row,w=5)
 
@@ -286,7 +323,7 @@ class ui(FOT.ui):
                 mUI.MelSpacer(_row,w=5)                
                 _row.layout()
                 
-                mUI.MelSeparator(self.uiFrame_attrs,h=1)
+                #mUI.MelSeparator(self.uiFrame_attrs,h=1)
             except Exception as err:
                 log.error(err)
         #self.uiFrame_attrs.layout()
@@ -357,7 +394,18 @@ class ui(FOT.ui):
                                                  ann = _d_annotations.get('Set pre blend','fix'),                                                                           
                                                  width = 40, )
         
-        self.uiFF_preOffset(edit =True, cc = lambda *a:self.var_preOffset.setValue(self.uiFF_preOffset.getValue()))        
+        self.uiFF_preOffset(edit =True, cc = lambda *a:self.var_preOffset.setValue(self.uiFF_preOffset.getValue()))
+        
+        mUI.MelButton(_rowBlendMode, label = '>',ut='cgmUITemplate',
+                      ann = "Send pre value to post",                      
+                      c = cgmGEN.Callback(self.uiFunc_flipBlend,'>'))
+        mUI.MelButton(_rowBlendMode, label = 'f',ut='cgmUITemplate',
+                      ann = "flip pre/post Values",                      
+                      c = cgmGEN.Callback(self.uiFunc_flipBlend,'f'))        
+        mUI.MelButton(_rowBlendMode, label = '<',ut='cgmUITemplate',
+                      ann = "Send post value to pre",
+                      c = cgmGEN.Callback(self.uiFunc_flipBlend,'<'))
+
             
         self.uiFF_postOffset= mUI.MelFloatField(_rowBlendMode,precision = 1,ut='cgmUITemplate',
                                                  value = self.var_postOffset.getValue(),

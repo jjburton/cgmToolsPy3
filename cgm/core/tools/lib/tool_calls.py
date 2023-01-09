@@ -14,15 +14,15 @@ import cgm.core.cgm_General as cgmGEN
 import webbrowser
 import maya.mel as mel
 
-def FuncOverTime():
-    import cgm.core.tools.funcOverTime as FOT
-    cgmGEN._reloadMod(FOT)
-    mel.eval('python "import cgm.core.tools.funcOverTime as FOT;uiFOT = FOT.ui()"')
+def FuncIterTime():
+    import cgm.core.tools.funcIterTime as cgmFIT
+    cgmGEN._reloadMod(cgmFIT)
+    mel.eval('python "import cgm.core.tools.funcIterTime as cgmFIT;uiFIT = cgmFIT.ui()"')
     
 def RandomAttr():
-    import cgm.core.tools.attributeRandomizer as ATTRRANDOM
-    cgmGEN._reloadMod(ATTRRANDOM)
-    mel.eval('python "import cgm.core.tools.attributeRandomizer as ATTRRANDOM;uiRANDOM = ATTRRANDOM.ui()"')
+    import cgm.core.tools.randomizeAttribute as cgmRandAttr
+    cgmGEN._reloadMod(cgmRandAttr)
+    mel.eval('python "import cgm.core.tools.randomizeAttribute as cgmRandAttr;uiRANDATTR= cgmRandAttr.ui()"')
 
 def red9( *a ):
     import Red9
