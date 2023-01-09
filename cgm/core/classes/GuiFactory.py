@@ -1776,6 +1776,7 @@ def initializeTemplates():
     mc.textField(dt = 'cgmUILockedTemplate', backgroundColor = guiHelpBackgroundLockedColor, h=20)
     mc.frameLayout(dt='cgmUILockedTemplate', backgroundColor = guiHelpBackgroundLockedColor) 
     mc.text(dt='cgmUILockedTemplate', backgroundColor = guiHelpBackgroundLockedColor) 
+initializeTemplates()
 
 #=========================================================================
 # OptionVars
@@ -2581,3 +2582,6 @@ def uiPrompt_removeDir(path = None):
             log.warning("Dir doesn't exists: {0}".format(mPath))
             
         return True
+    
+    
+    

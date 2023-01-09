@@ -1020,8 +1020,9 @@ class Callback(object):
                 log.info("kws: {0}".format(self._kwargs))
             for a in err.args:
                 log.info(a)
-                
-            cgmException(Exception,err)
+            
+            raise
+            #cgmException(Exception,err)
             #raise Exception,err
         finally:del self
     

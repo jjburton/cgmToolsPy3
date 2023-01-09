@@ -1069,7 +1069,7 @@ import cgm.core.tests.cgmTests as CGMTEST
 #reload(CGMTEST)
 
 def loadLocalPython():
-    mel.eval('python("import cgm.core.cgm_Meta as cgmMeta;import Red9.core.Red9_Meta as r9Meta;import maya.cmds as mc;import pprint;")')
+    mel.eval('python("import cgm.core.cgm_General as cgmGEN;import cgm.core.cgm_Meta as cgmMeta;import Red9.core.Red9_Meta as r9Meta;import maya.cmds as mc;import pprint;")')
     
 def reloadCore():
     mel.eval('python("import cgm.core;cgm.core._reload();")')
@@ -1143,7 +1143,11 @@ def uiSection_dev(parent):
     mc.menuItem(parent = _wipTools,
                 l='FuncOverTime',
                 ann = "Testing",
-                c=lambda *a: TOOLCALLS.FuncOverTime())        
+                c=lambda *a: TOOLCALLS.FuncOverTime())
+    mc.menuItem(parent = _wipTools,
+                l='RandomAttr',
+                ann = "Testing",
+                c=lambda *a: TOOLCALLS.RandomAttr())        
     mc.menuItem(parent = _wipTools,
                 l='animDraw',
                 ann = "Draw animation. If you can....",

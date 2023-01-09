@@ -19,6 +19,10 @@ def FuncOverTime():
     cgmGEN._reloadMod(FOT)
     mel.eval('python "import cgm.core.tools.funcOverTime as FOT;uiFOT = FOT.ui()"')
     
+def RandomAttr():
+    import cgm.core.tools.attributeRandomizer as ATTRRANDOM
+    cgmGEN._reloadMod(ATTRRANDOM)
+    mel.eval('python "import cgm.core.tools.attributeRandomizer as ATTRRANDOM;uiRANDOM = ATTRRANDOM.ui()"')
 
 def red9( *a ):
     import Red9
