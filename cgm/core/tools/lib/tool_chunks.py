@@ -52,7 +52,7 @@ from cgm.core.tools import locinator as LOCINATOR
 import cgm.core.classes.GuiFactory as cgmUI
 mUI = cgmUI.mUI
 import cgm.core.tools.lib.annotations as TOOLANNO
-import cgmUpdate as CGMUPDATE
+#import cgmUpdate as CGMUPDATE
 from cgm.core.lib import attribute_utils as ATTRS
 from cgm.core.classes import HotkeyFactory as HKEY
 from cgm.core.tools.lib import snap_calls as UISNAPCALLS
@@ -81,9 +81,11 @@ from cgm.core.lib.ml_tools import (ml_breakdownDragger,
 _2016 = False
 if cgmGEN.__mayaVersion__ >=2016:
     _2016 = True
-    
+
+
 def uiSection_git(parent):
     _str_func = 'uiSection_git'  
+    return
     
     l_branches = ['main','MRSDEV','MRSDAILY','MRSWORKSHOP']
     
