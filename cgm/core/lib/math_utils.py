@@ -922,5 +922,39 @@ def angleBetweenVectors(v1, v2):
     return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
 
 
+def spring(x, v, xt, zeta, omega, h):
+    """
+    Spring function updates the position and velocity of a spring-mass system based on the given target position and system parameters.
+    :param x: current position (input/output)
+    :param v: current velocity (input/output)
+    :param xt: target position (input)
+    :param zeta: damping ratio (input)
+    :param omega: angular frequency (input)
+    :param h: time step (input)
+    
+    Bokser found on open chat ai or somethin
+    """
+    # Spring constant
+    f = 1.0 + 2.0 * h * zeta * omega
+    # omega square
+    oo = omega * omega
+    # h * omega square
+    hoo = h * oo
+    # h^2 * omega square
+    hhoo = h * hoo
+    # 1 / (f + h^2 * omega square)
+    det_inv = 1.0 / (f + hhoo)
+    # f * x + h * v + h^2 * omega square * xt
+    det_x = f * x + h * v + hhoo * xt
+    # v + h * omega square * (xt - x)
+    det_v = v + hoo * (xt - x)
+    # x = (f * x + h * v + h^2 * omega square * xt) * det_inv
+    x = det_x * det_inv
+    # v = (v + h * omega square * (xt - x)) * det_inv
+    v = det_v * det_inv
+    
+    return x,v
+
+
 
 

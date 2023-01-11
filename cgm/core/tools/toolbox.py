@@ -21,7 +21,7 @@ import maya
 import maya.mel as mel
 import Red9
 
-from cgm.core import cgm_General as cgmGen
+from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
 from cgm.core.lib import shared_data as SHARED
@@ -70,12 +70,12 @@ from cgm.lib.ml import (ml_breakdownDragger,
                         ml_convertRotationOrder,
                         ml_copyAnim)
 
-__version__ = cgmGen.__RELEASESTRING
+__version__ = cgmGEN.__RELEASESTRING
 
 mUI = cgmUI.mUI
 
 _2016 = False
-if cgmGen.__mayaVersion__ >=2016:
+if cgmGEN.__mayaVersion__ >=2016:
     _2016 = True
 
 def uiSetupOptionVars_curveCreation(self):
@@ -374,26 +374,26 @@ class ui(cgmUI.cgmGUI):
                               l = k)
 
             mc.menuItem(p=_ui, l="Define",
-                        c= cgmGen.Callback(cgmUI.varBuffer_define,self,var))                                
+                        c= cgmGEN.Callback(cgmUI.varBuffer_define,self,var))                                
 
             mc.menuItem(p=_ui, l="Add Selected",
-                        c= cgmGen.Callback(cgmUI.varBuffer_add,self,var))        
+                        c= cgmGEN.Callback(cgmUI.varBuffer_add,self,var))        
 
             mc.menuItem(p=_ui, l="Remove Selected",
-                        c= cgmGen.Callback(cgmUI.varBuffer_remove,self,var))        
+                        c= cgmGEN.Callback(cgmUI.varBuffer_remove,self,var))        
 
 
             mc.menuItem(p=_ui,l='----------------',en=False)
             mc.menuItem(p=_ui, l="Report",
-                        c= cgmGen.Callback(var.report))        
+                        c= cgmGEN.Callback(var.report))        
             mc.menuItem(p=_ui, l="Select Members",
-                        c= cgmGen.Callback(var.select))        
+                        c= cgmGEN.Callback(var.select))        
             mc.menuItem(p=_ui, l="Clear",
-                        c= cgmGen.Callback(var.clear))  
+                        c= cgmGEN.Callback(var.clear))  
 
         mc.menuItem(p=uiMenu, l="--------------",en=False)
         mc.menuItem(p=uiMenu, l="Reload",
-                    c= cgmGen.Callback(ui))
+                    c= cgmGEN.Callback(ui))
 
     def build_layoutWrapper(self,parent):
         _str_func = 'build_layoutWrapper'
@@ -565,18 +565,18 @@ def buildSection_snap(self,parent):
     mc.button(parent=_row_match,
               l = 'Self',
               ut = 'cgmUITemplate',                                                                    
-              c = cgmGen.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, None,'each','Match',False,**{'mode':'self'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, None,'each','Match',False,**{'mode':'self'}),#'targetPivot':self.var_matchModePivot.value                                                                      
               ann = "Update selected objects to match object. If the object has no match object, a loc is created")
     mc.button(parent=_row_match,
               ut = 'cgmUITemplate',                                                                            
               l = 'Target',
-              c = cgmGen.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, None,'each','Match',False,**{'mode':'target'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, None,'each','Match',False,**{'mode':'target'}),#'targetPivot':self.var_matchModePivot.value                                                                      
               ann = "Update the match object, not the object itself")
     mc.button(parent=_row_match,
               ut = 'cgmUITemplate',                                                                            
               l = 'Buffer',
-              #c = cgmGen.Callback(buttonAction,raySnap_start(_sel)),                    
-              c = cgmGen.Callback(LOCINATOR.update_obj,**{'mode':'buffer'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+              #c = cgmGEN.Callback(buttonAction,raySnap_start(_sel)),                    
+              c = cgmGEN.Callback(LOCINATOR.update_obj,**{'mode':'buffer'}),#'targetPivot':self.var_matchModePivot.value                                                                      
               ann = "Update the buffer (if exists)")    
     mUI.MelSpacer(_row_match,w=5)                                              
     _row_match.layout()         
@@ -590,17 +590,17 @@ def buildSection_snap(self,parent):
     mc.button(parent=_row_arrange,
               l = 'Along line(Even)',
               ut = 'cgmUITemplate',                                                                                              
-              c = cgmGen.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{}),                                               
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{}),                                               
               ann = "Layout on line from first to last item")
     mc.button(parent=_row_arrange,
               l = 'Along line(Spaced)',
               ut = 'cgmUITemplate',                                                                                              
-              c = cgmGen.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'spaced'}),                                               
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'spaced'}),                                               
               ann = "Layout on line from first to last item closest as possible to original position")    
     mc.button(parent=_row_arrange,
                  l = 'Along Curve(Even)',
                  ut = 'cgmUITemplate',
-                 c = cgmGen.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'even','curve':'cubic'}),                                               
+                 c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'even','curve':'cubic'}),                                               
                  ann = "Layout evenly on curve created from the list")        
     mUI.MelSpacer(_row_arrange,w=5)                                              
     _row_arrange.layout()      
@@ -670,31 +670,31 @@ def buildSection_distance(self,parent):
               ut = 'cgmUITemplate',                                                                              
               l = 'Target',
               ann = "Find nearest target in from:to selection list",
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object'}),                                                                      
               )   
     mc.button(parent=_row_near, 
               ut = 'cgmUITemplate', 
               l = 'Shape',
               ann = "Find nearest shape in  from:to selection list",                    
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape'}),                                                                      
               )               
     mc.button(parent=_row_near, 
               ut = 'cgmUITemplate',
               l = 'Surface Point',
               ann = "Find nearest surface point in from:to selection list",                    
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface'}),                                                                      
               )     
     mc.button(parent=_row_near, 
               ut = 'cgmUITemplate',
               l = 'Surface Loc',
               ann = "Find nearest surface point in from:to selection list. And loc it.",                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc'}),                                                                      
               )               
     mc.button(parent=_row_near, 
               ut = 'cgmUITemplate',
               l = 'Surface Nodes',
               ann = "Create nearest surface point nodes in from:to selection list",                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.create_closest_point_node, None,'firstToEach','Create closest Point Node',True,**{}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.create_closest_point_node, None,'firstToEach','Create closest Point Node',True,**{}),                                                                      
               )      
 
     mUI.MelSpacer(_row_near,w=5)                                              
@@ -710,13 +710,13 @@ def buildSection_distance(self,parent):
               ut = 'cgmUITemplate',
               l = 'Target',
               ann = "Find furthest taregt in from:to selection list",                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object'}),                                                                      
               )                  
     mc.button(parent=_row_far, 
               ut = 'cgmUITemplate',
               l = 'Shape',
               ann = "Find furthest shape in from:to selection list",                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape'}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, None,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape'}),                                                                      
               )   
 
     mUI.MelSpacer(_row_far,w=5)                                              
@@ -771,37 +771,37 @@ def buildSection_rigging(self,parent):
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                    
               l = 'Null',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'each','Create Tranform',**{'create':'null'}))    
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'each','Create Tranform',**{'create':'null'}))    
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                    
               l = 'Null(mid)',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Tranform at mid',**{'create':'null','midPoint':'True'}))    
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Tranform at mid',**{'create':'null','midPoint':'True'}))    
 
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'Jnt',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'each','Create Joint',**{'create':'joint'}))         
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'each','Create Joint',**{'create':'joint'}))         
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'Jnt(mid)',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Joint at mid',**{'create':'joint','midPoint':'True'}))         
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Joint at mid',**{'create':'joint','midPoint':'True'}))         
 
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'Loc',
-              c = cgmGen.Callback(MMCONTEXT.func_process, LOC.create, None,'each','Create Loc')) 
+              c = cgmGEN.Callback(MMCONTEXT.func_process, LOC.create, None,'each','Create Loc')) 
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'Loc(mid)',
-              c = cgmGen.Callback(MMCONTEXT.func_process, LOC.create, None,'all','Create Loc at mid',**{'mode':'midPoint'}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, LOC.create, None,'all','Create Loc at mid',**{'mode':'midPoint'}))           
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'Crv',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curve'}))                          
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curve'}))                          
     mc.button(parent=_row_create,
               ut = 'cgmUITemplate',                                        
               l = 'CrvLin',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curveLinear'}))                          
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curveLinear'}))                          
 
     mUI.MelSpacer(_row_create,w=5)                                              
     _row_create.layout()  
@@ -815,18 +815,18 @@ def buildSection_rigging(self,parent):
     mc.button(parent=_row_copy,
               ut = 'cgmUITemplate',                                        
               l = 'Transform',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.match_transform, None,'eachToFirst','Match Transform'),                    
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.match_transform, None,'eachToFirst','Match Transform'),                    
               ann = "")
     mc.button(parent=_row_copy,
               ut = 'cgmUITemplate',                                        
               l = 'Orienation',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.match_orientation, None,'eachToFirst','Match Orientation'),                    
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.match_orientation, None,'eachToFirst','Match Orientation'),                    
               ann = "")
 
     mc.button(parent=_row_copy,
               ut = 'cgmUITemplate',                                        
               l = 'Shapes',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.shapeParent_in_place, None,'lastFromRest','Copy Shapes', **{'snapFirst':True}),
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.shapeParent_in_place, None,'lastFromRest','Copy Shapes', **{'snapFirst':True}),
               ann = "")
 
     
@@ -834,12 +834,12 @@ def buildSection_rigging(self,parent):
     mc.button(parent=_row_copy,
               ut = 'cgmUITemplate',                                                          
               l = 'rotatePivot',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match RP',**{'rotatePivot':True,'scalePivot':False}),                                               
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match RP',**{'rotatePivot':True,'scalePivot':False}),                                               
               ann = "Copy the rotatePivot from:to")
     mc.button(parent=_row_copy,
               ut = 'cgmUITemplate',                                        
               l = 'scalePivot',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match SP', **{'rotatePivot':False,'scalePivot':True}),                                               
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.copy_pivot, None,'eachToFirst', 'Match SP', **{'rotatePivot':False,'scalePivot':True}),                                               
               ann = "Copy the scalePivot from:to")        
 
 
@@ -858,18 +858,18 @@ def buildSection_rigging(self,parent):
               ut = 'cgmUITemplate',                                                          
               l = 'Just Group',
               ann = 'Simple grouping. Just like ctrl + g',                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group',**{'parent':False,'maintainParent':False}),)  
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group',**{'parent':False,'maintainParent':False}),)  
     mc.button(parent=_row_group,
               ut = 'cgmUITemplate',                                                          
               l = 'Group Me',
               ann = 'Group selected objects matching transform as well.',                                        
               #c = lambda *a:buttonAction(tdToolsLib.doPointSnap()),
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group',**{'parent':True,'maintainParent':False}))          
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group',**{'parent':True,'maintainParent':False}))          
     mc.button(parent=_row_group,
               ut = 'cgmUITemplate',                                                          
               l = 'In Place',
               ann = 'Group me while maintaining heirarchal position',                                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group In Place',**{'parent':True,'maintainParent':True}))     
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group In Place',**{'parent':True,'maintainParent':True}))     
 
     mUI.MelSpacer(_row_group,w=5)                                              
     _row_group.layout()      
@@ -891,7 +891,7 @@ def buildSection_rigging(self,parent):
               l='+',
               ann = "Add specified attribute type",  
               c = lambda *a:ATTRTOOLS.uiPrompt_addAttr(self.var_attrCreateType.value))
-            #c = cgmGen.Callback(ATTRTOOLS.uiPrompt_addAttr,self.var_attrCreateType.value,**{}))
+            #c = cgmGEN.Callback(ATTRTOOLS.uiPrompt_addAttr,self.var_attrCreateType.value,**{}))
         
     uiPopup_createAttr(self)
     
@@ -900,7 +900,7 @@ def buildSection_rigging(self,parent):
               ut = 'cgmUITemplate',                                                                            
               l='cgmAttrTools',
               ann = "Launch cgmAttrTools - Collection of tools for making creating, editing and managing attributes a little less painful",                                                                                                                       
-              c=cgmGen.Callback(ATTRTOOLS.ui))   
+              c=cgmGEN.Callback(ATTRTOOLS.ui))   
     
     """
     _add = mc.menuItem(parent=uiAttr,subMenu=True,
@@ -912,14 +912,14 @@ def buildSection_rigging(self,parent):
         mc.menuItem(parent=_add,
                     l=_t,
                     ann = "Add a {0} attribute(s) to the selected objects".format(_t),                                                                                                       
-                    c = cgmGen.Callback(ATTRTOOLS.uiPrompt_addAttr,_t,**{'autoLoadFail':True}),
+                    c = cgmGEN.Callback(ATTRTOOLS.uiPrompt_addAttr,_t,**{'autoLoadFail':True}),
                     rp=_d)"""
 
     mc.button(parent = _row_attr,
               ut = 'cgmUITemplate',                                                                              
               l = 'Compare Attrs',
               ann = "Compare the attributes of selected objects. First object is the base of comparison",                                                                                                                                                
-              c = cgmGen.Callback(MMCONTEXT.func_process, ATTR.compare_attrs, None, 'firstToRest','Compare Attrs',True,**{}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ATTR.compare_attrs, None, 'firstToRest','Compare Attrs',True,**{}))           
 
     mUI.MelSpacer(_row_attr,w=5)
     _row_attr.layout()         
@@ -958,7 +958,7 @@ def buildSection_rigging(self,parent):
               ut = 'cgmUITemplate',                                                                              
               l = 'Freeze',
               ann = "Freeze the joint orientation - our method as we don't like Maya's",                                        
-              c = cgmGen.Callback(MMCONTEXT.func_process, JOINTS.freezeOrientation, None, 'each','freezeOrientation',False,**{}),                                                                      
+              c = cgmGEN.Callback(MMCONTEXT.func_process, JOINTS.freezeOrientation, None, 'each','freezeOrientation',False,**{}),                                                                      
               )            
 
 
@@ -1029,7 +1029,7 @@ def buildSection_animOptions(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row1,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_keyMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_keyMode.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)    
 
@@ -1052,7 +1052,7 @@ def buildSection_animOptions(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row1,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_keyType.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_keyType.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)    
 
@@ -1075,7 +1075,7 @@ def buildSection_animOptions(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row1,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_resetMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_resetMode.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)    
 
@@ -1146,7 +1146,7 @@ def buildSection_rayCast(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row1,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_rayCastMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_rayCastMode.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)    
 
@@ -1167,7 +1167,7 @@ def buildSection_rayCast(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row_offset,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_rayCastOffsetMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_rayCastOffsetMode.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)   
 
@@ -1189,7 +1189,7 @@ def buildSection_rayCast(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row_orient,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_rayCastOrientMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_rayCastOrientMode.setValue,i))
 
         mUI.MelSpacer(_row1,w=2)   
 
@@ -1287,7 +1287,7 @@ def buildSection_objDefaults(self,parent,frame=True):
             else:_rb = False
 
             uiRC.createButton(_row,label=item,sl=_rb,
-                              onCommand = cgmGen.Callback(_var.setValue,i))
+                              onCommand = cgmGEN.Callback(_var.setValue,i))
 
             mUI.MelSpacer(_row,w=2)       
 
@@ -1372,7 +1372,7 @@ def buildSection_shape(self,parent):
             else:_rb = False
 
             uiRC.createButton(_row,label=item,sl=_rb,
-                              onCommand = cgmGen.Callback(_var.setValue,i))
+                              onCommand = cgmGEN.Callback(_var.setValue,i))
 
             mUI.MelSpacer(_row,w=2)       
 
@@ -1394,7 +1394,7 @@ def buildSection_shape(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row_createSize,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_createSizeMode.setValue,i))
+                          onCommand = cgmGEN.Callback(self.var_createSizeMode.setValue,i))
         mUI.MelSpacer(_row_createSize,w=2)    
 
 
@@ -1706,14 +1706,14 @@ def buildRow_skin(self,parent):
               l='Get Joints',
               ut = 'cgmUITemplate',
               ann = "Select skinned joints from cluster",                                                                                                                       
-              c = cgmGen.Callback(MMCONTEXT.func_process, SKIN.get_influences_fromSelected))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, SKIN.get_influences_fromSelected))           
 
 
     mc.button(parent=_row,
               l='Copy',
               ut = 'cgmUITemplate',
               ann = "Copy skin weights based on targets",                                                                                                                       
-              c = cgmGen.Callback(MMCONTEXT.func_process, SKIN.transfer_fromTo, None, 'firstToRest','Copy skin weights',True,**{}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, SKIN.transfer_fromTo, None, 'firstToRest','Copy skin weights',True,**{}))           
 
     mc.button(parent=_row,
               l='abWeightLifter',
@@ -1797,7 +1797,7 @@ def buildRow_constraints(self,parent):
               l='Get Targets',
               ut = 'cgmUITemplate',
               ann = "Get targets of contraints",                                                                                                                       
-              c = cgmGen.Callback(MMCONTEXT.func_process, CONSTRAINTS.get_targets, None, 'each','Get targets',True,**{'select':True}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, CONSTRAINTS.get_targets, None, 'each','Get targets',True,**{'select':True}))           
 
     mUI.MelSpacer(_row,w=5)                      
     _row.layout()
@@ -1821,7 +1821,7 @@ def buildRow_attachBy(self,parent):
                   l= l,
                   ut = 'cgmUITemplate',
                   ann = "Attach each to last by {0}".format(m),
-                  c = cgmGen.Callback(MMCONTEXT.func_process, RIGCONSTRAINTS.attach_toShape, None,'eachToLast',**{'connectBy':m}))
+                  c = cgmGEN.Callback(MMCONTEXT.func_process, RIGCONSTRAINTS.attach_toShape, None,'eachToLast',**{'connectBy':m}))
 
     mUI.MelSpacer(_row,w=5)                      
     _row.layout()   
@@ -1839,7 +1839,7 @@ def buildRow_skinDat(self,parent):
               ut = 'cgmUITemplate',
               ann = "Write skinDat data",
               c = lambda *a:SKINDAT.data().write())
-            #c = cgmGen.Callback(MMCONTEXT.func_process, SKINDAT.data, None, 'each','Get targets',True,**{'select':True}))           
+            #c = cgmGEN.Callback(MMCONTEXT.func_process, SKINDAT.data, None, 'each','Get targets',True,**{'select':True}))           
 
     mUI.MelSpacer(_row,w=5)                      
     _row.layout()   
@@ -1856,12 +1856,12 @@ def buildRow_resizeObj(self,parent):
               ut = 'cgmUITemplate',                  
               l = 'Make resizeObj',
               ann = 'Make control a resize object so you can more easily shape it',                
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.create_controlResizeObj, None,'each','Resize obj'))        
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_controlResizeObj, None,'each','Resize obj'))        
     mc.button(parent=_row,
               ut = 'cgmUITemplate', 
               l = 'Push resizeObj changes',
               ann = 'Push the control changes back to control',
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.push_controlResizeObj, None,'each','Resize obj'))        
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.push_controlResizeObj, None,'each','Resize obj'))        
     _row.layout() 
 
 def buildRow_mirrorCurve(self,parent):
@@ -1876,7 +1876,7 @@ def buildRow_mirrorCurve(self,parent):
               ut = 'cgmUITemplate',  
               l = 'Mirror World Space To target',
               ann = 'Given a selection of two curves, mirror across X (for now only x)',
-              c = cgmGen.Callback(CURVES.mirror_worldSpace))                   
+              c = cgmGEN.Callback(CURVES.mirror_worldSpace))                   
     _row.layout()   
 
 
@@ -1898,7 +1898,7 @@ def buildRow_aimMode(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_aimMode.setValue,item))
+                          onCommand = cgmGEN.Callback(self.var_aimMode.setValue,item))
 
         mUI.MelSpacer(_row,w=2)       
 
@@ -1924,7 +1924,7 @@ def buildRow_matchMode(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(LOCINATOR.uiFunc_change_matchMode,self,i))
+                          onCommand = cgmGEN.Callback(LOCINATOR.uiFunc_change_matchMode,self,i))
 
         mUI.MelSpacer(_row,w=2)       
 
@@ -1948,7 +1948,7 @@ def buildRow_context(self,parent):
         else:_rb = False
 
         uiRC.createButton(_row,label=item,sl=_rb,
-                          onCommand = cgmGen.Callback(self.var_contextTD.setValue,item))
+                          onCommand = cgmGEN.Callback(self.var_contextTD.setValue,item))
 
         mUI.MelSpacer(_row,w=2)       
 
@@ -1971,7 +1971,7 @@ def buildRow_color(self,parent):
               ut = 'cgmUITemplate',                                                                                                
               l='Clear Override*',
               ann = "Clear override settings on contextual objects.",                                                                                                                                       
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.override_clear, None, 'each','Clear override',True,**{'context':None}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.override_clear, None, 'each','Clear override',True,**{'context':None}))           
 
     mUI.MelSpacer(_row,w=5)        
     _row.layout()
@@ -1979,7 +1979,7 @@ def buildRow_color(self,parent):
 
     mc.setParent(parent)
     _b_idxOnly = False
-    if cgmGen.__mayaVersion__ < 2016:
+    if cgmGEN.__mayaVersion__ < 2016:
         _b_idxOnly = True        
 
     #_row_index = mUI.MelColumnLayout(parent)
@@ -1997,9 +1997,9 @@ def buildRow_color(self,parent):
     for i in colorSwatchesList:
         colorBuffer = mc.colorIndex(i, q=True)
         mc.canvas(('%s%i' %('colorCanvas_',i)),rgb=colorBuffer, 
-                  pc = cgmGen.Callback(uiFunc_colorShape,**{'index':i,'cb_push':_cb_push}),                                 
-                  #pc = cgmGen.Callback(self.uiFunc_colorShape,_cb_push,**{'index':i}),
-                  #pc = cgmGen.Callback(MMCONTEXT.color_override,i,None,'shape'),                        
+                  pc = cgmGEN.Callback(uiFunc_colorShape,**{'index':i,'cb_push':_cb_push}),                                 
+                  #pc = cgmGEN.Callback(self.uiFunc_colorShape,_cb_push,**{'index':i}),
+                  #pc = cgmGEN.Callback(MMCONTEXT.color_override,i,None,'shape'),                        
                   annotation = 'Sets the color of the object to this')
         #r.layout()
 
@@ -2022,9 +2022,9 @@ def buildRow_color(self,parent):
             if _keys2:_sub = True
             colorBuffer = SHARED._d_colors_to_RGB[k1]
             mc.canvas(('%s%i' %('colorCanvas_',i)),rgb=colorBuffer,
-                      pc = cgmGen.Callback(uiFunc_colorShape, **{'rgb':SHARED._d_colors_to_RGB[k1],'cb_push':_cb_push}),                                
-                      #pc = cgmGen.Callback(self.uiFunc_colorShape,_cb_push,**{'rgb':SHARED._d_colors_to_RGB[k1]}),                          
-                      #pc = cgmGen.Callback(MMCONTEXT.color_override,SHARED._d_colors_to_RGB[k1],None,'shape'),                        
+                      pc = cgmGEN.Callback(uiFunc_colorShape, **{'rgb':SHARED._d_colors_to_RGB[k1],'cb_push':_cb_push}),                                
+                      #pc = cgmGEN.Callback(self.uiFunc_colorShape,_cb_push,**{'rgb':SHARED._d_colors_to_RGB[k1]}),                          
+                      #pc = cgmGEN.Callback(MMCONTEXT.color_override,SHARED._d_colors_to_RGB[k1],None,'shape'),                        
                       annotation = 'Sets color by rgb to {0}'.format(k1))            
 
             i+=1
@@ -2034,8 +2034,8 @@ def buildRow_color(self,parent):
                     _buffer = "{0}{1}".format(k1,k2)
                     #log.info( SHARED._d_colors_to_RGB[_buffer] )
                     mc.canvas(('%s%i' %('colorCanvas_',i)),rgb=SHARED._d_colors_to_RGB[_buffer],     
-                              pc = cgmGen.Callback(uiFunc_colorShape, **{'rgb':SHARED._d_colors_to_RGB[_buffer],'cb_push':_cb_push}),                                                                  
-                              #pc = cgmGen.Callback(MMCONTEXT.color_override,SHARED._d_colors_to_RGB[_buffer],None,'shape'),                        
+                              pc = cgmGEN.Callback(uiFunc_colorShape, **{'rgb':SHARED._d_colors_to_RGB[_buffer],'cb_push':_cb_push}),                                                                  
+                              #pc = cgmGEN.Callback(MMCONTEXT.color_override,SHARED._d_colors_to_RGB[_buffer],None,'shape'),                        
                               annotation = 'Sets color by rgb to {0}{1}'.format(k1,k2))            
                     i+=1
 
@@ -2048,7 +2048,7 @@ def buildRow_colorControls(self,parent):
     mUI.MelSpacer(_row,w=5)
 
     _b_idxOnly = False
-    if cgmGen.__mayaVersion__ < 2016:
+    if cgmGEN.__mayaVersion__ < 2016:
         _b_idxOnly = True
 
     _cb_rgb = mUI.MelCheckBox(_row,en=not _b_idxOnly,
@@ -2072,8 +2072,8 @@ def buildRow_colorControls(self,parent):
             colorName = SHARED._d_side_colors[side][typ]
             colorBuffer = SHARED._d_colors_to_RGB.get(colorName,[0,0,0])
             mc.canvas(('%s%i' %('colorCanvas_',i)),rgb=colorBuffer, 
-                      pc = cgmGen.Callback(uiFunc_colorControl,self,side,typ,_cb_geo,_cb_rgb,_cb_push),                        
-                      #pc = cgmGen.Callback(MMCONTEXT.func_process,RIGGING.colorControl,None,'each',noSelect = False,**{'direction':side,'controlType':typ, 'transparent':True}),                        
+                      pc = cgmGEN.Callback(uiFunc_colorControl,self,side,typ,_cb_geo,_cb_rgb,_cb_push),                        
+                      #pc = cgmGEN.Callback(MMCONTEXT.func_process,RIGGING.colorControl,None,'each',noSelect = False,**{'direction':side,'controlType':typ, 'transparent':True}),                        
                       #pc = lambda *a: MMCONTEXT.func_process(RIGGING.colorControl,None,'each',noSelect = False,**{'direction':side,'controlType':typ, 'shaderSetup':_cb_geo.getValue(),'transparent':True}),                                                  
                       annotation = 'Sets color to for {0} {1} default'.format(side,typ))    
 
@@ -2086,7 +2086,7 @@ def buildRow_colorControls(self,parent):
               l='Clr*',
               ann = "Clear override settings on contextual objects.",    
               #c = lambda *a:MMCONTEXT.func_process( RIGGING.override_clear, None, 'each','Clear override',True,**{'context':None}))                             
-              c = cgmGen.Callback(MMCONTEXT.func_process, RIGGING.override_clear, None, 'each','Clear override',True,**{'context':None}))           
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.override_clear, None, 'each','Clear override',True,**{'context':None}))           
 
     mUI.MelSpacer(_row,w=5)  
 
@@ -2115,7 +2115,7 @@ def uiPopup_createColor(self):
             mUI.MelMenuItem(_k,
                             label = o,
                             ann = "Set the create color to: {0}".format(o),
-                            c=cgmGen.Callback(cb_setCreateColor,self,o))
+                            c=cgmGEN.Callback(cb_setCreateColor,self,o))
 
 def uiPopup_createAttr(self):
     if self.uiPopUpMenu_attr:
@@ -2135,7 +2135,7 @@ def uiPopup_createAttr(self):
         mUI.MelMenuItem(_popUp,
                         label = a,
                         ann = "Set the create attr to: {0}".format(a),
-                        c=cgmGen.Callback(cb_setCreateAttr,self,a))
+                        c=cgmGEN.Callback(cb_setCreateAttr,self,a))
 
 def uiPopup_createRayCast(self):
     if self.uiPopUpMenu_raycastCreate:
@@ -2155,7 +2155,7 @@ def uiPopup_createRayCast(self):
         mUI.MelMenuItem(_popUp,
                         label = m,
                         ann = "Create {0} by rayCasting".format(m),
-                        c=cgmGen.Callback(cb_setRayCastCreate,self,m))
+                        c=cgmGEN.Callback(cb_setRayCastCreate,self,m))
 
 def uiPopup_createShape(self):
     if self.uiPopUpMenu_createShape:
@@ -2179,7 +2179,7 @@ def uiPopup_createShape(self):
             mUI.MelMenuItem(_k,
                             label = o,
                             ann = "Set the create shape to: {0}".format(o),
-                            c=cgmGen.Callback(cb_setCreateShape,self,o))  
+                            c=cgmGEN.Callback(cb_setCreateShape,self,o))  
             
 def cb_setCreateShape(self,shape):
     self.var_curveCreateType.setValue(shape)
