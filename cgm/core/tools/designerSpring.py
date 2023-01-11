@@ -104,6 +104,10 @@ class DesignerSpring(PostBake.PostBake):
         self.maxDistance = maxDistance;
     
         self.springVelocity = MATH.Vector3.zero()
+        self.springAimVelocity = MATH.Vector3.zero()
+        self.springUpVelocity = MATH.Vector3.zero()
+        
+        
         self.angularForce = MATH.Vector3.zero()
         self.angularUpForce = MATH.Vector3.zero()
         
@@ -125,6 +129,10 @@ class DesignerSpring(PostBake.PostBake):
         self.dir = self.obj.getTransformDirection(self.aimFwd.p_vector)*self.objectScale
         self.aimTargetPos = self.obj.p_position + self.dir
         self.upTargetPos = self.obj.getTransformDirection(self.aimUp.p_vector)*self.objectScale
+        
+        self.previousUpPosition = MATH.Vector3.zero()
+        self.previousAimPosition = MATH.Vector3.zero()
+        
         
         self.keyableAttrs = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']
 
@@ -177,13 +185,20 @@ class DesignerSpring(PostBake.PostBake):
         if self.translate:
             x = self.previousPosition#obj.getPosition(asEuclid=1)
             v = self.springVelocity#euclid.Vector3()
-            print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")            
+            if self.debug:
+                print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                print("*"*50)            
+                print(x)
+                print(v)
+                print(self._bakedLoc.getPosition(asEuclid=1))
+                print(self.springForce)
+                print(self.damp*math.pi)    
+            
             x,self.springVelocity = COREMATH.spring(x,v,self._bakedLoc.getPosition(asEuclid=1), self.springForce, self.damp*math.pi, deltaTime)#1/24.0)
-            print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+            if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
 
             self.obj.p_position = x.x,x.y,x.z
-            
-            
+
             for a in 'XYZ':
                 for a2 in ['Min','Max']:
                     _plugUse = 'translate{}{}LimitUse'.format(a2,a)
@@ -203,21 +218,58 @@ class DesignerSpring(PostBake.PostBake):
             
         if self.rotate:
             self.dir = self._bakedLoc.getTransformDirection(self.aimFwd.p_vector) * self.objectScale
-    
+            
+            
+            #Aim -----------------------------------------------------------------------------------
             wantedTargetPos = ((VALID.euclidVector3Arg(self.obj.p_position) + self.dir) - self.obj.p_position).normalized() * self.objectScale + self.obj.p_position
+            
+            if self.firstFrame :# If our first frame, our wantedTargetPos is good as is...
+                x = wantedTargetPos
+            else:
+                x = self.previousAimPosition#obj.getPosition(asEuclid=1)
+                v = self.springAimVelocity#euclid.Vector3()
+                
+                if self.debug:
+                    print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                    print("*"*50)            
+                    print(x)
+                    print(v)
+                    print(wantedTargetPos)
+                    print(self.angularSpringForce)
+                    print(self.angularDamp*math.pi)
+                x,self.springAimVelocity = COREMATH.spring(x,v,wantedTargetPos, self.angularSpringForce, self.angularDamp*math.pi, deltaTime)#1/24.0)
+                if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")            
+            self.previousAimPosition = x                
+            self.aimTargetPos  = x
+            
+            
+            #Up ------------------------------------------------------------------------------------
             wantedUp = self._bakedLoc.getTransformDirection(self.aimUp.p_vector) * self.objectScale
             
-            self.angularForce = self.angularForce + ((wantedTargetPos - self.aimTargetPos) * self.angularSpringForce)
-            self.angularForce = self.angularForce * (1.0 - self.angularDamp)
+            if self.firstFrame:# If our first frame, our wantedTargetPos is good as is...
+
+                x =wantedUp
+            else:
+                x = self.previousUpPosition#obj.getPosition(asEuclid=1)
+                v = self.springUpVelocity#euclid.Vector3()
+                
+                if self.debug:
+                    print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                
+                    print("*"*50)            
+                    print(x)
+                    print(v)
+                    print(wantedUp)
+                    print(self.angularUpSpringForce)
+                    print(self.upDamp*math.pi)            
+                
+                x,self.springUpVelocity = COREMATH.spring(x,v,wantedUp, self.angularUpSpringForce, self.upDamp*math.pi, deltaTime)#1/24.0)
+                if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")            
+                            
+                self.previousUpPosition = x            
+                self.upTargetPos  = x
             
-            self.angularUpForce = self.angularUpForce + ((wantedUp - self.upTargetPos) * self.angularUpSpringForce)
-            self.angularUpForce = self.angularUpForce * (1.0 - self.upDamp)       
-            
-            self.aimTargetPos = self.aimTargetPos + (self.angularForce * deltaTime)
-            self.upTargetPos = self.upTargetPos + (self.angularUpForce * deltaTime)
-                    
             SNAP.aim_atPoint(obj=self.obj.mNode, mode='matrix', position=self.aimTargetPos, aimAxis=self.aimFwd.p_string, upAxis=self.aimUp.p_string, vectorUp=self.upTargetPos.normalized() )
-            
             
             for a in 'XYZ':
                 for a2 in ['Min','Max']:

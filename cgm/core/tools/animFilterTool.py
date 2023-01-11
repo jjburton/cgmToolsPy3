@@ -178,6 +178,19 @@ class ui(cgmUI.cgmGUI):
     
         #_MainForm = mUI.MelFormLayout(parent,ut='cgmUISubTemplate')
         _MainForm = mUI.MelFormLayout(self,ut='cgmUITemplate')
+        
+        
+        
+        
+        _button = mUI.MelButton(_MainForm,
+                                h=30,
+                                bgc = cgmUI.guiHeaderColor,
+                                c=cgmGEN.Callback(uiFunc_run,self),
+                                label='Run')
+        
+        self.uiButton_run = _button
+        
+        
         _column = buildColumn_main(self,_MainForm,True)
 
     
@@ -185,15 +198,19 @@ class ui(cgmUI.cgmGUI):
         _MainForm(edit = True,
                   af = [(_column,"top",0),
                         (_column,"left",0),
-                        (_column,"right",0),                        
+                        (_column,"right",0),
+                        (_button,"left",0),
+                        (_button,"right",0),                           
                         (_row_cgm,"left",0),
                         (_row_cgm,"right",0),                        
                         (_row_cgm,"bottom",0),
     
                         ],
-                  ac = [(_column,"bottom",2,_row_cgm),
+                  ac = [(_column,"bottom",2,_button),
+                        (_button,"bottom",2,_row_cgm),
+                        
                         ],
-                  attachNone = [(_row_cgm,"top")])          
+                  attachNone = [(_button,"top")])          
         
 
 def buildColumn_main(self,parent, asScroll = False):
@@ -284,9 +301,9 @@ def uiFunc_build_post_process_column(self, parentColumn):
     #>>> New add action
     #--------------------------------------------------------------
     _row = mUI.MelHLayout(parentColumn, h=30, padding=5 )
-    mUI.MelButton(_row, label = 'All',ut='cgmUIInstructionsTemplate',
+    mUI.MelButton(_row, label = 'All',bgc= cgmUI.guiSubSubMenuColor,
                   c = cgmGEN.Callback(self.uiFunc_setToggles,1))
-    mUI.MelButton(_row, label = 'None',ut='cgmUIInstructionsTemplate',
+    mUI.MelButton(_row, label = 'None',bgc= cgmUI.guiSubSubMenuColor,#ut='cgmUIInstructionsTemplate',
                   c = cgmGEN.Callback(self.uiFunc_setToggles,0))
     mUI.MelSeparator(_row,w=10)
     mUI.MelButton(_row, label = 'Clear',ut='cgmUITemplate',
@@ -353,6 +370,9 @@ def uiBuild_ActionsColumn(self):
     self._dCB_actions = {}
     
     for i,action in enumerate(self._actionList):
+        if not action.name:
+            action.name = f"{action.filterType}_{i}"
+        
         mc.setParent(self._actionsColumn)
         cgmUI.add_LineSubBreak()
         
@@ -383,7 +403,7 @@ def uiBuild_ActionsColumn(self):
                       command=cgmGEN.Callback(uiFunc_remove_action,self,i)
                       )
         
-        _label = action.filterType if action.name == None else "{0} - {1}".format(action.name, action.filterType)
+        _label = action.filterType if action.name == None else "{0}  [{1} ]".format(action.name, action.filterType)
         _frame = mUI.MelFrameLayout(_subColumn,
                                     label=f"{i} | {_label}",
                                     collapsable=True, collapse=True,bgc = _header)#useTemplate = _ut)
@@ -421,7 +441,7 @@ def uiBuild_ActionsColumn(self):
     
     mc.setParent(self._actionsColumn)
     cgmUI.add_LineSubBreak()      
-    
+    """
     _row = mUI.MelHSingleStretchLayout(self._actionsColumn,ut='cgmUISubTemplate',padding = 5)
     
     mUI.MelSpacer(_row,w=_padding)
@@ -433,7 +453,7 @@ def uiBuild_ActionsColumn(self):
     
     mUI.MelSpacer(_row,w=_padding)
 
-    _row.layout()    
+    _row.layout() """   
     
     mc.setParent(self._actionsColumn)
     cgmUI.add_LineSubBreak()  
@@ -738,8 +758,8 @@ class ui_post_filter(object):
             self.post_fwdMenu(edit=True, bgc=[1,.35,.35])
             self.post_upMenu(edit=True, bgc=[1,.35,.35])
         else:
-            self.post_fwdMenu(edit=True, bgc=[.35,.35,.35])
-            self.post_upMenu(edit=True, bgc=[.35,.35,.35])
+            self.post_fwdMenu(edit=True, bgc=self._colors['button'])
+            self.post_upMenu(edit=True, bgc=self._colors['button'])
 
     def uiFunc_setObjects(self):
         if not hasattr(self, 'uiTF_objects'):
@@ -1351,7 +1371,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('springForce', 1.0))
+        self.uiFF_post_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('springForce', 9.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1371,7 +1391,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', .1))
+        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', .4))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1451,7 +1471,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', 1.0))
+        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', 9.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1471,7 +1491,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', .1))
+        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', .4))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1488,7 +1508,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', 1.0))
+        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', 9.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1508,7 +1528,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', .1))
+        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', .4))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2006,11 +2026,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_translate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Spring Force:')
+        mUI.MelLabel(_row,l='Drag:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('springForce', 1.0))
+        self.uiFF_post_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('springForce', .1))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2026,11 +2046,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_translate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Damp:')
+        mUI.MelLabel(_row,l='Frequency:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', .1))
+        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', 5.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2106,11 +2126,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_rotate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Angular Spring Force:')
+        mUI.MelLabel(_row,l='Angular Drag:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', 1.0))
+        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', .1))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2126,11 +2146,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_rotate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Angular Damp:')
+        mUI.MelLabel(_row,l='Angular Frequency:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', .1))
+        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', 3.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2143,11 +2163,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_rotate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Angular Up Spring Force:')
+        mUI.MelLabel(_row,l='Up Drag:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', 1.0))
+        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', .1))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2163,11 +2183,11 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row = mUI.MelHSingleStretchLayout(self.uiCL_rotate,padding = 5)
 
         mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Angular Up Damp:')
+        mUI.MelLabel(_row,l='Up Frequency:')
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', .1))
+        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', 3.0))
 
         mUI.MelSpacer(_row,w=_padding)
 

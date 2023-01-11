@@ -59,6 +59,7 @@ class PostBake(object):
 
         self.startTime = int(mc.playbackOptions(q=True, min=True))
         self.endTime = int(mc.playbackOptions(q=True, max=True))
+        self.firstFrame = True
         
     def bake(self, startTime=None, endTime=None):
         _str_func = 'PostBake.bake'
@@ -109,14 +110,17 @@ class PostBake(object):
             if i == self.startTime:
                 #LOC.create(position=self.previousPosition, name='StartLoc')
                 self.previousPosition = VALID.euclidVector3Arg(self.obj.p_position)
+            else:
+                self.firstFrame = False#...some filtrs need to do special handling on first frame
             
             try:
                 self.update(fixedDeltaTime)
             except Exception as err:
                 mc.refresh(su=False)
                 mc.autoKeyframe(state=ak)
-                log.warning('Error on update | {0}'.format(err))   
-                cgmGEN.cgmException(Exception,err)
+                log.warning('Error on update | {0}'.format(err))
+                raise
+                #cgmGEN.cgmException(Exception,err)
                 return
 
             mc.setKeyframe(self.obj.mNode, at=self.keyableAttrs)
