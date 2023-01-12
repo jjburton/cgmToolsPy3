@@ -431,6 +431,7 @@ def get_key_indices_from(node = None, mode = 'all'):
             previous -- 
             forward --
             back --
+            closest
             bookEnd -- previous/next
             selected - from selected range
     
@@ -488,6 +489,17 @@ def get_key_indices_from(node = None, mode = 'all'):
             if _currentKeyQuery:
                 _l.insert(1,_currentKeyQuery)
             return _l
+    elif mode == 'closest':
+        _prev = mc.findKeyframe(node,which = 'previous',an='objects')
+        _next = mc.findKeyframe(node,which = 'next',an='objects')
+        if not _prev and _next:
+            return _next
+        if not _next and _prev:
+            return _prev
+        
+        if initialTimeState - _prev < _next - initialTimeState:
+            return _prev
+        return _next
         
     elif mode == 'previous':
         _key = mc.findKeyframe(node,which = 'previous',an='objects')

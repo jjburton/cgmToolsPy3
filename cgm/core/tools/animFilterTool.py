@@ -1391,7 +1391,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', .4))
+        self.uiFF_post_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('damp', .3))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1471,7 +1471,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', 9.0))
+        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', 6.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1491,7 +1491,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', .4))
+        self.uiFF_post_angular_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularDamp', .3))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1508,7 +1508,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', 9.0))
+        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', 6.0))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -1528,7 +1528,7 @@ class ui_post_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', .4))
+        self.uiFF_post_angular_up_damp = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpDamp', .3))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2130,7 +2130,7 @@ class ui_post_designer_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', .1))
+        self.uiFF_post_angular_spring = mUI.MelFloatField(_row, w= 50, v=self._optionDict.get('angularSpringForce', .15))
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2167,7 +2167,7 @@ class ui_post_designer_spring_column(ui_post_filter):
 
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', .1))
+        self.uiFF_post_angular_up_spring = mUI.MelFloatField(_row, ut='cgmUISubTemplate', w= 50, v=self._optionDict.get('angularUpSpringForce', .15))
 
         mUI.MelSpacer(_row,w=_padding)
 
