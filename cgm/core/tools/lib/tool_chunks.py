@@ -1515,10 +1515,13 @@ def uiSection_utils(parent = None, selection = None, pairSelected = True):
               ann = "Sort dag nodes in the outliner")
     
     
+    
 def uiSection_snap(parent, selection = None ):
     _str_func = 'uiSection_snap'
         
     #>>Snap ----------------------------------------------------------------------------------------
+    mUI.MelMenuItemDiv(parent, label = 'Move')
+    
     mc.menuItem(parent=parent,
                 l = 'Point',
                 c = lambda *a:SNAPCALLS.snap_action(selection,'point'),
@@ -1568,57 +1571,11 @@ def uiSection_snap(parent, selection = None ):
                             c = cgmGEN.Callback(SNAPCALLS.snap_action,selection,m,'each',**{'mode':a}),
                             ann = "Selection to each obj's {0} {1} pos".format(m,a))
                 
-            
-    #>>Aim ----------------------------------------------------------------------------------------
-    mc.menuItem(parent=parent,
-                l = 'Aim',
-                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToLast'),
-                ann = "Aim snap in a from:to selection")
-    
-    _aim = mc.menuItem(parent=parent,subMenu = True,
-                       l = 'Aim Special',
-                       ann = "asdfasdf")
-    mc.menuItem(parent=_aim,
-                l = 'All to last',
-                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToLast'),
-                ann = "Aim all objects to the last in selection")
-    mc.menuItem(parent=_aim,
-                l = 'Selection Order',
-                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToNext'),
-                ann = "Aim in selection order")
-    mc.menuItem(parent=_aim,
-                l = 'First to Midpoint',
-                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','firstToRest'),
-                ann = "Aim the first object to the midpoint of the rest")
-    
-    #>>Raycast ----------------------------------------------------------------------------------------
     mc.menuItem(parent=parent,
                 l = 'RayCast',
                 c = lambda *a:SNAPCALLS.raySnap_start(selection),
                 ann = "RayCast snap selected objects")
-    mc.menuItem(parent=parent,
-                l = 'AimCast',
-                c = lambda *a:SNAPCALLS.aimSnap_start(selection),
-                ann = "AimCast snap selected objects")    
     
-    #>>Match ----------------------------------------------------------------------------------------
-    _match= mc.menuItem(parent=parent,subMenu = True,
-                        l = 'Match',
-                        ann = "Series of options from cgmLocinator")
-    
-    mc.menuItem(parent=_match,
-                l = 'Self',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, selection,'each','Match',False,**{'mode':'self'}),#'targetPivot':self.var_matchModePivot.value                                                                      
-                ann = "Update selected objects to match object. If the object has no match object, a loc is created")
-    mc.menuItem(parent=_match,
-                l = 'Target',
-                c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, selection,'each','Match',False,**{'mode':'target'}),#'targetPivot':self.var_matchModePivot.value                                                                      
-                ann = "Update the match object, not the object itself")
-    mc.menuItem(parent=_match,
-                l = 'Buffer',
-                #c = cgmGEN.Callback(buttonAction,raySnap_start(_sel)),                    
-                c = cgmGEN.Callback(LOCINATOR.update_obj,**{'mode':'buffer'}),#'targetPivot':self.var_matchModePivot.value                                                                      
-                ann = "Update the buffer (if exists)")    
     
     #>>Arrange ----------------------------------------------------------------------------------------
     _arrange= mc.menuItem(parent=parent,subMenu = True,tearOff=True,
@@ -1694,9 +1651,75 @@ def uiSection_snap(parent, selection = None ):
               l = 'Closest',
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine',noSelect = 0, **{'mode':'spaced','curve':'target'}),
-              ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))    
+              ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))        
     
-    #cgmUI.mUI.MelSeparator(parent)
+    
+    #>>Match ----------------------------------------------------------------------------------------
+    _match= mc.menuItem(parent=parent,subMenu = True,
+                        l = 'Match',
+                        ann = "Series of options from cgmLocinator")
+    
+    mc.menuItem(parent=_match,
+                l = 'Self',
+                c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, selection,'each','Match',False,**{'mode':'self'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+                ann = "Update selected objects to match object. If the object has no match object, a loc is created")
+    mc.menuItem(parent=_match,
+                l = 'Target',
+                c = cgmGEN.Callback(MMCONTEXT.func_process, LOCINATOR.update_obj, selection,'each','Match',False,**{'mode':'target'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+                ann = "Update the match object, not the object itself")
+    mc.menuItem(parent=_match,
+                l = 'Buffer',
+                #c = cgmGEN.Callback(buttonAction,raySnap_start(_sel)),                    
+                c = cgmGEN.Callback(LOCINATOR.update_obj,**{'mode':'buffer'}),#'targetPivot':self.var_matchModePivot.value                                                                      
+                ann = "Update the buffer (if exists)")        
+    
+    
+    #>>Aim ----------------------------------------------------------------------------------------
+    mUI.MelMenuItemDiv(parent, label = 'Aim')
+    mc.menuItem(parent=parent,
+                l = 'Aim',
+                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToLast'),
+                ann = "Aim snap in a from:to selection")
+    
+    _aim = mc.menuItem(parent=parent,subMenu = True,
+                       l = 'Aim Special',
+                       ann = "asdfasdf")
+    mc.menuItem(parent=_aim,
+                l = 'All to last',
+                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToLast'),
+                ann = "Aim all objects to the last in selection")
+    mc.menuItem(parent=_aim,
+                l = 'Selection Order',
+                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','eachToNext'),
+                ann = "Aim in selection order")
+    mc.menuItem(parent=_aim,
+                l = 'First to Midpoint',
+                c = lambda *a:SNAPCALLS.snap_action(selection,'aim','firstToRest'),
+                ann = "Aim the first object to the midpoint of the rest")
+    
+    #>>Raycast ----------------------------------------------------------------------------------------
+    mc.menuItem(parent=parent,
+                l = 'AimCast',
+                c = lambda *a:SNAPCALLS.aimSnap_start(selection),
+                ann = "AimCast snap selected objects")    
+    
+    #>>Aim ----------------------------------------------------------------------------------------
+    mUI.MelMenuItemDiv(parent, label = 'Anim')
+    mc.menuItem(parent=parent,
+                l = 'Project Pos',
+                c = lambda *a:RIGGEN.sel_guessPositionFromKeys(),
+                ann = "Project selected objects with animation along vector of movement")
+    mc.menuItem(parent=parent,
+                l = 'Project Anim Curve',
+                c = lambda *a:RIGGEN.sel_projectAnimnCurveValueFromSample(),
+                ann = "Project selected objects/attributes along anim curve")    
+    mc.menuItem(parent=parent,
+                l = 'Reflect Anim Curve',
+                c = lambda *a:RIGGEN.sel_projectAnimnCurveValueFromSample(mode = 'reflect'),
+                ann = "Reflect selected objects/attributes along anim curve")
+    
+    cgmUI.mUI.MelMenuItemDiv(parent)
+    
     mc.menuItem(parent=parent,
                 l = 'Snap UI',
                 c = cgmGEN.Callback(TOOLCALLS.cgmSnapTools),                                               

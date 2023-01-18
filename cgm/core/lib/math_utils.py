@@ -123,14 +123,14 @@ def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
 def get_average_pos(posList = []):
     """
     Returns the average of a list of given positions
-    
+
     :parameters:
         posList(list): List of positions
     :returns
         average(list)
     """   
     _str_func = 'get_average_pos'
-    
+
     posX = []
     posY = []
     posZ = []
@@ -145,12 +145,12 @@ def get_normalized_parameter(minV,maxV,value,asEuclid=False):
     """
     """         
     _str_func = 'get_normalized_parameter'
-    
+
 
     _range = (float(maxV) - float(minV)) 
     _diff = value - minV
     return _diff / _range
-    
+
     if asEuclid:
         return Vector3(_new.x,_new.y,_new.z)
     return _new.x,_new.y,_new.z    
@@ -159,7 +159,7 @@ def get_normalized_parameter(minV,maxV,value,asEuclid=False):
 def get_vector_of_two_points(point1,point2,asEuclid=False):
     """
     Get a vector between two points
-    
+
     :parameters:
         point1(list): [x,x,x]
         point2(list): [x,x,x]
@@ -168,10 +168,10 @@ def get_vector_of_two_points(point1,point2,asEuclid=False):
         point(x,y,z)
     """         
     _str_func = 'get_vector_of_points'
-    
+
     _point1 = Vector3(point1[0],point1[1],point1[2])
     _point2 = Vector3(point2[0],point2[1],point2[2])
-    
+
     _new = (_point2 - _point1).normalized()
     if asEuclid:
         return Vector3(_new.x,_new.y,_new.z)
@@ -181,7 +181,7 @@ def get_vector_of_two_points(point1,point2,asEuclid=False):
 def get_obj_vector(obj = None, axis = 'z+',asEuclid = False):
     """
     Get the vector along an object axis
-    
+
     :parameters:
         obj(string)
         axis(str)
@@ -189,7 +189,7 @@ def get_obj_vector(obj = None, axis = 'z+',asEuclid = False):
 
     :returns
         vector(s)
-        
+
     :Acknowledgement
     Thanks to parentToSurface.mel from autodesk for figuring out this was necessary
 
@@ -204,7 +204,7 @@ def get_obj_vector(obj = None, axis = 'z+',asEuclid = False):
                              'z' : [8,9,10]}
 
     matrix = mc.xform(obj, q=True,  matrix=True, worldSpace=True)
-    
+
     #>>> Figure out our vector
     if axis not in list(SHARED._d_axis_string_to_vector.keys()):
         log.error("|{0}| >> axis arg not valid: '{1}'".format(_str_func,axis))
@@ -216,18 +216,18 @@ def get_obj_vector(obj = None, axis = 'z+',asEuclid = False):
     if list(axis)[1] == '-':
         for i,v in enumerate(vector):
             vector[i]=-v
-            
+
     mVector = Vector3(vector[0],vector[1],vector[2])
     mVector.normalize()
     if asEuclid:
         return mVector
     return mVector.x,mVector.y,mVector.z
-    
-    
+
+
 def get_space_value(arg, mode = 'mayaSpace'):
     """
     Space conversion of values. api which is in cm to maya space and vice versa
-    
+
     :parameters:
         arg(float/list)
         mode(str)
@@ -236,17 +236,17 @@ def get_space_value(arg, mode = 'mayaSpace'):
 
     :returns
         converted value(s)
-        
+
     :Acknowledgement
     Thanks to parentToSurface.mel from autodesk for figuring out this was necessary
 
     """         
     _str_func = 'get_space_value'
-    
+
     _values = VALID.listArg(arg) 
     _res = []
     unit = mc.currentUnit(q=True,linear=True)
-    
+
     if mode == 'mayaSpace':
         for v in _values:
             if unit == 'mm':
@@ -292,8 +292,8 @@ def ut_isFloatEquivalent():
     assert is_float_equivalent(-4.11241646134e-07,-0.0),"sc>0.00001 fail"
     assert is_float_equivalent(0.0,-0.0),"0.0>-0.0 fail"
     assert is_float_equivalent(0.0,0),"0.0>0 fail"
-    
-    
+
+
 def is_even(f1):
     if f1%2 == 0:
         return True
@@ -305,7 +305,7 @@ def get_midIndex(v):
 def is_float_equivalent(f1,f2,places=4):
     """
     Compare two floats, returns if equivalent
-    
+
     :parameters:
         f1(float)
         f2(float)
@@ -315,7 +315,7 @@ def is_float_equivalent(f1,f2,places=4):
         status(bool)
     """         
     _str_func = 'is_float_equivalent'
-    
+
     #zeroCheck
     l_zeros = [-0.0,0.0,-2e-20]
 
@@ -329,11 +329,11 @@ def is_float_equivalent(f1,f2,places=4):
     if f1_rounded == f2_rounded:
         return True
     return False     
-    
+
 def is_vector_equivalent(v1,v2,places=7):
     """
     Compare two floats, returns if equivalent
-    
+
     :parameters:
         f1(float)
         f2(float)
@@ -344,7 +344,7 @@ def is_vector_equivalent(v1,v2,places=7):
     """ 
     if type(v1) not in [list,tuple]:return False
     if type(v2) not in [list,tuple]:return False
-    
+
     if len(v1)!= len(v2):return False 
 
     for i,n in enumerate(v1):
@@ -406,11 +406,11 @@ def get_world_matrix(obj):
 def transform_direction(obj, v):
     '''
     Get local position of vector transformed from world space of Transform
-    
+
     Inputs: string, Vector3
     Returns: Vector3
     '''
-    
+
     current_matrix = get_world_matrix(obj)
     current_matrix.m = 0
     current_matrix.n = 0
@@ -445,10 +445,10 @@ def convert_aim_vectors_to_different_axis(aim, up, aimAxis="z+", upAxis="y+"):
         up = up.normalized()
         right = up.cross(aim).normalized()
         up = aim.cross(right).normalized()
-        
+
         wantedAim = None
         wantedUp = None
-    
+
         # wanted aim
         if aimAxis == "z+":
             wantedAim = aim
@@ -490,7 +490,7 @@ def convert_aim_vectors_to_different_axis(aim, up, aimAxis="z+", upAxis="y+"):
                 wantedAim = up
             elif upAxis == "z-":
                 wantedAim = -up
-    
+
         # wanted up
         if upAxis == "y+":
             wantedUp = up
@@ -532,7 +532,7 @@ def convert_aim_vectors_to_different_axis(aim, up, aimAxis="z+", upAxis="y+"):
                 wantedUp = right
             elif aimAxis == "z-":
                 wantedUp = -right
-    
+
         return wantedAim, wantedUp
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
@@ -545,7 +545,7 @@ def find_valueInList(v,l,mode='near'):
     _d = {}
     _l = []
     _l_use = []
-    
+
     if mode == 'previous':
         for v1 in l:
             if v1 < v:
@@ -555,12 +555,12 @@ def find_valueInList(v,l,mode='near'):
             if v1 > v:
                 _l_use.append(v1)
     else:_l_use = copy.copy(l)
-        
+
     for v1 in _l_use:
         _diff = abs(v1 - v)
         _l.append(_diff)
         _d[_diff] = v1
-    
+
     #pprint.pprint(vars())
     if mode in ['near','previous','next']:return _d[min(_l)]
     elif mode == 'far':return _d[max(_l)]
@@ -569,7 +569,7 @@ def find_valueInList(v,l,mode='near'):
 def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
     '''
     Get a factored list 
-    
+
     :parameters:
         count(int) - number of values sought
         maxValue(float)
@@ -582,35 +582,35 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
             midBlendUp  - blend from min to max then max
             blendUp
             blendDown
-            
+
     :returns:
         list of values
-        
+
         examples - all with example with count 5, min 0, max 1
             midPeak - [0.0, 0.5, 1.0, 0.5, 0.0]
             midBlendDown - [1.0, 1.0, 1.0, 0.5, 0.0]
             blendUpMid - [0.0, 0.5, 1.0, 1.0, 1.0]
             blendUp - [0.0, 0.25, 0.5, 0.75, 1.0]
             blendDown - [1.0, 0.75, 0.5, 0.25, 0.0]
-            
+
     :raises:
         Exception | if reached
-    
+
     '''
     _str_func = 'get_factorList'
     _res = []
     if mode == 'midPeak' and count ==3:
         return [minValue,maxValue,minValue] 
-        
+
     if mode in ['blendUp','blendDown']:
         blendFactor = (float(maxValue) - float(minValue))/(count-1)
-        
+
         for i in range(count):
             _res.append( (i * blendFactor) + minValue)
 
         if mode == 'blendDown':
             _res.reverse()
-        
+
     elif mode in ['midPeak','blendUpMid','midBlendDown']:
         if count == 2:
             _res = [maxValue,maxValue]
@@ -618,13 +618,13 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
             _res = [minValue, maxValue/2.0, maxValue]
         else:
             idx_mid = get_midIndex(count)
-            
+
             if maxValue == minValue:
                 return [maxValue for i in range(count)]
-                
-            
+
+
             blendFactor = (float(maxValue) - float(minValue))/(idx_mid)
-            
+
             if is_even(count):
                 for i in range(idx_mid):
                     _res.append( (i * blendFactor) + minValue)
@@ -640,9 +640,9 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
             else:
                 for i in range(idx_mid+1):
                     _res.append( (i * blendFactor) + minValue)
-                    
+
                 _res[-1] = maxValue
-                    
+
                 if mode == 'blendUpMid':
                     _res = _res + [maxValue for i in range(idx_mid-1)]
                 elif mode == 'midBlendDown':
@@ -652,18 +652,18 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
                     _rev = copy.copy(_res)
                     _rev.reverse()
                     _res.extend(_rev[1:])
-            
+
             if mode in ['midPeak','blendUpMid','midBlendDown']:
                 _res[0] = minValue
                 _res[-1] = minValue
                 _res[idx_mid] = maxValue
-            
+
     elif mode == 'max':
         return [maxValue for i in range(count)]
     elif mode == 'min':
         return [minValue for i in range(count)]
-        
-        
+
+
     else:
         raise ValueError("|{0}| >> Unknown mode: {1}".format(_str_func,mode))
 
@@ -673,13 +673,13 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
 
 def normalizeListToSum(L, normalizeTo=1.0):
     """normalize values of a list to make sum = normalizeTo
-    
+
     For example [.2, .5] becomes [0.33333333333333331, 0.66666666666666663] for a sum of 1.0
-    
+
     Thanks to:
     http://stackoverflow.com/questions/26785354/normalizing-a-list-of-numbers-in-python
     """
-    
+
     #return [float(i)/normalizeTo for i in [float(i)/sum(L) for i in L]]
     norm = normalizeList(L)
     normSum = [float(i)/sum(L) for i in L]
@@ -691,9 +691,9 @@ def get_evenSplitDict(L):
     """
     _len = len(L)
     _mid = get_midIndex(_len)
-    
+
     _midV = L[_mid]
-    
+
     if is_even(_len):
         _l_right = L[:_mid]
         _l_left = L[_mid:]
@@ -706,9 +706,9 @@ def get_evenSplitDict(L):
         _res = {'center':[_midV],
                 'start':_l_right,
                 'end':_l_left}
-        
+
     return _res
-        
+
 
 
 def get_splitValueList(minU = 0,
@@ -719,7 +719,7 @@ def get_splitValueList(minU = 0,
                        insetSplitFactor = None):
     """
     Function for parsing up a line of values (like a curve.u list or a surface.uv list  
-    
+
     :parameters:
         minU(float) - Minimum value to use to start splitting
         maxU(float) - Maximum value to use to start splitting
@@ -732,19 +732,19 @@ def get_splitValueList(minU = 0,
         values(list)
     """         
     _str_func = 'get_splitValueList'
-    
+
     if insetSplitFactor is not None or startSplitFactor is not None:
         if not is_float_equivalent(minU,0):
             raise Exception("Min U must be 0 when insetSplitFactor or startSplitFactor are used")
-    
+
     #>>> Divide stuff
     #==========================	
     l_spanUPositions = []    
     l_uValues = [minU]
-    
+
     minU = float(minU)
     maxU = float(maxU)
-    
+
     log.debug("%s >> maxU : %s"%(_str_func,maxU)) 
 
     if startSplitFactor is not None:
@@ -789,7 +789,7 @@ def get_splitValueList(minU = 0,
     else:
         #Figure out our u's
         log.debug("|{0}| >> Regular mode. Points: {1}".format(_str_func,points))
-        
+
         if points == 1:
             l_uValues = [((maxU - minU)/2)+minU]
         elif points == 2:
@@ -810,7 +810,7 @@ def get_splitValueList(minU = 0,
         l_uValues = l_uValues[1:-1]
 
     return l_uValues
-    
+
 
 def list_subtract(l1,l2):
     """ 
@@ -868,7 +868,7 @@ def get_greatest(*args):
         l=args[0]
     else:
         l = [a for a in args]
-        
+
     return max(l)
 
 def median(*args):
@@ -879,32 +879,47 @@ def median(*args):
         l=args[0]
     else:
         l = [a for a in args]
-    
+
     n = len(l)
     if n < 1:
-            return None
+        return None
     if n % 2 == 1:
-            return sorted(l)[n//2]
+        return sorted(l)[n//2]
     else:
-            return sum(sorted(l)[n//2-1:n//2+1])/2.0    
+        return sum(sorted(l)[n//2-1:n//2+1])/2.0    
 
 def angleBetween(p1, p2, p3):
     try:
         p1 = VALID.euclidVector3Arg(p1)
         p2 = VALID.euclidVector3Arg(p2)
         p3 = VALID.euclidVector3Arg(p3)
-        
+
         v1 = (p2 - p1).normalized()
         v2 = (p3 - p2).normalized()
-        
+
         return math.degrees(v1.angle(v2))
     except Exception as err:
         cgmGEN.cgmException(Exception,err)
 
-def averageVectors(v1, v2):
-    # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
-    return [average(a,b) for a,b in zip(v1,v2)]
+#def averageVectors(v1, v2):
+#    # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+#    return [average(a,b) for a,b in zip(v1,v2)]
     #return sum((a*b) for a, b in zip(v1, v2))
+
+def average_vector_args(vectors): 
+    # Initialize the sum of the vector values 
+    sum_vector = [0, 0, 0] 
+    # Iterate through the list of vectors 
+    for vector in vectors: 
+        # Add each value of the vector to the sum vector 
+        for i in range(len(vector)): 
+            sum_vector[i] += vector[i] 
+    # Calculate the average vector 
+    average_vector = [sum_vector[0] / len(vectors), 
+                      sum_vector[1] / len(vectors), 
+                      sum_vector[2] / len(vectors)] 
+    # Return the average vector 
+    return average_vector
 
 def dotproduct(v1, v2):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
@@ -931,7 +946,7 @@ def spring(x, v, xt, zeta, omega, h):
     :param zeta: damping ratio (input)
     :param omega: angular frequency (input)
     :param h: time step (input)
-    
+
     Bokser found on open chat ai or somethin
     """
     # Spring constant
@@ -952,8 +967,14 @@ def spring(x, v, xt, zeta, omega, h):
     x = det_x * det_inv
     # v = (v + h * omega square * (xt - x)) * det_inv
     v = det_v * det_inv
-    
+
     return x,v
+
+def get_fixedTimeDelta(fps= None):
+    if fps == None:
+        fps = mel.eval('currentTimeUnitToFPS')
+    fixedDeltaTime = 1.0/fps
+    return fixedDeltaTime
 
 
 

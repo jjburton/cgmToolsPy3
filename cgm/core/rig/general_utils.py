@@ -41,10 +41,19 @@ import cgm.core.lib.search_utils as SEARCH
 import cgm.core.lib.position_utils as POS
 from cgm.core.classes import NodeFactory as NODEFAC
 import cgm.core.lib.list_utils as LISTS
+import cgm.core.lib.anim_utils as COREANIM
+
 
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import euclid as EUCLID
 from cgm.core.lib import locator_utils as LOC
+
+
+
+log_msg = cgmGEN.logString_msg
+log_sub = cgmGEN.logString_sub
+log_start = cgmGEN.logString_start
+
 #reload(ATTR)
 @cgmGEN.Timer
 def reset_channels_fromMode(nodes=None, mode = 0,selectedChannels=None):
@@ -1028,3 +1037,71 @@ def parentScaleForce(mObj,mStop=None):
             mParent.scale = 1,1,1
             print(("Set: {}".format(mParent.mNode)))
         except:"Fail: {}".format(mParent.mNode)
+        
+
+def sel_guessPositionFromKeys(range = 5):
+    _str_func = 'sel_guessPositionFromKeys'
+    ml = cgmMeta.asMeta(sl=True)
+    if not ml:
+        return False
+    
+    cgmGEN._reloadMod(DIST)
+    cgmGEN._reloadMod(POS)
+    cgmGEN._reloadMod(MATH)
+    
+    _current = mc.currentTime(q=True)
+
+    for mObj in ml:
+        try:
+            _closest = SEARCH.get_key_indices_from(mObj.mNode,'closestSansCurrent')
+            if not _closest:
+                log.warning(log_msg(_str_func,f"No keys on: '{mObj.mNode}'"))
+                continue
+            if _closest < _current:
+                _start = _closest - range
+                _end = _closest
+            else:
+                _start = _closest
+                _end = _closest + range
+                
+            pprint.pprint(vars())
+            mPoint = DIST.project_position(mObj.mNode,_current, _start,_end)
+            mObj.p_position = mPoint
+        except Exception as err:
+            log.error(log_msg(_str_func,f"'{mObj.mNode}' | {err}"))
+    
+    mc.currentTime(_current)
+        
+def sel_projectAnimnCurveValueFromSample(range = 5,attributes = ['tx','ty','tz','rx','ry','rz','sx','sy','sz'],
+                                         mode = 'project'):
+    _str_func = 'sel_projectAnimnCurveValueFromSample'
+    
+    
+    ml = cgmMeta.asMeta(sl=True)
+    if not ml:
+        return False
+    
+    _attributes = SEARCH.get_selectedFromChannelBox([mObj.mNode for mObj in ml],attributesOnly=True)
+    if _attributes:
+        attributes = _attributes
+    
+    #pprint.pprint(attributes)
+    _current = mc.currentTime(q=True)
+
+    for mObj in ml:
+        _closest = SEARCH.get_key_indices_from(mObj.mNode,'closestSansCurrent')
+        if not _closest:
+            log.warning(log_msg(_str_func,f"No keys on: '{mObj.mNode}'"))
+            continue        
+        if _closest < _current:
+            #mode = 'back'
+            _start = _closest - range
+            _end = _closest
+        else:
+            #mode = 'forward'
+            _start = _closest
+            _end = _closest + range
+            
+        pprint.pprint(vars())        
+        COREANIM.project_animCurve_value(mObj.mNode,_current, _start,_end, attributes, mode, setValue =True)
+    #mc.dgdirty([mObj.mNode for mObj in ml])

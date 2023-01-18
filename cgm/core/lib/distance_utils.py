@@ -1317,4 +1317,48 @@ def returnNormalizedUV(mesh, uValue, vValue):
         log.error(">>> {0} >> error: {1}".format(_str_funcName,error))        
         return None
     
+def project_position(obj, targetFrame, sampleStart, sampleEnd):
+    mPos = [] 
+    mVector = []
+    mVelocity = []
+
+    _current = mc.currentTime(q=True)
+    _timeDelta = MATHUTILS.get_fixedTimeDelta()
+    for frame in range(int(sampleStart), int(sampleEnd+1)):
+        #print(frame)
+        mc.currentTime(frame, edit=True)
+        mPos.append(POS.get(obj,asEuclid=1))
+
+    for i,p in enumerate(mPos):
+        if p != mPos[-1]:
+            mVector.append( MATHUTILS.get_vector_of_two_points(p,mPos[i+1],asEuclid=True))
+
+        if i:
+            #_vel =  (p - mPos[i-1]) / (1/24.0)
+            _vel = get_distance_between_points(p,mPos[i-1]) / (_timeDelta)
+            mVelocity.append(_vel)
+
+
+    if len(mVelocity) ==1:
+        mVelocity.append(mVelocity[-1])
+    if len(mVector) == 1:
+        mVector.append(mVector[-1])
+
+    _timePassed = (targetFrame - sampleEnd) * _timeDelta
+
+    #pprint.pprint([mPos,mVector,mVelocity,_timePassed])
     
+    _tmp = MATHUTILS.average_vector_args(mVector)#...average the vectors
+    mVec = MATHUTILS.Vector3(_tmp[0],_tmp[1],_tmp[2])
+    mVel = MATHUTILS.average(mVelocity)
+    
+    #mVel.normalize()
+    #pprint.pprint([mVec,mVel,_timePassed])
+
+    final_point = [mPos[-1].x + (mVec.x * mVel * _timePassed), 
+                   mPos[-1].y + (mVec.y * mVel * _timePassed), 
+                   mPos[-1].z + (mVec.z * mVel * _timePassed)] 
+
+    mc.currentTime(_current)
+    return final_point
+

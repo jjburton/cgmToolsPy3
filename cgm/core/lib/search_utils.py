@@ -500,6 +500,25 @@ def get_key_indices_from(node = None, mode = 'all'):
         if initialTimeState - _prev < _next - initialTimeState:
             return _prev
         return _next
+    
+    elif mode == 'closestSansCurrent':
+        _prev = mc.findKeyframe(node,which = 'previous',an='objects')
+        _next = mc.findKeyframe(node,which = 'next',an='objects')
+        
+        if _next == initialTimeState and _prev:
+            return _prev
+        if _prev == initialTimeState and _next:
+            
+            return _next
+        
+        if not _prev and _next and initialTimeState != _next:
+            return _next
+        if not _next and _prev and initialTimeState != _prev:
+            return _prev
+        
+        if initialTimeState - _prev < _next - initialTimeState:
+            return _prev
+        return _next        
         
     elif mode == 'previous':
         _key = mc.findKeyframe(node,which = 'previous',an='objects')
