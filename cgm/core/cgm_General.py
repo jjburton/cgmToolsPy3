@@ -10,9 +10,9 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '23.01.07.02'
+__RELEASE = '23.01.17.01'
 
-__BRANCH = 'Python3'
+__BRANCH = 'Py3'
 
 import maya.cmds as mc
 import maya.mel as mel

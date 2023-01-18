@@ -2037,8 +2037,8 @@ def setKey(keyModeOverride = None):
             mc.setKeyframe(selection,breakdown = True)     
 
 	
-
 def deleteKey():
+    log.info("deleteKey...")    
     KeyTypeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyType', defaultValue = 0)
     KeyModeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyMode', defaultValue = 0)	
 
@@ -2054,17 +2054,26 @@ def deleteKey():
         else:
             mc.cutKey(selection)"""
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:
                 return log.warning('cgmPuppetKey.deleteKey>>> Nothing l_selected!')
+            else:
+                mel.eval('timeSliderClearKey;')
+            
+        else:
+            _current_time = mc.currentTime(query=True)
+            for k in selection:
+                _split = k.split('.')
+                mc.cutKey( _split[0], t=((_current_time,_current_time)), at=_split[1] )                
+        
         """
         if not KeyTypeOptionVar.value:
             mc.cutKey(selection)	    
         else:
             mc.cutKey(selection,breakdown = True)"""
-        mel.eval('timeSliderClearKey;')
+        #mel.eval('timeSliderClearKey;')
             
             
 def ui_CallAndKill(func, *a, **kws ):

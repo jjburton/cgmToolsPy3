@@ -4944,6 +4944,7 @@ def setKey(keyModeOverride = None):
             mc.setKeyframe(selection,breakdown = True)     
 
 def deleteKey():
+    log.info("deleteKey...")
     KeyTypeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyType', defaultValue = 0)
     KeyModeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyMode', defaultValue = 0)	
 
@@ -4960,9 +4961,15 @@ def deleteKey():
             selection = mc.ls(sl=True) or []
             if not selection:
                 return log.warning('cgmPuppetKey.deleteKey>>> Nothing l_selected!')
-
-        mel.eval('timeSliderClearKey;') 
-        
+            else:
+                mel.eval('timeSliderClearKey;')
+            
+        else:
+            _current_time = mc.currentTime(query=True)
+            for k in selection:
+                _split = k.split('.')
+                mc.cutKey( _split[0], t=((_current_time,_current_time)), at=_split[1] )          
+                
 def uiCB_bufferDat(self,update=True):
     _str_func='uiCB_bufferDat'
     log.info(cgmGEN.logString_msg(_str_func))
