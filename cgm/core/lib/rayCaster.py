@@ -50,18 +50,6 @@ log.setLevel(logging.INFO)
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Functions
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-def get_eligibleMesh():
-    _str_func = ''
-    _res = []
-    for l in mc.ls(type='mesh',visible = True, long=True), mc.ls(type='nurbsSurface',long=True, visible = True):
-        for o in l:
-            _mesh =  SHAPE.get_nonintermediate(o)
-            _type = VALID.get_mayaType(_mesh)
-            if _type in ['mesh','nurbsSurface']:
-                _res.append( _mesh )#...this accounts for deformed mesh 
-            else:
-                log.debug("|{0}| >> Inelibible: {1} | {2}".format(_str_func,_type,_mesh))
-    return _res
 
 def get_dist_from_cast_axis(obj = None, axis = 'z', mode = 'near', shapes = None, mark = False,
                             startPoint = None, maxDistance = 1000,selfCast = False, asEuclid = False):
@@ -103,7 +91,7 @@ def get_cast_pos(obj = None, axis = 'z+', mode = 'near', shapes = None, mark = F
             obj = _sel[0]
 
         if shapes is None:
-            shapes = get_eligibleMesh()
+            shapes = SHAPE.get_eligibleMesh()
             if not selfCast:
                 for s in TRANS.shapes_get(obj,True):
                     if s in shapes:
@@ -239,7 +227,7 @@ def cast(mesh = None, obj = None, axis = 'z+',
     
         _str_func = 'cast'
         if mesh is None:
-            mesh = get_eligibleMesh()
+            mesh = SHAPE.get_eligibleMesh()
         _meshArg = VALID.listArg(mesh)
         _mesh =  []
         for m in _meshArg:

@@ -23,14 +23,16 @@ import copy
 # From Red9 =============================================================
 
 # From cgm ==============================================================
-from cgm.core import cgm_General as cgmGeneral
+from cgm.core import cgm_General as cgmGEN
 from cgm.core.lib import shared_data as SHARED
 #reload(SHARED)
 from cgm.core.lib import name_utils as NAME
 from cgm.core.lib import euclid as EUCLID
 
 # Shared Defaults ========================================================
-
+log_msg = cgmGEN.logString_msg
+log_sub = cgmGEN.logString_sub
+log_start = cgmGEN.logString_start
 #=========================================================================
 import logging
 logging.basicConfig()
@@ -784,9 +786,9 @@ def objStringList(l_args=None, mayaType=None, noneValid=False, isTransform=False
     else:_str_func = "{0}({1})".format(_str_funcRoot,l_args) 
 
     result = []
-    if l_args is None:
+    if l_args is None or not l_args:
         if noneValid:return False
-        else:raise ValueError("Arg is none and not noneValid")
+        else:raise ValueError(log_msg(_str_func,"Arg is none and not noneValid"))
         
     if not isinstance(l_args, (list, tuple)):l_args = [l_args]
 

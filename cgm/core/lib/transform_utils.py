@@ -559,11 +559,13 @@ def scale_to_boundingBox_relative(node = None, box = [1,1,1],shapes=True,freeze=
     if freeze:
         mc.makeIdentity(node, apply =True, scale = True)    
     _bb_current = DIST.get_bb_size(node,shapes)
+    _scale_current = ATTR.get(node,'scale')
     _l_scale = []
     for i,v in enumerate(_bb_current):
         v_b = box[i]
-        if v_b is None:
-            _l_scale.append( v )            
+        if v_b in [None,False]:
+            _l_scale.append( 1 )                        
+            #_l_scale.append( _scale_current[i] )            
         else:
             try:_l_scale.append( box[i]/v )
             except:

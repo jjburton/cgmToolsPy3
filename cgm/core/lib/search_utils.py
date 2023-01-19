@@ -632,6 +632,8 @@ def get_anim_value_by_time(node = None, attributes = [], time = 0.0):
     if _res and len(_res)==1:
         return _res[0]
     return _res
+
+
     
 def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict = False, report= True ):
     """ 

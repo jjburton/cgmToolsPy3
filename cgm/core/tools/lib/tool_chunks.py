@@ -45,6 +45,7 @@ import cgm.core.lib.sdk_utils as SDK
 import cgm.core.tools.lib.tool_calls as TOOLCALLS
 #reload(TOOLCALLS)
 import cgm.core.classes.GuiFactory as cgmUI
+import cgm.core.lib.camera_utils as CAM
 import cgm.projects.CGM as CGMPROJECTS
 from cgm.core.tools import attrTools as ATTRTOOLS
 from cgm.core.rig import general_utils as RIGGEN
@@ -257,6 +258,13 @@ def uiSection_query(parent = None):
                 ann = "Get target value dict from obj channel box selections",
                 c = cgmGEN.Callback(MMCONTEXT.func_process, SEARCH.get_selectedFromChannelBox, None, 'each','Get targets',True,report = True, **{'valueDict':True}))
     
+    
+    #Camera...
+    mUI.MelMenuItemDiv(uiQuery,l='Camera')
+    mc.menuItem(parent=uiQuery,
+              l = 'Guess Clip Planes',
+              c = lambda *a:CAM.autoset_clipPlane(),
+              ann = 'Guess the clip plane from selection')              
     
     
     return uiQuery

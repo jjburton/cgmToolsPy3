@@ -103,3 +103,16 @@ def get_nonintermediate(shape):
         else:
             return shape
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+
+def get_eligibleMesh():
+    _str_func = ''
+    _res = []
+    for l in mc.ls(type='mesh',visible = True, long=True), mc.ls(type='nurbsSurface',long=True, visible = True):
+        for o in l:
+            _mesh =  get_nonintermediate(o)
+            _type = VALID.get_mayaType(_mesh)
+            if _type in ['mesh','nurbsSurface']:
+                _res.append( _mesh )#...this accounts for deformed mesh 
+            else:
+                log.debug("|{0}| >> Inelibible: {1} | {2}".format(_str_func,_type,_mesh))
+    return _res
