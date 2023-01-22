@@ -936,6 +936,9 @@ def angleBetweenVectors(v1, v2):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python    
     return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
 
+def round_float(n, decimal_places):
+    factor = 10 ** decimal_places
+    return math.floor(n * factor) / factor
 
 def spring(x, v, xt, zeta, omega, h):
     """

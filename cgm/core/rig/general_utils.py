@@ -19,7 +19,7 @@ import pprint
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -676,14 +676,15 @@ def split_blends(driven1 = None,
                  nameSeal2 = 'right',
                  nameSealMid = 'center',
                  maxValue = 10.0,
-                 inTangent = 'auto',
-                 outTangent = 'auto',
+                 inTangent = 'linear',
+                 outTangent = 'linear',
                  settingsControl = None,
                  buildNetwork = True):
     """
     Split for blend data
     """
     try:
+        pprint.pprint(vars())
         _str_func = 'split_blends'
         d_dat = {1:{'dist1':[],
                     'dist2':[],
@@ -731,6 +732,12 @@ def split_blends(driven1 = None,
                                           lock=False,
                                           keyable=True)            
 
+        
+        
+        
+        
+        
+        """
         pos1 = POS.get(sealDriver1)
         pos2 = POS.get(sealDriver2)
         posMid = POS.get(sealDriverMid)
@@ -763,6 +770,17 @@ def split_blends(driven1 = None,
             dat['dist1On'] = [v + normMin for v in dat['dist1Norm']]
             dat['dist2On'] = [v + normMin for v in dat['dist2Norm']]
             dat['distMidOn'] = [v + normMin for v in dat['distMidNorm']]
+            """
+        for idx,dat in list(d_dat.items()):
+            mDriven = dat['driven']
+            
+            
+            d_tmp = get_zipperOnValues(mDriven,maxValue)
+            
+            dat['dist1On'] = d_tmp['dist1On']
+            dat['dist2On'] = d_tmp['dist2On']
+            dat['distMidOn'] = d_tmp['distMidOn']
+            
             
             if buildNetwork:
                 log.debug("|{0}| >> buildNetwork | building driver attrs...".format(_str_func))
@@ -812,7 +830,8 @@ def split_blends(driven1 = None,
                                                          dat['mPlugs']['on'][i].p_combinedShortName,))                    
                     for a in args:
                         NODEFAC.argsToNodes(a).doBuild()
-
+                        log.debug(a)
+                    
                     zeroMid = 0
                     zero1 = 0
                     zero2 = 0
@@ -885,7 +904,7 @@ def split_blends(driven1 = None,
                                          itt=inTangent,ott=outTangent,                                         
                                          driverValue = dat['distMidOn'][i],value = 1.0)
 
-        #pprint.pprint(d_dat)
+        pprint.pprint(d_dat)
         #return d_dat
 
         for idx,dat in list(d_dat.items()):
@@ -900,6 +919,79 @@ def split_blends(driven1 = None,
         cgmGEN.cgmExceptCB(Exception,err,msg=vars())
         
         
+def get_zipperOnValues(l_use, attrMax = 10.0):
+    #...get some values
+    _normMin = attrMax *.1
+    _normMax = attrMax - _normMin    
+                
+    ml = cgmMeta.asMeta(l_use)
+    #Create a curve, uniform through our joints
+    _crv = RIG.create_at(create='curve', l_pos=[mObj.p_position for mObj in ml])
+    mCrv = cgmMeta.asMeta(_crv)
+    #Get U values for each joint
+    _shape = mCrv.getShapes()[0]
+    #_minU = ATTR.get(_shape,'minValue')
+    #_maxU = ATTR.get(_shape,'maxValue')
+    
+    #pprint.pprint(vars())
+    _res = {}
+    #_l = []
+    _params = []
+    for mObj in ml:
+        _d = DIST.get_closest_point_data(_shape,mObj.mNode)#...get our closest point data
+        #pprint.pprint(_d)
+        #_l.append( MATH.get_normalized_parameter(_minU,_maxU,_d['parameter']))#...store our normalized param to the min/max
+        _params.append(_d['parameter'])
+        
+    pprint.pprint(_params)
+    
+    l_norm = MATH.normalizeList(_params,_normMax)#...norm to our max
+
+    #_l = MATH.normalizeList(_l,attrMax)#...normalized this list to our target peak
+    
+    #Normalize those
+    #get midValues
+    _rev = [_normMax - v for v in l_norm]
+    
+    #...now, prcoess the the mid split ==========================================================
+    
+    _min = min(l_norm)
+    _max = max(l_norm)
+    _mid = (_max - _min)/2
+    _pre = []
+    _post = []
+    
+    #...split our lists
+    for v in l_norm:
+        if v >= _mid:
+            _post.append(v)
+        else:
+            _pre.append(v)
+        
+    _preShift = [_mid - v for v in _pre]
+    _postShift = [v-_mid for v in _post]
+    
+    l_mid = _preShift + _postShift
+    l_mid = MATH.normalizeList(l_mid,_normMax)#...norm to our max
+
+    #...do our our offsets and what not
+    
+    l_norm.reverse()
+    _rev.reverse()
+    _res['dist1On'] = l_norm
+    _res['dist2On'] = _rev
+    _res['distMidOn'] = l_mid
+    
+    #pprint.pprint(_res)
+    for k,d in list(_res.items()):        
+        _l1 = [v + _normMin for v in d]#...offset to not be on at 0
+        _res[k] = [MATH.round_float(v,4) for v in _l1]#...clean our float values
+    #pprint.pprint(_res)
+    
+    mc.delete(_crv)
+    return _res
+
+
 
 def rename_deformers(nodes= [],deformerTypes='all'):
     if not nodes:

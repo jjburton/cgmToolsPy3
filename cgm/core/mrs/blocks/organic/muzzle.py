@@ -169,7 +169,7 @@ d_attrStateMask = {'define':[
                        'numJointsTongue',
                        ],
                    'rig':[
-                       'lipMidSetup',
+                       'lipMidFollowSetup',
                        
                    ]}
 
@@ -256,7 +256,8 @@ d_attrsToMake = {'faceType':'default:muzzle:beak',
                  'numJointsNostril':'int',
                  'numJointsNoseTip':'int',
                  #Lips...
-                 'lipMidSetup':'ribbon:prntConstraint',
+                 'lipMidFollowSetup':'ribbon:prntConstraint:parent',
+                 'lipMidSealSetup':'bool',
                  
                  #'lipSealSetup':'none:default',
                  'numConLips':'int',
@@ -303,6 +304,7 @@ d_defaultSettings = {'version':__version__,
                      'attachPoint':'end',
                      'side':'none',
                      #'loftDegree':'cubic',
+                     'lipMidSealSetup':True,
                      'numJointsLipUpr':3,
                      'numConLips':3,
                      'numJointsLipLwr':3,
@@ -5167,7 +5169,7 @@ def skeleton_build(self, forceNew = True):
         
         mLipRoot = mJnt
         
-    mJawUpr or False
+    mJawUpr = False
     if self.jawLwrSetup:
         mObj = mPrerigNull.getMessageAsMeta('jaw'+'DagHelper')
         mJaw = create_jointFromHandle(mObj,mRoot)
@@ -5582,7 +5584,7 @@ def rig_dataBuffer(self):
         log.debug("|{0}| >> self.str_{1} = {2}".format(_str_func,_tag,self.__dict__['str_{0}'.format(_tag)]))    
     
     
-    for k in ['buildSDK','lipMidSetup']:
+    for k in ['buildSDK','lipMidFollowSetup']:
         self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)    
         self.__dict__['v_{0}'.format(k)] = mBlock.getMayaAttr(k)    
     
@@ -5999,7 +6001,15 @@ def rig_shapes(self):
             #    mRigNull.doStore('settings',self.mParentSettings)
             log.debug(cgmGEN._str_subLine)
             
+        mJawUpr = False
+        if self.md_rigJoints.get('jawUpr'):
+            log.debug("|{0}| >> Jaw Upr setup...".format(_str_func)+ '-'*40)
+            mJawUpr_fk = self.md_driverJoints.get('jawUpr')
+            CORERIG.shapeParent_in_place(mJawUpr_fk.mNode, mPrerigNull.getMessageAsMeta('jawUprShapeHelper').mNode)
             
+            mRigNull.doStore('controlJawUpr',mJawUpr_fk)
+            log.debug(cgmGEN._str_subLine)
+                
         for k in 'teethUpr','teethLwr','tongue','chin':
             mDag = self.md_driverJoints.get(k)
             if mDag:
@@ -6253,7 +6263,7 @@ def rig_controls(self):
             ml_controlsAll.append(_d['mObj'])            
             return _d['mObj']
         
-        for k in 'teethUpr','teethLwr','tongue','jaw','muzzle','mouth','chin':
+        for k in 'teethUpr','teethLwr','tongue','jaw','jawUpr','muzzle','mouth','chin':
             link = 'control{0}'.format(STR.capFirst(k))
             log.debug("|{0}| >> {1} setup...".format(_str_func,link)+ '-'*40)
             mLink = mRigNull.getMessageAsMeta(link)
@@ -6432,21 +6442,33 @@ def rig_frame(self):
         mModule = self.mModule
         mDeformNull = self.mDeformNull
         mFollowParent = self.mDeformNull
+        mFollowParentUpr = self.mDeformNull
+        
         mFollowBase = self.mDeformNull
         
         mdD = self.md_driverJoints
         #Process our main controls ==============================================================
         mMuzzle = mRigNull.getMessageAsMeta('controlMuzzle')
         mJaw = mRigNull.getMessageAsMeta('controlJaw')
+        mJawUpr = mRigNull.getMessageAsMeta('controlJawUpr')
+        
         _str_rigNull = mRigNull.mNode
+        
+        
         if mMuzzle:
             log.debug("|{0}| >> Muzzle setup...".format(_str_func))
             mMuzzle.masterGroup.p_parent = self.mDeformNull
             mFollowParent = mMuzzle
+            mFollowParentUpr = mMuzzle
             mFollowBase = mMuzzle.doCreateAt('null',setClass=True)
             mFollowBase.rename('{0}_followBase'.format(self.d_module['partName']))
             mFollowBase.p_parent = self.mDeformNull
             
+        if mJawUpr:
+            log.debug("|{0}| >> Jaw upr setup...".format(_str_func))
+            mJawUpr.masterGroup.p_parent = mFollowParent
+            if not mMuzzle:
+                mFollowParentUpr = mJawUpr            
         if mJaw:
             log.debug("|{0}| >> Jaw setup...".format(_str_func))
             mJaw.masterGroup.p_parent = mFollowParent
@@ -6456,7 +6478,7 @@ def rig_frame(self):
         mUprTeeth = mRigNull.getMessageAsMeta('controlTeethUpr')
         if mUprTeeth:
             log.debug("|{0}| >> uprTeeth setup...".format(_str_func))
-            mUprTeeth.masterGroup.p_parent = mFollowParent
+            mUprTeeth.masterGroup.p_parent = mFollowParentUpr
         
         mTongue = mRigNull.getMessageAsMeta('controlTongue')
         if mTongue:
@@ -6474,7 +6496,6 @@ def rig_frame(self):
             _str_mouth = mMouth.mNode
             
             if mJaw:
-                
                 mJawSpaceMouth = mMouth.doCreateAt(setClass=1)
                 mJawSpaceMouth.p_parent = mJaw 
                 mJawSpaceMouth.rename('{0}_mouthJawSpace'.format(self.d_module['partName']))
@@ -6514,6 +6535,7 @@ def rig_frame(self):
                     str_side = 'left'
                 else:
                     str_side = 'right'
+                    
                 if mJaw:
                     mHandle.masterGroup.p_parent = mFollowBase
                     
@@ -6521,40 +6543,44 @@ def rig_frame(self):
                     mMainTrack.doStore('cgmName',mHandle)
                     mMainTrack.doStore('cgmType','mainTrack')
                     mMainTrack.doName()
-                    mMainTrack.p_parent = mFollowParent
+                    mMainTrack.p_parent = mJawUpr or mFollowParent
+                    
                     
                     mJawTrack = mHandle.doCreateAt(setClass=1)
                     mJawTrack.doStore('cgmName',mHandle)
                     mJawTrack.doStore('cgmType','jawTrack')
                     mJawTrack.doName()
-                    mJawTrack.p_parent = mJawSpaceMouth
+                    if mJawUpr:
+                        mJawTrack.p_parent = mJaw                        
+                    else:
+                        mJawTrack.p_parent = mJawSpaceMouth
                     
-                    const = mc.parentConstraint([mMainTrack.mNode,mJawTrack.mNode],
+                    const = mc.pointConstraint([mMainTrack.mNode,mJawTrack.mNode],
                                         mHandle.masterGroup.mNode,
                                         maintainOffset=True)[0]
 
 
                     #Create Reverse Nodes
-                    d_blendReturn = NODEFACTORY.createSingleBlendNetwork([mJaw.mNode,
-                                                                          'cornerPin_{0}'.format(str_side,mHandle)],
-                                                                         [mMainTrack.mNode,'CornerPin_Left'],
-                                                                         [mMainTrack.mNode,'CornerPin_Right'],
+                    d_blendReturn = NODEFACTORY.createSingleBlendNetwork([mHandle.mNode,#mJaw.mNode,
+                                                                          "cornerPin"],#'cornerPin_{0}'.format(str_side,mHandle)],
+                                                                         [mMainTrack.mNode,'cornerPin_Left'],
+                                                                         [mMainTrack.mNode,'cornerPin_Right'],
                                                                          keyable=True)
 
-                    targetWeights = mc.parentConstraint(const,q=True,
+                    targetWeights = mc.pointConstraint(const,q=True,
                                                         weightAliasList=True,
                                                         maintainOffset=True)
 
-                    #Connetct output of switch attribute to input of W1 of parentConstraint
+                    #Connetct output of switch attribute to input of W1 of pointConstraint
                     d_blendReturn['d_result1']['mi_plug'].doConnectOut('%s.%s' % (const,targetWeights[0]))
                     d_blendReturn['d_result2']['mi_plug'].doConnectOut('%s.%s' % (const,targetWeights[1]))
                     d_blendReturn['d_result1']['mi_plug'].p_hidden = True
                     d_blendReturn['d_result2']['mi_plug'].p_hidden = True
 
                     #Set a deafult value of 0.5 so that the corners are weighted evenly
-                    ATTR.set_default(mJaw.mNode, 'cornerPin_{0}'.format(str_side, mHandle), 0.5)
+                    ATTR.set_default(mHandle.mNode, 'cornerPin', 0.5)
 
-                    mJaw.setMayaAttr('cornerPin_{0}'.format(str_side, mHandle), .5)
+                    mHandle.setMayaAttr('cornerPin', .5)
 
                     
                 else:
@@ -6565,16 +6591,21 @@ def rig_frame(self):
             #cgmMeta.cgmAttr(mJaw, 'OpenJaw', attrType='float', min = 0, max = 1,defaultValue = 0,keyable = True,lock=False,hidden=False)
                       
                 
-            mUprCenter.masterGroup.p_parent = mMouth
+            
             if mJaw:
                 mLwrCenter.masterGroup.p_parent = mJawSpaceMouth
             else:
                 mLwrCenter.masterGroup.p_parent = mMouth
+            
+            if mJawUpr:
+                mUprCenter.masterGroup.p_parent = mFollowParentUpr
+            else:
+                mUprCenter.masterGroup.p_parent = mMouth
                 
             
             #side handles ---------------------------
             
-            if self.str_lipMidSetup in ['ribbon']:
+            if self.str_lipMidFollowSetup in ['ribbon']:
                 #First we're going to attach our handles to a surface to ge general placement. Then we're going to try
                 d_lipSetup = {'upr':{'ml_chain':[mRightCorner] + ml_uprChain + [mLeftCorner],
                                        'mInfluences':[mRightCorner.uprInfluence,mUprCenter,mLeftCorner.uprInfluence],
@@ -6622,6 +6653,26 @@ def rig_frame(self):
                         cgmMeta.cgmAttr(_str_rigNull,'gutsVis',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideVisibility'))
                         cgmMeta.cgmAttr(_str_rigNull,'gutsLock',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideDisplayType'))    
                         mObj.parent = mRigNull
+            elif self.str_lipMidFollowSetup == 'parent':
+                d_lipSetup = {'upr':{'left':self.md_handles['lipUpr']['left'][1:],
+                                     'right':self.md_handles['lipUpr']['right'][1:],
+                                     'parent':mFollowParentUpr},
+                              
+                              
+                              'lwr':{'left':self.md_handles['lipLwr']['left'],
+                                     'right':self.md_handles['lipLwr']['right'],
+                                     'parent':mFollowParent}}
+                
+                for k,d in list(d_lipSetup.items()):
+                    #need our handle chain to make a ribbon
+                    ml_left = d['left']
+                    ml_right = d['right']
+                    
+                    for mHandle in ml_left:
+                        mHandle.masterGroup.p_parent = d['parent']                        
+                    for mHandle in ml_right:
+                        mHandle.masterGroup.p_parent = d['parent']                        
+                
             else:
                 #...parentConstraint....
                 d_lipSetup = {'upr':{'left':self.md_handles['lipUpr']['left'][1:],
@@ -6724,8 +6775,8 @@ def rig_frame(self):
                                      mAimGroup.mNode,
                                      maintainOffset = True, weight = 1,
                                      aimVector = _aim,
-                                     upVector = [0,1,0],
-                                     worldUpVector = [0,1,0],
+                                     upVector = [0,0,1],
+                                     worldUpVector = [0,0,1],
                                      worldUpObject = mHandle.mNode,
                                      worldUpType = 'objectRotation' )                    
                     
@@ -6940,7 +6991,7 @@ def rig_frame(self):
             
             for k in ['sneerLeft','sneerRight']:
                 log.debug("|{0}| >> {1}...".format(_str_func,k))
-                mdD[k].masterGroup.p_parent = self.mDeformNull
+                mdD[k].masterGroup.p_parent = mJawUpr or self.mDeformNull
                 
                 mTrack = mdD[k].masterGroup.doCreateAt(setClass=1)
                 mTrack.p_parent = mFollowParent
@@ -7023,7 +7074,7 @@ def rig_frame(self):
             if self.str_cheekUprSetup == 'single':
                 for k in ['cheekUprLeft','cheekUprRight']:
                     log.debug("|{0}| >> {1}...".format(_str_func,k))
-                    mdD[k].masterGroup.p_parent = self.mDeformNull
+                    mdD[k].masterGroup.p_parent = mJawUpr or self.mDeformNull
                     
                     mTrack = mdD[k].masterGroup.doCreateAt(setClass=1)
                     mTrack.p_parent = mFollowParent
@@ -7081,7 +7132,7 @@ def rig_frame(self):
                                     keyable = False)
             
             mTrack = mdD['noseBase'].masterGroup.doCreateAt(setClass=1)
-            mTrack.p_parent = mFollowParent
+            mTrack.p_parent = mFollowParentUpr
             #_c = mc.parentConstraint([mFollowBase.mNode, mTrack.mNode],
                                 #mdD['noseBase'].masterGroup.mNode,maintainOffset=True)[0]
             
@@ -7163,6 +7214,9 @@ def rig_lipSegments(self):
                                                     mLwrCenter.p_position])
     mMidDag.p_parent = mDeformNull
     
+    
+
+    
     d_lips = {'driven1':ml_uprRig,
               'driven2':ml_lwrRig,
               'influences1':ml_uprLipInfluences,
@@ -7175,13 +7229,15 @@ def rig_lipSegments(self):
               'sealDriver1':mLeftCorner,
               'sealDriver2':mRightCorner,
               'sealDriverMid':mMidDag,#mUprCenter
-              'sealSplit':True,
+              'sealSplit':mBlock.lipMidSealSetup,
               'specialMode':'noStartEnd',#'endsToInfluences',
               'moduleInstance':mModule,
               'msgDriver':'driverJoint'}    
     
     #pprint.pprint(d_test)
     cgmGEN._reloadMod(IK)
+    pprint.pprint(d_lips)
+       
     IK.ribbon_seal(**d_lips)
     
     mc.parentConstraint(mLeftCorner.mNode, ml_uprRig[-1].masterGroup.mNode, maintainOffset = True)
@@ -7190,152 +7246,11 @@ def rig_lipSegments(self):
     for mObj in ml_uprRig + ml_lwrRig:
         mObj.driverJoint.p_parent = mDeformNull
     
+    
+    pprint.pprint([mObj.p_nameShort for mObj in ml_uprRig])
+    pprint.pprint([mObj.p_nameShort for mObj in ml_lwrRig])    
     return 
-    """
-    driven1 = [u'L_lip_corner_rig',u'L_lip_upr_rig',u'CTR_lip_upr_rig',u'R_lip_upr_rig',u'R_lip_corner_rig']
-    driven2 = [u'L_lip_corner_rig',u'L_lip_lwr_rig',u'CTR_lip_lwr_rig',u'R_lip_lwr_rig',u'R_lip_corner_rig']
-    
-    influences1 =[u'L_lip_corner_anim',u'L_lip_upr_anim',u'CTR_lip_upr_anim',u'R_lip_upr_anim',u'R_lip_corner_anim']
-    influences2 =[u'L_lip_corner_anim',u'L_lip_lwr_anim',u'CTR_lip_lwr_anim',u'R_lip_lwr_anim',u'R_lip_corner_anim']
-    
-    d_test = {'driven1':driven1,
-              'driven2':driven2,
-              'influences1':influences1,
-              'influences2':influences2,
-              'baseName':'lipRibbons',
-              'baseName1' :"uprLip",
-              'baseName2':"lwrLip",
-              'extendEnds':True,
-              'msgDriver':'driverGroup'}
-    reload(MORPHYUTILS)
-    MORPHYUTILS.ribbon_seal(**d_test)    """
 
-
-
-
-
-
-    
-    #Process our main controls ==============================================================
-    mMuzzle = mRigNull.getMessageAsMeta('controlMuzzle')
-    mJaw = mRigNull.getMessageAsMeta('controlJaw')
-    _str_rigNull = mRigNull.mNode
-    if mMuzzle:
-        log.debug("|{0}| >> Muzzle setup...".format(_str_func))
-        mMuzzle.masterGroup.p_parent = self.mDeformNull
-        mFollowParent = mMuzzle
-        mFollowBase = mMuzzle.doCreateAt('null',setClass=True)
-        mFollowBase.rename('{0}_followBase'.format(self.d_module['partName']))
-        mFollowBase.p_parent = self.mDeformNull
-        
-    if mJaw:
-        log.debug("|{0}| >> Jaw setup...".format(_str_func))
-        mJaw.masterGroup.p_parent = mFollowParent
-        if not mMuzzle:
-            mFollowParent = mJaw
-        
-    if self.str_lipSetup:
-        log.debug("|{0}| >> lip setup...".format(_str_func)+ '-'*40)
-        
-        log.debug("|{0}| >> mouth move...".format(_str_func))        
-        mMouth = mRigNull.getMessageAsMeta('controlMouth')
-        log.debug("|{0}| >> mMouth: {1}".format(_str_func,mMouth))
-        mMouth.masterGroup.p_parent = mFollowParent
-        
-        mJawSpaceMouth = mMouth.doCreateAt(setClass=1)
-        mJawSpaceMouth.p_parent = mJaw 
-        mJawSpaceMouth.rename('{0}_mouthJawSpace'.format(self.d_module['partName']))
-        mJawSpaceMouth.doGroup(True,asMeta=True,typeModifier = 'zero')
-        _str_mouth = mMouth.mNode
-        _str_mouthJawSpace = mJawSpaceMouth.mNode
-        
-        #Wire our jaw space mouth move
-        for a in 'translate','rotate','scale':
-            ATTR.connect("{0}.{1}".format(_str_mouth,a), "{0}.{1}".format(_str_mouthJawSpace,a))
-            #mMouth.doConnectOut(a,mJawSpaceMouth.mNode)
-        
-        #Lip handles ------------------------------------------------------
-        log.debug("|{0}| >> lip handles...".format(_str_func)+ '-'*20)
-        
-        log.debug("|{0}| >> sort handles".format(_str_func)+ '-'*20)
-        mLeftCorner = self.md_handles['lipUpr']['left'][0]
-        mRightCorner = self.md_handles['lipUpr']['right'][0]
-        mUprCenter = self.md_handles['lipUpr']['center'][0]
-        mLwrCenter = self.md_handles['lipLwr']['center'][0]        
-        ml_uprLip = self.md_handles['lipUpr']['right'][1:] + self.md_handles['lipUpr']['left'][1:]
-        ml_lwrLip = self.md_handles['lipLwr']['right'] + self.md_handles['lipLwr']['left']
-        
-        
-        for mHandle in mLeftCorner,mRightCorner:
-            log.debug("|{0}| >> lip handles | {1}".format(_str_func,mHandle))
-            
-            mHandle.masterGroup.p_parent = mFollowBase
-            
-            mMainTrack = mHandle.doCreateAt(setClass=1)
-            mMainTrack.doStore('cgmName',mHandle)
-            mMainTrack.doStore('cgmType','mainTrack')
-            mMainTrack.doName()
-            mMainTrack.p_parent = mFollowBase
-            
-            mJawTrack = mHandle.doCreateAt(setClass=1)
-            mJawTrack.doStore('cgmName',mHandle)
-            mJawTrack.doStore('cgmType','jawTrack')
-            mJawTrack.doName()
-            mJawTrack.p_parent = mJawSpaceMouth
-            
-            mc.parentConstraint([mMainTrack.mNode,mJawTrack.mNode],
-                                mHandle.masterGroup.mNode,
-                                maintainOffset=True)
-            
-        mUprCenter.masterGroup.p_parent = mMouth
-        mLwrCenter.masterGroup.p_parent = mJawSpaceMouth
-        
-        #side handles ---------------------------
-        d_lipSetup = {'upr':{'ml_chain':[mRightCorner] + ml_uprLip + [mLeftCorner],
-                               'mInfluences':[mRightCorner,mUprCenter,mLeftCorner],
-                               'mHandles':ml_uprLip},
-                      'lwr':{'ml_chain':[mRightCorner] + ml_lwrLip + [mLeftCorner],
-                               'mInfluences':[mRightCorner,mLwrCenter,mLeftCorner],
-                               'mHandles':ml_lwrLip}                      }
-        
-        for k,d in list(d_lipSetup.items()):
-            #need our handle chain to make a ribbon
-            ml_chain = d['ml_chain']
-            mInfluences = d['mInfluences']
-            l_surfaceReturn = IK.ribbon_createSurface([mJnt.mNode for mJnt in ml_chain],
-                                            'z+')
-            mControlSurface = cgmMeta.validateObjArg( l_surfaceReturn[0],'cgmObject',setClass = True )
-            mControlSurface.addAttr('cgmName',"{0}HandlesFollow_lip".format(k),attrType='string',lock=True)    
-            mControlSurface.addAttr('cgmType','controlSurface',attrType='string',lock=True)
-            mControlSurface.doName()
-            
-            mControlSurface.p_parent = _str_rigNull
-            
-            log.debug("|{0}| >> Skinning surface: {1}".format(_str_func,mControlSurface))
-            mSkinCluster = cgmMeta.validateObjArg(mc.skinCluster ([mObj.mNode for mObj in mInfluences],
-                                                                  mControlSurface.mNode,
-                                                                  tsb=True,
-                                                                  maximumInfluences = 2,
-                                                                  normalizeWeights = 1,dropoffRate=5.0),
-                                                  'cgmNode',
-                                                  setClass=True)
-        
-            mSkinCluster.doStore('cgmName', mControlSurface)
-            mSkinCluster.doName()
-            
-            for mHandle in d['mHandles']:
-                mHandle.masterGroup.p_parent = mFollowParent
-                _resAttach = RIGCONSTRAINT.attach_toShape(mHandle.masterGroup.mNode,
-                                                          mControlSurface.mNode,
-                                                          'conParent')
-                TRANS.parent_set(_resAttach[0],_str_rigNull)
-            
-            for mObj in [mControlSurface]:
-                mObj.overrideEnabled = 1
-                cgmMeta.cgmAttr(_str_rigNull,'gutsVis',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideVisibility'))
-                cgmMeta.cgmAttr(_str_rigNull,'gutsLock',lock=False).doConnectOut("%s.%s"%(mObj.mNode,'overrideDisplayType'))    
-                mObj.parent = mRigNull                
-        
 
 
 #@cgmGEN.Timer

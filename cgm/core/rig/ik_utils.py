@@ -20,7 +20,7 @@ import logging
 import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -3407,7 +3407,6 @@ def ribbon_seal(driven1 = None,
         #upChannel = '{0}up'.format(str_orientation[1])#upChannel
 
 
-
         #>>> Ribbon Surface ============================================================================        
         log.debug("|{0}| >> Ribbons generating...".format(_str_func))
 
@@ -3483,6 +3482,7 @@ def ribbon_seal(driven1 = None,
 
         #>>> Setup blend results --------------------------------------------------------------------
         if sealSplit:
+            cgmGEN._reloadMod(RIGGEN)
             d_split = RIGGEN.split_blends(driven1,#d_dat[1]['driven'],
                                           driven2,#d_dat[2]['driven'],
                                           sealDriver1,
@@ -3493,7 +3493,11 @@ def ribbon_seal(driven1 = None,
                                           nameSealMid=sealNameMid,
                                           settingsControl = mSettings,
                                           maxValue=maxValue)
+            
             for k,d in list(d_split.items()):
+                pprint.pprint(k)
+                pprint.pprint(d)
+                pprint.pprint(d['mPlugs'])
                 d_dat[k]['mPlugs'] = d['mPlugs']
 
         else:
@@ -3675,7 +3679,7 @@ def ribbon_seal(driven1 = None,
                 ATTR.set(_const,'interpType',2)
 
                 targetWeights = mc.parentConstraint(_const,q=True, weightAliasList=True)
-
+                log.debug(f"blend attrs: {targetWeights}")
                 #Connect                                  
                 if idx==1:
                     dat['mPlug_thee'].doConnectOut('%s.%s' % (_const,targetWeights[0]))
@@ -3689,10 +3693,14 @@ def ribbon_seal(driven1 = None,
                 ATTR.set(_const,'interpType',2)                
 
                 targetWeights = mc.parentConstraint(_const,q=True, weightAliasList=True)
+                log.debug(f"seal attrs: {targetWeights}")
 
                 if sealSplit:
                     dat['mPlugs']['off'][i].doConnectOut('%s.%s' % (_const,targetWeights[0]))
-                    dat['mPlugs']['on'][i].doConnectOut('%s.%s' % (_const,targetWeights[1]))                    
+                    dat['mPlugs']['on'][i].doConnectOut('%s.%s' % (_const,targetWeights[1]))
+                    log.debug(dat['mPlugs']['off'][i])
+                    log.debug(dat['mPlugs']['on'][i])
+                    
                 else:
                     dat['mPlug_sealOff'].doConnectOut('%s.%s' % (_const,targetWeights[0]))
                     dat['mPlug_sealOn'].doConnectOut('%s.%s' % (_const,targetWeights[1]))
