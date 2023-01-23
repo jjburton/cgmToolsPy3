@@ -170,6 +170,7 @@ d_attrStateMask = {'define':[
                        ],
                    'rig':[
                        'lipMidFollowSetup',
+                       'lipSealCrossBlendMult',
                        
                    ]}
 
@@ -258,6 +259,7 @@ d_attrsToMake = {'faceType':'default:muzzle:beak',
                  #Lips...
                  'lipMidFollowSetup':'ribbon:prntConstraint:parent',
                  'lipMidSealSetup':'bool',
+                 'lipSealCrossBlendMult':'float',
                  
                  #'lipSealSetup':'none:default',
                  'numConLips':'int',
@@ -305,6 +307,7 @@ d_defaultSettings = {'version':__version__,
                      'side':'none',
                      #'loftDegree':'cubic',
                      'lipMidSealSetup':True,
+                     'lipSealCrossBlendMult':.8,
                      'numJointsLipUpr':3,
                      'numConLips':3,
                      'numJointsLipLwr':3,
@@ -7231,12 +7234,13 @@ def rig_lipSegments(self):
               'sealDriverMid':mMidDag,#mUprCenter
               'sealSplit':mBlock.lipMidSealSetup,
               'specialMode':'noStartEnd',#'endsToInfluences',
+              'crossBlendMult':mBlock.lipSealCrossBlendMult,
               'moduleInstance':mModule,
               'msgDriver':'driverJoint'}    
     
     #pprint.pprint(d_test)
     cgmGEN._reloadMod(IK)
-    pprint.pprint(d_lips)
+    #pprint.pprint(d_lips)
        
     IK.ribbon_seal(**d_lips)
     
@@ -7247,8 +7251,8 @@ def rig_lipSegments(self):
         mObj.driverJoint.p_parent = mDeformNull
     
     
-    pprint.pprint([mObj.p_nameShort for mObj in ml_uprRig])
-    pprint.pprint([mObj.p_nameShort for mObj in ml_lwrRig])    
+    #pprint.pprint([mObj.p_nameShort for mObj in ml_uprRig])
+    #pprint.pprint([mObj.p_nameShort for mObj in ml_lwrRig])    
     return 
 
 

@@ -19,7 +19,7 @@ import pprint
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -679,6 +679,7 @@ def split_blends(driven1 = None,
                  inTangent = 'linear',
                  outTangent = 'linear',
                  settingsControl = None,
+                 crossBlendMult = .8,
                  buildNetwork = True):
     """
     Split for blend data
@@ -853,11 +854,23 @@ def split_blends(driven1 = None,
                     """
                     
 
-                    try:zero1 = dat['dist1On'][i+1]
+                    try:
+                        if not crossBlendMult:
+                            zero1 = dat['dist1On'][i+1]
+                        else:
+                            #zero1 = dat['dist1On'][i+1] - (dat['normMin'] * .001)
+                            zero1 = dat['dist1On'][i+1] - ( (dat['dist1On'][i] - dat['dist1On'][i+1]) * crossBlendMult)
+                        
                     except:zero1 = 0
                     
                     if i:
-                        try:zero2 = dat['dist2On'][i-1]
+                        try:
+                            if not crossBlendMult:
+                                zero2 = dat['dist2On'][i-1]
+                            else:
+                                #zero2 = dat['dist2On'][i-1] + (dat['normMin'] * .001)
+                                zero2 = dat['dist2On'][i-1] + ( (dat['dist2On'][i-1] - dat['dist2On'][i]) * crossBlendMult)
+                            
                         except:zero2 = 0
                         
                     #try:zeroMid = dat['distMidOn'][i-1]
@@ -891,8 +904,8 @@ def split_blends(driven1 = None,
                                          itt=inTangent,ott=outTangent,                                         
                                          driverValue = dat['dist2On'][i],value = 1.0)
 
-                    last1 = dat['dist1On'][i]
-                    last2 = dat['dist2On'][i]
+                    #last1 = dat['dist1On'][i]
+                    #last2 = dat['dist2On'][i]
 
 
                     mc.setDrivenKeyframe(dat['mPlugs']['mid'][i].p_combinedShortName,
@@ -981,12 +994,12 @@ def get_zipperOnValues(l_use, attrMax = 10.0):
     _res['dist1On'] = l_norm
     _res['dist2On'] = _rev
     _res['distMidOn'] = l_mid
-    
     #pprint.pprint(_res)
     for k,d in list(_res.items()):        
         _l1 = [v + _normMin for v in d]#...offset to not be on at 0
         _res[k] = [MATH.round_float(v,4) for v in _l1]#...clean our float values
     #pprint.pprint(_res)
+    _res['normMin'] = _normMin
     
     mc.delete(_crv)
     return _res

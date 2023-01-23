@@ -20,7 +20,7 @@ import logging
 import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -3245,7 +3245,7 @@ def ribbon_seal(driven1 = None,
 
                 maxValue = 10.0,
                 extend2LoftTo1Ends = True,
-
+                crossBlendMult = .8,
                 moduleInstance = None,
                 parentGutsTo = None):
     """
@@ -3492,12 +3492,13 @@ def ribbon_seal(driven1 = None,
                                           nameSeal2=sealName2,
                                           nameSealMid=sealNameMid,
                                           settingsControl = mSettings,
-                                          maxValue=maxValue)
+                                          maxValue=maxValue,
+                                          crossBlendMult=crossBlendMult)
             
             for k,d in list(d_split.items()):
-                pprint.pprint(k)
-                pprint.pprint(d)
-                pprint.pprint(d['mPlugs'])
+                #pprint.pprint(k)
+                #pprint.pprint(d)
+                #pprint.pprint(d['mPlugs'])
                 d_dat[k]['mPlugs'] = d['mPlugs']
 
         else:
