@@ -23,7 +23,7 @@ import logging
 import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 
 # From Maya =============================================================
 import maya.cmds as mc
@@ -232,6 +232,7 @@ l_attrsStandard = ['side',
                    'controlOffset',
                    'conDirectOffset',
                    'visProximityMode',
+                   'ribbonParam',                   
                    'moduleTarget',]
 
 d_attrsToMake = {'faceType':'default:muzzle:beak',
@@ -322,7 +323,7 @@ d_defaultSettings = {'version':__version__,
                      'numLoftLip_u':9,
                      'numLoftOverUnder_u':6,
                      'numLoftLipUnder_u':3,
-                     
+                     'ribbonParam':'blend',
                      'numLoftLip_v':13,
                      'numLoftNose_u':10,
                      'numLoftNose_v':10,
@@ -6446,7 +6447,7 @@ def rig_frame(self):
         mDeformNull = self.mDeformNull
         mFollowParent = self.mDeformNull
         mFollowParentUpr = self.mDeformNull
-        
+        mJawSpaceMouth = False
         mFollowBase = self.mDeformNull
         
         mdD = self.md_driverJoints
@@ -6461,6 +6462,7 @@ def rig_frame(self):
         if mMuzzle:
             log.debug("|{0}| >> Muzzle setup...".format(_str_func))
             mMuzzle.masterGroup.p_parent = self.mDeformNull
+            
             mFollowParent = mMuzzle
             mFollowParentUpr = mMuzzle
             mFollowBase = mMuzzle.doCreateAt('null',setClass=True)
@@ -6492,13 +6494,13 @@ def rig_frame(self):
         if self.str_lipSetup:
             log.debug("|{0}| >> lip setup...".format(_str_func)+ '-'*40)
             
-            log.debug("|{0}| >> mouth move...".format(_str_func))        
+            log.debug("|{0}| >> mouth move...".format(_str_func))
             mMouth = mRigNull.getMessageAsMeta('controlMouth')
             log.debug("|{0}| >> mMouth: {1}".format(_str_func,mMouth))
             mMouth.masterGroup.p_parent = mFollowParent
             _str_mouth = mMouth.mNode
             
-            if mJaw:
+            if mJaw and not mJawUpr:
                 mJawSpaceMouth = mMouth.doCreateAt(setClass=1)
                 mJawSpaceMouth.p_parent = mJaw 
                 mJawSpaceMouth.rename('{0}_mouthJawSpace'.format(self.d_module['partName']))
@@ -6596,7 +6598,11 @@ def rig_frame(self):
                 
             
             if mJaw:
-                mLwrCenter.masterGroup.p_parent = mJawSpaceMouth
+                if mJawSpaceMouth:
+                    mLwrCenter.masterGroup.p_parent = mJawSpaceMouth
+                else:
+                    mLwrCenter.masterGroup.p_parent = mJaw
+                    
             else:
                 mLwrCenter.masterGroup.p_parent = mMouth
             
@@ -6748,6 +6754,8 @@ def rig_frame(self):
                                              worldUpObject = mJnt.masterGroup.mNode,
                                              worldUpType = 'objectRotation' )
                     
+            
+            
             #Lip Corner influences ------------------------------------------------------
             log.debug("|{0}| >> lip corner influences...".format(_str_func)+ '-'*20)
             for i,mHandle in enumerate([mRightCorner,mLeftCorner]):
@@ -6765,10 +6773,22 @@ def rig_frame(self):
                 mLwrInfluence = mHandle.lwrInfluence
                 
                 for ii,mInfl in enumerate([mUprInfluence,mLwrInfluence]):
-                    if not ii:
-                        _tar = mUprCenter.mNode
+                    if self.str_lipMidFollowSetup == 'parent':
+                        if not ii:
+                            if not i:#Right
+                                _tar = ml_uprChain[0].mNode
+                            else:#Left
+                                _tar = ml_uprChain[-1].mNode
+                        else:
+                            if not i:#Right
+                                _tar = ml_lwrChain[0].mNode
+                            else:#Left
+                                _tar = ml_lwrChain[-1].mNode                        
                     else:
-                        _tar = mLwrCenter.mNode
+                        if not ii:
+                            _tar = mUprCenter.mNode
+                        else:
+                            _tar = mLwrCenter.mNode            
                         
                     mAimGroup = mInfl.doGroup(True,True,
                                              asMeta=True,
@@ -7236,8 +7256,10 @@ def rig_lipSegments(self):
               'specialMode':'noStartEnd',#'endsToInfluences',
               'crossBlendMult':mBlock.lipSealCrossBlendMult,
               'moduleInstance':mModule,
+              'paramaterization':mBlock.getEnumValueString('ribbonParam'),
               'msgDriver':'driverJoint'}    
     
+    d_lips['liveSurface'] = False
     #pprint.pprint(d_test)
     cgmGEN._reloadMod(IK)
     #pprint.pprint(d_lips)
@@ -7249,7 +7271,6 @@ def rig_lipSegments(self):
     
     for mObj in ml_uprRig + ml_lwrRig:
         mObj.driverJoint.p_parent = mDeformNull
-    
     
     #pprint.pprint([mObj.p_nameShort for mObj in ml_uprRig])
     #pprint.pprint([mObj.p_nameShort for mObj in ml_lwrRig])    

@@ -1292,6 +1292,7 @@ def ribbon(jointList = None,
     #Reparam ----------------------------------------------------------------------------------------
     mCrv_reparam = False
     str_paramaterization = str(paramaterization).lower()
+    
     if str_paramaterization in ['blend','floating']:
         log.debug("|{0}| >> Reparameterization curve needed...".format(_str_func))
         #crv = CORERIG.create_at(None,'curve',l_pos= [mJnt.p_position for mJnt in ml_joints])
@@ -1359,8 +1360,6 @@ def ribbon(jointList = None,
             
             
             mLoc = mObj.doLoc()
-            
-            #reload(RIGCONSTRAINTS)
             _res = RIGCONSTRAINTS.attach_toShape(mObj,mCrv_reparam.mNode,None,)#floating=True)
             md_floatTrackGroups[i]=_res[0]
             #res_closest = DIST.create_closest_point_node(mLoc.mNode, mCrv_reparam.mNode,True)
@@ -3246,8 +3245,12 @@ def ribbon_seal(driven1 = None,
                 maxValue = 10.0,
                 extend2LoftTo1Ends = True,
                 crossBlendMult = .8,
+                liveSurface = False, 
                 moduleInstance = None,
-                parentGutsTo = None):
+                parentGutsTo = None,
+                paramaterization='blend',
+                
+                **kws):
     """
     Dual ribbon setup with seal
     """
@@ -3410,14 +3413,14 @@ def ribbon_seal(driven1 = None,
         #>>> Ribbon Surface ============================================================================        
         log.debug("|{0}| >> Ribbons generating...".format(_str_func))
 
-        l_surfaceReturn1 = ribbon_createSurface(d_dat[1]['LoftTargets'],loftAxis,sectionSpans,extendEnds)
+        l_surfaceReturn1 = ribbon_createSurface(d_dat[1]['LoftTargets'],loftAxis,sectionSpans,extendEnds, liveSurface=liveSurface,mModule=mModule)
 
         d_dat[1]['mSurf'] = cgmMeta.validateObjArg( l_surfaceReturn1[0],'cgmObject',setClass = True )
         d_dat[1]['mSurf'].addAttr('cgmName',str(baseName1),attrType='string',lock=True)    
         d_dat[1]['mSurf'].addAttr('cgmType','controlSurface',attrType='string',lock=True)
         d_dat[1]['mSurf'].doName()
 
-        l_surfaceReturn2 = ribbon_createSurface(d_dat[2]['LoftTargets'],loftAxis,sectionSpans,extendEnds)        
+        l_surfaceReturn2 = ribbon_createSurface(d_dat[2]['LoftTargets'],loftAxis,sectionSpans,extendEnds, liveSurface=liveSurface,mModule=mModule)        
         d_dat[2]['mSurf'] = cgmMeta.validateObjArg( l_surfaceReturn1[0],'cgmObject',setClass = True )
         d_dat[2]['mSurf'].addAttr('cgmName',str(baseName2),attrType='string',lock=True)    
         d_dat[2]['mSurf'].addAttr('cgmType','controlSurface',attrType='string',lock=True)
@@ -3563,49 +3566,50 @@ def ribbon_seal(driven1 = None,
 
 
         #>>> Skinning ============================================================================
-        log.debug("|{0}| >> Skinning Ribbons...".format(_str_func))
-
-        for idx,dat in list(d_dat.items()):
-            max_influences = 2
-            mode_tighten = 'twoBlend'
-            blendLength = int(dat['int_driven']/2)
-            blendMin = 2
-            _hardLength = 2
-
-            if extendEnds:
-                blendMin = 4
-                _hardLength = 4
-
-
-            if dat['int_influences'] > 2:
-                mode_tighten = None
-                #blendLength = int(int_lenInfluences/2)
-                max_influences = MATH.Clamp( blendLength, 2, 4)
-                blendLength = MATH.Clamp( int(dat['int_influences']/2), 2, 6)
-
-            if dat['int_influences'] == dat['int_driven']:
-                _hardLength = 3
-            #Tighten the weights...
-
-
-            mSkinCluster = cgmMeta.validateObjArg(mc.skinCluster ([mObj.mNode for mObj in dat['mInfluences']],
-                                                                  dat['mSurf'].mNode,
-                                                                  tsb=True,nurbsSamples=4,
-                                                                  maximumInfluences = 3,#max_influences,
-                                                                  normalizeWeights = 1,dropoffRate=5.0),
-                                                  'cgmNode',
-                                                  setClass=True)
-
-            mSkinCluster.doStore('cgmName', dat['mSurf'])
-            mSkinCluster.doName()    
-
-            #Tighten the weights...
-            """
-            RIGSKIN.surface_tightenEnds(dat['mSurf'].mNode,
-                                        hardLength = _hardLength,
-                                        blendLength=blendLength,
-                                        mode=mode_tighten)"""        
-
+        if not liveSurface:
+            log.debug("|{0}| >> Skinning Ribbons...".format(_str_func))            
+            for idx,dat in list(d_dat.items()):
+                max_influences = 2
+                mode_tighten = 'twoBlend'
+                blendLength = int(dat['int_driven']/2)
+                blendMin = 2
+                _hardLength = 2
+    
+                if extendEnds:
+                    blendMin = 4
+                    _hardLength = 4
+    
+    
+                if dat['int_influences'] > 2:
+                    mode_tighten = None
+                    #blendLength = int(int_lenInfluences/2)
+                    max_influences = MATH.Clamp( blendLength, 2, 4)
+                    blendLength = MATH.Clamp( int(dat['int_influences']/2), 2, 6)
+    
+                if dat['int_influences'] == dat['int_driven']:
+                    _hardLength = 3
+                #Tighten the weights...
+    
+    
+                mSkinCluster = cgmMeta.validateObjArg(mc.skinCluster ([mObj.mNode for mObj in dat['mInfluences']],
+                                                                      dat['mSurf'].mNode,
+                                                                      tsb=True,nurbsSamples=4,
+                                                                      maximumInfluences = 3,#max_influences,
+                                                                      normalizeWeights = 1,dropoffRate=5.0),
+                                                      'cgmNode',
+                                                      setClass=True)
+    
+                mSkinCluster.doStore('cgmName', dat['mSurf'])
+                mSkinCluster.doName()    
+    
+                #Tighten the weights...
+                """
+                RIGSKIN.surface_tightenEnds(dat['mSurf'].mNode,
+                                            hardLength = _hardLength,
+                                            blendLength=blendLength,
+                                            mode=mode_tighten)"""        
+        
+        
         #>>> Meat ============================================================================
         ml_processed = []
         for idx,dat in list(d_dat.items()):
@@ -3619,6 +3623,152 @@ def ribbon_seal(driven1 = None,
 
             mSurfBase = dat['mSurf']
             mSurfSeal = dat_seal['mSurf']
+            
+            
+            #paramaterization ========================================================================================================
+            _surf_shape = mSurfBase.getShapes()[0]
+            minU = ATTR.get(_surf_shape,'minValueU')
+            maxU = ATTR.get(_surf_shape,'maxValueU')
+            minV = ATTR.get(_surf_shape,'minValueV')
+            maxV = ATTR.get(_surf_shape,'maxValueV')
+            int_lenJoints = len(dat['driven'])
+            
+            mCrv_reparam = False
+            str_paramaterization = str(paramaterization).lower()
+            
+            if str_paramaterization in ['blend','floating']:
+                log.debug("|{0}| >> Reparameterization curve needed...".format(_str_func))
+                #crv = CORERIG.create_at(None,'curve',l_pos= [mJnt.p_position for mJnt in ml_joints])
+                _crv = mc.duplicateCurve("{0}.u[{1}]".format(_surf_shape,MATH.median(minU,maxU)),
+                                         ch = 1,
+                                         rn = 0,
+                                         local = 0)
+                
+                
+                mCrv_reparam = cgmMeta.validateObjArg(_crv[0],setClass=True)
+                mCrv_reparam.doStore("cgmName","{0}_reparam".format(str_baseName))
+                mCrv_reparam.doName()        
+                cgmMeta.cgmNode(_crv[1]).doName()
+                
+                mc.rebuildCurve(mCrv_reparam.mNode,spans = int_lenJoints,ch=1,rt=0, n="reparamRebuild")
+                mCrv_reparam.p_parent = mGroup
+                
+                #cubic keepC
+                md_floatTrackGroups = {}
+                md_floatTrackNodes = {}
+                md_floatParameters = {}
+                d_vParameters = {}
+                
+                
+                l_argBuild = []
+                mPlug_vSize = cgmMeta.cgmAttr(mSurfBase.mNode,
+                                              "{0}_vSize".format(str_baseName),
+                                              attrType = 'float',
+                                              hidden = False,
+                                              lock=False)
+                
+                l_argBuild.append("{0} = {1} - {2}".format(mPlug_vSize.p_combinedName,
+                                                           maxV,minV))        
+                        
+                if str_paramaterization == 'blend':
+                    if not mSettings.hasAttr('blendParam'):
+                        mPlug_paramBlend = cgmMeta.cgmAttr(mSettings.mNode,
+                                                           "blendParam".format(str_baseName),
+                                                           attrType = 'float',
+                                                           minValue=0,
+                                                           maxValue=1.0,
+                                                           keyable=True,
+                                                           value= 1.0,
+                                                           defaultValue=1.0,
+                                                           hidden = False,
+                                                           lock=False)
+                    else:
+                        mPlug_paramBlend = cgmMeta.cgmAttr(mSettings.mNode,"blendParam".format(str_baseName))
+                    md_paramBlenders = {}
+                
+                #Set up per joint...
+                for i,mObj in enumerate(dat['driven']):
+                    mPlug_normalized = cgmMeta.cgmAttr(mSurfBase.mNode,
+                                                       "{0}_normalizedV_{1}".format(str_baseName,i),
+                                                       attrType = 'float',
+                                                       hidden = False,
+                                                       lock=False)
+                    mPlug_sum = cgmMeta.cgmAttr(mSurfBase.mNode,
+                                                "{0}_sumV_{1}".format(str_baseName,i),
+                                                attrType = 'float',
+                                                hidden = False,
+                                                lock=False)            
+                    
+                    
+                    
+                    
+                    mLoc = mObj.doLoc()
+                    _res = RIGCONSTRAINTS.attach_toShape(mObj,mCrv_reparam.mNode,None,)#floating=True)
+                    md_floatTrackGroups[i]=_res[0]
+                    #res_closest = DIST.create_closest_point_node(mLoc.mNode, mCrv_reparam.mNode,True)
+                    log.debug("|{0}| >> Closest info {1} : {2}".format(_str_func,i,_res))
+                    mLoc.p_parent = mGroup
+        
+                    srfNode = mc.createNode('closestPointOnSurface')
+                    mc.connectAttr("%s.worldSpace[0]" % _surf_shape, "%s.inputSurface" % srfNode)
+                    mc.connectAttr("%s.translate" % _res[0], "%s.inPosition" % srfNode)
+                    mc.connectAttr("%s.position" % srfNode, "%s.translate" % mLoc.mNode, f=True) 
+                    md_floatParameters[i] = mPlug_normalized            
+                    mClosestPoint =  cgmMeta.validateObjArg(srfNode,setClass=True)
+                    mClosestPoint.doStore('cgmName',mObj)
+                    mClosestPoint.doName()
+                    md_floatTrackNodes[i] = mClosestPoint
+                    srfNode = mClosestPoint.mNode
+                    
+                    TRANS.parent_set(_res[0],mGroup.mNode)
+                    
+                    log.debug("|{0}| >> paramU {1} : {2}.parameterU | {3}".format(_str_func,i,srfNode,
+                                                                                  ATTR.get(srfNode,'parameterU')))
+                    log.debug("|{0}| >> paramV {1} : {2}.parameterV | {3}".format(_str_func,i,srfNode,
+                                                                                  ATTR.get(srfNode,'parameterV')))
+                    
+        
+                    
+                    l_argBuild.append("{0} = {1} + {2}.parameterV".format(mPlug_sum.p_combinedName,
+                                                                          minV,
+                                                                          srfNode))
+                    
+                    l_argBuild.append("{0} = {1} / {2}".format(mPlug_normalized.p_combinedName,
+                                                               mPlug_sum.p_combinedName,
+                                                               mPlug_vSize.p_combinedName))
+                    
+                    
+                    if str_paramaterization == 'blend':
+                        """
+                        mPlug_baseV = cgmMeta.cgmAttr(mSurfBase.mNode,
+                                                       "{0}_baseV_{1}".format(str_baseName,i),
+                                                       attrType = 'float',
+                                                       hidden = False,
+                                                       lock=False)
+                        mPlug_blendV = cgmMeta.cgmAttr(mSurfBase.mNode,
+                                                       "{0}_blendV_{1}".format(str_baseName,i),
+                                                       attrType = 'float',
+                                                       hidden = False,
+                                                       lock=False)"""
+                        
+                        mBlendNode = cgmMeta.cgmNode(nodeType = 'blendTwoAttr')
+                        mBlendNode.doStore('cgmName',"{0}_blendV".format(mObj.mNode))
+                        mBlendNode.doName()
+                        
+                        md_paramBlenders[i] = mBlendNode
+                        ATTR.set(md_paramBlenders[i].mNode,"input[0]",1)
+                        mPlug_normalized.doConnectOut("%s.input[1]"%mBlendNode.mNode)
+                        mPlug_paramBlend.doConnectOut("%s.attributesBlender"%mBlendNode.mNode)
+                        d_vParameters[i] = "{0}.output".format(mBlendNode.mNode)
+                        
+                    else:
+                        d_vParameters[i] = mPlug_normalized.p_combinedName
+        
+                for arg in l_argBuild:
+                    log.debug("|{0}| >> Building arg: {1}".format(_str_func,arg))
+                    NODEFAC.argsToNodes(arg).doBuild()            
+            #......------------------------------------------------------------------------------------------------------------------
+
 
             for i,mObj in enumerate(dat['driven']):
                 if mObj in ml_processed:
@@ -3662,13 +3812,19 @@ def ribbon_seal(driven1 = None,
                     _res = RIGCONSTRAINTS.attach_toShape(mTrack.mNode, mSurf.mNode, 'parent')
                     mFollicle = _res[-1]['mFollicle']#cgmMeta.asMeta(follicle)
                     mFollShape = _res[-1]['mFollicleShape']#cgmMeta.asMeta(shape)                    
-                    #mFollicle = cgmMeta.asMeta(follicle)
-                    #mFollShape = cgmMeta.asMeta(shape)
-
                     md_follicleShapes[mObj] = mFollShape
                     md_follicles[mObj] = mFollicle
 
                     mFollicle.parent = mGroup.mNode
+                    
+                    if mCrv_reparam:
+                        if str_paramaterization == 'blend':
+                            ATTR.set(md_paramBlenders[i].mNode,"input[0]",mFollShape.parameterV)
+                        ATTR.connect(d_vParameters[i],
+                                     '{0}.parameterV'.format(mFollShape.mNode))                    
+                    
+                    
+                    
 
                     if mModule:#if we have a module, connect vis
                         mFollicle.overrideEnabled = 1

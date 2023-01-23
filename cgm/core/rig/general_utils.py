@@ -685,7 +685,7 @@ def split_blends(driven1 = None,
     Split for blend data
     """
     try:
-        pprint.pprint(vars())
+        #pprint.pprint(vars())
         _str_func = 'split_blends'
         d_dat = {1:{'dist1':[],
                     'dist2':[],
@@ -917,7 +917,7 @@ def split_blends(driven1 = None,
                                          itt=inTangent,ott=outTangent,                                         
                                          driverValue = dat['distMidOn'][i],value = 1.0)
 
-        pprint.pprint(d_dat)
+        #pprint.pprint(d_dat)
         #return d_dat
 
         for idx,dat in list(d_dat.items()):
