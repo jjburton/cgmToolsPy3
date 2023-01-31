@@ -39,7 +39,6 @@ from cgm.tools.lib import  (tdToolsLib,
                             namingToolsLib)
 
 #reload(tdToolsLib)
-importlib.reload(namingToolsLib)
 
 def run():
     tdTools = tdToolsClass()

@@ -1160,7 +1160,7 @@ def sel_guessPositionFromKeys(range = 5):
         try:
             _closest = SEARCH.get_key_indices_from(mObj.mNode,'closestSansCurrent')
             if not _closest:
-                log.warning(log_msg(_str_func,f"No keys on: '{mObj.mNode}'"))
+                log.warning(log_msg(_str_func,"No keys on: '{}'".format(mObj.mNode)))
                 continue
             if _closest < _current:
                 _start = _closest - range
@@ -1173,7 +1173,7 @@ def sel_guessPositionFromKeys(range = 5):
             mPoint = DIST.project_position(mObj.mNode,_current, _start,_end)
             mObj.p_position = mPoint
         except Exception as err:
-            log.error(log_msg(_str_func,f"'{mObj.mNode}' | {err}"))
+            log.error(log_msg(_str_func,"'{}' | {}".format(mObj.mNode,err)))
     
     mc.currentTime(_current)
         
@@ -1196,7 +1196,7 @@ def sel_projectAnimnCurveValueFromSample(range = 5,attributes = ['tx','ty','tz',
     for mObj in ml:
         _closest = SEARCH.get_key_indices_from(mObj.mNode,'closestSansCurrent')
         if not _closest:
-            log.warning(log_msg(_str_func,f"No keys on: '{mObj.mNode}'"))
+            log.warning(log_msg(_str_func,"No keys on: '{}'".format(mObj.mNode)))
             continue        
         if _closest < _current:
             #mode = 'back'

@@ -3836,7 +3836,7 @@ def ribbon_seal(driven1 = None,
                 ATTR.set(_const,'interpType',2)
 
                 targetWeights = mc.parentConstraint(_const,q=True, weightAliasList=True)
-                log.debug(f"blend attrs: {targetWeights}")
+                log.debug("blend attrs: {}".format(targetWeights))
                 #Connect                                  
                 if idx==1:
                     dat['mPlug_thee'].doConnectOut('%s.%s' % (_const,targetWeights[0]))
@@ -3850,7 +3850,7 @@ def ribbon_seal(driven1 = None,
                 ATTR.set(_const,'interpType',2)                
 
                 targetWeights = mc.parentConstraint(_const,q=True, weightAliasList=True)
-                log.debug(f"seal attrs: {targetWeights}")
+                log.debug("seal attrs: {}".format(targetWeights))
 
                 if sealSplit:
                     dat['mPlugs']['off'][i].doConnectOut('%s.%s' % (_const,targetWeights[0]))

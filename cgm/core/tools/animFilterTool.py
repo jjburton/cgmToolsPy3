@@ -132,7 +132,7 @@ class ui(cgmUI.cgmGUI):
             result = mc.confirmDialog(
                 title='Clear Actions?',
                 button=['Continue', 'Cancel'],
-                message=f"There are {len(self._actionList)} actions loaded\n\nPlease Confirm Action!",
+                message="There are {} actions loaded\n\nPlease Confirm Action!".format(len(self._actionList)),
                 defaultButton='Cancel',
                 icon='warning',
                 cancelButton='Cancel',
@@ -371,7 +371,7 @@ def uiBuild_ActionsColumn(self):
     
     for i,action in enumerate(self._actionList):
         if not action.name:
-            action.name = f"{action.filterType}_{i}"
+            action.name = "{}_{}".format(action.filterType,i)
         
         mc.setParent(self._actionsColumn)
         cgmUI.add_LineSubBreak()
@@ -405,7 +405,7 @@ def uiBuild_ActionsColumn(self):
         
         _label = action.filterType if action.name == None else "{0}  [{1} ]".format(action.name, action.filterType)
         _frame = mUI.MelFrameLayout(_subColumn,
-                                    label=f"{i} | {_label}",
+                                    label="{} | {}".format(i,_label),
                                     collapsable=True, collapse=True,bgc = _header)#useTemplate = _ut)
         
         pum = mUI.MelPopupMenu(_frame)
@@ -468,7 +468,7 @@ def uiFunc_run(self):
     
     for i, action in enumerate(self._actionList):
         if not self._dCB_actions[i].getValue():
-            log.warning(f"Skipped: {action.get_label()}")
+            log.warning("Skipped: {}".format(action.get_label()))
             continue
         mc.currentTime(_start)
         uiFunc_run_action(self, i)

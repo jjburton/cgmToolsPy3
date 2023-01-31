@@ -25,7 +25,6 @@ from cgm.rigger.lib import functions
 import importlib
 #reload(AttrFactory)
 #reload(NameFactoryOld)
-importlib.reload(PuppetFactory)
 
 from cgm.rigger.PuppetFactory import *
 from cgm.rigger.lib.Limb.module import *

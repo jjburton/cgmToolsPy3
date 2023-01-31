@@ -44,8 +44,6 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-importlib.reload (distance)
-
 
 # Maya version check
 mayaVersion = int( mel.eval( 'getApplicationVersionAsFloat' ) )

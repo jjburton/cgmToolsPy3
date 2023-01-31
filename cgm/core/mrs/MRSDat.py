@@ -565,7 +565,7 @@ def blockDat_load(self, blockDat = None,
                     if ATTR.get_type(_short,a) in ['message']:
                         log.debug("|{0}| >> settings '{1}' skipped. Not loading message data".format(_str_func,a))                     
                     else:
-                        log.debug("|{0}| >> settings '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
+                        log.error("|{0}| >> settings '{1}' mismatch. self: {2} | blockDat: {3}".format(_str_func,a,_current,v)) 
                         ATTR.set(_short,a,v)
                 except Exception as err:
                     _udFail[a] = v
@@ -646,13 +646,15 @@ def blockDat_load(self, blockDat = None,
     #>>Define Controls ====================================================================================
     log.debug(cgmGEN.logString_sub(_str_func,'define'))
     
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
     if redefine:
         self.UTILS.changeState(self,'define',forceNew=True)
         self.UTILS.changeState(self,'define',forceNew=True)            
         _current_state_idx = 0
         _current_state = 'define'
     
-
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
+    
     if mMirror == 'cat':
         log.debug("|{0}| >> mMirror define pull...".format(_str_func))            
         self.UTILS.controls_mirror(mMirror,self,define=True)
@@ -662,6 +664,7 @@ def blockDat_load(self, blockDat = None,
     if _target_state == 'define':
         reposition(self, blockDat, _posBase, _orientBase, _scaleBase)
         return log.info( cgmGEN.logString_sub(_str_func,'{} completed at define.'.format(self)) )
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
     
     #>>Form Controls ====================================================================================
     log.debug(cgmGEN.logString_sub(_str_func,'form'))
@@ -676,7 +679,8 @@ def blockDat_load(self, blockDat = None,
             return log.warning(cgmGEN.logString_msg(_str_func,"Autopush off. Can't go to: {0}".format(_target_state)))
         
         log.debug(cgmGEN.logString_msg(_str_func,'form push'))
-        
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
+
     if mMirror:
         log.debug("|{0}| >> mMirror form pull...".format(_str_func))            
         self.UTILS.controls_mirror(mMirror,self,form=True,prerig=False)
@@ -700,7 +704,8 @@ def blockDat_load(self, blockDat = None,
     if _target_state == 'form':
         reposition(self, blockDat, _posBase, _orientBase, _scaleBase)
         return log.info( cgmGEN.logString_sub(_str_func,'{} completed at form.'.format(self)) )
-        
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
+
     #Prerig ==============================================================================================
     log.debug(cgmGEN.logString_sub(_str_func,'prerig'))
     
@@ -723,7 +728,8 @@ def blockDat_load(self, blockDat = None,
     #Move setup. Either back to where we were to using blockDat 
     reposition(self,blockDat,_posBase,_orientBase,_scaleBase)
         
-             
+    log.info(log_msg(_str_func,"loftList_0 is ................................................... {}".format(ATTR.get_type(self.mNode,'loftList_0'))))
+
     if _d_warnings:
         try:
             for k,d in list(_d_warnings.items()):

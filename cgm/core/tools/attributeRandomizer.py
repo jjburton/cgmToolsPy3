@@ -45,7 +45,7 @@ __version__ = cgmGEN.__RELEASESTRING
 import cgm.core.classes.GuiFactory as CGMUI
 mUI = CGMUI.mUI
 
-from . import funcOverTime as FOT
+from . import funcIterTime as FIT
 
 log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
@@ -73,7 +73,7 @@ d_attrNames = {'tx':'translateX',
 
 
 
-class ui(FOT.ui):
+class ui(FIT.ui):
     USE_Template = 'cgmUITemplate'
     _toolname = 'RandomAttr'
     TOOLNAME = 'ui_RandomAttr'
@@ -88,8 +88,8 @@ class ui(FOT.ui):
 
  
     def insert_init(self, *args, **kws):
-        FOT.ui.insert_init(self,*args,**kws)
-        #super(FOT.ui, self).insert_init(*args, **kws)
+        FIT.ui.insert_init(self,*args,**kws)
+        #super(FIT.ui, self).insert_init(*args, **kws)
         self.create_guiOptionVar('random_mode', defaultValue='absolute')
         self.create_guiOptionVar('blend_mode', defaultValue='peak')
         self.create_guiOptionVar('preOffset', defaultValue=-3.0)
@@ -106,8 +106,8 @@ class ui(FOT.ui):
         #self.create_guiOptionVar('context_time', defaultValue='current')
 
     def post_init(self,*args,**kws):
-        self.mFOT.set_func(self.uiFunc_call,[],{})
-        self.mFOT.set_pre(self.uiFunc_pre,[],{})
+        self.mFIT.set_func(self.uiFunc_call,[],{})
+        self.mFIT.set_pre(self.uiFunc_pre,[],{})
         
         self.uiFunc_attrs_add()
         pass#...clearing parent call here
@@ -115,7 +115,7 @@ class ui(FOT.ui):
     def log_dat(self):
         _str_func = 'log_self[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
-        pprint.pprint(self.mFOT.__dict__)        
+        pprint.pprint(self.mFIT.__dict__)        
                 
     def uiFunc_attrs_add(self):
         _str_func = 'uiFunc_attrs_add[{0}]'.format(self.__class__.TOOLNAME)            

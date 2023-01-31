@@ -186,7 +186,7 @@ class DesignerSpring(PostBake.PostBake):
             x = self.previousPosition#obj.getPosition(asEuclid=1)
             v = self.springVelocity#euclid.Vector3()
             if self.debug:
-                print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                print("Before: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))
                 print("*"*50)            
                 print(x)
                 print(v)
@@ -195,7 +195,7 @@ class DesignerSpring(PostBake.PostBake):
                 print(self.damp*math.pi)    
             
             x,self.springVelocity = COREMATH.spring(x,v,self._bakedLoc.getPosition(asEuclid=1), self.springForce, self.damp*math.pi, deltaTime)#1/24.0)
-            if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+            if self.debug:print("After: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))
 
             self.obj.p_position = x.x,x.y,x.z
 
@@ -230,7 +230,7 @@ class DesignerSpring(PostBake.PostBake):
                 v = self.springAimVelocity#euclid.Vector3()
                 
                 if self.debug:
-                    print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                    print("Before: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))
                     print("*"*50)            
                     print(x)
                     print(v)
@@ -238,7 +238,7 @@ class DesignerSpring(PostBake.PostBake):
                     print(self.angularSpringForce)
                     print(self.angularDamp*math.pi)
                 x,self.springAimVelocity = COREMATH.spring(x,v,wantedTargetPos, self.angularSpringForce, self.angularDamp*math.pi, deltaTime)#1/24.0)
-                if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")            
+                if self.debug:print("After: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))            
             self.previousAimPosition = x                
             self.aimTargetPos  = x
             
@@ -254,7 +254,7 @@ class DesignerSpring(PostBake.PostBake):
                 v = self.springUpVelocity#euclid.Vector3()
                 
                 if self.debug:
-                    print(f"Before: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")
+                    print("Before: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))
                 
                     print("*"*50)            
                     print(x)
@@ -264,7 +264,7 @@ class DesignerSpring(PostBake.PostBake):
                     print(self.upDamp*math.pi)            
                 
                 x,self.springUpVelocity = COREMATH.spring(x,v,wantedUp, self.angularUpSpringForce, self.upDamp*math.pi, deltaTime)#1/24.0)
-                if self.debug:print(f"After: {x.x},{x.y},{x.z} | {v.x},{v.y},{v.z}")            
+                if self.debug:print("After: {},{},{} | {},{},{}".format(x.x,x.y,x.z,v.x,v.y,v.z))            
                             
                 self.previousUpPosition = x            
                 self.upTargetPos  = x

@@ -17,13 +17,12 @@ import os
 #import sys
 #import webbrowser
 import logging
-import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-from cgm.core import cgm_General as cgmGen
-__version__ = cgmGen.__RELEASESTRING
+from cgm.core import cgm_General as cgmGEN
+__version__ = cgmGEN.__RELEASESTRING
 
 import Red9
 Red9.setup.addPythonPackages()
@@ -71,7 +70,7 @@ from cgm.lib.ml import (ml_breakdownDragger,
                         ml_copyAnim)
 """
 _2016 = False
-if cgmGen.__mayaVersion__ >=2016:
+if cgmGEN.__mayaVersion__ >=2016:
     _2016 = True
 #==========================================================================
 
@@ -243,8 +242,8 @@ def uiMainMenu_rebuild():
     
     import cgm.core.tools.lib.tool_calls as TOOLCALLS
     
-    importlib.reload(UICHUNKS)
-    importlib.reload(TOOLCALLS)
+    cgmGEN._reloadMod(UICHUNKS)
+    cgmGEN._reloadMod(TOOLCALLS)
     uiMainMenu_add()
 
 
@@ -288,7 +287,7 @@ class AutoStartInstaller(object):
         log.info("pyUserSetup: {0}".format(pyUserSetup))
         log.info("melUserSetup: {0}".format(melUserSetup))        
         if pyUserSetup is None and melUserSetup is None:
-            print('No py or mel user setup files found.Creating py')
+            print('No py or mel user setup files found.Creating mel')
             if not self.createMelUserSetup():#if we can't make a user file, break
                 self.log_error("Failed to create Py User File")
                 return False
@@ -449,13 +448,13 @@ def loadCGMPlugin( pluginName ):
 
 import cgm.core.tools.lib.tool_chunks as UICHUNKS
 #reload(UICHUNKS)
-#@cgmGen.Timer
+#@cgmGEN.Timer
 def uiBuild_cgmMenu( *args ):
     _str_func = 'uiBuild_cgmMenu'
     menu = maya._cgmMenu
     menu.clear()
     
-    try:importlib.reload(UICHUNKS)
+    try:cgmGEN._reloadMod(UICHUNKS)
     except Exception as err:
         log.error("Failed to reload UICHUNKS: {0}".format(err))
         
@@ -771,7 +770,7 @@ uiByTab = TOOLBOX.uiByTab
 #ui = TOOLBOX.ui
 
 def callUI():
-    importlib.reload(TOOLBOX)
+    cgmGEN._reloadMod(TOOLBOX)
     ui()
     
 class ui(TOOLBOX.ui):
@@ -785,7 +784,7 @@ class ui(TOOLBOX.ui):
         
         try:
             installer = AutoStartInstaller()
-            mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Auto-Load On Maya Start", cb=installer.isInstalled(), c=lambda *a: AutoStartInstaller().install() )
+            mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Auto-Load On Maya Start", cb=installer.isInstalled(), c=lambda *a: AutoStartInstaller().createMelUserSetup() )#AutoStartInstaller().install() 
         except Exception as err:
             log.warning("Not loaded from cgmToolbox. No autoinstaller options")
             

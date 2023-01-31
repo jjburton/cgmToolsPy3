@@ -1080,8 +1080,8 @@ def uiSection_hotkeys(parent):
     
 
 from cgm.lib import optionVars
-from cgm.core.lib.wing import mayaWingServer as mWingServer
-cgmGEN._reloadMod(mWingServer)
+#from cgm.core.lib.wing import mayaWingServer as mWingServer
+#cgmGEN._reloadMod(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
 cgmGEN._reloadMod(cgmDeveloperLib)
 from cgm.core.tests import cgmMeta_test as testCGM
@@ -1119,11 +1119,12 @@ def uiSection_dev(parent):
     mc.menuItem(parent = parent,
                 l='Connect to Wing IDE',
                 ann = "Attempts to connect to Wing IDE",
-                c=lambda *a:cgmDeveloperLib.connectToWing())      
+                c=lambda *a:cgmDeveloperLib.connectToWing())
+    """
     mc.menuItem(parent = parent,
                 l='Start Wing Server',
                 ann = "Opens a command port for Wing IDE",
-                c=lambda *a: mWingServer.startServer())
+                c=lambda *a: mWingServer.startServer())"""
     
     mc.menuItem(parent = parent,
                 l='Load Local CGM Python',

@@ -172,7 +172,7 @@ class fOverTimeBAK:
         if self.errors:
             print("{} | Errors occurred during processing:".__class__)
             for error in self.errors:
-                print(f"Frame {error[0]}: {error[1]} with args={error[2]} and kwargs={error[3]}")
+                print("Frame {}: {} with args={} and kwargs={}".format(error[0],error[1],error[2],error[3]))
 
 class overload_call:
     def __init__(self, frame_start = None, frame_end=None, interval=None):
@@ -351,7 +351,7 @@ class overload_call:
         if self.errors:
             print("{} | Errors occurred during processing:".__class__)
             for error in self.errors:
-                print(f"Frame {error[0]}: {error[1]} with args={error[2]} and kwargs={error[3]}")
+                print("Frame {error[0]}: {error[1]} with args={error[2]} and kwargs={error[3]}")
 
 
 class ui(CGMUI.cgmGUI):

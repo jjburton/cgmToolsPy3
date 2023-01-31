@@ -599,7 +599,7 @@ def find_tmpFiles(path = None, level = None, cleanFiles = False,
         _len = 0
         for f,_path in list(_d_weirdFiles.items()):
             try:
-                log.warning("Remove: {0}".format(_path))
+                log.debug("Remove: {0}".format(_path))
                 os.remove( _path )
                 _len+=1                
             except WindowsError as e:

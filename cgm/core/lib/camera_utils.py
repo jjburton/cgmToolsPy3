@@ -56,7 +56,7 @@ def autoset_clipPlane():
     _near =  _size*0.1
     _far = _farSize*10
     
-    log.info(log_msg(_str_func,f"near: {_near} || far: {_far}"))
+    log.info(log_msg(_str_func,"near: {} || far: {}".format(_near,_far)))
     mc.setAttr(_cam + '.nearClipPlane', _near)
     mc.setAttr(_cam + '.farClipPlane', _far)    
     

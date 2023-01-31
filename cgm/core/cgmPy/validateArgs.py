@@ -427,7 +427,7 @@ def stringArg(arg=None, noneValid=True, calledFrom = None, **kwargs):
         
     result = arg
    
-    if not isinstance(arg, str):      
+    if not isinstance(arg, str) and not isinstance(arg,unicode):      
         if noneValid:
             result = False
         else:
@@ -673,7 +673,7 @@ def objString(arg=None, mayaType=None, isTransform=None, noneValid=False, called
     if issubclass(type(arg),list or tuple):
         arg = arg[0]  
     
-    if not isinstance(arg, str):
+    if not isinstance(arg, str) and not isinstance(arg,unicode):
         if noneValid:
             return False
         raise TypeError('{0}: arg must be string'.format(_str_func))

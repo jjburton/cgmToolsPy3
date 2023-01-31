@@ -21,7 +21,7 @@ def main(codeType):
         with open(tempFile, "r") as f:
             for line in f.readlines():
                 print(line.rstrip())
-        print("\n", end=' ')
+        print("\n")
 
         if codeType == "python":
             # execute the file contents in Maya:
