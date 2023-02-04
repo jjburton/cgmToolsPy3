@@ -10,11 +10,47 @@ Website : https://github.com/jjburton/cgmTools/wiki
 This is housed outside our core stuff to be able to access and update it.
 ================================================================
 """
-__version__ = '1.0.10092020'
+__version__ = '01.23.23'
+import platform
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
-from urllib.request import Request, urlopen
-from urllib.error import URLError
-import urllib.request, urllib.error, urllib.parse
+
+
+_b_py3 = False
+if platform.python_version().startswith('3'):
+    _b_py3 = True
+    from urllib.request import Request, urlopen
+    from urllib.error import URLError    
+    
+    _pathMain = 'https://github.com/jjburton/cgmtoolsPy3/commits/'
+    _pathPull =  "https://github.com/jjburton/cgmtoolsPy3/get/"
+    
+    _route = 'https://api.github.com/repos/jjburton/cgmToolsPy3/commits?sha='
+    _urlBase =  "https://github.com/jjburton/cgmToolsPy3/archive/"
+    _urlGet = "https://bitbucket.org/jjburton/cgmtoolsPy3/get/"
+else:
+    from urllib2 import Request, urlopen, URLError
+    
+    _pathMain = 'https://github.com/jjburton/cgmtools/commits/'
+    _pathPull =  "https://github.com/jjburton/cgmtools/get/"
+    _route = 'https://api.github.com/repos/jjburton/cgmTools/commits?sha='
+    _urlBase =  "https://github.com/jjburton/cgmTools/archive/"
+    _urlGet = "https://bitbucket.org/jjburton/cgmTools/get/"
+
+def get_pyString():
+    if _b_py3:
+        return '[Python 3]'
+    else:
+        return '[Python 2]'
+    
+def print_pySetup():
+    return log.warning(get_pyString())
+    
+print_pySetup()
+
 import webbrowser
 import json
 import pprint
@@ -22,20 +58,8 @@ import os
 import zipfile
 from shutil import move,rmtree
 import datetime
-import time
 
-import logging
-logging.basicConfig()
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 _test = 'MRS'
-
-#_pathMain = 'https://github.com/jjburton/cgmtools/commits/'
-#_pathPull =  "https://github.com/jjburton/cgmtools/get/"
-
-_pathMain = 'https://github.com/jjburton/cgmtoolsPy3/commits/'
-_pathPull =  "https://github.com/jjburton/cgmtoolsPy3/get/"
-
 
 #_pathMount  = 'https://api.bitbucket.org/2.0/repositories/jjburton/cgmtools/commits/'
 #_pathRepos = 'https://api.bitbucket.org/2.0/repositories/jjburton/cgmtools/'
@@ -96,7 +120,13 @@ def get_install_path(confirm = False,branch=_defaultBranch):
         if not _dat:
             log.error("Failed to get branch dat")            
             return False
-        _msg = 'Would you like to install cgmTools here: \n [ {0} ] \n  {1} \n Branch: {2} || Last Updated: {3} \n {4} \n {5}'.format(_path,'-'*100,branch,_dat[0]['date'], _dat[0]['msg'],'-'*100)
+        _msg = '{} \n Would you like to install cgmTools here: \n [ {} ] \n  {} \n Branch: {} || Last Updated: {} \n {} \n {}'.format(
+            get_pyString(),
+            _path,
+            '-'*100,branch,
+            _dat[0]['date'],
+            _dat[0]['msg'],
+            '-'*100)
         if _warn:
             _msg = _msg + "\n {0}".format(_warn)
         _res_confirm = mc.confirmDialog(title="Install cgmTools",
@@ -238,7 +268,7 @@ def unzip(zFile = zFile, deleteZip = True, cleanFirst = False, targetPath = None
             _skip = False
             for check in ['cgmUpdate','.gitignore']:
                 if check in f:
-                    log.warning(f"Skipping: {f}")
+                    log.warning("Skipping: {}".format(f))
                     _skip = True                    
                     continue
             if _skip:
@@ -335,7 +365,9 @@ def download(url='http://weknowyourdreams.com/images/mountain/mountain-03.jpg', 
         _dir = get_install_path()
         file_name = _sep.join([_dir,url.split('/')[-1]])
         
-        u = urllib.request.urlopen(url)
+        #u = urllib.request.urlopen(url)
+        u = urlopen(url)
+        
         f = open(file_name, 'wb')
         meta = u.info()
         
@@ -401,7 +433,7 @@ def get_download(branch = _defaultBranch, idx = 0,  mode = None):
     if not _dat:
         return log.error("No build dat found. {0} | idx: {1}".format(branch,idx))
     
-    url =  "https://github.com/jjburton/cgmToolsPy3/archive/" + _dat['hash'] + ".zip"
+    url =  _urlBase + _dat['hash'] + ".zip"
     log.debug(" url: {0}".format(url))    
     
     if mode == 'url':
@@ -430,7 +462,7 @@ def get_build_bit(branch = _defaultBranch, idx = 0, mode = None):
     #pprint.pprint(_dat)
     
     #Get our zip
-    url =  "https://bitbucket.org/jjburton/cgmtoolsPy3/get/" + _dat['hash'] + ".zip"
+    url =  _urlGet + _dat['hash'] + ".zip"
     log.debug(" url: {0}".format(url))
     
     if mode == 'url':
@@ -460,8 +492,7 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
                 log.debug("passing buffer...")                          
                 return _dat
             
-    #route = 'https://api.github.com/repos/jjburton/cgmTools/commits?sha=' + branch
-    route = 'https://api.github.com/repos/jjburton/cgmToolsPy3/commits?sha=' + branch
+    route = _route + branch
     
     #request = Request(route)
     print(("|{0}| >> Route: {1}".format(_str_func,route)))

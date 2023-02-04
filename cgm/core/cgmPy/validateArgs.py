@@ -426,15 +426,24 @@ def stringArg(arg=None, noneValid=True, calledFrom = None, **kwargs):
         arg = arg[0]  
         
     result = arg
-   
-    if not isinstance(arg, str) and not isinstance(arg,unicode):      
-        if noneValid:
-            result = False
-        else:
-            fmt_args = (arg, _str_func, type(arg).__name__)
-            s_errorMsg = "Arg {0} from func '{1}' is type '{2}', not 'str'"
-
-            raise TypeError(s_errorMsg.format(*fmt_args))
+    if cgmGEN._b_py3:
+        if not isinstance(arg, str):
+            if noneValid:
+                result = False
+            else:
+                fmt_args = (arg, _str_func, type(arg).__name__)
+                s_errorMsg = "Arg {0} from func '{1}' is type '{2}', not 'str'"
+    
+                raise TypeError(s_errorMsg.format(*fmt_args))        
+    else:
+        if not isinstance(arg, str) and not isinstance(arg,unicode):      
+            if noneValid:
+                result = False
+            else:
+                fmt_args = (arg, _str_func, type(arg).__name__)
+                s_errorMsg = "Arg {0} from func '{1}' is type '{2}', not 'str'"
+    
+                raise TypeError(s_errorMsg.format(*fmt_args))
 
     return result
 
@@ -1066,7 +1075,7 @@ class simpleAxis(object):
         if isListArg(arg, types=int):
             #str_arg = '['+','.join([str(v) for v in arg]) + ']'
             str_arg = str(list(arg))
-        elif isinstance(arg, str):
+        elif stringArg(arg):
             pass
         else:
             fmt_args = [str_arg, 

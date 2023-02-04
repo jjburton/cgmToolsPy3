@@ -869,6 +869,7 @@ l_attrsStandard = ['side',
                    'visProximityMode',
                    'visJointHandle',
                    'meshBuild',
+                   'proxyHardenEdge',                   
                    #'ribbonConnectBy': 'constraint:matrix',
                    'jointRadius',
                    'shapeDirection',
@@ -3104,10 +3105,6 @@ def skeleton_build(self, forceNew = True):
     if not ml_jointHelpers:
         raise ValueError("No jointHelpers connected")
     
-    
-      
-    
-    
     #>> If skeletons there, delete ------------------------------------------------------------------- 
     _bfr = mRigNull.msgList_get('moduleJoints',asMeta=True)
     if _bfr:
@@ -3382,7 +3379,7 @@ def skeleton_build(self, forceNew = True):
         #log.debug("|{0}| >> Extra joints, checking last handle".format(_str_func))
     
     print(_specialEndHandling)
-    if _specialEndHandling:
+    if _specialEndHandling or not self.ikOrientEndTo:
         mEndOrient = self.ikOrientHandle
         
         _idx_end = -1
@@ -9269,6 +9266,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                                                                     ballMode = _ballMode,
                                                                     reverseNormal=0,#mBlock.loftReverseNormal,
                                                                     extendCastSurface = _extendToEnd,
+                                                                    hardenEdges = self.proxyHardenEdge,
+
                                                                     extendToStart=_extendToStart),#_extendToStart),
                                                      'cgmObject')
             

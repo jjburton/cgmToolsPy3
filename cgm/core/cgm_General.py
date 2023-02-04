@@ -10,9 +10,9 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '23.01.23.01'
+__RELEASE = '23.02.03.01'
 
-__BRANCH = 'Py3'
+__BRANCH = 'PY3UNION'
 
 import maya.cmds as mc
 import maya.mel as mel
@@ -998,7 +998,6 @@ def get_func_string():
     #just for reference. this will just return this function. if wanted, need to copy to other functions
     return sys._getframe().f_code.co_name
 
-
 class Callback(object):
     '''
     By Hamish McKenzie
@@ -1021,7 +1020,9 @@ class Callback(object):
             for a in err.args:
                 log.info(a)
             
+            log_tb()
             raise
+            #raise 
             #cgmException(Exception,err)
             #raise Exception,err
         finally:del self
