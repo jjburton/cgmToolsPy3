@@ -9503,7 +9503,7 @@ class ui_createBlock(CGMUI.cgmGUI):
                 continue
             
             _v = ui.getValue()
-            if _v:
+            if _v is not None:
                 if a == 'nameList' and ',' in _v:
                     _v = ['{}'.format(v) for v in _v.split(',')]
                 d_create[a] = _v
