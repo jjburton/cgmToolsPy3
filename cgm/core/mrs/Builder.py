@@ -596,9 +596,9 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                        **{})}"""
         
         
-        l_keys = sorted(d)
+        #l_keys = sorted(d)
                 
-        for s in l_keys:
+        for s in sorted(d_s):
             d = d_s[s]
             divTags = d.get('divTags',[])
             headerTags = d.get('headerTags',[])
@@ -4108,11 +4108,18 @@ class ui_toStandAlone(cgmUI.cgmGUI):
             l_check = [mc.file(q=True, sn=True)]
             
         
+        _current = os.path.normpath(mc.file(q=True, sn=True))
+        
+        
         for f in l_check:
             mFile = PATHS.Path(f)
             if not mFile.exists():
                 log.error("Invalid file: {0}".format(f))
                 continue
+            
+            if os.path.normpath(f) == _current:
+                if VALID.fileDirtyCheck() == False:
+                    continue
             
             log.debug(cgmGEN.logString_sub(_str_func))
             
@@ -9503,7 +9510,7 @@ class ui_createBlock(CGMUI.cgmGUI):
                 continue
             
             _v = ui.getValue()
-            if _v is not None:
+            if _v:
                 if a == 'nameList' and ',' in _v:
                     _v = ['{}'.format(v) for v in _v.split(',')]
                 d_create[a] = _v
