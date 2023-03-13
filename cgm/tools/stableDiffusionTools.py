@@ -6,11 +6,14 @@ from io import BytesIO
 import base64
 from PIL import Image
 
+from cgm.tools import renderTools as rt
+from cgm.core import cgm_Meta as cgmMeta
+
 # adjusts the local position of a mesh based on the R value of a texture
 # useful for creating a z-depth push effect
 # usage:
 # adjust_position_based_on_texture("pPlane1", "file1", 800, [0,0,1], False)
-def adjust_position_based_on_texture(mesh_name, texture_name, z_depth, axis, invert = False):
+def adjustPositionBasedOnTexture(mesh_name, texture_name, z_depth, axis, invert = False):
     # Get the texture file path
     texture_path = mc.getAttr(texture_name + ".fileTextureName")
 
@@ -35,7 +38,7 @@ def adjust_position_based_on_texture(mesh_name, texture_name, z_depth, axis, inv
         # Adjust the z position of the vertex based on the R value and z-depth parameter
         mc.move(r_value * z_depth * axis[0], r_value * z_depth* axis[1], r_value * z_depth* axis[2], vtx, relative=True, os=True)
 
-def get_image_from_automatic1111(prompt = "maltese puppy", negative_prompt="", steps = 5, seed = -1, size=(512, 512), model="deliberate_v2", url = '127.0.0.1:7860'):
+def getImageFromAutomatic1111(prompt = "maltese puppy", negative_prompt="", steps = 5, seed = -1, size=(512, 512), model="deliberate_v2", url = '127.0.0.1:7860'):
     payload = {
         "prompt": prompt,
         "steps": steps,
@@ -74,7 +77,7 @@ def get_image_from_automatic1111(prompt = "maltese puppy", negative_prompt="", s
 
     return output_path
 
-def get_models_from_automatic1111(url = '127.0.0.1:7860'):
+def getModelsFromAutomatic1111(url = '127.0.0.1:7860'):
     endpoint = '/sdapi/v1/sd-models'
 
     conn = http.client.HTTPConnection(url)
@@ -87,3 +90,52 @@ def get_models_from_automatic1111(url = '127.0.0.1:7860'):
     data = json.loads(decoded)
 
     return data
+
+def makeProjectionShader(camera):
+    shader, sg = rt.makeProjectionShader(camera)
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_projection')
+
+    return shader, sg
+
+def makeAlphaShader(camera):
+    shader, sg = rt.makeAlphaProjectionShader(camera)
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_alpha')
+
+    return shader, sg
+
+def makeCompositeShader():
+    shader, sg = rt.makeShader('surfaceShader')
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_composite')
+
+    # create a layered texture and hook it up to the shader
+    layeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
+    mc.connectAttr(layeredTexture + ".outColor", shader + ".outColor", force=True)
+
+    return shader, sg
+
+def makeDepthShader():
+    shader, sg = rt.makeDepthShader()
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_depth')
+
+    return shader, sg
+
+def getModelsFromAutomatic(url = '127.0.0.1:7860'):
+    conn = http.client.HTTPConnection(url)
+    endpoint = '/sdapi/v1/sd-models'
+
+    conn.request('GET', endpoint)
+
+    response = conn.getresponse()
+
+    print(response.status, response.reason)
+
+    decoded = response.read().decode()
+    models = json.loads(decoded)
+
+    conn.close()
+
+    return models

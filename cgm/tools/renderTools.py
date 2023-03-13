@@ -5,6 +5,7 @@ import os.path
 import cgm.lib.geometry as cgmGeometry
 import cgm.core.lib.math_utils as math_utils
 from cgm.core.lib import euclid as EUCLID
+from cgm.core import cgm_Meta as cgmMeta
 
 width, height = (512,512)
 
@@ -28,7 +29,7 @@ def getImagesPath():
         return images_path
 
 # Helper function for creating a shader
-def createShader(shaderType):
+def makeShader(shaderType):
     """ Create a shader of the given type"""
     shaderName = mc.shadingNode(shaderType, asShader=True)
     sgName = mc.sets(renderable=True, noSurfaceShader=True, empty=True, name=(shaderName + "SG"))
@@ -39,7 +40,7 @@ def createShader(shaderType):
 def assignMaterial(shapeName, shadingGroupName):
     mc.sets(shapeName, forceElement=shadingGroupName)
 
-def createDepthShader():
+def makeDepthShader():
     # Create nodes
     shader, sg = createShader('surfaceShader')
     shader = mc.rename(shader, 'cgmDepthMaterial')
@@ -81,12 +82,13 @@ def createDepthShader():
 
     return shader, sg
 
-def createProjectionShader(cameraShape):
+def makeProjectionShader(cameraShape, makeLayeredTexture=False):
     # Create a surface shader
     shader, sg = createShader('surfaceShader')
     shader = mc.rename(shader, 'cgmProjectionMaterial')
+    
     # create a layered texture node
-    layered_texture = mc.shadingNode('layeredTexture', asTexture=True)
+    layeredTexture = None
 
     # create a projection node
     projection = mc.shadingNode('projection', asTexture=True)
@@ -126,11 +128,14 @@ def createProjectionShader(cameraShape):
     # connect the file node to the projection node
     mc.connectAttr('%s.outColor' % fileNode, '%s.image' % projection)
 
-    # connect the projection node to the layered texture node
-    mc.connectAttr('%s.outColor' % projection, '%s.inputs[0].color' % layered_texture)
-
-    # connect the layered texture node to the surface shader
-    mc.connectAttr('%s.outColor' % layered_texture, '%s.outColor' % shader)
+    if makeLayeredTexture:
+        layeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
+        # connect the projection node to the layered texture node
+        mc.connectAttr('%s.outColor' % projection, '%s.inputs[0].color' % layeredTexture)
+        # connect the layered texture node to the surface shader
+        mc.connectAttr('%s.outColor' % layeredTexture, '%s.outColor' % shader)
+    else:
+        mc.connectAttr('%s.outColor' % projection, '%s.outColor' % shader)
 
     # set the projection node to perspective
     mc.setAttr('%s.projType' % projection, 8) 
@@ -143,11 +148,11 @@ def createProjectionShader(cameraShape):
 
     return shader, sg
 
-def createAlphaProjectionShader(cameraShape):
-    shader, sg = createProjectionShader(cameraShape)
+def makeAlphaProjectionShader(cameraShape):
+    shader, sg = makeProjectionShader(cameraShape, True)
 
     shader = mc.rename(shader, 'cgmAlphaProjectionMaterial')
-    layered_texture = mc.listConnections('%s.outColor' % shader, type='layeredTexture')[0]
+    layeredTexture = mc.listConnections('%s.outColor' % shader, type='layeredTexture')[0]
     projection = mc.listConnections('%s.inputs[0].color' % layeredTexture, type='projection')[0]
     fileNode = mc.listConnections('%s.image' % projection, type='file')[0]
 
@@ -175,12 +180,12 @@ def createAlphaProjectionShader(cameraShape):
     mc.connectAttr('%s.facingRatio' % sampler_info, '%s.vCoord' % ramp)
 
     # connect the ramp node alpha to the layered texture node alpha
-    mc.connectAttr('%s.outAlpha' % ramp, '%s.inputs[0].alpha' % layered_texture)
+    mc.connectAttr('%s.outAlpha' % ramp, '%s.inputs[0].alpha' % layeredTexture)
 
     return shader, sg
 
 # Create a camera that projects a texture onto the selected object
-def createProjectionCamera():
+def makeProjectionCamera():
     camera, shape = mc.camera(name="cgmProjectionCamera")
 
     mc.setAttr('%s.renderable'%(shape), 1)
@@ -192,6 +197,9 @@ def createProjectionCamera():
     mc.setAttr('%s.lensSqueezeRatio'%(shape), 1)
 
     mc.setAttr('%s.filmFit'%(shape), 2)
+
+    mShape = cgmMeta.asMeta(shape)
+    mShape.doStore('cgmCamera','projection')
 
     return (camera, shape)
 
@@ -252,7 +260,7 @@ def createRenderLayer(width, height, camera):
     mc.setAttr('defaultRenderQuality.edgeAntiAliasing', 0)
 
     # Create an environment fog and connect it to the defaultRenderGlobals
-    depth_shader, shader_sg = create_depth_shader()
+    depth_shader, shader_sg = makeDepthShader()
 
     outColorShaderOvr = c1.createAbsoluteOverride(depth_shader, 'outColor')
 
