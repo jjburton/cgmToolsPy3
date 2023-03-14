@@ -38,17 +38,17 @@ class MelUIError(Exception): pass
 
 
 #this maps ui type strings to actual command objects - they're not always called the same
-TYPE_NAMES_TO_CMDS = { 'staticText': cmd.text,
-                       'field': cmd.textField,
-                       'cmdScrollField': cmd.scrollField,
-                       'commandMenuItem': cmd.menuItem,
-                       'dividorMenuItem': cmd.menuItem }
+TYPE_NAMES_TO_CMDS = { u'staticText': cmd.text,
+                       u'field': cmd.textField,
+                       u'cmdScrollField': cmd.scrollField,
+                       u'commandMenuItem': cmd.menuItem,
+                       u'dividorMenuItem': cmd.menuItem }
 
 #stores a list of widget cmds that don't have docTag support - classes that wrap this command need to skip encoding the classname into the docTag.  obviously.
 WIDGETS_WITHOUT_DOC_TAG_SUPPORT = [ cmd.popupMenu ]
 
 
-class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories.instanceTrackerTypeFactory() )):
+class BaseMelUI(unicode):
     '''
     This is a wrapper class for a mel widget to make it behave a little more like an object.  It
     inherits from str because thats essentially what a mel widget is - a name coupled with a mel
@@ -64,6 +64,8 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
     aButton = AButtonClass( parentName, label='hello' )
     aButton( edit=True, label='new label!' )
     '''
+
+    __metaclass__ = typeFactories.trackableTypeFactory( typeFactories.instanceTrackerTypeFactory() )
 
     #this should be set to the mel widget command used by this widget wrapped - ie cmd.button, or cmd.formLayout
     WIDGET_CMD = cmd.control
@@ -108,7 +110,7 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
 
         #pop out any instance variables defined in the _INSTANCE_VARIABLES dict
         instanceVariables = {}
-        for attrName, attrDefaultValue in list(cls._INSTANCE_VARIABLES.items()):
+        for attrName, attrDefaultValue in cls._INSTANCE_VARIABLES.iteritems():
             instanceVariables[ attrName ] = kw.pop( attrName, attrDefaultValue )
 
         #set default sizes if applicable
@@ -144,12 +146,12 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
 
         WIDGET_CMD( uniqueName, **kw )
 
-        new = str.__new__( cls, uniqueName )
+        new = unicode.__new__( cls, uniqueName )
         new.parent = parent
         new._cbDict = cbDict = {}
 
         #add the instance variables to the instance
-        for attrName, attrValue in list(instanceVariables.items()):
+        for attrName, attrValue in instanceVariables.iteritems():
             new.__dict__[ attrName ] = attrValue
 
         #if the changeCB is valid, add it to the cd dict
@@ -160,7 +162,7 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
     def __init__( self, parent, *a, **kw ):
         pass
     def __call__( self, *a, **kw ):
-        return self.WIDGET_CMD( str( self ), *a, **kw )
+        return self.WIDGET_CMD( unicode( self ), *a, **kw )
     def setChangeCB( self, cb ):
         self.setCB( self.KWARG_CHANGE_CB_NAME, cb )
     def getChangeCB( self ):
@@ -185,7 +187,7 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
         if callable( cb ):
             try:
                 cb()
-            except Exception as x:
+            except Exception, x:
                 melUtils.printErrorStr( "The %s callback failed" % cbFlagName )
     def getFullName( self ):
         '''
@@ -399,7 +401,7 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
             if candidates:
                 theCls = candidates[ 0 ]
 
-        new = str.__new__( theCls, theStr )  #we don't want to run initialize on the object - just cast it appropriately
+        new = unicode.__new__( theCls, theStr )  #we don't want to run initialize on the object - just cast it appropriately
         new._cbDict = cbDict = {}
 
         #we need to manually add it to the instance list though - because its not being constructed in the usual way
@@ -903,7 +905,7 @@ class BaseMelWidget(BaseMelUI):
         try:
             kw = { 'e': True, self.KWARG_VALUE_NAME: value }
             self.WIDGET_CMD( self, **kw )
-        except TypeError as x:
+        except TypeError, x:
             melUtils.printErrorStr( 'Running setValue method using %s command' % self.WIDGET_CMD )
             raise
 
@@ -1005,7 +1007,7 @@ class MelCheckBox(BaseMelWidget):
     def __new__( cls, parent, *a, **kw ):
         #this craziness is so we can default the label to nothing instead of the widget's name...  dumb, dumb, dumb
         labelArgs = 'l', 'label'
-        for f in list(kw.keys()):
+        for f in kw.keys():
             if f == 'label':
                 kw[ 'l' ] = kw.pop( 'label' )
                 break
@@ -1029,12 +1031,12 @@ class MelRadioButton(BaseMelWidget):
     getValue = isSelected
 
 
-class MelRadioCollection(str):
+class MelRadioCollection(unicode):
     WIDGET_CMD = cmd.radioCollection
     BUTTON_CLS = MelRadioButton
 
     def __new__( cls ):
-        new = str.__new__( cls, cls.WIDGET_CMD() )
+        new = unicode.__new__( cls, cls.WIDGET_CMD() )
         new._items = []
 
         return new
@@ -1104,8 +1106,8 @@ class MelTextField(BaseMelWidget):
     KWARG_VALUE_LONG_NAME = 'text'
 
     def setValue( self, value, executeChangeCB=True ):
-        if not isinstance( value, str ):
-            value = str( value )
+        if not isinstance( value, unicode ):
+            value = unicode( value )
 
         BaseMelWidget.setValue( self, value, executeChangeCB )
     def clear( self, executeChangeCB=True ):
@@ -1131,7 +1133,7 @@ class MelNameField(MelTextField):
         return None
     getObj = getValue
     def setValue( self, obj, executeChangeCB=True ):
-        if not isinstance( obj, str ):
+        if not isinstance( obj, basestring ):
             obj = str( obj )
 
         self( e=True, o=obj )
@@ -2161,12 +2163,12 @@ class MelRadioMenuButton(MelMenuItem):
     getValue = isSelected
 
 
-class MelRadioMenuCollection(str):
+class MelRadioMenuCollection(unicode):
     WIDGET_CMD = cmd.radioMenuItemCollection
     BUTTON_CLS = MelRadioMenuButton
 
     def __new__( cls ):
-        new = str.__new__( cls, cls.WIDGET_CMD() )
+        new = unicode.__new__( cls, cls.WIDGET_CMD() )
         new._items = []
 
         return new
@@ -2373,7 +2375,7 @@ class MayaNode(object): pass
 UI_FOR_PY_TYPES = { bool: MelCheckBox,
                     int: MelIntField,
                     float: MelFloatField,
-                    str: MelTextField,
+                    basestring: MelTextField,
                     list: MelTextScrollList,
                     tuple: MelTextScrollList,
                     MayaNode: MelObjectSelector }
@@ -2393,7 +2395,7 @@ def getBuildUIMethodForObject( obj, typeMapping=None ):
 
         mro = list( inspect.getmro( objType ) )
         bestMatch = None
-        for aType, aBuildClass in list(typeMapping.items()):
+        for aType, aBuildClass in typeMapping.iteritems():
             if aType in mro:
                 bestMatch = mro.index( aType )
 
@@ -2473,17 +2475,21 @@ class BaseMelWindow(BaseMelUI):
         returns the existing instance
         '''
         return cls.FromStr( cls.WINDOW_NAME )
+    
     @classmethod
     def Close( cls ):
         '''
         closes the window (if it exists)
         '''
+        if cmd.window(cls.WINDOW_NAME,ex=True):
+            cmd.window(cls.WINDOW_NAME, e=True, visible=False )
         #if cls.Exists():
+        """
         def close():
             if cmd.window( cls.WINDOW_NAME, ex=True ):
                 #print("Classmethod Close")                                
                 cmd.deleteUI( cls.WINDOW_NAME )
-        cmd.evalDeferred(close,lp=True)
+        cmd.evalDeferred(close,lp=True)"""
 
     def __new__( cls, *a, **kw ):
         #print("New")
@@ -2503,7 +2509,7 @@ class BaseMelWindow(BaseMelUI):
         kw.setdefault( 'closeCommand', cls.Close )
 
 
-        new = str.__new__( cls, cmd.window( cls.WINDOW_NAME, **kw ) )
+        new = unicode.__new__( cls, cmd.window( cls.WINDOW_NAME, **kw ) )
         
         
         cmd.window( new, e=True, docTag=cls.__name__ )   #store the classname in the
@@ -2662,7 +2668,7 @@ class PyFuncLayout(MelColumnLayout):
         melUtils.printInfoStr( '%s arg changed!' % argName )
     def getArgDict( self ):
         argDict = {}
-        for argName, ui in list(self.argUIDict.items()):
+        for argName, ui in self.argUIDict.iteritems():
             argDict[ argName ] = ui.getValue()
 
         #we need to get the args that have no default values and eval the values from the ui - it is assumed they're valid python expressions
@@ -2717,7 +2723,7 @@ class PyModuleLayout(MelColumnLayout):
         numExpanded = 0
 
         self.funcUIDict = {}
-        for objName, obj in list(module.__dict__.items()):
+        for objName, obj in module.__dict__.iteritems():
             if not isinstance( obj, funcType ):
                 continue
 
