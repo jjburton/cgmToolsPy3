@@ -2,12 +2,16 @@ import maya.cmds as mc
 import http.client
 import json
 from io import BytesIO
+import os
 
 import base64
 from PIL import Image
 
 from cgm.tools import renderTools as rt
 from cgm.core import cgm_Meta as cgmMeta
+from cgm.lib import files
+
+import re
 
 # adjusts the local position of a mesh based on the R value of a texture
 # useful for creating a z-depth push effect
@@ -38,63 +42,171 @@ def adjustPositionBasedOnTexture(mesh_name, texture_name, z_depth, axis, invert 
         # Adjust the z position of the vertex based on the R value and z-depth parameter
         mc.move(r_value * z_depth * axis[0], r_value * z_depth* axis[1], r_value * z_depth* axis[2], vtx, relative=True, os=True)
 
-def getImageFromAutomatic1111(prompt = "maltese puppy", negative_prompt="", steps = 5, seed = -1, size=(512, 512), model="deliberate_v2", url = '127.0.0.1:7860'):
+# _defaultOptions = {
+#         'automatic_url':'127.0.0.1:7860',
+#         'prompt':'',
+#         'negative_prompt':'',
+#         'steps':5,
+#         'seed':-1,
+#         'width':512,
+#         'height':512,
+#         'sampling_steps':5,
+#         'depth_distance':30.0,
+#         'control_net_enabled':True,
+#         'control_net_low_v_ram':False,
+#         'control_net_preprocessor':'none',
+#         'control_net_weight':1.0,
+#         'control_net_guidance_start':0.0,
+#         'control_net_guidance_end':1.0,
+# }
+def getImageFromAutomatic1111(data):
     payload = {
-        "prompt": prompt,
-        "steps": steps,
-        "seed":seed,
-        "width":size[0],
-        "height":size[1],
+        "prompt": data['prompt'],
+        "negative_prompt": data['negative_prompt'],
+        "steps": data['sampling_steps'],
+        "seed":data['seed'],
+        "width":data['width'],
+        "height":data['height'],
+        "sampler_index":data['sampling_method'],
+        "alwayson_scripts": {
+            "ControlNet": {
+                "args": [
+                    False,  # is_img2img
+                    False,  # is_ui
+                    data['control_net_enabled'],   # enabled,
+                    data['control_net_preprocessor'],    # module,
+                    data['control_net_model'], # model,
+                    data['control_net_weight'], # weight,
+                    {"image":data['control_net_image']},    # image/mask,
+                    False,    # scribble_mode,
+                    "Scale to Fit (Inner Fit)",   # resize_mode,
+                    False,    # rgbbgr_mode,
+                    data['control_net_low_v_ram'],    # lowvram,
+                    data['width'],    # pres,
+                    100,    # pthr_a,
+                    200,    # pthr_b,
+                    data['control_net_guidance_start'],    # guidance_start,
+                    data['control_net_guidance_end'],    # guidance_end,
+                    False   # guess_mode
+                    ]
+                }
+            }
     }
 
     endpoint = '/sdapi/v1/txt2img'
 
-    conn = http.client.HTTPConnection(url)
+    conn = http.client.HTTPConnection(data['automatic_url'])
     headers = {'Content-Type': 'application/json'}
-    data = json.dumps(payload)
+    jsonData = json.dumps(payload)
 
-    conn.request('POST', endpoint, data, headers)
+    conn.request('POST', endpoint, jsonData, headers)
     response = conn.getresponse()
 
     print(response.status, response.reason)
+
+    if(response.status != 200):
+        print("Error: ", response.reason)
+        return [], {}
+    
     decoded = response.read().decode()
-    data = json.loads(decoded)
+    outputData = json.loads(decoded)
     conn.close()
 
 
     # assuming i contains the base64 encoded image string
-    img_str = data['images'][0]  # extract the base64 encoded data from the string
 
-    # convert the base64 encoded data to bytes and create a BytesIO object
-    img_bytes = base64.b64decode(img_str)
-    img_buffer = BytesIO(img_bytes)
+    output_images = []
+    info = json.loads(outputData['info'])
 
-    # open the image using PIL's Image module
-    img = Image.open(img_buffer)
+    for i, image in enumerate(outputData['images']):
+        img_str = image  # extract the base64 encoded data from the string
 
-    output_path = 'f:\output.jpg'
-    img.save(output_path)
+        # convert the base64 encoded data to bytes and create a BytesIO object
+        img_bytes = base64.b64decode(img_str)
+        img_buffer = BytesIO(img_bytes)
 
-    return output_path
+        imageName = re.sub("[^A-Za-z]", "_", info['prompt'])[:60]
+        imageName = imageName.replace('__', '_')
+        imageName = imageName + ".png"
 
-def getModelsFromAutomatic1111(url = '127.0.0.1:7860'):
-    endpoint = '/sdapi/v1/sd-models'
+        # open the image using PIL's Image module
+        img = Image.open(img_buffer)
 
+        output_path = os.path.join(data['output_path'], imageName)
+        output_path = files.create_unique_filename(output_path)
+        print("output_path", output_path)
+
+        # if the output directory doesnt exist, create it
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+
+        img.save(output_path)
+        output_images.append(output_path)
+
+    return output_images, info
+
+def getFromAutomatic1111(endpoint, url = '127.0.0.1:7860'):
     conn = http.client.HTTPConnection(url)
     conn.request('GET', endpoint)
 
     response = conn.getresponse()
 
+    if(response.status != 200):
+        return []
+    
     #print(response.status, response.reason)
     decoded = response.read().decode()
     data = json.loads(decoded)
 
     return data
 
+def getModelsFromAutomatic1111(url = '127.0.0.1:7860'):
+    endpoint = '/sdapi/v1/sd-models'
+    return getFromAutomatic1111(endpoint, url)
+
+def getSamplersFromAutomatic1111(url = '127.0.0.1:7860'):
+    endpoint = '/sdapi/v1/samplers'
+    return getFromAutomatic1111(endpoint, url)
+
+def getControlNetPreprocessorsFromAutomatic1111(url = '127.0.0.1:7860'):
+    return ['none', 'canny', 'depth', 'openpose', 'segmentation']
+
+def getControlNetModelsFromAutomatic1111(url = '127.0.0.1:7860'):
+    endpoint = '/controlnet/model_list'
+    return getFromAutomatic1111(endpoint, url)
+
+def getOptionsFromAutomatic(url = '127.0.0.1:7860'):
+    endpoint = '/sdapi/v1/options'
+    return getFromAutomatic1111(endpoint, url)
+
+def setModel(model, url = '127.0.0.1:7860'):
+    endpoint = '/sdapi/v1/options'
+    options = getOptionsFromAutomatic(url)
+
+    options['sd_model_checkpoint'] = model['title']
+    
+    data = json.dumps(options)
+
+    conn = http.client.HTTPConnection(url)
+    headers = {'Content-Type': 'application/json'}
+
+    conn.request('POST', endpoint, data, headers)
+    response = conn.getresponse()
+
+    conn.close()
+
+    if(response.status != 200):
+        print("Error: ", response.reason)
+        return False
+    
+    return True
+
 def makeProjectionShader(camera):
     shader, sg = rt.makeProjectionShader(camera)
     mShader = cgmMeta.asMeta(shader)
     mShader.doStore('cgmShader','sd_projection')
+
+    shader = mc.rename(shader, 'cgmProjectionShader')
 
     return shader, sg
 
@@ -103,12 +215,29 @@ def makeAlphaShader(camera):
     mShader = cgmMeta.asMeta(shader)
     mShader.doStore('cgmShader','sd_alpha')
 
+    shader = mc.rename(shader, 'cgmAlphaProjectionShader')
+
     return shader, sg
 
 def makeCompositeShader():
     shader, sg = rt.makeShader('surfaceShader')
     mShader = cgmMeta.asMeta(shader)
     mShader.doStore('cgmShader','sd_composite')
+
+    shader = mc.rename(shader, 'cgmCompositeShader')
+
+    # create a layered texture and hook it up to the shader
+    layeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
+    mc.connectAttr(layeredTexture + ".outColor", shader + ".outColor", force=True)
+
+    return shader, sg
+
+def makeAlphaMatteShader():
+    shader, sg = rt.makeShader('surfaceShader')
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_alphaMatte')
+
+    shader = mc.rename(shader, 'cgmAlphaMatteShader')
 
     # create a layered texture and hook it up to the shader
     layeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
@@ -120,6 +249,8 @@ def makeDepthShader():
     shader, sg = rt.makeDepthShader()
     mShader = cgmMeta.asMeta(shader)
     mShader.doStore('cgmShader','sd_depth')
+
+    shader = mc.rename(shader, 'cgmDepthShader')
 
     return shader, sg
 
@@ -133,9 +264,19 @@ def getModelsFromAutomatic(url = '127.0.0.1:7860'):
 
     print(response.status, response.reason)
 
+    if(response.status != 200):
+        return []
+    
     decoded = response.read().decode()
     models = json.loads(decoded)
 
     conn.close()
 
     return models
+
+def load_settings_from_image(fileNode):
+    if not mc.objExists('%s.cgmImageProjectionData' % fileNode):
+        return
+    
+    data = json.loads(mc.getAttr('%s.cgmImageProjectionData' % fileNode))
+    return data

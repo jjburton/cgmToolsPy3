@@ -6,6 +6,8 @@ import cgm.lib.geometry as cgmGeometry
 import cgm.core.lib.math_utils as math_utils
 from cgm.core.lib import euclid as EUCLID
 from cgm.core import cgm_Meta as cgmMeta
+import json
+from cgm.lib import files
 
 width, height = (512,512)
 
@@ -42,7 +44,7 @@ def assignMaterial(shapeName, shadingGroupName):
 
 def makeDepthShader():
     # Create nodes
-    shader, sg = createShader('surfaceShader')
+    shader, sg = makeShader('surfaceShader')
     shader = mc.rename(shader, 'cgmDepthMaterial')
     ramp = mc.shadingNode('ramp', asTexture=True)
     mult_div = mc.shadingNode('multiplyDivide', asUtility=True)
@@ -84,7 +86,7 @@ def makeDepthShader():
 
 def makeProjectionShader(cameraShape, makeLayeredTexture=False):
     # Create a surface shader
-    shader, sg = createShader('surfaceShader')
+    shader, sg = makeShader('surfaceShader')
     shader = mc.rename(shader, 'cgmProjectionMaterial')
     
     # create a layered texture node
@@ -184,6 +186,16 @@ def makeAlphaProjectionShader(cameraShape):
 
     return shader, sg
 
+def makeAlphaMatteShader():
+    shader = mc.shadingNode('lambert', asShader=True)
+    sg = mc.sets(renderable=True, noSurfaceShader=True, empty=True, name='%sSG' % shader)
+
+    mc.connectAttr('%s.outColor' % shader, '%s.surfaceShader' % sg)
+
+    shader = mc.rename(shader, 'cgmAlphaMatteMaterial')
+
+    return shader, sg
+
 # Create a camera that projects a texture onto the selected object
 def makeProjectionCamera():
     camera, shape = mc.camera(name="cgmProjectionCamera")
@@ -203,28 +215,6 @@ def makeProjectionCamera():
 
     return (camera, shape)
 
-def getDepthDistanceFromCamera(camera, object):
-    # Get the camera position
-    cameraPos = mc.xform(camera, q=True, ws=True, t=True)
-    fwd = math_utils.transform_direction("cgmProjectionCamera1", EUCLID.Vector3(0,0,-1))
-    
-    # Get the bounding box of the object
-    objectBB = mc.exactWorldBoundingBox(object)
-
-    # get the plane position and normals for the 6 sides of the bounding box
-    planes, normals, points = cgmGeometry.getPlanes(objectBB)
-
-    intersectPos = cgmGeometry.ray_box_intersection(cameraPos, [fwd.x, fwd.y, fwd.z], points, 100)
-
-    # Calculate the distance between the camera and the object
-    distance = math.sqrt((cameraPos[0] - intersectPos[0])**2 + (cameraPos[1] - intersectPos[1])**2 + (cameraPos[2] - intersectPos[2])**2)
-
-    #create locator at intersection
-    mc.spaceLocator(n="cgmDepthLocator")
-    mc.xform(ws=True, t=intersectPos)
-
-    return distance
-
 def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     convertedFile = mc.convertSolidTx("%s.outColor" % material, meshObj, antiAlias=1, bm=1, fts=1, sp=0, sh=0, alpha=False, doubleSided=0, componentRange=0, resolutionX=resolution[0], resolutionY=resolution[1], fileFormat="png")
 
@@ -235,55 +225,91 @@ def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     
     return convertedFile
 
-def createRenderLayer(width, height, camera):
-    # Check if anything is selected
-    if not mc.ls(selection=True):
-        raise ValueError("Nothing is selected.")
+def addImageToCompositeShader(shader, color, alpha):
+    layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
+    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
+    # get connections to "outColor"
+    #outColorConnections = [c for c in connections if c.endswith(".outColor")]
+    # get the index of the last connection
+    index = 0
+    if(connections):
+        outColorConnections = [c for c in connections if c.endswith(".outColor")]
+        # get the index of the last connection
+        inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False)
+        index = int(inputs[-1].split("inputs[")[1].split("]")[0]) + 1
 
-    sel = mc.ls(sl=True)
+    remapColor = mc.shadingNode('remapColor', asUtility=True )
 
-    # Create a new render setup
-    rs = renderSetup.instance()
+    mc.setAttr( "%s.red[0].red_Position" % remapColor, 0)
+    mc.setAttr("%s.red[1].red_Position" % remapColor, 0.1)
 
-    # Create a new layer and add it to the render setup
-    layer = rs.createRenderLayer('SDDepthPass')
-    rs.switchToLayer(layer)
+    mc.connectAttr('%s.outColor' % color, '%s.inputs[%d].color' % (layeredTexture, index), f=True)
+    mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
+    mc.connectAttr('%s.outColorR' % remapColor, '%s.inputs[%d].alpha' % (layeredTexture, index), f=True)
 
-    # Add the object to the layer and enable rendering for it
-    c1 = layer.createCollection('FogElements')
-    for obj in mc.ls(sel,l=True):
-        c1.getSelector().setPattern(obj)
+    return index, remapColor
 
-    # Set the render settings for the layer
-    mc.setAttr('defaultResolution.width', width)
-    mc.setAttr('defaultResolution.height', height)
-    mc.setAttr('defaultRenderQuality.edgeAntiAliasing', 0)
+def updateAlphaMatteShader(alphaShader, compositeShader):
+    layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
+    compositelayeredTexture = mc.listConnections('%s.outColor' % compositeShader, type="layeredTexture")[0]
 
-    # Create an environment fog and connect it to the defaultRenderGlobals
-    depth_shader, shader_sg = makeDepthShader()
+    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
+    if(connections):
+        for connection in connections:
+            outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+            for out in outConnections:
+                if(layeredTexture in out):
+                    mc.disconnectAttr(connection, out)
 
-    outColorShaderOvr = c1.createAbsoluteOverride(depth_shader, 'outColor')
+    connections = mc.listConnections(compositelayeredTexture, p=True, s=True, d=False)
+    for connection in connections:
+        outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+        for out in outConnections:
+            if 'alpha' in out:
+                index = int(out.split('inputs[')[-1].split(']')[0])
+                connectionNode, connectionNodeType = mc.ls(connection.split('.')[0], st=True)
 
-    # Get the selected object's furthest position in front of the camera
-    bb = mc.exactWorldBoundingBox(sel[0])
-    cam_pos = mc.xform(camera, query=True, worldSpace=True, translation=True)
-    distances = []
-    points = []
+                if(connectionNodeType == 'remapColor'):
+                    connectionDupe = mc.duplicate(connectionNode, n='%s_alphaRemap' % connectionNode, ic=True)
+                    connection = '%s.%s' % (connectionDupe[0], '.'.join(connection.split('.')[1:]))
+                
+                mc.connectAttr(connection, '%s.inputs[%d].colorR' % (layeredTexture, index))
+                mc.connectAttr(connection, '%s.inputs[%d].colorG' % (layeredTexture, index))
+                mc.connectAttr(connection, '%s.inputs[%d].colorB' % (layeredTexture, index))
 
-    if distances:
-        distance = max(distances)
-    else:
-        distance = 0.0
-    
-    # Set the depth distance to the furthest position of the selected object
-    depth_shader = mc.ls(type='depthShader')[0]
-    mc.setAttr('%s.distance' % depth_shader, distance)
+def assignImageToProjectionShader(shader, image_path, data):
+    projection = mc.listConnections('%s.outColor' % shader, type='projection')[0]
+    fileNode = mc.shadingNode('file', asTexture=True, isColorManaged=True)
+    mc.setAttr(fileNode + '.fileTextureName', image_path, type='string')
+    mc.connectAttr(fileNode + '.outColor', projection + '.image', force=True)
 
-    return
+    mFile = cgmMeta.asMeta(fileNode)
+    mFile.doStore('cgmImageProjectionData',json.dumps(data))
 
-    # Render the layer
-    mc.render()
+def renderMaterialPass(material, meshObj, fileName = None, asJpg=False):
+    # assign depth shader
+    sg = mc.listConnections(material, type='shadingEngine')
+    if sg:
+        sg = sg[0]
 
-    # Remove the layer and any additional nodes created
-    rs.deleteLayer(layer)
-    mc.delete(shader)
+    assignMaterial(meshObj, sg)
+
+    # setAttr "defaultRenderGlobals.imageFormat" 8;
+    currentImageFormat = mc.getAttr("defaultRenderGlobals.imageFormat")
+
+    if asJpg:
+        mc.setAttr("defaultRenderGlobals.imageFormat", 8)
+
+    imagePath = mc.render()
+    returnPath = imagePath
+
+    path, name = os.path.split(imagePath)
+
+    if(fileName):
+        name = fileName + '.' + name.split('.')[-1]
+        returnPath = files.create_unique_filename(os.path.join(path, name))
+        files.rename_file(imagePath, os.path.split(returnPath)[-1])
+
+    mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
+
+    return returnPath
