@@ -2122,8 +2122,8 @@ example:
         else:
             log.debug(log_msg(_str_func,"no sub"))            
             self.mRow_setButtons.clear()
-            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Save New Version", command=self.SaveVersion)
             mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Add Set", command=self.CreateSubAsset)
+            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Save New Version", command=self.SaveVersion)            
             #self.subTypeButton(edit=True, label="Save New Version", command=self.SaveVersion)
             self.mRow_setButtons.layout()
             
