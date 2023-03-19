@@ -95,6 +95,11 @@ def getImageFromAutomatic1111(data):
 
     endpoint = '/sdapi/v1/txt2img'
 
+    if('init_images' in data):
+        endpoint = '/sdapi/v1/img2img'
+        payload['init_images'] = data['init_images']
+        payload['denoising_strength'] = data['denoising_strength']
+
     conn = http.client.HTTPConnection(data['automatic_url'])
     headers = {'Content-Type': 'application/json'}
     jsonData = json.dumps(payload)

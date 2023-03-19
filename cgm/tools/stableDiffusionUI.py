@@ -63,6 +63,9 @@ _defaultOptions = {
         'control_net_guidance_start':0.0,
         'control_net_guidance_end':1.0,
         'sampling_method':'Euler',
+        'denoising_strength':.35,
+        'use_composite_pass':False,
+        'use_alpha_pass':False
 }
 
 class ui(cgmUI.cgmGUI):
@@ -97,7 +100,6 @@ class ui(cgmUI.cgmGUI):
         #self.l_allowedDockAreas = []
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
         self.DEFAULT_SIZE = self.__class__.DEFAULT_SIZE
-
  
     def build_menus(self):
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_first))
@@ -224,7 +226,7 @@ class ui(cgmUI.cgmGUI):
         cgmUI.add_Button(_row, 'Select', 
                             lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_baseObject),
                             annotationText='')               
-        mUI.MelSpacer(_row,w = 5)            
+        mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
         #>>> Load Projection Camera
@@ -385,8 +387,11 @@ class ui(cgmUI.cgmGUI):
         else:
             _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
         
+        #>>> Mode
 
-        cgmUI.add_Header('Project')
+        mc.setParent(_inside)
+
+        cgmUI.add_Header('Project') 
 
         #>>> Prompt
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate', height=60)
@@ -497,6 +502,48 @@ class ui(cgmUI.cgmGUI):
 
         self.uiFunc_setSamples('field')
 
+        #>>> Img2Img
+
+        mc.setParent(_inside)
+        cgmUI.add_Header('Img2Img Settings')
+
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Passes:',align='right')
+
+        _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
+        mUI.MelLabel(_row,l='Composite:',align='right')
+        self.uiCompositeCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setCompositeCB)      
+
+        mUI.MelLabel(_row,l='Alpha Matte:',align='right')
+        self.uiAlphaMatteCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setAlphaMatteCB)      
+
+        mUI.MelSpacer(_row,w = 5)
+        _row.layout()
+
+        self.compositeLayout = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate', vis=self.uiCompositeCB(q=True, v=True))
+        
+        #>>>Denoise Slider...
+        denoise = .35
+        _row = mUI.MelHSingleStretchLayout(self.compositeLayout,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Denoising Strength:',align='right')
+        self.uiFF_denoiseStrength = mUI.MelFloatField(_row,
+                                                w = 40,
+                                                ut='cgmUITemplate',
+                                                precision = 2,
+                                                value = denoise, changeCommand=cgmGEN.Callback(self.uiFunc_setDenoise, 'field'))  
+                
+        self.uiSlider_denoiseStrength = mUI.MelFloatSlider(_row,0.0,1.0,denoise,step = .01)
+        self.uiSlider_denoiseStrength.setChangeCB(cgmGEN.Callback(self.uiFunc_setDenoise, 'slider'))
+        mUI.MelSpacer(_row,w=5)	            
+        _row.setStretchWidget(self.uiSlider_denoiseStrength)#Set stretch    
+
+        self.uiFunc_setDenoise('field')
+        _row.layout()
+
+        self.compositeLayout.layout()
+
         #>>> Control Net
         mc.setParent(_inside)
         cgmUI.add_Header('Control Net')
@@ -554,7 +601,7 @@ class ui(cgmUI.cgmGUI):
                                                 w = 40,
                                                 ut='cgmUITemplate',
                                                 precision = 2,
-                                                value = 1.0, changeCommand=cgmGEN.Callback(self.uiFunc_setDepth, 'field'))  
+                                                value = 1.0)  
                 
         self.uiSlider_controlNetWeight = mUI.MelFloatSlider(_subRow,0.0,1.0,1.0,step = .1)
 
@@ -593,7 +640,7 @@ class ui(cgmUI.cgmGUI):
                                                 w = 40,
                                                 ut='cgmUITemplate',
                                                 precision = 2,
-                                                value = 1.0, changeCommand=cgmGEN.Callback(self.uiFunc_setDepth, 'field'))  
+                                                value = 1.0)  
                 
         self.uiSlider_controlNetGuidanceEnd = mUI.MelFloatSlider(_subRow,0.0,1.0,1.0,step = .1)
 
@@ -645,7 +692,6 @@ class ui(cgmUI.cgmGUI):
         self.uiSlider_depthDistance.setChangeCB(cgmGEN.Callback(self.uiFunc_setDepth, 'slider'))
         self.renderBtn = cgmUI.add_Button(_row,'Render',
         cgmGEN.Callback(self.uiFunc_renderImage),                         
-        #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
         'Render')
         mUI.MelSpacer(_row,w=5)	            
         _row.setStretchWidget(self.uiSlider_depthDistance)#Set stretch    
@@ -670,6 +716,22 @@ class ui(cgmUI.cgmGUI):
         # End Generate Button
 
         return _inside
+
+    def uiFunc_setCompositeCB(self, *a):
+        _str_func = 'uiFunc_setCompositeCB'
+        print(_str_func, a)
+
+        val = a[0]
+
+        self.compositeLayout(e=True, vis=val)
+
+        self.saveOptions()
+
+    def uiFunc_setAlphaMatteCB(self, *a):
+        _str_func = 'uiFunc_setAlphaMatteCB'
+        print(_str_func, a)
+
+        self.saveOptions()
 
     def buildColumn_edit(self,parent, asScroll = False):
         """
@@ -746,7 +808,7 @@ class ui(cgmUI.cgmGUI):
         self.saveOptions()
 
     def uiFunc_renderImage(self):
-        outputImage = mc.render()
+        outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), asJpg = False, camera = self.uiTextField_projectionCam(q=True, text=True)  )
         iv.ui([outputImage], {'outputImage':outputImage})
 
     def uiFunc_make_projection_camera(self):
@@ -773,6 +835,13 @@ class ui(cgmUI.cgmGUI):
             return
         
         shader, sg = sd.makeAlphaShader(_camera)
+
+        depthShader = self.uiTextField_depthShader(query=True, text=True)
+        if mc.objExists(depthShader):
+            ramp = mc.listConnections(depthShader + '.outColor', type='ramp')
+            if(ramp):
+                mc.connectAttr(ramp[0] + '.outColorG', shader + '.outColorG', force=True)
+
         self.uiTextField_alphaShader(edit=True, text=shader)
 
     def uiFunc_make_composite_shader(self):
@@ -785,6 +854,7 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'uiFunc_make_alpha_matte_shader'
 
         shader, sg = sd.makeAlphaMatteShader()
+
         self.uiTextField_alphaMatteShader(edit=True, text=shader)
 
     def uiFunc_make_depth_shader(self):
@@ -793,11 +863,20 @@ class ui(cgmUI.cgmGUI):
         shader, sg = sd.makeDepthShader()
         self.uiTextField_depthShader(edit=True, text=shader)
 
+        alphaShader = self.uiTextField_alphaShader(query=True, text=True)
+        if mc.objExists(alphaShader):
+            ramp = mc.listConnections(shader + '.outColor', type='ramp')
+            if(ramp):
+                mc.connectAttr(ramp[0] + '.outColorG', alphaShader + '.outColorG', force=True)
+
+        mc.setAttr(shader + '.distance', self.uiFF_depthDistance(query=True, value=True))
+
     def uiFunc_generateImage(self):
         _str_func = 'uiFunc_generateImage'
 
         depthMat = self.uiTextField_depthShader(q=True, text=True)
         mesh = self.uiTextField_baseObject(q=True, text=True)
+        camera = self.uiTextField_projectionCam(q=True, text=True)
 
         if(not mc.objExists(depthMat)):
             log.warning("|{0}| >> No depth shader loaded.".format(_str_func))
@@ -819,7 +898,7 @@ class ui(cgmUI.cgmGUI):
         output_path = getImagePath()
 
         if mc.objExists(depthMat) and mc.objExists(mesh):
-            depth_path = rt.renderMaterialPass(depthMat, mesh, asJpg=True)
+            depth_path = rt.renderMaterialPass(depthMat, mesh, asJpg=True, camera=camera)
             
             with open(depth_path, "rb") as f:
                 # Read the image data
@@ -829,9 +908,24 @@ class ui(cgmUI.cgmGUI):
                 image_base64 = base64.b64encode(image_data)
                 
                 # Convert the base64 bytes to string
-                image_string = image_base64.decode("utf-8")
+                depth_string = image_base64.decode("utf-8")
 
-            _options['control_net_image'] = image_string
+            _options['control_net_image'] = depth_string
+        
+        if(_options['use_composite_pass']):
+            composite_path = rt.renderMaterialPass(self.uiTextField_compositeShader(q=True, text=True), mesh, asJpg=False, camera=camera)
+
+            with open(composite_path, "rb") as f:
+                # Read the image data
+                image_data = f.read()
+                
+                # Encode the image data as base64
+                image_base64 = base64.b64encode(image_data)
+                
+                # Convert the base64 bytes to string
+                composite_string = image_base64.decode("utf-8")
+
+                _options['init_images'] = [composite_string]
         
         # standardize the output path
         _options['output_path'] = output_path
@@ -846,12 +940,6 @@ class ui(cgmUI.cgmGUI):
 
         displayImage(imagePaths, info, [{'function':self.assignImageToProjection, 'label':'Assign To Projection'}])
         self.lastInfo = info
-        # try:
-        #     imagePaths, info = sd.getImageFromAutomatic1111(_options)
-        #     displayImage(imagePaths, info)
-        #     self.lastInfo = info
-        # except Exception as e:
-        #     log.error("|{0}| >> Error: {1}".format(_str_func, e))
 
         self.generateBtn(edit=True, enable=True)
         self.generateBtn(edit=True, label=origText)
@@ -881,6 +969,9 @@ class ui(cgmUI.cgmGUI):
         rt.addImageToCompositeShader(compositeShader, bakedImage, bakedAlpha)
         rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)
 
+        # assign composite shader
+        self.uiFunc_assign_material(self.uiTextField_compositeShader)
+
     def uiFunc_setDepth(self, source):
         shader = self.getDepthShader()
 
@@ -909,16 +1000,10 @@ class ui(cgmUI.cgmGUI):
         
         self.saveOptions()
 
-        # _samples = 0.0
-
-        # if source == 'slider':
-        #     _samples = self.uiSlider_samplingSteps(query=True, value=True)
-        #     self.uiIF_samplingSteps.setValue(_samples)
-            
-        # elif source == 'field':
-        #     _samples = self.uiIF_samplingSteps.getValue()
-        #     self.uiSlider_samplingSteps(edit=True, max=max(100, _samples))
-        #     self.uiSlider_samplingSteps(edit=True, value=_samples, step=1)
+    def uiFunc_setDenoise(self, source):
+        uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
+        
+        self.saveOptions()
 
     def uiFunc_updateModelsFromAutomatic(self):
         _str_func = 'uiFunc_updateModelsFromAutomatic'
@@ -1076,6 +1161,9 @@ class ui(cgmUI.cgmGUI):
         _options['control_net_weight'] = self.uiFF_controlNetWeight.getValue()
         _options['control_net_guidance_start'] = self.uiFF_controlNetGuidanceStart.getValue()
         _options['control_net_guidance_end'] = self.uiFF_controlNetGuidanceEnd.getValue()
+        _options['denoising_strength'] = self.uiFF_denoiseStrength.getValue()
+        _options['use_composite_pass'] = self.uiCompositeCB.getValue()
+        _options['use_alpha_pass'] = self.uiAlphaMatteCB.getValue()
 
         return _options
 
@@ -1096,7 +1184,6 @@ class ui(cgmUI.cgmGUI):
         self.config.setValue(json.dumps(_options))
 
         #print("saving", _options)
-
     
     def loadOptions(self, options=None):
         _str_func = 'loadOptions'
@@ -1142,6 +1229,12 @@ class ui(cgmUI.cgmGUI):
         self.uiFF_controlNetWeight.setValue(_options['control_net_weight'])
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
+        self.uiFF_denoiseStrength.setValue(_options['denoising_strength'])
+        self.uiCompositeCB.setValue(_options['use_composite_pass'])
+        self.uiAlphaMatteCB.setValue(_options['use_alpha_pass'])
+
+        self.uiFunc_setCompositeCB(_options['use_composite_pass'])
+        self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
 
         #print("loading", _options)
     

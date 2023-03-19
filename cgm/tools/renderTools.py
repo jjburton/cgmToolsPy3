@@ -135,9 +135,13 @@ def makeProjectionShader(cameraShape, makeLayeredTexture=False):
         # connect the projection node to the layered texture node
         mc.connectAttr('%s.outColor' % projection, '%s.inputs[0].color' % layeredTexture)
         # connect the layered texture node to the surface shader
-        mc.connectAttr('%s.outColor' % layeredTexture, '%s.outColor' % shader)
+        mc.connectAttr('%s.outColorR' % layeredTexture, '%s.outColorR' % shader)
+        mc.connectAttr('%s.outColorG' % layeredTexture, '%s.outColorG' % shader)
+        mc.connectAttr('%s.outColorB' % layeredTexture, '%s.outColorB' % shader)
     else:
-        mc.connectAttr('%s.outColor' % projection, '%s.outColor' % shader)
+        mc.connectAttr('%s.outColorR' % projection, '%s.outColorR' % shader)
+        mc.connectAttr('%s.outColorG' % projection, '%s.outColorG' % shader)
+        mc.connectAttr('%s.outColorB' % projection, '%s.outColorB' % shader)
 
     # set the projection node to perspective
     mc.setAttr('%s.projType' % projection, 8) 
@@ -154,7 +158,7 @@ def makeAlphaProjectionShader(cameraShape):
     shader, sg = makeProjectionShader(cameraShape, True)
 
     shader = mc.rename(shader, 'cgmAlphaProjectionMaterial')
-    layeredTexture = mc.listConnections('%s.outColor' % shader, type='layeredTexture')[0]
+    layeredTexture = mc.listConnections('%s.outColorR' % shader, type='layeredTexture')[0]
     projection = mc.listConnections('%s.inputs[0].color' % layeredTexture, type='projection')[0]
     fileNode = mc.listConnections('%s.image' % projection, type='file')[0]
 
@@ -210,6 +214,8 @@ def makeProjectionCamera():
 
     mc.setAttr('%s.filmFit'%(shape), 2)
 
+    mc.setAttr('%s.mask'%(shape), False)
+
     mShape = cgmMeta.asMeta(shape)
     mShape.doStore('cgmCamera','projection')
 
@@ -225,91 +231,259 @@ def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     
     return convertedFile
 
+# def addImageToCompositeShader(shader, color, alpha):
+#     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
+#     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
+#     # get connections to "outColor"
+#     #outColorConnections = [c for c in connections if c.endswith(".outColor")]
+#     # get the index of the last connection
+#     index = 0
+#     if(connections):
+#         outColorConnections = [c for c in connections if c.endswith(".outColor")]
+#         # get the index of the last connection
+#         inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False)
+#         index = int(inputs[-1].split("inputs[")[1].split("]")[0]) + 1
+
+#     remapColor = mc.shadingNode('remapColor', asUtility=True )
+
+#     mc.setAttr( "%s.red[0].red_Position" % remapColor, 0)
+#     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.1)
+
+#     mc.connectAttr('%s.outColor' % color, '%s.inputs[%d].color' % (layeredTexture, index), f=True)
+#     mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
+#     mc.connectAttr('%s.outColorR' % remapColor, '%s.inputs[%d].alpha' % (layeredTexture, index), f=True)
+
+#     return index, remapColor
+
 def addImageToCompositeShader(shader, color, alpha):
     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
-    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
-    # get connections to "outColor"
-    #outColorConnections = [c for c in connections if c.endswith(".outColor")]
-    # get the index of the last connection
-    index = 0
-    if(connections):
-        outColorConnections = [c for c in connections if c.endswith(".outColor")]
-        # get the index of the last connection
-        inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False)
-        index = int(inputs[-1].split("inputs[")[1].split("]")[0]) + 1
+    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
 
-    remapColor = mc.shadingNode('remapColor', asUtility=True )
+    if connections:
+        outColorConnections = [c for c in connections if '.outColor' in c]
+        inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False) or []
+        #input_connection = inputs[0]
+        for input_connection in reversed(inputs):
+            current_index = int(input_connection.split("inputs[")[1].split("]")[0])
+            next_index = current_index + 1
+            
+            connectionPlug = input_connection.split('.')[-1]
+            # Disconnect empty connections
+            connected_attr = '%s.inputs[%d].%s' % (layeredTexture, current_index, connectionPlug)
+            src_attr = mc.listConnections(connected_attr, p=True, s=True, d=False)
 
-    mc.setAttr( "%s.red[0].red_Position" % remapColor, 0)
+            if src_attr:
+                mc.disconnectAttr(src_attr[0], connected_attr)
+
+            # Shift the connections down the line
+            mc.connectAttr(src_attr[0], input_connection.replace(f'[{current_index}]', f'[{next_index}]'), f=True)
+
+    remapColor = mc.shadingNode('remapColor', asUtility=True)
+    mult = mc.shadingNode('multiplyDivide', asUtility=True)
+    mult2 = mc.shadingNode('multiplyDivide', asUtility=True)
+
+    mc.setAttr("%s.red[0].red_Position" % remapColor, 0)
     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.1)
 
-    mc.connectAttr('%s.outColor' % color, '%s.inputs[%d].color' % (layeredTexture, index), f=True)
-    mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
-    mc.connectAttr('%s.outColorR' % remapColor, '%s.inputs[%d].alpha' % (layeredTexture, index), f=True)
+    # set green position to 1
+    mc.setAttr("%s.green[0].green_Position" % remapColor, 0)
+    mc.setAttr("%s.green[1].green_Position" % remapColor, 1)
+    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 1)
+    mc.setAttr("%s.green[1].green_FloatValue" % remapColor, 1)
 
-    return index, remapColor
+    # set blue position to 1
+    mc.setAttr("%s.blue[0].blue_Position" % remapColor, 0)
+    mc.setAttr("%s.blue[1].blue_Position" % remapColor, 1)
+    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 1)
+    mc.setAttr("%s.blue[1].blue_FloatValue" % remapColor, 1)
+
+    # connect remap color r and g to multiply
+    mc.connectAttr('%s.outColorR' % remapColor, '%s.input1X' % mult, f=True)
+    mc.connectAttr('%s.outColorG' % remapColor, '%s.input2X' % mult, f=True)
+
+    # multiply remap color b with multiply out X
+    mc.connectAttr('%s.outColorB' % remapColor, '%s.input1X' % mult2, f=True)
+    mc.connectAttr('%s.outputX' % mult, '%s.input2X' % mult2, f=True)
+
+    # connect multiply out X to layered texture alpha
+    mc.connectAttr('%s.outColor' % color, '%s.inputs[0].color' % layeredTexture, f=True)
+    mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
+    mc.connectAttr('%s.outputX' % mult2, '%s.inputs[0].alpha' % layeredTexture, f=True)
+
+    return 0, remapColor
+
+
+
+
+
+# def updateAlphaMatteShader(alphaShader, compositeShader):
+#     layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
+#     compositelayeredTexture = mc.listConnections('%s.outColor' % compositeShader, type="layeredTexture")[0]
+
+#     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
+#     if(connections):
+#         for connection in connections:
+#             outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+#             for out in outConnections:
+#                 if(layeredTexture in out):
+#                     mc.disconnectAttr(connection, out)
+
+#     connections = mc.listConnections(compositelayeredTexture, p=True, s=True, d=False)
+#     for connection in connections:
+#         outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+#         for out in outConnections:
+#             if 'alpha' in out:
+#                 index = int(out.split('inputs[')[-1].split(']')[0])
+#                 connectionNode, connectionNodeType = mc.ls(connection.split('.')[0], st=True)
+
+#                 if(connectionNodeType == 'remapColor'):
+#                     connectionDupe = mc.duplicate(connectionNode, n='%s_alphaRemap' % connectionNode, ic=True)
+#                     connection = '%s.%s' % (connectionDupe[0], '.'.join(connection.split('.')[1:]))
+                
+#                 mc.connectAttr(connection, '%s.inputs[%d].colorR' % (layeredTexture, index))
+#                 mc.connectAttr(connection, '%s.inputs[%d].colorG' % (layeredTexture, index))
+#                 mc.connectAttr(connection, '%s.inputs[%d].colorB' % (layeredTexture, index))
 
 def updateAlphaMatteShader(alphaShader, compositeShader):
     layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
     compositelayeredTexture = mc.listConnections('%s.outColor' % compositeShader, type="layeredTexture")[0]
 
-    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
-    if(connections):
+    connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
+    if connections:
         for connection in connections:
-            outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+            outConnections = mc.listConnections(connection, p=True, s=False, d=True) or []
             for out in outConnections:
-                if(layeredTexture in out):
+                if layeredTexture in out:
                     mc.disconnectAttr(connection, out)
 
-    connections = mc.listConnections(compositelayeredTexture, p=True, s=True, d=False)
+    connections = mc.listConnections(compositelayeredTexture, p=True, s=True, d=False) or []
     for connection in connections:
-        outConnections = mc.listConnections(connection, p=True, s=False, d=True)
+        outConnections = mc.listConnections(connection, p=True, s=False, d=True) or []
         for out in outConnections:
             if 'alpha' in out:
                 index = int(out.split('inputs[')[-1].split(']')[0])
                 connectionNode, connectionNodeType = mc.ls(connection.split('.')[0], st=True)
 
-                if(connectionNodeType == 'remapColor'):
-                    connectionDupe = mc.duplicate(connectionNode, n='%s_alphaRemap' % connectionNode, ic=True)
+                if connectionNodeType == 'multiplyDivide':
+                    connectionDupe = mc.duplicate(connectionNode, upstreamNodes=True)
+                    for i,n in enumerate(connectionDupe):
+                        connectionDupe[i] = mc.rename(n, '%s_alpha' % n)
                     connection = '%s.%s' % (connectionDupe[0], '.'.join(connection.split('.')[1:]))
                 
-                mc.connectAttr(connection, '%s.inputs[%d].colorR' % (layeredTexture, index))
-                mc.connectAttr(connection, '%s.inputs[%d].colorG' % (layeredTexture, index))
-                mc.connectAttr(connection, '%s.inputs[%d].colorB' % (layeredTexture, index))
+                # Check if input entry is empty before connecting
+                input_color_attrs = [
+                    '%s.inputs[%d].colorR' % (layeredTexture, index),
+                    '%s.inputs[%d].colorG' % (layeredTexture, index),
+                    '%s.inputs[%d].colorB' % (layeredTexture, index)
+                ]
+                if not any(mc.listConnections(attr, p=True, s=True, d=False) for attr in input_color_attrs):
+                    mc.connectAttr(connection, input_color_attrs[0])
+                    mc.connectAttr(connection, input_color_attrs[1])
+                    mc.connectAttr(connection, input_color_attrs[2])
 
 def assignImageToProjectionShader(shader, image_path, data):
-    projection = mc.listConnections('%s.outColor' % shader, type='projection')[0]
+    projection = mc.listConnections('%s.outColorR' % shader, type='projection')[0]
     fileNode = mc.shadingNode('file', asTexture=True, isColorManaged=True)
     mc.setAttr(fileNode + '.fileTextureName', image_path, type='string')
     mc.connectAttr(fileNode + '.outColor', projection + '.image', force=True)
 
+    mc.setAttr('%s.wrapU' % fileNode, False)
+    mc.setAttr('%s.wrapV' % fileNode, False)
+
     mFile = cgmMeta.asMeta(fileNode)
     mFile.doStore('cgmImageProjectionData',json.dumps(data))
 
-def renderMaterialPass(material, meshObj, fileName = None, asJpg=False):
-    # assign depth shader
-    sg = mc.listConnections(material, type='shadingEngine')
-    if sg:
-        sg = sg[0]
+def renderMaterialPass(material, meshObj, fileName = None, asJpg=False, camera = None):
+    #print("renderMaterialPass(%s, %s, %s, %s, %s)" % (material, meshObj, fileName, asJpg, camera))
 
-    assignMaterial(meshObj, sg)
+    wantedName = ""
+    if(material):
+        # assign depth shader
+        sg = mc.listConnections(material, type='shadingEngine')
+        if sg:
+            sg = sg[0]
+
+        assignMaterial(meshObj, sg)
+
+        wantedName = material
+
+    if fileName:
+        wantedName = fileName
 
     # setAttr "defaultRenderGlobals.imageFormat" 8;
     currentImageFormat = mc.getAttr("defaultRenderGlobals.imageFormat")
 
     if asJpg:
         mc.setAttr("defaultRenderGlobals.imageFormat", 8)
+    else:
+        mc.setAttr("defaultRenderGlobals.imageFormat", 32)
 
-    imagePath = mc.render()
-    returnPath = imagePath
+    mc.setAttr("defaultRenderGlobals.imageFilePrefix", wantedName, type="string")
 
-    path, name = os.path.split(imagePath)
+    outputFileName = mc.renderSettings(fullPathTemp=True, firstImageName=True)
 
-    if(fileName):
-        name = fileName + '.' + name.split('.')[-1]
-        returnPath = files.create_unique_filename(os.path.join(path, name))
-        files.rename_file(imagePath, os.path.split(returnPath)[-1])
+    uniqueFileName = files.create_unique_filename(outputFileName[0])
+    newName = os.path.splitext(os.path.split(uniqueFileName)[-1])[0]
+
+    mc.setAttr("defaultRenderGlobals.imageFilePrefix", newName, type="string")
+
+    if camera:
+        cameras = mc.ls(type='camera')
+
+        # iterate through the cameras and set them to not be renderable
+        for renderCam in cameras:
+            if renderCam == camera:
+                mc.setAttr(renderCam + '.renderable', 1)
+            else:
+                mc.setAttr(renderCam + '.renderable', 0)
+
+    imagePath = mc.render(batch=True, rep=True)
 
     mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
 
-    return returnPath
+    print("Rendered material pass, %s, %s" % (material, imagePath))
+    return imagePath
+
+
+"""
+getAllConnectedNodesOfType - Returns a list of all connected nodes of a specified type to a given source shading node.
+
+@param sourceShadingNode: The name of the source shading node.
+@type sourceShadingNode: str
+
+@param nodeType: The type of node to search for.
+@type nodeType: str
+
+@return: A list of unique connections between the source shading node and nodes of the specified type. Each connection is represented as a list containing the name of the connected node and the name of the destination attribute.
+@rtype: list[list[str]]
+"""
+def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
+    result = []
+
+    def walkConnections(node, nodeType, visited=None):
+        if visited is None:
+            visited = set()
+        connectedNodes = []
+        connections = mc.listConnections(node, source=True, destination=False, plugs=True)
+
+        if connections:
+            for connection in connections:
+                connectedNode = connection.split('.')[0]
+                connectedNodeType = mc.nodeType(connectedNode)
+
+                if connectedNodeType == nodeType:
+                    # Modify the returned list to include the destination attribute instead of the source attribute
+                    connectedNodes.append([connectedNode, mc.listConnections(connection, source=False, destination=True, plugs=True)[0]])
+
+                if connectedNode not in visited:
+                    visited.add(connectedNode)
+                    connectedNodes.extend(walkConnections(connectedNode, nodeType, visited))
+
+        return connectedNodes
+
+    result = walkConnections(sourceShadingNode, nodeType)
+    # Remove any duplicates from the returned list
+    result = list(set(map(tuple, result)))
+    result = [list(t) for t in result]
+    return result
+
