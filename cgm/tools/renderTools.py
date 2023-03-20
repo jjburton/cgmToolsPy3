@@ -260,8 +260,11 @@ def addImageToCompositeShader(shader, color, alpha):
     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
 
     if connections:
-        outColorConnections = [c for c in connections if '.outColor' in c]
-        inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False) or []
+        #outColorConnections = [c for c in connections if '.outColor' in c]
+        inputs = mc.listConnections(connections, p=True, d=True, s=False) or []
+        # get only the inputs with .inputs
+        inputs = [i for i in inputs if '.inputs' in i]
+
         #input_connection = inputs[0]
         for input_connection in reversed(inputs):
             current_index = int(input_connection.split("inputs[")[1].split("]")[0])
@@ -380,6 +383,9 @@ def updateAlphaMatteShader(alphaShader, compositeShader):
                     mc.connectAttr(connection, input_color_attrs[0])
                     mc.connectAttr(connection, input_color_attrs[1])
                     mc.connectAttr(connection, input_color_attrs[2])
+                
+                mc.setAttr("%s.inputs[%d].blendMode" % (layeredTexture, index), 1)
+
 
 def assignImageToProjectionShader(shader, image_path, data):
     projection = mc.listConnections('%s.outColorR' % shader, type='projection')[0]
@@ -389,6 +395,7 @@ def assignImageToProjectionShader(shader, image_path, data):
 
     mc.setAttr('%s.wrapU' % fileNode, False)
     mc.setAttr('%s.wrapV' % fileNode, False)
+    mc.setAttr('%s.defaultColor' % fileNode, 0, 0, 0, type='double3')
 
     mFile = cgmMeta.asMeta(fileNode)
     mFile.doStore('cgmImageProjectionData',json.dumps(data))
@@ -486,4 +493,3 @@ def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
     result = list(set(map(tuple, result)))
     result = [list(t) for t in result]
     return result
-

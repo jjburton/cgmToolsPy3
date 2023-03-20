@@ -65,7 +65,8 @@ _defaultOptions = {
         'sampling_method':'Euler',
         'denoising_strength':.35,
         'use_composite_pass':False,
-        'use_alpha_pass':False
+        'use_alpha_pass':False,
+        'mask_blur':4,
 }
 
 class ui(cgmUI.cgmGUI):
@@ -77,7 +78,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
-    DEFAULT_SIZE = 650,600
+    DEFAULT_SIZE = 650,800
     TOOLNAME = '{0}.ui'.format(__toolname__)
     
     _initialized = False
@@ -516,12 +517,12 @@ class ui(cgmUI.cgmGUI):
         self.uiCompositeCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setCompositeCB)      
 
         mUI.MelLabel(_row,l='Alpha Matte:',align='right')
-        self.uiAlphaMatteCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setAlphaMatteCB)      
+        self.uiAlphaMatteCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, en=False, changeCommand = self.uiFunc_setAlphaMatteCB)      
 
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
-        self.compositeLayout = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate', vis=self.uiCompositeCB(q=True, v=True))
+        self.compositeLayout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate', vis=self.uiCompositeCB(q=True, v=True))
         
         #>>>Denoise Slider...
         denoise = .35
@@ -542,7 +543,28 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_setDenoise('field')
         _row.layout()
 
-        self.compositeLayout.layout()
+        self.alphaMatteLayout = mUI.MelHLayout(self.compositeLayout,expand = True,ut = 'cgmUISubTemplate', vis=self.uiAlphaMatteCB(q=True, v=True))
+        
+        #>>>Mask Blur Slider...
+        maskBlur = 4
+        _row = mUI.MelHSingleStretchLayout(self.alphaMatteLayout,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Mask Blur:',align='right')
+        self.uiIF_maskBlur = mUI.MelIntField(_row,
+                                                w = 40,
+                                                ut='cgmUITemplate',
+                                                value = maskBlur, changeCommand=cgmGEN.Callback(self.uiFunc_setMaskBlur, 'field'))  
+                
+        self.uiSlider_maskBlur = mUI.MelIntSlider(_row,0,100,maskBlur,step = 1)
+        self.uiSlider_maskBlur.setChangeCB(cgmGEN.Callback(self.uiFunc_setMaskBlur, 'slider'))
+        mUI.MelSpacer(_row,w=5)	            
+        _row.setStretchWidget(self.uiSlider_maskBlur)#Set stretch    
+
+        self.uiFunc_setMaskBlur('field')
+        _row.layout()
+
+        self.alphaMatteLayout.layout()
+
 
         #>>> Control Net
         mc.setParent(_inside)
@@ -690,14 +712,27 @@ class ui(cgmUI.cgmGUI):
                 
         self.uiSlider_depthDistance = mUI.MelFloatSlider(_row,1.0,100.0,depth,step = 1)
         self.uiSlider_depthDistance.setChangeCB(cgmGEN.Callback(self.uiFunc_setDepth, 'slider'))
-        self.renderBtn = cgmUI.add_Button(_row,'Render',
-        cgmGEN.Callback(self.uiFunc_renderImage),                         
-        'Render')
         mUI.MelSpacer(_row,w=5)	            
         _row.setStretchWidget(self.uiSlider_depthDistance)#Set stretch    
 
         self.uiFunc_setDepth('field')
         _row.layout()
+
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Tools:',align='right')
+        _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
+
+        self.renderBtn = cgmUI.add_Button(_row,'Test Render',
+        cgmGEN.Callback(self.uiFunc_renderImage),                         
+        'Render')
+        self.viewImageBtn = cgmUI.add_Button(_row,'View Image',
+        cgmGEN.Callback(self.uiFunc_viewImage),                         
+        'View Image')
+        mUI.MelSpacer(_row,w=5)	            
+        _row.layout()
+
+
 
         # Generate Button
         #
@@ -724,12 +759,17 @@ class ui(cgmUI.cgmGUI):
         val = a[0]
 
         self.compositeLayout(e=True, vis=val)
+        self.uiAlphaMatteCB(e=True, en=val)
 
         self.saveOptions()
 
     def uiFunc_setAlphaMatteCB(self, *a):
         _str_func = 'uiFunc_setAlphaMatteCB'
         print(_str_func, a)
+
+        val = a[0]
+
+        self.alphaMatteLayout(e=True, vis=val)
 
         self.saveOptions()
 
@@ -810,6 +850,22 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_renderImage(self):
         outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), asJpg = False, camera = self.uiTextField_projectionCam(q=True, text=True)  )
         iv.ui([outputImage], {'outputImage':outputImage})
+
+    def uiFunc_viewImage(self):
+        _str_func = 'uiFunc_viewImage'
+
+        files = mc.ls(sl=True, type='file')
+        imagePaths = []
+        data = {}
+        for file in files:
+            path =mc.getAttr(file+'.fileTextureName')
+            imagePaths.append(path)
+            data[file] = path
+        
+        if imagePaths:
+            iv.ui(imagePaths, data)
+        else:
+            log.warning("|{0}| >> No images selected.".format(_str_func))
 
     def uiFunc_make_projection_camera(self):
         cam, shape = rt.makeProjectionCamera()
@@ -910,6 +966,8 @@ class ui(cgmUI.cgmGUI):
                 # Convert the base64 bytes to string
                 depth_string = image_base64.decode("utf-8")
 
+                f.close()
+
             _options['control_net_image'] = depth_string
         
         if(_options['use_composite_pass']):
@@ -926,7 +984,28 @@ class ui(cgmUI.cgmGUI):
                 composite_string = image_base64.decode("utf-8")
 
                 _options['init_images'] = [composite_string]
-        
+
+                f.close()
+            
+            if(_options['use_alpha_pass']):
+                alpha_path = rt.renderMaterialPass(self.uiTextField_alphaMatteShader(q=True, text=True), mesh, asJpg=True, camera=camera)
+
+                with open(alpha_path, "rb") as f:
+                    # Read the image data
+                    image_data = f.read()
+                    
+                    # Encode the image data as base64
+                    image_base64 = base64.b64encode(image_data)
+                    
+                    # Convert the base64 bytes to string
+                    alpha_string = image_base64.decode("utf-8")
+
+                    _options['mask'] = alpha_string
+                    _options['mask_blur'] = self.uiIF_maskBlur(query=True, value=True)
+                    _options['inpainting_mask_invert'] = 1
+
+                    f.close()
+
         # standardize the output path
         _options['output_path'] = output_path
 
@@ -938,7 +1017,10 @@ class ui(cgmUI.cgmGUI):
             'rotation' : mc.xform(cameraTransform, q=True, ws=True, ro=True),
             'fov' : mc.getAttr(camera + '.focalLength')}
 
-        displayImage(imagePaths, info, [{'function':self.assignImageToProjection, 'label':'Assign To Projection'}])
+        print("Generated: ", imagePaths, info)
+
+        if(imagePaths):
+            displayImage(imagePaths, info, [{'function':self.assignImageToProjection, 'label':'Assign To Projection'}])
         self.lastInfo = info
 
         self.generateBtn(edit=True, enable=True)
@@ -1002,6 +1084,11 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_setDenoise(self, source):
         uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
+        
+        self.saveOptions()
+
+    def uiFunc_setMaskBlur(self, source):
+        uiFunc_setFieldSlider(self.uiIF_maskBlur, self.uiSlider_maskBlur, source, 100, 1)
         
         self.saveOptions()
 
@@ -1164,6 +1251,7 @@ class ui(cgmUI.cgmGUI):
         _options['denoising_strength'] = self.uiFF_denoiseStrength.getValue()
         _options['use_composite_pass'] = self.uiCompositeCB.getValue()
         _options['use_alpha_pass'] = self.uiAlphaMatteCB.getValue()
+        _options['mask_blur'] = self.uiIF_maskBlur.getValue()
 
         return _options
 
@@ -1233,6 +1321,7 @@ class ui(cgmUI.cgmGUI):
         self.uiCompositeCB.setValue(_options['use_composite_pass'])
         self.uiAlphaMatteCB.setValue(_options['use_alpha_pass'])
 
+        self.uiIF_maskBlur.setValue(_options['mask_blur'])
         self.uiFunc_setCompositeCB(_options['use_composite_pass'])
         self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
 

@@ -79,10 +79,10 @@ def getImageFromAutomatic1111(data):
                     data['control_net_weight'], # weight,
                     {"image":data['control_net_image']},    # image/mask,
                     False,    # scribble_mode,
-                    "Scale to Fit (Inner Fit)",   # resize_mode,
+                    "Scale to Fit (Inner Fit)",   # resize_mode, 
                     False,    # rgbbgr_mode,
                     data['control_net_low_v_ram'],    # lowvram,
-                    data['width'],    # pres,
+                    512,    # pres,
                     100,    # pthr_a,
                     200,    # pthr_b,
                     data['control_net_guidance_start'],    # guidance_start,
@@ -100,22 +100,33 @@ def getImageFromAutomatic1111(data):
         payload['init_images'] = data['init_images']
         payload['denoising_strength'] = data['denoising_strength']
 
+    if('mask' in data):
+        payload['mask'] = data['mask']
+        if 'mask_blur' in data:
+            payload['mask_blur'] = data['mask_blur']
+        if 'inpainting_mask_invert' in data:
+            payload['inpainting_mask_invert'] = data['inpainting_mask_invert']
+
     conn = http.client.HTTPConnection(data['automatic_url'])
     headers = {'Content-Type': 'application/json'}
     jsonData = json.dumps(payload)
+
+    print("Sending to Automatic1111 with payload: ", jsonData)
 
     conn.request('POST', endpoint, jsonData, headers)
     response = conn.getresponse()
 
     print(response.status, response.reason)
 
-    if(response.status != 200):
-        print("Error: ", response.reason)
-        return [], {}
-    
     decoded = response.read().decode()
     outputData = json.loads(decoded)
     conn.close()
+
+    if(response.status != 200):
+        print("Error: ", response.reason)
+        print("Return Data: ", outputData)
+        return [], {}
+    
 
 
     # assuming i contains the base64 encoded image string
