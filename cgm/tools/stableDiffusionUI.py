@@ -18,6 +18,9 @@ import os
 import base64
 import logging
 import json
+from PIL import Image
+from io import BytesIO
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -55,7 +58,8 @@ _defaultOptions = {
         'width':512,
         'height':512,
         'sampling_steps':5,
-        'depth_distance':30.0,
+        'min_depth_distance':0.0,
+        'max_depth_distance':30.0,
         'control_net_enabled':True,
         'control_net_low_v_ram':False,
         'control_net_preprocessor':'none',
@@ -357,6 +361,26 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
+        #>>> Load Merged Shader
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Merged Shader:',align='right')
+        self.uiTextField_mergedShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+                                                        ut = 'cgmUITemplate',
+                                                        w = 50,
+                                                        editable=False,
+                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+                                                        annotation = "Our base object from which we process things in this tab...")
+        mUI.MelSpacer(_row,w = 5)
+        _row.setStretchWidget(self.uiTextField_mergedShader)
+        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_mergedShader, enforcedType = 'surfaceShader'))
+        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_merged_shader(),annotationText='')
+        cgmUI.add_Button(_row, 'Select',
+                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_mergedShader),
+                            annotationText='')
+        mUI.MelSpacer(_row,w = 5)
+        _row.layout()
+
         #>>> Automatic1111 Info
         mc.setParent(_inside)
         cgmUI.add_Header('Automatic1111 Settings')
@@ -374,6 +398,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.setStretchWidget(self.uiTextField_automaticURL)
         _row.layout()
+
 
         self.uiFunc_auto_populate_fields()
         return _inside
@@ -691,32 +716,56 @@ class ui(cgmUI.cgmGUI):
         cgmUI.add_Button(_row,'Alpha', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaShader))
         cgmUI.add_Button(_row,'Composite', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
         cgmUI.add_Button(_row,'Alpha Matte', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaMatteShader))
-        cgmUI.add_Button(_row,'Merged', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
+        cgmUI.add_Button(_row,'Merged', lambda *a:self.uiFunc_assign_material(self.uiTextField_mergedShader))
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
         #>>>Depth Slider...
-        depth = 50.0
+        minDepth = 0
+        maxDepth = 50.0
         depthShader = self.getDepthShader()
         if(depthShader):
-            depth = mc.getAttr('%s.distance' % depthShader)
+            minDepth = mc.getAttr('%s.minDistance' % depthShader)
+            maxDepth = mc.getAttr('%s.maxDistance' % depthShader)
 
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        
         mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Depth Distance:',align='right')
-        self.uiFF_depthDistance = mUI.MelFloatField(_row,
+        mUI.MelLabel(_row,l='Depth:',align='right')
+        _layoutRow = mUI.MelHLayout(_row,ut='cgmUISubTemplate',padding = 10)
+
+        _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelLabel(_subRow,l='Min:',align='right')
+        self.uiFF_minDepthDistance = mUI.MelFloatField(_subRow,
                                                 w = 40,
                                                 ut='cgmUITemplate',
                                                 precision = 2,
-                                                value = depth, changeCommand=cgmGEN.Callback(self.uiFunc_setDepth, 'field'))  
+                                                value = minDepth, changeCommand=cgmGEN.Callback(self.uiFunc_setDepth, 'field'))  
                 
-        self.uiSlider_depthDistance = mUI.MelFloatSlider(_row,1.0,100.0,depth,step = 1)
-        self.uiSlider_depthDistance.setChangeCB(cgmGEN.Callback(self.uiFunc_setDepth, 'slider'))
-        mUI.MelSpacer(_row,w=5)	            
-        _row.setStretchWidget(self.uiSlider_depthDistance)#Set stretch    
+        self.uiSlider_minDepthDistance = mUI.MelFloatSlider(_subRow,0.0,100.0,minDepth,step = 1)
+        self.uiSlider_minDepthDistance.setChangeCB(cgmGEN.Callback(self.uiFunc_setDepth, 'slider'))
+        _subRow.setStretchWidget(self.uiSlider_minDepthDistance)#Set stretch    
+        _subRow.layout()
+
+        _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelLabel(_subRow,l='Max:',align='right')
+        self.uiFF_maxDepthDistance = mUI.MelFloatField(_subRow,
+                                                w = 40,
+                                                ut='cgmUITemplate',
+                                                precision = 2,
+                                                value = maxDepth, changeCommand=cgmGEN.Callback(self.uiFunc_setDepth, 'field'))  
+                
+        self.uiSlider_maxDepthDistance = mUI.MelFloatSlider(_subRow,1.0,100.0,maxDepth,step = 1)
+        self.uiSlider_maxDepthDistance.setChangeCB(cgmGEN.Callback(self.uiFunc_setDepth, 'slider'))
+        _subRow.setStretchWidget(self.uiSlider_maxDepthDistance)#Set stretch    
+
+        _subRow.layout()
+        _layoutRow.layout()
+        _row.setStretchWidget(_layoutRow)
+        _row.layout()
 
         self.uiFunc_setDepth('field')
-        _row.layout()
+
 
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
@@ -745,6 +794,10 @@ class ui(cgmUI.cgmGUI):
         self.bakeProjectionBtn = cgmUI.add_Button(_row,'Bake Projection',
             cgmGEN.Callback(self.uiFunc_bakeProjection),                         
             'Bake Projection',h=50)
+
+        self.mergeCompositeBtn = cgmUI.add_Button(_row,'Merge Composite',
+            cgmGEN.Callback(self.uiFunc_mergeComposite),                         
+            'Merge Composite',h=50)
 
         _row.layout()    
         #
@@ -815,6 +868,9 @@ class ui(cgmUI.cgmGUI):
                 continue
             if(mc.getAttr(shader) == 'sd_alphaMatte'):
                 self.uiTextField_alphaMatteShader(edit=True, text=shader.split('.')[0])
+                continue
+            if(mc.getAttr(shader) == 'sd_merged'):
+                self.uiTextField_mergedShader(edit=True, text=shader.split('.')[0])
                 continue
         return
 
@@ -925,12 +981,22 @@ class ui(cgmUI.cgmGUI):
             if(ramp):
                 mc.connectAttr(ramp[0] + '.outColorG', alphaShader + '.outColorG', force=True)
 
-        mc.setAttr(shader + '.distance', self.uiFF_depthDistance(query=True, value=True))
+        mc.setAttr(shader + '.maxDistance', self.uiFF_maxDepthDistance(query=True, value=True))
+
+    def uiFunc_make_merged_shader(self):
+        _str_func = 'uiFunc_make_merged_shader'
+
+        shader, sg = sd.makeMergedShader()
+
+        self.uiTextField_mergedShader(edit=True, text=shader)
 
     def uiFunc_generateImage(self):
         _str_func = 'uiFunc_generateImage'
 
         depthMat = self.uiTextField_depthShader(q=True, text=True)
+        alphaMat = self.uiTextField_alphaMatteShader(q=True, text=True)
+        compositeMat = self.uiTextField_compositeShader(q=True, text=True)
+
         mesh = self.uiTextField_baseObject(q=True, text=True)
         camera = self.uiTextField_projectionCam(q=True, text=True)
 
@@ -954,57 +1020,79 @@ class ui(cgmUI.cgmGUI):
         output_path = getImagePath()
 
         if mc.objExists(depthMat) and mc.objExists(mesh):
-            depth_path = rt.renderMaterialPass(depthMat, mesh, asJpg=True, camera=camera)
+            depth_path = rt.renderMaterialPass(depthMat, mesh, asJpg=False, camera=camera)
             
-            with open(depth_path, "rb") as f:
-                # Read the image data
-                image_data = f.read()
-                
-                # Encode the image data as base64
-                image_base64 = base64.b64encode(image_data)
-                
-                # Convert the base64 bytes to string
-                depth_string = image_base64.decode("utf-8")
+            # Read the image data
+            depth_image = Image.open(depth_path)
 
-                f.close()
+            # Convert the image data to grayscale
+            depth_image_gray = depth_image.convert('L')
+
+            # Encode the image data as base64
+            #depth_buffered = BytesIO()
+            with BytesIO() as depth_buffered:
+                depth_image_gray.save(depth_buffered, format="PNG")
+                
+                depth_base64 = base64.b64encode(depth_buffered.getvalue())
+
+                # Convert the base64 bytes to string
+                depth_string = depth_base64.decode("utf-8")
+
+                # with open(depth_path, "rb") as d:
+                #     # Read the image data
+                #     depth_data = d.read()
+                    
+                #     # Encode the image data as base64
+                #     depth_base64 = base64.b64encode(depth_data)
+                    
+                #     # Convert the base64 bytes to string
+                #     depth_string = depth_base64.decode("utf-8")
+
+                #     d.close()
 
             _options['control_net_image'] = depth_string
         
-        if(_options['use_composite_pass']):
-            composite_path = rt.renderMaterialPass(self.uiTextField_compositeShader(q=True, text=True), mesh, asJpg=False, camera=camera)
+        if _options['use_composite_pass'] and mc.objExists(compositeMat) and mc.objExists(mesh):
+            composite_path = rt.renderMaterialPass(compositeMat, mesh, asJpg=False, camera=camera)
 
-            with open(composite_path, "rb") as f:
+            with open(composite_path, "rb") as c:
                 # Read the image data
-                image_data = f.read()
+                composite_data = c.read()
                 
                 # Encode the image data as base64
-                image_base64 = base64.b64encode(image_data)
+                composite_base64 = base64.b64encode(composite_data)
                 
                 # Convert the base64 bytes to string
-                composite_string = image_base64.decode("utf-8")
+                composite_string = composite_base64.decode("utf-8")
 
                 _options['init_images'] = [composite_string]
 
-                f.close()
+                c.close()
             
-            if(_options['use_alpha_pass']):
-                alpha_path = rt.renderMaterialPass(self.uiTextField_alphaMatteShader(q=True, text=True), mesh, asJpg=True, camera=camera)
+        if _options['use_alpha_pass'] and _options['use_composite_pass'] and mc.objExists(alphaMat) and mc.objExists(mesh):
+            alpha_path = rt.renderMaterialPass(alphaMat, mesh, asJpg=False, camera=camera)
 
-                with open(alpha_path, "rb") as f:
-                    # Read the image data
-                    image_data = f.read()
-                    
-                    # Encode the image data as base64
-                    image_base64 = base64.b64encode(image_data)
-                    
-                    # Convert the base64 bytes to string
-                    alpha_string = image_base64.decode("utf-8")
+            if os.path.exists(alpha_path):
+                # Read the image data
+                alpha_image = Image.open(alpha_path)
 
-                    _options['mask'] = alpha_string
-                    _options['mask_blur'] = self.uiIF_maskBlur(query=True, value=True)
-                    _options['inpainting_mask_invert'] = 1
+                # Convert the image data to grayscale
+                alpha_image_gray = alpha_image.convert('L')
 
-                    f.close()
+                # Encode the image data as base64
+                buffered = BytesIO()
+                alpha_image_gray.save(buffered, format="PNG")
+
+                alpha_base64 = base64.b64encode(buffered.getvalue())
+
+                # Convert the base64 bytes to string
+                alpha_string = alpha_base64.decode("utf-8")
+
+                _options['mask'] = alpha_string
+                _options['mask_blur'] = self.uiIF_maskBlur(query=True, value=True)
+                _options['inpainting_mask_invert'] = 1
+            else:
+                log.warning("|{0}| >> No alpha matte found.".format(_str_func))
 
         # standardize the output path
         _options['output_path'] = output_path
@@ -1021,6 +1109,7 @@ class ui(cgmUI.cgmGUI):
 
         if(imagePaths):
             displayImage(imagePaths, info, [{'function':self.assignImageToProjection, 'label':'Assign To Projection'}])
+        
         self.lastInfo = info
 
         self.generateBtn(edit=True, enable=True)
@@ -1054,25 +1143,44 @@ class ui(cgmUI.cgmGUI):
         # assign composite shader
         self.uiFunc_assign_material(self.uiTextField_compositeShader)
 
+    def uiFunc_mergeComposite(self):
+        bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
+        mergedShader = self.uiTextField_mergedShader(query=True, text=True)
+        # connected composite image outColor to outColor of merged shader
+        mc.connectAttr(bakedCompositeImage + '.outColor', mergedShader + '.outColor', force=True)
+
+        # assign merged shader
+        self.uiFunc_assign_material(self.uiTextField_mergedShader)
+
     def uiFunc_setDepth(self, source):
         shader = self.getDepthShader()
 
-        _depth = 0.0
+        _minDepth = 0.0
+        _maxDepth = 0.0
 
         if(shader):
-            _depth = mc.getAttr('%s.distance' % shader)
+            _minDepth = mc.getAttr('%s.minDistance' % shader)
+            _maxDepth = mc.getAttr('%s.maxDistance' % shader)
 
         if source == 'slider':
-            _depth = self.uiSlider_depthDistance(query=True, value=True)
-            self.uiFF_depthDistance.setValue(_depth)
+            _minDepth = self.uiSlider_minDepthDistance(query=True, value=True)
+            self.uiFF_minDepthDistance.setValue(_minDepth)
+
+            _maxDepth = self.uiSlider_maxDepthDistance(query=True, value=True)
+            self.uiFF_maxDepthDistance.setValue(_maxDepth)
             
         elif source == 'field':
-            _depth = self.uiFF_depthDistance.getValue()
-            self.uiSlider_depthDistance(edit=True, max=max(100.0, _depth))
-            self.uiSlider_depthDistance(edit=True, value=_depth, step=1)
+            _minDepth = self.uiFF_minDepthDistance.getValue()
+            self.uiSlider_minDepthDistance(edit=True, max=max(100.0, _minDepth))
+            self.uiSlider_minDepthDistance(edit=True, value=_minDepth, step=1)
+
+            _maxDepth = self.uiFF_maxDepthDistance.getValue()
+            self.uiSlider_maxDepthDistance(edit=True, max=max(100.0, _maxDepth))
+            self.uiSlider_maxDepthDistance(edit=True, value=_maxDepth, step=1)
         
         if shader:
-            mc.setAttr('%s.distance' % shader, _depth)
+            mc.setAttr('%s.minDistance' % shader, _minDepth)
+            mc.setAttr('%s.maxDistance' % shader, _maxDepth)
         
         self.saveOptions()
 
@@ -1240,7 +1348,8 @@ class ui(cgmUI.cgmGUI):
         _options['height'] = self.uiIF_Height(query=True, v=True)
         _options['sampling_method'] = self.uiOM_samplingMethodMenu(query=True, value=True)
         _options['sampling_steps'] = self.uiIF_samplingSteps.getValue()
-        _options['depth_distance'] = self.uiFF_depthDistance.getValue()
+        _options['min_depth_distance'] = self.uiFF_minDepthDistance.getValue()
+        _options['max_depth_distance'] = self.uiFF_maxDepthDistance.getValue()
         _options['control_net_enabled'] = self.uiControlNetEnabledCB.getValue()
         _options['control_net_low_v_ram'] = self.uiControlNetLowVRamCB.getValue()
         _options['control_net_preprocessor'] = self.uiOM_ControlNetPreprocessorMenu(query=True, value=True)
@@ -1308,7 +1417,8 @@ class ui(cgmUI.cgmGUI):
         if 'sampling_method' in _options:
             self.uiOM_samplingMethodMenu(edit=True, value=_options['sampling_method'])
         self.uiIF_samplingSteps.setValue(_options['sampling_steps'])
-        self.uiFF_depthDistance.setValue(_options['depth_distance'])
+        self.uiFF_minDepthDistance.setValue(_options['min_depth_distance'])
+        self.uiFF_maxDepthDistance.setValue(_options['max_depth_distance'])
         self.uiControlNetEnabledCB.setValue(_options['control_net_enabled'])
         self.uiControlNetLowVRamCB.setValue(_options['control_net_low_v_ram'])
         self.uiOM_ControlNetPreprocessorMenu(edit=True, value=_options['control_net_preprocessor'])

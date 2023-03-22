@@ -5,7 +5,7 @@ from io import BytesIO
 import os
 
 import base64
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 from cgm.tools import renderTools as rt
 from cgm.core import cgm_Meta as cgmMeta
@@ -68,30 +68,28 @@ def getImageFromAutomatic1111(data):
         "width":data['width'],
         "height":data['height'],
         "sampler_index":data['sampling_method'],
-        "alwayson_scripts": {
-            "ControlNet": {
-                "args": [
-                    False,  # is_img2img
-                    False,  # is_ui
-                    data['control_net_enabled'],   # enabled,
-                    data['control_net_preprocessor'],    # module,
-                    data['control_net_model'], # model,
-                    data['control_net_weight'], # weight,
-                    {"image":data['control_net_image']},    # image/mask,
-                    False,    # scribble_mode,
-                    "Scale to Fit (Inner Fit)",   # resize_mode, 
-                    False,    # rgbbgr_mode,
-                    data['control_net_low_v_ram'],    # lowvram,
-                    512,    # pres,
-                    100,    # pthr_a,
-                    200,    # pthr_b,
-                    data['control_net_guidance_start'],    # guidance_start,
-                    data['control_net_guidance_end'],    # guidance_end,
-                    False   # guess_mode
-                    ]
-                }
-            }
     }
+
+    if data['control_net_enabled']:
+        payload["alwayson_scripts"] = {
+            "controlnet": {
+                "args": [
+                    {
+                    "lowvram": data['control_net_low_v_ram'],
+                    "module": data['control_net_preprocessor'],
+                    "model": data['control_net_model'],
+                    "weight": data['control_net_weight'],
+                    "resize_mode": "Scale to Fit (Inner Fit)",
+                    "input_image": data['control_net_image'],
+                    "processor_res": 512,
+                    "threshold_a": 100,
+                    "threshold_b": 255,
+                    "guidance_start": data['control_net_guidance_start'],
+                    "guidance_end": data['control_net_guidance_end'],
+                    "guessmode": False,
+                    }
+            ]}
+        }
 
     endpoint = '/sdapi/v1/txt2img'
 
@@ -270,6 +268,15 @@ def makeDepthShader():
 
     return shader, sg
 
+def makeMergedShader():
+    shader, sg = rt.makeShader('surfaceShader')
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_merged')
+
+    shader = mc.rename(shader, 'cgmMergedShader')
+
+    return shader, sg
+
 def getModelsFromAutomatic(url = '127.0.0.1:7860'):
     conn = http.client.HTTPConnection(url)
     endpoint = '/sdapi/v1/sd-models'
@@ -296,3 +303,29 @@ def load_settings_from_image(fileNode):
     
     data = json.loads(mc.getAttr('%s.cgmImageProjectionData' % fileNode))
     return data
+
+def encode_pil_to_base64(image, format = 'PNG', jpegQuality = 75):
+    with BytesIO() as output_bytes:
+
+        if format.lower() == 'png':
+            use_metadata = False
+            metadata = PngImagePlugin.PngInfo()
+            for key, value in image.info.items():
+                if isinstance(key, str) and isinstance(value, str):
+                    metadata.add_text(key, value)
+                    use_metadata = True
+            image.save(output_bytes, format="PNG", pnginfo=(metadata if use_metadata else None), quality=jpegQuality)
+
+        elif format.lower() in ("jpg", "jpeg", "webp"):
+            if format.lower() in ("jpg", "jpeg"):
+                image.save(output_bytes, format="JPEG", quality=jpegQuality)
+            else:
+                image.save(output_bytes, format="WEBP", quality=jpegQuality)
+
+        else:
+            print("Invalid image format")
+
+        bytes_data = output_bytes.getvalue()
+
+    return base64.b64encode(bytes_data)
+

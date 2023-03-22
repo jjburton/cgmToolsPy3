@@ -43,31 +43,49 @@ def assignMaterial(shapeName, shadingGroupName):
     mc.sets(shapeName, forceElement=shadingGroupName)
 
 def makeDepthShader():
+    baseName = 'cgmDepthRamp'
+
     # Create nodes
     shader, sg = makeShader('surfaceShader')
     shader = mc.rename(shader, 'cgmDepthMaterial')
-    ramp = mc.shadingNode('ramp', asTexture=True)
-    mult_div = mc.shadingNode('multiplyDivide', asUtility=True)
-    sampler_info = mc.shadingNode('samplerInfo', asUtility=True)
-    negate_distance = mc.shadingNode('multiplyDivide', asUtility=True)
-    clamp = mc.shadingNode('clamp', asUtility=True)
+    ramp = mc.shadingNode('ramp', asTexture=True, name=baseName + '_ramp')
+    mult_div = mc.shadingNode('multiplyDivide', asUtility=True, name=baseName + '_multiplyDivide')
+    sampler_info = mc.shadingNode('samplerInfo', asUtility=True, name=baseName + '_samplerInfo')
+    negate_distance = mc.shadingNode('multiplyDivide', asUtility=True, name=baseName + '_negateDistance')
+    clamp = mc.shadingNode('clamp', asUtility=True, name=baseName + '_clamp')
+    minDistanceClamp = mc.shadingNode('clamp', asUtility=True, name=baseName + '_minDistanceClamp')
+    positionAdd = mc.shadingNode('plusMinusAverage', asUtility=True, name=baseName + '_positionAdd')
+    distanceDiff = mc.shadingNode('plusMinusAverage', asUtility=True, name=baseName + '_distanceDiff')
 
     # Create a distance attribute on the shader node
-    mc.addAttr(shader, ln='distance', at='float', dv=100.0)
-    
+    mc.addAttr(shader, ln='maxDistance', at='float', dv=100.0)
+    mc.addAttr(shader, ln='minDistance', at='float', dv=0)
+
+    # clamp min distance to max distance
+    mc.connectAttr("%s.minDistance" % shader, "%s.inputR" % minDistanceClamp)
+    mc.connectAttr("%s.minDistance" % shader, "%s.minR" % minDistanceClamp)
+    mc.connectAttr("%s.maxDistance" % shader, "%s.maxR" % minDistanceClamp)
+
+    # connect min distance clamp to distance diff
+    mc.connectAttr("%s.maxDistance" % shader, "%s.input1D[0]" % distanceDiff)
+    mc.connectAttr("%s.outputR" % minDistanceClamp, "%s.input1D[1]" % distanceDiff)
+    mc.setAttr("%s.operation" % distanceDiff, 2)
+
     # Connect distance attribute to multiply divide input 2X
-    mc.connectAttr("%s.distance" % (shader), "%s.input2X" % mult_div)
+    mc.connectAttr("%s.output1D" % distanceDiff, "%s.input2X" % mult_div)
     
-    mc.connectAttr("%s.distance" % (shader), "%s.input1X" % negate_distance)
+    mc.connectAttr("%s.output1D" % distanceDiff, "%s.input1X" % negate_distance)
     mc.setAttr("%s.input2X" % negate_distance, -1.0)
 
     # connect negate to clamp min
     mc.connectAttr("%s.outputX" % negate_distance, "%s.minR" % clamp)
-    mc.connectAttr("%s.outputX" % negate_distance, "%s.minG" % clamp)
-    mc.connectAttr("%s.outputX" % negate_distance, "%s.minB" % clamp)
+
+    mc.setAttr("%s.maxR" % clamp, -.001)
 
     # connect sampler info to clamp input
-    mc.connectAttr("%s.pointCameraZ" % sampler_info, "%s.inputR" % clamp)
+    mc.connectAttr("%s.pointCameraZ" % sampler_info, "%s.input1D[0]" % positionAdd)
+    mc.connectAttr("%s.outputR" % minDistanceClamp, "%s.input1D[1]" % positionAdd)
+    mc.connectAttr("%s.output1D" % positionAdd, "%s.inputR" % clamp)
 
     # Set multiply divide node to divide mode
     mc.setAttr("%s.operation" % mult_div, 2)
@@ -188,6 +206,30 @@ def makeAlphaProjectionShader(cameraShape):
     # connect the ramp node alpha to the layered texture node alpha
     mc.connectAttr('%s.outAlpha' % ramp, '%s.inputs[0].alpha' % layeredTexture)
 
+    # create the vignette projection ramp
+    vignetteRamp = mc.shadingNode('ramp', asTexture=True)
+    vignetteProjection = mc.shadingNode('projection', asTexture=True)
+
+    # set projection to perspective and link camera
+    mc.setAttr('%s.projType' % vignetteProjection, 8)
+    mc.connectAttr('%s.worldMatrix[0]' % cameraShape, '%s.linkedCamera' % vignetteProjection)
+
+    # connect the ramp node to the projection node
+    mc.connectAttr('%s.outColor' % vignetteRamp, '%s.image' % vignetteProjection)
+
+    # set the ramp node to linear
+    mc.setAttr('%s.interpolation' % vignetteRamp, 1)
+
+    # set to circular
+    mc.setAttr('%s.type' % vignetteRamp, 4)
+
+    # set first color to white and last color to black
+    mc.setAttr('%s.colorEntryList[0].color' % vignetteRamp, 1, 1, 1, type='double3')
+    mc.setAttr('%s.colorEntryList[1].color' % vignetteRamp, 0, 0, 0, type='double3')
+
+    # connect projection outputR to shaders inputB
+    mc.connectAttr('%s.outColorR' % vignetteProjection, '%s.outColorB' % shader, force=True)
+
     return shader, sg
 
 def makeAlphaMatteShader():
@@ -231,30 +273,6 @@ def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     
     return convertedFile
 
-# def addImageToCompositeShader(shader, color, alpha):
-#     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
-#     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
-#     # get connections to "outColor"
-#     #outColorConnections = [c for c in connections if c.endswith(".outColor")]
-#     # get the index of the last connection
-#     index = 0
-#     if(connections):
-#         outColorConnections = [c for c in connections if c.endswith(".outColor")]
-#         # get the index of the last connection
-#         inputs = mc.listConnections(outColorConnections, p=True, d=True, s=False)
-#         index = int(inputs[-1].split("inputs[")[1].split("]")[0]) + 1
-
-#     remapColor = mc.shadingNode('remapColor', asUtility=True )
-
-#     mc.setAttr( "%s.red[0].red_Position" % remapColor, 0)
-#     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.1)
-
-#     mc.connectAttr('%s.outColor' % color, '%s.inputs[%d].color' % (layeredTexture, index), f=True)
-#     mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
-#     mc.connectAttr('%s.outColorR' % remapColor, '%s.inputs[%d].alpha' % (layeredTexture, index), f=True)
-
-#     return index, remapColor
-
 def addImageToCompositeShader(shader, color, alpha):
     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
@@ -285,19 +303,19 @@ def addImageToCompositeShader(shader, color, alpha):
     mult = mc.shadingNode('multiplyDivide', asUtility=True)
     mult2 = mc.shadingNode('multiplyDivide', asUtility=True)
 
-    mc.setAttr("%s.red[0].red_Position" % remapColor, 0)
-    mc.setAttr("%s.red[1].red_Position" % remapColor, 0.1)
+    mc.setAttr("%s.red[0].red_Position" % remapColor, 0.1)
+    mc.setAttr("%s.red[1].red_Position" % remapColor, 0.5)
 
     # set green position to 1
     mc.setAttr("%s.green[0].green_Position" % remapColor, 0)
-    mc.setAttr("%s.green[1].green_Position" % remapColor, 1)
-    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 1)
+    mc.setAttr("%s.green[1].green_Position" % remapColor, .5)
+    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 0)
     mc.setAttr("%s.green[1].green_FloatValue" % remapColor, 1)
 
     # set blue position to 1
     mc.setAttr("%s.blue[0].blue_Position" % remapColor, 0)
-    mc.setAttr("%s.blue[1].blue_Position" % remapColor, 1)
-    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 1)
+    mc.setAttr("%s.blue[1].blue_Position" % remapColor, .4)
+    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 0)
     mc.setAttr("%s.blue[1].blue_FloatValue" % remapColor, 1)
 
     # connect remap color r and g to multiply
@@ -314,9 +332,6 @@ def addImageToCompositeShader(shader, color, alpha):
     mc.connectAttr('%s.outputX' % mult2, '%s.inputs[0].alpha' % layeredTexture, f=True)
 
     return 0, remapColor
-
-
-
 
 
 # def updateAlphaMatteShader(alphaShader, compositeShader):
