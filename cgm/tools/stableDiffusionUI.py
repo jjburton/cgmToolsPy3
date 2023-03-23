@@ -87,6 +87,10 @@ class ui(cgmUI.cgmGUI):
     
     _initialized = False
 
+    @property
+    def resolution(self):
+        return (self.uiIF_Width.getValue(), self.uiIF_Height.getValue())
+
     def insert_init(self,*args,**kws):
         _str_func = '__init__[{0}]'.format(self.__class__.TOOLNAME)            
         log.info("|{0}| >>...".format(_str_func))        
@@ -479,7 +483,7 @@ class ui(cgmUI.cgmGUI):
                                                     changeCommand = lambda *a:self.saveOptions(),
                                                     annotation = 'Degree of curve to create')	 	    
 
-        _sizeOptions = ['512x512','1024x1024','2048x2048', '640x360', '1280x720','1920x1080']
+        _sizeOptions = ['512x512','1024x1024','2048x2048', '768x512', '640x360', '1280x720','1920x1080']
         self.uiOM_SizeMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
         for option in _sizeOptions:
             self.uiOM_SizeMenu.append(option)
@@ -527,6 +531,48 @@ class ui(cgmUI.cgmGUI):
         _row.layout()
 
         self.uiFunc_setSamples('field')
+
+
+        #>>> Batches
+        _row = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+
+        _subRow = mUI.MelHSingleStretchLayout(_row,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_subRow,w=5)
+        mUI.MelLabel(_subRow,l='Batch Count:',align='right')
+        self.uiIF_batchCount = mUI.MelIntField(_subRow,
+                                                    minValue = 1,
+                                                    value = 1,
+                                                    annotation = 'Sampling Steps', changeCommand=cgmGEN.Callback(self.uiFunc_setBatchCount,'field'))  
+        self.uiSlider_batchCount = mUI.MelIntSlider(_subRow,1,10,1,step = 1)
+        self.uiSlider_batchCount.setChangeCB(cgmGEN.Callback(self.uiFunc_setBatchCount,'slider'))
+
+        _subRow.setStretchWidget( self.uiSlider_batchCount )
+        mUI.MelSpacer(_subRow,w = 5)
+
+        self.uiFunc_setBatchCount('field')
+
+        _subRow.layout()
+
+        _subRow = mUI.MelHSingleStretchLayout(_row,expand = True,ut = 'cgmUISubTemplate')
+        
+        mUI.MelLabel(_subRow,l='Batch Size:',align='right')
+        self.uiIF_batchSize = mUI.MelIntField(_subRow,
+                                                    minValue = 1,
+                                                    value = 1,
+                                                    annotation = 'Sampling Steps', changeCommand=cgmGEN.Callback(self.uiFunc_setBatchSize,'field'))  
+        self.uiSlider_batchSize = mUI.MelIntSlider(_subRow,1,100,1,step = 1)
+        self.uiSlider_batchSize.setChangeCB(cgmGEN.Callback(self.uiFunc_setBatchSize,'slider'))
+
+        _subRow.setStretchWidget( self.uiSlider_batchSize )
+        mUI.MelSpacer(_subRow,w = 5)
+
+        self.uiFunc_setBatchSize('field')
+
+        _subRow.layout()
+
+        _row.layout()
+
+
 
         #>>> Img2Img
 
@@ -901,10 +947,22 @@ class ui(cgmUI.cgmGUI):
         width, height = [int(x) for x in size.split('x')]
         self.uiIF_Width(edit=True, value=width)
         self.uiIF_Height(edit=True, value=height)
+
+        # set render globals
+        mc.setAttr('defaultResolution.width', width)
+        mc.setAttr('defaultResolution.height', height)
+
+        aspectRatio = float(width)/float(height)
+        mc.setAttr( "defaultResolution.deviceAspectRatio", aspectRatio)
+
+        projectionCam = self.uiTextField_projectionCam(q=True, text=True)
+        mc.setAttr( '%s.horizontalFilmAperture' % projectionCam, aspectRatio )
+        mc.setAttr( '%s.verticalFilmAperture' % projectionCam, 1.0 )
+
         self.saveOptions()
 
     def uiFunc_renderImage(self):
-        outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), asJpg = False, camera = self.uiTextField_projectionCam(q=True, text=True)  )
+        outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), camera = self.uiTextField_projectionCam(q=True, text=True), resolution = self.resolution  )
         iv.ui([outputImage], {'outputImage':outputImage})
 
     def uiFunc_viewImage(self):
@@ -1019,41 +1077,33 @@ class ui(cgmUI.cgmGUI):
 
         output_path = getImagePath()
 
-        if mc.objExists(depthMat) and mc.objExists(mesh):
-            depth_path = rt.renderMaterialPass(depthMat, mesh, asJpg=False, camera=camera)
-            
-            # Read the image data
-            depth_image = Image.open(depth_path)
+        composite_path = None
+        composite_string = None
 
-            # Convert the image data to grayscale
-            depth_image_gray = depth_image.convert('L')
-
-            # Encode the image data as base64
-            #depth_buffered = BytesIO()
-            with BytesIO() as depth_buffered:
-                depth_image_gray.save(depth_buffered, format="PNG")
+        if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == 'none':
+            if mc.objExists(depthMat) and mc.objExists(mesh):
+                format = 'jpeg'
+                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, format=format, resolution=self.resolution)
                 
-                depth_base64 = base64.b64encode(depth_buffered.getvalue())
+                # Read the image data
+                depth_image = Image.open(depth_path)
 
-                # Convert the base64 bytes to string
-                depth_string = depth_base64.decode("utf-8")
+                # Convert the image data to grayscale
+                depth_image_RGB = depth_image.convert('RGB')
 
-                # with open(depth_path, "rb") as d:
-                #     # Read the image data
-                #     depth_data = d.read()
+                # Encode the image data as base64
+                #depth_buffered = BytesIO()
+                with BytesIO() as depth_buffered:
+                    depth_image_RGB.save(depth_buffered, format=format)
                     
-                #     # Encode the image data as base64
-                #     depth_base64 = base64.b64encode(depth_data)
-                    
-                #     # Convert the base64 bytes to string
-                #     depth_string = depth_base64.decode("utf-8")
+                    depth_base64 = base64.b64encode(depth_buffered.getvalue())
 
-                #     d.close()
+                    # Convert the base64 bytes to string
+                    depth_string = depth_base64.decode("utf-8")
 
-            _options['control_net_image'] = depth_string
-        
-        if _options['use_composite_pass'] and mc.objExists(compositeMat) and mc.objExists(mesh):
-            composite_path = rt.renderMaterialPass(compositeMat, mesh, asJpg=False, camera=camera)
+                    _options['control_net_image'] = depth_string
+        else:
+            composite_path = rt.renderMaterialPass(compositeMat, mesh, camera=camera, resolution=self.resolution)
 
             with open(composite_path, "rb") as c:
                 # Read the image data
@@ -1064,13 +1114,30 @@ class ui(cgmUI.cgmGUI):
                 
                 # Convert the base64 bytes to string
                 composite_string = composite_base64.decode("utf-8")
-
-                _options['init_images'] = [composite_string]
-
-                c.close()
             
+            _options['control_net_image'] = composite_string
+
+        
+        if _options['use_composite_pass'] and mc.objExists(compositeMat) and mc.objExists(mesh):
+            if composite_string == None:
+                composite_path = rt.renderMaterialPass(compositeMat, mesh, camera=camera, resolution=self.resolution)
+
+                with open(composite_path, "rb") as c:
+                    # Read the image data
+                    composite_data = c.read()
+                    
+                    # Encode the image data as base64
+                    composite_base64 = base64.b64encode(composite_data)
+                    
+                    # Convert the base64 bytes to string
+                    composite_string = composite_base64.decode("utf-8")
+
+                    c.close()
+
+            _options['init_images'] = [composite_string]
+
         if _options['use_alpha_pass'] and _options['use_composite_pass'] and mc.objExists(alphaMat) and mc.objExists(mesh):
-            alpha_path = rt.renderMaterialPass(alphaMat, mesh, asJpg=False, camera=camera)
+            alpha_path = rt.renderMaterialPass(alphaMat, mesh, camera=camera, resolution=self.resolution)
 
             if os.path.exists(alpha_path):
                 # Read the image data
@@ -1194,6 +1261,18 @@ class ui(cgmUI.cgmGUI):
         uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
         
         self.saveOptions()
+
+
+    def uiFunc_setBatchCount(self, source):
+        uiFunc_setFieldSlider(self.uiIF_batchCount, self.uiSlider_batchCount, source, 10)
+        
+        self.saveOptions()
+
+    def uiFunc_setBatchSize(self, source):
+        uiFunc_setFieldSlider(self.uiIF_batchSize, self.uiSlider_batchSize, source, 8)
+        
+        self.saveOptions()
+        
 
     def uiFunc_setMaskBlur(self, source):
         uiFunc_setFieldSlider(self.uiIF_maskBlur, self.uiSlider_maskBlur, source, 100, 1)

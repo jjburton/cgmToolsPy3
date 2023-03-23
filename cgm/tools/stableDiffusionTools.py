@@ -116,16 +116,16 @@ def getImageFromAutomatic1111(data):
 
     print(response.status, response.reason)
 
-    decoded = response.read().decode()
-    outputData = json.loads(decoded)
+    decoded = response.read()
+
     conn.close()
 
     if(response.status != 200):
-        print("Error: ", response.reason)
-        print("Return Data: ", outputData)
+        print("Error: ", response.reason, decoded)
         return [], {}
-    
 
+    print("Response: ", decoded)
+    outputData = json.loads(decoded) 
 
     # assuming i contains the base64 encoded image string
 

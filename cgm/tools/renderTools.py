@@ -8,6 +8,7 @@ from cgm.core.lib import euclid as EUCLID
 from cgm.core import cgm_Meta as cgmMeta
 import json
 from cgm.lib import files
+import tempfile
 
 width, height = (512,512)
 
@@ -224,6 +225,8 @@ def makeAlphaProjectionShader(cameraShape):
     mc.setAttr('%s.type' % vignetteRamp, 4)
 
     # set first color to white and last color to black
+    mc.setAttr('%s.colorEntryList[0].position' % vignetteRamp, 0)
+    mc.setAttr('%s.colorEntryList[1].position' % vignetteRamp, 1)
     mc.setAttr('%s.colorEntryList[0].color' % vignetteRamp, 1, 1, 1, type='double3')
     mc.setAttr('%s.colorEntryList[1].color' % vignetteRamp, 0, 0, 0, type='double3')
 
@@ -277,6 +280,7 @@ def addImageToCompositeShader(shader, color, alpha):
     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
 
+    inputs = []
     if connections:
         #outColorConnections = [c for c in connections if '.outColor' in c]
         inputs = mc.listConnections(connections, p=True, d=True, s=False) or []
@@ -299,23 +303,26 @@ def addImageToCompositeShader(shader, color, alpha):
             # Shift the connections down the line
             mc.connectAttr(src_attr[0], input_connection.replace(f'[{current_index}]', f'[{next_index}]'), f=True)
 
+    firstConnection = len(inputs) == 0
+
     remapColor = mc.shadingNode('remapColor', asUtility=True)
     mult = mc.shadingNode('multiplyDivide', asUtility=True)
     mult2 = mc.shadingNode('multiplyDivide', asUtility=True)
 
     mc.setAttr("%s.red[0].red_Position" % remapColor, 0.1)
     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.5)
+    mc.setAttr("%s.red[0].red_FloatValue" % remapColor, 0 if firstConnection else 1)
 
     # set green position to 1
     mc.setAttr("%s.green[0].green_Position" % remapColor, 0)
     mc.setAttr("%s.green[1].green_Position" % remapColor, .5)
-    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 0)
+    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 0 if firstConnection else 1)
     mc.setAttr("%s.green[1].green_FloatValue" % remapColor, 1)
 
     # set blue position to 1
     mc.setAttr("%s.blue[0].blue_Position" % remapColor, 0)
     mc.setAttr("%s.blue[1].blue_Position" % remapColor, .4)
-    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 0)
+    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 0 if firstConnection else 1)
     mc.setAttr("%s.blue[1].blue_FloatValue" % remapColor, 1)
 
     # connect remap color r and g to multiply
@@ -408,15 +415,46 @@ def assignImageToProjectionShader(shader, image_path, data):
     mc.setAttr(fileNode + '.fileTextureName', image_path, type='string')
     mc.connectAttr(fileNode + '.outColor', projection + '.image', force=True)
 
-    mc.setAttr('%s.wrapU' % fileNode, False)
-    mc.setAttr('%s.wrapV' % fileNode, False)
+    # create texture placement node
+    place2d = mc.shadingNode('place2dTexture', asUtility=True)
+    mc.connectAttr(place2d + '.coverage', fileNode + '.coverage', force=True)
+    mc.connectAttr(place2d + '.translateFrame', fileNode + '.translateFrame', force=True)
+    mc.connectAttr(place2d + '.rotateFrame', fileNode + '.rotateFrame', force=True)
+    mc.connectAttr(place2d + '.mirrorU', fileNode + '.mirrorU', force=True)
+    mc.connectAttr(place2d + '.mirrorV', fileNode + '.mirrorV', force=True)
+    mc.connectAttr(place2d + '.stagger', fileNode + '.stagger', force=True)
+    mc.connectAttr(place2d + '.wrapU', fileNode + '.wrapU', force=True)
+    mc.connectAttr(place2d + '.wrapV', fileNode + '.wrapV', force=True)
+    mc.connectAttr(place2d + '.repeatUV', fileNode + '.repeatUV', force=True)
+    mc.connectAttr(place2d + '.offset', fileNode + '.offset', force=True)
+    mc.connectAttr(place2d + '.rotateUV', fileNode + '.rotateUV', force=True)
+    mc.connectAttr(place2d + '.noiseUV', fileNode + '.noiseUV', force=True)
+    mc.connectAttr(place2d + '.vertexUvOne', fileNode + '.vertexUvOne', force=True)
+    mc.connectAttr(place2d + '.vertexUvTwo', fileNode + '.vertexUvTwo', force=True)
+    mc.connectAttr(place2d + '.vertexUvThree', fileNode + '.vertexUvThree', force=True)
+    mc.connectAttr(place2d + '.vertexCameraOne', fileNode + '.vertexCameraOne', force=True)
+    mc.connectAttr(place2d + '.outUV', fileNode + '.uv', force=True)
+    mc.connectAttr(place2d + '.outUvFilterSize', fileNode + '.uvFilterSize', force=True)
+
+    # set wrap UV to false
+    mc.setAttr('%s.wrapU' % place2d, 0)
+    mc.setAttr('%s.wrapV' % place2d, 0)
+
+    # set default color to black
     mc.setAttr('%s.defaultColor' % fileNode, 0, 0, 0, type='double3')
 
     mFile = cgmMeta.asMeta(fileNode)
     mFile.doStore('cgmImageProjectionData',json.dumps(data))
 
-def renderMaterialPass(material, meshObj, fileName = None, asJpg=False, camera = None):
+def renderMaterialPass(material, meshObj, fileName = None, format='png', camera = None, resolution=None):
     #print("renderMaterialPass(%s, %s, %s, %s, %s)" % (material, meshObj, fileName, asJpg, camera))
+
+    tmpdir = tempfile.TemporaryDirectory().name
+    print(f"Created temporary directory: {tmpdir}")
+
+    if(resolution != None):
+        mc.setAttr("defaultResolution.width", resolution[0])
+        mc.setAttr("defaultResolution.height", resolution[1])
 
     wantedName = ""
     if(material):
@@ -427,7 +465,7 @@ def renderMaterialPass(material, meshObj, fileName = None, asJpg=False, camera =
 
         assignMaterial(meshObj, sg)
 
-        wantedName = material
+        wantedName = os.path.join(tmpdir, material)
 
     if fileName:
         wantedName = fileName
@@ -435,19 +473,21 @@ def renderMaterialPass(material, meshObj, fileName = None, asJpg=False, camera =
     # setAttr "defaultRenderGlobals.imageFormat" 8;
     currentImageFormat = mc.getAttr("defaultRenderGlobals.imageFormat")
 
-    if asJpg:
+    if format.lower() == 'jpg' or format.lower() == 'jpeg':
         mc.setAttr("defaultRenderGlobals.imageFormat", 8)
-    else:
+    elif format.lower() == 'png':
         mc.setAttr("defaultRenderGlobals.imageFormat", 32)
 
     mc.setAttr("defaultRenderGlobals.imageFilePrefix", wantedName, type="string")
 
-    outputFileName = mc.renderSettings(fullPathTemp=True, firstImageName=True)
+    #outputFileName = mc.renderSettings(fullPathTemp=True, firstImageName=True)
 
-    uniqueFileName = files.create_unique_filename(outputFileName[0])
-    newName = os.path.splitext(os.path.split(uniqueFileName)[-1])[0]
+    uniqueFileName = files.create_unique_filename(wantedName)
+    #newName = os.path.splitext(os.path.split(uniqueFileName)[-1])[0]
 
-    mc.setAttr("defaultRenderGlobals.imageFilePrefix", newName, type="string")
+    print( "uniqueFileName: %s" % uniqueFileName)
+
+    mc.setAttr("defaultRenderGlobals.imageFilePrefix", uniqueFileName, type="string")
 
     if camera:
         cameras = mc.ls(type='camera')
