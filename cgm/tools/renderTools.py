@@ -174,38 +174,35 @@ def makeProjectionShader(cameraShape, makeLayeredTexture=False):
     return shader, sg
 
 def makeAlphaProjectionShader(cameraShape):
-    shader, sg = makeProjectionShader(cameraShape, True)
+    shader, sg = makeProjectionShader(cameraShape, False)
 
     shader = mc.rename(shader, 'cgmAlphaProjectionMaterial')
-    layeredTexture = mc.listConnections('%s.outColorR' % shader, type='layeredTexture')[0]
-    projection = mc.listConnections('%s.inputs[0].color' % layeredTexture, type='projection')[0]
+    #layeredTexture = mc.listConnections('%s.outColorR' % shader, type='layeredTexture')[0]
+    projection = mc.listConnections('%s.outColorR' % shader, type='projection')[0]
     fileNode = mc.listConnections('%s.image' % projection, type='file')[0]
+    multNode = mc.shadingNode('multiplyDivide', asUtility=True)
+
+    # connect the mult node out to the shader outColor
+    mc.connectAttr('%s.outputX' % multNode, '%s.outColorR' % shader, f=True)
+    mc.connectAttr('%s.outputY' % multNode, '%s.outColorG' % shader, f=True)
+    mc.connectAttr('%s.outputZ' % multNode, '%s.outColorB' % shader, f=True)
 
     #create a ramp node
-    ramp = mc.shadingNode('ramp', asTexture=True)
+    #ramp = mc.shadingNode('ramp', asTexture=True)
 
     # create a samplerInfo node
     sampler_info = mc.shadingNode('samplerInfo', asUtility=True)
 
     mc.setAttr('%s.fileTextureName' % fileNode, os.path.join(cgmImages.__path__[0], "white.png"), type='string')
 
-    # set the ramp node to linear
-    mc.setAttr('%s.interpolation' % ramp, 1)
+    # connect projection color to the mult node
+    mc.connectAttr('%s.outColor' % projection, '%s.input1' % multNode)
 
-    # set the ramp node to 2 positions
-    mc.setAttr('%s.colorEntryList[0].position' % ramp, 0)
-    mc.setAttr('%s.colorEntryList[1].position' % ramp, 1)
+    # connect sampler info facing ratio to the mult node X
+    mc.connectAttr('%s.facingRatio' % sampler_info, '%s.input2X' % multNode)
 
-    # set the ramp node to 2 colors
-    mc.setAttr('%s.colorEntryList[0].color' % ramp, 0, 0, 0, type='double3')
-    mc.setAttr('%s.colorEntryList[1].color' % ramp, 1, 1, 1, type='double3')
-
-    # connect the sampler info facing ratio to the u and v coords on the ramp node
-    mc.connectAttr('%s.facingRatio' % sampler_info, '%s.uCoord' % ramp)
-    mc.connectAttr('%s.facingRatio' % sampler_info, '%s.vCoord' % ramp)
-
-    # connect the ramp node alpha to the layered texture node alpha
-    mc.connectAttr('%s.outAlpha' % ramp, '%s.inputs[0].alpha' % layeredTexture)
+    # set mult Y to 1
+    mc.setAttr('%s.input2Y' % multNode, 1)
 
     # create the vignette projection ramp
     vignetteRamp = mc.shadingNode('ramp', asTexture=True)
@@ -221,8 +218,8 @@ def makeAlphaProjectionShader(cameraShape):
     # set the ramp node to linear
     mc.setAttr('%s.interpolation' % vignetteRamp, 1)
 
-    # set to circular
-    mc.setAttr('%s.type' % vignetteRamp, 4)
+    # set to box ramp
+    mc.setAttr('%s.type' % vignetteRamp, 5)
 
     # set first color to white and last color to black
     mc.setAttr('%s.colorEntryList[0].position' % vignetteRamp, 0)
@@ -231,7 +228,7 @@ def makeAlphaProjectionShader(cameraShape):
     mc.setAttr('%s.colorEntryList[1].color' % vignetteRamp, 0, 0, 0, type='double3')
 
     # connect projection outputR to shaders inputB
-    mc.connectAttr('%s.outColorR' % vignetteProjection, '%s.outColorB' % shader, force=True)
+    mc.connectAttr('%s.outColorR' % vignetteProjection, '%s.input2Z' % multNode, force=True)
 
     return shader, sg
 
@@ -311,18 +308,18 @@ def addImageToCompositeShader(shader, color, alpha):
 
     mc.setAttr("%s.red[0].red_Position" % remapColor, 0.1)
     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.5)
-    mc.setAttr("%s.red[0].red_FloatValue" % remapColor, 0 if firstConnection else 1)
+    mc.setAttr("%s.red[0].red_FloatValue" % remapColor, 1 if firstConnection else 0)
 
     # set green position to 1
     mc.setAttr("%s.green[0].green_Position" % remapColor, 0)
     mc.setAttr("%s.green[1].green_Position" % remapColor, .5)
-    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 0 if firstConnection else 1)
+    mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 1 if firstConnection else 0)
     mc.setAttr("%s.green[1].green_FloatValue" % remapColor, 1)
 
     # set blue position to 1
     mc.setAttr("%s.blue[0].blue_Position" % remapColor, 0)
     mc.setAttr("%s.blue[1].blue_Position" % remapColor, .4)
-    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 0 if firstConnection else 1)
+    mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 1 if firstConnection else 0)
     mc.setAttr("%s.blue[1].blue_FloatValue" % remapColor, 1)
 
     # connect remap color r and g to multiply
@@ -339,35 +336,6 @@ def addImageToCompositeShader(shader, color, alpha):
     mc.connectAttr('%s.outputX' % mult2, '%s.inputs[0].alpha' % layeredTexture, f=True)
 
     return 0, remapColor
-
-
-# def updateAlphaMatteShader(alphaShader, compositeShader):
-#     layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
-#     compositelayeredTexture = mc.listConnections('%s.outColor' % compositeShader, type="layeredTexture")[0]
-
-#     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False)
-#     if(connections):
-#         for connection in connections:
-#             outConnections = mc.listConnections(connection, p=True, s=False, d=True)
-#             for out in outConnections:
-#                 if(layeredTexture in out):
-#                     mc.disconnectAttr(connection, out)
-
-#     connections = mc.listConnections(compositelayeredTexture, p=True, s=True, d=False)
-#     for connection in connections:
-#         outConnections = mc.listConnections(connection, p=True, s=False, d=True)
-#         for out in outConnections:
-#             if 'alpha' in out:
-#                 index = int(out.split('inputs[')[-1].split(']')[0])
-#                 connectionNode, connectionNodeType = mc.ls(connection.split('.')[0], st=True)
-
-#                 if(connectionNodeType == 'remapColor'):
-#                     connectionDupe = mc.duplicate(connectionNode, n='%s_alphaRemap' % connectionNode, ic=True)
-#                     connection = '%s.%s' % (connectionDupe[0], '.'.join(connection.split('.')[1:]))
-                
-#                 mc.connectAttr(connection, '%s.inputs[%d].colorR' % (layeredTexture, index))
-#                 mc.connectAttr(connection, '%s.inputs[%d].colorG' % (layeredTexture, index))
-#                 mc.connectAttr(connection, '%s.inputs[%d].colorB' % (layeredTexture, index))
 
 def updateAlphaMatteShader(alphaShader, compositeShader):
     layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
@@ -411,9 +379,25 @@ def updateAlphaMatteShader(alphaShader, compositeShader):
 
 def assignImageToProjectionShader(shader, image_path, data):
     projection = mc.listConnections('%s.outColorR' % shader, type='projection')[0]
-    fileNode = mc.shadingNode('file', asTexture=True, isColorManaged=True)
-    mc.setAttr(fileNode + '.fileTextureName', image_path, type='string')
+    fileNode, place2d = createFileNode(image_path)
+
     mc.connectAttr(fileNode + '.outColor', projection + '.image', force=True)
+
+    # set wrap UV to false
+    mc.setAttr('%s.wrapU' % place2d, 0)
+    mc.setAttr('%s.wrapV' % place2d, 0)
+
+    # set default color to black
+    mc.setAttr('%s.defaultColor' % fileNode, 0, 0, 0, type='double3')
+
+    mFile = cgmMeta.asMeta(fileNode)
+    mFile.doStore('cgmImageProjectionData',json.dumps(data))
+
+def createFileNode(image_path = ""):
+    fileNode = mc.shadingNode('file', asTexture=True, isColorManaged=True)
+
+    if(image_path):
+        mc.setAttr(fileNode + '.fileTextureName', image_path, type='string')
 
     # create texture placement node
     place2d = mc.shadingNode('place2dTexture', asUtility=True)
@@ -436,15 +420,7 @@ def assignImageToProjectionShader(shader, image_path, data):
     mc.connectAttr(place2d + '.outUV', fileNode + '.uv', force=True)
     mc.connectAttr(place2d + '.outUvFilterSize', fileNode + '.uvFilterSize', force=True)
 
-    # set wrap UV to false
-    mc.setAttr('%s.wrapU' % place2d, 0)
-    mc.setAttr('%s.wrapV' % place2d, 0)
-
-    # set default color to black
-    mc.setAttr('%s.defaultColor' % fileNode, 0, 0, 0, type='double3')
-
-    mFile = cgmMeta.asMeta(fileNode)
-    mFile.doStore('cgmImageProjectionData',json.dumps(data))
+    return fileNode, place2d
 
 def renderMaterialPass(material, meshObj, fileName = None, format='png', camera = None, resolution=None):
     #print("renderMaterialPass(%s, %s, %s, %s, %s)" % (material, meshObj, fileName, asJpg, camera))
@@ -465,7 +441,7 @@ def renderMaterialPass(material, meshObj, fileName = None, format='png', camera 
 
         assignMaterial(meshObj, sg)
 
-        wantedName = os.path.join(tmpdir, material)
+        wantedName = os.path.join(tmpdir, '<RenderLayer>', material)
 
     if fileName:
         wantedName = fileName
@@ -548,3 +524,133 @@ def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
     result = list(set(map(tuple, result)))
     result = [list(t) for t in result]
     return result
+
+def getInputConnections(node_attr):
+    base_attr = ".".join(node_attr.split(".")[:-1])
+    sub_attrs = mc.listAttr(node_attr, multi=True)
+    input_connections = []
+    if sub_attrs:
+        for sub_attr in sub_attrs:
+            full_attr = base_attr + "." + sub_attr
+            if "[" in sub_attr and not '.' in sub_attr:
+                continue
+
+            connected_attrs = mc.listConnections(full_attr, plugs=True)
+            if connected_attrs:
+                for conn_attr in connected_attrs:
+                    input_connections.append([conn_attr, full_attr, mc.getAttr(conn_attr)])
+            else:
+                input_connections.append([None, full_attr, mc.getAttr(full_attr)])
+    return input_connections
+
+def reconnectConnections(connections, node_attr, src_attr):
+    for conn_attr, sub_attr, value in connections:
+        if conn_attr:
+            mc.connectAttr(conn_attr, sub_attr.replace(src_attr, node_attr), force=True)
+        try:
+            mc.setAttr(sub_attr.replace(src_attr, node_attr), value)
+        except RuntimeError:
+            continue
+
+def reorderLayeredTexture(layeredTexture, source_index, destination_index):
+    """
+    Reorders the connections of a layeredTexture node, moving the source index to the destination index.
+    :param layeredTexture: The name of the layeredTexture node.
+    :param source_index: The index to move.
+    :param destination_index: The index to move the source index to.
+    :return: True if successful, False otherwise.
+    """
+
+    if not mc.objExists(layeredTexture) or mc.nodeType(layeredTexture) != 'layeredTexture':
+        print("Invalid layeredTexture node provided.")
+        return False
+
+    num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
+
+    if source_index not in num_inputs or destination_index not in num_inputs:
+        print("Invalid source or destination index provided.")
+        return False
+
+    if source_index == destination_index:
+        print("Source and destination indices are the same, no action required.")
+        return True
+
+    indices_to_move = [x for x in range(source_index + 1, destination_index + 1)] if source_index < destination_index else [x for x in range(source_index-1, destination_index-1, -1)]
+
+    src_attr = layeredTexture + ".inputs[{}]".format(source_index)
+    src_connections = getInputConnections(src_attr)
+    
+    #index = [x for x in indices_to_move][0]
+    for index in indices_to_move:
+        current_attr = layeredTexture + ".inputs[{}]".format(index)
+        next_attr = layeredTexture + ".inputs[{}]".format(index - 1) if source_index < destination_index else layeredTexture + ".inputs[{}]".format(index + 1)
+        
+        current_connections = getInputConnections(current_attr)
+        next_connections = getInputConnections(next_attr)
+        
+        for i, conn in enumerate(next_connections):
+            next_connections[i][0] = current_connections[i][0]
+
+        # Disconnect current connections
+        for conn_attr, sub_attr, _ in current_connections:
+            if conn_attr:
+                if mc.isConnected(conn_attr, sub_attr):
+                    mc.disconnectAttr(conn_attr, sub_attr)
+
+        reconnectConnections(next_connections, next_attr, src_attr)
+
+    dst_attr = layeredTexture + ".inputs[{}]".format(destination_index)
+    for conn_attr, sub_attr, _ in src_connections:
+        if conn_attr:
+            if mc.isConnected(conn_attr, sub_attr):
+                mc.disconnectAttr(conn_attr, sub_attr)
+    reconnectConnections(src_connections, dst_attr, src_attr)
+
+    return True
+
+def removeUnusedLayeredTextureInputs(layeredTexture):
+    """
+    Removes any unused inputs from a layeredTexture node.
+    :param layeredTexture: The name of the layeredTexture node.
+    :return: True if successful, False otherwise.
+    """
+
+    if not mc.objExists(layeredTexture) or mc.nodeType(layeredTexture) != 'layeredTexture':
+        print("Invalid layeredTexture node provided.")
+        return False
+
+    num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
+    i = 2
+    index = num_inputs[2]
+
+    removal_attributes = []
+
+    for i, index in enumerate(num_inputs):
+        if(i != index):
+            # get connections
+            src_attr = layeredTexture + ".inputs[{}]".format(index)
+            src_connections = getInputConnections(src_attr)
+            dst_attr = layeredTexture + ".inputs[{}]".format(i)
+            # make a copy of src connections in dst connections
+            dst_connections = getInputConnections(src_attr)
+
+            for j, conn in enumerate(dst_connections):
+                dst_connections[j][1] = dst_connections[j][1].replace(src_attr, dst_attr)
+            
+            # add index to remove
+            removal_attributes.append(src_attr)
+     
+            # disconnect
+            for conn_attr, sub_attr, _ in src_connections:
+                if conn_attr:
+                    if mc.isConnected(conn_attr, sub_attr):
+                        mc.disconnectAttr(conn_attr, sub_attr)
+    
+            # reconnect
+            reconnectConnections(dst_connections, dst_attr, src_attr)              
+
+    removal_attributes.reverse()
+    for src_attr in removal_attributes:
+        mc.removeMultiInstance( src_attr, b=True )
+
+    return True       

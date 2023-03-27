@@ -10,11 +10,6 @@ Example ui to start from
 ================================================================
 """
 # From Python =============================================================
-import copy
-import re
-import time
-import pprint
-import os
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -25,17 +20,10 @@ import tempfile
 from PIL import Image
 
 import cgm.core.classes.GuiFactory as cgmUI
-from cgm.core import cgm_RigMeta as cgmRigMeta
 mUI = cgmUI.mUI
 
-from cgm.core.lib import shared_data as SHARED
-from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core import cgm_General as cgmGEN
-from cgm.core import cgm_Meta as cgmMeta
-import cgm.core.lib.transform_utils as TRANS
-from cgm.core.cgmPy import path_Utils as CGMPATH
-import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
+
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -49,7 +37,7 @@ class ui(cgmUI.cgmGUI):
     RETAIN = True
     MIN_BUTTON = True
     MAX_BUTTON = False
-    FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
+    FORCE_DEFAULT_SIZE = False  #always resets the size of the window when its re-created  
     DEFAULT_SIZE =  550,675
     TOOLNAME = '{0}.ui'.format(__toolname__)
     
@@ -121,10 +109,6 @@ class ui(cgmUI.cgmGUI):
         self.updateUI()
 
     def buildColumn_main(self,parent, asScroll = False):
-        """
-        Trying to put all this in here so it's insertable in other uis
-        
-        """   
         if asScroll:
             _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
         else:
@@ -140,6 +124,20 @@ class ui(cgmUI.cgmGUI):
 
         cgmUI.add_Button(_row,'>>', lambda *a:self.uiFunc_nextImage())
 
+        mUI.MelSpacer(_row,w = 5)
+
+        # cgmUI.add_Button(_row,'R')
+        # cgmUI.add_Button(_row,'G')
+        # cgmUI.add_Button(_row,'B')
+
+        self.channelButtons = {}
+        self.channelState = {'R': True, 'G': True, 'B': True, 'A': True}
+
+        self.channelButtons['R'] = cgmUI.add_Button(_row, 'R', lambda *a: self.uiFunc_toggleChannel('R'), bgc=[1, .4, .4])
+        self.channelButtons['G'] = cgmUI.add_Button(_row, 'G', lambda *a: self.uiFunc_toggleChannel('G'), bgc=[.4, 1, .4])
+        self.channelButtons['B'] = cgmUI.add_Button(_row, 'B', lambda *a: self.uiFunc_toggleChannel('B'), bgc=[.4, .4, 1])
+        self.channelButtons['A'] = cgmUI.add_Button(_row,'A', lambda *a:self.uiFunc_toggleChannel('A'), bgc=[0.5, 0.5, 0.5])
+
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
 
         mUI.MelLabel(_row,l='Scale:',align='right')
@@ -151,17 +149,20 @@ class ui(cgmUI.cgmGUI):
 
         # Open the image and get its dimensions
         with Image.open(self.imagePaths[self.index]) as img:
-            width = img.width
+            self.DEFAULT_HEIGHT = img.height + 120
+            self.DEFAULT_WIDTH = img.width + 25
+            self.width = img.width + 25
+            self.height = img.height + 120
 
         closest_scale = 100
-        min_distance = float('inf')
+        # min_distance = float('inf')
 
-        for option in _scaleOptions:
-            scale = width * (option/100.0)
-            distance = abs(scale - 512)
-            if distance < min_distance:
-                min_distance = distance
-                closest_scale = option
+        # for option in _scaleOptions:
+        #     scale = width * (option/100.0)
+        #     distance = abs(scale - 512)
+        #     if distance < min_distance:
+        #         min_distance = distance
+        #         closest_scale = option
         
         self.uiOM_SizeMenu( e=True, value='{}%'.format(closest_scale))
 
@@ -190,7 +191,7 @@ class ui(cgmUI.cgmGUI):
             
             for callback in self.callbackData:
                 cgmUI.add_Button(_row,callback['label'],
-                    cgmGEN.Callback(callback['function'],self.imagePaths[self.index], self.imageData),                         
+                    cgmGEN.Callback(self.uiFunc_callback, callback['function']),                         
                     '')
 
             _row.layout()    
@@ -223,11 +224,24 @@ class ui(cgmUI.cgmGUI):
 
         # Open the image
         img = Image.open(current_image_path)
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+
+        # Apply the channel filters
+        r, g, b, a = img.split()
+        if not self.channelState['R']:
+            r = Image.new('L', r.size, 0)
+        if not self.channelState['G']:
+            g = Image.new('L', g.size, 0)
+        if not self.channelState['B']:
+            b = Image.new('L', b.size, 0)
+        if not self.channelState['A']:
+            a = Image.new('L', a.size, 0)
+
+        img_filtered = Image.merge('RGBA', (r, g, b, a))
 
         # Resize the image based on the selected percentage
-        new_img = img.resize((int(img.width * selected_percent), int(img.height * selected_percent)), resample=Image.LANCZOS)
+        new_img = img_filtered.resize((int(img_filtered.width * selected_percent), int(img_filtered.height * selected_percent)), resample=Image.LANCZOS)
 
         width = new_img.width
         height = new_img.height
@@ -256,3 +270,37 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_nextImage(self):
         self.index = (self.index+1) % len(self.imagePaths)
         self.updateUI()
+
+    def uiFunc_callback(self, callbackFunction):
+        _str_func = 'uiFunc_callback'
+        log.debug("uiFunc_callback")
+        callbackFunction( self.imagePaths[self.index], self.imageData)
+
+    # def toggleChannel(self, channel):
+    #     # Update the channel state
+    #     self.channelState[channel] = not self.channelState[channel]
+
+    #     # Update the button background color
+    #     onColor = {'R': [1, .4, .4], 'G': [.4, 1, .4], 'B': [.4, .4, 1]}
+    #     offColor = {'R': [0.3, 0, 0], 'G': [0, 0.3, 0], 'B': [0, 0, .3]}
+    #     newColor = onColor[channel] if self.channelState[channel] else offColor[channel]
+    #     self.channelButtons[channel](e=True, bgc=newColor)
+
+    #     # Update the image
+    #     self.updateUI()
+
+    def uiFunc_toggleChannel(self, channel):
+        self.channelState[channel] = not self.channelState[channel]
+        if channel == 'R':
+            bgc = [1, .4, .4] if self.channelState[channel] else [0.3, 0, 0]
+        elif channel == 'G':
+            bgc = [.4, 1, .4] if self.channelState[channel] else [0, 0.3, 0]
+        elif channel == 'B':
+            bgc = [.4, .4, 1] if self.channelState[channel] else [0, 0, 0.3]
+        elif channel == 'A':
+            bgc = [0.8, 0.8, 0.8] if self.channelState[channel] else [0.25, 0.25, 0.25]
+
+        self.channelButtons[channel](edit=True, bgc=bgc)
+        self.updateUI()
+
+

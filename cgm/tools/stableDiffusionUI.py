@@ -68,9 +68,14 @@ _defaultOptions = {
         'control_net_guidance_end':1.0,
         'sampling_method':'Euler',
         'denoising_strength':.35,
-        'use_composite_pass':False,
+        #'use_composite_pass':False,
+        'img2img_pass':'none',
+        'img2img_custom_image':'',
+        'img2img_render_layer':'defaultRenderLayer',
         'use_alpha_pass':False,
         'mask_blur':4,
+        'batch_count':1,
+        'batch_size':1,
 }
 
 class ui(cgmUI.cgmGUI):
@@ -201,7 +206,7 @@ class ui(cgmUI.cgmGUI):
 
         _setup = self.buildColumn_settings(_tabs, asScroll = True)
         _project = self.buildColumn_project(_tabs, asScroll = True)
-        _edit = self.buildColumn_edit(_tabs, asScroll = False)
+        _edit = self.buildColumn_edit(_tabs, asScroll = True)
 
         mc.tabLayout(_tabs, edit=True, tabLabel=((_setup, 'Setup'), (_project, 'Project'), (_edit, 'Edit')))
 
@@ -397,7 +402,7 @@ class ui(cgmUI.cgmGUI):
                                                         w = 50,
                                                         editable=True,
                                                         text='127.0.0.1:7860',
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+                                                        cc = lambda *a:self.uiFunc_changeAutomatic1111Url(),
                                                         annotation = "Our base object from which we process things in this tab...")
         mUI.MelSpacer(_row,w = 5)
         _row.setStretchWidget(self.uiTextField_automaticURL)
@@ -433,7 +438,7 @@ class ui(cgmUI.cgmGUI):
                                                         wordWrap = True,
                                                         changeCommand = lambda *a:self.saveOptions(),
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
+                                                        annotation = "Prompt")
         mUI.MelSpacer(_row,w = 5)
         _row.setStretchWidget(self.uiTextField_prompt)
         _row.layout()
@@ -448,7 +453,7 @@ class ui(cgmUI.cgmGUI):
                                                         wordWrap = True,
                                                         changeCommand = lambda *a:self.saveOptions(),
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
+                                                        annotation = "Negative prompt")
         _row.setStretchWidget(self.uiTextField_negativePrompt)
         mUI.MelSpacer(_row,w = 5)
 
@@ -460,11 +465,11 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         mUI.MelLabel(_row,l='Seed:',align='right')
         self.uiIF_Seed = mUI.MelIntField(_row,
-                                                    minValue = -1,
-                                                    value = -1,
-                                                    changeCommand = lambda *a:self.saveOptions(),
-                                                    annotation = 'Degree of curve to create')	 	    
-        
+                                        minValue = -1,
+                                        value = -1,
+                                        changeCommand = lambda *a:self.saveOptions(),
+                                        annotation = 'Random seed to use for this project')	 	    
+
         cgmUI.add_Button(_row,'Last', lambda *a:self.uiFunc_getLastSeed())
 
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
@@ -472,16 +477,16 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_row,l='Size:',align='right')
 
         self.uiIF_Width = mUI.MelIntField(_row,
-                                                    minValue = 32,
-                                                    value = 512,
-                                                    changeCommand = lambda *a:self.saveOptions(),
-                                                    annotation = 'Degree of curve to create')	 	    
+                                            minValue = 32,
+                                            value = 512,
+                                            changeCommand = lambda *a:self.saveOptions(),
+                                            annotation = 'Width of image to create')	 	    
 
         self.uiIF_Height = mUI.MelIntField(_row,
-                                                    minValue = 32,
-                                                    value = 512,
-                                                    changeCommand = lambda *a:self.saveOptions(),
-                                                    annotation = 'Degree of curve to create')	 	    
+                                            minValue = 32,
+                                            value = 512,
+                                            changeCommand = lambda *a:self.saveOptions(),
+                                            annotation = 'Height of image to create')	 	    
 
         _sizeOptions = ['512x512','1024x1024','2048x2048', '768x512', '640x360', '1280x720','1920x1080']
         self.uiOM_SizeMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
@@ -572,8 +577,6 @@ class ui(cgmUI.cgmGUI):
 
         _row.layout()
 
-
-
         #>>> Img2Img
 
         mc.setParent(_inside)
@@ -584,8 +587,13 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_row,l='Passes:',align='right')
 
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
-        mUI.MelLabel(_row,l='Composite:',align='right')
-        self.uiCompositeCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setCompositeCB)      
+
+        self.uiOM_passMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', changeCommand = self.uiFunc_setImg2ImgPass)
+        
+        for option in ['None', 'Composite', 'Merged', 'Custom', 'Render Layer']:
+            self.uiOM_passMenu.append(option)
+        
+        #self.uiCompositeCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, changeCommand = self.uiFunc_setCompositeCB)      
 
         mUI.MelLabel(_row,l='Alpha Matte:',align='right')
         self.uiAlphaMatteCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=False, en=False, changeCommand = self.uiFunc_setAlphaMatteCB)      
@@ -593,11 +601,45 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
-        self.compositeLayout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate', vis=self.uiCompositeCB(q=True, v=True))
+        self.img2imgLayout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate')
+
+        #>>> Custom Image
+        self.customImage_row = mUI.MelHSingleStretchLayout(self.img2imgLayout,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(self.customImage_row,w=5)
+        mUI.MelLabel(self.customImage_row,l='Custom Image:',align='right')
+        self.uiTextField_customImage = mUI.MelTextField(self.customImage_row,backgroundColor = [1,1,1],h=20,
+                                                        ut = 'cgmUITemplate',
+                                                        w = 50,
+                                                        editable=False,
+                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+                                                        annotation = "Our base object from which we process things in this tab...")
+        mUI.MelSpacer(self.customImage_row,w = 5)
+        self.customImage_row.setStretchWidget(self.uiTextField_customImage)
+        cgmUI.add_Button(self.customImage_row,'Load', lambda *a:self.uiFunc_load_custom_image())
+        mUI.MelSpacer(self.customImage_row,w = 5)
+        self.customImage_row.layout()
+
+        #>>> Render Layer
+        self.renderLayer_row = mUI.MelHSingleStretchLayout(self.img2imgLayout,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(self.renderLayer_row,w=5)
+        mUI.MelLabel(self.renderLayer_row,l='Render Layer:',align='right')
+        self.uiOM_renderLayer = mUI.MelOptionMenu(self.renderLayer_row,useTemplate = 'cgmUITemplate', bsp=cgmGEN.Callback(self.uiFunc_updateRenderLayers))
         
+        render_layers = mc.ls(type='renderLayer')
+
+        for option in render_layers:
+            self.uiOM_renderLayer.append(option)
+
+        mUI.MelSpacer(self.renderLayer_row,w = 5)
+        self.renderLayer_row.setStretchWidget(self.uiOM_renderLayer)
+        cgmUI.add_Button(self.renderLayer_row,'Render', lambda *a:self.uiFunc_renderLayer())
+        mUI.MelSpacer(self.renderLayer_row,w = 5)
+
+        self.renderLayer_row.layout()
+
         #>>>Denoise Slider...
         denoise = .35
-        _row = mUI.MelHSingleStretchLayout(self.compositeLayout,expand = True,ut = 'cgmUISubTemplate')
+        _row = mUI.MelHSingleStretchLayout(self.img2imgLayout,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Denoising Strength:',align='right')
         self.uiFF_denoiseStrength = mUI.MelFloatField(_row,
@@ -614,7 +656,7 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_setDenoise('field')
         _row.layout()
 
-        self.alphaMatteLayout = mUI.MelHLayout(self.compositeLayout,expand = True,ut = 'cgmUISubTemplate', vis=self.uiAlphaMatteCB(q=True, v=True))
+        self.alphaMatteLayout = mUI.MelHLayout(self.img2imgLayout,expand = True,ut = 'cgmUISubTemplate', vis=self.uiAlphaMatteCB(q=True, v=True))
         
         #>>>Mask Blur Slider...
         maskBlur = 4
@@ -635,7 +677,6 @@ class ui(cgmUI.cgmGUI):
         _row.layout()
 
         self.alphaMatteLayout.layout()
-
 
         #>>> Control Net
         mc.setParent(_inside)
@@ -851,13 +892,159 @@ class ui(cgmUI.cgmGUI):
 
         return _inside
 
-    def uiFunc_setCompositeCB(self, *a):
-        _str_func = 'uiFunc_setCompositeCB'
+    def buildColumn_edit(self,parent, asScroll = True):
+        if asScroll:
+            _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
+        else:
+            _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
+        
+        compositeShader = self.uiTextField_compositeShader.getValue()
+        if not compositeShader:
+            return _inside
+        
+        # Get the layered texture node
+        layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
+
+        # Get the number of color inputs to the layered texture
+        num_inputs = mc.getAttr(layeredTexture + ".inputs", size=True)
+
+        # Loop through each color input and create a layout for it
+        self.layerSliders = []
+        for i in range(num_inputs):
+            input_color = layeredTexture + ".inputs[{}].color".format(i)
+            color_layout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate') 
+
+            # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
+            subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")
+            mUI.MelSpacer(subrow_layout,w = 5)
+            visible_cb = mUI.MelCheckBox(subrow_layout,useTemplate = 'cgmUITemplate', label="Vis", v=True, changeCommand = lambda *a:self.saveOptions())      
+            solo_cb = mUI.MelCheckBox(subrow_layout,useTemplate = 'cgmUITemplate', label="Solo", v=True, changeCommand = lambda *a:self.saveOptions())      
+            color_name = mc.listConnections(input_color)[0]
+            
+            # set label as stretch widget
+            subrow_layout.setStretchWidget(mUI.MelLabel(subrow_layout,l=color_name,align='center'))
+            mUI.MelSpacer(subrow_layout,w = 5)
+            subrow_layout.layout()
+            
+            # Check if the alpha input has a remapColor node and create min/max sliders if it does
+            alpha_input = layeredTexture + ".inputs[{}].alpha".format(i)
+            remap_color = find_node_in_chain(alpha_input, "remapColor")
+            channelSliders = {}
+            if remap_color:
+                # Create a new MelHSingleStretchLayout for each remapColor channel
+                
+                for channel in ["red", "green", "blue"]:
+                    label = channel.upper()[0]
+                    if(channel == "red"):
+                        label = "Facing Ratio"
+                    elif(channel == "green"):
+                        label = "Distance"
+                    elif(channel == "blue"):
+                        label = "Vignette"
+                                       
+                    _row = mUI.MelHSingleStretchLayout(color_layout,expand = True,ut = 'cgmUISubTemplate')
+                    
+                    mUI.MelSpacer(_row,w=5)
+                    mUI.MelLabel(_row,l=label,align='right', w = 70)
+
+                    _layoutRow = mUI.MelColumn(_row,ut='cgmUISubTemplate',adjustableColumn=True)
+                    mc.setParent(_layoutRow)
+                    _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
+
+                    # _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
+                    # mUI.MelLabel(_subRow,l='Min:',align='right')
+                    # channelSliders['%s_uiFF_min'%channel] = mUI.MelFloatField(_subRow,
+                    #                                         w = 40,
+                    #                                         ut='cgmUITemplate',
+                    #                                         precision = 2,
+                    #                                         minValue = 0.0,
+                    #                                         maxValue=1.0,
+                    #                                         value = minValue, changeCommand=cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'min', 'field', remap_color, channel))  
+                            
+                    # channelSliders['%s_uiSlider_min'%channel] = mUI.MelFloatSlider(_subRow,0.0,1.0,minValue,step = .01)
+                    # channelSliders['%s_uiSlider_min'%channel].setValue(minValue)
+                    # channelSliders['%s_uiSlider_min'%channel].setChangeCB(cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'min', 'slider', remap_color, channel))
+                    # _subRow.setStretchWidget(channelSliders['%s_uiSlider_min'%channel])#Set stretch    
+                    # _subRow.layout()
+
+                    # _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
+                    # mUI.MelLabel(_subRow,l='Max:',align='right')
+                    # channelSliders['%s_uiFF_max'%channel] = mUI.MelFloatField(_subRow,
+                    #                                         w = 40,
+                    #                                         ut='cgmUITemplate',
+                    #                                         precision = 2,
+                    #                                         minValue = 0.0,
+                    #                                         maxValue=1.0,
+                    #                                         value = maxValue, changeCommand=cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'max', 'field', remap_color, channel))  
+                    
+                    # channelSliders['%s_uiSlider_max'%channel] = mUI.MelFloatSlider(_subRow,0.0,1.0,maxValue,step = .01)
+                    # channelSliders['%s_uiSlider_max'%channel].setValue(maxValue)
+                    # channelSliders['%s_uiSlider_max'%channel].setChangeCB(cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'max', 'slider', remap_color, channel))
+                    # _subRow.setStretchWidget(channelSliders['%s_uiSlider_max'%channel])#Set stretch    
+
+                    # _subRow.layout()
+                    # _layoutRow.layout()
+
+                    mUI.MelSpacer(_row,w=5)
+                    _row.setStretchWidget(_layoutRow)
+                    _row.layout()
+
+                    #self.uiFunc_setDepth('field')
+            
+            self.layerSliders.append(channelSliders)
+            subrow_layout.layout()
+            
+        return _inside
+
+    # def uiFunc_setRemapColor(self, layer_index, min_max, source, alpha_node, channel, *args):
+    #     # Get the slider and field widget keys
+    #     min_field_key = '{}_uiFF_min'.format(channel)
+    #     min_slider_key = '{}_uiSlider_min'.format(channel)
+    #     max_field_key = '{}_uiFF_max'.format(channel)
+    #     max_slider_key = '{}_uiSlider_max'.format(channel)
+
+    #     # Get the current slider and field values
+    #     min_field_value = self.layerSliders[layer_index][min_field_key].getValue()
+    #     min_slider_value = self.layerSliders[layer_index][min_slider_key].getValue()
+    #     max_field_value = self.layerSliders[layer_index][max_field_key].getValue()
+    #     max_slider_value = self.layerSliders[layer_index][max_slider_key].getValue()
+
+    #     # Update the remapColor node attribute based on the source (field or slider)
+    #     if source == 'field':
+    #         if min_max == 'min':
+    #             mc.setAttr(alpha_node + ".{}[0].{}_Position".format(channel, channel), min_field_value)
+    #             self.layerSliders[layer_index][min_slider_key].setValue(min_field_value)
+    #         else:  # 'max'
+    #             mc.setAttr(alpha_node + ".{}[1].{}_Position".format(channel, channel), max_field_value)
+    #             self.layerSliders[layer_index][max_slider_key].setValue(max_field_value)
+    #     else:  # 'slider'
+    #         if min_max == 'min':
+    #             mc.setAttr(alpha_node + ".{}[0].{}_Position".format(channel, channel), min_slider_value)
+    #             self.layerSliders[layer_index][min_field_key].setValue(min_slider_value)
+    #         else:  # 'max'
+    #             mc.setAttr(alpha_node + ".{}[1].{}_Position".format(channel, channel), max_slider_value)
+    #             self.layerSliders[layer_index][max_field_key].setValue(max_slider_value)
+
+
+
+    def uiFunc_changeAutomatic1111Url(self):
+        _str_func = 'uiFunc_changeAutomatic1111Url'
+
+        self.saveOptions()
+
+        self.handleReset()
+
+    def uiFunc_setImg2ImgPass(self, *a):
+        _str_func = 'uiFunc_setImg2ImgPass'
         print(_str_func, a)
 
-        val = a[0]
+        option = a[0].lower()
+        val = option != 'none'
 
-        self.compositeLayout(e=True, vis=val)
+        self.img2imgLayout(e=True, vis=val)
+
+        self.customImage_row(e=True, vis=option == 'custom')
+        self.renderLayer_row(e=True, vis=option == 'render layer')
         self.uiAlphaMatteCB(e=True, en=val)
 
         self.saveOptions()
@@ -872,18 +1059,6 @@ class ui(cgmUI.cgmGUI):
 
         self.saveOptions()
 
-    def buildColumn_edit(self,parent, asScroll = False):
-        """
-        Trying to put all this in here so it's insertable in other uis
-        
-        """   
-        if asScroll:
-            _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
-        else:
-            _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
-        
-        return _inside
-        
     def uiFunc_auto_populate_fields(self):
         _str_func = 'uiFunc_auto_populate_fields'
 
@@ -961,9 +1136,29 @@ class ui(cgmUI.cgmGUI):
 
         self.saveOptions()
 
-    def uiFunc_renderImage(self):
+    def uiFunc_renderLayer(self, display=True):
+        _str_func = 'uiFunc_renderLayer'
+
+        # get render layer
+        currentLayer = mc.editRenderLayerGlobals(query=True, currentRenderLayer=True)
+        mc.editRenderLayerGlobals(currentRenderLayer=self.uiOM_renderLayer(query=True, value=True))
+
+        # render
+        outputImage = self.uiFunc_renderImage(display)
+
+        # set render layer back
+        mc.editRenderLayerGlobals(currentRenderLayer=currentLayer)
+
+        return outputImage
+
+    def uiFunc_renderImage(self, display=True):
+        _str_func = 'uiFunc_renderImage'
+
         outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), camera = self.uiTextField_projectionCam(q=True, text=True), resolution = self.resolution  )
-        iv.ui([outputImage], {'outputImage':outputImage})
+        if display:
+            iv.ui([outputImage], {'outputImage':outputImage})
+        
+        return outputImage
 
     def uiFunc_viewImage(self):
         _str_func = 'uiFunc_viewImage'
@@ -1010,7 +1205,11 @@ class ui(cgmUI.cgmGUI):
         if mc.objExists(depthShader):
             ramp = mc.listConnections(depthShader + '.outColor', type='ramp')
             if(ramp):
-                mc.connectAttr(ramp[0] + '.outColorG', shader + '.outColorG', force=True)
+                mult = mc.listConnections(shader + '.outColorG', type='multiplyDivide')
+                if(mult):
+                    mc.connectAttr(ramp[0] + '.outColorG', mult[0] + '.input2Y', force=True)
+                else:
+                    mc.connectAttr(ramp[0] + '.outColorG', shader + '.outColorG', force=True)
 
         self.uiTextField_alphaShader(edit=True, text=shader)
 
@@ -1037,7 +1236,11 @@ class ui(cgmUI.cgmGUI):
         if mc.objExists(alphaShader):
             ramp = mc.listConnections(shader + '.outColor', type='ramp')
             if(ramp):
-                mc.connectAttr(ramp[0] + '.outColorG', alphaShader + '.outColorG', force=True)
+                mult = mc.listConnections(alphaShader + '.outColorG', type='multiplyDivide')
+                if(mult):
+                    mc.connectAttr(ramp[0] + '.outColorG', mult[0] + '.input2Y', force=True)
+                else:
+                    mc.connectAttr(ramp[0] + '.outColorG', alphaShader + '.outColorG', force=True)
 
         mc.setAttr(shader + '.maxDistance', self.uiFF_maxDepthDistance(query=True, value=True))
 
@@ -1080,11 +1283,72 @@ class ui(cgmUI.cgmGUI):
         composite_path = None
         composite_string = None
 
+        option = _options['img2img_pass'].lower()
+        print("img2img_pass", option)
+
+        if option != "none":
+            if (option == "composite" or option == "merged") and mc.objExists(compositeMat) and mc.objExists(mesh):
+                wantedMat = compositeMat
+                if option == "merged":
+                    wantedMat = self.uiTextField_mergedShader(query=True, text=True)
+                composite_path = rt.renderMaterialPass(wantedMat, mesh, camera=camera, resolution=self.resolution)
+
+                print("composite path: ", composite_path)
+                with open(composite_path, "rb") as c:
+                    # Read the image data
+                    composite_data = c.read()
+                    
+                    # Encode the image data as base64
+                    composite_base64 = base64.b64encode(composite_data)
+                    
+                    # Convert the base64 bytes to string
+                    composite_string = composite_base64.decode("utf-8")
+
+                    c.close()
+
+                _options['init_images'] = [composite_string]
+            elif option == "custom":
+                custom_image = self.uiTextField_customImage(query=True, text=True)
+                print("custom image: ", custom_image)
+
+                if(os.path.exists(custom_image)):
+                    with open(custom_image, "rb") as c:
+                        # Read the image data
+                        composite_data = c.read()
+                        
+                        # Encode the image data as base64
+                        composite_base64 = base64.b64encode(composite_data)
+                        
+                        # Convert the base64 bytes to string
+                        composite_string = composite_base64.decode("utf-8")
+
+                        c.close()
+
+                    _options['init_images'] = [composite_string]
+            elif option == 'render layer':
+                outputImage = self.uiFunc_renderLayer(display=False)
+                print("render layer: ", outputImage)
+
+                if outputImage:
+                    with open(outputImage, "rb") as c:
+                        # Read the image data
+                        composite_data = c.read()
+                        
+                        # Encode the image data as base64
+                        composite_base64 = base64.b64encode(composite_data)
+                        
+                        # Convert the base64 bytes to string
+                        composite_string = composite_base64.decode("utf-8")
+
+                        c.close()
+
+                    _options['init_images'] = [composite_string]
+
         if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == 'none':
             if mc.objExists(depthMat) and mc.objExists(mesh):
                 format = 'jpeg'
-                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, format=format, resolution=self.resolution)
-                
+                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, resolution=self.resolution)
+                print( "depth_path: {0}".format(depth_path) )
                 # Read the image data
                 depth_image = Image.open(depth_path)
 
@@ -1103,23 +1367,7 @@ class ui(cgmUI.cgmGUI):
 
                     _options['control_net_image'] = depth_string
         else:
-            composite_path = rt.renderMaterialPass(compositeMat, mesh, camera=camera, resolution=self.resolution)
-
-            with open(composite_path, "rb") as c:
-                # Read the image data
-                composite_data = c.read()
-                
-                # Encode the image data as base64
-                composite_base64 = base64.b64encode(composite_data)
-                
-                # Convert the base64 bytes to string
-                composite_string = composite_base64.decode("utf-8")
-            
-            _options['control_net_image'] = composite_string
-
-        
-        if _options['use_composite_pass'] and mc.objExists(compositeMat) and mc.objExists(mesh):
-            if composite_string == None:
+            if not composite_string:
                 composite_path = rt.renderMaterialPass(compositeMat, mesh, camera=camera, resolution=self.resolution)
 
                 with open(composite_path, "rb") as c:
@@ -1131,13 +1379,13 @@ class ui(cgmUI.cgmGUI):
                     
                     # Convert the base64 bytes to string
                     composite_string = composite_base64.decode("utf-8")
-
-                    c.close()
-
-            _options['init_images'] = [composite_string]
-
-        if _options['use_alpha_pass'] and _options['use_composite_pass'] and mc.objExists(alphaMat) and mc.objExists(mesh):
+            
+            _options['control_net_image'] = composite_string
+        
+        if _options['use_alpha_pass'] and _options['img2img_pass'] != 'none' and mc.objExists(alphaMat) and mc.objExists(mesh):
             alpha_path = rt.renderMaterialPass(alphaMat, mesh, camera=camera, resolution=self.resolution)
+
+            print ("alpha_path: {0}".format(alpha_path))
 
             if os.path.exists(alpha_path):
                 # Read the image data
@@ -1257,6 +1505,36 @@ class ui(cgmUI.cgmGUI):
         
         self.saveOptions()
 
+    def uiFunc_load_custom_image(self):
+        _str_func = 'uiFunc_load_custom_image'
+
+        _file = mc.fileDialog2(fileMode=1, caption='Select Image File', fileFilter='*.jpg *.jpeg *.png')
+        if _file:
+            _file = _file[0]
+            if not os.path.exists(_file):
+                log.error("|{0}| >> File not found: {1}".format(_str_func, _file))
+                return False
+
+            self.uiTextField_customImage(edit=True, text=_file)
+            self.saveOptions()
+
+    def uiFunc_updateRenderLayers(self):
+        _str_func = 'uiFunc_updateRenderLayers'
+
+        currentRenderLayer = self.uiOM_renderLayer.getValue()
+
+        self.uiOM_renderLayer.clear()
+
+        _layers = mc.ls(type='renderLayer')
+        if not _layers:
+            log.error("|{0}| >> No render layers found".format(_str_func))
+            return False
+        
+        for _layer in _layers:
+            self.uiOM_renderLayer.append(_layer)
+            if _layer == currentRenderLayer:
+                self.uiOM_renderLayer.setValue(_layer)
+
     def uiFunc_setDenoise(self, source):
         uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
         
@@ -1347,7 +1625,6 @@ class ui(cgmUI.cgmGUI):
 
         self.uiOM_ControlNetPreprocessorMenu.clear()
         for _preprocessor in _preprocessors:
-            # if model is a string, continue
             self.uiOM_ControlNetPreprocessorMenu.append(_preprocessor)
 
         return _preprocessors
@@ -1371,13 +1648,17 @@ class ui(cgmUI.cgmGUI):
         url = self.uiTextField_automaticURL(query=True, text=True)
 
         _models = sd.getControlNetModelsFromAutomatic1111(url)
-        #print(_models)
+
+        # get current model
+        _currentModel = self.uiOM_ControlNetModelMenu.getValue()
+
         self.uiOM_ControlNetModelMenu.clear()
         for _model in _models['model_list']:
-            # if model is a string, continue
             if(filter not in _model):
                 continue
             self.uiOM_ControlNetModelMenu.append(_model)
+            if _model == _currentModel:
+                self.uiOM_ControlNetModelMenu.setValue(_model)
 
         return _models['model_list']
 
@@ -1437,9 +1718,12 @@ class ui(cgmUI.cgmGUI):
         _options['control_net_guidance_start'] = self.uiFF_controlNetGuidanceStart.getValue()
         _options['control_net_guidance_end'] = self.uiFF_controlNetGuidanceEnd.getValue()
         _options['denoising_strength'] = self.uiFF_denoiseStrength.getValue()
-        _options['use_composite_pass'] = self.uiCompositeCB.getValue()
+        _options['img2img_pass'] = self.uiOM_passMenu(query=True, value=True)
+        _options['img2img_custom_image'] = self.uiTextField_customImage(query=True, text=True)
         _options['use_alpha_pass'] = self.uiAlphaMatteCB.getValue()
         _options['mask_blur'] = self.uiIF_maskBlur.getValue()
+        _options['batch_count'] = self.uiIF_batchCount.getValue()
+        _options['batch_size'] = self.uiIF_batchSize.getValue()
 
         return _options
 
@@ -1464,6 +1748,8 @@ class ui(cgmUI.cgmGUI):
     def loadOptions(self, options=None):
         _str_func = 'loadOptions'
 
+        print(_str_func, ": loading", options)
+
         if not self._initialized:
             return
 
@@ -1472,6 +1758,11 @@ class ui(cgmUI.cgmGUI):
             _options = options
         else:           
             _options = json.loads(self.config.getValue()) if self.config.getValue() else _defaultOptions
+
+        # go through options and set default if not found
+        for key in _defaultOptions:
+            if key not in _options:
+                _options[key] = _defaultOptions[key]
 
         # load model from automatic
         sdModels = sd.getModelsFromAutomatic1111(_options['automatic_url'])
@@ -1485,16 +1776,24 @@ class ui(cgmUI.cgmGUI):
         # iterate through options dict and set default from self._defaultOptions if not found
         for key in _defaultOptions:
             if key not in _options:
+                print("key not found: ", key, " setting to default: ", _defaultOptions[key])
                 _options[key] = _defaultOptions[key]
 
         self.uiTextField_automaticURL(edit=True, text=_options['automatic_url'])
         self.uiTextField_prompt(edit=True, text=_options['prompt'])
         self.uiTextField_negativePrompt(edit=True, text=_options['negative_prompt'])
-        self.uiIF_Seed(edit=True, value=_options['seed'])
+        self.uiIF_Seed.setValue(int(_options['seed']))
+        print("Seed is: ", _options['seed'])
         self.uiIF_Width(edit=True, v=_options['width'])
         self.uiIF_Height(edit=True, v=_options['height'])           
         if 'sampling_method' in _options:
             self.uiOM_samplingMethodMenu(edit=True, value=_options['sampling_method'])
+
+        self.uiIF_batchCount.setValue(_options['batch_count'])
+        self.uiIF_batchSize.setValue(_options['batch_size'])
+        self.uiFunc_setBatchSize('field')
+        self.uiFunc_setBatchCount('field')
+
         self.uiIF_samplingSteps.setValue(_options['sampling_steps'])
         self.uiFF_minDepthDistance.setValue(_options['min_depth_distance'])
         self.uiFF_maxDepthDistance.setValue(_options['max_depth_distance'])
@@ -1507,14 +1806,19 @@ class ui(cgmUI.cgmGUI):
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
         self.uiFF_denoiseStrength.setValue(_options['denoising_strength'])
-        self.uiCompositeCB.setValue(_options['use_composite_pass'])
+        
+        passOptions = [mc.menuItem(x, query=True, label=True) for x in self.uiOM_passMenu(query=True, itemListLong=True)]
+        if _options['img2img_pass'] not in passOptions:
+            _options['img2img_pass'] = passOptions[0]
+        
+        self.uiOM_passMenu(edit=True, value=_options['img2img_pass'])
         self.uiAlphaMatteCB.setValue(_options['use_alpha_pass'])
-
+        self.uiTextField_customImage(edit=True, text=_options['img2img_custom_image'])
         self.uiIF_maskBlur.setValue(_options['mask_blur'])
-        self.uiFunc_setCompositeCB(_options['use_composite_pass'])
-        self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
 
-        #print("loading", _options)
+
+        self.uiFunc_setImg2ImgPass(_options['img2img_pass'])
+        self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
     
     def setProjectionImage(self, image):
         _str_func = 'setProjectionImage'
@@ -1585,3 +1889,93 @@ def uiFunc_select_item_from_text_field(element):
     _item = element(query=True, text=True)
     if mc.objExists(_item):
         mc.select(_item)
+        
+def find_node_in_chain(attribute, node_type):
+    connected_nodes = mc.listConnections(attribute, source=True, destination=False)
+
+    if not connected_nodes:
+        return None
+
+    for connected_node in connected_nodes:
+        if mc.nodeType(connected_node) == node_type:
+            return connected_node
+        else:
+            output_attrs = mc.listAttr(connected_node, output=True, multi=True, connectable=True)
+            if output_attrs:
+                for output_attr in output_attrs:
+                    full_attr = connected_node + "." + output_attr
+                    found_node = find_node_in_chain(full_attr, node_type)
+                    if found_node:
+                        return found_node
+
+    return None
+
+
+def reorder_layeredTexture(layeredTexture, src_index, dst_index):
+    if not mc.objExists(layeredTexture) or mc.nodeType(layeredTexture) != 'layeredTexture':
+        print("Invalid layeredTexture node provided.")
+        return False
+
+    num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
+
+    if src_index not in num_inputs or dst_index not in num_inputs:
+        print("Invalid source or destination index provided.")
+        return False
+
+    if src_index == dst_index:
+        print("Source and destination indices are the same, no action required.")
+        return True
+
+    def get_input_connections(node_attr):
+        base_attr = ".".join(node_attr.split(".")[:-1])
+        sub_attrs = mc.listAttr(node_attr, multi=True)
+        input_connections = []
+        if sub_attrs:
+            for sub_attr in sub_attrs:
+                full_attr = base_attr + "." + sub_attr
+                if "[" in sub_attr and not '.' in sub_attr:
+                    continue
+
+                connected_attrs = mc.listConnections(full_attr, plugs=True)
+                if connected_attrs:
+                    for conn_attr in connected_attrs:
+                        input_connections.append((conn_attr, full_attr, mc.getAttr(conn_attr)))
+                else:
+                    input_connections.append((None, full_attr, mc.getAttr(full_attr)))
+        return input_connections
+
+    def reconnect_connections(connections, node_attr):
+        for conn_attr, sub_attr, value in connections:
+            if conn_attr:
+                mc.connectAttr(conn_attr, sub_attr.replace(src_attr, node_attr), force=True)
+            try:
+                mc.setAttr(sub_attr.replace(src_attr, node_attr), value)
+            except:
+                continue
+
+    indices_to_move = range(src_index + 1, dst_index + 1) if src_index < dst_index else range(dst_index, src_index)
+
+    src_attr = layeredTexture + ".inputs[{}]".format(src_index)
+    src_connections = get_input_connections(src_attr)
+
+    for index in indices_to_move:
+        current_attr = layeredTexture + ".inputs[{}]".format(index)
+        next_attr = layeredTexture + ".inputs[{}]".format(index - 1) if src_index < dst_index else layeredTexture + ".inputs[{}]".format(index + 1)
+        
+        current_connections = get_input_connections(current_attr)
+        next_connections = get_input_connections(next_attr)
+
+        # Disconnect current connections
+        for conn_attr, sub_attr, _ in current_connections:
+            if conn_attr:
+                mc.disconnectAttr(conn_attr, sub_attr)
+
+        reconnect_connections(next_connections, current_attr)
+
+    dst_attr = layeredTexture + ".inputs[{}]".format(dst_index)
+    for conn_attr, sub_attr, _ in src_connections:
+        if conn_attr:
+            mc.disconnectAttr(conn_attr, sub_attr)
+    reconnect_connections(src_connections, dst_attr)
+
+    return True

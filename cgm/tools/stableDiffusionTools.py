@@ -68,6 +68,8 @@ def getImageFromAutomatic1111(data):
         "width":data['width'],
         "height":data['height'],
         "sampler_index":data['sampling_method'],
+        "batch_size":data['batch_size'],
+        "n_iter":data['batch_count'],
     }
 
     if data['control_net_enabled']:
@@ -160,7 +162,12 @@ def getImageFromAutomatic1111(data):
     return output_images, info
 
 def getFromAutomatic1111(endpoint, url = '127.0.0.1:7860'):
-    conn = http.client.HTTPConnection(url)
+    try:
+        conn = http.client.HTTPConnection(url)
+    except:
+        print("Error: Could not connect to Automatic1111 at ", url)
+        return []
+    
     conn.request('GET', endpoint)
 
     response = conn.getresponse()
