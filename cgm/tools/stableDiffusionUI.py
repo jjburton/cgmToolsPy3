@@ -906,20 +906,25 @@ class ui(cgmUI.cgmGUI):
         layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
 
         # Get the number of color inputs to the layered texture
-        num_inputs = mc.getAttr(layeredTexture + ".inputs", size=True)
+        num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
 
         # Loop through each color input and create a layout for it
-        self.layerSliders = []
-        for i in range(num_inputs):
+        self.layers = []
+        for i in num_inputs:
             input_color = layeredTexture + ".inputs[{}].color".format(i)
             color_layout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate') 
 
             # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
             subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")
             mUI.MelSpacer(subrow_layout,w = 5)
-            visible_cb = mUI.MelCheckBox(subrow_layout,useTemplate = 'cgmUITemplate', label="Vis", v=True, changeCommand = lambda *a:self.saveOptions())      
-            solo_cb = mUI.MelCheckBox(subrow_layout,useTemplate = 'cgmUITemplate', label="Solo", v=True, changeCommand = lambda *a:self.saveOptions())      
-            color_name = mc.listConnections(input_color)[0]
+            visible_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Vis", v=True, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+            solo_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Solo", v=True, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+
+            color_connections = mc.listConnections(input_color)
+            if not color_connections:
+                return _inside
+            
+            color_name = color_connections[0]
             
             # set label as stretch widget
             subrow_layout.setStretchWidget(mUI.MelLabel(subrow_layout,l=color_name,align='center'))
@@ -951,81 +956,31 @@ class ui(cgmUI.cgmGUI):
                     mc.setParent(_layoutRow)
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
 
-                    # _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
-                    # mUI.MelLabel(_subRow,l='Min:',align='right')
-                    # channelSliders['%s_uiFF_min'%channel] = mUI.MelFloatField(_subRow,
-                    #                                         w = 40,
-                    #                                         ut='cgmUITemplate',
-                    #                                         precision = 2,
-                    #                                         minValue = 0.0,
-                    #                                         maxValue=1.0,
-                    #                                         value = minValue, changeCommand=cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'min', 'field', remap_color, channel))  
-                            
-                    # channelSliders['%s_uiSlider_min'%channel] = mUI.MelFloatSlider(_subRow,0.0,1.0,minValue,step = .01)
-                    # channelSliders['%s_uiSlider_min'%channel].setValue(minValue)
-                    # channelSliders['%s_uiSlider_min'%channel].setChangeCB(cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'min', 'slider', remap_color, channel))
-                    # _subRow.setStretchWidget(channelSliders['%s_uiSlider_min'%channel])#Set stretch    
-                    # _subRow.layout()
-
-                    # _subRow = mUI.MelHSingleStretchLayout(_layoutRow,expand = True,ut = 'cgmUISubTemplate')
-                    # mUI.MelLabel(_subRow,l='Max:',align='right')
-                    # channelSliders['%s_uiFF_max'%channel] = mUI.MelFloatField(_subRow,
-                    #                                         w = 40,
-                    #                                         ut='cgmUITemplate',
-                    #                                         precision = 2,
-                    #                                         minValue = 0.0,
-                    #                                         maxValue=1.0,
-                    #                                         value = maxValue, changeCommand=cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'max', 'field', remap_color, channel))  
-                    
-                    # channelSliders['%s_uiSlider_max'%channel] = mUI.MelFloatSlider(_subRow,0.0,1.0,maxValue,step = .01)
-                    # channelSliders['%s_uiSlider_max'%channel].setValue(maxValue)
-                    # channelSliders['%s_uiSlider_max'%channel].setChangeCB(cgmGEN.Callback(self.uiFunc_setRemapColor, i, 'max', 'slider', remap_color, channel))
-                    # _subRow.setStretchWidget(channelSliders['%s_uiSlider_max'%channel])#Set stretch    
-
-                    # _subRow.layout()
-                    # _layoutRow.layout()
-
                     mUI.MelSpacer(_row,w=5)
                     _row.setStretchWidget(_layoutRow)
                     _row.layout()
 
                     #self.uiFunc_setDepth('field')
             
-            self.layerSliders.append(channelSliders)
+            self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": i, "solo_cb": solo_cb, "channelSliders": channelSliders})
+
             subrow_layout.layout()
             
         return _inside
 
-    # def uiFunc_setRemapColor(self, layer_index, min_max, source, alpha_node, channel, *args):
-    #     # Get the slider and field widget keys
-    #     min_field_key = '{}_uiFF_min'.format(channel)
-    #     min_slider_key = '{}_uiSlider_min'.format(channel)
-    #     max_field_key = '{}_uiFF_max'.format(channel)
-    #     max_slider_key = '{}_uiSlider_max'.format(channel)
+    def uiFunc_updateLayerVisibility(self, index):
+        soloLayers = []
+        for layer in self.layers:
+            if layer['solo_cb'].getValue():
+                soloLayers.append(layer)
 
-    #     # Get the current slider and field values
-    #     min_field_value = self.layerSliders[layer_index][min_field_key].getValue()
-    #     min_slider_value = self.layerSliders[layer_index][min_slider_key].getValue()
-    #     max_field_value = self.layerSliders[layer_index][max_field_key].getValue()
-    #     max_slider_value = self.layerSliders[layer_index][max_slider_key].getValue()
-
-    #     # Update the remapColor node attribute based on the source (field or slider)
-    #     if source == 'field':
-    #         if min_max == 'min':
-    #             mc.setAttr(alpha_node + ".{}[0].{}_Position".format(channel, channel), min_field_value)
-    #             self.layerSliders[layer_index][min_slider_key].setValue(min_field_value)
-    #         else:  # 'max'
-    #             mc.setAttr(alpha_node + ".{}[1].{}_Position".format(channel, channel), max_field_value)
-    #             self.layerSliders[layer_index][max_slider_key].setValue(max_field_value)
-    #     else:  # 'slider'
-    #         if min_max == 'min':
-    #             mc.setAttr(alpha_node + ".{}[0].{}_Position".format(channel, channel), min_slider_value)
-    #             self.layerSliders[layer_index][min_field_key].setValue(min_slider_value)
-    #         else:  # 'max'
-    #             mc.setAttr(alpha_node + ".{}[1].{}_Position".format(channel, channel), max_slider_value)
-    #             self.layerSliders[layer_index][max_field_key].setValue(max_slider_value)
-
-
+        for layer in self.layers:
+            visible = layer['visible_cb'].getValue()
+            solo = layer['solo_cb'].getValue()
+            if soloLayers:
+                visible = layer in soloLayers
+            
+            mc.setAttr('%s.inputs[%i].isVisible' % (layer['layeredTexture'], layer['index']), visible)
 
     def uiFunc_changeAutomatic1111Url(self):
         _str_func = 'uiFunc_changeAutomatic1111Url'
@@ -1909,73 +1864,3 @@ def find_node_in_chain(attribute, node_type):
                         return found_node
 
     return None
-
-
-def reorder_layeredTexture(layeredTexture, src_index, dst_index):
-    if not mc.objExists(layeredTexture) or mc.nodeType(layeredTexture) != 'layeredTexture':
-        print("Invalid layeredTexture node provided.")
-        return False
-
-    num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
-
-    if src_index not in num_inputs or dst_index not in num_inputs:
-        print("Invalid source or destination index provided.")
-        return False
-
-    if src_index == dst_index:
-        print("Source and destination indices are the same, no action required.")
-        return True
-
-    def get_input_connections(node_attr):
-        base_attr = ".".join(node_attr.split(".")[:-1])
-        sub_attrs = mc.listAttr(node_attr, multi=True)
-        input_connections = []
-        if sub_attrs:
-            for sub_attr in sub_attrs:
-                full_attr = base_attr + "." + sub_attr
-                if "[" in sub_attr and not '.' in sub_attr:
-                    continue
-
-                connected_attrs = mc.listConnections(full_attr, plugs=True)
-                if connected_attrs:
-                    for conn_attr in connected_attrs:
-                        input_connections.append((conn_attr, full_attr, mc.getAttr(conn_attr)))
-                else:
-                    input_connections.append((None, full_attr, mc.getAttr(full_attr)))
-        return input_connections
-
-    def reconnect_connections(connections, node_attr):
-        for conn_attr, sub_attr, value in connections:
-            if conn_attr:
-                mc.connectAttr(conn_attr, sub_attr.replace(src_attr, node_attr), force=True)
-            try:
-                mc.setAttr(sub_attr.replace(src_attr, node_attr), value)
-            except:
-                continue
-
-    indices_to_move = range(src_index + 1, dst_index + 1) if src_index < dst_index else range(dst_index, src_index)
-
-    src_attr = layeredTexture + ".inputs[{}]".format(src_index)
-    src_connections = get_input_connections(src_attr)
-
-    for index in indices_to_move:
-        current_attr = layeredTexture + ".inputs[{}]".format(index)
-        next_attr = layeredTexture + ".inputs[{}]".format(index - 1) if src_index < dst_index else layeredTexture + ".inputs[{}]".format(index + 1)
-        
-        current_connections = get_input_connections(current_attr)
-        next_connections = get_input_connections(next_attr)
-
-        # Disconnect current connections
-        for conn_attr, sub_attr, _ in current_connections:
-            if conn_attr:
-                mc.disconnectAttr(conn_attr, sub_attr)
-
-        reconnect_connections(next_connections, current_attr)
-
-    dst_attr = layeredTexture + ".inputs[{}]".format(dst_index)
-    for conn_attr, sub_attr, _ in src_connections:
-        if conn_attr:
-            mc.disconnectAttr(conn_attr, sub_attr)
-    reconnect_connections(src_connections, dst_attr)
-
-    return True

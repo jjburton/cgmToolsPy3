@@ -567,7 +567,7 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
 
     num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
 
-    if source_index not in num_inputs or destination_index not in num_inputs:
+    if source_index >= len(num_inputs) or destination_index >= len(num_inputs):
         print("Invalid source or destination index provided.")
         return False
 
@@ -575,21 +575,23 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
         print("Source and destination indices are the same, no action required.")
         return True
 
-    indices_to_move = [x for x in range(source_index + 1, destination_index + 1)] if source_index < destination_index else [x for x in range(source_index-1, destination_index-1, -1)]
+    src_input_index = num_inputs[source_index]
+    dst_input_index = num_inputs[destination_index]
+    indices_to_move = num_inputs[source_index + 1:destination_index + 1] if source_index < destination_index else num_inputs[source_index - 1:destination_index - 1]
 
-    src_attr = layeredTexture + ".inputs[{}]".format(source_index)
+    src_attr = layeredTexture + ".inputs[{}]".format(src_input_index)
     src_connections = getInputConnections(src_attr)
-    
-    #index = [x for x in indices_to_move][0]
-    for index in indices_to_move:
+
+    for i, index in enumerate(indices_to_move):
+        current_index = num_inputs.index(index)
         current_attr = layeredTexture + ".inputs[{}]".format(index)
-        next_attr = layeredTexture + ".inputs[{}]".format(index - 1) if source_index < destination_index else layeredTexture + ".inputs[{}]".format(index + 1)
-        
+        next_attr = layeredTexture + ".inputs[{}]".format(num_inputs[current_index - 1]) if i + 1 < len(num_inputs) else layeredTexture + ".inputs[{}]".format(num_inputs[current_index + 1])
+
         current_connections = getInputConnections(current_attr)
-        next_connections = getInputConnections(next_attr)
-        
+        next_connections = current_connections[:]
+
         for i, conn in enumerate(next_connections):
-            next_connections[i][0] = current_connections[i][0]
+            next_connections[i][1] = current_connections[i][1].replace(current_attr, next_attr)
 
         # Disconnect current connections
         for conn_attr, sub_attr, _ in current_connections:
@@ -599,7 +601,7 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
 
         reconnectConnections(next_connections, next_attr, src_attr)
 
-    dst_attr = layeredTexture + ".inputs[{}]".format(destination_index)
+    dst_attr = layeredTexture + ".inputs[{}]".format(dst_input_index)
     for conn_attr, sub_attr, _ in src_connections:
         if conn_attr:
             if mc.isConnected(conn_attr, sub_attr):
@@ -620,8 +622,8 @@ def removeUnusedLayeredTextureInputs(layeredTexture):
         return False
 
     num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
-    i = 2
-    index = num_inputs[2]
+    # i = 2
+    # index = num_inputs[2]
 
     removal_attributes = []
 
