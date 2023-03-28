@@ -917,8 +917,8 @@ class ui(cgmUI.cgmGUI):
             # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
             subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")
             mUI.MelSpacer(subrow_layout,w = 5)
-            visible_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Vis", v=True, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
-            solo_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Solo", v=True, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+            visible_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+            solo_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
 
             color_connections = mc.listConnections(input_color)
             if not color_connections:
