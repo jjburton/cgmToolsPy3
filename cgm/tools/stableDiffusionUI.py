@@ -10,16 +10,13 @@ Example ui to start from
 ================================================================
 """
 # From Python =============================================================
-import copy
-import re
-import time
-import pprint
 import os
 import base64
 import logging
 import json
 from PIL import Image
 from io import BytesIO
+import tempfile
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -28,17 +25,10 @@ log.setLevel(logging.DEBUG)
 import maya.cmds as mc
 
 import cgm.core.classes.GuiFactory as cgmUI
-from cgm.core import cgm_RigMeta as cgmRigMeta
 mUI = cgmUI.mUI
 
-from cgm.core.lib import shared_data as SHARED
-from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
-import cgm.core.lib.transform_utils as TRANS
-from cgm.core.cgmPy import path_Utils as CGMPATH
-import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
 import cgm.core.tools.Project as PROJECT
 
 from functools import partial
@@ -110,6 +100,7 @@ class ui(cgmUI.cgmGUI):
         self.config = cgmMeta.cgmOptionVar("cgmVar_sdui_config", varType = "string")
         self.lastConfig = cgmMeta.cgmOptionVar("cgmVar_sdui_last_config", varType = "string")
         self.lastInfo = {}
+        self.editTabContent = None
 
         #self.l_allowedDockAreas = []
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
@@ -204,11 +195,11 @@ class ui(cgmUI.cgmGUI):
     def buildColumn_main(self, parent, asScroll=False):
         _tabs = mc.tabLayout()
 
-        _setup = self.buildColumn_settings(_tabs, asScroll = True)
-        _project = self.buildColumn_project(_tabs, asScroll = True)
-        _edit = self.buildColumn_edit(_tabs, asScroll = True)
+        self.setupColumn = self.buildColumn_settings(_tabs, asScroll = True)
+        self.projectColumn = self.buildColumn_project(_tabs, asScroll = True)
+        self.editColumn = self.buildColumn_edit(_tabs, asScroll = True)
 
-        mc.tabLayout(_tabs, edit=True, tabLabel=((_setup, 'Setup'), (_project, 'Project'), (_edit, 'Edit')))
+        mc.tabLayout(_tabs, edit=True, tabLabel=((self.setupColumn, 'Setup'), (self.projectColumn, 'Project'), (self.editColumn, 'Edit')))
 
         return _tabs
 
@@ -892,16 +883,26 @@ class ui(cgmUI.cgmGUI):
 
         return _inside
 
-    def buildColumn_edit(self,parent, asScroll = True):
-        if asScroll:
-            _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
+    def buildColumn_edit(self,parent, asScroll = True, inside = None):
+
+        if(inside):
+            _inside = inside
         else:
-            _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
-        
+            if asScroll:
+                _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
+            else:
+                _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
+                
         compositeShader = self.uiTextField_compositeShader.getValue()
         if not compositeShader:
             return _inside
-        
+
+        #self.editTabContent = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
+
+        cgmUI.add_Button(_inside, 'Refresh', 
+                cgmGEN.Callback( self.uiFunc_refreshEditTab ),
+                annotationText='', h=30)
+
         # Get the layered texture node
         layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
 
@@ -912,24 +913,61 @@ class ui(cgmUI.cgmGUI):
         self.layers = []
         for i in num_inputs:
             input_color = layeredTexture + ".inputs[{}].color".format(i)
-            color_layout = mUI.MelColumnLayout(_inside,useTemplate = 'cgmUISubTemplate') 
-
-            # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
-            subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")
-            mUI.MelSpacer(subrow_layout,w = 5)
-            visible_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
-            solo_cb = mUI.MelCheckBox(subrow_layout, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
 
             color_connections = mc.listConnections(input_color)
             if not color_connections:
                 return _inside
             
             color_name = color_connections[0]
+
+            _frame = mUI.MelFrameLayout(_inside,label = color_name,vis=True,
+                            collapse=False,
+                            collapsable=True,
+                            enable=True,
+                            useTemplate = 'cgmUITemplate',
+                            #expandCommand = lambda *a:mVar_frame.setValue(0),
+                            #collapseCommand = lambda *a:mVar_frame.setValue(1)
+                            )
+            color_layout = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate') 
+
+            # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
+            #subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")           
+            subrow_layout = mUI.MelRowLayout(color_layout, numberOfColumns=2, columnWidth2=(75, 75), adjustableColumn=2, columnAlign=(1, 'left'), columnAttach=(1, 'right', 0), useTemplate='cgmUITemplate')
             
+            # make column layout
+            _thumb_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
+
+
+            _thumb = mUI.MelImage( _thumb_row, w=75, h=75 )
+            _thumb(e=True, vis=True)
+            
+            _image_path = mc.getAttr(color_name + '.fileTextureName')
+
+            _thumb_path = getResizedImage(_image_path, 75, 75)
+
+            _thumb.setImage( _thumb_path )
+
+            info_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
+
+            info_top_column = mUI.MelHSingleStretchLayout(info_row, ut="cgmUISubTemplate")                       
+            visible_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+            solo_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+
             # set label as stretch widget
-            subrow_layout.setStretchWidget(mUI.MelLabel(subrow_layout,l=color_name,align='center'))
-            mUI.MelSpacer(subrow_layout,w = 5)
-            subrow_layout.layout()
+            info_top_column.setStretchWidget( mUI.MelSeparator(info_top_column, w=2) )
+            
+            _layerTF = mUI.MelTextField(info_top_column,useTemplate = 'cgmUITemplate',vis=False, text = color_name)
+
+            cgmUI.add_Button(info_top_column, 'Select', 
+                    cgmGEN.Callback( uiFunc_select_item_from_text_field, _layerTF),
+                    annotationText='')   
+            
+            # cgmUI.add_Button(info_top_column, 'Add Alpha', 
+            #         cgmGEN.Callback( uiFunc_select_item_from_text_field, _layerTF),
+            #         annotationText='')
+
+            mUI.MelSpacer(info_top_column,w = 5)
+            info_top_column.layout()
             
             # Check if the alpha input has a remapColor node and create min/max sliders if it does
             alpha_input = layeredTexture + ".inputs[{}].alpha".format(i)
@@ -946,28 +984,47 @@ class ui(cgmUI.cgmGUI):
                         label = "Distance"
                     elif(channel == "blue"):
                         label = "Vignette"
-                                       
-                    _row = mUI.MelHSingleStretchLayout(color_layout,expand = True,ut = 'cgmUISubTemplate')
-                    
-                    mUI.MelSpacer(_row,w=5)
-                    mUI.MelLabel(_row,l=label,align='right', w = 70)
 
-                    _layoutRow = mUI.MelColumn(_row,ut='cgmUISubTemplate',adjustableColumn=True)
-                    mc.setParent(_layoutRow)
+                    _alphaFrame = mUI.MelFrameLayout(info_row,label = label,vis=True,
+                                    collapse=True,
+                                    collapsable=True,
+                                    enable=True,
+                                    useTemplate = 'cgmUITemplate',
+                                    #expandCommand = lambda *a:mVar_frame.setValue(0),
+                                    #collapseCommand = lambda *a:mVar_frame.setValue(1)
+                                    )
+
+                    _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
+                    mc.setParent(_alpha_col)
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
+                    
+                    # _row = mUI.MelHSingleStretchLayout(_alpha_col,expand = True,ut = 'cgmUISubTemplate')
+                    
+                    # mUI.MelSpacer(_row,w=5)
+                    # mUI.MelLabel(_row,l=label,align='right', w = 70)
 
-                    mUI.MelSpacer(_row,w=5)
-                    _row.setStretchWidget(_layoutRow)
-                    _row.layout()
+                    # _layoutRow = mUI.MelColumn(_row,ut='cgmUISubTemplate',adjustableColumn=True)
+                    # mc.setParent(_layoutRow)
+                    # _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
+
+                    # mUI.MelSpacer(_row,w=5)
+                    # _row.setStretchWidget(_layoutRow)
+                    # _row.layout()
 
                     #self.uiFunc_setDepth('field')
             
             self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": i, "solo_cb": solo_cb, "channelSliders": channelSliders})
 
-            subrow_layout.layout()
+            #subrow_layout.layout()
             
         return _inside
 
+    def uiFunc_refreshEditTab(self):
+        _str_func = 'uiFunc_refreshEditTab'
+
+        self.editColumn.clear()
+        self.editColumn = self.buildColumn_edit(None, inside=self.editColumn)
+        
     def uiFunc_updateLayerVisibility(self, index):
         soloLayers = []
         for layer in self.layers:
@@ -1864,3 +1921,15 @@ def find_node_in_chain(attribute, node_type):
                         return found_node
 
     return None
+
+def getResizedImage(imagePath, width, height):
+    image = Image.open(imagePath)
+    new_img = image.resize((width, height), resample=Image.LANCZOS)
+
+    # Save temporary image file
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+        new_img.save(f.name)
+        new_temp_file_path = f.name
+
+    # Update the image control with the new image
+    return new_temp_file_path

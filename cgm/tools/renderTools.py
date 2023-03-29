@@ -1,14 +1,13 @@
 import maya.cmds as mc
-import maya.app.renderSetup.model.renderSetup as renderSetup
 import cgm.images as cgmImages
 import os.path
-import cgm.lib.geometry as cgmGeometry
-import cgm.core.lib.math_utils as math_utils
-from cgm.core.lib import euclid as EUCLID
 from cgm.core import cgm_Meta as cgmMeta
 import json
 from cgm.lib import files
 import tempfile
+
+import os
+from PIL import Image, ImageOps, ImageEnhance
 
 width, height = (512,512)
 
@@ -656,3 +655,72 @@ def removeUnusedLayeredTextureInputs(layeredTexture):
         mc.removeMultiInstance( src_attr, b=True )
 
     return True       
+
+
+
+
+def getRemapColorInfo(remapColor):
+    remapInterpolationType = ['None', 'Linear', 'Smooth', 'Spline']
+    remapColorData = {}
+    fileNode = mc.listConnections(f"{remapColor}.color", type='file')
+    if fileNode:
+        remapColorData['imagePath'] = mc.getAttr(f"{fileNode[0]}.fileTextureName")
+    else:
+        remapColorData['imagePath'] = None
+    
+    for channel in ['red', 'green', 'blue']:
+        indices = mc.getAttr(f'{remapColor}.{channel}', multiIndices=True)
+        
+        channelData = []
+        for index in indices:
+            position = mc.getAttr(f'{remapColor}.{channel}[{index}].{channel}_Position')
+            value = mc.getAttr(f'{remapColor}.{channel}[{index}].{channel}_FloatValue')
+            interp = remapInterpolationType[mc.getAttr(f'{remapColor}.{channel}[{index}].{channel}_Interp')]
+            channelData.append( {'index':index, 'position':position, 'value':value, 'interp':interp} )
+        remapColorData[channel] = channelData[:]
+    
+    return remapColorData           
+
+def remapImageColors(remapColorData):
+    def create_lut(channelData, channelName):
+        lut = [0] * 256
+        for i in range(256):
+            value = i / 255.0
+            previous = None
+            for point in channelData:
+                if previous is None:
+                    previous = point
+                    continue
+                
+                if previous['position'] <= value <= point['position']:
+                    t = (value - previous['position']) / (point['position'] - previous['position'])
+                    lut[i] = int(255 * (previous['value'] + t * (point['value'] - previous['value'])))
+                    break
+                previous = point
+        
+        with open(f"F:/{channelName}.txt", "w") as f:
+            for i in range(256):
+                f.write(f"{lut[i]}\n")
+        
+        return lut
+
+    def apply_lut(image, lut_r, lut_g, lut_b):
+        image_data = list(image.getdata())
+        remapped_data = []
+
+        for r, g, b in image_data:
+            remapped_data.append((lut_r[r], lut_g[g], lut_b[b]))
+
+        remapped_image = Image.new(image.mode, image.size)
+        remapped_image.putdata(remapped_data)
+        return remapped_image
+
+    image = Image.open(remapColorData['imagePath']).convert('RGB')
+
+    lut_red = create_lut(remapColorData['red'], "red_lut")
+    lut_green = create_lut(remapColorData['green'], "green_lut")
+    lut_blue = create_lut(remapColorData['blue'], "blue_lut")
+
+    remapped_image = apply_lut(image, lut_red, lut_green, lut_blue)
+
+    return remapped_image
