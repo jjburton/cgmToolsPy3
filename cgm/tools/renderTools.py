@@ -688,11 +688,11 @@ def remapImageColors(remapColorData):
     def create_lut(channelData, channelName):
         # 1. Copy channelData to a private scope variable
         channelDataCopy = channelData.copy()
-
+    
         # 2. Sort the data by the position property, lower positions first
         channelDataCopy.sort(key=lambda x: x['position'])
-
-        lut = [0] * 256
+    
+        lut = np.zeros(256, dtype=np.uint8)
         for i in range(256):
             value = i / 255.0
             previous = None
@@ -701,37 +701,39 @@ def remapImageColors(remapColorData):
                 if previous is None:
                     previous = point
                     continue
-
+    
                 if previous['position'] <= value <= point['position']:
                     next_point = point
                     t = (value - previous['position']) / (point['position'] - previous['position'])
                     lut[i] = int(255 * (previous['value'] + t * (point['value'] - previous['value'])))
                     break
                 previous = point
-
+    
             # 3. If there is no previous position, use the next position's value.
             if previous is None and next_point is not None:
                 lut[i] = int(255 * next_point['value'])
-
+    
             # 4. If there is no next position, use the previous position's value.
             if next_point is None and previous is not None:
                 lut[i] = int(255 * previous['value'])
-
+    
+        # Save the LUT to a text file (optional)
         with open(f"F:/{channelName}.txt", "w") as f:
             for i in range(256):
                 f.write(f"{lut[i]}\n")
-
+    
         return lut
 
     def apply_lut(image, lut_r, lut_g, lut_b):
-        image_data = list(image.getdata())
-        remapped_data = []
+        image_data = np.array(image)
+        remapped_data = np.zeros(image_data.shape, dtype=np.uint8)
 
-        for r, g, b in image_data:
-            remapped_data.append((lut_r[r], lut_g[g], lut_b[b]))
+        for i in range(3):
+            remapped_data[:, :, i] = lut_r[image_data[:, :, 0]]
+            remapped_data[:, :, i] = lut_g[image_data[:, :, 1]]
+            remapped_data[:, :, i] = lut_b[image_data[:, :, 2]]
 
-        remapped_image = Image.new(image.mode, image.size)
-        remapped_image.putdata(remapped_data)
+        remapped_image = Image.fromarray(remapped_data)
         return remapped_image
 
     load_image_start_time = time.time()
