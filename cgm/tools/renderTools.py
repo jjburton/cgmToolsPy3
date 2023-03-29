@@ -5,7 +5,8 @@ from cgm.core import cgm_Meta as cgmMeta
 import json
 from cgm.lib import files
 import tempfile
-
+import time
+import numpy as np
 import os
 from PIL import Image, ImageOps, ImageEnhance
 
@@ -682,26 +683,44 @@ def getRemapColorInfo(remapColor):
     return remapColorData           
 
 def remapImageColors(remapColorData):
+    start_time = time.time()
+
     def create_lut(channelData, channelName):
+        # 1. Copy channelData to a private scope variable
+        channelDataCopy = channelData.copy()
+
+        # 2. Sort the data by the position property, lower positions first
+        channelDataCopy.sort(key=lambda x: x['position'])
+
         lut = [0] * 256
         for i in range(256):
             value = i / 255.0
             previous = None
-            for point in channelData:
+            next_point = None
+            for point in channelDataCopy:
                 if previous is None:
                     previous = point
                     continue
-                
+
                 if previous['position'] <= value <= point['position']:
+                    next_point = point
                     t = (value - previous['position']) / (point['position'] - previous['position'])
                     lut[i] = int(255 * (previous['value'] + t * (point['value'] - previous['value'])))
                     break
                 previous = point
-        
+
+            # 3. If there is no previous position, use the next position's value.
+            if previous is None and next_point is not None:
+                lut[i] = int(255 * next_point['value'])
+
+            # 4. If there is no next position, use the previous position's value.
+            if next_point is None and previous is not None:
+                lut[i] = int(255 * previous['value'])
+
         with open(f"F:/{channelName}.txt", "w") as f:
             for i in range(256):
                 f.write(f"{lut[i]}\n")
-        
+
         return lut
 
     def apply_lut(image, lut_r, lut_g, lut_b):
@@ -715,12 +734,33 @@ def remapImageColors(remapColorData):
         remapped_image.putdata(remapped_data)
         return remapped_image
 
+    load_image_start_time = time.time()
     image = Image.open(remapColorData['imagePath']).convert('RGB')
+    load_image_end_time = time.time()
 
+    create_lut_start_time = time.time()
     lut_red = create_lut(remapColorData['red'], "red_lut")
     lut_green = create_lut(remapColorData['green'], "green_lut")
     lut_blue = create_lut(remapColorData['blue'], "blue_lut")
+    create_lut_end_time = time.time()
 
+    apply_lut_start_time = time.time()
     remapped_image = apply_lut(image, lut_red, lut_green, lut_blue)
+    apply_lut_end_time = time.time()
+
+    end_time = time.time()
+
+    print(f"Start Time: {time.ctime(start_time)}")
+    print(f"Load Image Start Time: {time.ctime(load_image_start_time)}")
+    print(f"Load Image End Time: {time.ctime(load_image_end_time)}")
+    print(f"Create LUT Start Time: {time.ctime(create_lut_start_time)}")
+    print(f"Create LUT End Time: {time.ctime(create_lut_end_time)}")
+    print(f"Apply LUT Start Time: {time.ctime(apply_lut_start_time)}")
+    print(f"Apply LUT End Time: {time.ctime(apply_lut_end_time)}")
+    print(f"End Time: {time.ctime(end_time)}")
+    print(f"Load Image Time: {load_image_end_time - load_image_start_time:.2f} seconds")
+    print(f"Create LUT Time: {create_lut_end_time - create_lut_start_time:.2f} seconds")
+    print(f"Apply LUT Time: {apply_lut_end_time - apply_lut_start_time:.2f} seconds")
+    print(f"Total Time: {end_time - start_time:.2f} seconds")
 
     return remapped_image
