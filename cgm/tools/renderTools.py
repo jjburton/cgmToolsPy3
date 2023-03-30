@@ -8,7 +8,7 @@ import tempfile
 import time
 import numpy as np
 import os
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image
 
 width, height = (512,512)
 
@@ -327,8 +327,8 @@ def addImageToCompositeShader(shader, color, alpha):
     mc.connectAttr('%s.outColorG' % remapColor, '%s.input2X' % mult, f=True)
 
     # multiply remap color b with multiply out X
-    mc.connectAttr('%s.outColorB' % remapColor, '%s.input1X' % mult2, f=True)
-    mc.connectAttr('%s.outputX' % mult, '%s.input2X' % mult2, f=True)
+    mc.connectAttr('%s.outputX' % mult, '%s.input1X' % mult2, f=True)
+    mc.connectAttr('%s.outColorB' % remapColor, '%s.input2X' % mult2, f=True)
 
     # connect multiply out X to layered texture alpha
     mc.connectAttr('%s.outColor' % color, '%s.inputs[0].color' % layeredTexture, f=True)
@@ -649,16 +649,13 @@ def removeUnusedLayeredTextureInputs(layeredTexture):
                         mc.disconnectAttr(conn_attr, sub_attr)
     
             # reconnect
-            reconnectConnections(dst_connections, dst_attr, src_attr)              
+            reconnectConnections(dst_connections, dst_attr, src_attr)
 
     removal_attributes.reverse()
     for src_attr in removal_attributes:
         mc.removeMultiInstance( src_attr, b=True )
 
-    return True       
-
-
-
+    return True
 
 def getRemapColorInfo(remapColor):
     remapInterpolationType = ['None', 'Linear', 'Smooth', 'Spline']
@@ -680,44 +677,35 @@ def getRemapColorInfo(remapColor):
             channelData.append( {'index':index, 'position':position, 'value':value, 'interp':interp} )
         remapColorData[channel] = channelData[:]
     
-    return remapColorData           
+    return remapColorData
 
 def remapImageColors(remapColorData):
     start_time = time.time()
 
     def create_lut(channelData, channelName):
-        # 1. Copy channelData to a private scope variable
         channelDataCopy = channelData.copy()
-    
-        # 2. Sort the data by the position property, lower positions first
         channelDataCopy.sort(key=lambda x: x['position'])
     
         lut = np.zeros(256, dtype=np.uint8)
+        previous = None
+        next_point = channelDataCopy[0] if len(channelDataCopy) > 0 else None
+        
         for i in range(256):
             value = i / 255.0
-            previous = None
-            next_point = None
-            for point in channelDataCopy:
-                if previous is None:
-                    previous = point
-                    continue
     
-                if previous['position'] <= value <= point['position']:
-                    next_point = point
-                    t = (value - previous['position']) / (point['position'] - previous['position'])
-                    lut[i] = int(255 * (previous['value'] + t * (point['value'] - previous['value'])))
-                    break
-                previous = point
+            while next_point is not None and value > next_point['position']:
+                previous = next_point
+                channelDataCopy.pop(0)
+                next_point = channelDataCopy[0] if len(channelDataCopy) > 0 else None
     
-            # 3. If there is no previous position, use the next position's value.
             if previous is None and next_point is not None:
                 lut[i] = int(255 * next_point['value'])
-    
-            # 4. If there is no next position, use the previous position's value.
-            if next_point is None and previous is not None:
+            elif next_point is None and previous is not None:
                 lut[i] = int(255 * previous['value'])
-    
-        # Save the LUT to a text file (optional)
+            elif previous is not None and next_point is not None:
+                t = (value - previous['position']) / (next_point['position'] - previous['position'])
+                lut[i] = int(255 * (previous['value'] + t * (next_point['value'] - previous['value'])))
+                
         with open(f"F:/{channelName}.txt", "w") as f:
             for i in range(256):
                 f.write(f"{lut[i]}\n")
@@ -727,12 +715,11 @@ def remapImageColors(remapColorData):
     def apply_lut(image, lut_r, lut_g, lut_b):
         image_data = np.array(image)
         remapped_data = np.zeros(image_data.shape, dtype=np.uint8)
-
-        for i in range(3):
-            remapped_data[:, :, i] = lut_r[image_data[:, :, 0]]
-            remapped_data[:, :, i] = lut_g[image_data[:, :, 1]]
-            remapped_data[:, :, i] = lut_b[image_data[:, :, 2]]
-
+    
+        remapped_data[:, :, 0] = lut_r[image_data[:, :, 0]]
+        remapped_data[:, :, 1] = lut_g[image_data[:, :, 1]]
+        remapped_data[:, :, 2] = lut_b[image_data[:, :, 2]]
+    
         remapped_image = Image.fromarray(remapped_data)
         return remapped_image
 
@@ -766,3 +753,36 @@ def remapImageColors(remapColorData):
     print(f"Total Time: {end_time - start_time:.2f} seconds")
 
     return remapped_image
+
+def getLayeredTextureImages(layeredTextureNode):
+    inputCount = mc.getAttr(layeredTextureNode + ".inputs", size=True)
+    inputData = []
+
+    for i in range(inputCount):
+        colorAttr = layeredTextureNode + f".inputs[{i}].color"
+        alphaAttr = layeredTextureNode + f".inputs[{i}].alpha"
+
+        imagePath = None
+        alphaPath = None
+        
+        fileNodes = getAllConnectedNodesOfType(colorAttr, "file")
+        if fileNodes:
+            imagePath = mc.getAttr(fileNodes[0][0] + ".fileTextureName")
+
+        remapColorNodes = getAllConnectedNodesOfType(alphaAttr, "remapColor")
+        if remapColorNodes:
+            remapColorData = getRemapColorInfo(remapColorNodes[0][0])
+            remapColorImage = remapImageColors(remapColorData)
+            alphaPath = tempfile.NamedTemporaryFile(suffix='.png')
+            remapColorImage.save(alphaPath.name)
+            alphaPath.close()
+
+        if imagePath:
+            inputData.append({
+                'color': imagePath,
+                'alpha': alphaPath,
+                'blendMode': mc.getAttr(layeredTextureNode + f".inputs[{i}].blendMode"),
+                'visible': mc.getAttr(layeredTextureNode + f".inputs[{i}].visible"),
+            })
+
+    return inputData

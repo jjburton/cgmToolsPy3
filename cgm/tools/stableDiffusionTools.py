@@ -10,6 +10,7 @@ from PIL import Image, PngImagePlugin
 from cgm.tools import renderTools as rt
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.lib import files
+import cgm.core.tools.Project as PROJECT
 
 import re
 
@@ -336,3 +337,5 @@ def encode_pil_to_base64(image, format = 'PNG', jpegQuality = 75):
 
     return base64.b64encode(bytes_data)
 
+def mergeCompositeShaderToImage(compositeShader, mergedShader):
+    imagePath = PROJECT.getImagePath()

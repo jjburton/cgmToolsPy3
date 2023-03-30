@@ -1290,7 +1290,7 @@ class ui(cgmUI.cgmGUI):
 
         _options = self.getOptions()
 
-        output_path = getImagePath()
+        output_path = PROJECT.getImagePath()
 
         composite_path = None
         composite_string = None
@@ -1835,20 +1835,6 @@ class ui(cgmUI.cgmGUI):
     def setProjectionImage(self, image):
         _str_func = 'setProjectionImage'
         self.uiImageField_projectionImage(edit=True, image=image)
-
-def getImagePath():
-    var_lastProject = cgmMeta.cgmOptionVar("cgmVar_projectCurrent", varType = "string")
-    var_categoryStore = cgmMeta.cgmOptionVar("cgmVar_sceneUI_category", defaultValue = 0)
-    var_lastAsset = cgmMeta.cgmOptionVar("cgmVar_sceneUI_last_asset", varType = "string")
-
-    mDat = PROJECT.data(filepath=var_lastProject.getValue())
-    d_userPaths = mDat.userPaths_get()
-    l_categoriesBase = mDat.assetTypes_get() if mDat.assetTypes_get() else mDat.d_structure.get('assetTypes', [])
-
-    s_imagePath = os.path.join(d_userPaths['content'],l_categoriesBase[var_categoryStore.getValue()], var_lastAsset.getValue(), 'images') 
-    s_imagePath = os.path.normpath(s_imagePath)
-
-    return s_imagePath
 
 def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
 
