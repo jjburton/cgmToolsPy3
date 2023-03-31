@@ -13,6 +13,7 @@ from cgm.lib import files
 import cgm.core.tools.Project as PROJECT
 
 import re
+import time
 
 # adjusts the local position of a mesh based on the R value of a texture
 # useful for creating a z-depth push effect
@@ -339,3 +340,54 @@ def encode_pil_to_base64(image, format = 'PNG', jpegQuality = 75):
 
 def mergeCompositeShaderToImage(compositeShader, mergedShader):
     imagePath = PROJECT.getImagePath()
+
+    # Get the current time before running the code
+    startTime = time.time()
+
+    # Your code snippet
+    images_data = rt.getLayeredTextureImages('layeredTexture1')
+    images_data.reverse()
+    result_image = rt.overlay_images(images_data)
+
+    # Get the current time after running the code
+    endTime = time.time()
+
+    # Calculate the time difference
+    timeDifference = endTime - startTime
+
+    # Print the time before, after, and the time difference
+    print("Start time: ", startTime)
+    print("End time: ", endTime)
+    print("Time difference: ", timeDifference)
+
+    result_image.save(os.path.join(imagePath, f'{compositeShader}_merged.png'))
+
+    # create a file node and load the image
+    fileNode = mc.createNode('file', name = f'{compositeShader}_merged')
+    mc.setAttr('%s.fileTextureName' % fileNode, os.path.join(imagePath, f'{compositeShader}_merged.png'), type = 'string')
+
+    # create a place2dTexture node and hook it up to the file node
+    place2dTexture = mc.shadingNode('place2dTexture', asUtility=True)
+    mc.connectAttr(place2dTexture + ".coverage", fileNode + ".coverage", force=True)
+    mc.connectAttr(place2dTexture + ".translateFrame", fileNode + ".translateFrame", force=True)
+    mc.connectAttr(place2dTexture + ".rotateFrame", fileNode + ".rotateFrame", force=True)
+    mc.connectAttr(place2dTexture + ".mirrorU", fileNode + ".mirrorU", force=True)
+    mc.connectAttr(place2dTexture + ".mirrorV", fileNode + ".mirrorV", force=True)
+    mc.connectAttr(place2dTexture + ".stagger", fileNode + ".stagger", force=True)
+    mc.connectAttr(place2dTexture + ".wrapU", fileNode + ".wrapU", force=True)
+    mc.connectAttr(place2dTexture + ".wrapV", fileNode + ".wrapV", force=True)
+    mc.connectAttr(place2dTexture + ".repeatUV", fileNode + ".repeatUV", force=True)
+    mc.connectAttr(place2dTexture + ".offset", fileNode + ".offset", force=True)
+    mc.connectAttr(place2dTexture + ".rotateUV", fileNode + ".rotateUV", force=True)
+    mc.connectAttr(place2dTexture + ".noiseUV", fileNode + ".noiseUV", force=True)
+    mc.connectAttr(place2dTexture + ".vertexUvOne", fileNode + ".vertexUvOne", force=True)
+    mc.connectAttr(place2dTexture + ".vertexUvTwo", fileNode + ".vertexUvTwo", force=True)
+    mc.connectAttr(place2dTexture + ".vertexUvThree", fileNode + ".vertexUvThree", force=True)
+    mc.connectAttr(place2dTexture + ".vertexCameraOne", fileNode + ".vertexCameraOne", force=True)
+    mc.connectAttr(place2dTexture + ".outUV", fileNode + ".uv", force=True)
+    mc.connectAttr(place2dTexture + ".outUvFilterSize", fileNode + ".uvFilterSize", force=True)
+
+    # hook the file node up to the shader
+    mc.connectAttr(fileNode + ".outColor", mergedShader + ".outColor", force=True)
+
+    return fileNode

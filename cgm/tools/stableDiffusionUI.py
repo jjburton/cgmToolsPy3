@@ -568,6 +568,24 @@ class ui(cgmUI.cgmGUI):
 
         _row.layout()
 
+        # CFG Scale
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        
+        mUI.MelLabel(_row,l='CFG Scale:',align='right')
+        self.uiIF_CFGScale = mUI.MelIntField(_row,
+                                                    minValue = 1,
+                                                    value = 7,
+                                                    annotation = 'Sampling Steps', changeCommand=cgmGEN.Callback(self.uiFunc_setCFGScale,'field'))  
+        self.uiSlider_CFGScale = mUI.MelIntSlider(_row,1,100,1,step = 1)
+        self.uiSlider_CFGScale.setChangeCB(cgmGEN.Callback(self.uiFunc_setCFGScale,'slider'))
+
+        _row.setStretchWidget( self.uiSlider_CFGScale )
+        mUI.MelSpacer(_row,w = 5)
+
+        self.uiFunc_setCFGScale('field')
+
+        _row.layout()
+
         #>>> Img2Img
 
         mc.setParent(_inside)
@@ -898,10 +916,19 @@ class ui(cgmUI.cgmGUI):
             return _inside
 
         #self.editTabContent = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
+        _row = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate', padding = 10)
 
-        cgmUI.add_Button(_inside, 'Refresh', 
+        cgmUI.add_Button(_row, 'Refresh', 
                 cgmGEN.Callback( self.uiFunc_refreshEditTab ),
-                annotationText='', h=30)
+                annotationText='')
+        
+        cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
+        
+        cgmUI.add_Button(_row, 'Merge Composite', 
+                cgmGEN.Callback( self.uiFunc_mergeComposite ),
+                annotationText='')
+        
+        _row.layout()
 
         # Get the layered texture node
         layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
@@ -940,6 +967,9 @@ class ui(cgmUI.cgmGUI):
 
             _thumb = mUI.MelImage( _thumb_row, w=75, h=75 )
             _thumb(e=True, vis=True)
+            
+            if( mc.objExists(color_name + '.cgmSourceProjectionImage') ):
+                _image_path = mc.getAttr(color_name + '.cgmSourceProjectionImage')
             
             _image_path = mc.getAttr(color_name + '.fileTextureName')
 
@@ -996,7 +1026,7 @@ class ui(cgmUI.cgmGUI):
 
                     _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
                     mc.setParent(_alpha_col)
-                    _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
+                    _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = "print 'dropCallback executed'" )
                     
                     # _row = mUI.MelHSingleStretchLayout(_alpha_col,expand = True,ut = 'cgmUISubTemplate')
                     
@@ -1024,7 +1054,10 @@ class ui(cgmUI.cgmGUI):
 
         self.editColumn.clear()
         self.editColumn = self.buildColumn_edit(None, inside=self.editColumn)
-        
+    
+    def uiFunc_updateChannelGradient(self, dragControl, dropControl, messages, x, y, dragType):
+        print("updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)
+    
     def uiFunc_updateLayerVisibility(self, index):
         soloLayers = []
         for layer in self.layers:
@@ -1461,6 +1494,16 @@ class ui(cgmUI.cgmGUI):
         bakedImage = rt.bakeProjection(projectionShader, mesh)
         bakedAlpha = rt.bakeProjection(alphaShader, mesh)
 
+        
+        mFile = cgmMeta.asMeta(bakedImage)  
+
+        projection = mc.listConnections(projectionShader, type='projection')
+        if projection:
+            projection = projection[0]
+            projectionFile = mc.listConnections(f'{projection}.image')
+            if projectionFile:
+                mFile.doStore('cgmSourceProjectionImage',mc.getAttr(f'{projectionFile[0]}.fileTextureName'))  
+
         compositeShader = self.uiTextField_compositeShader(query=True, text=True)
         alphaMatteShader = self.uiTextField_alphaMatteShader(query=True, text=True)
 
@@ -1471,10 +1514,16 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_assign_material(self.uiTextField_compositeShader)
 
     def uiFunc_mergeComposite(self):
-        bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
+        compositeShader = self.uiTextField_compositeShader(query=True, text=True)
         mergedShader = self.uiTextField_mergedShader(query=True, text=True)
+
+        #bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
+        #bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
+        
+        sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
+
         # connected composite image outColor to outColor of merged shader
-        mc.connectAttr(bakedCompositeImage + '.outColor', mergedShader + '.outColor', force=True)
+        #mc.connectAttr(bakedCompositeImage + '.outColor', mergedShader + '.outColor', force=True)
 
         # assign merged shader
         self.uiFunc_assign_material(self.uiTextField_mergedShader)
@@ -1563,6 +1612,10 @@ class ui(cgmUI.cgmGUI):
         
         self.saveOptions()
         
+    def uiFunc_setCFGScale(self, source):
+        uiFunc_setFieldSlider(self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 8)
+        
+        self.saveOptions()
 
     def uiFunc_setMaskBlur(self, source):
         uiFunc_setFieldSlider(self.uiIF_maskBlur, self.uiSlider_maskBlur, source, 100, 1)
@@ -1919,3 +1972,6 @@ def getResizedImage(imagePath, width, height):
 
     # Update the image control with the new image
     return new_temp_file_path
+
+def uiFunc_updateChannelGradient(dragControl, dropControl, messages, x, y, dragType):
+    print( "uiFunc_updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)

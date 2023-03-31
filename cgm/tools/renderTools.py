@@ -8,7 +8,7 @@ import tempfile
 import time
 import numpy as np
 import os
-from PIL import Image
+from PIL import Image, ImageChops, ImageMath
 
 width, height = (512,512)
 
@@ -755,8 +755,17 @@ def remapImageColors(remapColorData):
     return remapped_image
 
 def getLayeredTextureImages(layeredTextureNode):
+    _blendModes = ('None', 'Over', 'In', 'Out', 'Add', 'Subtract', 'Multiply', 'Difference', 'Lighten', 'Darken', 'Saturate', 'Desaturate', 'Illuminate', 'CPV Modulate')
+
     inputCount = mc.getAttr(layeredTextureNode + ".inputs", size=True)
     inputData = []
+
+    tmpdir = tempfile.TemporaryDirectory().name
+    print(f"Created temporary directory: {tmpdir}")
+
+    # if tmpdir doesn't exist, create it
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
 
     for i in range(inputCount):
         colorAttr = layeredTextureNode + f".inputs[{i}].color"
@@ -771,18 +780,65 @@ def getLayeredTextureImages(layeredTextureNode):
 
         remapColorNodes = getAllConnectedNodesOfType(alphaAttr, "remapColor")
         if remapColorNodes:
+
             remapColorData = getRemapColorInfo(remapColorNodes[0][0])
             remapColorImage = remapImageColors(remapColorData)
-            alphaPath = tempfile.NamedTemporaryFile(suffix='.png')
-            remapColorImage.save(alphaPath.name)
-            alphaPath.close()
+
+            alphaPath = os.path.join(tmpdir, f"alpha{i}.png")
+            remapColorImage.save(alphaPath)
 
         if imagePath:
             inputData.append({
                 'color': imagePath,
                 'alpha': alphaPath,
-                'blendMode': mc.getAttr(layeredTextureNode + f".inputs[{i}].blendMode"),
-                'visible': mc.getAttr(layeredTextureNode + f".inputs[{i}].visible"),
+                'blendMode': _blendModes[mc.getAttr(layeredTextureNode + f".inputs[{i}].blendMode")],
+                'isVisible': mc.getAttr(layeredTextureNode + f".inputs[{i}].isVisible"),
             })
 
     return inputData
+
+def apply_blend_mode(image1, image2, blend_mode):
+    if blend_mode == "Over":
+        return Image.alpha_composite(image1, image2)
+    elif blend_mode == "Add":
+        return ImageChops.add(image1, image2)
+    elif blend_mode == "Subtract":
+        return ImageChops.subtract(image1, image2)
+    elif blend_mode == "Multiply":
+        return ImageChops.multiply(image1, image2)
+    elif blend_mode == "Difference":
+        return ImageChops.difference(image1, image2)
+    elif blend_mode == "Lighten":
+        return ImageChops.lighter(image1, image2)
+    elif blend_mode == "Darken":
+        return ImageChops.darker(image1, image2)
+    else:
+        return image1
+ 
+def overlay_images(images_data):
+    base_image = None
+
+    for data in images_data:
+        if data['isVisible']:
+            color_image = Image.open(data['color']).convert('RGBA')
+            alpha_image = Image.open(data['alpha']).convert('RGBA')
+
+            # Multiply alpha channels together
+            r, g, b, a = alpha_image.split()
+            alpha_image = ImageMath.eval("r * g * b", r=r, g=g, b=b).convert("L")
+            color_image.putalpha(alpha_image)
+
+            # Initialize base image if it does not exist
+            if base_image is None:
+                base_image = color_image
+            else:
+                # Apply blend mode and combine images
+                blend_mode = data['blendMode']
+                if blend_mode in ["Over", "Add", "Subtract", "Multiply", "Difference", "Lighten", "Darken"]:
+                    base_image = apply_blend_mode(base_image, color_image, blend_mode)
+                else:
+                    print(f"Blend mode '{blend_mode}' not supported by PIL. Skipping this layer.")
+        else:
+            continue
+
+    return base_image
