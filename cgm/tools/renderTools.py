@@ -101,6 +101,72 @@ def makeDepthShader():
     # Connect ramp out color to surface shader out color
     mc.connectAttr("%s.outColor" % ramp, "%s.outColor" % shader)
 
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_depth')
+
+    shader = mc.rename(shader, 'cgmDepthShader')
+
+    return shader, sg
+
+def makeXYZShader():
+    # Create a surface shader
+    shader, sg = makeShader('surfaceShader')
+    shader = mc.rename(shader, 'cgmXYZMaterial')
+
+    # make a samplerInfo node
+    samplerInfo = mc.shadingNode('samplerInfo', asUtility=True)
+
+    mc.addAttr(shader, ln='bboxMax', at='double3')
+    mc.addAttr(shader, ln='bboxMaxX', at='double', p='bboxMax')
+    mc.addAttr(shader, ln='bboxMaxY', at='double', p='bboxMax')
+    mc.addAttr(shader, ln='bboxMaxZ', at='double', p='bboxMax')
+
+    mc.addAttr(shader, ln='bboxMin', at='double3')
+    mc.addAttr(shader, ln='bboxMinX', at='double', p='bboxMin')
+    mc.addAttr(shader, ln='bboxMinY', at='double', p='bboxMin')
+    mc.addAttr(shader, ln='bboxMinZ', at='double', p='bboxMin')
+
+    # make a plusMinusAverage node
+    plusMinusAverage = mc.shadingNode('plusMinusAverage', asUtility=True)
+    mc.setAttr( f"{plusMinusAverage}.operation", 2)
+
+    # subtract the min from the pointWorld of the sampler
+    mc.connectAttr("%s.pointWorld" % samplerInfo, "%s.input3D[0]" % plusMinusAverage)
+    mc.connectAttr("%s.bboxMin" % shader, "%s.input3D[1]" % plusMinusAverage)
+
+    # make a multiplyDivide node
+    multiplyDivide = mc.shadingNode('multiplyDivide', asUtility=True)
+
+    # set to divide
+    mc.setAttr("%s.operation" % multiplyDivide, 2)
+
+    # subtract the min from the max
+    plusMinus2 = mc.shadingNode('plusMinusAverage', asUtility=True)
+    mc.setAttr("%s.operation" % plusMinus2, 2)
+    mc.connectAttr("%s.bboxMax" % shader, "%s.input3D[0]" % plusMinus2)
+    mc.connectAttr("%s.bboxMin" % shader, "%s.input3D[1]" % plusMinus2)
+
+    mc.connectAttr("%s.output3D" % plusMinus2, "%s.input2" % multiplyDivide)
+
+    # make a clamp node
+    clamp = mc.shadingNode('clamp', asUtility=True)
+
+    #connect the multiplyDivide to the clamp
+    mc.connectAttr("%s.output3D" % plusMinusAverage, "%s.input1" % multiplyDivide)
+    mc.connectAttr("%s.output" % multiplyDivide, "%s.input" % clamp)
+
+    # set the clamp min and max
+    mc.setAttr("%s.min" % clamp, 0.0, 0.0, 0.0, type='double3')
+    mc.setAttr("%s.max" % clamp, 1.0, 1.0, 1.0, type='double3')
+
+    # connect the clamp to the shader
+    mc.connectAttr("%s.output" % clamp, "%s.outColor" % shader)
+
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_xyz')
+
+    shader = mc.rename(shader, 'cgmXYZShader')
+
     return shader, sg
 
 def makeProjectionShader(cameraShape, makeLayeredTexture=False):
@@ -171,6 +237,11 @@ def makeProjectionShader(cameraShape, makeLayeredTexture=False):
     # set the file node to the grid texture
     mc.setAttr('%s.fileTextureName' % fileNode, os.path.join(cgmImages.__path__[0], "grid.png"), type='string')
 
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_projection')
+
+    shader = mc.rename(shader, 'cgmProjectionShader')
+
     return shader, sg
 
 def makeAlphaProjectionShader(cameraShape):
@@ -229,6 +300,11 @@ def makeAlphaProjectionShader(cameraShape):
 
     # connect projection outputR to shaders inputB
     mc.connectAttr('%s.outColorR' % vignetteProjection, '%s.input2Z' % multNode, force=True)
+
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore('cgmShader','sd_alpha')
+
+    shader = mc.rename(shader, 'cgmAlphaProjectionShader')
 
     return shader, sg
 
@@ -302,40 +378,48 @@ def addImageToCompositeShader(shader, color, alpha):
 
     firstConnection = len(inputs) == 0
 
-    remapColor = mc.shadingNode('remapColor', asUtility=True)
-    mult = mc.shadingNode('multiplyDivide', asUtility=True)
-    mult2 = mc.shadingNode('multiplyDivide', asUtility=True)
+    remapColor, mult2 = remapAndMultiplyColorChannels(alpha, ['Facing Ratio', 'Distance', 'Vignette'])
 
     mc.setAttr("%s.red[0].red_Position" % remapColor, 0.1)
     mc.setAttr("%s.red[1].red_Position" % remapColor, 0.5)
     mc.setAttr("%s.red[0].red_FloatValue" % remapColor, 1 if firstConnection else 0)
 
-    # set green position to 1
     mc.setAttr("%s.green[0].green_Position" % remapColor, 0)
     mc.setAttr("%s.green[1].green_Position" % remapColor, .5)
     mc.setAttr("%s.green[0].green_FloatValue" % remapColor, 1 if firstConnection else 0)
     mc.setAttr("%s.green[1].green_FloatValue" % remapColor, 1)
 
-    # set blue position to 1
     mc.setAttr("%s.blue[0].blue_Position" % remapColor, 0)
     mc.setAttr("%s.blue[1].blue_Position" % remapColor, .4)
     mc.setAttr("%s.blue[0].blue_FloatValue" % remapColor, 1 if firstConnection else 0)
     mc.setAttr("%s.blue[1].blue_FloatValue" % remapColor, 1)
 
-    # connect remap color r and g to multiply
-    mc.connectAttr('%s.outColorR' % remapColor, '%s.input1X' % mult, f=True)
-    mc.connectAttr('%s.outColorG' % remapColor, '%s.input2X' % mult, f=True)
-
-    # multiply remap color b with multiply out X
-    mc.connectAttr('%s.outputX' % mult, '%s.input1X' % mult2, f=True)
-    mc.connectAttr('%s.outColorB' % remapColor, '%s.input2X' % mult2, f=True)
-
     # connect multiply out X to layered texture alpha
     mc.connectAttr('%s.outColor' % color, '%s.inputs[0].color' % layeredTexture, f=True)
-    mc.connectAttr('%s.outColor' % alpha, '%s.color' % remapColor, f=True)
     mc.connectAttr('%s.outputX' % mult2, '%s.inputs[0].alpha' % layeredTexture, f=True)
 
     return 0, remapColor
+
+def remapAndMultiplyColorChannels(color, labels=['Red', 'Green', 'Blue']):
+    remapColor = mc.shadingNode('remapColor', asUtility=True)
+    mult = mc.shadingNode('multiplyDivide', asUtility=True)
+    mult2 = mc.shadingNode('multiplyDivide', asUtility=True)
+
+    mc.connectAttr('%s.outColorR' % remapColor, '%s.input1X' % mult, f=True)
+    mc.connectAttr('%s.outColorG' % remapColor, '%s.input2X' % mult, f=True)
+
+    mc.connectAttr('%s.outputX' % mult, '%s.input1X' % mult2, f=True)
+    mc.connectAttr('%s.outColorB' % remapColor, '%s.input2X' % mult2, f=True)
+
+    mc.connectAttr('%s.outColor' % color, '%s.color' % remapColor, f=True)
+
+    # add label attributes as strings called cgmRedLabel, cgmGreenLabel, cgmBlueLabel
+    for i, channel in enumerate(['Red', 'Green', 'Blue']):
+        mc.addAttr(remapColor, ln=f'cgm{channel}Label', dt='string')
+        mc.setAttr(f'{remapColor}.cgm{channel}Label', labels[i], type='string')
+
+
+    return remapColor, mult2
 
 def updateAlphaMatteShader(alphaShader, compositeShader):
     layeredTexture = mc.listConnections('%s.outColor' % alphaShader, type="layeredTexture")[0]
@@ -520,9 +604,13 @@ def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
         return connectedNodes
 
     result = walkConnections(sourceShadingNode, nodeType)
+
+    # get first element of each item in the list
+    result = [item[0] for item in result]
+    
     # Remove any duplicates from the returned list
-    result = list(set(map(tuple, result)))
-    result = [list(t) for t in result]
+    result = list(set(result))
+
     return result
 
 def getInputConnections(node_attr):
@@ -772,25 +860,27 @@ def getLayeredTextureImages(layeredTextureNode):
         alphaAttr = layeredTextureNode + f".inputs[{i}].alpha"
 
         imagePath = None
-        alphaPath = None
+        alphaPaths = []
         
         fileNodes = getAllConnectedNodesOfType(colorAttr, "file")
         if fileNodes:
-            imagePath = mc.getAttr(fileNodes[0][0] + ".fileTextureName")
+            imagePath = mc.getAttr(fileNodes[0] + ".fileTextureName")
 
         remapColorNodes = getAllConnectedNodesOfType(alphaAttr, "remapColor")
-        if remapColorNodes:
 
-            remapColorData = getRemapColorInfo(remapColorNodes[0][0])
+        for j, remapColorNode in enumerate(remapColorNodes):
+            remapColorData = getRemapColorInfo(remapColorNode)
             remapColorImage = remapImageColors(remapColorData)
 
-            alphaPath = os.path.join(tmpdir, f"alpha{i}.png")
+            alphaPath = os.path.join(tmpdir, f"alpha{i}_{j+1}.png")
             remapColorImage.save(alphaPath)
+
+            alphaPaths.append(alphaPath)
 
         if imagePath:
             inputData.append({
                 'color': imagePath,
-                'alpha': alphaPath,
+                'alpha': alphaPaths,
                 'blendMode': _blendModes[mc.getAttr(layeredTextureNode + f".inputs[{i}].blendMode")],
                 'isVisible': mc.getAttr(layeredTextureNode + f".inputs[{i}].isVisible"),
             })
@@ -821,12 +911,20 @@ def overlay_images(images_data):
     for data in images_data:
         if data['isVisible']:
             color_image = Image.open(data['color']).convert('RGBA')
-            alpha_image = Image.open(data['alpha']).convert('RGBA')
 
-            # Multiply alpha channels together
-            r, g, b, a = alpha_image.split()
-            alpha_image = ImageMath.eval("r * g * b", r=r, g=g, b=b).convert("L")
-            color_image.putalpha(alpha_image)
+            # Process and multiply multiple alpha images
+            merged_alpha_image = None
+            for alpha_path in data['alpha']:
+                alpha_image = Image.open(alpha_path).convert('RGB')
+                r, g, b = alpha_image.split()
+                alpha_image = ImageMath.eval("r * g * b", r=r, g=g, b=b).convert("L")
+
+                if merged_alpha_image is None:
+                    merged_alpha_image = alpha_image
+                else:
+                    merged_alpha_image = ImageMath.eval("a * b", a=merged_alpha_image, b=alpha_image).convert("L")
+
+            color_image.putalpha(merged_alpha_image)
 
             # Initialize base image if it does not exist
             if base_image is None:

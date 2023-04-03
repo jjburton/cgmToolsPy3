@@ -142,7 +142,7 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelLabel(_row,l='Scale:',align='right')
 
-        _scaleOptions = [10, 25, 50, 75, 100]
+        _scaleOptions = [10, 25, 50, 75, 100, 125, 150, 175, 200]
         self.uiOM_SizeMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', changeCommand=cgmGEN.Callback(self.updateUI))
         for percent in _scaleOptions:
             self.uiOM_SizeMenu.append('{}%'.format(percent))

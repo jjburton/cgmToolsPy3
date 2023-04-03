@@ -38,7 +38,7 @@ from cgm.tools import imageViewer as iv
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
-__toolname__ ='projectDiffusionTool'
+__toolname__ ='GrAIBox'
 
 _defaultOptions = {
         'automatic_url':'127.0.0.1:7860',
@@ -66,6 +66,7 @@ _defaultOptions = {
         'mask_blur':4,
         'batch_count':1,
         'batch_size':1,
+        'cfg_scale':7
 }
 
 class ui(cgmUI.cgmGUI):
@@ -193,15 +194,15 @@ class ui(cgmUI.cgmGUI):
         self.loadOptions()      
 
     def buildColumn_main(self, parent, asScroll=False):
-        _tabs = mc.tabLayout()
+        self.uiTabLayout = mc.tabLayout()
 
-        self.setupColumn = self.buildColumn_settings(_tabs, asScroll = True)
-        self.projectColumn = self.buildColumn_project(_tabs, asScroll = True)
-        self.editColumn = self.buildColumn_edit(_tabs, asScroll = True)
+        self.setupColumn = self.buildColumn_settings(self.uiTabLayout, asScroll = True)
+        self.projectColumn = self.buildColumn_project(self.uiTabLayout, asScroll = True)
+        self.editColumn = self.buildColumn_edit(self.uiTabLayout, asScroll = True)
 
-        mc.tabLayout(_tabs, edit=True, tabLabel=((self.setupColumn, 'Setup'), (self.projectColumn, 'Project'), (self.editColumn, 'Edit')))
+        mc.tabLayout(self.uiTabLayout, edit=True, tabLabel=((self.setupColumn, 'Setup'), (self.projectColumn, 'Project'), (self.editColumn, 'Edit')), cc=lambda *a: self.uiFunc_handleTabChange(*a))
 
-        return _tabs
+        return self.uiTabLayout
 
     def buildColumn_settings(self,parent, asScroll = False):
         """
@@ -357,6 +358,26 @@ class ui(cgmUI.cgmGUI):
         cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_depth_shader(),annotationText='')
         cgmUI.add_Button(_row, 'Select',
                             lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_depthShader),
+                            annotationText='')
+        mUI.MelSpacer(_row,w = 5)
+        _row.layout()
+
+        #>>> Load XYZ Shader
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='XYZ Shader:',align='right')
+        self.uiTextField_xyzShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+                                                        ut = 'cgmUITemplate',
+                                                        w = 50,
+                                                        editable=False,
+                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+                                                        annotation = "Our base object from which we process things in this tab...")
+        mUI.MelSpacer(_row,w = 5)
+        _row.setStretchWidget(self.uiTextField_xyzShader)
+        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_xyzShader, enforcedType = 'surfaceShader'))
+        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_xyz_shader(),annotationText='')
+        cgmUI.add_Button(_row, 'Select',
+                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_xyzShader),
                             annotationText='')
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
@@ -571,11 +592,12 @@ class ui(cgmUI.cgmGUI):
         # CFG Scale
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         
-        mUI.MelLabel(_row,l='CFG Scale:',align='right')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='CFG Scale:',align='right', annotation = 'Value that model tries to conform to the prompt')
         self.uiIF_CFGScale = mUI.MelIntField(_row,
                                                     minValue = 1,
                                                     value = 7,
-                                                    annotation = 'Sampling Steps', changeCommand=cgmGEN.Callback(self.uiFunc_setCFGScale,'field'))  
+                                                    annotation = 'Value that model tries to conform to the prompt', changeCommand=cgmGEN.Callback(self.uiFunc_setCFGScale,'field'))  
         self.uiSlider_CFGScale = mUI.MelIntSlider(_row,1,100,1,step = 1)
         self.uiSlider_CFGScale.setChangeCB(cgmGEN.Callback(self.uiFunc_setCFGScale,'slider'))
 
@@ -808,10 +830,12 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_row,l='Assign Material:',align='right')
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
         cgmUI.add_Button(_row,'Depth', lambda *a:self.uiFunc_assign_material(self.uiTextField_depthShader))
+        cgmUI.add_Button(_row,'XYZ', lambda *a:self.uiFunc_assign_material(self.uiTextField_xyzShader))
         cgmUI.add_Button(_row,'Projection', lambda *a:self.uiFunc_assign_material(self.uiTextField_projectionShader))
         cgmUI.add_Button(_row,'Alpha', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaShader))
         cgmUI.add_Button(_row,'Composite', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
         cgmUI.add_Button(_row,'Alpha Matte', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaMatteShader))
+
         cgmUI.add_Button(_row,'Merged', lambda *a:self.uiFunc_assign_material(self.uiTextField_mergedShader))
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
@@ -862,6 +886,19 @@ class ui(cgmUI.cgmGUI):
 
         self.uiFunc_setDepth('field')
 
+        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='XYZ:',align='right')
+        _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
+
+        self.renderBtn = cgmUI.add_Button(_row,'Set BBox From Selected',
+        cgmGEN.Callback(self.uiFunc_setXYZFromSelected),                         
+        'Set BBox From Selected')
+        self.viewImageBtn = cgmUI.add_Button(_row,'Bake',
+        cgmGEN.Callback(self.uiFunc_bakeXYZMap),                         
+        'Bake XYZ map')
+        mUI.MelSpacer(_row,w=5)	            
+        _row.layout()
 
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
@@ -883,7 +920,7 @@ class ui(cgmUI.cgmGUI):
         #
         _row = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 10)
         
-        self.generateBtn = cgmUI.add_Button(_row,'Generate',
+        self.generateBtn = cgmUI.add_Button(_row,'Steal Art',
             cgmGEN.Callback(self.uiFunc_generateImage),                         
             'Generate',h=50)
 
@@ -959,21 +996,26 @@ class ui(cgmUI.cgmGUI):
 
             # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
             #subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")           
-            subrow_layout = mUI.MelRowLayout(color_layout, numberOfColumns=2, columnWidth2=(75, 75), adjustableColumn=2, columnAlign=(1, 'left'), columnAttach=(1, 'right', 0), useTemplate='cgmUITemplate')
+            _thumbSize = (150,150)
+            
+            subrow_layout = mUI.MelRowLayout(color_layout, numberOfColumns=2, columnWidth2=(_thumbSize[0], 50), adjustableColumn=2, columnAlign=(1, 'left'), columnAttach=(1, 'right', 0), useTemplate='cgmUITemplate')
             
             # make column layout
             _thumb_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
 
 
-            _thumb = mUI.MelImage( _thumb_row, w=75, h=75 )
+            _thumb = mUI.MelImage( _thumb_row, w=_thumbSize[0], h=_thumbSize[1] )
             _thumb(e=True, vis=True)
             
-            if( mc.objExists(color_name + '.cgmSourceProjectionImage') ):
-                _image_path = mc.getAttr(color_name + '.cgmSourceProjectionImage')
-            
-            _image_path = mc.getAttr(color_name + '.fileTextureName')
+            _uv_projection_path = mc.getAttr(color_name + '.fileTextureName')
+            _orig_path = ""
+            _image_path = _uv_projection_path
 
-            _thumb_path = getResizedImage(_image_path, 75, 75)
+            if( mc.objExists(color_name + '.cgmSourceProjectionImage') ):
+                _orig_path = mc.getAttr(color_name + '.cgmSourceProjectionImage')
+                _image_path = _orig_path
+
+            _thumb_path = getResizedImage(_image_path, _thumbSize[0], _thumbSize[1], preserveAspectRatio=True)
 
             _thumb.setImage( _thumb_path )
 
@@ -987,34 +1029,56 @@ class ui(cgmUI.cgmGUI):
             info_top_column.setStretchWidget( mUI.MelSeparator(info_top_column, w=2) )
             
             _layerTF = mUI.MelTextField(info_top_column,useTemplate = 'cgmUITemplate',vis=False, text = color_name)
-
-            cgmUI.add_Button(info_top_column, 'Select', 
-                    cgmGEN.Callback( uiFunc_select_item_from_text_field, _layerTF),
-                    annotationText='')   
             
-            # cgmUI.add_Button(info_top_column, 'Add Alpha', 
-            #         cgmGEN.Callback( uiFunc_select_item_from_text_field, _layerTF),
-            #         annotationText='')
+            _cameraData = {}
+            if( mc.objExists(color_name + '.cgmImageProjectionData') ):
+                _data = json.loads(mc.getAttr(color_name + '.cgmImageProjectionData'))
+                if('camera_info' in _data):
+                    _cameraData = _data['camera_info']
 
+            if os.path.exists(_orig_path):
+                cgmUI.add_Button(info_top_column, 'View Orig',
+                        cgmGEN.Callback( self.uiFunc_viewImageFromPath, _orig_path),
+                        annotationText='')
+            if os.path.exists(_uv_projection_path):
+                cgmUI.add_Button(info_top_column, 'View UV',
+                        cgmGEN.Callback( self.uiFunc_viewImageFromPath, _uv_projection_path),
+                        annotationText='')
+            cgmUI.add_Button(info_top_column, 'Select',
+                    cgmGEN.Callback( uiFunc_select_item_from_text_field, _layerTF),
+                    annotationText='')
+            if _cameraData:
+                cgmUI.add_Button( info_top_column, 'Snap Camera', 
+                        cgmGEN.Callback( self.uiFunc_snapCameraFromData, _cameraData),
+                        annotationText='')
+            
             mUI.MelSpacer(info_top_column,w = 5)
             info_top_column.layout()
             
             # Check if the alpha input has a remapColor node and create min/max sliders if it does
             alpha_input = layeredTexture + ".inputs[{}].alpha".format(i)
-            remap_color = find_node_in_chain(alpha_input, "remapColor")
+            remap_color_nodes = rt.getAllConnectedNodesOfType(alpha_input, "remapColor")
             channelSliders = {}
-            if remap_color:
+
+            _hasPositionRemap = False
+
+            _mesh = self.uiTextField_baseObject.getValue()
+            _xyzFile = self.getXYZFile(_mesh)
+
+            for remap_color in remap_color_nodes:
                 # Create a new MelHSingleStretchLayout for each remapColor channel
                 
-                for channel in ["red", "green", "blue"]:
-                    label = channel.upper()[0]
-                    if(channel == "red"):
-                        label = "Facing Ratio"
-                    elif(channel == "green"):
-                        label = "Distance"
-                    elif(channel == "blue"):
-                        label = "Vignette"
+                remap_file = mc.listConnections(remap_color + '.color', type='file')
+                if remap_file:
+                    remap_file = remap_file[0]
+                    if remap_file == _xyzFile and _xyzFile: 
+                        _hasPositionRemap = True
 
+                for channel in ["red", "green", "blue"]:
+                    label = channel.capitalize()
+                    if(mc.objExists('%s.cgm%sLabel'%(remap_color, channel.capitalize()))):
+                        label = mc.getAttr('%s.cgm%sLabel'%(remap_color, channel.capitalize()))
+                    
                     _alphaFrame = mUI.MelFrameLayout(info_row,label = label,vis=True,
                                     collapse=True,
                                     collapsable=True,
@@ -1027,27 +1091,98 @@ class ui(cgmUI.cgmGUI):
                     _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
                     mc.setParent(_alpha_col)
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = "print 'dropCallback executed'" )
-                    
-                    # _row = mUI.MelHSingleStretchLayout(_alpha_col,expand = True,ut = 'cgmUISubTemplate')
-                    
-                    # mUI.MelSpacer(_row,w=5)
-                    # mUI.MelLabel(_row,l=label,align='right', w = 70)
-
-                    # _layoutRow = mUI.MelColumn(_row,ut='cgmUISubTemplate',adjustableColumn=True)
-                    # mc.setParent(_layoutRow)
-                    # _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel) )
-
-                    # mUI.MelSpacer(_row,w=5)
-                    # _row.setStretchWidget(_layoutRow)
-                    # _row.layout()
-
-                    #self.uiFunc_setDepth('field')
+                
+            if not _hasPositionRemap and _xyzFile:
+                cgmUI.add_Button(info_row, 'Add Position Matte',
+                        cgmGEN.Callback( self.uiFunc_addPositionMatte, alpha_input),
+                        annotationText='')
             
             self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": i, "solo_cb": solo_cb, "channelSliders": channelSliders})
 
             #subrow_layout.layout()
             
         return _inside
+    
+    @property
+    def currentTab(self):
+        tabIndex = mc.tabLayout(self.uiTabLayout, q=True, sti=True)
+        return mc.tabLayout(self.uiTabLayout, q=True, tl=True)[tabIndex-1]
+    
+    def uiFunc_handleTabChange(self):
+        if(self.currentTab.lower() == 'edit'):
+            self.uiFunc_refreshEditTab()
+
+    def uiFunc_addPositionMatte(self, alphaConnection):
+        _str_func = 'uiFunc_addPositionMatte'
+        baseObj = self.uiTextField_baseObject(query=True, text=True)
+        xyzFile = self.getXYZFile(baseObj)
+
+        print ("operating on {}, xyz = {}, connection = {}".format(baseObj, xyzFile, alphaConnection))
+
+        if not xyzFile:
+            return
+        
+        remap, mult = rt.remapAndMultiplyColorChannels(xyzFile, labels=['X', 'Y', 'Z'])
+        connections = mc.listConnections(alphaConnection, p=True)
+        if connections:
+            print("connections = {}".format(connections))
+            finalMult = mc.shadingNode('multiplyDivide', asUtility=True)
+            print("finalMult = {}".format(finalMult))
+            mc.connectAttr(connections[0], finalMult + '.input1X', f=True)
+            mc.connectAttr(mult + '.outputX', finalMult + '.input2X', f=True)
+            mc.connectAttr(finalMult + '.outputX', alphaConnection, f=True)
+        else:
+            mc.connectAttr(mult + '.outputX', alphaConnection, f=True)
+        
+        self.uiFunc_refreshEditTab()
+
+    def getXYZFile(self, mesh):
+        if not mc.objExists(mesh + '.xyzColor'):
+            return None
+        
+        xyzFile = mc.listConnections(mesh + '.xyzColor', type='file')
+        if not xyzFile:
+            return None
+        
+        return xyzFile[0]
+
+    def uiFunc_setXYZFromSelected(self):
+        _str_func = 'uiFunc_setXYZFromSelected'
+        _sel = mc.ls(sl=True)
+        if not _sel:
+            return
+
+        xyzShader = self.uiTextField_xyzShader(query=True, text=True)
+        if not mc.objExists(xyzShader):
+            return
+        
+        _sel = _sel[0]
+        _bbox = mc.exactWorldBoundingBox(_sel)
+        mc.setAttr(xyzShader + '.bboxMin', _bbox[0], _bbox[1], _bbox[2], type='double3')
+        mc.setAttr(xyzShader + '.bboxMax', _bbox[3], _bbox[4], _bbox[5], type='double3')
+
+    def uiFunc_bakeXYZMap(self):
+        _str_func = 'uiFunc_bakeXYZMap'
+        mesh = self.uiTextField_baseObject(query=True, text=True)
+        if not mc.objExists(mesh):
+            return
+        
+        xyzShader = self.uiTextField_xyzShader(query=True, text=True)
+        if not mc.objExists(xyzShader):
+            return
+        
+        xyzFile = rt.bakeProjection(xyzShader, mesh)
+        if not xyzFile:
+            return
+        
+        # create double3 attribute xyzMap
+        if not mc.objExists(mesh + '.xyzColor'):
+            mc.addAttr(mesh, longName='xyzColor', at='double3')
+            mc.addAttr(mesh, longName='xyzColorR', at='double', parent='xyzColor')
+            mc.addAttr(mesh, longName='xyzColorG', at='double', parent='xyzColor')
+            mc.addAttr(mesh, longName='xyzColorB', at='double', parent='xyzColor')
+
+        mc.connectAttr(xyzFile + '.outColor', mesh + '.xyzColor', force=True)            
 
     def uiFunc_refreshEditTab(self):
         _str_func = 'uiFunc_refreshEditTab'
@@ -1138,6 +1273,9 @@ class ui(cgmUI.cgmGUI):
             if(mc.getAttr(shader) == 'sd_merged'):
                 self.uiTextField_mergedShader(edit=True, text=shader.split('.')[0])
                 continue
+            if(mc.getAttr(shader) == 'sd_xyz'):
+                self.uiTextField_xyzShader(edit=True, text=shader.split('.')[0])
+                continue
         return
 
     def uiFunc_assign_material(self, element):
@@ -1221,6 +1359,46 @@ class ui(cgmUI.cgmGUI):
         else:
             log.warning("|{0}| >> No images selected.".format(_str_func))
 
+    def uiFunc_viewImageFromPath(self, path):
+        _str_func = 'uiFunc_viewImageFromPath'
+        print(_str_func, path)
+
+        if os.path.exists(path):
+            iv.ui([path], {'outputImage':path})
+        else:
+            log.warning("|{0}| >> No images selected.".format(_str_func))
+            return
+
+    def uiFunc_snapCameraFromData(self, cameraData):
+        _str_func = 'uiFunc_snapCameraFromData'
+
+        camera = self.uiTextField_projectionCam(query=True, text=True)
+        if not mc.objExists(camera):
+            log.warning("|{0}| >> No camera loaded.".format(_str_func))
+            return
+
+        if not cameraData:
+            log.warning("|{0}| >> No camera data loaded.".format(_str_func))
+            return
+
+        cameraTransform = mc.listRelatives(camera, parent=True)[0]
+        # get camera data
+        
+        position = cameraData['position']
+        rotation = cameraData['rotation']
+        fov = cameraData['fov']
+
+        # set camera data
+        mc.setAttr(cameraTransform+'.translateX', position[0])
+        mc.setAttr(cameraTransform+'.translateY', position[1])
+        mc.setAttr(cameraTransform+'.translateZ', position[2])
+        mc.setAttr(cameraTransform+'.rotateX', rotation[0])
+        mc.setAttr(cameraTransform+'.rotateY', rotation[1])
+        mc.setAttr(cameraTransform+'.rotateZ', rotation[2])
+
+        # set fov
+        mc.setAttr(camera+'.focalLength', fov)
+
     def uiFunc_make_projection_camera(self):
         cam, shape = rt.makeProjectionCamera()
         self.uiTextField_projectionCam(edit=True, text=shape)
@@ -1233,7 +1411,7 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> No camera loaded.".format(_str_func))
             return
         
-        shader, sg = sd.makeProjectionShader(_camera)
+        shader, sg = rt.makeProjectionShader(_camera)
         self.uiTextField_projectionShader(edit=True, text=shader)
 
     def uiFunc_make_alpha_shader(self):
@@ -1244,7 +1422,7 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> No camera loaded.".format(_str_func))
             return
         
-        shader, sg = sd.makeAlphaShader(_camera)
+        shader, sg = rt.makeAlphaShader(_camera)
 
         depthShader = self.uiTextField_depthShader(query=True, text=True)
         if mc.objExists(depthShader):
@@ -1274,7 +1452,7 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_make_depth_shader(self):
         _str_func = 'uiFunc_make_depth_shader'
 
-        shader, sg = sd.makeDepthShader()
+        shader, sg = rt.makeDepthShader()
         self.uiTextField_depthShader(edit=True, text=shader)
 
         alphaShader = self.uiTextField_alphaShader(query=True, text=True)
@@ -1288,6 +1466,20 @@ class ui(cgmUI.cgmGUI):
                     mc.connectAttr(ramp[0] + '.outColorG', alphaShader + '.outColorG', force=True)
 
         mc.setAttr(shader + '.maxDistance', self.uiFF_maxDepthDistance(query=True, value=True))
+
+    def uiFunc_make_xyz_shader(self):
+        _str_func = 'uiFunc_make_xyz_shader'
+
+        shader, sg = rt.makeXYZShader()
+
+        mesh = self.uiTextField_baseObject(query=True, text=True)
+        if mc.objExists(mesh):
+            bbox = mc.exactWorldBoundingBox(mesh)
+
+            mc.setAttr(shader + '.bboxMin', bbox[0], bbox[1], bbox[2], type='double3')
+            mc.setAttr(shader + '.bboxMax', bbox[3], bbox[4], bbox[5], type='double3')
+
+        self.uiTextField_xyzShader(edit=True, text=shader)
 
     def uiFunc_make_merged_shader(self):
         _str_func = 'uiFunc_make_merged_shader'
@@ -1391,8 +1583,8 @@ class ui(cgmUI.cgmGUI):
 
         if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == 'none':
             if mc.objExists(depthMat) and mc.objExists(mesh):
-                format = 'jpeg'
-                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, resolution=self.resolution)
+                format = 'png'
+                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, resolution=(self.resolution[0]*2, self.resolution[1]*2))
                 print( "depth_path: {0}".format(depth_path) )
                 # Read the image data
                 depth_image = Image.open(depth_path)
@@ -1503,7 +1695,8 @@ class ui(cgmUI.cgmGUI):
             projectionFile = mc.listConnections(f'{projection}.image')
             if projectionFile:
                 mFile.doStore('cgmSourceProjectionImage',mc.getAttr(f'{projectionFile[0]}.fileTextureName'))  
-
+                mFile.doStore('cgmImageProjectionData',mc.getAttr(f'{projectionFile[0]}.cgmImageProjectionData'))  
+        
         compositeShader = self.uiTextField_compositeShader(query=True, text=True)
         alphaMatteShader = self.uiTextField_alphaMatteShader(query=True, text=True)
 
@@ -1613,7 +1806,7 @@ class ui(cgmUI.cgmGUI):
         self.saveOptions()
         
     def uiFunc_setCFGScale(self, source):
-        uiFunc_setFieldSlider(self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 8)
+        uiFunc_setFieldSlider(self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 30)
         
         self.saveOptions()
 
@@ -1789,6 +1982,7 @@ class ui(cgmUI.cgmGUI):
         _options['mask_blur'] = self.uiIF_maskBlur.getValue()
         _options['batch_count'] = self.uiIF_batchCount.getValue()
         _options['batch_size'] = self.uiIF_batchSize.getValue()
+        _options['cfg_scale'] = self.uiIF_CFGScale.getValue()
 
         return _options
 
@@ -1854,6 +2048,9 @@ class ui(cgmUI.cgmGUI):
         if 'sampling_method' in _options:
             self.uiOM_samplingMethodMenu(edit=True, value=_options['sampling_method'])
 
+        self.uiIF_CFGScale.setValue(_options['cfg_scale'])
+        self.uiFunc_setCFGScale('field')
+
         self.uiIF_batchCount.setValue(_options['batch_count'])
         self.uiIF_batchSize.setValue(_options['batch_size'])
         self.uiFunc_setBatchSize('field')
@@ -1880,7 +2077,6 @@ class ui(cgmUI.cgmGUI):
         self.uiAlphaMatteCB.setValue(_options['use_alpha_pass'])
         self.uiTextField_customImage(edit=True, text=_options['img2img_custom_image'])
         self.uiIF_maskBlur.setValue(_options['mask_blur'])
-
 
         self.uiFunc_setImg2ImgPass(_options['img2img_pass'])
         self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
@@ -1961,8 +2157,14 @@ def find_node_in_chain(attribute, node_type):
 
     return None
 
-def getResizedImage(imagePath, width, height):
+def getResizedImage(imagePath, width, height, preserveAspectRatio=False):
     image = Image.open(imagePath)
+
+    if preserveAspectRatio:
+        # Get the aspect ratio of the image, scaling height to match the new width
+        aspect_ratio = image.size[0] / image.size[1]
+        height = int(width / aspect_ratio)
+
     new_img = image.resize((width, height), resample=Image.LANCZOS)
 
     # Save temporary image file

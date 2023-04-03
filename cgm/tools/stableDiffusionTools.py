@@ -72,6 +72,7 @@ def getImageFromAutomatic1111(data):
         "sampler_index":data['sampling_method'],
         "batch_size":data['batch_size'],
         "n_iter":data['batch_count'],
+        "cfg_scale":data['cfg_scale'],
     }
 
     if data['control_net_enabled']:
@@ -224,24 +225,6 @@ def setModel(model, url = '127.0.0.1:7860'):
     
     return True
 
-def makeProjectionShader(camera):
-    shader, sg = rt.makeProjectionShader(camera)
-    mShader = cgmMeta.asMeta(shader)
-    mShader.doStore('cgmShader','sd_projection')
-
-    shader = mc.rename(shader, 'cgmProjectionShader')
-
-    return shader, sg
-
-def makeAlphaShader(camera):
-    shader, sg = rt.makeAlphaProjectionShader(camera)
-    mShader = cgmMeta.asMeta(shader)
-    mShader.doStore('cgmShader','sd_alpha')
-
-    shader = mc.rename(shader, 'cgmAlphaProjectionShader')
-
-    return shader, sg
-
 def makeCompositeShader():
     shader, sg = rt.makeShader('surfaceShader')
     mShader = cgmMeta.asMeta(shader)
@@ -265,15 +248,6 @@ def makeAlphaMatteShader():
     # create a layered texture and hook it up to the shader
     layeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
     mc.connectAttr(layeredTexture + ".outColor", shader + ".outColor", force=True)
-
-    return shader, sg
-
-def makeDepthShader():
-    shader, sg = rt.makeDepthShader()
-    mShader = cgmMeta.asMeta(shader)
-    mShader.doStore('cgmShader','sd_depth')
-
-    shader = mc.rename(shader, 'cgmDepthShader')
 
     return shader, sg
 
