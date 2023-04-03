@@ -872,7 +872,14 @@ def getLayeredTextureImages(layeredTextureNode):
             remapColorData = getRemapColorInfo(remapColorNode)
             remapColorImage = remapImageColors(remapColorData)
 
-            alphaPath = os.path.join(tmpdir, f"alpha{i}_{j+1}.png")
+            redLabel = mc.getAttr(remapColorNode + ".cgmRedLabel") if mc.objExists(remapColorNode + ".cgmRedLabel") else "R"
+            greenLabel = mc.getAttr(remapColorNode + ".cgmGreenLabel") if mc.objExists(remapColorNode + ".cgmGreenLabel") else "G"
+            blueLabel = mc.getAttr(remapColorNode + ".cgmBlueLabel") if mc.objExists(remapColorNode + ".cgmBlueLabel") else "B"
+
+            #combine strings and replace spaces with underscores
+            remapColorNodeLabel = f"{redLabel}{greenLabel}{blueLabel}".replace(" ", "_")
+
+            alphaPath = os.path.join(tmpdir, f"alpha{i}_{remapColorNode}_{remapColorNodeLabel}.png")
             remapColorImage.save(alphaPath)
 
             alphaPaths.append(alphaPath)
@@ -917,7 +924,7 @@ def overlay_images(images_data):
             for alpha_path in data['alpha']:
                 alpha_image = Image.open(alpha_path).convert('RGB')
                 r, g, b = alpha_image.split()
-                alpha_image = ImageMath.eval("r * g * b", r=r, g=g, b=b).convert("L")
+                alpha_image = ImageMath.eval("r*g*b / (255 * 255)", r=r, g=g, b=b).convert("L")
 
                 if merged_alpha_image is None:
                     merged_alpha_image = alpha_image
