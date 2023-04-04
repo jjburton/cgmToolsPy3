@@ -318,8 +318,10 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
     # Get the current time before running the code
     startTime = time.time()
 
+    layeredTexture = mc.listConnections('%s.outColor' % compositeShader, type = 'layeredTexture')[0]
+
     # Your code snippet
-    images_data = rt.getLayeredTextureImages('layeredTexture1')
+    images_data = rt.getLayeredTextureImages(layeredTexture)
     images_data.reverse()
     result_image = rt.overlay_images(images_data)
 
@@ -334,10 +336,25 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
     print("End time: ", endTime)
     print("Time difference: ", timeDifference)
 
-    result_image.save(os.path.join(imagePath, f'{compositeShader}_merged.png'))
+    mergedPath = files.create_unique_filename(os.path.join(imagePath, f'{compositeShader}_merged.png'))
+    result_image.save(mergedPath)
+
+    fileNode = None
+
+    messageConnections = mc.listConnections(f'{layeredTexture}.message', type="file", p=True)
+    if(messageConnections):
+        for messageConnection in messageConnections:
+            fileNode, plug = messageConnection.split('.')
+            if plug == 'cgmCompositeTextureSource':
+                layeredTextureConnection = mc.listConnections(f'{fileNode}.outColor', type="layeredTexture")
+                if layeredTextureConnection:
+                    print("merging to existing file node")
+                    mc.setAttr('%s.fileTextureName' % fileNode, os.path.join(imagePath, f'{compositeShader}_merged.png'), type = 'string')
+                    mc.connectAttr(layeredTextureConnection[0] + ".outColor", '%s.outColor' % compositeShader, force=True)
+                    return fileNode
 
     # create a file node and load the image
-    fileNode = mc.createNode('file', name = f'{compositeShader}_merged')
+    fileNode = mc.shadingNode('file', name = f'{compositeShader}_merged', asUtility=True)
     mc.setAttr('%s.fileTextureName' % fileNode, os.path.join(imagePath, f'{compositeShader}_merged.png'), type = 'string')
 
     # create a place2dTexture node and hook it up to the file node
@@ -363,5 +380,16 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
 
     # hook the file node up to the shader
     mc.connectAttr(fileNode + ".outColor", mergedShader + ".outColor", force=True)
+
+    newLayeredTexture = mc.shadingNode('layeredTexture', asTexture=True)
+    mc.connectAttr(newLayeredTexture + ".outColor", compositeShader + ".outColor", force=True)
+
+    # connect fileNode to the new layered texture
+    mc.connectAttr(fileNode + ".outColor", newLayeredTexture + ".inputs[0].color", force=True)
+
+    # add a message attribute to the file node and connect the original layered texture to it
+    mc.addAttr(fileNode, longName='cgmCompositeTextureSource', dataType='string')
+    mc.connectAttr(layeredTexture + ".message", fileNode + ".cgmCompositeTextureSource", force=True)
+
 
     return fileNode

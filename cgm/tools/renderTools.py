@@ -911,7 +911,7 @@ def apply_blend_mode(image1, image2, blend_mode):
         return ImageChops.darker(image1, image2)
     else:
         return image1
- 
+
 def overlay_images(images_data):
     base_image = None
 
@@ -929,9 +929,10 @@ def overlay_images(images_data):
                 if merged_alpha_image is None:
                     merged_alpha_image = alpha_image
                 else:
-                    merged_alpha_image = ImageMath.eval("a * b", a=merged_alpha_image, b=alpha_image).convert("L")
+                    merged_alpha_image = ImageMath.eval("a * b / (255)", a=merged_alpha_image, b=alpha_image).convert("L")
 
-            color_image.putalpha(merged_alpha_image)
+            if merged_alpha_image is not None:
+                color_image.putalpha(merged_alpha_image)
 
             # Initialize base image if it does not exist
             if base_image is None:

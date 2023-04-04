@@ -491,21 +491,21 @@ class ui(cgmUI.cgmGUI):
         self.uiIF_Width = mUI.MelIntField(_row,
                                             minValue = 32,
                                             value = 512,
-                                            changeCommand = lambda *a:self.saveOptions(),
+                                            changeCommand = cgmGEN.Callback(self.uiFunc_setSize, 'field'),
                                             annotation = 'Width of image to create')	 	    
 
         self.uiIF_Height = mUI.MelIntField(_row,
                                             minValue = 32,
                                             value = 512,
-                                            changeCommand = lambda *a:self.saveOptions(),
+                                            changeCommand = cgmGEN.Callback(self.uiFunc_setSize, 'field'),
                                             annotation = 'Height of image to create')	 	    
 
-        _sizeOptions = ['512x512','1024x1024','2048x2048', '768x512', '640x360', '1280x720','1920x1080']
+        _sizeOptions = ['512x512','1024x1024','2048x2048', '768x512', '640x360', '1280x720','1920x1080', '720x1280', '512x768', '512x1024']
         self.uiOM_SizeMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
         for option in _sizeOptions:
             self.uiOM_SizeMenu.append(option)
 
-        self.uiOM_SizeMenu(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_setSize))
+        self.uiOM_SizeMenu(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_setSize, 'menu'))
 
         #_row.setStretchWidget( self.sizeMenu )
         mUI.MelSpacer(_row,w = 5)
@@ -1036,6 +1036,11 @@ class ui(cgmUI.cgmGUI):
                 if('camera_info' in _data):
                     _cameraData = _data['camera_info']
 
+            _compositeConnection = None
+            _compositeSourceAttribute = color_name + '.cgmCompositeTextureSource'
+            if( mc.objExists(_compositeSourceAttribute) ):
+                _compositeConnection = mc.listConnections(_compositeSourceAttribute, type='layeredTexture')
+
             if os.path.exists(_orig_path):
                 cgmUI.add_Button(info_top_column, 'View Orig',
                         cgmGEN.Callback( self.uiFunc_viewImageFromPath, _orig_path),
@@ -1050,6 +1055,10 @@ class ui(cgmUI.cgmGUI):
             if _cameraData:
                 cgmUI.add_Button( info_top_column, 'Snap Camera', 
                         cgmGEN.Callback( self.uiFunc_snapCameraFromData, _cameraData),
+                        annotationText='')
+            if _compositeConnection:
+                cgmUI.add_Button( info_top_column, 'Restore Comp', 
+                        cgmGEN.Callback( self.uiFunc_restoreComposite, _compositeConnection[0]),
                         annotationText='')
             
             mUI.MelSpacer(info_top_column,w = 5)
@@ -1108,6 +1117,18 @@ class ui(cgmUI.cgmGUI):
         tabIndex = mc.tabLayout(self.uiTabLayout, q=True, sti=True)
         return mc.tabLayout(self.uiTabLayout, q=True, tl=True)[tabIndex-1]
     
+    def uiFunc_restoreComposite(self, layeredTexture):
+        _str_func = 'uiFunc_restoreComposite'
+
+        compositeShader = self.uiTextField_compositeShader.getValue()
+
+        if not compositeShader:
+            return
+        
+        mc.connectAttr(layeredTexture + '.outColor', compositeShader + '.outColor', f=True)
+
+        self.uiFunc_refreshEditTab()
+
     def uiFunc_handleTabChange(self):
         if(self.currentTab.lower() == 'edit'):
             self.uiFunc_refreshEditTab()
@@ -1299,12 +1320,19 @@ class ui(cgmUI.cgmGUI):
         print("Assigning {0} to {1}".format(_material, _mesh))
         rt.assignMaterial(_mesh, _sg)
 
-    def uiFunc_setSize(self):
+    def uiFunc_setSize(self, source):
         _str_func = 'uiFunc_setSize'
-        size = self.uiOM_SizeMenu(query=True, value=True)
-        width, height = [int(x) for x in size.split('x')]
-        self.uiIF_Width(edit=True, value=width)
-        self.uiIF_Height(edit=True, value=height)
+
+        width,height=0,0
+
+        if source == 'menu':
+            size = self.uiOM_SizeMenu(query=True, value=True)
+            width, height = [int(x) for x in size.split('x')]
+            self.uiIF_Width(edit=True, value=width)
+            self.uiIF_Height(edit=True, value=height)
+        else:
+            width = self.uiIF_Width(query=True, value=True)
+            height = self.uiIF_Height(query=True, value=True)
 
         # set render globals
         mc.setAttr('defaultResolution.width', width)
@@ -1709,17 +1737,12 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_mergeComposite(self):
         compositeShader = self.uiTextField_compositeShader(query=True, text=True)
         mergedShader = self.uiTextField_mergedShader(query=True, text=True)
-
-        #bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
-        #bakedCompositeImage = rt.bakeProjection(self.uiTextField_compositeShader(query=True, text=True), self.uiTextField_baseObject(query=True, text=True))
-        
+      
         sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
 
-        # connected composite image outColor to outColor of merged shader
-        #mc.connectAttr(bakedCompositeImage + '.outColor', mergedShader + '.outColor', force=True)
-
         # assign merged shader
-        self.uiFunc_assign_material(self.uiTextField_mergedShader)
+        self.uiFunc_assign_material(self.uiTextField_compositeShader)
+        self.uiFunc_refreshEditTab()
 
     def uiFunc_setDepth(self, source):
         shader = self.getDepthShader()
