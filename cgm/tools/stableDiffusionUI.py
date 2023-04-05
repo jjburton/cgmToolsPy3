@@ -1013,7 +1013,8 @@ class ui(cgmUI.cgmGUI):
 
             if( mc.objExists(color_name + '.cgmSourceProjectionImage') ):
                 _orig_path = mc.getAttr(color_name + '.cgmSourceProjectionImage')
-                _image_path = _orig_path
+                if( os.path.exists(_orig_path) ):
+                    _image_path = _orig_path
 
             _thumb_path = getResizedImage(_image_path, _thumbSize[0], _thumbSize[1], preserveAspectRatio=True)
 
