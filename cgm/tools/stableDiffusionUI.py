@@ -102,6 +102,8 @@ class ui(cgmUI.cgmGUI):
         self.lastConfig = cgmMeta.cgmOptionVar("cgmVar_sdui_last_config", varType = "string")
         self.lastInfo = {}
         self.editTabContent = None
+        self.projectColumn = None
+        self.connected = True
 
         #self.l_allowedDockAreas = []
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
@@ -191,7 +193,8 @@ class ui(cgmUI.cgmGUI):
         
         self._initialized = True
 
-        self.loadOptions()      
+        self.uiFunc_tryAutomatic1111Connect()
+        #self.loadOptions()  
 
     def buildColumn_main(self, parent, asScroll=False):
         self.uiTabLayout = mc.tabLayout()
@@ -417,9 +420,10 @@ class ui(cgmUI.cgmGUI):
                                                         cc = lambda *a:self.uiFunc_changeAutomatic1111Url(),
                                                         annotation = "Our base object from which we process things in this tab...")
         mUI.MelSpacer(_row,w = 5)
+        self.urlBtn = cgmUI.add_Button(_row, 'Retry Connection', lambda *a:self.uiFunc_tryAutomatic1111Connect(),annotationText='', bgc=[1,.5,.5])
+        mUI.MelSpacer(_row,w = 5)
         _row.setStretchWidget(self.uiTextField_automaticURL)
         _row.layout()
-
 
         self.uiFunc_auto_populate_fields()
         return _inside
@@ -1115,9 +1119,34 @@ class ui(cgmUI.cgmGUI):
     
     @property
     def currentTab(self):
+        if( not self.uiTabLayout ):
+            return None
         tabIndex = mc.tabLayout(self.uiTabLayout, q=True, sti=True)
         return mc.tabLayout(self.uiTabLayout, q=True, tl=True)[tabIndex-1]
     
+    def uiFunc_tryAutomatic1111Connect(self):
+        _str_func = 'uiFunc_tryAutomatic1111Connect'
+
+        self.urlBtn(e=True, bgc=(1,.8,0.4), label="Connecting...")
+        mc.refresh()
+
+        url = self.uiTextField_automaticURL(q=True, text=True)
+        sdModels = sd.getModelsFromAutomatic1111(url)
+
+        self.uiFunc_setConnected(sdModels)
+
+    def uiFunc_setConnected(self, val):
+        _str_func = 'uiFunc_setConnected'
+
+        if not val:
+            self.urlBtn(e=True, bgc=(1, .5, .5), label="Try Connection")
+            self.connected = False
+        else:
+            self.urlBtn(e=True, bgc=(.5, 1, .5), label="Connected")
+            if not self.connected:
+                self.handleReload()
+                return
+
     def uiFunc_restoreComposite(self, layeredTexture):
         _str_func = 'uiFunc_restoreComposite'
 
@@ -1131,8 +1160,12 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_refreshEditTab()
 
     def uiFunc_handleTabChange(self):
+        if not self.currentTab:
+            return
         if(self.currentTab.lower() == 'edit'):
             self.uiFunc_refreshEditTab()
+        elif(self.currentTab.lower() == 'project'):
+            self.projectColumn(e=True, en=self.connected)
 
     def uiFunc_addPositionMatte(self, alphaConnection):
         _str_func = 'uiFunc_addPositionMatte'
@@ -1842,10 +1875,16 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_updateModelsFromAutomatic(self):
         _str_func = 'uiFunc_updateModelsFromAutomatic'
 
+        if not self.connected:
+            return []
+
         url = self.uiTextField_automaticURL(query=True, text=True)
         
         self.models = sd.getModelsFromAutomatic(url)
-
+        if not self.models:
+            self.uiFunc_setConnected(False)
+            return []
+        
         self.uiOM_modelMenu.clear()
         for model in self.models:
             # if model is a string, continue
@@ -1889,9 +1928,16 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_updateSamplersFromAutomatic(self):
         _str_func = 'uiFunc_updateSamplersFromAutomatic'
 
+        if not self.connected:
+            return []
+
         url = self.uiTextField_automaticURL(query=True, text=True)
         
         _samplers = sd.getSamplersFromAutomatic1111()
+
+        if not _samplers:
+            self.uiFunc_setConnected(False)
+            return []
 
         self.uiOM_samplingMethodMenu.clear()
         for sampler in _samplers:
@@ -1902,8 +1948,12 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_updateControlNetPreprocessorsMenu(self):
         _str_func = 'uiFunc_updateControlNetPreprocessorsMenu'
-
+        
         _preprocessors = sd.getControlNetPreprocessorsFromAutomatic1111()
+
+        if not _preprocessors:
+            self.uiFunc_setConnected(False)
+            return []
 
         self.uiOM_ControlNetPreprocessorMenu.clear()
         for _preprocessor in _preprocessors:
@@ -2055,10 +2105,11 @@ class ui(cgmUI.cgmGUI):
         sdModels = sd.getModelsFromAutomatic1111(_options['automatic_url'])
         sdOptions = sd.getOptionsFromAutomatic(_options['automatic_url'])
 
-        for model in sdModels:
-            if(model['title'] == sdOptions['sd_model_checkpoint']):
-                self.uiOM_modelMenu(edit=True, value=model['model_name'])
-                break
+        if(self.uiOM_modelMenu):
+            for model in sdModels:
+                if(model['title'] == sdOptions['sd_model_checkpoint']):
+                    self.uiOM_modelMenu(edit=True, value=model['model_name'])
+                    break
 
         # iterate through options dict and set default from self._defaultOptions if not found
         for key in _defaultOptions:
@@ -2077,9 +2128,10 @@ class ui(cgmUI.cgmGUI):
             # get options from menu
             _samplingMethodMenu = self.uiOM_samplingMethodMenu(query=True, itemListLong=True) or []
             for item in _samplingMethodMenu:
-                if mc.optionMenu(item, q=True, label=True) == _options['sampling_method']:
-                    self.uiOM_samplingMethodMenu(edit=True, value=item)
-                    break
+                if mc.objExists(item):
+                    if mc.optionMenu(item, q=True, label=True) == _options['sampling_method']:
+                        self.uiOM_samplingMethodMenu(edit=True, value=item)
+                        break
 
         self.uiIF_CFGScale.setValue(_options['cfg_scale'])
         self.uiFunc_setCFGScale('field')
@@ -2094,13 +2146,16 @@ class ui(cgmUI.cgmGUI):
         self.uiFF_maxDepthDistance.setValue(_options['max_depth_distance'])
         self.uiControlNetEnabledCB.setValue(_options['control_net_enabled'])
         self.uiControlNetLowVRamCB.setValue(_options['control_net_low_v_ram'])
+        
         self.uiOM_ControlNetPreprocessorMenu(edit=True, value=_options['control_net_preprocessor'])
+
         if 'control_net_model' in _options:
             _controlNetModels = self.uiOM_ControlNetModelMenu(query=True, itemListLong=True) or []
             for item in _controlNetModels:
-                if mc.optionMenu(item, q=True, label=True) == _options['control_net_model']:
-                    self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
-                    break
+                if mc.objExists(item):
+                    if mc.optionMenu(item, q=True, label=True) == _options['control_net_model']:
+                        self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
+                        break
 
         self.uiFF_controlNetWeight.setValue(_options['control_net_weight'])
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
@@ -2118,6 +2173,9 @@ class ui(cgmUI.cgmGUI):
 
         self.uiFunc_setImg2ImgPass(_options['img2img_pass'])
         self.uiFunc_setAlphaMatteCB(_options['use_alpha_pass'])
+
+        if not sdModels:
+            self.projectColumn(edit=True, enable=False)
     
     def setProjectionImage(self, image):
         _str_func = 'setProjectionImage'
