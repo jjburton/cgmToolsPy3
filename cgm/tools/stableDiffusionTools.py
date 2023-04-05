@@ -167,11 +167,10 @@ def getImageFromAutomatic1111(data):
 def getFromAutomatic1111(endpoint, url = '127.0.0.1:7860'):
     try:
         conn = http.client.HTTPConnection(url)
+        conn.request('GET', endpoint)
     except:
         print("Error: Could not connect to Automatic1111 at ", url)
         return []
-    
-    conn.request('GET', endpoint)
 
     response = conn.getresponse()
 
@@ -264,7 +263,11 @@ def getModelsFromAutomatic(url = '127.0.0.1:7860'):
     conn = http.client.HTTPConnection(url)
     endpoint = '/sdapi/v1/sd-models'
 
-    conn.request('GET', endpoint)
+    try:
+        conn.request('GET', endpoint)
+    except:
+        print("Error: Could not connect to Automatic at ", url)
+        return []
 
     response = conn.getresponse()
 

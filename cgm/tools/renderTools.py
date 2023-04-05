@@ -579,14 +579,25 @@ getAllConnectedNodesOfType - Returns a list of all connected nodes of a specifie
 @return: A list of unique connections between the source shading node and nodes of the specified type. Each connection is represented as a list containing the name of the connected node and the name of the destination attribute.
 @rtype: list[list[str]]
 """
-def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
+def getAllConnectedNodesOfType(sourceShadingNode, nodeType, traverseUserDefined=True):
     result = []
 
-    def walkConnections(node, nodeType, visited=None):
+    def walkConnections(node, nodeType, visited=None, traverseUserDefined=True):
         if visited is None:
             visited = set()
         connectedNodes = []
         connections = mc.listConnections(node, source=True, destination=False, plugs=True)
+
+        if not traverseUserDefined:
+            # Filter out any user defined attributes
+            userDefinedAttributes = mc.listAttr(node, ud=True)
+            if userDefinedAttributes:
+                connection = connections[0]
+                for connection in connections:
+                    sourceConnections = mc.listConnections(connection, p=True)
+                    for sourceConnection in sourceConnections:
+                        if sourceConnection.split('.')[1] in userDefinedAttributes:
+                            connections.remove(connection)
 
         if connections:
             for connection in connections:
@@ -599,11 +610,11 @@ def getAllConnectedNodesOfType(sourceShadingNode, nodeType):
 
                 if connectedNode not in visited:
                     visited.add(connectedNode)
-                    connectedNodes.extend(walkConnections(connectedNode, nodeType, visited))
+                    connectedNodes.extend(walkConnections(connectedNode, nodeType, visited, traverseUserDefined))
 
         return connectedNodes
 
-    result = walkConnections(sourceShadingNode, nodeType)
+    result = walkConnections(sourceShadingNode, nodeType, traverseUserDefined=traverseUserDefined)
 
     # get first element of each item in the list
     result = [item[0] for item in result]
@@ -862,11 +873,11 @@ def getLayeredTextureImages(layeredTextureNode):
         imagePath = None
         alphaPaths = []
         
-        fileNodes = getAllConnectedNodesOfType(colorAttr, "file")
+        fileNodes = getAllConnectedNodesOfType(colorAttr, "file", traverseUserDefined=False)
         if fileNodes:
             imagePath = mc.getAttr(fileNodes[0] + ".fileTextureName")
 
-        remapColorNodes = getAllConnectedNodesOfType(alphaAttr, "remapColor")
+        remapColorNodes = getAllConnectedNodesOfType(alphaAttr, "remapColor", traverseUserDefined=False)
 
         for j, remapColorNode in enumerate(remapColorNodes):
             remapColorData = getRemapColorInfo(remapColorNode)

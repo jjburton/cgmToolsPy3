@@ -1930,6 +1930,10 @@ class ui(cgmUI.cgmGUI):
 
         _models = sd.getControlNetModelsFromAutomatic1111(url)
 
+        if not _models:
+            log.error("|{0}| >> No models found".format(_str_func))
+            return []
+
         # get current model
         _currentModel = self.uiOM_ControlNetModelMenu.getValue()
 
@@ -2069,7 +2073,12 @@ class ui(cgmUI.cgmGUI):
         self.uiIF_Width(edit=True, v=_options['width'])
         self.uiIF_Height(edit=True, v=_options['height'])           
         if 'sampling_method' in _options:
-            self.uiOM_samplingMethodMenu(edit=True, value=_options['sampling_method'])
+            # get options from menu
+            _samplingMethodMenu = self.uiOM_samplingMethodMenu(query=True, itemListLong=True) or []
+            for item in _samplingMethodMenu:
+                if mc.optionMenu(item, q=True, label=True) == _options['sampling_method']:
+                    self.uiOM_samplingMethodMenu(edit=True, value=item)
+                    break
 
         self.uiIF_CFGScale.setValue(_options['cfg_scale'])
         self.uiFunc_setCFGScale('field')
@@ -2086,7 +2095,12 @@ class ui(cgmUI.cgmGUI):
         self.uiControlNetLowVRamCB.setValue(_options['control_net_low_v_ram'])
         self.uiOM_ControlNetPreprocessorMenu(edit=True, value=_options['control_net_preprocessor'])
         if 'control_net_model' in _options:
-            self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
+            _controlNetModels = self.uiOM_ControlNetModelMenu(query=True, itemListLong=True) or []
+            for item in _controlNetModels:
+                if mc.optionMenu(item, q=True, label=True) == _options['control_net_model']:
+                    self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
+                    break
+
         self.uiFF_controlNetWeight.setValue(_options['control_net_weight'])
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
