@@ -996,15 +996,22 @@ class ui(cgmUI.cgmGUI):
                             #expandCommand = lambda *a:mVar_frame.setValue(0),
                             #collapseCommand = lambda *a:mVar_frame.setValue(1)
                             )
-            color_layout = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate') 
+            color_layout = mUI.MelColumn(_frame,useTemplate = 'cgmUISubTemplate') 
 
             # Create a new MelHSingleStretchLayout for the visibility and solo checkboxes
             #subrow_layout = mUI.MelHSingleStretchLayout(color_layout, ut="cgmUISubTemplate")           
             _thumbSize = (150,150)
             
-            subrow_layout = mUI.MelRowLayout(color_layout, numberOfColumns=2, columnWidth2=(_thumbSize[0], 50), adjustableColumn=2, columnAlign=(1, 'left'), columnAttach=(1, 'right', 0), useTemplate='cgmUITemplate')
+            subrow_layout = mUI.MelRowLayout(color_layout, numberOfColumns=3, columnWidth3=(20,_thumbSize[0], 50), adjustableColumn=3, columnAlign=(1, 'left'), columnAttach=(1, 'right', 0), useTemplate='cgmUITemplate')
             
             # make column layout
+            _buttonColumn = mUI.MelVLayout(subrow_layout, w= 20,)
+            
+            button_up =  mUI.MelButton(_buttonColumn,l="up",w=20, ut='cgmUITemplate')
+            mUI.MelSpacer(_buttonColumn,h=25)
+            button_dn = mUI.MelButton(_buttonColumn,l="dn",w=20, ut='cgmUITemplate')
+            _buttonColumn.layout()
+            
             _thumb_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
 
 
@@ -1024,8 +1031,8 @@ class ui(cgmUI.cgmGUI):
 
             _thumb.setImage( _thumb_path )
 
-            info_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
-
+            info_row = mUI.MelColumn(subrow_layout,useTemplate = 'cgmUISubTemplate')
+            
             info_top_column = mUI.MelHSingleStretchLayout(info_row, ut="cgmUISubTemplate")                       
             visible_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
             solo_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
@@ -1078,6 +1085,7 @@ class ui(cgmUI.cgmGUI):
 
             _mesh = self.uiTextField_baseObject.getValue()
             _xyzFile = self.getXYZFile(_mesh)
+            
 
             for remap_color in remap_color_nodes:
                 # Create a new MelHSingleStretchLayout for each remapColor channel
@@ -1105,7 +1113,12 @@ class ui(cgmUI.cgmGUI):
                     _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
                     mc.setParent(_alpha_col)
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = "print 'dropCallback executed'" )
-                
+            
+            if len(remap_color_nodes) < 5:
+                for i in range(5-len(remap_color_nodes)):
+                    mUI.MelLabel(info_row,label = "")                
+        
+            
             if not _hasPositionRemap and _xyzFile:
                 cgmUI.add_Button(info_row, 'Add Position Matte',
                         cgmGEN.Callback( self.uiFunc_addPositionMatte, alpha_input),
