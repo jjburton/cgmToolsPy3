@@ -170,12 +170,12 @@ def getFromAutomatic1111(endpoint, url = '127.0.0.1:7860'):
         conn.request('GET', endpoint)
     except:
         print("Error: Could not connect to Automatic1111 at ", url)
-        return []
+        return {}
 
     response = conn.getresponse()
 
     if(response.status != 200):
-        return []
+        return {}
     
     #print(response.status, response.reason)
     decoded = response.read().decode()

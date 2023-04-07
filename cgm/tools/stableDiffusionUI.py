@@ -105,6 +105,10 @@ class ui(cgmUI.cgmGUI):
         self.projectColumn = None
         self.connected = True
 
+        self.samplingMethods = []
+        self.sdModels = []
+        self.controlNetModels = []
+
         #self.l_allowedDockAreas = []
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
         self.DEFAULT_SIZE = self.__class__.DEFAULT_SIZE
@@ -452,9 +456,9 @@ class ui(cgmUI.cgmGUI):
                                                         ut = 'cgmUITemplate',
                                                         w = 50,
                                                         wordWrap = True,
-                                                        changeCommand = lambda *a:self.saveOptions(),
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
                                                         annotation = "Prompt")
+        self.uiTextField_prompt(edit=True, cc=lambda *a:self.saveOptionFromUI('prompt', self.uiTextField_prompt))
         mUI.MelSpacer(_row,w = 5)
         _row.setStretchWidget(self.uiTextField_prompt)
         _row.layout()
@@ -467,9 +471,9 @@ class ui(cgmUI.cgmGUI):
                                                         ut = 'cgmUITemplate',
                                                         w = 50,
                                                         wordWrap = True,
-                                                        changeCommand = lambda *a:self.saveOptions(),
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
                                                         annotation = "Negative prompt")
+        self.uiTextField_negativePrompt(edit=True, cc=lambda *a:self.saveOptionFromUI('negative_prompt', self.uiTextField_negativePrompt))
         _row.setStretchWidget(self.uiTextField_negativePrompt)
         mUI.MelSpacer(_row,w = 5)
 
@@ -483,8 +487,8 @@ class ui(cgmUI.cgmGUI):
         self.uiIF_Seed = mUI.MelIntField(_row,
                                         minValue = -1,
                                         value = -1,
-                                        changeCommand = lambda *a:self.saveOptions(),
                                         annotation = 'Random seed to use for this project')	 	    
+        self.uiIF_Seed(edit=True, cc=lambda *a:self.saveOptionFromUI('seed', self.uiIF_Seed))
 
         cgmUI.add_Button(_row,'Last', lambda *a:self.uiFunc_getLastSeed())
 
@@ -524,7 +528,7 @@ class ui(cgmUI.cgmGUI):
 
         self.uiOM_modelMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', changeCommand = lambda *a:self.setModelFromUI())
         
-        self.uiFunc_updateModelsFromAutomatic()
+        #self.uiFunc_updateModelsFromAutomatic()
 
         cgmUI.add_Button(_row,'Refresh', lambda *a:self.uiFunc_updateModelsFromAutomatic())
         mUI.MelSpacer(_row,w = 5)
@@ -534,10 +538,9 @@ class ui(cgmUI.cgmGUI):
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Sampling Method:',align='right')
-        self.uiOM_samplingMethodMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', changeCommand = lambda *a:self.saveOptions())
-
-        self.uiFunc_updateSamplersFromAutomatic()
-
+        self.uiOM_samplingMethodMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
+        #self.uiFunc_updateSamplersFromAutomatic()
+        self.uiOM_samplingMethodMenu(edit=True, changeCommand = lambda *a:self.saveOptionFromUI('sampling_method', self.uiOM_samplingMethodMenu))
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Steps:',align='right')
         self.uiIF_samplingSteps = mUI.MelIntField(_row,
@@ -723,10 +726,12 @@ class ui(cgmUI.cgmGUI):
 
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
         mUI.MelLabel(_row,l='Enable:',align='right')
-        self.uiControlNetEnabledCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=True, changeCommand = lambda *a:self.saveOptions())      
+        self.uiControlNetEnabledCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=True)
+        self.uiControlNetEnabledCB(edit=True, changeCommand = lambda *a:self.saveOptionFromUI('control_net_enabled', self.uiControlNetEnabledCB))
 
         mUI.MelLabel(_row,l='Low VRAM:',align='right')
-        self.uiControlNetLowVRamCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=True, changeCommand = lambda *a:self.saveOptions())      
+        self.uiControlNetLowVRamCB = mUI.MelCheckBox(_row,useTemplate = 'cgmUITemplate', v=True)      
+        self.uiControlNetLowVRamCB(edit=True, changeCommand = lambda *a:self.saveOptionFromUI('control_net_low_v_ram', self.uiControlNetLowVRamCB))
 
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
@@ -738,8 +743,8 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_subRow,l='Preprocessor:',align='right')
 
         self.uiOM_ControlNetPreprocessorMenu = mUI.MelOptionMenu(_subRow,useTemplate = 'cgmUITemplate', cc=self.uiFunc_changeControlNetPreProcessor)
-
-        self.uiFunc_updateControlNetPreprocessorsMenu()
+        
+        #self.uiFunc_updateControlNetPreprocessorsMenu()
 
         _subRow.setStretchWidget( self.uiOM_ControlNetPreprocessorMenu )
 
@@ -750,9 +755,10 @@ class ui(cgmUI.cgmGUI):
         _subRow = mUI.MelHSingleStretchLayout(_row,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_subRow,w = 5)
         mUI.MelLabel(_subRow,l='Model:',align='right')
-        self.uiOM_ControlNetModelMenu = mUI.MelOptionMenu(_subRow,useTemplate = 'cgmUITemplate', changeCommand = lambda *a:self.saveOptions())
+        self.uiOM_ControlNetModelMenu = mUI.MelOptionMenu(_subRow,useTemplate = 'cgmUITemplate')
+        self.uiOM_ControlNetModelMenu(edit=True, changeCommand = lambda *a:self.saveOption('control_net_model', self.uiOM_ControlNetModelMenu))
         
-        self.uiFunc_updateControlNetModelsFromAutomatic()
+        #self.uiFunc_updateControlNetModelsFromAutomatic()
         
         _subRow.setStretchWidget( self.uiOM_ControlNetModelMenu )
 
@@ -1179,6 +1185,12 @@ class ui(cgmUI.cgmGUI):
             self.uiFunc_refreshEditTab()
         elif(self.currentTab.lower() == 'project'):
             self.projectColumn(e=True, en=self.connected)
+            if(self.connected):
+                self.uiFunc_updateModelsFromAutomatic()
+                self.uiFunc_updateSamplersFromAutomatic()
+                self.uiFunc_updateControlNetPreprocessorsMenu()
+                self.uiFunc_updateControlNetModelsFromAutomatic()
+                self.loadOptions()
 
     def uiFunc_addPositionMatte(self, alphaConnection):
         _str_func = 'uiFunc_addPositionMatte'
@@ -1277,8 +1289,9 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_changeAutomatic1111Url(self):
         _str_func = 'uiFunc_changeAutomatic1111Url'
-
-        self.saveOptions()
+        
+        print(_str_func, 'start')
+        self.saveOption('automatic_url', self.uiTextField_automaticURL(query=True, text=True))
 
         self.handleReset()
 
@@ -1295,7 +1308,7 @@ class ui(cgmUI.cgmGUI):
         self.renderLayer_row(e=True, vis=option == 'render layer')
         self.uiAlphaMatteCB(e=True, en=val)
 
-        self.saveOptions()
+        self.saveOption('img2imgPass', a[0])
 
     def uiFunc_setAlphaMatteCB(self, *a):
         _str_func = 'uiFunc_setAlphaMatteCB'
@@ -1305,7 +1318,7 @@ class ui(cgmUI.cgmGUI):
 
         self.alphaMatteLayout(e=True, vis=val)
 
-        self.saveOptions()
+        self.saveOption('use_alpha_pass', val)
 
     def uiFunc_auto_populate_fields(self):
         _str_func = 'uiFunc_auto_populate_fields'
@@ -1389,10 +1402,12 @@ class ui(cgmUI.cgmGUI):
         mc.setAttr( "defaultResolution.deviceAspectRatio", aspectRatio)
 
         projectionCam = self.uiTextField_projectionCam(q=True, text=True)
-        mc.setAttr( '%s.horizontalFilmAperture' % projectionCam, aspectRatio )
-        mc.setAttr( '%s.verticalFilmAperture' % projectionCam, 1.0 )
+        if projectionCam:
+            mc.setAttr( '%s.horizontalFilmAperture' % projectionCam, aspectRatio )
+            mc.setAttr( '%s.verticalFilmAperture' % projectionCam, 1.0 )
 
-        self.saveOptions()
+        self.saveOption('width', width)
+        self.saveOption('height', height)
 
     def uiFunc_renderLayer(self, display=True):
         _str_func = 'uiFunc_renderLayer'
@@ -1497,7 +1512,7 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> No camera loaded.".format(_str_func))
             return
         
-        shader, sg = rt.makeAlphaShader(_camera)
+        shader, sg = rt.makeAlphaProjectionShader(_camera)
 
         depthShader = self.uiTextField_depthShader(query=True, text=True)
         if mc.objExists(depthShader):
@@ -1821,13 +1836,14 @@ class ui(cgmUI.cgmGUI):
             mc.setAttr('%s.minDistance' % shader, _minDepth)
             mc.setAttr('%s.maxDistance' % shader, _maxDepth)
         
-        self.saveOptions()
+        self.saveOption('min_depth_distance', _minDepth)
+        self.saveOption('max_depth_distance', _maxDepth)
 
     def uiFunc_setSamples(self, source):
 
-        uiFunc_setFieldSlider(self.uiIF_samplingSteps, self.uiSlider_samplingSteps, source, 100)
+        val = uiFunc_setFieldSlider(self.uiIF_samplingSteps, self.uiSlider_samplingSteps, source, 100)
         
-        self.saveOptions()
+        self.saveOption('sampling_steps', val)
 
     def uiFunc_load_custom_image(self):
         _str_func = 'uiFunc_load_custom_image'
@@ -1840,7 +1856,7 @@ class ui(cgmUI.cgmGUI):
                 return False
 
             self.uiTextField_customImage(edit=True, text=_file)
-            self.saveOptions()
+            self.saveOption('img2img_custom_image', _file)
 
     def uiFunc_updateRenderLayers(self):
         _str_func = 'uiFunc_updateRenderLayers'
@@ -1860,30 +1876,29 @@ class ui(cgmUI.cgmGUI):
                 self.uiOM_renderLayer.setValue(_layer)
 
     def uiFunc_setDenoise(self, source):
-        uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
+        val = uiFunc_setFieldSlider(self.uiFF_denoiseStrength, self.uiSlider_denoiseStrength, source, 1.0, .01)
         
-        self.saveOptions()
-
+        self.saveOption('denoising_strength', val)
 
     def uiFunc_setBatchCount(self, source):
-        uiFunc_setFieldSlider(self.uiIF_batchCount, self.uiSlider_batchCount, source, 10)
+        val = uiFunc_setFieldSlider(self.uiIF_batchCount, self.uiSlider_batchCount, source, 10)
         
-        self.saveOptions()
+        self.saveOption('batch_count', val)
 
     def uiFunc_setBatchSize(self, source):
-        uiFunc_setFieldSlider(self.uiIF_batchSize, self.uiSlider_batchSize, source, 8)
+        val = uiFunc_setFieldSlider(self.uiIF_batchSize, self.uiSlider_batchSize, source, 8)
         
-        self.saveOptions()
+        self.saveOption('batch_size', val)
         
     def uiFunc_setCFGScale(self, source):
-        uiFunc_setFieldSlider(self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 30)
+        val = uiFunc_setFieldSlider(self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 30)
         
-        self.saveOptions()
+        self.saveOption('cfg_scale', val)
 
     def uiFunc_setMaskBlur(self, source):
-        uiFunc_setFieldSlider(self.uiIF_maskBlur, self.uiSlider_maskBlur, source, 100, 1)
+        val = uiFunc_setFieldSlider(self.uiIF_maskBlur, self.uiSlider_maskBlur, source, 100, 1)
         
-        self.saveOptions()
+        self.saveOption('mask_blur', val)
 
     def uiFunc_updateModelsFromAutomatic(self):
         _str_func = 'uiFunc_updateModelsFromAutomatic'
@@ -1975,9 +1990,13 @@ class ui(cgmUI.cgmGUI):
         return _preprocessors
 
     def uiFunc_changeControlNetPreProcessor(self, arg):
+        _str_func = 'uiFunc_changeControlNetPreProcessor'
+
         self.uiFunc_updateControlNetModelsFromAutomatic()
 
-        self.saveOptions()
+        log.debug("|{0}| >> arg: {1}".format(_str_func, arg))
+        self.saveOption('control_net_preprocessor', arg)
+        self.saveOptionFromUI('control_net_model', self.uiOM_ControlNetModelMenu)
 
     def uiFunc_updateControlNetModelsFromAutomatic(self):
         _str_func = 'uiFunc_updateControlNetModelsFromAutomatic'
@@ -2012,16 +2031,18 @@ class ui(cgmUI.cgmGUI):
         return _models['model_list']
 
     def uiFunc_setControlNetWeight(self, source):
-        uiFunc_setFieldSlider(self.uiFF_controlNetWeight,self.uiSlider_controlNetWeight, source, 1.0, .1)
-        self.saveOptions()
+        val = uiFunc_setFieldSlider(self.uiFF_controlNetWeight,self.uiSlider_controlNetWeight, source, 1.0, .1)
+        
+        self.saveOption('control_net_weight', val)
 
     def uiFunc_setControlNetGuidanceStart(self, source):
-        uiFunc_setFieldSlider(self.uiFF_controlNetGuidanceStart,self.uiSlider_controlNetGuidanceStart, source, 1.0, .1)
-        self.saveOptions()
+        val = uiFunc_setFieldSlider(self.uiFF_controlNetGuidanceStart,self.uiSlider_controlNetGuidanceStart, source, 1.0, .1)
+        
+        self.saveOption('control_net_guidance_start', val)
 
     def uiFunc_setControlNetGuidanceEnd(self, source):
-        uiFunc_setFieldSlider(self.uiFF_controlNetGuidanceEnd,self.uiSlider_controlNetGuidanceEnd, source, 1.0, .1)
-        self.saveOptions()
+        val = uiFunc_setFieldSlider(self.uiFF_controlNetGuidanceEnd,self.uiSlider_controlNetGuidanceEnd, source, 1.0, .1)
+        self.saveOption('control_net_guidance_end', val)
 
     def uiFunc_getLastSeed(self):
         lastSeed = -1
@@ -2046,7 +2067,7 @@ class ui(cgmUI.cgmGUI):
         return self.uiTextField_projectionShader(q=True, tx=True)
     
     def getOptions(self):
-        _str_func = 'saveOptions'
+        _str_func = 'getOptions'
         
         _options = {}
         _options['automatic_url'] = self.uiTextField_automaticURL(query=True, text=True)
@@ -2077,9 +2098,33 @@ class ui(cgmUI.cgmGUI):
 
         return _options
 
+    def saveOptionFromUI(self, option, element):
+        _str_func = 'saveOptionFromUI'
+
+        log.debug("|{0}| >> option: {1} | element: {2} | value: {3}".format(_str_func, option, element, element.getValue()))
+
+        if not self._initialized:
+            return
+
+        _options = json.loads(self.config.getValue())
+        _options[option] = element.getValue()
+        self.config.setValue(json.dumps(_options))
+
+    def saveOption(self, option, value):
+        _str_func = 'saveOption'
+
+        if not self._initialized:
+            return
+
+        log.debug("|{0}| >> option: {1} | value: {2}".format(_str_func, option, value))
+
+        _options = json.loads(self.config.getValue())
+        _options[option] = value
+        self.config.setValue(json.dumps(_options))
+
     def saveOptions(self):
         _str_func = 'saveOptions'
-        
+
         if not self._initialized:
             return
 
@@ -2093,12 +2138,14 @@ class ui(cgmUI.cgmGUI):
         
         self.config.setValue(json.dumps(_options))
 
-        #print("saving", _options)
+        print("saving", _options)
     
     def loadOptions(self, options=None):
         _str_func = 'loadOptions'
 
-        print(_str_func, ": loading", options)
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        mc.refresh()
 
         if not self._initialized:
             return
@@ -2109,16 +2156,19 @@ class ui(cgmUI.cgmGUI):
         else:           
             _options = json.loads(self.config.getValue()) if self.config.getValue() else _defaultOptions
 
+        log.debug("|{0}| >> loaded _options: {1}".format(_str_func,_options))
+
         # go through options and set default if not found
         for key in _defaultOptions:
             if key not in _options:
                 _options[key] = _defaultOptions[key]
+                log.debug("|{0}| >> key not found: {1} setting to default: {2}".format(_str_func,key,_defaultOptions[key]))
 
         # load model from automatic
         sdModels = sd.getModelsFromAutomatic1111(_options['automatic_url'])
         sdOptions = sd.getOptionsFromAutomatic(_options['automatic_url'])
 
-        if(self.uiOM_modelMenu):
+        if self.uiOM_modelMenu and sdModels and sdOptions:
             for model in sdModels:
                 if(model['title'] == sdOptions['sd_model_checkpoint']):
                     self.uiOM_modelMenu(edit=True, value=model['model_name'])
@@ -2127,7 +2177,7 @@ class ui(cgmUI.cgmGUI):
         # iterate through options dict and set default from self._defaultOptions if not found
         for key in _defaultOptions:
             if key not in _options:
-                print("key not found: ", key, " setting to default: ", _defaultOptions[key])
+                log.warning("|{0}| >> key not found: {1} setting to default: {2}".format(_str_func,key,_defaultOptions[key]))
                 _options[key] = _defaultOptions[key]
 
         self.uiTextField_automaticURL(edit=True, text=_options['automatic_url'])
@@ -2141,10 +2191,11 @@ class ui(cgmUI.cgmGUI):
             # get options from menu
             _samplingMethodMenu = self.uiOM_samplingMethodMenu(query=True, itemListLong=True) or []
             for item in _samplingMethodMenu:
-                if mc.objExists(item):
-                    if mc.optionMenu(item, q=True, label=True) == _options['sampling_method']:
-                        self.uiOM_samplingMethodMenu(edit=True, value=item)
-                        break
+                if mc.menuItem(item, q=True, label=True) == _options['sampling_method']:
+                    self.uiOM_samplingMethodMenu(edit=True, value=_options['sampling_method'])
+                    break
+        else:
+            log.warning("|{0}| >> Failed to find sampling method in options".format(_str_func))
 
         self.uiIF_CFGScale.setValue(_options['cfg_scale'])
         self.uiFunc_setCFGScale('field')
@@ -2160,15 +2211,21 @@ class ui(cgmUI.cgmGUI):
         self.uiControlNetEnabledCB.setValue(_options['control_net_enabled'])
         self.uiControlNetLowVRamCB.setValue(_options['control_net_low_v_ram'])
         
-        self.uiOM_ControlNetPreprocessorMenu(edit=True, value=_options['control_net_preprocessor'])
+        if 'control_net_preprocessor' in _options:
+            _controlNetPreprocessors = self.uiOM_ControlNetPreprocessorMenu(query=True, itemListLong=True) or []
+            for item in _controlNetPreprocessors:
+                if mc.menuItem(item, q=True, label=True) == _options['control_net_preprocessor']:
+                    self.uiOM_ControlNetPreprocessorMenu(edit=True, value=_options['control_net_preprocessor'])
+                    break
 
         if 'control_net_model' in _options:
             _controlNetModels = self.uiOM_ControlNetModelMenu(query=True, itemListLong=True) or []
             for item in _controlNetModels:
-                if mc.objExists(item):
-                    if mc.optionMenu(item, q=True, label=True) == _options['control_net_model']:
-                        self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
-                        break
+                if mc.menuItem(item, q=True, label=True) == _options['control_net_model']:
+                    self.uiOM_ControlNetModelMenu(edit=True, value=_options['control_net_model'])
+                    break
+        else:
+            log.warning("|{0}| >> Failed to find control net model in options".format(_str_func))
 
         self.uiFF_controlNetWeight.setValue(_options['control_net_weight'])
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
@@ -2205,7 +2262,8 @@ def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
         _value = field.getValue()
         slider(edit=True, max=max(maxVal, _value))
         slider(edit=True, value=_value, step=step)
-
+    
+    return _value
 
 def displayImage(imagePaths, data = {}, callbackData = []):
     print("Displaying images: ", imagePaths)
