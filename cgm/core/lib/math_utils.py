@@ -979,6 +979,32 @@ def get_fixedTimeDelta(fps= None):
     fixedDeltaTime = 1.0/fps
     return fixedDeltaTime
 
+def distance_3d(x1, y1, z1, x2, y2, z2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2)
 
+def point_to_bbox_distances_3d(point, bbox):
+    x, y, z = point
+    min_x, min_y, min_z, max_x, max_y, max_z = bbox
 
+    closest_x = min(max(x, min_x), max_x)
+    closest_y = min(max(y, min_y), max_y)
+    closest_z = min(max(z, min_z), max_z)
+    closest_point = (closest_x, closest_y, closest_z)
+    closest_distance = distance_3d(x, y, z, closest_x, closest_y, closest_z)
 
+    furthest_corner_candidates = [
+        (min_x, min_y, min_z),
+        (min_x, min_y, max_z),
+        (min_x, max_y, min_z),
+        (min_x, max_y, max_z),
+        (max_x, min_y, min_z),
+        (max_x, min_y, max_z),
+        (max_x, max_y, min_z),
+        (max_x, max_y, max_z),
+    ]
+
+    furthest_distance = max(
+        distance_3d(x, y, z, corner_x, corner_y, corner_z) for (corner_x, corner_y, corner_z) in furthest_corner_candidates
+    )
+
+    return closest_distance, furthest_distance

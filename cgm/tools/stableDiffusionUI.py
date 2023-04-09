@@ -35,6 +35,7 @@ from functools import partial
 from cgm.tools import stableDiffusionTools as sd
 from cgm.tools import renderTools as rt
 from cgm.tools import imageViewer as iv
+from cgm.lib import dictionary
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -211,6 +212,9 @@ class ui(cgmUI.cgmGUI):
 
         return self.uiTabLayout
 
+    #=============================================================================================================
+    #>> Settings Column
+    #=============================================================================================================
     def buildColumn_settings(self,parent, asScroll = False):
         """
         Trying to put all this in here so it's insertable in other uis
@@ -222,44 +226,83 @@ class ui(cgmUI.cgmGUI):
             _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
         
         cgmUI.add_Header('Setup')
+        
+        _help = mUI.MelLabel(_inside,
+                             bgc = dictionary.returnStateColor('help'),
+                             align = 'center',
+                             label = 'Set up the required materials for your projections',
+                             h=20,
+                             vis = False)	
+
+        self.l_helpElements.append(_help)
+
+        mUI.MelSpacer(_inside,w=5, h=7)
+
+        mUI.MelLabel(_inside,
+                             align = 'center',
+                             label = 'Projection Meshes',
+                             h=20)	
+
+        self.uiList_projectionMeshes = mUI.MelObjectScrollList(_inside, ut='cgmUITemplate',
+                                                      allowMultiSelection=True, h=100, dcc=self.uiFunc_selectMeshes )
+
+        try:
+            _str_section = 'Projection Mesh Targets Row'
+            _uiRow_meshSplitterTargets = mUI.MelHLayout(_inside,padding = 1)
+            cgmUI.add_Button(_uiRow_meshSplitterTargets, 'Load Selected', 
+                             lambda *a:self.uiFunc_loadSelectedMeshes(),
+                             annotationText='Load materials from selected objects')
+            cgmUI.add_Button(_uiRow_meshSplitterTargets, 'Load All', 
+                             lambda *a:self.uiFunc_loadAllMeshes(),
+                             annotationText='Load all materials from scene')
+            cgmUI.add_Button(_uiRow_meshSplitterTargets, 'Remove Selected', 
+                             lambda *a:self.uiFunc_removeSelectedMeshes(),
+                             annotationText='Remove all materials from list')
+            cgmUI.add_Button(_uiRow_meshSplitterTargets, 'Clear All', 
+                             lambda *a:self.uiFunc_clearAllMeshes(),
+                             annotationText='Remove all materials from list')
+            _uiRow_meshSplitterTargets.layout()      
+        except Exception as err:
+            log.error("{0} {1} failed to load. err: {2}".format(self._str_reportStart,_str_section,err))
+
 
         #>>> Mesh Load
-        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Mesh:',align='right')
-        self.uiTextField_baseObject = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-                                                        ut = 'cgmUITemplate',
-                                                        w = 50,
-                                                        editable=False,
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
-        mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_baseObject)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_shape(self.uiTextField_baseObject, enforcedType='mesh'))
-        cgmUI.add_Button(_row, 'Select', 
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_baseObject),
-                            annotationText='')               
-        mUI.MelSpacer(_row,w = 5)
-        _row.layout()
+        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        # mUI.MelSpacer(_row,w=5)
+        # mUI.MelLabel(_row,l='Mesh:',align='right')
+        # self.uiTextField_baseObject = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        #                                                 ut = 'cgmUITemplate',
+        #                                                 w = 50,
+        #                                                 editable=False,
+        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+        #                                                 annotation = "Our base object from which we process things in this tab...")
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.setStretchWidget(self.uiTextField_baseObject)
+        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_shape(self.uiTextField_baseObject, enforcedType='mesh'))
+        # cgmUI.add_Button(_row, 'Select', 
+        #                     lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_baseObject),
+        #                     annotationText='')               
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.layout()
 
         #>>> Load Projection Camera
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Projection Cam:',align='right')
-        self.uiTextField_projectionCam = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        self.uiTextField_projectionCamera = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
                                                         ut = 'cgmUITemplate',
                                                         w = 50,
                                                         editable=False,
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
                                                         annotation = "Our base object from which we process things in this tab...")
         mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_projectionCam)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_shape(self.uiTextField_projectionCam, enforcedType = 'camera'))
+        _row.setStretchWidget(self.uiTextField_projectionCamera)
+        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_shape(self.uiTextField_projectionCamera, enforcedType = 'camera'))
         cgmUI.add_Button(_row, 'Make',
                             lambda *a:self.uiFunc_make_projection_camera(),
                             annotationText='Make a projection camera')
         cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_projectionCam),
+                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_projectionCamera),
                             annotationText='')
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
@@ -287,67 +330,71 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
-        #>>> Load Alpha Shader
+        #>>> Load Alpha Projection Shader
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Alpha Shader:',align='right')
-        self.uiTextField_alphaShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        mUI.MelLabel(_row,l='Alpha Projection Shader:',align='right')
+        self.uiTextField_alphaProjectionShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
                                                         ut = 'cgmUITemplate',
                                                         w = 50,
                                                         editable=False,
                                                         #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
                                                         annotation = "Our base object from which we process things in this tab...")
         mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_alphaShader)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_alphaShader, enforcedType = 'surfaceShader'))
+        _row.setStretchWidget(self.uiTextField_alphaProjectionShader)
+        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_alphaProjectionShader, enforcedType = 'surfaceShader'))
         cgmUI.add_Button(_row, 'Make',
-                            lambda *a:self.uiFunc_make_alpha_shader(),
+                            lambda *a:self.uiFunc_make_alpha_projection_shader(),
                             annotationText='')
         cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_alphaShader),
+                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_alphaProjectionShader),
                             annotationText='')
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
-        #>>> Load Composite Shader
-        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Composite Shader:',align='right')
-        self.uiTextField_compositeShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-                                                        ut = 'cgmUITemplate',
-                                                        w = 50,
-                                                        editable=False,
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
-        mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_compositeShader)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_compositeShader, enforcedType = 'surfaceShader'))
-        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_composite_shader(),annotationText='')
-        cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_compositeShader),
-                            annotationText='')
-        mUI.MelSpacer(_row,w = 5)
-        _row.layout()
+        #########
+        # Storing shader information on the mesh itself now, so don't need these
+        # extra text fields
+        #
+        # #>>> Load Composite Shader
+        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        # mUI.MelSpacer(_row,w=5)
+        # mUI.MelLabel(_row,l='Composite Shader:',align='right')
+        # self.uiTextField_compositeShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        #                                                 ut = 'cgmUITemplate',
+        #                                                 w = 50,
+        #                                                 editable=False,
+        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+        #                                                 annotation = "Our base object from which we process things in this tab...")
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.setStretchWidget(self.uiTextField_compositeShader)
+        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_compositeShader, enforcedType = 'surfaceShader'))
+        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_composite_shader(),annotationText='')
+        # cgmUI.add_Button(_row, 'Select',
+        #                     lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_compositeShader),
+        #                     annotationText='')
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.layout()
 
-        #>>> Load Composite Shader
-        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Alpha Matte Shader:',align='right')
-        self.uiTextField_alphaMatteShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-                                                        ut = 'cgmUITemplate',
-                                                        w = 50,
-                                                        editable=False,
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
-        mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_alphaMatteShader)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_alphaMatteShader, enforcedType = 'surfaceShader'))
-        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_alpha_matte_shader(),annotationText='')
-        cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_alphaMatteShader),
-                            annotationText='')
-        mUI.MelSpacer(_row,w = 5)
-        _row.layout()
+        #>>> Load Alpha Matte Shader
+        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        # mUI.MelSpacer(_row,w=5)
+        # mUI.MelLabel(_row,l='Alpha Matte Shader:',align='right')
+        # self.uiTextField_alphaMatteShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        #                                                 ut = 'cgmUITemplate',
+        #                                                 w = 50,
+        #                                                 editable=False,
+        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+        #                                                 annotation = "Our base object from which we process things in this tab...")
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.setStretchWidget(self.uiTextField_alphaMatteShader)
+        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_alphaMatteShader, enforcedType = 'surfaceShader'))
+        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_alpha_matte_shader(),annotationText='')
+        # cgmUI.add_Button(_row, 'Select',
+        #                     lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_alphaMatteShader),
+        #                     annotationText='')
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.layout()
 
         #>>> Load Depth Shader
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
@@ -369,45 +416,49 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
+        #########
+        # Storing shader information on the mesh itself now, so don't need these
+        # extra text fields but keeping them around to be safe
+        #
         #>>> Load XYZ Shader
-        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='XYZ Shader:',align='right')
-        self.uiTextField_xyzShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-                                                        ut = 'cgmUITemplate',
-                                                        w = 50,
-                                                        editable=False,
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
-        mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_xyzShader)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_xyzShader, enforcedType = 'surfaceShader'))
-        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_xyz_shader(),annotationText='')
-        cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_xyzShader),
-                            annotationText='')
-        mUI.MelSpacer(_row,w = 5)
-        _row.layout()
+        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        # mUI.MelSpacer(_row,w=5)
+        # mUI.MelLabel(_row,l='XYZ Shader:',align='right')
+        # self.uiTextField_xyzShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        #                                                 ut = 'cgmUITemplate',
+        #                                                 w = 50,
+        #                                                 editable=False,
+        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+        #                                                 annotation = "Our base object from which we process things in this tab...")
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.setStretchWidget(self.uiTextField_xyzShader)
+        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_xyzShader, enforcedType = 'surfaceShader'))
+        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_xyz_shader(),annotationText='')
+        # cgmUI.add_Button(_row, 'Select',
+        #                     lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_xyzShader),
+        #                     annotationText='')
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.layout()
 
         #>>> Load Merged Shader
-        _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        mUI.MelSpacer(_row,w=5)
-        mUI.MelLabel(_row,l='Merged Shader:',align='right')
-        self.uiTextField_mergedShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-                                                        ut = 'cgmUITemplate',
-                                                        w = 50,
-                                                        editable=False,
-                                                        #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-                                                        annotation = "Our base object from which we process things in this tab...")
-        mUI.MelSpacer(_row,w = 5)
-        _row.setStretchWidget(self.uiTextField_mergedShader)
-        cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_mergedShader, enforcedType = 'surfaceShader'))
-        cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_merged_shader(),annotationText='')
-        cgmUI.add_Button(_row, 'Select',
-                            lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_mergedShader),
-                            annotationText='')
-        mUI.MelSpacer(_row,w = 5)
-        _row.layout()
+        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        # mUI.MelSpacer(_row,w=5)
+        # mUI.MelLabel(_row,l='Merged Shader:',align='right')
+        # self.uiTextField_mergedShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
+        #                                                 ut = 'cgmUITemplate',
+        #                                                 w = 50,
+        #                                                 editable=False,
+        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+        #                                                 annotation = "Our base object from which we process things in this tab...")
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.setStretchWidget(self.uiTextField_mergedShader)
+        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_load_text_field_with_selected(self.uiTextField_mergedShader, enforcedType = 'surfaceShader'))
+        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_merged_shader(),annotationText='')
+        # cgmUI.add_Button(_row, 'Select',
+        #                     lambda *a:uiFunc_select_item_from_text_field(self.uiTextField_mergedShader),
+        #                     annotationText='')
+        # mUI.MelSpacer(_row,w = 5)
+        # _row.layout()
 
         #>>> Automatic1111 Info
         mc.setParent(_inside)
@@ -432,6 +483,9 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_auto_populate_fields()
         return _inside
 
+    #=============================================================================================================
+    #>> Project Column
+    #=============================================================================================================
     def buildColumn_project(self,parent, asScroll = False):
         """
         Trying to put all this in here so it's insertable in other uis
@@ -839,14 +893,14 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Assign Material:',align='right')
         _row.setStretchWidget( mUI.MelSeparator(_row, w=2) )
-        cgmUI.add_Button(_row,'Depth', lambda *a:self.uiFunc_assign_material(self.uiTextField_depthShader))
-        cgmUI.add_Button(_row,'XYZ', lambda *a:self.uiFunc_assign_material(self.uiTextField_xyzShader))
-        cgmUI.add_Button(_row,'Projection', lambda *a:self.uiFunc_assign_material(self.uiTextField_projectionShader))
-        cgmUI.add_Button(_row,'Alpha', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaShader))
-        cgmUI.add_Button(_row,'Composite', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
-        cgmUI.add_Button(_row,'Alpha Matte', lambda *a:self.uiFunc_assign_material(self.uiTextField_alphaMatteShader))
+        cgmUI.add_Button(_row,'Depth', lambda *a:self.uiFunc_assignMaterial("depth"))
+        cgmUI.add_Button(_row,'XYZ', lambda *a:self.uiFunc_assignMaterial("xyz"))
+        cgmUI.add_Button(_row,'Projection', lambda *a:self.uiFunc_assignMaterial("projection"))
+        cgmUI.add_Button(_row,'Alpha', lambda *a:self.uiFunc_assignMaterial("alphaProjection"))
+        cgmUI.add_Button(_row,'Composite', lambda *a:self.uiFunc_assignMaterial("composite"))
+        cgmUI.add_Button(_row,'Alpha Matte', lambda *a:self.uiFunc_assignMaterial("alphaMatte"))
 
-        cgmUI.add_Button(_row,'Merged', lambda *a:self.uiFunc_assign_material(self.uiTextField_mergedShader))
+        cgmUI.add_Button(_row,'Merged', lambda *a:self.uiFunc_assignMaterial("merged"))
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
@@ -948,6 +1002,10 @@ class ui(cgmUI.cgmGUI):
 
         return _inside
 
+
+    #=============================================================================================================
+    #>> Edit Column
+    #=============================================================================================================
     def buildColumn_edit(self,parent, asScroll = True, inside = None):
 
         if(inside):
@@ -958,7 +1016,7 @@ class ui(cgmUI.cgmGUI):
             else:
                 _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
                 
-        compositeShader = self.uiTextField_compositeShader.getValue()
+        compositeShader = None #self.uiTextField_compositeShader.getValue()
         if not compositeShader:
             return _inside
 
@@ -969,7 +1027,7 @@ class ui(cgmUI.cgmGUI):
                 cgmGEN.Callback( self.uiFunc_refreshEditTab ),
                 annotationText='')
         
-        cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assign_material(self.uiTextField_compositeShader))
+        cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assignMaterial('composite'))
         
         cgmUI.add_Button(_row, 'Merge Composite', 
                 cgmGEN.Callback( self.uiFunc_mergeComposite ),
@@ -1118,7 +1176,7 @@ class ui(cgmUI.cgmGUI):
 
                     _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
                     mc.setParent(_alpha_col)
-                    _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = "print 'dropCallback executed'" )
+                    _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = lambda *a: log.debug('dropCallback executed') )
             
             if len(remap_color_nodes) < 5:
                 for i in range(5-len(remap_color_nodes)):
@@ -1136,13 +1194,19 @@ class ui(cgmUI.cgmGUI):
             
         return _inside
     
+    #=============================================================================================================
+    #>> UI Properties
+    #=============================================================================================================
     @property
     def currentTab(self):
         if( not self.uiTabLayout ):
             return None
         tabIndex = mc.tabLayout(self.uiTabLayout, q=True, sti=True)
         return mc.tabLayout(self.uiTabLayout, q=True, tl=True)[tabIndex-1]
-    
+
+    #=============================================================================================================
+    #>> UI Funcs
+    #=============================================================================================================
     def uiFunc_tryAutomatic1111Connect(self):
         _str_func = 'uiFunc_tryAutomatic1111Connect'
 
@@ -1197,7 +1261,7 @@ class ui(cgmUI.cgmGUI):
         baseObj = self.uiTextField_baseObject(query=True, text=True)
         xyzFile = self.getXYZFile(baseObj)
 
-        print ("operating on {}, xyz = {}, connection = {}".format(baseObj, xyzFile, alphaConnection))
+        log.debug ("operating on {}, xyz = {}, connection = {}".format(baseObj, xyzFile, alphaConnection))
 
         if not xyzFile:
             return
@@ -1205,9 +1269,9 @@ class ui(cgmUI.cgmGUI):
         remap, mult = rt.remapAndMultiplyColorChannels(xyzFile, labels=['X', 'Y', 'Z'])
         connections = mc.listConnections(alphaConnection, p=True)
         if connections:
-            print("connections = {}".format(connections))
+            log.debug("connections = {}".format(connections))
             finalMult = mc.shadingNode('multiplyDivide', asUtility=True)
-            print("finalMult = {}".format(finalMult))
+            log.debug("finalMult = {}".format(finalMult))
             mc.connectAttr(connections[0], finalMult + '.input1X', f=True)
             mc.connectAttr(mult + '.outputX', finalMult + '.input2X', f=True)
             mc.connectAttr(finalMult + '.outputX', alphaConnection, f=True)
@@ -1216,11 +1280,14 @@ class ui(cgmUI.cgmGUI):
         
         self.uiFunc_refreshEditTab()
 
+    #=============================================================================================================
+    #>> XYZ File
+    #=============================================================================================================
     def getXYZFile(self, mesh):
-        if not mc.objExists(mesh + '.xyzColor'):
+        if not mc.objExists(mesh + '.cgmXYZFile'):
             return None
         
-        xyzFile = mc.listConnections(mesh + '.xyzColor', type='file')
+        xyzFile = mc.listConnections(mesh + '.cgmXYZFile', type='file')
         if not xyzFile:
             return None
         
@@ -1264,6 +1331,9 @@ class ui(cgmUI.cgmGUI):
 
         mc.connectAttr(xyzFile + '.outColor', mesh + '.xyzColor', force=True)            
 
+    #=============================================================================================================
+    #>> UI Funcs -- Edit Tab
+    #=============================================================================================================
     def uiFunc_refreshEditTab(self):
         _str_func = 'uiFunc_refreshEditTab'
 
@@ -1271,7 +1341,7 @@ class ui(cgmUI.cgmGUI):
         self.editColumn = self.buildColumn_edit(None, inside=self.editColumn)
     
     def uiFunc_updateChannelGradient(self, dragControl, dropControl, messages, x, y, dragType):
-        print("updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)
+        log.debug("updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)
     
     def uiFunc_updateLayerVisibility(self, index):
         soloLayers = []
@@ -1287,17 +1357,20 @@ class ui(cgmUI.cgmGUI):
             
             mc.setAttr('%s.inputs[%i].isVisible' % (layer['layeredTexture'], layer['index']), visible)
 
+    #=============================================================================================================
+    #>> UI Funcs -- Project Tab
+    #=============================================================================================================
     def uiFunc_changeAutomatic1111Url(self):
         _str_func = 'uiFunc_changeAutomatic1111Url'
         
-        print(_str_func, 'start')
+        log.debug(_str_func, 'start')
         self.saveOption('automatic_url', self.uiTextField_automaticURL(query=True, text=True))
 
         self.handleReset()
 
     def uiFunc_setImg2ImgPass(self, *a):
         _str_func = 'uiFunc_setImg2ImgPass'
-        print(_str_func, a)
+        log.debug("%s %s", _str_func, a)
 
         option = a[0].lower()
         val = option != 'none'
@@ -1312,7 +1385,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_setAlphaMatteCB(self, *a):
         _str_func = 'uiFunc_setAlphaMatteCB'
-        print(_str_func, a)
+        log.debug("%s %s", _str_func, a)
 
         val = a[0]
 
@@ -1323,16 +1396,11 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_auto_populate_fields(self):
         _str_func = 'uiFunc_auto_populate_fields'
 
-        for obj in mc.ls(sl=True):
-            # list shapes
-            _shapes = mc.listRelatives(obj, shapes=True, type='mesh')
-            if _shapes:
-                self.uiTextField_baseObject(edit=True, text=_shapes[0])
-                break
+        self.uiFunc_loadAllMeshes()
 
         for cam in mc.ls("*.cgmCamera"):
             if(mc.getAttr(cam) == 'projection'):
-                self.uiTextField_projectionCam(edit=True, text=cam.split('.')[0])
+                self.uiTextField_projectionCamera(edit=True, text=cam.split('.')[0])
                 break
 
         for shader in mc.ls("*.cgmShader"):
@@ -1340,45 +1408,58 @@ class ui(cgmUI.cgmGUI):
                 self.uiTextField_projectionShader(edit=True, text=shader.split('.')[0])
                 continue
             if(mc.getAttr(shader) == 'sd_alpha'):
-                self.uiTextField_alphaShader(edit=True, text=shader.split('.')[0])
+                self.uiTextField_alphaProjectionShader(edit=True, text=shader.split('.')[0])
                 continue
             if(mc.getAttr(shader) == 'sd_depth'):
                 self.uiTextField_depthShader(edit=True, text=shader.split('.')[0])
                 continue
-            if(mc.getAttr(shader) == 'sd_composite'):
-                self.uiTextField_compositeShader(edit=True, text=shader.split('.')[0])
-                continue
-            if(mc.getAttr(shader) == 'sd_alphaMatte'):
-                self.uiTextField_alphaMatteShader(edit=True, text=shader.split('.')[0])
-                continue
-            if(mc.getAttr(shader) == 'sd_merged'):
-                self.uiTextField_mergedShader(edit=True, text=shader.split('.')[0])
-                continue
-            if(mc.getAttr(shader) == 'sd_xyz'):
-                self.uiTextField_xyzShader(edit=True, text=shader.split('.')[0])
-                continue
-        return
 
-    def uiFunc_assign_material(self, element):
-        _str_func = 'uiFunc_assign_material'  
-        _mesh = self.uiTextField_baseObject(query=True, text=True)
+    def uiFunc_getMaterial(self, materialType, mesh=None):
+        _str_func = 'uiFunc_getMaterial'
 
-        if not mc.objExists(_mesh):
-            log.warning("|{0}| >> No mesh loaded.".format(_str_func))
-            return
+        if materialType == 'projection':
+            return self.uiTextField_projectionShader(query=True, text=True)
+        if materialType == 'alphaProjection':
+            return self.uiTextField_alphaProjectionShader(query=True, text=True)
+        if materialType == 'depth':
+            return self.uiTextField_depthShader(query=True, text=True)
         
-        _material = element(query=True, text=True)
+        if not mesh or not mc.objExists(mesh):
+            log.error("|{0}| >> No mesh specified.".format(_str_func))
+            return None
         
-        if not mc.objExists(_material):
-            log.warning("|{0}| >> No material loaded.".format(_str_func))
-            return
+        attrs = {'composite':'cgmCompositeMaterial', 'alphaMatte':'cgmAlphaMatteMaterial', 'merged':'cgmMergedMaterial', 'xyz':'cgmXYZMaterial'}
+        if materialType not in attrs:
+            log.error("|{0}| >> Invalid material type {1}.".format(_str_func, materialType))
+            return None
         
-        _sg = mc.listConnections(_material, type='shadingEngine')
-        if _sg:
-            _sg = _sg[0]
+        attr = attrs[materialType]
+        if not mc.objExists(mesh + '.' + attr):
+            log.error("|{0}| >> Mesh doesn't have attribute {1}.".format(_str_func, attr))
+            return None
         
-        print("Assigning {0} to {1}".format(_material, _mesh))
-        rt.assignMaterial(_mesh, _sg)
+        return mc.listConnections(mesh + '.' + attr)[0]
+        
+    def uiFunc_assignMaterial(self, materialType, meshes=None):
+        _str_func = 'uiFunc_assignMaterial'  
+
+        for _mesh in meshes or self.uiList_projectionMeshes(query=True, allItems=True) or []:
+            if not mc.objExists(_mesh):
+                log.warning("|{0}| >> Mesh doesn't exist {1}.".format(_str_func, _mesh))
+                continue
+            
+            _material = self.uiFunc_getMaterial(materialType)
+            
+            if not _material or not mc.objExists(_material):
+                log.warning("|{0}| >> No material loaded - {1}.".format(_str_func, _mesh))
+                continue
+            
+            _sg = mc.listConnections(_material, type='shadingEngine')
+            if _sg:
+                _sg = _sg[0]
+            
+            log.debug("Assigning {0} to {1}".format(_material, _mesh))
+            rt.assignMaterial(_mesh, _sg)
 
     def uiFunc_setSize(self, source):
         _str_func = 'uiFunc_setSize'
@@ -1401,7 +1482,7 @@ class ui(cgmUI.cgmGUI):
         aspectRatio = float(width)/float(height)
         mc.setAttr( "defaultResolution.deviceAspectRatio", aspectRatio)
 
-        projectionCam = self.uiTextField_projectionCam(q=True, text=True)
+        projectionCam = self.uiTextField_projectionCamera(q=True, text=True)
         if projectionCam:
             mc.setAttr( '%s.horizontalFilmAperture' % projectionCam, aspectRatio )
             mc.setAttr( '%s.verticalFilmAperture' % projectionCam, 1.0 )
@@ -1427,7 +1508,7 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_renderImage(self, display=True):
         _str_func = 'uiFunc_renderImage'
 
-        outputImage = rt.renderMaterialPass(None, self.uiTextField_baseObject(query=True, text=True), camera = self.uiTextField_projectionCam(q=True, text=True), resolution = self.resolution  )
+        outputImage = rt.renderMaterialPass(camera = self.uiTextField_projectionCamera(q=True, text=True), resolution = self.resolution  )
         if display:
             iv.ui([outputImage], {'outputImage':outputImage})
         
@@ -1451,7 +1532,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_viewImageFromPath(self, path):
         _str_func = 'uiFunc_viewImageFromPath'
-        print(_str_func, path)
+        log.debug(_str_func, path)
 
         if os.path.exists(path):
             iv.ui([path], {'outputImage':path})
@@ -1462,13 +1543,13 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_snapCameraFromData(self, cameraData):
         _str_func = 'uiFunc_snapCameraFromData'
 
-        camera = self.uiTextField_projectionCam(query=True, text=True)
+        camera = self.uiTextField_projectionCamera(query=True, text=True)
         if not mc.objExists(camera):
-            log.warning("|{0}| >> No camera loaded.".format(_str_func))
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
             return
 
         if not cameraData:
-            log.warning("|{0}| >> No camera data loaded.".format(_str_func))
+            log.error("|{0}| >> No camera data loaded.".format(_str_func))
             return
 
         cameraTransform = mc.listRelatives(camera, parent=True)[0]
@@ -1491,25 +1572,29 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_make_projection_camera(self):
         cam, shape = rt.makeProjectionCamera()
-        self.uiTextField_projectionCam(edit=True, text=shape)
+        self.uiTextField_projectionCamera(edit=True, text=shape)
+
+        return shape
 
     def uiFunc_make_projection_shader(self):
         _str_func = 'uiFunc_make_projection_shader'
-        _camera = self.uiTextField_projectionCam(query=True, text=True)
+        _camera = self.uiTextField_projectionCamera(query=True, text=True)
 
         if not mc.objExists(_camera):
-            log.warning("|{0}| >> No camera loaded.".format(_str_func))
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
             return
         
         shader, sg = rt.makeProjectionShader(_camera)
         self.uiTextField_projectionShader(edit=True, text=shader)
 
-    def uiFunc_make_alpha_shader(self):
-        _str_func = 'uiFunc_make_alpha_shader'
-        _camera = self.uiTextField_projectionCam(query=True, text=True)
+        return shader, sg
+
+    def uiFunc_make_alpha_projection_shader(self):
+        _str_func = 'uiFunc_make_alpha_projection_shader'
+        _camera = self.uiTextField_projectionCamera(query=True, text=True)
 
         if not mc.objExists(_camera):
-            log.warning("|{0}| >> No camera loaded.".format(_str_func))
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
             return
         
         shader, sg = rt.makeAlphaProjectionShader(_camera)
@@ -1524,20 +1609,9 @@ class ui(cgmUI.cgmGUI):
                 else:
                     mc.connectAttr(ramp[0] + '.outColorG', shader + '.outColorG', force=True)
 
-        self.uiTextField_alphaShader(edit=True, text=shader)
+        self.uiTextField_alphaProjectionShader(edit=True, text=shader)
 
-    def uiFunc_make_composite_shader(self):
-        _str_func = 'uiFunc_make_composite_shader'
-
-        shader, sg = sd.makeCompositeShader()
-        self.uiTextField_compositeShader(edit=True, text=shader)
-
-    def uiFunc_make_alpha_matte_shader(self):
-        _str_func = 'uiFunc_make_alpha_matte_shader'
-
-        shader, sg = sd.makeAlphaMatteShader()
-
-        self.uiTextField_alphaMatteShader(edit=True, text=shader)
+        return shader, sg
 
     def uiFunc_make_depth_shader(self):
         _str_func = 'uiFunc_make_depth_shader'
@@ -1545,7 +1619,7 @@ class ui(cgmUI.cgmGUI):
         shader, sg = rt.makeDepthShader()
         self.uiTextField_depthShader(edit=True, text=shader)
 
-        alphaShader = self.uiTextField_alphaShader(query=True, text=True)
+        alphaShader = self.uiTextField_alphaProjectionShader(query=True, text=True)
         if mc.objExists(alphaShader):
             ramp = mc.listConnections(shader + '.outColor', type='ramp')
             if(ramp):
@@ -1557,43 +1631,24 @@ class ui(cgmUI.cgmGUI):
 
         mc.setAttr(shader + '.maxDistance', self.uiFF_maxDepthDistance(query=True, value=True))
 
-    def uiFunc_make_xyz_shader(self):
-        _str_func = 'uiFunc_make_xyz_shader'
-
-        shader, sg = rt.makeXYZShader()
-
-        mesh = self.uiTextField_baseObject(query=True, text=True)
-        if mc.objExists(mesh):
-            bbox = mc.exactWorldBoundingBox(mesh)
-
-            mc.setAttr(shader + '.bboxMin', bbox[0], bbox[1], bbox[2], type='double3')
-            mc.setAttr(shader + '.bboxMax', bbox[3], bbox[4], bbox[5], type='double3')
-
-        self.uiTextField_xyzShader(edit=True, text=shader)
-
-    def uiFunc_make_merged_shader(self):
-        _str_func = 'uiFunc_make_merged_shader'
-
-        shader, sg = sd.makeMergedShader()
-
-        self.uiTextField_mergedShader(edit=True, text=shader)
+        return shader, sg
 
     def uiFunc_generateImage(self):
         _str_func = 'uiFunc_generateImage'
 
-        depthMat = self.uiTextField_depthShader(q=True, text=True)
-        alphaMat = self.uiTextField_alphaMatteShader(q=True, text=True)
-        compositeMat = self.uiTextField_compositeShader(q=True, text=True)
+        #alphaMat = self.uiTextField_alphaMatteShader(q=True, text=True)
+        #
 
-        mesh = self.uiTextField_baseObject(q=True, text=True)
-        camera = self.uiTextField_projectionCam(q=True, text=True)
+        meshes = self.uiList_projectionMeshes(q=True, allItems=True)
+        camera = self.uiTextField_projectionCamera(q=True, text=True)
 
-        if(not mc.objExists(depthMat)):
-            log.warning("|{0}| >> No depth shader loaded.".format(_str_func))
+        if not camera:
+            log.warning("|{0}| >> No camera loaded.".format(_str_func))
+
+
             
-        if(not mc.objExists(mesh)):
-            log.warning("|{0}| >> No mesh loaded.".format(_str_func))
-            
+        if meshes is None or len(meshes) == 0:
+            log.warning("|{0}| >> No meshes loaded.".format(_str_func))
 
         bgColor = self.generateBtn(q=True, bgc=True)
         origText = self.generateBtn(q=True, label=True)
@@ -1605,22 +1660,28 @@ class ui(cgmUI.cgmGUI):
 
         _options = self.getOptions()
 
-        output_path = PROJECT.getImagePath()
+        output_path = os.path.normpath(os.path.join(PROJECT.getImagePath(), 'sd_output'))
 
         composite_path = None
         composite_string = None
 
         option = _options['img2img_pass'].lower()
-        print("img2img_pass", option)
+        log.debug("img2img_pass", option)
 
         if option != "none":
-            if (option == "composite" or option == "merged") and mc.objExists(compositeMat) and mc.objExists(mesh):
-                wantedMat = compositeMat
-                if option == "merged":
-                    wantedMat = self.uiTextField_mergedShader(query=True, text=True)
-                composite_path = rt.renderMaterialPass(wantedMat, mesh, camera=camera, resolution=self.resolution)
+            if (option == "composite" or option == "merged"):
+                for mesh in meshes or []:
+                    wantedMat = None
+                    if option == "merged":
+                        wantedMat = self.uiFunc_getMaterial("merged", mesh)
+                    elif option == "composite":
+                        wantedMat = self.uiFunc_getMaterial("composite", mesh)
+                    if wantedMat:
+                        rt.assignMaterial(wantedMat, mesh)
 
-                print("composite path: ", composite_path)
+                composite_path = rt.renderMaterialPass(camera=camera, resolution=self.resolution)
+
+                log.debug("composite path: ", composite_path)
                 with open(composite_path, "rb") as c:
                     # Read the image data
                     composite_data = c.read()
@@ -1636,7 +1697,7 @@ class ui(cgmUI.cgmGUI):
                 _options['init_images'] = [composite_string]
             elif option == "custom":
                 custom_image = self.uiTextField_customImage(query=True, text=True)
-                print("custom image: ", custom_image)
+                log.debug("custom image: ", custom_image)
 
                 if(os.path.exists(custom_image)):
                     with open(custom_image, "rb") as c:
@@ -1654,7 +1715,7 @@ class ui(cgmUI.cgmGUI):
                     _options['init_images'] = [composite_string]
             elif option == 'render layer':
                 outputImage = self.uiFunc_renderLayer(display=False)
-                print("render layer: ", outputImage)
+                log.debug("render layer: ", outputImage)
 
                 if outputImage:
                     with open(outputImage, "rb") as c:
@@ -1672,10 +1733,26 @@ class ui(cgmUI.cgmGUI):
                     _options['init_images'] = [composite_string]
 
         if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == 'none':
-            if mc.objExists(depthMat) and mc.objExists(mesh):
+
+            depthMat = self.uiFunc_getMaterial("depth")
+
+            if not mc.objExists(depthMat):
+                log.warning("|{0}| >> No depth shader loaded.".format(_str_func))
+                # prompt to create one
+                result = mc.confirmDialog(title='No depth shader loaded', message='No depth shader loaded. Would you like to create one?', button=['Yes', 'No'], defaultButton='Yes', cancelButton='No', dismissString='No')
+                if result == 'Yes':
+                    depthMat, sg = self.uiFunc_make_depth_shader()
+
+            if mc.objExists(depthMat) and meshes:
                 format = 'png'
-                depth_path = rt.renderMaterialPass(depthMat, mesh, camera=camera, resolution=(self.resolution[0]*2, self.resolution[1]*2))
-                print( "depth_path: {0}".format(depth_path) )
+                for mesh in meshes or []:
+                    wantedMat = self.uiFunc_getMaterial("depth", mesh)
+                    if wantedMat:
+                        rt.assignMaterial(wantedMat, mesh)
+
+                depth_path = rt.renderMaterialPass(fileName = "DepthPass", camera=camera, resolution=self.resolution)
+
+                log.debug( "depth_path: {0}".format(depth_path) )
                 # Read the image data
                 depth_image = Image.open(depth_path)
 
@@ -1693,9 +1770,21 @@ class ui(cgmUI.cgmGUI):
                     depth_string = depth_base64.decode("utf-8")
 
                     _options['control_net_image'] = depth_string
+            else:
+                log.warning("|{0}| >> No depth shader loaded. Disabling Control Net".format(_str_func))
+                _options['control_net_enabled'] = False
         else:
             if not composite_string:
-                composite_path = rt.renderMaterialPass(compositeMat, mesh, camera=camera, resolution=self.resolution)
+                for mesh in meshes or []:
+                    wantedMat = None
+                    if option == "merged":
+                        wantedMat = self.uiFunc_getMaterial("merged", mesh)
+                    elif option == "composite":
+                        wantedMat = self.uiFunc_getMaterial("composite", mesh)
+                    if wantedMat:
+                        rt.assignMaterial(wantedMat, mesh)
+
+                composite_path = rt.renderMaterialPass(fileName = "CompositePass", camera=camera, resolution=self.resolution)
 
                 with open(composite_path, "rb") as c:
                     # Read the image data
@@ -1709,10 +1798,15 @@ class ui(cgmUI.cgmGUI):
             
             _options['control_net_image'] = composite_string
         
-        if _options['use_alpha_pass'] and _options['img2img_pass'] != 'none' and mc.objExists(alphaMat) and mc.objExists(mesh):
-            alpha_path = rt.renderMaterialPass(alphaMat, mesh, camera=camera, resolution=self.resolution)
+        if _options['use_alpha_pass'] and _options['img2img_pass'] != 'none' and meshes:
+            for mesh in meshes or []:
+                wantedMat = self.uiFunc_getMaterial("alphaMatte", mesh)
+                if wantedMat:
+                    rt.assignMaterial(wantedMat, mesh)
 
-            print ("alpha_path: {0}".format(alpha_path))
+            alpha_path = rt.renderMaterialPass(fileName = "AlphaPass", camera=camera, resolution=self.resolution)
+
+            log.debug ("alpha_path: {0}".format(alpha_path))
 
             if os.path.exists(alpha_path):
                 # Read the image data
@@ -1741,37 +1835,140 @@ class ui(cgmUI.cgmGUI):
 
         imagePaths, info = sd.getImageFromAutomatic1111(_options)
 
-        camera = self.uiTextField_projectionCam(query=True, text=True)
-        cameraTransform = mc.listRelatives(camera, parent=True)[0]
-        info['camera_info'] = {'position':mc.xform(cameraTransform, q=True, ws=True, t=True),
-            'rotation' : mc.xform(cameraTransform, q=True, ws=True, ro=True),
-            'fov' : mc.getAttr(camera + '.focalLength')}
+        if camera:
+            cameraTransform = mc.listRelatives(camera, parent=True)[0]
+            info['camera_info'] = {'position':mc.xform(cameraTransform, q=True, ws=True, t=True),
+                'rotation' : mc.xform(cameraTransform, q=True, ws=True, ro=True),
+                'fov' : mc.getAttr(camera + '.focalLength')}
 
-        print("Generated: ", imagePaths, info)
+        log.debug("Generated: ", imagePaths, info)
 
         if(imagePaths):
-            displayImage(imagePaths, info, [{'function':self.assignImageToProjection, 'label':'Assign To Projection'}])
+            callbacks = []
+            callbacks.append(
+                {'label':'Make Plane', 
+                 'function':rt.makeImagePlane})
+            callbacks.append(
+                {'label':'Set As Projection', 
+                 'function':self.assignImageToProjection})
+
+            displayImage(imagePaths, info, callbacks)
         
         self.lastInfo = info
 
         self.generateBtn(edit=True, enable=True)
         self.generateBtn(edit=True, label=origText)
         self.generateBtn(edit=True, bgc=bgColor)
+     
+    def uiFunc_loadSelectedMeshes(self):
+        _str_func = 'uiFunc_loadSelectedMeshes'
+        log.debug("|{0}| >> ...".format(_str_func))
 
+        sel = mc.ls(sl=True)
 
-    def assignImageToProjection(self, imagePath, info):
-        # assign projection shader
+        unvalidatedMeshes = []
+        validatedMeshes = []
+
+        for obj in mc.ls(sl=True):
+            shape = mc.listRelatives(obj, shapes=True, type='mesh')
+            if shape:
+                if not sd.validateProjectionMesh(shape[0]):
+                    unvalidatedMeshes.append(shape[0])
+                else:
+                    validatedMeshes.append(shape[0])
+            else:
+                log.warning("|{0}| >> No shape found for {1}".format(_str_func, obj))
         
-        self.uiFunc_assign_material(self.uiTextField_projectionShader)
+        if unvalidatedMeshes:
+            log.debug(unvalidatedMeshes)
+            # make a confirm dialog prompt that asks if the user wants to validate the meshes
+            result = mc.confirmDialog(title='Validate Meshes', message='The following meshes are not valid for projection. Would you like to validate them?\n\n{0}'.format('\n'.join(unvalidatedMeshes)), button=['Yes', 'No'], defaultButton='Yes', cancelButton='No', dismissString='No')
+            if result == 'Yes':
+                sd.initializeProjectionMeshes(unvalidatedMeshes)
+                # append the newly validated meshes to the validatedMeshes list
+                validatedMeshes.extend(unvalidatedMeshes)
+        
+        if validatedMeshes:
+            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
+        
+    def uiFunc_loadAllMeshes(self):
+        _str_func = 'uiFunc_loadAllMeshes'
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        self.uiList_projectionMeshes.clear()
+
+        # find all instances of objects with the relevant attributes
+        unvalidatedMeshes = []
+        validatedMeshes = []
+
+        for shape in [x.split('.')[0] for x in mc.ls('*.cgmCompositeMaterial')]:
+            if shape in unvalidatedMeshes or shape in validatedMeshes:
+                continue
+
+            if not sd.validateProjectionMesh(shape):
+                unvalidatedMeshes.append(shape)
+            else:
+                validatedMeshes.append(shape)  
+        
+        if validatedMeshes:
+            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
+
+    def uiFunc_clearAllMeshes(self):
+        _str_func = 'uiFunc_clearAllMeshes'
+        log.debug("|{0}| >> ...".format(_str_func))
+        self.uiList_projectionMeshes.clear()
+
+    def uiFunc_removeSelectedMeshes(self):
+        _str_func = 'uiFunc_removeSelectedMeshes'
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
+        self.uiList_projectionMeshes(edit=True, removeItem=sel)
+
+    def uiFunc_selectMeshes(self):
+        _str_func = 'uiFunc_selectMeshes'
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
+        mc.select(sel)
+
+    #===========================================================================
+    # Image Viewer Callbacks
+    #===========================================================================
+    def assignImageToProjection(self, imagePath, info):
+        _str_func = 'assignImageToProjection'
+
         projectionShader = self.uiTextField_projectionShader(query=True, text=True)
-        mesh = self.uiTextField_baseObject(query=True, text=True)
+        projectionCamera = self.uiTextField_projectionCamera(query=True, text=True)
+
+        if not mc.objExists(projectionShader) or not mc.objExists(projectionCamera):
+            _str = "Some items have not been set up. Missing:\n"
+            if not mc.objExists(projectionCamera):
+                _str += "Projection Camera\n"
+            if not mc.objExists(projectionShader):
+                _str += "Projection Shader\n"
+            _str += "Would you like to create them?"
+
+            # create a confirm dialog prompt that asks if the user wants to create the shader
+            result = mc.confirmDialog(title='Missing Items', message=_str, button=['Yes', 'No'], defaultButton='Yes', cancelButton='No', dismissString='No')
+            if result == 'Yes':
+                if not mc.objExists(projectionCamera):
+                    projectionCamera = self.uiFunc_make_projection_camera()
+                if not mc.objExists(projectionShader):
+                    projectionShader, sg = self.uiFunc_make_projection_shader()
+            else:
+                log.error("|{0}| >> No projection shader to assign image to".format(_str_func))
+                return
+
+        # assign projection shader
+        self.uiFunc_assignMaterial("projection")
         rt.assignImageToProjectionShader(projectionShader, imagePath, info)        
 
     def uiFunc_bakeProjection(self):
         #self.assignImageToProjection(imagePath, info)
         mesh = self.uiTextField_baseObject(query=True, text=True)
         projectionShader = self.uiTextField_projectionShader(query=True, text=True)
-        alphaShader = self.uiTextField_alphaShader(query=True, text=True)
+        alphaShader = self.uiTextField_alphaProjectionShader(query=True, text=True)
 
         bakedImage = rt.bakeProjection(projectionShader, mesh)
         bakedAlpha = rt.bakeProjection(alphaShader, mesh)
@@ -1794,7 +1991,7 @@ class ui(cgmUI.cgmGUI):
         rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)
 
         # assign composite shader
-        self.uiFunc_assign_material(self.uiTextField_compositeShader)
+        self.uiFunc_assignMaterial("composite")
 
     def uiFunc_mergeComposite(self):
         compositeShader = self.uiTextField_compositeShader(query=True, text=True)
@@ -1803,7 +2000,7 @@ class ui(cgmUI.cgmGUI):
         sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
 
         # assign merged shader
-        self.uiFunc_assign_material(self.uiTextField_compositeShader)
+        self.uiFunc_assignMaterial("composite")
         self.uiFunc_refreshEditTab()
 
     def uiFunc_setDepth(self, source):
@@ -2060,7 +2257,7 @@ class ui(cgmUI.cgmGUI):
 
     def getAlphaShader(self):
         _str_func = 'getAlphaShader'
-        return self.uiTextField_alphaShader(q=True, tx=True)
+        return self.uiTextField_alphaProjectionShader(q=True, tx=True)
 
     def getProjectionShader(self):
         _str_func = 'getProjectionShader'
@@ -2070,26 +2267,26 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'getOptions'
         
         _options = {}
-        _options['automatic_url'] = self.uiTextField_automaticURL(query=True, text=True)
-        _options['prompt'] = self.uiTextField_prompt(query=True, text=True)
-        _options['negative_prompt'] = self.uiTextField_negativePrompt(query=True, text=True)
-        _options['seed'] = self.uiIF_Seed(query=True, value=True)
-        _options['width'] = self.uiIF_Width(query=True, v=True)
-        _options['height'] = self.uiIF_Height(query=True, v=True)
-        _options['sampling_method'] = self.uiOM_samplingMethodMenu(query=True, value=True)
+        _options['automatic_url'] = self.uiTextField_automaticURL.getValue()
+        _options['prompt'] = self.uiTextField_prompt.getValue()
+        _options['negative_prompt'] = self.uiTextField_negativePrompt.getValue()
+        _options['seed'] = self.uiIF_Seed.getValue()
+        _options['width'] = self.uiIF_Width.getValue()
+        _options['height'] = self.uiIF_Height.getValue()
+        _options['sampling_method'] = self.uiOM_samplingMethodMenu.getValue()
         _options['sampling_steps'] = self.uiIF_samplingSteps.getValue()
         _options['min_depth_distance'] = self.uiFF_minDepthDistance.getValue()
         _options['max_depth_distance'] = self.uiFF_maxDepthDistance.getValue()
         _options['control_net_enabled'] = self.uiControlNetEnabledCB.getValue()
         _options['control_net_low_v_ram'] = self.uiControlNetLowVRamCB.getValue()
-        _options['control_net_preprocessor'] = self.uiOM_ControlNetPreprocessorMenu(query=True, value=True)
-        _options['control_net_model'] = self.uiOM_ControlNetModelMenu(query=True, value=True)
+        _options['control_net_preprocessor'] = self.uiOM_ControlNetPreprocessorMenu.getValue()
+        _options['control_net_model'] = self.uiOM_ControlNetModelMenu.getValue()
         _options['control_net_weight'] = self.uiFF_controlNetWeight.getValue()
         _options['control_net_guidance_start'] = self.uiFF_controlNetGuidanceStart.getValue()
         _options['control_net_guidance_end'] = self.uiFF_controlNetGuidanceEnd.getValue()
         _options['denoising_strength'] = self.uiFF_denoiseStrength.getValue()
-        _options['img2img_pass'] = self.uiOM_passMenu(query=True, value=True)
-        _options['img2img_custom_image'] = self.uiTextField_customImage(query=True, text=True)
+        _options['img2img_pass'] = self.uiOM_passMenu.getValue()
+        _options['img2img_custom_image'] = self.uiTextField_customImage.getValue()
         _options['use_alpha_pass'] = self.uiAlphaMatteCB.getValue()
         _options['mask_blur'] = self.uiIF_maskBlur.getValue()
         _options['batch_count'] = self.uiIF_batchCount.getValue()
@@ -2138,7 +2335,7 @@ class ui(cgmUI.cgmGUI):
         
         self.config.setValue(json.dumps(_options))
 
-        print("saving", _options)
+        log.debug("saving", _options)
     
     def loadOptions(self, options=None):
         _str_func = 'loadOptions'
@@ -2184,7 +2381,7 @@ class ui(cgmUI.cgmGUI):
         self.uiTextField_prompt(edit=True, text=_options['prompt'])
         self.uiTextField_negativePrompt(edit=True, text=_options['negative_prompt'])
         self.uiIF_Seed.setValue(int(_options['seed']))
-        print("Seed is: ", _options['seed'])
+        log.debug("Seed is: %s", str(_options['seed']) if 'seed' in _options else "No Seed Option")
         self.uiIF_Width(edit=True, v=_options['width'])
         self.uiIF_Height(edit=True, v=_options['height'])           
         if 'sampling_method' in _options:
@@ -2266,7 +2463,7 @@ def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
     return _value
 
 def displayImage(imagePaths, data = {}, callbackData = []):
-    print("Displaying images: ", imagePaths)
+    log.debug("Displaying images: ", imagePaths)
     iv.ui( imagePaths, data, callbackData )
 
 def uiFunc_load_text_field_with_shape(element, enforcedType = None):
@@ -2343,4 +2540,4 @@ def getResizedImage(imagePath, width, height, preserveAspectRatio=False):
     return new_temp_file_path
 
 def uiFunc_updateChannelGradient(dragControl, dropControl, messages, x, y, dragType):
-    print( "uiFunc_updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)
+    log.debug( "uiFunc_updateChannelGradient", dragControl, dropControl, messages, x, y, dragType)

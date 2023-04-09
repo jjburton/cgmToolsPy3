@@ -15,6 +15,11 @@ import cgm.core.tools.Project as PROJECT
 import re
 import time
 
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 # adjusts the local position of a mesh based on the R value of a texture
 # useful for creating a z-depth push effect
 # usage:
@@ -396,3 +401,64 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
 
 
     return fileNode
+
+# def makeImagePlane(imagePath, info):
+
+#     shader, sg = makeCompositeShader()
+
+#     plane, shader = rt.makeImagePlane(imagePath, info, shader=shader)
+
+#     shape = mc.listRelatives(plane, shapes=True)[0]
+
+#     mc.addAttr(shape, longName='cgmCompositeMaterial', attributeType='message')
+#     mc.connectAttr(f'{shader}.message', f'{shape}.cgmCompositeMaterial')
+    
+#     initializeProjectionMeshes([shape])
+
+#     return plane, shader
+
+def makeXYZShader(mesh=None):
+    shader, sg = rt.makeXYZShader()
+    
+    if mesh and mc.objExists(mesh):
+        bbox = mc.exactWorldBoundingBox(mesh)
+
+        mc.setAttr(shader + '.bboxMin', bbox[0], bbox[1], bbox[2], type='double3')
+        mc.setAttr(shader + '.bboxMax', bbox[3], bbox[4], bbox[5], type='double3')
+    
+    return shader, sg
+
+def initializeProjectionMeshes(meshes):
+    _str_func = 'initiateProjectionMeshes'
+    log.debug("|{0}| >> ...".format(_str_func))
+
+    if not meshes:
+        return
+
+    materialData = {'cgmCompositeMaterial':makeCompositeShader,
+                    'cgmAlphaMatteMaterial':makeAlphaMatteShader,
+                    'cgmMergedMaterial':makeMergedShader,
+                    'cgmXYZMaterial':makeXYZShader}
+
+    for mesh in meshes:
+        for attr, func in materialData.items():
+            if not mc.objExists(f'{mesh}.{attr}'):
+                mc.addAttr(mesh, longName=attr, attributeType='message')
+            
+            # if there is no connection to the attribute, create a new shader and connect it
+            if not mc.listConnections(f'{mesh}.{attr}'):
+                shader, sg = func()
+                mc.connectAttr(f'{shader}.message', f'{mesh}.{attr}')
+
+def validateProjectionMesh(obj):
+
+    attrs = ['cgmCompositeMaterial', 'cgmAlphaMatteMaterial', 'cgmMergedMaterial', 'cgmXYZMaterial']
+
+    for attr in attrs:
+        if not mc.objExists(f'{obj}.{attr}'):
+            return False
+        
+        if not mc.listConnections(f'{obj}.{attr}'):
+            return False
+    
+    return True

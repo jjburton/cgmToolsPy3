@@ -10,6 +10,11 @@ import numpy as np
 import os
 from PIL import Image, ImageChops, ImageMath
 
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 width, height = (512,512)
 
 def getImagesPath():
@@ -506,46 +511,51 @@ def createFileNode(image_path = ""):
 
     return fileNode, place2d
 
-def renderMaterialPass(material, meshObj, fileName = None, format='png', camera = None, resolution=None):
+def renderMaterialPass(material = None, meshes = None, fileName = None, format='png', camera = None, resolution=None):
     #print("renderMaterialPass(%s, %s, %s, %s, %s)" % (material, meshObj, fileName, asJpg, camera))
 
     tmpdir = tempfile.TemporaryDirectory().name
-    print(f"Created temporary directory: {tmpdir}")
+    log.debug(f"Created temporary directory: {tmpdir}")
 
     if(resolution != None):
         mc.setAttr("defaultResolution.width", resolution[0])
         mc.setAttr("defaultResolution.height", resolution[1])
 
-    wantedName = ""
-    if(material):
+    wantedName = os.path.join(tmpdir, '<RenderLayer>', "RenderPass")
+    if material:
         # assign depth shader
         sg = mc.listConnections(material, type='shadingEngine')
         if sg:
             sg = sg[0]
 
-        assignMaterial(meshObj, sg)
+        if sg and meshes:
+            for meshObj in meshes:
+                assignMaterial(meshObj, sg)
+        else:
+            log.warning("No shading group or meshes found for material %s" % material)
 
         wantedName = os.path.join(tmpdir, '<RenderLayer>', material)
 
     if fileName:
-        wantedName = fileName
+        wantedName = os.path.join(tmpdir, '<RenderLayer>', fileName)
 
     # setAttr "defaultRenderGlobals.imageFormat" 8;
     currentImageFormat = mc.getAttr("defaultRenderGlobals.imageFormat")
+    currentFilenamePrefix = mc.getAttr("defaultRenderGlobals.imageFilePrefix")
 
     if format.lower() == 'jpg' or format.lower() == 'jpeg':
         mc.setAttr("defaultRenderGlobals.imageFormat", 8)
     elif format.lower() == 'png':
         mc.setAttr("defaultRenderGlobals.imageFormat", 32)
 
-    mc.setAttr("defaultRenderGlobals.imageFilePrefix", wantedName, type="string")
+    #mc.setAttr("defaultRenderGlobals.imageFilePrefix", wantedName, type="string")
 
     #outputFileName = mc.renderSettings(fullPathTemp=True, firstImageName=True)
 
     uniqueFileName = files.create_unique_filename(wantedName)
     #newName = os.path.splitext(os.path.split(uniqueFileName)[-1])[0]
 
-    print( "uniqueFileName: %s" % uniqueFileName)
+    log.debug( "uniqueFileName: %s" % uniqueFileName)
 
     mc.setAttr("defaultRenderGlobals.imageFilePrefix", uniqueFileName, type="string")
 
@@ -562,8 +572,9 @@ def renderMaterialPass(material, meshObj, fileName = None, format='png', camera 
     imagePath = mc.render(batch=True, rep=True)
 
     mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
+    mc.setAttr("defaultRenderGlobals.imageFilePrefix", currentFilenamePrefix, type="string")
 
-    print("Rendered material pass, %s, %s" % (material, imagePath))
+    log.debug("Rendered material pass, %s, %s" % (material, imagePath))
     return imagePath
 
 
@@ -959,3 +970,26 @@ def overlay_images(images_data):
             continue
 
     return base_image
+
+def makeImagePlane(imagePath, info, shader=None):
+    # get the image size with PIL
+    image = Image.open(imagePath)
+    info['width'] = image.size[0]
+    info['height'] = image.size[1]
+
+    # Create a polyPlane and a shading group
+    plane = mc.polyPlane(name="imagePlane", width=info['width'] * .01, height=info['height'] * .01, subdivisionsX=1, subdivisionsY=1, axis=(0, 0, 1), constructionHistory=False)[0]
+    shape = mc.listRelatives(plane, shapes=True)[0]
+    
+    if not shader:
+        shader, sg = makeShader('surfaceShader')
+    else:
+        sg = mc.listConnections(shader, type='shadingEngine')[0]
+
+    # Create a file texture node and connect it to the shading group
+    fileNode, place2d = createFileNode(imagePath)
+    mc.connectAttr(fileNode + ".outColor", shader + ".outColor")
+
+    assignMaterial(shape, sg)
+
+    return plane, shader, fileNode
