@@ -355,6 +355,10 @@ def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     return convertedFile
 
 def addImageToCompositeShader(shader, color, alpha):
+    _str_func = 'addImageToCompositeShader'
+
+    log.debug("|{0}| >>  shader: {1}  >>  color: {2}  >>  alpha: {3}".format(_str_func, shader, color, alpha))
+
     layeredTexture = mc.listConnections('%s.outColor' % shader, type="layeredTexture")[0]
     connections = mc.listConnections(layeredTexture, p=True, s=True, d=False) or []
 
@@ -571,6 +575,7 @@ def renderMaterialPass(material = None, meshes = None, fileName = None, format='
 
     imagePath = mc.render(batch=True, rep=True)
 
+    log.debug("currentFilenamePrefix: %s" % currentFilenamePrefix)
     mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
     mc.setAttr("defaultRenderGlobals.imageFilePrefix", currentFilenamePrefix, type="string")
 

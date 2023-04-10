@@ -449,6 +449,7 @@ def initializeProjectionMeshes(meshes):
             if not mc.listConnections(f'{mesh}.{attr}'):
                 shader, sg = func()
                 mc.connectAttr(f'{shader}.message', f'{mesh}.{attr}')
+                shader = mc.rename(shader, f'{mesh}_{shader}')
 
 def validateProjectionMesh(obj):
 
