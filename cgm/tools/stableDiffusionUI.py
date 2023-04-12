@@ -60,6 +60,7 @@ _defaultOptions = {
         'sampling_method':'Euler',
         'denoising_strength':.35,
         #'use_composite_pass':False,
+        'img2img_scale_multiplier':1.0,
         'img2img_pass':'none',
         'img2img_custom_image':'',
         'img2img_render_layer':'defaultRenderLayer',
@@ -745,6 +746,16 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w=5)	            
         _row.setStretchWidget(self.uiSlider_denoiseStrength)#Set stretch    
 
+        mUI.MelLabel(_row,l='Render Scale Multiplier:',align='right')
+
+        self.uiOM_img2imgScaleMultiplier = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
+        self.uiOM_img2imgScaleMultiplier(e=True, cc=cgmGEN.Callback(self.saveOptionFromUI, 'img2img_scale_multiplier', self.uiOM_img2imgScaleMultiplier))
+
+        for option in ['.25','.5','.75','1', '1.5', '2']:
+            mUI.MelMenuItem(self.uiOM_img2imgScaleMultiplier, l=option)
+
+        mUI.MelSpacer(_row,w=5)
+
         self.uiFunc_setDenoise('field')
         _row.layout()
 
@@ -1023,7 +1034,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_row,l='Active Mesh:',align='right')
         mUI.MelSpacer(_row,w=5)
         self.uiOM_edit_projectionMesh = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', h=20)
-        self.uiOM_edit_projectionMesh(edit=True, changeCommand = lambda *a:self.uiFunc_edit_changeProjectionMesh())
+        self.uiOM_edit_projectionMesh(edit=True, changeCommand = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_edit_changeProjectionMesh,self)))
         
         for mesh in self.uiList_projectionMeshes(q=True, allItems=True):
             mUI.MelMenuItem(self.uiOM_edit_projectionMesh, l=mesh)
@@ -1034,7 +1045,10 @@ class ui(cgmUI.cgmGUI):
             pass
 
         _mesh = self.uiOM_edit_projectionMesh.getValue()
+        mc.select(_mesh)
+
         compositeShader = self.uiFunc_getMaterial('composite', _mesh)
+        mergedShader = self.uiFunc_getMaterial('merged', _mesh)
 
         cgmUI.add_Button(_row,'<<',
             cgmGEN.Callback(self.uiFunc_edit_loadProjectionMesh, True),                         
@@ -1047,6 +1061,9 @@ class ui(cgmUI.cgmGUI):
         if not compositeShader:
             return _inside
 
+        # Get the layered texture node
+        layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
+
         #self.editTabContent = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
         _row = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate', padding = 10)
 
@@ -1057,25 +1074,25 @@ class ui(cgmUI.cgmGUI):
         cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assignMaterial('composite'))
         
         cgmUI.add_Button(_row, 'Merge Composite', 
-                cgmGEN.Callback( self.uiFunc_mergeComposite ),
+                cgmGEN.Callback( self.uiFunc_mergeComposite, compositeShader, mergedShader ),
                 annotationText='')
         
         _row.layout()
 
-        # Get the layered texture node
-        layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
-
         # Get the number of color inputs to the layered texture
         num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
-
+        log.debug("{0} >> num_inputs {1}".format(layeredTexture, num_inputs))
+                  
         # Loop through each color input and create a layout for it
         self.layers = []
         for i in num_inputs:
+            log.debug("Creating layout for layer {}".format(i))
+
             input_color = layeredTexture + ".inputs[{}].color".format(i)
 
             color_connections = mc.listConnections(input_color)
             if not color_connections:
-                return _inside
+                continue
             
             color_name = color_connections[0]
 
@@ -1125,8 +1142,8 @@ class ui(cgmUI.cgmGUI):
             info_row = mUI.MelColumn(subrow_layout,useTemplate = 'cgmUISubTemplate')
             
             info_top_column = mUI.MelHSingleStretchLayout(info_row, ut="cgmUISubTemplate")                       
-            visible_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
-            solo_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=lambda *a, s=self: s.uiFunc_updateLayerVisibility(i))
+            visible_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Vis", v=mc.getAttr('%s.inputs[%i].isVisible' % (layeredTexture, i)), changeCommand=cgmGEN.Callback(self.uiFunc_updateLayerVisibility))
+            solo_cb = mUI.MelCheckBox(info_top_column, useTemplate='cgmUITemplate', label="Solo", v=False, changeCommand=cgmGEN.Callback(self.uiFunc_updateLayerVisibility) )
 
             # set label as stretch widget
             info_top_column.setStretchWidget( mUI.MelSeparator(info_top_column, w=2) )
@@ -1161,7 +1178,7 @@ class ui(cgmUI.cgmGUI):
                         annotationText='')
             if _compositeConnection:
                 cgmUI.add_Button( info_top_column, 'Restore Comp', 
-                        cgmGEN.Callback( self.uiFunc_restoreComposite, _compositeConnection[0]),
+                        cgmGEN.Callback( self.uiFunc_restoreComposite, compositeShader, _compositeConnection[0]),
                         annotationText='')
             
             mUI.MelSpacer(info_top_column,w = 5)
@@ -1204,7 +1221,7 @@ class ui(cgmUI.cgmGUI):
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = lambda *a: log.debug('dropCallback executed') )
             
             if len(remap_color_nodes) < 5:
-                for i in range(5-len(remap_color_nodes)):
+                for n in range(5-len(remap_color_nodes)):
                     mUI.MelLabel(info_row,label = "")                
         
             
@@ -1213,10 +1230,12 @@ class ui(cgmUI.cgmGUI):
                         cgmGEN.Callback( self.uiFunc_addPositionMatte, alpha_input),
                         annotationText='')
             
-            self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": i, "solo_cb": solo_cb, "channelSliders": channelSliders})
+            self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": int(i), "solo_cb": solo_cb, "channelSliders": channelSliders})
 
             #subrow_layout.layout()
-            
+        
+        log.debug("Layers: %s" % self.layers)
+
         return _inside
     
     #=============================================================================================================
@@ -1255,10 +1274,8 @@ class ui(cgmUI.cgmGUI):
                 self.handleReload()
                 return
 
-    def uiFunc_restoreComposite(self, layeredTexture):
+    def uiFunc_restoreComposite(self, compositeShader, layeredTexture):
         _str_func = 'uiFunc_restoreComposite'
-
-        compositeShader = self.uiTextField_compositeShader.getValue()
 
         if not compositeShader:
             return
@@ -1598,7 +1615,11 @@ class ui(cgmUI.cgmGUI):
             if (option == "composite" or option == "merged"):
                 self.uiFunc_assignMaterial(option, meshes)
 
-                composite_path = rt.renderMaterialPass(camera=camera, resolution=self.resolution)
+                scaleMult = float(self.uiOM_img2imgScaleMultiplier.getValue())
+                wantedResolution = (self.resolution[0] * scaleMult, self.resolution[1] * scaleMult)
+                
+                log.debug("rendering composite image at resolution {0}".format(wantedResolution))
+                composite_path = rt.renderMaterialPass(camera=camera, resolution=wantedResolution)
 
                 log.debug("composite path: {0}".format(composite_path))
                 with open(composite_path, "rb") as c:
@@ -1755,6 +1776,9 @@ class ui(cgmUI.cgmGUI):
             callbacks.append(
                 {'label':'Make Plane', 
                  'function':rt.makeImagePlane})
+            callbacks.append(
+                {'label':'Set As Custom Image', 
+                 'function':self.setAsCustomImage})
             callbacks.append(
                 {'label':'Set As Projection', 
                  'function':self.assignImageToProjection})
@@ -2073,17 +2097,21 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'uiFunc_edit_changeProjectionMesh'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         log.debug("{0}".format(a))
+
+        self.activeProjectionMesh = self.uiOM_edit_projectionMesh.getValue()
+        self.uiFunc_refreshEditTab()
     
     def uiFunc_refreshEditTab(self):
         _str_func = 'uiFunc_refreshEditTab'
 
         self.editColumn.clear()
         self.editColumn = self.buildColumn_edit(None, inside=self.editColumn)
-    
-    def uiFunc_updateChannelGradient(self, dragControl, dropControl, messages, x, y, dragType):
-        log.debug("updateChannelGradient {0} {1} {2} {3} {4} {5}".format(dragControl, dropControl, messages, x, y, dragType))
-    
-    def uiFunc_updateLayerVisibility(self, index):
+      
+    def uiFunc_updateLayerVisibility(self):
+        _str_func = 'uiFunc_updateLayerVisibility'
+
+        log.debug("{0} >> {1}".format(_str_func, self.layers))
+
         soloLayers = []
         for layer in self.layers:
             if layer['solo_cb'].getValue():
@@ -2095,11 +2123,11 @@ class ui(cgmUI.cgmGUI):
             if soloLayers:
                 visible = layer in soloLayers
             
-            mc.setAttr('%s.inputs[%i].isVisible' % (layer['layeredTexture'], layer['index']), visible)
-
-    def uiFunc_mergeComposite(self):
-        compositeShader = self.uiTextField_compositeShader(query=True, text=True)
-        mergedShader = self.uiTextField_mergedShader(query=True, text=True)
+            visAttr = '%s.inputs[%i].isVisible' % (layer['layeredTexture'], layer['index'])
+            log.debug("{0} {1}".format(visAttr, visible))
+            mc.setAttr(visAttr, visible)
+            
+    def uiFunc_mergeComposite(self, compositeShader, mergedShader):
       
         sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
 
@@ -2291,6 +2319,18 @@ class ui(cgmUI.cgmGUI):
     #===========================================================================
     # Image Viewer Callbacks
     #===========================================================================
+    def setAsCustomImage(self, imagePath, info):
+        _str_func = 'setAsCustomImage'
+
+        if not imagePath:
+            log.error("|{0}| >> No image path given.".format(_str_func))
+            return
+
+        # set the image path in the ui
+        self.uiTextField_customImage(edit=True, text=imagePath)
+        self.uiOM_passMenu
+
+    
     def assignImageToProjection(self, imagePath, info):
         _str_func = 'assignImageToProjection'
 
@@ -2529,6 +2569,8 @@ class ui(cgmUI.cgmGUI):
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
         self.uiFF_denoiseStrength.setValue(_options['denoising_strength'])
         
+        self.uiOM_img2imgScaleMultiplier.setValue(_options['img2img_scale_multiplier'])
+
         passOptions = [mc.menuItem(x, query=True, label=True) for x in self.uiOM_passMenu(query=True, itemListLong=True)]
         if _options['img2img_pass'] not in passOptions:
             _options['img2img_pass'] = passOptions[0]

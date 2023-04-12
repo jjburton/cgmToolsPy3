@@ -1,4 +1,5 @@
 import maya.cmds as mc
+import maya.mel as mel
 import cgm.images as cgmImages
 import os.path
 from cgm.core import cgm_Meta as cgmMeta
@@ -521,9 +522,21 @@ def renderMaterialPass(material = None, meshes = None, fileName = None, format='
     tmpdir = tempfile.TemporaryDirectory().name
     log.debug(f"Created temporary directory: {tmpdir}")
 
+    currentResolution = [mc.getAttr("defaultResolution.width"), mc.getAttr("defaultResolution.height")]
+
+    pAx = mc.getAttr("defaultResolution.pixelAspect")
+    pAr = mc.getAttr("defaultResolution.deviceAspectRatio")
+    al = mc.getAttr("defaultResolution.aspectLock")
+
     if(resolution != None):
+        mc.setAttr("defaultResolution.aspectLock", 0)
         mc.setAttr("defaultResolution.width", resolution[0])
         mc.setAttr("defaultResolution.height", resolution[1])
+        mc.setAttr("defaultResolution.pixelAspect", pAx)
+        mc.setAttr("defaultResolution.deviceAspectRatio", pAr)
+        mc.refresh()
+    else:
+        resolution = currentResolution
 
     wantedName = os.path.join(tmpdir, '<RenderLayer>', "RenderPass")
     if material:
@@ -573,11 +586,16 @@ def renderMaterialPass(material = None, meshes = None, fileName = None, format='
             else:
                 mc.setAttr(renderCam + '.renderable', 0)
 
-    imagePath = mc.render(batch=True, rep=True)
+    imagePath = mc.render(batch=False, rep=True, x=resolution[0], y = resolution[1])
 
     log.debug("currentFilenamePrefix: %s" % currentFilenamePrefix)
     mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
     mc.setAttr("defaultRenderGlobals.imageFilePrefix", currentFilenamePrefix, type="string")
+    mc.setAttr("defaultResolution.aspectLock", al)
+    mc.setAttr("defaultResolution.width", currentResolution[0])
+    mc.setAttr("defaultResolution.height", currentResolution[1])
+    mc.setAttr("defaultResolution.pixelAspect", pAx)
+    mc.setAttr("defaultResolution.deviceAspectRatio", pAr)
 
     log.debug("Rendered material pass, %s, %s" % (material, imagePath))
     return imagePath
