@@ -80,7 +80,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
-    DEFAULT_SIZE = 650,800
+    DEFAULT_SIZE = 650,825
     TOOLNAME = '{0}.ui'.format(__toolname__)
     
     _initialized = False
@@ -353,50 +353,6 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
 
-        #########
-        # Storing shader information on the mesh itself now, so don't need these
-        # extra text fields
-        #
-        # #>>> Load Composite Shader
-        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        # mUI.MelSpacer(_row,w=5)
-        # mUI.MelLabel(_row,l='Composite Shader:',align='right')
-        # self.uiTextField_compositeShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-        #                                                 ut = 'cgmUITemplate',
-        #                                                 w = 50,
-        #                                                 editable=False,
-        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-        #                                                 annotation = "Our base object from which we process things in this tab...")
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.setStretchWidget(self.uiTextField_compositeShader)
-        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_loadTextFieldWithSelected(self.uiTextField_compositeShader, enforcedType = 'surfaceShader'))
-        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_composite_shader(),annotationText='')
-        # cgmUI.add_Button(_row, 'Select',
-        #                     lambda *a:uiFunc_selectItemFromTextField(self.uiTextField_compositeShader),
-        #                     annotationText='')
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.layout()
-
-        #>>> Load Alpha Matte Shader
-        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        # mUI.MelSpacer(_row,w=5)
-        # mUI.MelLabel(_row,l='Alpha Matte Shader:',align='right')
-        # self.uiTextField_alphaMatteShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-        #                                                 ut = 'cgmUITemplate',
-        #                                                 w = 50,
-        #                                                 editable=False,
-        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-        #                                                 annotation = "Our base object from which we process things in this tab...")
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.setStretchWidget(self.uiTextField_alphaMatteShader)
-        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_loadTextFieldWithSelected(self.uiTextField_alphaMatteShader, enforcedType = 'surfaceShader'))
-        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_alpha_matte_shader(),annotationText='')
-        # cgmUI.add_Button(_row, 'Select',
-        #                     lambda *a:uiFunc_selectItemFromTextField(self.uiTextField_alphaMatteShader),
-        #                     annotationText='')
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.layout()
-
         #>>> Load Depth Shader
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
@@ -416,50 +372,6 @@ class ui(cgmUI.cgmGUI):
                             annotationText='')
         mUI.MelSpacer(_row,w = 5)
         _row.layout()
-
-        #########
-        # Storing shader information on the mesh itself now, so don't need these
-        # extra text fields but keeping them around to be safe
-        #
-        #>>> Load XYZ Shader
-        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        # mUI.MelSpacer(_row,w=5)
-        # mUI.MelLabel(_row,l='XYZ Shader:',align='right')
-        # self.uiTextField_xyzShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-        #                                                 ut = 'cgmUITemplate',
-        #                                                 w = 50,
-        #                                                 editable=False,
-        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-        #                                                 annotation = "Our base object from which we process things in this tab...")
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.setStretchWidget(self.uiTextField_xyzShader)
-        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_loadTextFieldWithSelected(self.uiTextField_xyzShader, enforcedType = 'surfaceShader'))
-        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_xyz_shader(),annotationText='')
-        # cgmUI.add_Button(_row, 'Select',
-        #                     lambda *a:uiFunc_selectItemFromTextField(self.uiTextField_xyzShader),
-        #                     annotationText='')
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.layout()
-
-        #>>> Load Merged Shader
-        # _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
-        # mUI.MelSpacer(_row,w=5)
-        # mUI.MelLabel(_row,l='Merged Shader:',align='right')
-        # self.uiTextField_mergedShader = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
-        #                                                 ut = 'cgmUITemplate',
-        #                                                 w = 50,
-        #                                                 editable=False,
-        #                                                 #ec = lambda *a:self._UTILS.puppet_doChangeName(self),
-        #                                                 annotation = "Our base object from which we process things in this tab...")
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.setStretchWidget(self.uiTextField_mergedShader)
-        # cgmUI.add_Button(_row,'<<', lambda *a:uiFunc_loadTextFieldWithSelected(self.uiTextField_mergedShader, enforcedType = 'surfaceShader'))
-        # cgmUI.add_Button(_row, 'Make', lambda *a:self.uiFunc_make_merged_shader(),annotationText='')
-        # cgmUI.add_Button(_row, 'Select',
-        #                     lambda *a:uiFunc_selectItemFromTextField(self.uiTextField_mergedShader),
-        #                     annotationText='')
-        # mUI.MelSpacer(_row,w = 5)
-        # _row.layout()
 
         #>>> Automatic1111 Info
         mc.setParent(_inside)
@@ -990,12 +902,53 @@ class ui(cgmUI.cgmGUI):
         _row.layout()
 
 
+        _subRow = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_subRow,w = 5)
+        mUI.MelLabel(_subRow,l='Enable:',align='right')
+        self.uiCB_batchProject = mUI.MelCheckBox(_subRow,
+                                        v = False,
+                                        annotation = 'Enable batch project')
+        self.uiCB_batchProject(edit=True, cc=lambda *a:self.saveOptionFromUI('batch_project', self.uiCB_batchProject))
+        mUI.MelSpacer(_subRow,w = 5)
+        mUI.MelLabel(_subRow,l='Generate Every Frame:',align='right')
+        self.uiCB_batchGenerate = mUI.MelCheckBox(_subRow,
+                                        v = False,
+                                        annotation = 'Generate every frame')
+        self.uiCB_batchGenerate(edit=True, cc=lambda *a:self.saveOptionFromUI('batch_generate', self.uiCB_batchGenerate))
+
+        _subRow.setStretchWidget( mUI.MelSeparator(_subRow, w=2) )
+
+        mUI.MelLabel(_subRow,l='Start:',align='right')
+        self.uiIF_batchProjectStart = mUI.MelIntField(_subRow,
+                                        minValue = -1,
+                                        value = int(mc.playbackOptions(q=True, minTime=True)),
+                                        annotation = 'Start time for batch project')	 	    
+        self.uiIF_batchProjectStart(edit=True, cc=lambda *a:self.saveOptionFromUI('batch_min_time', self.uiIF_batchProjectStart))
+        
+        mUI.MelLabel(_subRow,l='End:',align='right')
+        self.uiIF_batchProjectEnd = mUI.MelIntField(_subRow,
+                                        minValue = -1,
+                                        value = int(mc.playbackOptions(q=True, maxTime=True)),
+                                        annotation = 'End time for batch project')	 	    
+        self.uiIF_batchProjectEnd(edit=True, cc=lambda *a:self.saveOptionFromUI('batch_max_time', self.uiIF_batchProjectEnd))
+
+        mUI.MelLabel(_subRow,l='Step:',align='right')
+        self.uiIF_batchProjectStep = mUI.MelIntField(_subRow,
+                                        minValue = 1,
+                                        value = 1,
+                                        annotation = 'Frame step for batch project')	 	    
+        self.uiIF_batchProjectStep(edit=True, cc=lambda *a:self.saveOptionFromUI('batch_step_time', self.uiIF_batchProjectStep))
+
+        mUI.MelSpacer(_subRow,w = 5)
+        _subRow.layout()
+
+
 
         # Generate Button
         #
         _row = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 10)
         
-        self.generateBtn = cgmUI.add_Button(_row,'Steal Art',
+        self.generateBtn = cgmUI.add_Button(_row,'Generate Art',
             cgmGEN.Callback(self.uiFunc_generateImage),                         
             'Generate',h=50)
 
@@ -1010,6 +963,20 @@ class ui(cgmUI.cgmGUI):
         _row.layout()    
         #
         # End Generate Button
+
+        # mUI.MelSpacer(_inside,w = 5, h=20)
+
+        # _frame = mUI.MelFrameLayout(_inside,label = "Batch Project",vis=True,
+        #                 collapse=False,
+        #                 collapsable=True,
+        #                 enable=True,
+        #                 useTemplate = 'cgmUITemplate',
+        #                 #expandCommand = lambda *a:mVar_frame.setValue(0),
+        #                 #collapseCommand = lambda *a:mVar_frame.setValue(1)
+        #                 )
+        # batch_layout = mUI.MelColumn(_frame,useTemplate = 'cgmUISubTemplate')
+        # mUI.MelSpacer(batch_layout,w=5, h=5)
+
 
         return _inside
 
@@ -1036,7 +1003,7 @@ class ui(cgmUI.cgmGUI):
         self.uiOM_edit_projectionMesh = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', h=20)
         self.uiOM_edit_projectionMesh(edit=True, changeCommand = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_edit_changeProjectionMesh,self)))
         
-        for mesh in self.uiList_projectionMeshes(q=True, allItems=True):
+        for mesh in self.uiList_projectionMeshes(q=True, allItems=True) or []:
             mUI.MelMenuItem(self.uiOM_edit_projectionMesh, l=mesh)
         
         try:
@@ -1077,6 +1044,10 @@ class ui(cgmUI.cgmGUI):
                 cgmGEN.Callback( self.uiFunc_mergeComposite, compositeShader, mergedShader ),
                 annotationText='')
         
+        cgmUI.add_Button(_row, 'Select Layered Texture',
+                cgmGEN.Callback( mc.select, layeredTexture ),
+                annotationText='')
+
         _row.layout()
 
         # Get the number of color inputs to the layered texture
@@ -1085,7 +1056,7 @@ class ui(cgmUI.cgmGUI):
                   
         # Loop through each color input and create a layout for it
         self.layers = []
-        for i in num_inputs:
+        for n, i in enumerate(num_inputs or []):
             log.debug("Creating layout for layer {}".format(i))
 
             input_color = layeredTexture + ".inputs[{}].color".format(i)
@@ -1115,13 +1086,12 @@ class ui(cgmUI.cgmGUI):
             # make column layout
             _buttonColumn = mUI.MelVLayout(subrow_layout, w= 20,)
             
-            button_up =  mUI.MelButton(_buttonColumn,l="up",w=20, ut='cgmUITemplate')
+            button_up =  mUI.MelButton(_buttonColumn,l="up",w=20, ut='cgmUITemplate', c = cgmGEN.Callback( self.uiFunc_edit_moveLayer, layeredTexture, n, -1 ) )
             mUI.MelSpacer(_buttonColumn,h=25)
-            button_dn = mUI.MelButton(_buttonColumn,l="dn",w=20, ut='cgmUITemplate')
+            button_dn = mUI.MelButton(_buttonColumn,l="dn",w=20, ut='cgmUITemplate', c = cgmGEN.Callback( self.uiFunc_edit_moveLayer, layeredTexture, n, 1 ) )
             _buttonColumn.layout()
             
             _thumb_row = mUI.MelColumnLayout(subrow_layout,useTemplate = 'cgmUISubTemplate')
-
 
             _thumb = mUI.MelImage( _thumb_row, w=_thumbSize[0], h=_thumbSize[1] )
             _thumb(e=True, vis=True)
@@ -1219,21 +1189,20 @@ class ui(cgmUI.cgmGUI):
                     _alpha_col = mUI.MelColumnLayout(_alphaFrame,useTemplate = 'cgmUISubTemplate')
                     mc.setParent(_alpha_col)
                     _grad = mc.gradientControl( at='%s.%s'%(remap_color, channel), dropCallback = lambda *a: log.debug('dropCallback executed') )
-            
+
             if len(remap_color_nodes) < 5:
                 for n in range(5-len(remap_color_nodes)):
                     mUI.MelLabel(info_row,label = "")                
-        
             
             if not _hasPositionRemap and _xyzFile:
                 cgmUI.add_Button(info_row, 'Add Position Matte',
                         cgmGEN.Callback( self.uiFunc_addPositionMatte, alpha_input),
                         annotationText='')
-            
+
             self.layers.append({"visible_cb": visible_cb, "layeredTexture":layeredTexture, "index": int(i), "solo_cb": solo_cb, "channelSliders": channelSliders})
 
             #subrow_layout.layout()
-        
+
         log.debug("Layers: %s" % self.layers)
 
         return _inside
@@ -1300,7 +1269,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_addPositionMatte(self, alphaConnection):
         _str_func = 'uiFunc_addPositionMatte'
-        baseObj = self.uiTextField_baseObject(query=True, text=True)
+        baseObj = self.uiOM_edit_projectionMesh.getValue()
         xyzFile = self.getXYZFile(baseObj)
 
         log.debug ("operating on {}, xyz = {}, connection = {}".format(baseObj, xyzFile, alphaConnection))
@@ -1383,13 +1352,13 @@ class ui(cgmUI.cgmGUI):
                 return
             
             # create double3 attribute xyzMap
-            if not mc.objExists(mesh + '.xyzColor'):
-                mc.addAttr(mesh, longName='xyzColor', at='double3')
-                mc.addAttr(mesh, longName='xyzColorR', at='double', parent='xyzColor')
-                mc.addAttr(mesh, longName='xyzColorG', at='double', parent='xyzColor')
-                mc.addAttr(mesh, longName='xyzColorB', at='double', parent='xyzColor')
+            if not mc.objExists(mesh + '.cgmXYZFile'):
+                mc.addAttr(mesh, longName='cgmXYZFile', at='double3')
+                mc.addAttr(mesh, longName='cgmXYZFileR', at='double', parent='cgmXYZFile')
+                mc.addAttr(mesh, longName='cgmXYZFileG', at='double', parent='cgmXYZFile')
+                mc.addAttr(mesh, longName='cgmXYZFileB', at='double', parent='cgmXYZFile')
 
-            mc.connectAttr(xyzFile + '.outColor', mesh + '.xyzColor', force=True)            
+            mc.connectAttr(xyzFile + '.outColor', mesh + '.cgmXYZFile', force=True)            
 
     #=============================================================================================================
     #>> UI Funcs -- Project Tab
@@ -1576,7 +1545,7 @@ class ui(cgmUI.cgmGUI):
         
         return outputImage
 
-    def uiFunc_generateImage(self):
+    def uiFunc_generateImage(self, display = True):
         _str_func = 'uiFunc_generateImage'
 
         #alphaMat = self.uiTextField_alphaMatteShader(q=True, text=True)
@@ -1783,7 +1752,8 @@ class ui(cgmUI.cgmGUI):
                 {'label':'Set As Projection', 
                  'function':self.assignImageToProjection})
 
-            displayImage(imagePaths, info, callbacks)
+            if(display):
+                displayImage(imagePaths, info, callbacks)
         
         self.lastInfo = info
 
@@ -1791,9 +1761,19 @@ class ui(cgmUI.cgmGUI):
         self.generateBtn(edit=True, label=origText)
         self.generateBtn(edit=True, bgc=bgColor)
 
+        return imagePaths, info
+
     def uiFunc_bakeProjection(self, bakeSelectedOnly=False):
         _str_func = 'uiFunc_bakeProjection'
         #self.assignImageToProjection(imagePath, info)
+
+        _batch = self.uiCB_batchProject.getValue()
+        _generate = self.uiCB_batchGenerate.getValue()
+        
+        frames = [mc.currentTime(q=True)]
+        if _batch:
+            frames = range(self.uiIF_batchProjectStart.getValue(), self.uiIF_batchProjectEnd.getValue(), self.uiIF_batchProjectStep.getValue())
+
         meshes = self.uiList_projectionMeshes(query=True, allItems=True)
 
         if bakeSelectedOnly:
@@ -1809,29 +1789,57 @@ class ui(cgmUI.cgmGUI):
             log.error("|{0}| >> No meshes to bake".format(_str_func))
             return
 
-        for mesh in meshes:
-            projectionShader = self.uiFunc_getMaterial("projection", mesh)
-            alphaShader = self.uiFunc_getMaterial("alphaProjection", mesh)
+        # store current batch settings
+        _batchCount = self.uiIF_batchCount.getValue()
+        _batchSize = self.uiIF_batchSize.getValue()
 
-            bakedImage = rt.bakeProjection(projectionShader, mesh)
-            bakedAlpha = rt.bakeProjection(alphaShader, mesh)
+        # set batch settings to only render 1 image since
+        # we're going to be baking and just taking the first one
+        # generated
+        if(_generate):
+            self.uiIF_batchCount.setValue(1)
+            self.uiFunc_setBatchCount('field')
+            self.uiIF_batchSize.setValue(1)
+            self.uiFunc_setBatchSize('field')
 
-            
-            mFile = cgmMeta.asMeta(bakedImage)  
+        for frame in frames:
+            mc.currentTime(frame)
+            mc.refresh()
 
-            projection = mc.listConnections(projectionShader, type='projection')
-            if projection:
-                projection = projection[0]
-                projectionFile = mc.listConnections(f'{projection}.image')
-                if projectionFile:
-                    mFile.doStore('cgmSourceProjectionImage',mc.getAttr(f'{projectionFile[0]}.fileTextureName'))  
-                    mFile.doStore('cgmImageProjectionData',mc.getAttr(f'{projectionFile[0]}.cgmImageProjectionData'))  
-            
-            compositeShader = self.uiFunc_getMaterial("composite", mesh)
-            alphaMatteShader = self.uiFunc_getMaterial("alphaMatte", mesh)
+            if(_generate):
+                imagePaths, info = self.uiFunc_generateImage()
+                if imagePaths:
+                    self.assignImageToProjection(imagePaths[0], info)
 
-            rt.addImageToCompositeShader(compositeShader, bakedImage, bakedAlpha)
-            rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)
+            for mesh in meshes:
+                projectionShader = self.uiFunc_getMaterial("projection", mesh)
+                alphaShader = self.uiFunc_getMaterial("alphaProjection", mesh)
+
+                bakedImage = rt.bakeProjection(projectionShader, mesh)
+                bakedAlpha = rt.bakeProjection(alphaShader, mesh)
+
+                mFile = cgmMeta.asMeta(bakedImage)  
+
+                projection = mc.listConnections(projectionShader, type='projection')
+                if projection:
+                    projection = projection[0]
+                    projectionFile = mc.listConnections(f'{projection}.image')
+                    if projectionFile:
+                        mFile.doStore('cgmSourceProjectionImage',mc.getAttr(f'{projectionFile[0]}.fileTextureName'))  
+                        mFile.doStore('cgmImageProjectionData',mc.getAttr(f'{projectionFile[0]}.cgmImageProjectionData'))  
+                
+                compositeShader = self.uiFunc_getMaterial("composite", mesh)
+                alphaMatteShader = self.uiFunc_getMaterial("alphaMatte", mesh)
+
+                rt.addImageToCompositeShader(compositeShader, bakedImage, bakedAlpha)
+                rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)
+
+        # restore sd batch settings
+        if(_generate):
+            self.uiIF_batchCount.setValue(_batchCount)
+            self.uiFunc_setBatchCount('field')
+            self.uiIF_batchSize.setValue(_batchSize)
+            self.uiFunc_setBatchSize('field')
 
         # assign composite shader
         self.uiFunc_assignMaterial("composite")
@@ -2126,7 +2134,40 @@ class ui(cgmUI.cgmGUI):
             visAttr = '%s.inputs[%i].isVisible' % (layer['layeredTexture'], layer['index'])
             log.debug("{0} {1}".format(visAttr, visible))
             mc.setAttr(visAttr, visible)
-            
+    
+    def uiFunc_edit_moveLayer(self, layeredTexture, index, direction):
+        _str_func = 'uiFunc_edit_moveLayer'
+
+        log.debug("|{0}| >> {1}, moving {2}, ltIndex : {3}".format(_str_func, index, direction, self.layers[index]['index']) )
+
+        # ensure that we are not moving the first or last layer in self.layers
+        if index == 0 and direction == -1:
+            log.warning("|{0}| >> Cannot move first layer".format(_str_func))
+            return
+        if index == len(self.layers) - 1 and direction == 1:
+            log.warning("|{0}| >> Cannot move last layer".format(_str_func))
+            return
+
+
+        log.debug("|{0}| >> reordering {1} to {2}".format(_str_func, self.layers[index]['index'], self.layers[index + direction]['index']) )
+        #rt.reorderLayeredTexture(layeredTexture, self.layers[index]['index'], self.layers[index + direction]['index'])
+        rt.reorderLayeredTexture(layeredTexture, index, index + direction)
+
+        # # get current layer
+        # currentLayer = self.layers[index]
+        # currentLayer['index'] += direction
+
+        # # get other layer
+        # otherLayer = self.layers[index + direction]
+        # otherLayer['index'] -= direction
+
+        # # swap layers
+        # self.layers[index] = otherLayer
+        # self.layers[index + direction] = currentLayer
+
+        # # refresh ui
+        self.uiFunc_refreshEditTab()
+
     def uiFunc_mergeComposite(self, compositeShader, mergedShader):
       
         sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
@@ -2134,7 +2175,6 @@ class ui(cgmUI.cgmGUI):
         # assign merged shader
         self.uiFunc_assignMaterial("composite")
         self.uiFunc_refreshEditTab()
-
 
     #=============================================================================================================
     #>> UI Funcs -- Settings Tab
@@ -2267,6 +2307,31 @@ class ui(cgmUI.cgmGUI):
                 sd.initializeProjectionMeshes(unvalidatedMeshes)
                 # append the newly validated meshes to the validatedMeshes list
                 validatedMeshes.extend(unvalidatedMeshes)
+
+                itemList = {
+                    'projectionCamera': self.uiTextField_projectionCamera.getValue(),
+                    'projectionShader': self.uiTextField_projectionShader.getValue(),
+                    'alphaProjectionShader': self.uiTextField_alphaProjectionShader.getValue(),
+                    'depthShader': self.uiTextField_depthShader.getValue(),
+                }
+                
+                unvalidatedItems = []
+                for item in itemList:
+                    if itemList[item] or not mc.objExists(itemList[item]):
+                        unvalidatedItems.append(item)
+                
+                if unvalidatedItems:
+                    result = mc.confirmDialog(title='Validate Items', message="Some items aren't found. Would you like to create them?\n\n{0}".format('\n'.join(unvalidatedItems)), button=['Yes', 'No'], defaultButton='Yes', cancelButton='No', dismissString='No')
+                    if result == 'Yes':
+                        for item in unvalidatedItems:
+                            if item == 'projectionCamera':
+                                self.uiFunc_makeProjectionCamera()
+                            elif item == 'projectionShader':
+                                self.uiFunc_makeProjectionShader()
+                            elif item == 'alphaProjectionShader':
+                                self.uiFunc_makeAlphaProjectionShader()
+                            elif item == 'depthShader':
+                                self.uiFunc_makeDepthShader()
         
         if validatedMeshes:
             self.uiList_projectionMeshes(edit=True, append=validatedMeshes)

@@ -10,6 +10,7 @@ import time
 import numpy as np
 import os
 from PIL import Image, ImageChops, ImageMath
+import copy
 
 import logging
 logging.basicConfig()
@@ -590,7 +591,7 @@ def renderMaterialPass(material = None, meshes = None, fileName = None, format='
 
     log.debug("currentFilenamePrefix: %s" % currentFilenamePrefix)
     mc.setAttr("defaultRenderGlobals.imageFormat", currentImageFormat)
-    mc.setAttr("defaultRenderGlobals.imageFilePrefix", currentFilenamePrefix, type="string")
+    mc.setAttr("defaultRenderGlobals.imageFilePrefix", currentFilenamePrefix or "", type="string")
     mc.setAttr("defaultResolution.aspectLock", al)
     mc.setAttr("defaultResolution.width", currentResolution[0])
     mc.setAttr("defaultResolution.height", currentResolution[1])
@@ -677,6 +678,17 @@ def getInputConnections(node_attr):
     return input_connections
 
 def reconnectConnections(connections, node_attr, src_attr):
+    _str_func = 'reconnectConnections'
+
+    log.debug("\n\n|{0}| >>  \nnode_attr: {1} \nsrc_attr: {2} \nconnections: {3}\n".format(_str_func,node_attr, src_attr, connections))
+    
+    for attr in mc.listAttr(node_attr):
+        if not mc.objExists(node_attr + '.' + attr):
+            continue
+        cons = mc.listConnections(node_attr + '.' + attr, plugs=True) or []
+        for con in cons:
+            mc.disconnectAttr(con, node_attr + '.' + attr)
+    
     for conn_attr, sub_attr, value in connections:
         if conn_attr:
             mc.connectAttr(conn_attr, sub_attr.replace(src_attr, node_attr), force=True)
@@ -715,30 +727,32 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
     src_attr = layeredTexture + ".inputs[{}]".format(src_input_index)
     src_connections = getInputConnections(src_attr)
 
+    def disconnectConnections(connections):
+        for conn_attr, sub_attr, _ in connections:
+            if conn_attr:
+                if mc.isConnected(conn_attr, sub_attr):
+                    mc.disconnectAttr(conn_attr, sub_attr)
+
+    # Disconnect source connections
+    disconnectConnections(src_connections)
+
     for i, index in enumerate(indices_to_move):
         current_index = num_inputs.index(index)
         current_attr = layeredTexture + ".inputs[{}]".format(index)
         next_attr = layeredTexture + ".inputs[{}]".format(num_inputs[current_index - 1]) if i + 1 < len(num_inputs) else layeredTexture + ".inputs[{}]".format(num_inputs[current_index + 1])
 
         current_connections = getInputConnections(current_attr)
-        next_connections = current_connections[:]
+        next_connections = copy.deepcopy(current_connections)
 
-        for i, conn in enumerate(next_connections):
-            next_connections[i][1] = current_connections[i][1].replace(current_attr, next_attr)
+        for j, conn in enumerate(next_connections):
+            next_connections[j][1] = current_connections[j][1].replace(current_attr, next_attr)
 
         # Disconnect current connections
-        for conn_attr, sub_attr, _ in current_connections:
-            if conn_attr:
-                if mc.isConnected(conn_attr, sub_attr):
-                    mc.disconnectAttr(conn_attr, sub_attr)
+        disconnectConnections(current_connections)
 
-        reconnectConnections(next_connections, next_attr, src_attr)
+        reconnectConnections(next_connections, next_attr, current_attr)
 
     dst_attr = layeredTexture + ".inputs[{}]".format(dst_input_index)
-    for conn_attr, sub_attr, _ in src_connections:
-        if conn_attr:
-            if mc.isConnected(conn_attr, sub_attr):
-                mc.disconnectAttr(conn_attr, sub_attr)
     reconnectConnections(src_connections, dst_attr, src_attr)
 
     return True
