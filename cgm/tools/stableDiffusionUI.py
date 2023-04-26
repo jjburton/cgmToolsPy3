@@ -17,6 +17,7 @@ import json
 from PIL import Image
 from io import BytesIO
 import tempfile
+import threading
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -1730,38 +1731,45 @@ class ui(cgmUI.cgmGUI):
         # standardize the output path
         _options['output_path'] = output_path
 
-        imagePaths, info = sd.getImageFromAutomatic1111(_options)
-
+        cameraInfo = {}
         if camera:
             cameraTransform = mc.listRelatives(camera, parent=True)[0]
-            info['camera_info'] = {'position':mc.xform(cameraTransform, q=True, ws=True, t=True),
+            cameraInfo = {'position':mc.xform(cameraTransform, q=True, ws=True, t=True),
                 'rotation' : mc.xform(cameraTransform, q=True, ws=True, ro=True),
                 'fov' : mc.getAttr(camera + '.focalLength')}
 
-        log.debug(f"Generated: {imagePaths} {info}")
+        def get_image_and_update_ui():
+            imagePaths, info = sd.getImageFromAutomatic1111(_options)
 
-        if(imagePaths):
-            callbacks = []
-            callbacks.append(
-                {'label':'Make Plane', 
-                 'function':rt.makeImagePlane})
-            callbacks.append(
-                {'label':'Set As Custom Image', 
-                 'function':self.setAsCustomImage})
-            callbacks.append(
-                {'label':'Set As Projection', 
-                 'function':self.assignImageToProjection})
+            log.debug(f"Generated: {imagePaths} {info}")
 
-            if(display):
-                displayImage(imagePaths, info, callbacks)
-        
-        self.lastInfo = info
+            if imagePaths:
+                callbacks = []
+                callbacks.append(
+                    {'label': 'Make Plane',
+                    'function': rt.makeImagePlane})
+                callbacks.append(
+                    {'label': 'Set As Custom Image',
+                    'function': self.setAsCustomImage})
+                callbacks.append(
+                    {'label': 'Set As Projection',
+                    'function': self.assignImageToProjection})
 
-        self.generateBtn(edit=True, enable=True)
-        self.generateBtn(edit=True, label=origText)
-        self.generateBtn(edit=True, bgc=bgColor)
+                if display:
+                    displayImage(imagePaths, info, callbacks)
 
-        return imagePaths, info
+            info['camera_info'] = cameraInfo
+
+            self.lastInfo = info
+
+            self.generateBtn(edit=True, enable=True)
+            self.generateBtn(edit=True, label=origText)
+            self.generateBtn(edit=True, bgc=bgColor)
+
+            return imagePaths, info
+
+        # Start a new thread to get the image and update the UI
+        threading.Thread(target=get_image_and_update_ui).start()
 
     def uiFunc_bakeProjection(self, bakeSelectedOnly=False):
         _str_func = 'uiFunc_bakeProjection'
