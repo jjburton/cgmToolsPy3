@@ -297,10 +297,11 @@ def Prep(removeNamespace = False,
         l_targets = mc.ls("{}:*".format(ns)) or []
         l_fails = []
         for o in l_targets:
-            try:mc.rename(o,o.replace("{}:".format(ns),''))
-            except Exception as err:
-                #print(err)
-                l_fails.append(o)            
+            if mc.objExists(o):
+                try:mc.rename(o,o.replace("{}:".format(ns),''))
+                except Exception as err:
+                    #print(err)
+                    l_fails.append(o)            
             """
             try:
                 mObj = cgmMeta.asMeta(o)

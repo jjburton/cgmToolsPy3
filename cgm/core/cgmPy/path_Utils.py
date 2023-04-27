@@ -23,7 +23,6 @@ import shutil
 import pickle
 import datetime
 
-DEFAULT_AUTHOR = 'default_username@your_domain.com'
 
 #set the pickle protocol to use
 PICKLE_PROTOCOL = 2
@@ -36,6 +35,15 @@ PATH_SEPARATOR = '/' #(NICE_SEPARATOR, NASTY_SEPARATOR)[ os.name == 'nt' ]
 OTHER_SEPARATOR = '\\' #(NASTY_SEPARATOR, NICE_SEPARATOR)[ os.name == 'nt' ]
 UNC_PREFIX = PATH_SEPARATOR * 2
 
+
+def get_dir(path):
+    if not os.path.exists(path):
+        raise ValueError,"Invalid path: " + path
+    
+    if not os.path.isfile(path):
+        return path
+        
+    return os.path.split(path)[0]
 
 def cleanPath( pathString ):
     '''
