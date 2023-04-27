@@ -38,7 +38,7 @@ UNC_PREFIX = PATH_SEPARATOR * 2
 
 def get_dir(path):
     if not os.path.exists(path):
-        raise ValueError,"Invalid path: " + path
+        ValueError("Invalid path: " + path)
     
     if not os.path.isfile(path):
         return path
