@@ -213,6 +213,23 @@ def animFilter():
         cgmGEN.cgmException(Exception,err)
         
 
+def grAIBox():
+    import importlib
+    from cgm.tools import stableDiffusionUI as sdui
+    importlib.reload(sdui)
+    
+    from cgm.tools import renderTools as rt
+    importlib.reload(rt)
+    
+    from cgm.tools import stableDiffusionTools as sd
+    importlib.reload(sd)
+    
+    from cgm.tools import imageViewer as iv
+    importlib.reload(iv)
+    
+    mel.eval('python "from cgm.tools import stableDiffusionUI as sdui;graiboxUI = sdui.ui()"')
+            
+
     #except Exception,err:
     #    log.warning("[mrsScene] failed to load. | {0}".format(err))
 def cgmSimChain():

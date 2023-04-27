@@ -553,7 +553,10 @@ def uiBuild_cgmMenu( *args ):
     UICHUNKS.uiSection_mrsTD(_TD)    
     
     _Dyn = mc.menuItem(p=menu,l='Dynamics',subMenu = True, tearOff = True)
-    UICHUNKS.uiSection_mrsDynamics(_Dyn)    
+    UICHUNKS.uiSection_mrsDynamics(_Dyn)
+    
+    _AI = mc.menuItem(p=menu,l='AI',subMenu = True, tearOff = True)
+    UICHUNKS.uiSection_cgmAI(_AI)        
     
     
     UICHUNKS.LIGHTLOOMLITE.uiMenu(menu)

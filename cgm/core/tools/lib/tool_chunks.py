@@ -873,7 +873,16 @@ def uiSection_mrsLearn(parent):
                     ann = "{} | ...".format(k),
                     c=cgmGEN.Callback(webbrowser.open,l))    
 
+def uiSection_cgmAI(parent):
+    _str_func = 'uiSection_cgmAI'  
+    
+    mUI.MelMenuItemDiv(parent,label='AI')
 
+    mc.menuItem(parent = parent,
+                l='GrAIBox',
+                ann = "Stable Diffusion Projection Tool | Beta",
+                c=lambda *a:TOOLCALLS.grAIBox())   
+    
 def uiSection_mrsTD(parent):
     _str_func = 'uiSection_layout'  
     

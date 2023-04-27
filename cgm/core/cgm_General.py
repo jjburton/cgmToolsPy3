@@ -12,7 +12,7 @@ __MAYALOCAL = 'cgmGEN'
 
 __RELEASE = '23.04.26.02'
 
-__BRANCH = 'PY3'
+__BRANCH = 'Stable Diffusion'
 
 import maya.cmds as mc
 import maya.mel as mel
