@@ -1768,8 +1768,10 @@ class ui(cgmUI.cgmGUI):
 
             return imagePaths, info
 
+        return get_image_and_update_ui()
+
         # Start a new thread to get the image and update the UI
-        threading.Thread(target=get_image_and_update_ui).start()
+        #threading.Thread(target=get_image_and_update_ui).start()
 
     def uiFunc_bakeProjection(self, bakeSelectedOnly=False):
         _str_func = 'uiFunc_bakeProjection'
@@ -1815,7 +1817,7 @@ class ui(cgmUI.cgmGUI):
             mc.refresh()
 
             if(_generate):
-                imagePaths, info = self.uiFunc_generateImage()
+                imagePaths, info = self.uiFunc_generateImage(False)
                 if imagePaths:
                     self.assignImageToProjection(imagePaths[0], info)
 
