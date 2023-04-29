@@ -61,7 +61,7 @@ _defaultOptions = {
         'sampling_method':'Euler',
         'denoising_strength':.35,
         #'use_composite_pass':False,
-        'img2img_scale_multiplier':1.0,
+        'img2img_scale_multiplier':1,
         'img2img_pass':'none',
         'img2img_custom_image':'',
         'img2img_render_layer':'defaultRenderLayer',
@@ -118,6 +118,7 @@ class ui(cgmUI.cgmGUI):
  
     def build_menus(self):
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_first))
+        self.uiMenu_DebugMenu = mUI.MelMenu(l='Debug', pmc = cgmGEN.Callback(self.buildMenu_debug))
 
     def buildMenu_first(self):
         self.uiMenu_FirstMenu.clear()
@@ -133,7 +134,14 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Reset",
                          c = lambda *a:mc.evalDeferred(self.handleReset,lp=True))
-    
+
+    def buildMenu_debug(self):
+        self.uiMenu_DebugMenu.clear()
+        #>>> Reset Options
+
+        mUI.MelMenuItem( self.uiMenu_DebugMenu, l="Clear Data",
+                         c = lambda *a:mc.evalDeferred(cgmGEN.Callback(uiFunc_debug_clearData, self),lp=True))
+
     def handleReload(self):
         self._initialized = False
         self.reload()
@@ -1132,6 +1140,12 @@ class ui(cgmUI.cgmGUI):
             if( mc.objExists(_compositeSourceAttribute) ):
                 _compositeConnection = mc.listConnections(_compositeSourceAttribute, type='layeredTexture')
 
+            cgmUI.add_Button(info_top_column, 'Copy',
+                    cgmGEN.Callback( self.uiFunc_edit_copy, n),
+                    annotationText='')
+            cgmUI.add_Button(info_top_column, 'Paste',
+                    cgmGEN.Callback( self.uiFunc_edit_paste),
+                    annotationText='')
             if os.path.exists(_orig_path):
                 cgmUI.add_Button(info_top_column, 'View Orig',
                         cgmGEN.Callback( self.uiFunc_viewImageFromPath, _orig_path),
@@ -2186,6 +2200,16 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_assignMaterial("composite")
         self.uiFunc_refreshEditTab()
 
+    def uiFunc_edit_copy(self, index):
+        _str_func = 'uiFunc_edit_copt'
+        log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
+
+        self.copiedMaskData = self.layers[index]
+    
+    def uiFunc_edit_paste(self, *a):
+        _str_func = 'uiFunc_edit_paste'
+        log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
+
     #=============================================================================================================
     #>> UI Funcs -- Settings Tab
     #=============================================================================================================
@@ -2518,7 +2542,7 @@ class ui(cgmUI.cgmGUI):
         if not self._initialized:
             return
 
-        _options = json.loads(self.config.getValue())
+        _options = json.loads(self.config.getValue() or "{}")
         _options[option] = element.getValue()
         self.config.setValue(json.dumps(_options))
 
@@ -2530,7 +2554,7 @@ class ui(cgmUI.cgmGUI):
 
         log.debug("|{0}| >> option: {1} | value: {2}".format(_str_func, option, value))
 
-        _options = json.loads(self.config.getValue())
+        _options = json.loads(self.config.getValue() or "{}")
         _options[option] = value
         self.config.setValue(json.dumps(_options))
 
@@ -2644,7 +2668,7 @@ class ui(cgmUI.cgmGUI):
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
         self.uiFF_denoiseStrength.setValue(_options['denoising_strength'])
         
-        self.uiOM_img2imgScaleMultiplier.setValue(_options['img2img_scale_multiplier'])
+        self.uiOM_img2imgScaleMultiplier.setValue( str(_options['img2img_scale_multiplier']))
 
         passOptions = [mc.menuItem(x, query=True, label=True) for x in self.uiOM_passMenu(query=True, itemListLong=True)]
         if _options['img2img_pass'] not in passOptions:
@@ -2753,3 +2777,13 @@ def getResizedImage(imagePath, width, height, preserveAspectRatio=False):
 
 def uiFunc_updateChannelGradient(dragControl, dropControl, messages, x, y, dragType):
     log.debug( f"uiFunc_updateChannelGradient {dragControl} {dropControl} {messages} {x} {y} {dragType}")
+
+def uiFunc_debug_clearData(self):
+    _str_func = 'uiFunc_debug_clearData'  
+    log.debug("|{0}| >> ...".format(_str_func))
+
+    mc.optionVar(remove='cgmVar_sdui_config')
+    mc.optionVar(remove='cgmVar_sdui_last_config')
+    mc.optionVar(remove='cgmVar_projectCurrent')
+    mc.optionVar(remove='cgmVar_sceneUI_category')
+    mc.optionVar(remove='cgmVar_sceneUI_last_asset')    

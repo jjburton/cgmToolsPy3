@@ -356,6 +356,10 @@ def bakeProjection(material, meshObj, resolution=(2048, 2048)):
     
     return convertedFile
 
+def copyRemapValues(source, destination):
+    _str_func = 'copyRemapValues'
+    log.debug("|{0}| >>  source: {1}  >>  destination: {2}".format(_str_func, source, destination))
+
 def addImageToCompositeShader(shader, color, alpha):
     _str_func = 'addImageToCompositeShader'
 
