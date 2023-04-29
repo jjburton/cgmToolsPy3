@@ -1753,34 +1753,42 @@ class ui(cgmUI.cgmGUI):
                 'fov' : mc.getAttr(camera + '.focalLength')}
 
         def get_image_and_update_ui():
-            imagePaths, info = sd.getImageFromAutomatic1111(_options)
+            try:
+                imagePaths, info = sd.getImageFromAutomatic1111(_options)
 
-            log.debug(f"Generated: {imagePaths} {info}")
+                log.debug(f"Generated: {imagePaths} {info}")
 
-            if imagePaths:
-                callbacks = []
-                callbacks.append(
-                    {'label': 'Make Plane',
-                    'function': rt.makeImagePlane})
-                callbacks.append(
-                    {'label': 'Set As Custom Image',
-                    'function': self.setAsCustomImage})
-                callbacks.append(
-                    {'label': 'Set As Projection',
-                    'function': self.assignImageToProjection})
+                if imagePaths:
+                    callbacks = []
+                    callbacks.append(
+                        {'label': 'Make Plane',
+                        'function': rt.makeImagePlane})
+                    callbacks.append(
+                        {'label': 'Set As Custom Image',
+                        'function': self.setAsCustomImage})
+                    callbacks.append(
+                        {'label': 'Set As Projection',
+                        'function': self.assignImageToProjection})
 
-                if display:
-                    displayImage(imagePaths, info, callbacks)
+                    if display:
+                        displayImage(imagePaths, info, callbacks)
 
-            info['camera_info'] = cameraInfo
+                info['camera_info'] = cameraInfo
 
-            self.lastInfo = info
+                self.lastInfo = info
 
-            self.generateBtn(edit=True, enable=True)
-            self.generateBtn(edit=True, label=origText)
-            self.generateBtn(edit=True, bgc=bgColor)
+                self.generateBtn(edit=True, enable=True)
+                self.generateBtn(edit=True, label=origText)
+                self.generateBtn(edit=True, bgc=bgColor)
 
-            return imagePaths, info
+                return imagePaths, info
+            except Exception as e:
+                log.error(e)
+                self.generateBtn(edit=True, enable=True)
+                self.generateBtn(edit=True, label=origText)
+                self.generateBtn(edit=True, bgc=bgColor)
+
+                return [], {'error': str(e)}
 
         return get_image_and_update_ui()
 

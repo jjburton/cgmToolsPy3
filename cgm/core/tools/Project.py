@@ -14,6 +14,7 @@ import os
 import pprint
 import getpass
 import sys
+import tempfile
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 import logging
@@ -3345,7 +3346,22 @@ def getImagePath():
     mDat = data(filepath=var_lastProject.getValue())
     d_userPaths = mDat.userPaths_get()
     l_categoriesBase = mDat.assetTypes_get() if mDat.assetTypes_get() else mDat.d_structure.get('assetTypes', [])
+   
+    if 'content' not in d_userPaths.keys() or not var_categoryStore.getValue() or var_categoryStore.getValue() not in l_categoriesBase or not var_lastAsset.getValue():
+        log.warning("No content path found. Please set your project in MRS Project. Using filename path instead.")
+        s_imagePath = mc.file(q=True, loc=True)
+        if s_imagePath == "unknown":
+            log.warning("No filename path found. Please save your file first. Using a temp directory instead. You made me do it.")
+            s_imagePath = tempfile.TemporaryDirectory().name
+            s_imagePath = os.path.normpath(s_imagePath)
+            os.makedirs(s_imagePath)
+            return s_imagePath
+        
+        s_imagePath = os.path.join(os.path.split(mc.file(q=True, loc=True))[0], 'images')
+        s_imagePath = os.path.normpath(s_imagePath)
 
+        return s_imagePath
+    
     s_imagePath = os.path.join(d_userPaths['content'],l_categoriesBase[var_categoryStore.getValue()], var_lastAsset.getValue(), 'images') 
     s_imagePath = os.path.normpath(s_imagePath)
 
