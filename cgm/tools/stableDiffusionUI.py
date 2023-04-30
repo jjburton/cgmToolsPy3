@@ -218,7 +218,7 @@ class ui(cgmUI.cgmGUI):
         self.projectColumn = self.buildColumn_project(self.uiTabLayout, asScroll = True)
         self.editColumn = self.buildColumn_edit(self.uiTabLayout, asScroll = True)
 
-        mc.tabLayout(self.uiTabLayout, edit=True, tabLabel=((self.setupColumn, 'Setup'), (self.projectColumn, 'Project'), (self.editColumn, 'Edit')), cc=lambda *a: self.uiFunc_handleTabChange(*a))
+        mc.tabLayout(self.uiTabLayout, edit=True, tabLabel=((self.setupColumn, 'Setup'), (self.projectColumn, 'Project'), (self.editColumn, 'Edit')), cc=lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_handleTabChange),lp=True))
 
         return self.uiTabLayout
 
@@ -389,11 +389,14 @@ class ui(cgmUI.cgmGUI):
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='URL:',align='right')
+
+        _options = json.loads(self.config.getValue()) or {}
+
         self.uiTextField_automaticURL = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
                                                         ut = 'cgmUITemplate',
                                                         w = 50,
                                                         editable=True,
-                                                        text='127.0.0.1:7860',
+                                                        text=_options['automatic_url'] if 'automatic_url' in _options.keys() else '127.0.0.1:7860',
                                                         cc = lambda *a:self.uiFunc_changeAutomatic1111Url(),
                                                         annotation = "Our base object from which we process things in this tab...")
         mUI.MelSpacer(_row,w = 5)
@@ -1384,7 +1387,8 @@ class ui(cgmUI.cgmGUI):
         log.debug(_str_func + ' start')
         self.saveOption('automatic_url', self.uiTextField_automaticURL(query=True, text=True))
 
-        self.handleReset()
+        self.uiFunc_tryAutomatic1111Connect()
+        #self.handleReset()
 
     def uiFunc_setImg2ImgPass(self, *a):
         _str_func = 'uiFunc_setImg2ImgPass'
