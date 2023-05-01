@@ -14,7 +14,7 @@ import os
 import base64
 import logging
 import json
-from PIL import Image
+from PIL import Image, ImageFilter
 from io import BytesIO
 import tempfile
 import threading
@@ -36,6 +36,7 @@ from functools import partial
 from cgm.tools import stableDiffusionTools as sd
 from cgm.tools import renderTools as rt
 from cgm.tools import imageViewer as iv
+from cgm.tools import imageTools as it
 from cgm.lib import dictionary
 
 #>>> Root settings =============================================================
@@ -69,7 +70,8 @@ _defaultOptions = {
         'mask_blur':4,
         'batch_count':1,
         'batch_size':1,
-        'cfg_scale':7
+        'cfg_scale':7,
+        'control_net_noise':0.0,
 }
 
 class ui(cgmUI.cgmGUI):
@@ -390,7 +392,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='URL:',align='right')
 
-        _options = json.loads(self.config.getValue()) or {}
+        _options = json.loads(self.config.getValue() or "{}")
 
         self.uiTextField_automaticURL = mUI.MelTextField(_row,backgroundColor = [1,1,1],h=20,
                                                         ut = 'cgmUITemplate',
@@ -780,6 +782,31 @@ class ui(cgmUI.cgmGUI):
 
         _subRow = mUI.MelHSingleStretchLayout(_row,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_subRow,w=5)
+        mUI.MelLabel(_subRow,l='Noise:',align='right')
+        self.uiFF_controlNetNoise = mUI.MelFloatField(_subRow,
+                                                w = 40,
+                                                ut='cgmUITemplate',
+                                                precision = 2,
+                                                value = 0.0)  
+      
+        self.uiSlider_controlNetNoise = mUI.MelFloatSlider(_subRow,0.0,1.0,1.0,step = .1)
+
+        self.uiSlider_controlNetNoise(e=True, dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetNoise, 'slider'))
+        self.uiFF_controlNetNoise.setChangeCB(cgmGEN.Callback(self.uiFunc_setControlNetNoise, 'field'))
+        self.uiFunc_setControlNetNoise('field')
+
+        mUI.MelSpacer(_subRow,w = 5)
+        _subRow.setStretchWidget( self.uiSlider_controlNetNoise )
+        _subRow.layout()
+
+        _row.layout()
+
+        # Guidance Start and End
+
+        _row = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
+        
+        _subRow = mUI.MelHSingleStretchLayout(_row,expand = True,ut = 'cgmUISubTemplate')
+        mUI.MelSpacer(_subRow,w=5)
         mUI.MelLabel(_subRow,l='Guidance Start (T):',align='right')
         self.uiFF_controlNetGuidanceStart = mUI.MelFloatField(_subRow,
                                                 w = 40,
@@ -818,6 +845,10 @@ class ui(cgmUI.cgmGUI):
         _subRow.layout()
 
         _row.layout()
+
+
+
+
 
         #>>> Materials
         mc.setParent(_inside)
@@ -1676,10 +1707,13 @@ class ui(cgmUI.cgmGUI):
                 self.uiFunc_assignMaterial("depth", meshes)
 
                 depth_path = rt.renderMaterialPass(fileName = "DepthPass", camera=camera, resolution=self.resolution)
-
+                
                 log.debug( "depth_path: {0}".format(depth_path) )
                 # Read the image data
                 depth_image = Image.open(depth_path)
+
+                #depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
+                depth_image = it.addMonochromaticNoise(depth_image, _options['control_net_noise'])
 
                 # Convert the image data to grayscale
                 depth_image_RGB = depth_image.convert('RGB')
@@ -2109,6 +2143,11 @@ class ui(cgmUI.cgmGUI):
         
         self.saveOption('control_net_weight', val)
 
+    def uiFunc_setControlNetNoise(self, source):
+        val = uiFunc_setFieldSlider(self.uiFF_controlNetNoise,self.uiSlider_controlNetNoise, source, 1.0, .1)
+        
+        self.saveOption('control_net_noise', val)
+
     def uiFunc_setControlNetGuidanceStart(self, source):
         val = uiFunc_setFieldSlider(self.uiFF_controlNetGuidanceStart,self.uiSlider_controlNetGuidanceStart, source, 1.0, .1)
         
@@ -2533,6 +2572,7 @@ class ui(cgmUI.cgmGUI):
         _options['control_net_preprocessor'] = self.uiOM_ControlNetPreprocessorMenu.getValue()
         _options['control_net_model'] = self.uiOM_ControlNetModelMenu.getValue()
         _options['control_net_weight'] = self.uiFF_controlNetWeight.getValue()
+        _options['control_net_noise'] = self.uiFF_controlNetNoise.getValue()
         _options['control_net_guidance_start'] = self.uiFF_controlNetGuidanceStart.getValue()
         _options['control_net_guidance_end'] = self.uiFF_controlNetGuidanceEnd.getValue()
         _options['denoising_strength'] = self.uiFF_denoiseStrength.getValue()
@@ -2676,6 +2716,7 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> Failed to find control net model in options".format(_str_func))
 
         self.uiFF_controlNetWeight.setValue(_options['control_net_weight'])
+        self.uiFF_controlNetNoise.setValue(_options['control_net_noise'])
         self.uiFF_controlNetGuidanceStart.setValue(_options['control_net_guidance_start'])
         self.uiFF_controlNetGuidanceEnd.setValue(_options['control_net_guidance_end'])
         self.uiFF_denoiseStrength.setValue(_options['denoising_strength'])

@@ -85,6 +85,7 @@ def getImageFromAutomatic1111(data):
             "controlnet": {
                 "args": [
                     {
+                    "enable": True,
                     "lowvram": data['control_net_low_v_ram'],
                     "module": data['control_net_preprocessor'],
                     "model": data['control_net_model'],
