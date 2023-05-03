@@ -710,23 +710,28 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
     :return: True if successful, False otherwise.
     """
 
+    log.debug("Reordering layeredTexture node: %s, source index: %s, destination index: %s" % (layeredTexture, source_index, destination_index))
+
     if not mc.objExists(layeredTexture) or mc.nodeType(layeredTexture) != 'layeredTexture':
-        print("Invalid layeredTexture node provided.")
+        log.warning("Invalid layeredTexture node provided.")
         return False
 
     num_inputs = mc.getAttr(layeredTexture + ".inputs", multiIndices=True)
 
     if source_index >= len(num_inputs) or destination_index >= len(num_inputs):
-        print("Invalid source or destination index provided.")
+        log.warning("Invalid source or destination index provided.")
         return False
 
     if source_index == destination_index:
-        print("Source and destination indices are the same, no action required.")
+        log.warning("Source and destination indices are the same, no action required.")
         return True
 
     src_input_index = num_inputs[source_index]
     dst_input_index = num_inputs[destination_index]
-    indices_to_move = num_inputs[source_index + 1:destination_index + 1] if source_index < destination_index else num_inputs[source_index - 1:destination_index - 1]
+    if source_index < destination_index:
+        indices_to_move = num_inputs[source_index+1:destination_index+1]
+    else:
+        indices_to_move = num_inputs[destination_index:source_index]
 
     src_attr = layeredTexture + ".inputs[{}]".format(src_input_index)
     src_connections = getInputConnections(src_attr)
@@ -739,6 +744,32 @@ def reorderLayeredTexture(layeredTexture, source_index, destination_index):
 
     # Disconnect source connections
     disconnectConnections(src_connections)
+
+    for i, index in enumerate(indices_to_move):
+        current_index = num_inputs.index(index)
+        current_attr = layeredTexture + ".inputs[{}]".format(index)
+
+        if source_index < destination_index:
+            next_attr = layeredTexture + ".inputs[{}]".format(num_inputs[current_index - 1])
+        else:
+            next_attr = layeredTexture + ".inputs[{}]".format(num_inputs[current_index + 1])
+
+        current_connections = getInputConnections(current_attr)
+        next_connections = copy.deepcopy(current_connections)
+
+        for j, conn in enumerate(next_connections):
+            next_connections[j][1] = current_connections[j][1].replace(current_attr, next_attr)
+
+        # Disconnect current connections
+        disconnectConnections(current_connections)
+
+        reconnectConnections(next_connections, next_attr, current_attr)
+
+    dst_attr = layeredTexture + ".inputs[{}]".format(dst_input_index)
+    reconnectConnections(src_connections, dst_attr, src_attr)
+
+    return True
+
 
     for i, index in enumerate(indices_to_move):
         current_index = num_inputs.index(index)

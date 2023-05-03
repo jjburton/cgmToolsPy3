@@ -114,6 +114,9 @@ class ui(cgmUI.cgmGUI):
         self.sdModels = []
         self.controlNetModels = []
 
+        self.activeProjectionMesh = None
+        self.activePass = None
+
         #self.l_allowedDockAreas = []
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
         self.DEFAULT_SIZE = self.__class__.DEFAULT_SIZE
@@ -465,11 +468,14 @@ class ui(cgmUI.cgmGUI):
         _row = mUI.MelHSingleStretchLayout(_inside,expand = True,ut = 'cgmUISubTemplate')
         mUI.MelSpacer(_row,w = 5)
         mUI.MelLabel(_row,l='Seed:',align='right')
-        self.uiIF_Seed = mUI.MelIntField(_row,
+        self.uiIF_RandomSeed = mUI.MelIntField(_row,
                                         minValue = -1,
                                         value = -1,
                                         annotation = 'Random seed to use for this project')	 	    
-        self.uiIF_Seed(edit=True, cc=lambda *a:self.saveOptionFromUI('seed', self.uiIF_Seed))
+        
+        log.debug("self._uiIF_RandomSeed: %s"%self.uiIF_RandomSeed)
+
+        self.uiIF_RandomSeed(edit=True, changeCommand= (cgmGEN.Callback(self.saveOptionFromUI, 'seed', self.uiIF_RandomSeed)))
 
         cgmUI.add_Button(_row,'Last', lambda *a:self.uiFunc_getLastSeed())
 
@@ -1042,37 +1048,55 @@ class ui(cgmUI.cgmGUI):
         
         mUI.MelSpacer(_row,w=5)
         mUI.MelLabel(_row,l='Active Mesh:',align='right')
-        mUI.MelSpacer(_row,w=5)
         self.uiOM_edit_projectionMesh = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', h=20)
         self.uiOM_edit_projectionMesh(edit=True, changeCommand = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_edit_changeProjectionMesh,self)))
         
         for mesh in self.uiList_projectionMeshes(q=True, allItems=True) or []:
             mUI.MelMenuItem(self.uiOM_edit_projectionMesh, l=mesh)
-        
-        try:
-            self.uiOM_edit_projectionMesh.setValue(self.activeProjectionMesh)
-        except:
-            pass
+               
+        if not self.activeProjectionMesh:
+            _row.setStretchWidget( self.uiOM_edit_projectionMesh )
+            mUI.MelSpacer(_row,w=5)
+            _row.layout()
 
-        _mesh = self.uiOM_edit_projectionMesh.getValue()
-        mc.select(_mesh)
+            return _inside
+
+        self.uiOM_edit_projectionMesh.setValue(self.activeProjectionMesh)
+        _mesh = self.activeProjectionMesh
 
         compositeShader = self.uiFunc_getMaterial('composite', _mesh)
         mergedShader = self.uiFunc_getMaterial('merged', _mesh)
+        alphaMatteShader = self.uiFunc_getMaterial('alphaMatte', _mesh)
 
         cgmUI.add_Button(_row,'<<',
             cgmGEN.Callback(self.uiFunc_edit_loadProjectionMesh, True),                         
             'Load Selected Mesh', h=20)
 
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Pass:',align='right')
+        self.uiOM_edit_pass = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate', h=20)
+        self.uiOM_edit_pass(edit=True, changeCommand = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_edit_changePass,self)))
+
+
+        for p in ['composite', 'alphaMatte']:
+            mUI.MelMenuItem(self.uiOM_edit_pass, l=p)
+
+        if not self.activePass:
+            self.activePass = 'composite' if compositeShader else 'alphaMatte'
+
+        self.uiOM_edit_pass.setValue(self.activePass)
+
         _row.setStretchWidget( self.uiOM_edit_projectionMesh )
         mUI.MelSpacer(_row,w=5)
         _row.layout()
 
-        if not compositeShader:
+        if not compositeShader and not alphaMatteShader:
             return _inside
 
+        activeShader = compositeShader if self.activePass == 'composite' else alphaMatteShader
+
         # Get the layered texture node
-        layeredTexture = mc.listConnections(compositeShader + ".outColor", type="layeredTexture")[0]
+        layeredTexture = mc.listConnections(activeShader + ".outColor", type="layeredTexture")[0]
 
         #self.editTabContent = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
         _row = mUI.MelHLayout(_inside,expand = True,ut = 'cgmUISubTemplate', padding = 10)
@@ -1081,10 +1105,10 @@ class ui(cgmUI.cgmGUI):
                 cgmGEN.Callback( self.uiFunc_refreshEditTab ),
                 annotationText='')
         
-        cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assignMaterial('composite'))
+        #cgmUI.add_Button(_row,'Set Composite', lambda *a:self.uiFunc_assignMaterial('composite'))
         
         cgmUI.add_Button(_row, 'Merge Composite', 
-                cgmGEN.Callback( self.uiFunc_mergeComposite, compositeShader, mergedShader ),
+                cgmGEN.Callback( self.uiFunc_edit_mergeComposite, activeShader, mergedShader ),
                 annotationText='')
         
         cgmUI.add_Button(_row, 'Select Layered Texture',
@@ -1102,10 +1126,11 @@ class ui(cgmUI.cgmGUI):
         for n, i in enumerate(num_inputs or []):
             log.debug("Creating layout for layer {}".format(i))
 
-            input_color = layeredTexture + ".inputs[{}].color".format(i)
+            input_color = layeredTexture + ".inputs[{}].color".format(i) + ("R" if self.activePass == 'alphaMatte' else "")
 
-            color_connections = mc.listConnections(input_color)
+            color_connections = rt.getAllConnectedNodesOfType(input_color, "file", traverseUserDefined=False)
             if not color_connections:
+                log.debug("No color connections found for {}".format(input_color))
                 continue
             
             color_name = color_connections[0]
@@ -1138,7 +1163,7 @@ class ui(cgmUI.cgmGUI):
 
             _thumb = mUI.MelImage( _thumb_row, w=_thumbSize[0], h=_thumbSize[1] )
             _thumb(e=True, vis=True)
-            
+
             _uv_projection_path = mc.getAttr(color_name + '.fileTextureName')
             _orig_path = ""
             _image_path = _uv_projection_path
@@ -1151,6 +1176,11 @@ class ui(cgmUI.cgmGUI):
             _thumb_path = getResizedImage(_image_path, _thumbSize[0], _thumbSize[1], preserveAspectRatio=True)
 
             _thumb.setImage( _thumb_path )
+            mc.popupMenu(parent=_thumb, button=3)
+            if os.path.exists(_orig_path):
+                mc.menuItem(label="View Projection", command=cgmGEN.Callback( self.uiFunc_viewImageFromPath, _orig_path) )
+            if os.path.exists(_uv_projection_path):
+                mc.menuItem(label="View UV Image", command=cgmGEN.Callback( self.uiFunc_viewImageFromPath, _uv_projection_path) )
 
             info_row = mUI.MelColumn(subrow_layout,useTemplate = 'cgmUISubTemplate')
             
@@ -1180,14 +1210,6 @@ class ui(cgmUI.cgmGUI):
             cgmUI.add_Button(info_top_column, 'Paste',
                     cgmGEN.Callback( self.uiFunc_edit_paste),
                     annotationText='')
-            if os.path.exists(_orig_path):
-                cgmUI.add_Button(info_top_column, 'View Orig',
-                        cgmGEN.Callback( self.uiFunc_viewImageFromPath, _orig_path),
-                        annotationText='')
-            if os.path.exists(_uv_projection_path):
-                cgmUI.add_Button(info_top_column, 'View UV',
-                        cgmGEN.Callback( self.uiFunc_viewImageFromPath, _uv_projection_path),
-                        annotationText='')
             cgmUI.add_Button(info_top_column, 'Select',
                     cgmGEN.Callback( uiFunc_selectItemFromTextField, _layerTF),
                     annotationText='')
@@ -1197,14 +1219,19 @@ class ui(cgmUI.cgmGUI):
                         annotationText='')
             if _compositeConnection:
                 cgmUI.add_Button( info_top_column, 'Restore Comp', 
-                        cgmGEN.Callback( self.uiFunc_restoreComposite, compositeShader, _compositeConnection[0]),
+                        cgmGEN.Callback( self.uiFunc_edit_restoreComposite, activeShader, _compositeConnection[0]),
                         annotationText='')
+            cgmUI.add_Button(info_top_column, 'Delete',
+                cgmGEN.Callback( self.uiFunc_edit_deleteLayer, n),
+                bgc = [.5,0,0],
+                annotationText='')
             
             mUI.MelSpacer(info_top_column,w = 5)
             info_top_column.layout()
             
             # Check if the alpha input has a remapColor node and create min/max sliders if it does
-            alpha_input = layeredTexture + ".inputs[{}].alpha".format(i)
+            alpha_input = layeredTexture + ".inputs[{}].alpha".format(i) if self.activePass == "composite" else layeredTexture + ".inputs[{}].colorR".format(i)
+            log.debug("alpha_input: {}".format(alpha_input))
             remap_color_nodes = rt.getAllConnectedNodesOfType(alpha_input, "remapColor")
             channelSliders = {}
 
@@ -1292,20 +1319,11 @@ class ui(cgmUI.cgmGUI):
                 self.handleReload()
                 return
 
-    def uiFunc_restoreComposite(self, compositeShader, layeredTexture):
-        _str_func = 'uiFunc_restoreComposite'
-
-        if not compositeShader:
-            return
-        
-        mc.connectAttr(layeredTexture + '.outColor', compositeShader + '.outColor', f=True)
-
-        self.uiFunc_refreshEditTab()
-
     def uiFunc_handleTabChange(self):
         if not self.currentTab:
             return
         if(self.currentTab.lower() == 'edit'):
+            self.uiFunc_edit_updateActiveMesh()
             self.uiFunc_refreshEditTab()
         elif(self.currentTab.lower() == 'project'):
             self.projectColumn(e=True, en=self.connected)
@@ -1713,7 +1731,7 @@ class ui(cgmUI.cgmGUI):
                 depth_image = Image.open(depth_path)
 
                 #depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
-                depth_image = it.addMonochromaticNoise(depth_image, _options['control_net_noise'])
+                depth_image = it.addMonochromaticNoise(depth_image, _options['control_net_noise'], 1)
 
                 # Convert the image data to grayscale
                 depth_image_RGB = depth_image.convert('RGB')
@@ -2163,7 +2181,7 @@ class ui(cgmUI.cgmGUI):
             lastSeed = self.lastInfo['seed']
         
         #set seed ui element to last seed
-        self.uiIF_Seed.setValue(lastSeed)
+        self.uiIF_RandomSeed.setValue(lastSeed)
         
         return lastSeed
 
@@ -2175,17 +2193,58 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'uiFunc_edit_loadProjectionMesh'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         log.debug("{0}".format(a))
-    
+
+        sel = mc.ls(sl=True)
+        if sel:
+            shape = sel[0]
+            if mc.ls(sel[0], st=True)[1] == 'transform':
+                shape = mc.listRelatives(sel[0], s=True)[0]
+            if shape and sd.validateProjectionMesh(shape):
+                self.activeProjectionMesh = shape
+                self.uiOM_edit_projectionMesh.setValue(shape)           
+
+        self.uiFunc_refreshEditTab()
+
+    def uiFunc_edit_updateActiveMesh(self, *a):
+        _str_func = 'uiFunc_edit_updateActiveMesh'
+        log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
+        log.debug("{0}".format(a))
+
+        try:
+            self.uiOM_edit_projectionMesh.setValue(self.activeProjectionMesh)
+        except:
+            log.debug("|{0}| >> No active mesh".format(_str_func))
+            sel = mc.ls(sl=True)
+            if sel:
+                shape = sel[0]
+                if mc.ls(sel[0], st=True)[1] == 'transform':
+                    shape = mc.listRelatives(sel[0], s=True)[0]
+                if shape and sd.validateProjectionMesh(shape):
+                    log.debug("|{0}| >> Using selected mesh - {1}".format(_str_func, shape))
+                    self.activeProjectionMesh = shape
+                    self.uiOM_edit_projectionMesh.setValue(self.activeProjectionMesh)           
+
+        mc.select(self.activeProjectionMesh, r=True)
+        
     def uiFunc_edit_changeProjectionMesh(self, *a):
         _str_func = 'uiFunc_edit_changeProjectionMesh'
         log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
         log.debug("{0}".format(a))
 
         self.activeProjectionMesh = self.uiOM_edit_projectionMesh.getValue()
+        log.debug("|{0}| >> activeProjectionMesh: {1}".format(_str_func, self.activeProjectionMesh))
+
+        self.activePass = None
+        self.uiFunc_refreshEditTab()
+    
+    def uiFunc_edit_changePass(self, *a):
+        self.activePass = self.uiOM_edit_pass.getValue()
+        self.uiFunc_assignMaterial(self.activePass)
         self.uiFunc_refreshEditTab()
     
     def uiFunc_refreshEditTab(self):
         _str_func = 'uiFunc_refreshEditTab'
+        log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
 
         self.editColumn.clear()
         self.editColumn = self.buildColumn_edit(None, inside=self.editColumn)
@@ -2243,9 +2302,33 @@ class ui(cgmUI.cgmGUI):
         # # refresh ui
         self.uiFunc_refreshEditTab()
 
-    def uiFunc_mergeComposite(self, compositeShader, mergedShader):
+    def uiFunc_edit_restoreComposite(self, compositeShader, layeredTexture):
+        _str_func = 'uiFunc_restoreComposite'
+
+        if not compositeShader:
+            return
+        
+        mc.connectAttr(layeredTexture + '.outColor', compositeShader + '.outColor', f=True)
+
+        self.uiFunc_refreshEditTab()
+
+    def uiFunc_edit_deleteLayer(self, layerIndex):
+        _str_func = 'uiFunc_edit_deleteLayer'
+
+        if layerIndex == None:
+            return
+
+        layeredTexture = self.layers[layerIndex]['layeredTexture']
+        if not layeredTexture:
+            return
+
+        mc.removeMultiInstance(layeredTexture + '.inputs[{}]'.format(self.layers[layerIndex]['index']), b=True)
+
+        self.uiFunc_refreshEditTab()
+
+    def uiFunc_edit_mergeComposite(self, shader, mergedShader):
       
-        sd.mergeCompositeShaderToImage(compositeShader, mergedShader)
+        sd.mergeCompositeShaderToImage(shader, mergedShader)
 
         # assign merged shader
         self.uiFunc_assignMaterial("composite")
@@ -2560,7 +2643,7 @@ class ui(cgmUI.cgmGUI):
         _options['automatic_url'] = self.uiTextField_automaticURL.getValue()
         _options['prompt'] = self.uiTextField_prompt.getValue()
         _options['negative_prompt'] = self.uiTextField_negativePrompt.getValue()
-        _options['seed'] = self.uiIF_Seed.getValue()
+        _options['seed'] = self.uiIF_RandomSeed.getValue()
         _options['width'] = self.uiIF_Width.getValue()
         _options['height'] = self.uiIF_Height.getValue()
         _options['sampling_method'] = self.uiOM_samplingMethodMenu.getValue()
@@ -2671,7 +2754,7 @@ class ui(cgmUI.cgmGUI):
         self.uiTextField_automaticURL(edit=True, text=_options['automatic_url'])
         self.uiTextField_prompt(edit=True, text=_options['prompt'])
         self.uiTextField_negativePrompt(edit=True, text=_options['negative_prompt'])
-        self.uiIF_Seed.setValue(int(_options['seed']))
+        self.uiIF_RandomSeed.setValue(int(_options['seed']))
         log.debug("Seed is: %s" % (str(_options['seed']) if 'seed' in _options else "No Seed Option"))
         self.uiIF_Width(edit=True, v=_options['width'])
         self.uiIF_Height(edit=True, v=_options['height'])           
