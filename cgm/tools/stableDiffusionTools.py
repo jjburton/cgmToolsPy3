@@ -116,13 +116,18 @@ def getImageFromAutomatic1111(data):
         if 'inpainting_mask_invert' in data:
             payload['inpainting_mask_invert'] = data['inpainting_mask_invert']
 
-    conn = http.client.HTTPConnection(data['automatic_url'])
-    headers = {'Content-Type': 'application/json'}
     jsonData = json.dumps(payload)
 
-    print("Sending to Automatic1111 with payload: ", jsonData)
+    return generateWithPayload(jsonData, data['automatic_url'], endpoint)
 
-    conn.request('POST', endpoint, jsonData, headers)
+def generateWithPayload(payload, url = '127.0.0.1:7860', endpoint = '/sdapi/v1/txt2img'):
+    print("Sending to Automatic1111 with payload: ", payload)
+
+    conn = http.client.HTTPConnection(url)
+
+    headers = {'Content-Type': 'application/json'}
+
+    conn.request('POST', endpoint, payload, headers)
     response = conn.getresponse()
 
     print(response.status, response.reason)
