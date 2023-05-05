@@ -761,7 +761,26 @@ def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
             _res.append([o,d])
     return _res
     #return [[d_dists[d],d] for d in l_dists]
+
+def get_min_max_bbPoints_distances(source = None, targets = []):
+    if VALID.vectorArg(source) is not False:
+        _point = source   
+    elif mc.objExists(source):
+        _point = POS.get(source)    
+    
+    targets = VALID.listArg(targets)
         
+    if not _point:raise ValueError("Must have point of reference")
+    
+    l_dists = []
+    
+    for p in ['bottom','top','left','right','front','back']:
+        l_dists.append(get_distance_between_points(_point, POS.get_bb_pos(targets,mode=p)))
+
+    #pprint.pprint(l_dists)
+    return min(l_dists), max(l_dists)
+
+
 def get_closest_point(source = None, targetSurface = None, loc = False):
     """
     Get the closest point on a target surface/curve/mesh to a given point or object.
