@@ -3,7 +3,7 @@ import http.client
 import json
 from io import BytesIO
 import os
-
+import pprint
 import base64
 from PIL import Image, PngImagePlugin
 
@@ -469,3 +469,32 @@ def validateProjectionMesh(obj):
             return False
     
     return True
+
+
+def guess_depth_min_max(source, targets):
+    """
+    quick call to guess the min max values for the depth settings of GrAIBox
+    source: cam most likey
+    targets: targets to check the size of and cast at
+    
+    
+    returns: (min,max)
+    """
+    import cgm.core.lib.distance_utils as DIST
+    import cgm.core.lib.rayCaster as RAYS
+    import cgm.core.lib.position_utils as POS
+    
+    pCam = POS.get(source)#...get cam pos
+    
+    bb_minMax = DIST.get_min_max_bbPoints_distances(source,targets)#...get min max distances from bounding box of targets
+    p_cast = RAYS.get_cast_pos(source, 'z-','far',mark=False, maxDistance = bb_minMax[1] * 2.0)#...raycast for alternative max. max dist 2x the bounding box to be safe
+    d_cast = DIST.get_distance_between_points(pCam, p_cast)#...cast dist
+
+    #pprint.pprint(vars())
+    
+    if bb_minMax[1] > d_cast:
+        d_max = bb_minMax[1]
+    else:
+        d_max=d_cast
+        
+    return bb_minMax[0], d_max
