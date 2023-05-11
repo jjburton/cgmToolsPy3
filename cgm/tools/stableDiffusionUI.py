@@ -19,6 +19,7 @@ from PIL import Image, ImageFilter
 from io import BytesIO
 import tempfile
 import threading
+import pprint
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ mUI = cgmUI.mUI
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.tools.Project as PROJECT
+import cgm.core.cgmPy.validateArgs as VALID
 
 from functools import partial
 from cgm.tools import stableDiffusionTools as sd
@@ -1247,7 +1249,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_subRow, l="Min:", align="right")
         self.uiFF_minDepthDistance = mUI.MelFloatField(
             _subRow,
-            w=40,
+            w=60,
             ut="cgmUITemplate",
             precision=2,
             value=minDepth,
@@ -1269,7 +1271,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_subRow, l="Max:", align="right")
         self.uiFF_maxDepthDistance = mUI.MelFloatField(
             _subRow,
-            w=40,
+            w=60,
             ut="cgmUITemplate",
             precision=2,
             value=maxDepth,
@@ -1287,6 +1289,10 @@ class ui(cgmUI.cgmGUI):
         _subRow.layout()
         _layoutRow.layout()
         _row.setStretchWidget(_layoutRow)
+        
+        cgmUI.add_Button(_row,'Guess',
+                         cgmGEN.Callback(self.uiFunc_guessDepth))
+        mUI.MelSpacer(_row, w=5)
         _row.layout()
 
         self.uiFunc_setDepth("field")
@@ -2607,6 +2613,41 @@ class ui(cgmUI.cgmGUI):
         # assign composite shader
         self.uiFunc_assignMaterial("composite")
 
+    def uiFunc_guessDepth(self):
+        _str_func = "uiFunc_guessDepth"
+        _camera = self.uiTextField_projectionCamera(query=True, text=True)
+        
+        if not _camera:
+            raise ValueError("{} | No camera".format(_str_func))
+        
+        _camDag =  VALID.getTransform(_camera)
+        
+        _targets = self.uiList_projectionMeshes(query=True, selectItem=True)
+        if not _targets:
+            _targets = mc.ls(sl=1)
+            
+        if not _targets:
+            raise ValueError("{} | No Targets".format(_str_func))
+            
+        
+        #print.pprint(vars())
+        
+        _res = sd.guess_depth_min_max(_camDag, _targets)
+
+        #self.uiSlider_minDepthDistance.setValue(_res[0])
+        
+        _mid = _res[1] * .5
+        self.uiFF_maxDepthDistance.setValue(_res[1], False)
+
+        self.uiFF_minDepthDistance.setValue(_mid,False)
+        self.uiSlider_minDepthDistance(edit=True, maxValue= _res[1], value =  _mid)
+        
+        #self.uiSlider_minDepthDistance.setValue(_res[1], False)
+        
+        pass
+        
+        
+        
     def uiFunc_setDepth(self, source):
         shader = self.getDepthShader()
 

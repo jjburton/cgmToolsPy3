@@ -619,9 +619,14 @@ def guess_depth_min_max(source, targets):
     bb_minMax = DIST.get_min_max_bbPoints_distances(
         source, targets
     )  # ...get min max distances from bounding box of targets
+    
+    
     p_cast = RAYS.get_cast_pos(
         source, "z-", "far", mark=False, maxDistance=bb_minMax[1] * 2.0
     )  # ...raycast for alternative max. max dist 2x the bounding box to be safe
+    if not p_cast:
+        return bb_minMax[0], bb_minMax[1]
+        
     d_cast = DIST.get_distance_between_points(pCam, p_cast)  # ...cast dist
 
     # pprint.pprint(vars())
