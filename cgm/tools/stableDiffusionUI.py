@@ -538,6 +538,16 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row, w=5)
         _row.layout()
 
+        # >>> Refresh
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        _refreshButton = cgmUI.add_Button(
+            _row, "Refresh From Scene", lambda *a: self.uiFunc_auto_populate_fields(), annotationText=""
+        )
+        _row.setStretchWidget(_refreshButton)
+        mUI.MelSpacer(_row, w=5)
+        _row.layout()
+
         # >>> Automatic1111 Info
         mc.setParent(_inside)
         cgmUI.add_Header("Automatic1111 Settings")
@@ -1712,6 +1722,10 @@ class ui(cgmUI.cgmGUI):
                 _data = json.loads(mc.getAttr(color_name + ".cgmImageProjectionData"))
                 if "camera_info" in _data:
                     _cameraData = _data["camera_info"]
+                # backwards compatibility
+
+                if "baked_camera_info" in _data:
+                    _cameraData = _data["baked_camera_info"]
 
             _compositeConnection = None
             _compositeSourceAttribute = color_name + ".cgmCompositeTextureSource"
@@ -1899,6 +1913,9 @@ class ui(cgmUI.cgmGUI):
                 self.uiFunc_updateControlNetPreprocessorsMenu()
                 self.uiFunc_updateControlNetModelsFromAutomatic()
                 self.loadOptions()
+        
+        if self.currentTab.lower() != "edit":
+            self.activeProjectionMesh = None
 
     def uiFunc_addPositionMatte(self, alphaConnection):
         _str_func = "uiFunc_addPositionMatte"
@@ -2592,9 +2609,22 @@ class ui(cgmUI.cgmGUI):
                             "cgmSourceProjectionImage",
                             mc.getAttr(f"{projectionFile[0]}.fileTextureName"),
                         )
+
+                        cgmImageProjectionData = json.loads(mc.getAttr(f"{projectionFile[0]}.cgmImageProjectionData")) or {}
+                        log.debug(f"Found cgmImageProjectionData: {cgmImageProjectionData}")
+                        
+                        _camera = self.uiTextField_projectionCamera(query=True, text=True)
+                        if _camera:
+                            cameraTransform = mc.listRelatives(_camera, parent=True)[0]
+                            cgmImageProjectionData['baked_camera_info'] = {
+                                "position": mc.xform(cameraTransform, q=True, ws=True, t=True),
+                                "rotation": mc.xform(cameraTransform, q=True, ws=True, ro=True),
+                                "fov": mc.getAttr(_camera + ".focalLength"),
+                            }
+                        
                         mFile.doStore(
                             "cgmImageProjectionData",
-                            mc.getAttr(f"{projectionFile[0]}.cgmImageProjectionData"),
+                            json.dumps(cgmImageProjectionData),
                         )
 
                 compositeShader = self.uiFunc_getMaterial("composite", mesh)
@@ -2969,6 +2999,8 @@ class ui(cgmUI.cgmGUI):
                     )
                     self.activeProjectionMesh = shape
                     self.uiOM_edit_projectionMesh.setValue(self.activeProjectionMesh)
+            else:
+                self.activeProjectionMesh = self.uiOM_edit_projectionMesh.getValue()
 
         mc.select(self.activeProjectionMesh, r=True)
 
@@ -3390,8 +3422,8 @@ class ui(cgmUI.cgmGUI):
             return
 
         # set the image path in the ui
+        self.uiFunc_setImg2ImgPass('Custom')
         self.uiTextField_customImage(edit=True, text=imagePath)
-        self.uiOM_passMenu
 
     def assignImageToProjection(self, imagePath, info):
         _str_func = "assignImageToProjection"
