@@ -2479,8 +2479,10 @@ class BaseMelWindow(BaseMelUI):
         closes the window (if it exists)
         '''
         #if cls.Exists():
-        if cmd.window(cls.WINDOW_NAME,ex=True):
-            cmd.window(cls.WINDOW_NAME, e=True, visible=False )
+        try:
+            if cmd.window(cls.WINDOW_NAME,ex=True):
+                cmd.window(cls.WINDOW_NAME, e=True, visible=False )
+        except:pass
         """
         def close():
             if cmd.window( cls.WINDOW_NAME, ex=True ):

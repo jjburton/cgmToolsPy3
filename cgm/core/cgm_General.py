@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '23.04.26.02'
+__RELEASE = '23.05.11.01'
 
 __BRANCH = 'PY3'
 

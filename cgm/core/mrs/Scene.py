@@ -1856,8 +1856,10 @@ example:
                             rp = 'N')    
         mUI.MelMenuItemDiv(self.uiMenu_HelpMenu, l="Dev")
 
+        mUI.MelMenuItem( self.uiMenu_HelpMenu, l='Refresh',
+                         c=lambda *a:self.uiProject_refreshDisplay())
+        
         _log = mUI.MelMenuItem( self.uiMenu_HelpMenu, l="Logs:",subMenu=True, tearOff = True)
-
         
         mUI.MelMenuItem( _log, l="Dat",
                                  c=lambda *a: self.mDat.log_self())

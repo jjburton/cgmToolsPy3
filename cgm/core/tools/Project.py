@@ -3250,7 +3250,7 @@ def uiCC_checkPath(self, key, mode='local'):
         mField(edit=True,bgc = _colorGood)
         
         log.warning("Path {0}| {1} changed to: {2}".format(mode, key, _value))
-
+        uiProject_save(self)
 
 
 def uiUpdate_fbxVersionLabel(self):
@@ -3300,7 +3300,7 @@ def uiButton_setPathToTextField(self,key,mode='project'):
         
         mField.setValue( x[0] )
         mField(edit=True,bgc = _colorGood)
-        
+        uiProject_save(self)
         #self.optionVarExportDirStore.setValue( self.exportDirectory )    
         
         if key in ['image']:
