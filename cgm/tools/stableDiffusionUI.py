@@ -76,6 +76,7 @@ _defaultOptions = {
     "batch_size": 1,
     "cfg_scale": 7,
     "control_net_noise": 0.0,
+    "auto_depth_enabled": True,
 }
 
 
@@ -165,6 +166,12 @@ class ui(cgmUI.cgmGUI):
             self.uiMenu_FirstMenu,
             l="Reset",
             c=lambda *a: mc.evalDeferred(self.handleReset, lp=True),
+        )
+
+        mUI.MelMenuItem(
+            self.uiMenu_FirstMenu,
+            l="Clear Mesh Attributes",
+            c=lambda *a: mc.evalDeferred(sd.clean_cgm_sd_tags, lp=True),
         )
 
     def buildMenu_debug(self):
@@ -1239,6 +1246,24 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row, w=5)
         _row.layout()
 
+        # >>> Auto Depth
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Auto Depth:", align="right")
+        _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
+        self.uiAutoDepthEnabledCB = mUI.MelCheckBox(
+            _row, useTemplate="cgmUITemplate", v=True
+        )
+        self.uiAutoDepthEnabledCB(
+            edit=True,
+            changeCommand=lambda *a: self.uiFunc_project_setAutoDepth(),
+        )
+
+        mUI.MelSpacer(_row, w=5)
+        _row.layout()
+        
+
         # >>>Depth Slider...
         minDepth = 0
         maxDepth = 50.0
@@ -1247,11 +1272,11 @@ class ui(cgmUI.cgmGUI):
             minDepth = mc.getAttr("%s.minDistance" % depthShader)
             maxDepth = mc.getAttr("%s.maxDistance" % depthShader)
 
-        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        self.uiDepthRow = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
 
-        mUI.MelSpacer(_row, w=5)
-        mUI.MelLabel(_row, l="Depth:", align="right")
-        _layoutRow = mUI.MelHLayout(_row, ut="cgmUISubTemplate", padding=10)
+        mUI.MelSpacer(self.uiDepthRow, w=5)
+        mUI.MelLabel(self.uiDepthRow, l="Depth:", align="right")
+        _layoutRow = mUI.MelHLayout(self.uiDepthRow, ut="cgmUISubTemplate", padding=10)
 
         _subRow = mUI.MelHSingleStretchLayout(
             _layoutRow, expand=True, ut="cgmUISubTemplate"
@@ -1298,12 +1323,12 @@ class ui(cgmUI.cgmGUI):
 
         _subRow.layout()
         _layoutRow.layout()
-        _row.setStretchWidget(_layoutRow)
+        self.uiDepthRow.setStretchWidget(_layoutRow)
         
-        cgmUI.add_Button(_row,'Guess',
+        cgmUI.add_Button(self.uiDepthRow,'Guess',
                          cgmGEN.Callback(self.uiFunc_guessDepth))
-        mUI.MelSpacer(_row, w=5)
-        _row.layout()
+        mUI.MelSpacer(self.uiDepthRow, w=5)
+        self.uiDepthRow.layout()
 
         self.uiFunc_setDepth("field")
 
@@ -1352,7 +1377,7 @@ class ui(cgmUI.cgmGUI):
             _inside, expand=True, ut="cgmUISubTemplate"
         )
         mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Enable:", align="right")
+        mUI.MelLabel(_subRow, l="Batch Project Enabled:", align="right")
         self.uiCB_batchProject = mUI.MelCheckBox(
             _subRow, v=False, annotation="Enable batch project"
         )
@@ -1682,12 +1707,20 @@ class ui(cgmUI.cgmGUI):
                     label="View Projection",
                     command=cgmGEN.Callback(self.uiFunc_viewImageFromPath, _orig_path),
                 )
+                mc.menuItem(
+                    label="Open Orig in Explorer",
+                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, _orig_path),
+                )
             if os.path.exists(_uv_projection_path):
                 mc.menuItem(
                     label="View UV Image",
                     command=cgmGEN.Callback(
                         self.uiFunc_viewImageFromPath, _uv_projection_path
                     ),
+                )
+                mc.menuItem(
+                    label="Open UV in Explorer",
+                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, _orig_path),
                 )
 
             info_row = mUI.MelColumn(subrow_layout, useTemplate="cgmUISubTemplate")
@@ -2044,6 +2077,13 @@ class ui(cgmUI.cgmGUI):
     # =============================================================================================================
     # >> UI Funcs -- Project Tab
     # =============================================================================================================
+    def uiFunc_project_setAutoDepth(self, *a):
+        _str_func = "uiFunc_project_setAutoDepth"
+        self.saveOptionFromUI("auto_depth_enabled", self.uiAutoDepthEnabledCB)
+
+        val = self.uiAutoDepthEnabledCB.getValue()
+        self.uiDepthRow(e=True, vis=not val)
+                
     def uiFunc_changeAutomatic1111Url(self):
         _str_func = "uiFunc_changeAutomatic1111Url"
 
@@ -2390,6 +2430,9 @@ class ui(cgmUI.cgmGUI):
                 format = "png"
                 self.uiFunc_assignMaterial("depth", meshes)
 
+                if _options["auto_depth_enabled"]:
+                    self.uiFunc_guessDepth()
+
                 depth_path = rt.renderMaterialPass(
                     fileName="DepthPass", camera=camera, resolution=self.resolution
                 )
@@ -2652,7 +2695,7 @@ class ui(cgmUI.cgmGUI):
         
         _camDag =  VALID.getTransform(_camera)
         
-        _targets = self.uiList_projectionMeshes(query=True, selectItem=True)
+        _targets = self.uiList_projectionMeshes(query=True, allItems=True)
         if not _targets:
             _targets = mc.ls(sl=1)
             
@@ -2662,21 +2705,16 @@ class ui(cgmUI.cgmGUI):
         
         #print.pprint(vars())
         
-        _res = sd.guess_depth_min_max(_camDag, _targets)
+        _res = sd.guess_depth_min_max2(_camDag, _targets)
 
         #self.uiSlider_minDepthDistance.setValue(_res[0])
         
-        _mid = _res[1] * .5
         self.uiFF_maxDepthDistance.setValue(_res[1], False)
-
-        self.uiFF_minDepthDistance.setValue(_mid,False)
-        self.uiSlider_minDepthDistance(edit=True, maxValue= _res[1], value =  _mid)
+        self.uiFF_minDepthDistance.setValue(_res[0],False)
         
-        #self.uiSlider_minDepthDistance.setValue(_res[1], False)
+        self.uiFunc_setDepth("field")
         
         pass
-        
-        
         
     def uiFunc_setDepth(self, source):
         shader = self.getDepthShader()
@@ -3338,7 +3376,7 @@ class ui(cgmUI.cgmGUI):
 
                 unvalidatedItems = []
                 for item in itemList:
-                    if itemList[item] or not mc.objExists(itemList[item]):
+                    if not itemList[item] or not mc.objExists(itemList[item]):
                         unvalidatedItems.append(item)
 
                 if unvalidatedItems:
@@ -3489,6 +3527,16 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> No images selected.".format(_str_func))
             return
 
+    def uiFunc_openExplorerPath(self, path):
+        _str_func = "uiFunc_openExplorerPath"
+        log.debug("%s %s" % (_str_func, path))
+
+        if os.path.exists(path):
+            os.startfile(path)
+        else:
+            log.warning("|{0}| >> No images selected.".format(_str_func))
+            return
+
     def getDepthShader(self):
         _str_func = "getDepthShader"
         return self.uiTextField_depthShader(q=True, tx=True)
@@ -3541,6 +3589,7 @@ class ui(cgmUI.cgmGUI):
         _options["batch_count"] = self.uiIF_batchCount.getValue()
         _options["batch_size"] = self.uiIF_batchSize.getValue()
         _options["cfg_scale"] = self.uiIF_CFGScale.getValue()
+        _options["auto_depth_enabled"] = self.uiAutoDepthEnabledCB.getValue()
 
         return _options
 
@@ -3744,6 +3793,9 @@ class ui(cgmUI.cgmGUI):
 
         if not sdModels:
             self.projectColumn(edit=True, enable=False)
+        
+        self.uiAutoDepthEnabledCB.setValue(_options["auto_depth_enabled"])
+        self.uiFunc_project_setAutoDepth()
 
 
 def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):

@@ -17,6 +17,16 @@ import time
 
 import logging
 
+import cgm.core.lib.position_utils as POS
+from cgm.core.lib import euclid as EUCLID
+from cgm.core.lib import transform_utils as TRANS
+from cgm.core.cgmPy import validateArgs as VALID
+from cgm.core.lib import math_utils as MATHUTILS
+from cgm.core.lib import camera_utils as CAM
+import cgm.core.lib.distance_utils as DIST
+
+import math
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -612,7 +622,6 @@ def guess_depth_min_max(source, targets):
     """
     import cgm.core.lib.distance_utils as DIST
     import cgm.core.lib.rayCaster as RAYS
-    import cgm.core.lib.position_utils as POS
 
     pCam = POS.get(source)  # ...get cam pos
 
@@ -637,3 +646,53 @@ def guess_depth_min_max(source, targets):
         d_max = d_cast
 
     return bb_minMax[0], d_max
+
+def guess_depth_min_max2(source, targets, debug=False):
+    boundingBox = mc.exactWorldBoundingBox(targets)
+    cam = cgmMeta.asMeta(source)
+
+    pCam = POS.get(source, asEuclid=True)  # ...get cam pos
+    fwd = (CAM.screenToWorld((.5,.5), 1.0, asEuclid=True) - pCam).normalized()
+
+    # separate bounding box sides into 6 planes
+    planePoints = POS.get_bb_points(targets, shapes=True, asEuclid=True)
+    planeNormals = [EUCLID.Vector3(-1,0,0), EUCLID.Vector3(1,0,0), EUCLID.Vector3(0,1,0), EUCLID.Vector3(0,-1,0), EUCLID.Vector3(0,0,-1), EUCLID.Vector3(0,0,1)]
+
+    if debug:
+        for point in planePoints:
+            mc.xform(mc.spaceLocator()[0], ws=True, t=point)
+
+    minDist = math.inf
+    maxDist = -math.inf
+
+    for i, point in enumerate(planePoints):
+        localPos = TRANS.transformInversePoint(cam, point)
+        dist = max(-localPos.z, 0)
+        if dist < minDist:
+            minDist = dist
+        if dist > maxDist:
+            maxDist = dist
+
+    return minDist, maxDist
+
+def clean_cgm_sd_tags(objs=[]):
+    if not objs:
+        ml_objs = cgmMeta.asMeta(sl=1)
+    else:
+        ml_objs = cgmMeta.asMeta(objs)
+        
+    #Get our shapes
+    ml_shapes = []
+    for mObj in ml_objs:
+        if not cgmMeta.VALID.is_shape(mObj.mNode):
+            ml_shapes.extend(mObj.getShapes(asMeta=1))
+        else:
+            ml_shapes.append(mObj)
+      
+    for mShape in ml_shapes:
+        for a in ['AlphaMatteMaterial','CompositeMaterial','MergedMaterial','XYZMaterial']:
+            _a = 'cgm{}'.format(a)
+            if mShape.hasAttr(_a):
+                print("Removing attr: {}.{}".format(mShape.p_nameShort, _a))
+                mShape.delAttr(_a)
+    

@@ -320,6 +320,38 @@ def get_bb_pos(arg = None, shapes = False, mode = 'center', mark = False, asEucl
         return EUCLID.Vector3(_res[0], _res[1], _res[2])
     return _res
 
+def get_bb_points(arg = None, shapes = False, mark = False, asEuclid = False):
+    _str_func = 'get_bb_points'
+    _sel = mc.ls(sl=True)
+
+    bb_raw = get_bb_size(arg, shapes, mode = 'raw')
+
+    p1 = EUCLID.Vector3(bb_raw[0], bb_raw[1], bb_raw[2])
+    p2 = EUCLID.Vector3(bb_raw[3], bb_raw[4], bb_raw[5])
+
+    points = []
+    for x in [p1.x, p2.x]:
+        for y in [p1.y, p2.y]:
+            for z in [p1.z, p2.z]:
+                point = EUCLID.Vector3(x, y, z)
+                points.append(point)
+    
+    if mark:
+        _size = get_bb_size(arg, shapes)
+        for i, p in enumerate(points):
+            _loc = mc.spaceLocator()[0]
+            ATTR.set(_loc,'scale', [v/4 for v in _size])        
+            mc.move (p.x, p.y, p.z, _loc, ws=True)        
+            mc.rename(_loc, '{0}_{1}_loc'.format('raw', i))
+    
+    if _sel:
+        mc.select(_sel)
+
+    returnPoints = points
+    if not asEuclid:
+        returnPoints = [(p.x, p.y, p.z) for p in points]
+
+    return returnPoints
 
 def get_bb_size(arg = None, shapes = False, mode = None, asEuclid = False):
     """
