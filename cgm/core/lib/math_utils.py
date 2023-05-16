@@ -33,6 +33,7 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as SHARED
 import cgm.core.cgm_General as cgmGEN
 
+
 #DO NOT IMPORT: DIST
 '''
 Lerp and Slerp functions translated from taken from https://keithmaggio.wordpress.com/2011/02/15/math-magician-lerp-slerp-and-nlerp/
@@ -1008,3 +1009,17 @@ def point_to_bbox_distances_3d(point, bbox):
     )
 
     return closest_distance, furthest_distance
+
+def projectOntoPlane(rayPoint, rayDirection, planeNormal, planePoint):
+    _str_func = 'projectOntoPlane'
+
+    rayPoint = VALID.euclidVector3Arg(rayPoint)
+    rayDirection = VALID.euclidVector3Arg(rayDirection)
+
+    planeNormal = VALID.euclidVector3Arg(planeNormal)
+    planePoint = VALID.euclidVector3Arg(planePoint)
+
+    plane = EUCLID.Plane( EUCLID.Point3(planePoint.x, planePoint.y, planePoint.z), EUCLID.Point3(planeNormal.x, planeNormal.y, planeNormal.z) )
+    pos = plane.intersect( EUCLID.Line3( EUCLID.Point3(rayPoint.x, rayPoint.y, rayPoint.z), EUCLID.Vector3(rayDirection.x, rayDirection.y, rayDirection.z) ) )
+
+    return pos

@@ -11,6 +11,7 @@ Example ui to start from
 """
 # From Python =============================================================
 import logging
+import os
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -23,7 +24,6 @@ import cgm.core.classes.GuiFactory as cgmUI
 mUI = cgmUI.mUI
 
 from cgm.core import cgm_General as cgmGEN
-
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -254,6 +254,13 @@ class ui(cgmUI.cgmGUI):
         # Update the image control with the new image
         self.image(e=True, image=new_temp_file_path, width=width, height=height)
 
+        mc.popupMenu(parent=self.image, button=3)
+        if os.path.exists(new_temp_file_path):
+            mc.menuItem(
+                label="Open in Explorer",
+                command=cgmGEN.Callback(self.uiFunc_openExplorerPath, os.path.split(current_image_path)[0]),
+            )
+
         # Update the scroll field with the data of the current image
         self.dataSF(e=True, text=str(self.imageData))
         self.indexLabel(e=True, label='Image %d/%d' % (self.index+1, len(self.imagePaths)))
@@ -276,18 +283,15 @@ class ui(cgmUI.cgmGUI):
         log.debug("uiFunc_callback")
         callbackFunction( self.imagePaths[self.index], self.imageData)
 
-    # def toggleChannel(self, channel):
-    #     # Update the channel state
-    #     self.channelState[channel] = not self.channelState[channel]
+    def uiFunc_openExplorerPath(self, path):
+        _str_func = "uiFunc_openExplorerPath"
+        log.debug("%s %s" % (_str_func, path))
 
-    #     # Update the button background color
-    #     onColor = {'R': [1, .4, .4], 'G': [.4, 1, .4], 'B': [.4, .4, 1]}
-    #     offColor = {'R': [0.3, 0, 0], 'G': [0, 0.3, 0], 'B': [0, 0, .3]}
-    #     newColor = onColor[channel] if self.channelState[channel] else offColor[channel]
-    #     self.channelButtons[channel](e=True, bgc=newColor)
-
-    #     # Update the image
-    #     self.updateUI()
+        if os.path.exists(path):
+            os.startfile(path)
+        else:
+            log.warning("|{0}| >> No images selected.".format(_str_func))
+            return
 
     def uiFunc_toggleChannel(self, channel):
         self.channelState[channel] = not self.channelState[channel]
