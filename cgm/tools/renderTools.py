@@ -134,6 +134,25 @@ def makeDepthShader():
 
     return shader, sg
 
+def makeNormalShader():
+    baseName = "cgmNormalRamp"
+
+    # Create nodes
+    shader, sg = makeShader("surfaceShader")
+    shader = mc.rename(shader, "cgmNormalMaterial")
+    sampler_info = mc.shadingNode(
+        "samplerInfo", asUtility=True, name=baseName + "_samplerInfo"
+    )
+
+    # connect sampler info Normal Camera to shader out color
+    mc.connectAttr("%s.normalCamera" % sampler_info, "%s.outColor" % shader)
+
+    mShader = cgmMeta.asMeta(shader)
+    mShader.doStore("cgmShader", "sd_normal")
+
+    shader = mc.rename(shader, "cgmNormalShader")
+
+    return shader, sg
 
 def makeXYZShader():
     # Create a surface shader
