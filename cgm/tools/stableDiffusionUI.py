@@ -510,7 +510,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row, w=5)
         _row.layout()
 
-        # >>> Load Depth Shader
+        # >>> Load Depth  Shader
         _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
         mUI.MelSpacer(_row, w=5)
         mUI.MelLabel(_row, l="Depth Shader:", align="right")
@@ -540,6 +540,41 @@ class ui(cgmUI.cgmGUI):
             _row,
             "Select",
             lambda *a: uiFunc_selectItemFromTextField(self.uiTextField_depthShader),
+            annotationText="",
+        )
+        mUI.MelSpacer(_row, w=5)
+        _row.layout()
+
+        # >>> Load Normal Shader
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Normal Shader:", align="right")
+        self.uiTextField_normalShader = mUI.MelTextField(
+            _row,
+            backgroundColor=[1, 1, 1],
+            h=20,
+            ut="cgmUITemplate",
+            w=50,
+            editable=False,
+            # ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+            annotation="Our base object from which we process things in this tab...",
+        )
+        mUI.MelSpacer(_row, w=5)
+        _row.setStretchWidget(self.uiTextField_normalShader)
+        cgmUI.add_Button(
+            _row,
+            "<<",
+            lambda *a: uiFunc_loadTextFieldWithSelected(
+                self.uiTextField_normalShader, enforcedType="surfaceShader"
+            ),
+        )
+        cgmUI.add_Button(
+            _row, "Make", lambda *a: self.uiFunc_makeNormalShader(), annotationText=""
+        )
+        cgmUI.add_Button(
+            _row,
+            "Select",
+            lambda *a: uiFunc_selectItemFromTextField(self.uiTextField_normalShader),
             annotationText="",
         )
         mUI.MelSpacer(_row, w=5)
@@ -1226,6 +1261,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelLabel(_row, l="Assign Material:", align="right")
         _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
         cgmUI.add_Button(_row, "Depth", lambda *a: self.uiFunc_assignMaterial("depth"))
+        cgmUI.add_Button(_row, "Normal", lambda *a: self.uiFunc_assignMaterial("normal"))
         cgmUI.add_Button(_row, "XYZ", lambda *a: self.uiFunc_assignMaterial("xyz"))
         cgmUI.add_Button(
             _row, "Projection", lambda *a: self.uiFunc_assignMaterial("projection")
@@ -2142,6 +2178,9 @@ class ui(cgmUI.cgmGUI):
             if mc.getAttr(shader) == "sd_depth":
                 self.uiTextField_depthShader(edit=True, text=shader.split(".")[0])
                 continue
+            if mc.getAttr(shader) == "sd_normal":
+                self.uiTextField_normalShader(edit=True, text=shader.split(".")[0])
+                continue
 
     def uiFunc_makeMaterialFromType(self, materialType):
         if materialType == "projection":
@@ -2150,7 +2189,9 @@ class ui(cgmUI.cgmGUI):
             return self.uiFunc_makeAlphaProjectionShader()
         if materialType == "depth":
             return self.uiFunc_makeDepthShader()
-
+        if materialType == "normal":
+            return self.uiFunc_makeNormalShader()
+        
         log.error("Invalid material type: %s" % materialType)
         return None
 
@@ -2163,7 +2204,9 @@ class ui(cgmUI.cgmGUI):
             return self.uiTextField_alphaProjectionShader(query=True, text=True)
         if materialType == "depth":
             return self.uiTextField_depthShader(query=True, text=True)
-
+        if materialType == "normal":
+            return self.uiTextField_normalShader(query=True, text=True)
+        
         if not mesh or not mc.objExists(mesh):
             log.error("|{0}| >> No mesh specified.".format(_str_func))
             return None
@@ -2410,13 +2453,19 @@ class ui(cgmUI.cgmGUI):
                     _options["init_images"] = [composite_string]
 
         if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == "none":
-            depthMat = self.uiFunc_getMaterial("depth")
+            imgMode = None
+            if 'depth' in _options["control_net_model"]:
+                imgMode = "depth"
+            elif 'normal' in _options["control_net_model"]:
+                imgMode = "normal"                
 
-            if not mc.objExists(depthMat):
-                log.warning("|{0}| >> No depth shader loaded.".format(_str_func))
+            depthMat = self.uiFunc_getMaterial(imgMode)
+
+            if not depthMat or not mc.objExists(depthMat):
+                log.warning("|{0}| >> No {1} shader loaded.".format(_str_func, imgMode))
                 # prompt to create one
                 result = mc.confirmDialog(
-                    title="No depth shader loaded",
+                    title="No {0} shader loaded".format(imgMode),
                     message="No depth shader loaded. Would you like to create one?",
                     button=["Yes", "No"],
                     defaultButton="Yes",
@@ -2424,27 +2473,32 @@ class ui(cgmUI.cgmGUI):
                     dismissString="No",
                 )
                 if result == "Yes":
-                    depthMat, sg = self.uiFunc_makeDepthShader()
+                    if imgMode == "depth":
+                        depthMat, sg = self.uiFunc_makeDepthShader()
+                        self.uiFunc_guessDepth()
+                    elif imgMode == "normal":
+                        depthMat, sg = self.uiFunc_makeNormalShader()
 
             if mc.objExists(depthMat) and meshes:
                 format = "png"
-                self.uiFunc_assignMaterial("depth", meshes)
+                self.uiFunc_assignMaterial(imgMode, meshes)
 
-                if _options["auto_depth_enabled"]:
+                if _options["auto_depth_enabled"] and imgMode == "depth":
                     self.uiFunc_guessDepth()
 
                 depth_path = rt.renderMaterialPass(
-                    fileName="DepthPass", camera=camera, resolution=self.resolution
+                    fileName="{0}Pass".format(imgMode.capitalize()), camera=camera, resolution=self.resolution
                 )
 
-                log.debug("depth_path: {0}".format(depth_path))
+                log.debug("{0}_path: {1}".format(imgMode, depth_path))
                 # Read the image data
                 depth_image = Image.open(depth_path)
 
-                # depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
-                depth_image = it.addMonochromaticNoise(
-                    depth_image, _options["control_net_noise"], 1
-                )
+                if(imgMode == "depth"):
+                    # depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
+                    depth_image = it.addMonochromaticNoise(
+                        depth_image, _options["control_net_noise"], 1
+                    )
 
                 # Convert the image data to grayscale
                 depth_image_RGB = depth_image.convert("RGB")
@@ -2955,7 +3009,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_setControlNetWeight(self, source):
         val = uiFunc_setFieldSlider(
-            self.uiFF_controlNetWeight, self.uiSlider_controlNetWeight, source, 1.0, 0.1
+            self.uiFF_controlNetWeight, self.uiSlider_controlNetWeight, source, 2.0, 0.1
         )
 
         self.saveOption("control_net_weight", val)
@@ -3298,6 +3352,14 @@ class ui(cgmUI.cgmGUI):
 
         return shader, sg
 
+    def uiFunc_makeNormalShader(self):
+        _str_func = "uiFunc_makeNormalShader"
+
+        shader, sg = rt.makeNormalShader()
+        self.uiTextField_normalShader(edit=True, text=shader)
+
+        return shader, sg
+
     def uiFunc_snapCameraFromData(self, cameraData):
         _str_func = "uiFunc_snapCameraFromData"
 
@@ -3372,6 +3434,7 @@ class ui(cgmUI.cgmGUI):
                     "projectionShader": self.uiTextField_projectionShader.getValue(),
                     "alphaProjectionShader": self.uiTextField_alphaProjectionShader.getValue(),
                     "depthShader": self.uiTextField_depthShader.getValue(),
+                    "normalShader": self.uiTextField_normalShader.getValue(),
                 }
 
                 unvalidatedItems = []
@@ -3541,6 +3604,10 @@ class ui(cgmUI.cgmGUI):
         _str_func = "getDepthShader"
         return self.uiTextField_depthShader(q=True, tx=True)
 
+    def getNormalShader(self):
+        _str_func = "getNormalShader"
+        return self.uiTextField_normalShader(q=True, tx=True)
+    
     def getAlphaShader(self):
         _str_func = "getAlphaShader"
         return self.uiTextField_alphaProjectionShader(q=True, tx=True)
