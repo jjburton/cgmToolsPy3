@@ -57,12 +57,6 @@ _defaultOptions = {
     "sampling_steps": 5,
     "min_depth_distance": 0.0,
     "max_depth_distance": 30.0,
-    "control_net_enabled": True,
-    "control_net_low_v_ram": False,
-    "control_net_preprocessor": "none",
-    "control_net_weight": 1.0,
-    "control_net_guidance_start": 0.0,
-    "control_net_guidance_end": 1.0,
     "sampling_method": "Euler",
     "denoising_strength": 0.35,
     #'use_composite_pass':False,
@@ -75,8 +69,49 @@ _defaultOptions = {
     "batch_count": 1,
     "batch_size": 1,
     "cfg_scale": 7,
-    "control_net_noise": 0.0,
     "auto_depth_enabled": True,
+    "control_nets":[
+        {
+            "control_net_enabled": True,
+            "control_net_low_v_ram": False,
+            "control_net_preprocessor": "none",
+            "control_net_model": "none",
+            "control_net_weight": 1.0,
+            "control_net_guidance_start": 0.0,
+            "control_net_guidance_end": 1.0,
+            "control_net_noise": 0.0,
+        },
+        {
+            "control_net_enabled": False,
+            "control_net_low_v_ram": False,
+            "control_net_preprocessor": "none",
+            "control_net_model": "none",
+            "control_net_weight": 1.0,
+            "control_net_guidance_start": 0.0,
+            "control_net_guidance_end": 1.0,
+            "control_net_noise": 0.0,
+        },
+        {
+            "control_net_enabled": False,
+            "control_net_low_v_ram": False,
+            "control_net_preprocessor": "none",
+            "control_net_model": "none",
+            "control_net_weight": 1.0,
+            "control_net_guidance_start": 0.0,
+            "control_net_guidance_end": 1.0,
+            "control_net_noise": 0.0,
+        },
+        {
+            "control_net_enabled": False,
+            "control_net_low_v_ram": False,
+            "control_net_preprocessor": "none",
+            "control_net_model": "none",
+            "control_net_weight": 1.0,
+            "control_net_guidance_start": 0.0,
+            "control_net_guidance_end": 1.0,
+            "control_net_noise": 0.0,
+        }
+    ]
 }
 
 
@@ -93,6 +128,10 @@ class ui(cgmUI.cgmGUI):
     )
     DEFAULT_SIZE = 650, 825
     TOOLNAME = "{0}.ui".format(__toolname__)
+    
+    GREEN = (.6,.9,.6)
+    RED = (.9,.3,.3)
+    GRAY = (.45,.45,.45)
 
     _initialized = False
 
@@ -128,6 +167,7 @@ class ui(cgmUI.cgmGUI):
         self.samplingMethods = []
         self.sdModels = []
         self.controlNetModels = []
+        self.controlNets = []
 
         self.activeProjectionMesh = None
         self.activePass = None
@@ -147,6 +187,8 @@ class ui(cgmUI.cgmGUI):
     def buildMenu_first(self):
         self.uiMenu_FirstMenu.clear()
         # >>> Reset Options
+
+        self.uiMenu_buildDock(self.uiMenu_FirstMenu)
 
         mUI.MelMenuItem(
             self.uiMenu_FirstMenu,
@@ -953,7 +995,7 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(self.customImage_row, w=5)
         self.customImage_row.setStretchWidget(self.uiTextField_customImage)
         cgmUI.add_Button(
-            self.customImage_row, "Load", lambda *a: self.uiFunc_loadCustomImage()
+            self.customImage_row, "Load", lambda *a: self.uiFunc_loadCustomImage(self.uiTextField_customImage, 'img2img_custom_image')
         )
         mUI.MelSpacer(self.customImage_row, w=5)
         self.customImage_row.layout()
@@ -1069,187 +1111,13 @@ class ui(cgmUI.cgmGUI):
         mc.setParent(_inside)
         cgmUI.add_Header("Control Net")
 
-        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_row, w=5)
-        mUI.MelLabel(_row, l="Options", align="right")
-
-        _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
-        mUI.MelLabel(_row, l="Enable:", align="right")
-        self.uiControlNetEnabledCB = mUI.MelCheckBox(
-            _row, useTemplate="cgmUITemplate", v=True
-        )
-        self.uiControlNetEnabledCB(
-            edit=True,
-            changeCommand=lambda *a: self.saveOptionFromUI(
-                "control_net_enabled", self.uiControlNetEnabledCB
-            ),
-        )
-
-        mUI.MelLabel(_row, l="Low VRAM:", align="right")
-        self.uiControlNetLowVRamCB = mUI.MelCheckBox(
-            _row, useTemplate="cgmUITemplate", v=True
-        )
-        self.uiControlNetLowVRamCB(
-            edit=True,
-            changeCommand=lambda *a: self.saveOptionFromUI(
-                "control_net_low_v_ram", self.uiControlNetLowVRamCB
-            ),
-        )
-
-        mUI.MelSpacer(_row, w=5)
-        _row.layout()
-
-        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Preprocessor:", align="right")
-
-        self.uiOM_ControlNetPreprocessorMenu = mUI.MelOptionMenu(
-            _subRow,
-            useTemplate="cgmUITemplate",
-            cc=self.uiFunc_changeControlNetPreProcessor,
-        )
-
-        # self.uiFunc_updateControlNetPreprocessorsMenu()
-
-        _subRow.setStretchWidget(self.uiOM_ControlNetPreprocessorMenu)
-
-        mUI.MelSpacer(_subRow, w=5)
-
-        _subRow.layout()
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Model:", align="right")
-        self.uiOM_ControlNetModelMenu = mUI.MelOptionMenu(
-            _subRow, useTemplate="cgmUITemplate"
-        )
-        self.uiOM_ControlNetModelMenu(
-            edit=True,
-            changeCommand=lambda *a: self.saveOptionFromUI(
-                "control_net_model", self.uiOM_ControlNetModelMenu
-            ),
-        )
-
-        # self.uiFunc_updateControlNetModelsFromAutomatic()
-
-        _subRow.setStretchWidget(self.uiOM_ControlNetModelMenu)
-
-        mUI.MelSpacer(_subRow, w=5)
-        _subRow.layout()
-
-        _row.layout()
-
-        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Weight:", align="right")
-        self.uiFF_controlNetWeight = mUI.MelFloatField(
-            _subRow, w=40, ut="cgmUITemplate", precision=2, value=1.0
-        )
-
-        self.uiSlider_controlNetWeight = mUI.MelFloatSlider(
-            _subRow, 0.0, 1.0, 1.0, step=0.1
-        )
-
-        self.uiSlider_controlNetWeight(
-            e=True,
-            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetWeight, "slider"),
-        )
-        self.uiFF_controlNetWeight.setChangeCB(
-            cgmGEN.Callback(self.uiFunc_setControlNetWeight, "field")
-        )
-        self.uiFunc_setControlNetWeight("field")
-
-        mUI.MelSpacer(_subRow, w=5)
-
-        _subRow.setStretchWidget(self.uiSlider_controlNetWeight)
-        _subRow.layout()
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Noise:", align="right")
-        self.uiFF_controlNetNoise = mUI.MelFloatField(
-            _subRow, w=40, ut="cgmUITemplate", precision=2, value=0.0
-        )
-
-        self.uiSlider_controlNetNoise = mUI.MelFloatSlider(
-            _subRow, 0.0, 1.0, 1.0, step=0.1
-        )
-
-        self.uiSlider_controlNetNoise(
-            e=True,
-            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetNoise, "slider"),
-        )
-        self.uiFF_controlNetNoise.setChangeCB(
-            cgmGEN.Callback(self.uiFunc_setControlNetNoise, "field")
-        )
-        self.uiFunc_setControlNetNoise("field")
-
-        mUI.MelSpacer(_subRow, w=5)
-        _subRow.setStretchWidget(self.uiSlider_controlNetNoise)
-        _subRow.layout()
-
-        _row.layout()
-
-        # Guidance Start and End
-
-        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Guidance Start (T):", align="right")
-        self.uiFF_controlNetGuidanceStart = mUI.MelFloatField(
-            _subRow, w=40, ut="cgmUITemplate", precision=2, value=0.0
-        )
-
-        self.uiSlider_controlNetGuidanceStart = mUI.MelFloatSlider(
-            _subRow, 0.0, 1.0, 1.0, step=0.1
-        )
-
-        self.uiSlider_controlNetGuidanceStart(
-            e=True,
-            dragCommand=cgmGEN.Callback(
-                self.uiFunc_setControlNetGuidanceStart, "slider"
-            ),
-        )
-        self.uiFF_controlNetGuidanceStart.setChangeCB(
-            cgmGEN.Callback(self.uiFunc_setControlNetGuidanceStart, "field")
-        )
-        self.uiFunc_setControlNetGuidanceStart("field")
-
-        mUI.MelSpacer(_subRow, w=5)
-        _subRow.setStretchWidget(self.uiSlider_controlNetGuidanceStart)
-        _subRow.layout()
-
-        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Guidance End (T):", align="right")
-        self.uiFF_controlNetGuidanceEnd = mUI.MelFloatField(
-            _subRow, w=40, ut="cgmUITemplate", precision=2, value=1.0
-        )
-
-        self.uiSlider_controlNetGuidanceEnd = mUI.MelFloatSlider(
-            _subRow, 0.0, 1.0, 1.0, step=0.1
-        )
-
-        self.uiSlider_controlNetGuidanceEnd(
-            e=True,
-            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetGuidanceEnd, "slider"),
-        )
-        self.uiFF_controlNetGuidanceEnd.setChangeCB(
-            cgmGEN.Callback(self.uiFunc_setControlNetGuidanceEnd, "field")
-        )
-        self.uiFunc_setControlNetGuidanceEnd("field")
-
-        mUI.MelSpacer(_subRow, w=5)
-
-        _subRow.setStretchWidget(self.uiSlider_controlNetGuidanceEnd)
-        _subRow.layout()
-
-        _row.layout()
+        self.controlNets = []
+        for i in range(4):
+            _controlNetDict = self.build_controlNet_frame(_inside, i, "Control Net %s" % (i+1))
+            self.controlNets.append(_controlNetDict)
+            if i > 0:
+                print(_controlNetDict)
+                _controlNetDict['frame'](e=True, collapse=True)        
 
         # >>> Materials
         mc.setParent(_inside)
@@ -1525,6 +1393,273 @@ class ui(cgmUI.cgmGUI):
         # mUI.MelSpacer(batch_layout,w=5, h=5)
 
         return _inside
+
+    def build_controlNet_frame(self, parent, index=0, label="Control Net"):
+        _inside = mUI.MelFrameLayout(
+            parent,
+            label=label,
+            collapsable=True,
+            collapse=False,
+            useTemplate="cgmUITemplate",
+        )
+
+        returnDict = {}
+
+        returnDict['frame'] = _inside
+
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Options", align="right")
+
+        _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
+        mUI.MelLabel(_row, l="Enable:", align="right")
+        uiControlNetEnabledCB = mUI.MelCheckBox(
+            _row, useTemplate="cgmUITemplate", v=True
+        )
+        uiControlNetEnabledCB(
+            edit=True,
+            changeCommand=lambda *a: self.uiFunc_setControlNetEnabled(index=index),
+        )
+
+        returnDict['enabled_cb'] = uiControlNetEnabledCB
+
+        mUI.MelLabel(_row, l="Low VRAM:", align="right")
+        uiControlNetLowVRamCB = mUI.MelCheckBox(
+            _row, useTemplate="cgmUITemplate", v=True
+        )
+        uiControlNetLowVRamCB(
+            edit=True,
+            changeCommand=lambda *a: self.uiFunc_saveControlNetFromUI(index=index),
+        )
+
+        mUI.MelSpacer(_row, w=5)
+
+        returnDict['low_vram_cb'] = uiControlNetLowVRamCB
+
+        _row.layout()
+
+        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Preprocessor:", align="right")
+
+        uiOM_ControlNetPreprocessorMenu = mUI.MelOptionMenu(
+            _subRow,
+            useTemplate="cgmUITemplate"
+        )
+        uiOM_ControlNetPreprocessorMenu(e=True, cc=cgmGEN.Callback(self.uiFunc_changeControlNetPreProcessor, index))
+
+        # self.uiFunc_updateControlNetPreprocessorsMenu()
+
+        _subRow.setStretchWidget(uiOM_ControlNetPreprocessorMenu)
+
+        mUI.MelSpacer(_subRow, w=5)
+
+        returnDict['preprocessor_menu'] = uiOM_ControlNetPreprocessorMenu
+
+        _subRow.layout()
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Model:", align="right")
+        uiOM_ControlNetModelMenu = mUI.MelOptionMenu(
+            _subRow, useTemplate="cgmUITemplate"
+        )
+        uiOM_ControlNetModelMenu(
+            edit=True,
+            changeCommand=lambda *a: self.uiFunc_saveControlNetFromUI(index),
+        )
+
+        returnDict['model_menu'] = uiOM_ControlNetModelMenu
+
+                # self.uiFunc_updateControlNetModelsFromAutomatic()
+
+        _subRow.setStretchWidget(uiOM_ControlNetModelMenu)
+
+        mUI.MelSpacer(_subRow, w=5)
+
+        _subRow.layout()
+
+        returnDict['model_subrow'] = _subRow
+
+        _row.layout()
+
+        returnDict['model_row'] = _row
+
+        # >>> Custom Image
+        customImage_row = mUI.MelHSingleStretchLayout(
+            _inside, expand=True, ut="cgmUISubTemplate"
+        )
+        mUI.MelSpacer(customImage_row, w=5)
+        mUI.MelLabel(customImage_row, l="Custom Image:", align="right")
+        uiTextField_customImage = mUI.MelTextField(
+            customImage_row,
+            backgroundColor=[1, 1, 1],
+            h=20,
+            ut="cgmUITemplate",
+            w=50,
+            editable=False,
+            # ec = lambda *a:self._UTILS.puppet_doChangeName(self),
+            annotation="Our base object from which we process things in this tab...",
+        )
+        mUI.MelSpacer(customImage_row, w=5)
+        customImage_row.setStretchWidget(uiTextField_customImage)
+        cgmUI.add_Button(
+            customImage_row, "Load", lambda *a: self.uiFunc_loadCustomImage(uiTextField_customImage)
+        )
+        mUI.MelSpacer(customImage_row, w=5)
+        customImage_row.layout()
+
+        returnDict['custom_image_row'] = customImage_row
+        returnDict['custom_image_tf'] = uiTextField_customImage
+
+
+        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Weight:", align="right")
+        uiFF_controlNetWeight = mUI.MelFloatField(
+            _subRow, w=40, ut="cgmUITemplate", precision=2, value=1.0
+        )
+
+        uiSlider_controlNetWeight = mUI.MelFloatSlider(
+            _subRow, 0.0, 1.0, 1.0, step=0.1
+        )
+
+        uiSlider_controlNetWeight(
+            e=True,
+            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetWeight, "slider", index),
+        )
+        uiFF_controlNetWeight.setChangeCB(
+            cgmGEN.Callback(self.uiFunc_setControlNetWeight, "field", index)
+        )
+
+        returnDict['weight_slider'] = uiSlider_controlNetWeight
+        returnDict['weight_field'] = uiFF_controlNetWeight
+
+        mUI.MelSpacer(_subRow, w=5)
+
+        _subRow.setStretchWidget(uiSlider_controlNetWeight)
+        _subRow.layout()
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Noise:", align="right")
+        uiFF_controlNetNoise = mUI.MelFloatField(
+            _subRow, w=40, ut="cgmUITemplate", precision=2, value=0.0
+        )
+
+        uiSlider_controlNetNoise = mUI.MelFloatSlider(
+            _subRow, 0.0, 1.0, 1.0, step=0.1
+        )
+
+        uiSlider_controlNetNoise(
+            e=True,
+            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetNoise, "slider", index),
+        )
+        uiFF_controlNetNoise.setChangeCB(
+            cgmGEN.Callback(self.uiFunc_setControlNetNoise, "field", index)
+        )
+
+        returnDict['noise_field'] = uiFF_controlNetNoise
+        returnDict['noise_slider'] = uiSlider_controlNetNoise
+
+        mUI.MelSpacer(_subRow, w=5)
+        _subRow.setStretchWidget(uiSlider_controlNetNoise)
+        _subRow.layout()
+
+        _row.layout()
+
+        # Guidance Start and End
+
+        _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Guidance Start (T):", align="right")
+        uiFF_controlNetGuidanceStart = mUI.MelFloatField(
+            _subRow, w=40, ut="cgmUITemplate", precision=2, value=0.0
+        )
+
+        uiSlider_controlNetGuidanceStart = mUI.MelFloatSlider(
+            _subRow, 0.0, 1.0, 1.0, step=0.1
+        )
+
+        uiSlider_controlNetGuidanceStart(
+            e=True,
+            dragCommand=cgmGEN.Callback(
+                self.uiFunc_setControlNetGuidanceStart, "slider", index
+            ),
+        )
+        uiFF_controlNetGuidanceStart.setChangeCB(
+            cgmGEN.Callback(self.uiFunc_setControlNetGuidanceStart, "field", index)
+        )
+
+        returnDict['guidance_start_field'] = uiFF_controlNetGuidanceStart
+        returnDict['guidance_start_slider'] = uiSlider_controlNetGuidanceStart
+
+        mUI.MelSpacer(_subRow, w=5)
+        _subRow.setStretchWidget(uiSlider_controlNetGuidanceStart)
+        _subRow.layout()
+
+        _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_subRow, w=5)
+        mUI.MelLabel(_subRow, l="Guidance End (T):", align="right")
+        uiFF_controlNetGuidanceEnd = mUI.MelFloatField(
+            _subRow, w=40, ut="cgmUITemplate", precision=2, value=1.0
+        )
+
+        uiSlider_controlNetGuidanceEnd = mUI.MelFloatSlider(
+            _subRow, 0.0, 1.0, 1.0, step=0.1
+        )
+
+        uiSlider_controlNetGuidanceEnd(
+            e=True,
+            dragCommand=cgmGEN.Callback(self.uiFunc_setControlNetGuidanceEnd, "slider", index),
+        )
+        uiFF_controlNetGuidanceEnd.setChangeCB(
+            cgmGEN.Callback(self.uiFunc_setControlNetGuidanceEnd, "field", index)
+        )
+
+        returnDict['guidance_end_field'] = uiFF_controlNetGuidanceEnd
+        returnDict['guidance_end_slider'] = uiSlider_controlNetGuidanceEnd
+
+        mUI.MelSpacer(_subRow, w=5)
+
+        _subRow.setStretchWidget(uiSlider_controlNetGuidanceEnd)
+        _subRow.layout()
+
+        _row.layout()
+
+        return returnDict
+   
+    def uiFunc_setControlNetEnabled(self, index):
+        val = self.controlNets[index]['enabled_cb'].getValue()
+        self.controlNets[index]['frame'](e=True, bgc=self.GREEN if val else self.GRAY)
+
+        self.uiFunc_saveControlNetFromUI(index)
+
+    def uiFunc_getControlNets(self):
+        controlNetData = []
+        for i, controlNetDict in enumerate(self.controlNets):
+            controlNetOptions = {
+                "control_net_enabled": controlNetDict['enabled_cb'].getValue(),
+                "control_net_low_v_ram": controlNetDict['low_vram_cb'].getValue(),
+                "control_net_preprocessor": controlNetDict['preprocessor_menu'].getValue(),
+                "control_net_model": controlNetDict['model_menu'].getValue(),
+                "control_net_weight": controlNetDict['weight_field'].getValue(),
+                "control_net_guidance_start": controlNetDict['guidance_start_field'].getValue(),
+                "control_net_guidance_end": controlNetDict['guidance_end_field'].getValue(),
+                "control_net_noise": controlNetDict['noise_field'].getValue(),
+                }
+            controlNetData.append(controlNetOptions)
+
+        return controlNetData
+
+    def uiFunc_saveControlNetFromUI(self, index):
+        self.saveOption("control_nets", self.uiFunc_getControlNets())
 
     # =============================================================================================================
     # >> Edit Column
@@ -1960,10 +2095,10 @@ class ui(cgmUI.cgmGUI):
         _str_func = "uiFunc_setConnected"
 
         if not val:
-            self.urlBtn(e=True, bgc=(1, 0.5, 0.5), label="Try Connection")
+            self.urlBtn(e=True, bgc=self.RED, label="Try Connection")
             self.connected = False
         else:
-            self.urlBtn(e=True, bgc=(0.5, 1, 0.5), label="Connected")
+            self.urlBtn(e=True, bgc=self.GREEN, label="Connected")
             if not self.connected:
                 self.handleReload()
                 return
@@ -2452,94 +2587,103 @@ class ui(cgmUI.cgmGUI):
 
                     _options["init_images"] = [composite_string]
 
-        if self.uiOM_ControlNetPreprocessorMenu(q=True, value=True) == "none":
-            imgMode = None
-            if 'depth' in _options["control_net_model"]:
-                imgMode = "depth"
-            elif 'normal' in _options["control_net_model"]:
-                imgMode = "normal"                
+        # Get Control Nets
+        for i in range(4):
+            _controlNetOptions = _options['control_nets'][i]
 
-            depthMat = self.uiFunc_getMaterial(imgMode)
+            if not _controlNetOptions['control_net_enabled']:
+                continue
 
-            if not depthMat or not mc.objExists(depthMat):
-                log.warning("|{0}| >> No {1} shader loaded.".format(_str_func, imgMode))
-                # prompt to create one
-                result = mc.confirmDialog(
-                    title="No {0} shader loaded".format(imgMode),
-                    message="No depth shader loaded. Would you like to create one?",
-                    button=["Yes", "No"],
-                    defaultButton="Yes",
-                    cancelButton="No",
-                    dismissString="No",
-                )
-                if result == "Yes":
-                    if imgMode == "depth":
-                        depthMat, sg = self.uiFunc_makeDepthShader()
+            if self.controlNets[i]['preprocessor_menu'](q=True, value=True) == "none":
+                imgMode = None
+                if 'depth' in _controlNetOptions["control_net_model"]:
+                    imgMode = "depth"
+                elif 'normal' in _controlNetOptions["control_net_model"]:
+                    imgMode = "normal"                
+
+                depthMat = self.uiFunc_getMaterial(imgMode)
+
+                if not depthMat or not mc.objExists(depthMat):
+                    log.warning("|{0}| >> No {1} shader loaded.".format(_str_func, imgMode))
+                    # prompt to create one
+                    result = mc.confirmDialog(
+                        title="No {0} shader loaded".format(imgMode),
+                        message="No depth shader loaded. Would you like to create one?",
+                        button=["Yes", "No"],
+                        defaultButton="Yes",
+                        cancelButton="No",
+                        dismissString="No",
+                    )
+                    if result == "Yes":
+                        if imgMode == "depth":
+                            depthMat, sg = self.uiFunc_makeDepthShader()
+                            self.uiFunc_guessDepth()
+                        elif imgMode == "normal":
+                            depthMat, sg = self.uiFunc_makeNormalShader()
+
+                if mc.objExists(depthMat) and meshes:
+                    format = "png"
+                    self.uiFunc_assignMaterial(imgMode, meshes)
+
+                    if _options["auto_depth_enabled"] and imgMode == "depth":
                         self.uiFunc_guessDepth()
-                    elif imgMode == "normal":
-                        depthMat, sg = self.uiFunc_makeNormalShader()
 
-            if mc.objExists(depthMat) and meshes:
-                format = "png"
-                self.uiFunc_assignMaterial(imgMode, meshes)
-
-                if _options["auto_depth_enabled"] and imgMode == "depth":
-                    self.uiFunc_guessDepth()
-
-                depth_path = rt.renderMaterialPass(
-                    fileName="{0}Pass".format(imgMode.capitalize()), camera=camera, resolution=self.resolution
-                )
-
-                log.debug("{0}_path: {1}".format(imgMode, depth_path))
-                # Read the image data
-                depth_image = Image.open(depth_path)
-
-                if(imgMode == "depth"):
-                    # depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
-                    depth_image = it.addMonochromaticNoise(
-                        depth_image, _options["control_net_noise"], 1
+                    depth_path = rt.renderMaterialPass(
+                        fileName="{0}Pass".format(imgMode.capitalize()), camera=camera, resolution=self.resolution
                     )
 
-                # Convert the image data to grayscale
-                depth_image_RGB = depth_image.convert("RGB")
-
-                # Encode the image data as base64
-                # depth_buffered = BytesIO()
-                with BytesIO() as depth_buffered:
-                    depth_image_RGB.save(depth_buffered, format=format)
-
-                    depth_base64 = base64.b64encode(depth_buffered.getvalue())
-
-                    # Convert the base64 bytes to string
-                    depth_string = depth_base64.decode("utf-8")
-
-                    _options["control_net_image"] = depth_string
-            else:
-                log.warning(
-                    "|{0}| >> No depth shader loaded. Disabling Control Net".format(
-                        _str_func
-                    )
-                )
-                _options["control_net_enabled"] = False
-        else:
-            if not composite_string:
-                self.uiFunc_assignMaterial(option, meshes)
-
-                composite_path = rt.renderMaterialPass(
-                    fileName="CompositePass", camera=camera, resolution=self.resolution
-                )
-
-                with open(composite_path, "rb") as c:
+                    log.debug("{0}_path: {1}".format(imgMode, depth_path))
                     # Read the image data
-                    composite_data = c.read()
+                    depth_image = Image.open(depth_path)
+
+                    if(imgMode == "depth"):
+                        # depth_image = depth_image.filter(ImageFilter.GaussianBlur(3))
+                        depth_image = it.addMonochromaticNoise(
+                            depth_image, _controlNetOptions["control_net_noise"], 1
+                        )
+
+                    # Convert the image data to grayscale
+                    depth_image_RGB = depth_image.convert("RGB")
 
                     # Encode the image data as base64
-                    composite_base64 = base64.b64encode(composite_data)
+                    # depth_buffered = BytesIO()
+                    with BytesIO() as depth_buffered:
+                        depth_image_RGB.save(depth_buffered, format=format)
 
-                    # Convert the base64 bytes to string
-                    composite_string = composite_base64.decode("utf-8")
+                        depth_base64 = base64.b64encode(depth_buffered.getvalue())
 
-            _options["control_net_image"] = composite_string
+                        # Convert the base64 bytes to string
+                        depth_string = depth_base64.decode("utf-8")
+
+                        _controlNetOptions["control_net_image"] = depth_string
+                else:
+                    log.warning(
+                        "|{0}| >> No depth shader loaded. Disabling Control Net".format(
+                            _str_func
+                        )
+                    )
+                    _controlNetOptions["control_net_enabled"] = False
+            else:
+                if not composite_string:
+                    self.uiFunc_assignMaterial(option, meshes)
+
+                    composite_path = rt.renderMaterialPass(
+                        fileName="CompositePass", camera=camera, resolution=self.resolution
+                    )
+
+                    with open(composite_path, "rb") as c:
+                        # Read the image data
+                        composite_data = c.read()
+
+                        # Encode the image data as base64
+                        composite_base64 = base64.b64encode(composite_data)
+
+                        # Convert the base64 bytes to string
+                        composite_string = composite_base64.decode("utf-8")
+
+                _options["control_net_image"] = composite_string
+
+            _options['control_nets'][i] = _controlNetOptions
 
         if _options["use_alpha_pass"] and _options["img2img_pass"] != "none" and meshes:
             self.uiFunc_assignMaterial("alphaMatte", meshes)
@@ -2810,7 +2954,7 @@ class ui(cgmUI.cgmGUI):
 
         self.saveOption("sampling_steps", val)
 
-    def uiFunc_loadCustomImage(self):
+    def uiFunc_loadCustomImage(self, textField, saveOption = None):
         _str_func = "uiFunc_loadCustomImage"
 
         _file = mc.fileDialog2(
@@ -2822,8 +2966,9 @@ class ui(cgmUI.cgmGUI):
                 log.error("|{0}| >> File not found: {1}".format(_str_func, _file))
                 return False
 
-            self.uiTextField_customImage(edit=True, text=_file)
-            self.saveOption("img2img_custom_image", _file)
+            textField(edit=True, text=_file)
+            if saveOption != None:
+                self.saveOption(saveOption, _file)
 
     def uiFunc_updateRenderLayers(self):
         _str_func = "uiFunc_updateRenderLayers"
@@ -2960,34 +3105,29 @@ class ui(cgmUI.cgmGUI):
             self.uiFunc_setConnected(False)
             return []
 
-        self.uiOM_ControlNetPreprocessorMenu.clear()
-        for _preprocessor in _preprocessors:
-            self.uiOM_ControlNetPreprocessorMenu.append(_preprocessor)
+        for controlNet in self.controlNets:
+            controlNet['preprocessor_menu'].clear()
+            for _preprocessor in _preprocessors['module_list']:
+                controlNet['preprocessor_menu'].append(_preprocessor)
 
         return _preprocessors
 
-    def uiFunc_changeControlNetPreProcessor(self, arg):
+    def uiFunc_changeControlNetPreProcessor(self, index):
         _str_func = "uiFunc_changeControlNetPreProcessor"
 
         self.uiFunc_updateControlNetModelsFromAutomatic()
 
+        controlNet = self.controlNets[index]
+
+        arg = controlNet["preprocessor_menu"].getValue()
         log.debug("|{0}| >> arg: {1}".format(_str_func, arg))
-        self.saveOption("control_net_preprocessor", arg)
-        self.saveOptionFromUI("control_net_model", self.uiOM_ControlNetModelMenu)
+
+        self.uiFunc_saveControlNetFromUI(index)
 
     def uiFunc_updateControlNetModelsFromAutomatic(self):
         _str_func = "uiFunc_updateControlNetModelsFromAutomatic"
 
-        preprocessor = self.uiOM_ControlNetPreprocessorMenu(query=True, value=True)
-
-        filter = preprocessor
-        if preprocessor == "none":
-            filter = ""
-        if preprocessor == "segmentation":
-            filter = "seg"
-
         url = self.uiTextField_automaticURL(query=True, text=True)
-
         _models = sd.getControlNetModelsFromAutomatic1111(url)
 
         if not _models:
@@ -2995,52 +3135,86 @@ class ui(cgmUI.cgmGUI):
             return []
 
         # get current model
-        _currentModel = self.uiOM_ControlNetModelMenu.getValue()
+        for controlNet in self.controlNets:
 
-        self.uiOM_ControlNetModelMenu.clear()
-        for _model in _models["model_list"]:
-            if filter not in _model:
-                continue
-            self.uiOM_ControlNetModelMenu.append(_model)
-            if _model == _currentModel:
-                self.uiOM_ControlNetModelMenu.setValue(_model)
+            preprocessor = controlNet["preprocessor_menu"](query=True, value=True)
+
+            filter = preprocessor.split('_')[0]
+            if preprocessor == "none":
+                filter = ""
+            if preprocessor == "segmentation":
+                filter = "seg"
+
+            _currentModel = controlNet["model_menu"].getValue()
+
+            controlNet["model_menu"].clear()
+            
+            controlNet['model_subrow'](e=True, vis=True)
+            controlNet['model_row'].layout()
+            for _model in _models["model_list"]:
+                if filter not in _model:
+                    controlNet['model_subrow'](e=True, vis=False)
+                    controlNet['model_row'].layout()
+                    continue
+                
+                controlNet["model_menu"].append(_model)
+                if _model == _currentModel:
+                    controlNet["model_menu"].setValue(_model)
+
+            if controlNet['model_menu'].getValue():
+                controlNet['model_subrow'](e=True, vis=True)
+            else:
+                controlNet['model_subrow'](e=True, vis=False)
 
         return _models["model_list"]
 
-    def uiFunc_setControlNetWeight(self, source):
+    def uiFunc_setControlNetWeight(self, source, index):
+        uiFF_controlNetWeight = self.controlNets[index]["weight_field"]
+        uiSlider_controlNetWeight = self.controlNets[index]["weight_slider"]
+
         val = uiFunc_setFieldSlider(
-            self.uiFF_controlNetWeight, self.uiSlider_controlNetWeight, source, 2.0, 0.1
+            uiFF_controlNetWeight, uiSlider_controlNetWeight, source, 2.0, 0.1
         )
 
-        self.saveOption("control_net_weight", val)
+        self.uiFunc_saveControlNetFromUI(index)
 
-    def uiFunc_setControlNetNoise(self, source):
+    def uiFunc_setControlNetNoise(self, source, index):
+        uiFF_controlNetNoise = self.controlNets[index]["noise_field"]
+        uiSlider_controlNetNoise = self.controlNets[index]["noise_slider"]
+    
         val = uiFunc_setFieldSlider(
-            self.uiFF_controlNetNoise, self.uiSlider_controlNetNoise, source, 1.0, 0.1
+            uiFF_controlNetNoise, uiSlider_controlNetNoise, source, 1.0, 0.1
         )
 
-        self.saveOption("control_net_noise", val)
+        self.uiFunc_saveControlNetFromUI(index)
 
-    def uiFunc_setControlNetGuidanceStart(self, source):
+    def uiFunc_setControlNetGuidanceStart(self, source, index):
+        uiFF_controlNetGuidanceStart = self.controlNets[index]["guidance_start_field"]
+        uiSlider_controlNetGuidanceStart = self.controlNets[index]["guidance_start_slider"]
+        
         val = uiFunc_setFieldSlider(
-            self.uiFF_controlNetGuidanceStart,
-            self.uiSlider_controlNetGuidanceStart,
+            uiFF_controlNetGuidanceStart,
+            uiSlider_controlNetGuidanceStart,
             source,
             1.0,
             0.1,
         )
 
-        self.saveOption("control_net_guidance_start", val)
+        self.uiFunc_saveControlNetFromUI(index)
 
-    def uiFunc_setControlNetGuidanceEnd(self, source):
+    def uiFunc_setControlNetGuidanceEnd(self, source, index):
+        uiFF_controlNetGuidanceEnd = self.controlNets[index]["guidance_end_field"]
+        uiSlider_controlNetGuidanceEnd = self.controlNets[index]["guidance_end_slider"]
+
         val = uiFunc_setFieldSlider(
-            self.uiFF_controlNetGuidanceEnd,
-            self.uiSlider_controlNetGuidanceEnd,
+            uiFF_controlNetGuidanceEnd,
+            uiSlider_controlNetGuidanceEnd,
             source,
             1.0,
             0.1,
         )
-        self.saveOption("control_net_guidance_end", val)
+
+        self.uiFunc_saveControlNetFromUI(index)
 
     def uiFunc_getLastSeed(self):
         lastSeed = -1
@@ -3634,20 +3808,6 @@ class ui(cgmUI.cgmGUI):
         _options["sampling_steps"] = self.uiIF_samplingSteps.getValue()
         _options["min_depth_distance"] = self.uiFF_minDepthDistance.getValue()
         _options["max_depth_distance"] = self.uiFF_maxDepthDistance.getValue()
-        _options["control_net_enabled"] = self.uiControlNetEnabledCB.getValue()
-        _options["control_net_low_v_ram"] = self.uiControlNetLowVRamCB.getValue()
-        _options[
-            "control_net_preprocessor"
-        ] = self.uiOM_ControlNetPreprocessorMenu.getValue()
-        _options["control_net_model"] = self.uiOM_ControlNetModelMenu.getValue()
-        _options["control_net_weight"] = self.uiFF_controlNetWeight.getValue()
-        _options["control_net_noise"] = self.uiFF_controlNetNoise.getValue()
-        _options[
-            "control_net_guidance_start"
-        ] = self.uiFF_controlNetGuidanceStart.getValue()
-        _options[
-            "control_net_guidance_end"
-        ] = self.uiFF_controlNetGuidanceEnd.getValue()
         _options["denoising_strength"] = self.uiFF_denoiseStrength.getValue()
         _options["img2img_pass"] = self.uiOM_passMenu.getValue()
         _options["img2img_custom_image"] = self.uiTextField_customImage.getValue()
@@ -3657,6 +3817,24 @@ class ui(cgmUI.cgmGUI):
         _options["batch_size"] = self.uiIF_batchSize.getValue()
         _options["cfg_scale"] = self.uiIF_CFGScale.getValue()
         _options["auto_depth_enabled"] = self.uiAutoDepthEnabledCB.getValue()
+
+        _options["control_nets"] = self.uiFunc_getControlNets()
+
+        # _options["control_net_enabled"] = self.uiControlNetEnabledCB.getValue()
+        # _options["control_net_low_v_ram"] = self.uiControlNetLowVRamCB.getValue()
+        # _options[
+        #     "control_net_preprocessor"
+        # ] = self.uiOM_ControlNetPreprocessorMenu.getValue()
+        # _options["control_net_model"] = self.uiOM_ControlNetModelMenu.getValue()
+        # _options["control_net_weight"] = self.uiFF_controlNetWeight.getValue()
+        # _options["control_net_noise"] = self.uiFF_controlNetNoise.getValue()
+        # _options[
+        #     "control_net_guidance_start"
+        # ] = self.uiFF_controlNetGuidanceStart.getValue()
+        # _options[
+        #     "control_net_guidance_end"
+        # ] = self.uiFF_controlNetGuidanceEnd.getValue()
+
 
         return _options
 
@@ -3795,48 +3973,6 @@ class ui(cgmUI.cgmGUI):
         self.uiIF_samplingSteps.setValue(_options["sampling_steps"])
         self.uiFF_minDepthDistance.setValue(_options["min_depth_distance"])
         self.uiFF_maxDepthDistance.setValue(_options["max_depth_distance"])
-        self.uiControlNetEnabledCB.setValue(_options["control_net_enabled"])
-        self.uiControlNetLowVRamCB.setValue(_options["control_net_low_v_ram"])
-
-        if "control_net_preprocessor" in _options:
-            _controlNetPreprocessors = (
-                self.uiOM_ControlNetPreprocessorMenu(query=True, itemListLong=True)
-                or []
-            )
-            for item in _controlNetPreprocessors:
-                if (
-                    mc.menuItem(item, q=True, label=True)
-                    == _options["control_net_preprocessor"]
-                ):
-                    self.uiOM_ControlNetPreprocessorMenu(
-                        edit=True, value=_options["control_net_preprocessor"]
-                    )
-                    break
-
-        if "control_net_model" in _options:
-            _controlNetModels = (
-                self.uiOM_ControlNetModelMenu(query=True, itemListLong=True) or []
-            )
-            for item in _controlNetModels:
-                if (
-                    mc.menuItem(item, q=True, label=True)
-                    == _options["control_net_model"]
-                ):
-                    self.uiOM_ControlNetModelMenu(
-                        edit=True, value=_options["control_net_model"]
-                    )
-                    break
-        else:
-            log.warning(
-                "|{0}| >> Failed to find control net model in options".format(_str_func)
-            )
-
-        self.uiFF_controlNetWeight.setValue(_options["control_net_weight"])
-        self.uiFF_controlNetNoise.setValue(_options["control_net_noise"])
-        self.uiFF_controlNetGuidanceStart.setValue(
-            _options["control_net_guidance_start"]
-        )
-        self.uiFF_controlNetGuidanceEnd.setValue(_options["control_net_guidance_end"])
         self.uiFF_denoiseStrength.setValue(_options["denoising_strength"])
 
         self.uiOM_img2imgScaleMultiplier.setValue(
@@ -3863,6 +3999,62 @@ class ui(cgmUI.cgmGUI):
         
         self.uiAutoDepthEnabledCB.setValue(_options["auto_depth_enabled"])
         self.uiFunc_project_setAutoDepth()
+
+        # Load Control Nets
+        for i, _controlNetOptions in enumerate(_options["control_nets"]):
+            _controlNet = self.controlNets[i]
+
+            _controlNet['enabled_cb'].setValue(_controlNetOptions["control_net_enabled"])
+            _controlNet['low_vram_cb'].setValue(_controlNetOptions["control_net_low_v_ram"])
+
+            _controlNet['frame'](e=True, bgc = self.GREEN if _controlNetOptions["control_net_enabled"] else self.GRAY)
+
+            if "control_net_preprocessor" in _controlNetOptions:
+                _controlNetPreprocessors = (
+                    _controlNet['preprocessor_menu'](query=True, itemListLong=True)
+                    or []
+                )
+                for item in _controlNetPreprocessors:
+                    if (
+                        mc.menuItem(item, q=True, label=True)
+                        == _controlNetOptions["control_net_preprocessor"]
+                    ):
+                        _controlNet['preprocessor_menu'](
+                            edit=True, value=_controlNetOptions["control_net_preprocessor"]
+                        )
+                        break
+
+            if "control_net_model" in _controlNetOptions:
+                _controlNetModels = (
+                    _controlNet['model_menu'](query=True, itemListLong=True) or []
+                )
+                for item in _controlNetModels:
+                    if (
+                        mc.menuItem(item, q=True, label=True)
+                        == _controlNetOptions["control_net_model"]
+                    ):
+                        _controlNet['model_menu'](
+                            edit=True, value=_controlNetOptions["control_net_model"]
+                        )
+                        break
+            else:
+                log.warning(
+                    "|{0}| >> Failed to find control net model in options".format(_str_func)
+                )
+
+            _controlNet['weight_field'].setValue(_controlNetOptions["control_net_weight"])
+            _controlNet['noise_field'].setValue(_controlNetOptions["control_net_noise"])
+            _controlNet['guidance_start_field'].setValue(
+                _controlNetOptions["control_net_guidance_start"]
+            )
+            _controlNet['guidance_end_field'].setValue(_controlNetOptions["control_net_guidance_end"])
+
+            self.uiFunc_setControlNetWeight("field", i)
+            self.uiFunc_setControlNetNoise("field", i)
+            self.uiFunc_setControlNetGuidanceEnd("field", i)
+            self.uiFunc_setControlNetGuidanceStart("field", i)
+            self.uiFunc_updateControlNetModelsFromAutomatic()
+
 
 
 def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
