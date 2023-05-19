@@ -80,6 +80,7 @@ _defaultOptions = {
             "control_net_guidance_start": 0.0,
             "control_net_guidance_end": 1.0,
             "control_net_noise": 0.0,
+            "control_net_custom_image_path": "",
         },
         {
             "control_net_enabled": False,
@@ -90,6 +91,7 @@ _defaultOptions = {
             "control_net_guidance_start": 0.0,
             "control_net_guidance_end": 1.0,
             "control_net_noise": 0.0,
+            "control_net_custom_image_path": "",
         },
         {
             "control_net_enabled": False,
@@ -100,6 +102,8 @@ _defaultOptions = {
             "control_net_guidance_start": 0.0,
             "control_net_guidance_end": 1.0,
             "control_net_noise": 0.0,
+            "control_net_use_custom_image": False,
+            "control_net_custom_image_path": "",
         },
         {
             "control_net_enabled": False,
@@ -110,6 +114,8 @@ _defaultOptions = {
             "control_net_guidance_start": 0.0,
             "control_net_guidance_end": 1.0,
             "control_net_noise": 0.0,
+            "control_net_use_custom_image": False,
+            "control_net_custom_image_path": "",
         }
     ]
 }
@@ -126,7 +132,7 @@ class ui(cgmUI.cgmGUI):
     FORCE_DEFAULT_SIZE = (
         True  # always resets the size of the window when its re-created
     )
-    DEFAULT_SIZE = 650, 825
+    DEFAULT_SIZE = 675, 825
     TOOLNAME = "{0}.ui".format(__toolname__)
     
     GREEN = (.6,.9,.6)
@@ -988,7 +994,7 @@ class ui(cgmUI.cgmGUI):
             h=20,
             ut="cgmUITemplate",
             w=50,
-            editable=False,
+            editable=True,
             # ec = lambda *a:self._UTILS.puppet_doChangeName(self),
             annotation="Our base object from which we process things in this tab...",
         )
@@ -1432,9 +1438,21 @@ class ui(cgmUI.cgmGUI):
             changeCommand=lambda *a: self.uiFunc_saveControlNetFromUI(index=index),
         )
 
-        mUI.MelSpacer(_row, w=5)
-
         returnDict['low_vram_cb'] = uiControlNetLowVRamCB
+
+        mUI.MelLabel(_row, l="Custom Image:", align="right")
+        uiControlNetCustomImageCB = mUI.MelCheckBox(
+            _row, useTemplate="cgmUITemplate", v=True
+        )
+
+        uiControlNetCustomImageCB(
+            edit=True,
+            changeCommand=lambda *a: self.uiFunc_project_handleCustomImageCBChange(index=index),
+        )
+
+        returnDict['custom_image_cb'] = uiControlNetCustomImageCB
+
+        mUI.MelSpacer(_row, w=5)
 
         _row.layout()
 
@@ -1499,7 +1517,7 @@ class ui(cgmUI.cgmGUI):
             h=20,
             ut="cgmUITemplate",
             w=50,
-            editable=False,
+            editable=True,
             # ec = lambda *a:self._UTILS.puppet_doChangeName(self),
             annotation="Our base object from which we process things in this tab...",
         )
@@ -1514,7 +1532,6 @@ class ui(cgmUI.cgmGUI):
         returnDict['custom_image_row'] = customImage_row
         returnDict['custom_image_tf'] = uiTextField_customImage
 
-
         _row = mUI.MelHLayout(_inside, expand=True, ut="cgmUISubTemplate")
 
         _subRow = mUI.MelHSingleStretchLayout(_row, expand=True, ut="cgmUISubTemplate")
@@ -1523,7 +1540,7 @@ class ui(cgmUI.cgmGUI):
         uiFF_controlNetWeight = mUI.MelFloatField(
             _subRow, w=40, ut="cgmUITemplate", precision=2, value=1.0
         )
-
+        
         uiSlider_controlNetWeight = mUI.MelFloatSlider(
             _subRow, 0.0, 1.0, 1.0, step=0.1
         )
@@ -1653,6 +1670,7 @@ class ui(cgmUI.cgmGUI):
                 "control_net_guidance_start": controlNetDict['guidance_start_field'].getValue(),
                 "control_net_guidance_end": controlNetDict['guidance_end_field'].getValue(),
                 "control_net_noise": controlNetDict['noise_field'].getValue(),
+                "control_net_custom_image_path": controlNetDict['custom_image_tf'].getValue(),
                 }
             controlNetData.append(controlNetOptions)
 
@@ -2291,6 +2309,10 @@ class ui(cgmUI.cgmGUI):
 
         self.saveOption("use_alpha_pass", val)
 
+    def uiFunc_project_handleCustomImageCBChange(self, index):
+        self.controlNets[index]['custom_image_row'](e=True, vis=self.controlNets[index]['custom_image_cb'].getValue())
+        self.uiFunc_saveControlNetFromUI(index=index)
+
     def uiFunc_auto_populate_fields(self):
         _str_func = "uiFunc_auto_populate_fields"
 
@@ -2593,8 +2615,9 @@ class ui(cgmUI.cgmGUI):
 
             if not _controlNetOptions['control_net_enabled']:
                 continue
-
-            if self.controlNets[i]['preprocessor_menu'](q=True, value=True) == "none":
+            
+            preprocessor = self.controlNets[i]['preprocessor_menu'](q=True, value=True)
+            if preprocessor == "none":
                 imgMode = None
                 if 'depth' in _controlNetOptions["control_net_model"]:
                     imgMode = "depth"
@@ -2664,24 +2687,30 @@ class ui(cgmUI.cgmGUI):
                     )
                     _controlNetOptions["control_net_enabled"] = False
             else:
-                if not composite_string:
+                control_net_image_path = ""
+                if self.controlNets[i]['custom_image_cb'].getValue():
+                    control_net_image_path = self.controlNets[i]['custom_image_tf'].getValue()
+                
+                control_net_image = None
+
+                if not os.path.exists(control_net_image_path):
                     self.uiFunc_assignMaterial(option, meshes)
 
-                    composite_path = rt.renderMaterialPass(
+                    control_net_image_path = rt.renderMaterialPass(
                         fileName="CompositePass", camera=camera, resolution=self.resolution
                     )
 
-                    with open(composite_path, "rb") as c:
-                        # Read the image data
-                        composite_data = c.read()
+                with open(control_net_image_path, "rb") as c:
+                    # Read the image data
+                    composite_data = c.read()
 
-                        # Encode the image data as base64
-                        composite_base64 = base64.b64encode(composite_data)
+                    # Encode the image data as base64
+                    composite_base64 = base64.b64encode(composite_data)
 
-                        # Convert the base64 bytes to string
-                        composite_string = composite_base64.decode("utf-8")
+                    # Convert the base64 bytes to string
+                    control_net_image = composite_base64.decode("utf-8")
 
-                _options["control_net_image"] = composite_string
+                    _controlNetOptions["control_net_image"] = control_net_image
 
             _options['control_nets'][i] = _controlNetOptions
 
@@ -3637,6 +3666,8 @@ class ui(cgmUI.cgmGUI):
                                 self.uiFunc_makeAlphaProjectionShader()
                             elif item == "depthShader":
                                 self.uiFunc_makeDepthShader()
+                            elif item == "normalShader":
+                                self.uiFunc_makeNormalShader()
 
         if validatedMeshes:
             self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
@@ -4007,6 +4038,9 @@ class ui(cgmUI.cgmGUI):
             _controlNet['enabled_cb'].setValue(_controlNetOptions["control_net_enabled"])
             _controlNet['low_vram_cb'].setValue(_controlNetOptions["control_net_low_v_ram"])
 
+            hasCustomImage = "control_net_custom_image_path" in _controlNetOptions.keys() and _controlNetOptions["control_net_custom_image_path"] != ""
+            _controlNet['custom_image_cb'].setValue(hasCustomImage)
+            
             _controlNet['frame'](e=True, bgc = self.GREEN if _controlNetOptions["control_net_enabled"] else self.GRAY)
 
             if "control_net_preprocessor" in _controlNetOptions:
@@ -4023,7 +4057,7 @@ class ui(cgmUI.cgmGUI):
                             edit=True, value=_controlNetOptions["control_net_preprocessor"]
                         )
                         break
-
+            
             if "control_net_model" in _controlNetOptions:
                 _controlNetModels = (
                     _controlNet['model_menu'](query=True, itemListLong=True) or []
@@ -4041,6 +4075,10 @@ class ui(cgmUI.cgmGUI):
                 log.warning(
                     "|{0}| >> Failed to find control net model in options".format(_str_func)
                 )
+            
+            if "control_net_custom_image_path" in _controlNetOptions:
+                _controlNet['custom_image_tf'].setValue(_controlNetOptions["control_net_custom_image_path"])
+            _controlNet['custom_image_row'](e=True, vis=hasCustomImage)
 
             _controlNet['weight_field'].setValue(_controlNetOptions["control_net_weight"])
             _controlNet['noise_field'].setValue(_controlNetOptions["control_net_noise"])
@@ -4054,7 +4092,6 @@ class ui(cgmUI.cgmGUI):
             self.uiFunc_setControlNetGuidanceEnd("field", i)
             self.uiFunc_setControlNetGuidanceStart("field", i)
             self.uiFunc_updateControlNetModelsFromAutomatic()
-
 
 
 def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
