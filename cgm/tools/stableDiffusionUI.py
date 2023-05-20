@@ -2401,6 +2401,9 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_assignMaterial(self, materialType, meshes=None):
         _str_func = "uiFunc_assignMaterial"
 
+        if materialType == "none":
+            return
+        
         if not meshes:
             meshes = self.uiList_projectionMeshes(query=True, allItems=True)
 
@@ -2694,23 +2697,24 @@ class ui(cgmUI.cgmGUI):
                 control_net_image = None
 
                 if not os.path.exists(control_net_image_path):
-                    self.uiFunc_assignMaterial(option, meshes)
+                    self.uiFunc_assignMaterial("composite", meshes)
 
                     control_net_image_path = rt.renderMaterialPass(
-                        fileName="CompositePass", camera=camera, resolution=self.resolution
+                        fileName="CustomPass", camera=camera, resolution=self.resolution
                     )
 
-                with open(control_net_image_path, "rb") as c:
-                    # Read the image data
-                    composite_data = c.read()
+                if os.path.exists(control_net_image_path):
+                    with open(control_net_image_path, "rb") as c:
+                        # Read the image data
+                        composite_data = c.read()
 
-                    # Encode the image data as base64
-                    composite_base64 = base64.b64encode(composite_data)
+                        # Encode the image data as base64
+                        composite_base64 = base64.b64encode(composite_data)
 
-                    # Convert the base64 bytes to string
-                    control_net_image = composite_base64.decode("utf-8")
+                        # Convert the base64 bytes to string
+                        control_net_image = composite_base64.decode("utf-8")
 
-                    _controlNetOptions["control_net_image"] = control_net_image
+                        _controlNetOptions["control_net_image"] = control_net_image
 
             _options['control_nets'][i] = _controlNetOptions
 
