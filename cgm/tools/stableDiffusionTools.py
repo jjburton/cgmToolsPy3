@@ -92,6 +92,9 @@ def adjustPositionBasedOnTexture(mesh_name, texture_name, z_depth, axis, invert=
 #         'control_net_guidance_end':1.0,
 # }
 def getImageFromAutomatic1111(data):
+    _str_func = 'getImageFromAutomatic1111'
+    log.debug("|{0}| >> data: {1}".format(_str_func, data))
+
     payload = {
         "prompt": data["prompt"],
         "negative_prompt": data["negative_prompt"],
@@ -105,26 +108,30 @@ def getImageFromAutomatic1111(data):
         "cfg_scale": data["cfg_scale"],
     }
 
-    if data["control_net_enabled"]:
-        payload["alwayson_scripts"] = {
-            "controlnet": {
-                "args": [
-                    {
+    controlNets = []
+    for i, controlNetDict in enumerate(data["control_nets"]):
+        if controlNetDict["control_net_enabled"]:
+            controlNetArgs = {
                         "enable": True,
-                        "lowvram": data["control_net_low_v_ram"],
-                        "module": data["control_net_preprocessor"],
-                        "model": data["control_net_model"],
-                        "weight": data["control_net_weight"],
+                        "lowvram": controlNetDict["control_net_low_v_ram"],
+                        "module": controlNetDict["control_net_preprocessor"],
+                        "model": controlNetDict["control_net_model"],
+                        "weight": controlNetDict["control_net_weight"],
                         "resize_mode": "Scale to Fit (Inner Fit)",
-                        "input_image": data["control_net_image"],
+                        "input_image": controlNetDict["control_net_image"],
                         "processor_res": 512,
                         "threshold_a": 100,
                         "threshold_b": 255,
-                        "guidance_start": data["control_net_guidance_start"],
-                        "guidance_end": data["control_net_guidance_end"],
-                        "guessmode": False,
+                        "guidance_start": controlNetDict["control_net_guidance_start"],
+                        "guidance_end": controlNetDict["control_net_guidance_end"],
+                        "controlmode": "Balanced",
                     }
-                ]
+            controlNets.append(controlNetArgs)
+
+    if len(controlNets) > 0:
+        payload["alwayson_scripts"] = {
+            "controlnet": {
+                "args": controlNets
             }
         }
 
@@ -231,20 +238,20 @@ def getModelsFromAutomatic1111(url="127.0.0.1:7860"):
     endpoint = "/sdapi/v1/sd-models"
     return getFromAutomatic1111(endpoint, url)
 
-
 def getSamplersFromAutomatic1111(url="127.0.0.1:7860"):
     endpoint = "/sdapi/v1/samplers"
     return getFromAutomatic1111(endpoint, url)
 
-
-def getControlNetPreprocessorsFromAutomatic1111(url="127.0.0.1:7860"):
-    return ["none", "canny", "depth", "openpose", "segmentation"]
-
+# def getControlNetPreprocessorsFromAutomatic1111(url="127.0.0.1:7860"):
+#     return ["none", "canny", "depth", "openpose", "segmentation"]
 
 def getControlNetModelsFromAutomatic1111(url="127.0.0.1:7860"):
     endpoint = "/controlnet/model_list"
     return getFromAutomatic1111(endpoint, url)
 
+def getControlNetPreprocessorsFromAutomatic1111(url="127.0.0.1:7860"):
+    endpoint = "/controlnet/module_list"
+    return getFromAutomatic1111(endpoint, url="127.0.0.1:7860")
 
 def getOptionsFromAutomatic(url="127.0.0.1:7860"):
     endpoint = "/sdapi/v1/options"
