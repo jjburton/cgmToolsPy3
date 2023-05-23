@@ -24,6 +24,7 @@ import cgm.core.classes.GuiFactory as cgmUI
 mUI = cgmUI.mUI
 
 from cgm.core import cgm_General as cgmGEN
+from tempfile import NamedTemporaryFile
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -307,4 +308,14 @@ class ui(cgmUI.cgmGUI):
         self.channelButtons[channel](edit=True, bgc=bgc)
         self.updateUI()
 
+def viewImageFromString(image_string):
+    # open the string as a PIL image object, save it to a temporary file, and open it with the default image viewer
+    from subprocess import call
 
+    # Create a temporary file with the .png extension
+    temp_file = NamedTemporaryFile(suffix='.png')
+
+    # Write the image data to the temporary file
+    temp_file.write(image_string)
+
+    ui([temp_file.name], {'path': temp_file.name})

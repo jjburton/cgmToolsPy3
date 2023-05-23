@@ -1,9 +1,14 @@
 import os
+import re
 
 def create_unique_filename(filename):
+    # Remove or replace invalid characters
+    path, basefilename = os.path.split(filename)
+    filename = os.path.join(path, re.sub(r'[\\/:*?"<>|]', '_', basefilename))
+
     if not os.path.exists(filename):
         return filename
-    
+
     base, ext = os.path.splitext(filename)
     i = 1
     while True:

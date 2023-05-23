@@ -37,4 +37,4 @@ def addMonochromaticNoise(image, noise_intensity=0.1, blur_radius=0):
 
     noisy_image = Image.blend(grayscale_image, noise_image, noise_intensity)
 
-    return noisy_image
+    return noisy_image    
