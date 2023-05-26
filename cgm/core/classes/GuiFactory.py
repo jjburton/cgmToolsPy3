@@ -60,6 +60,10 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 #=========================================================================
 
+import cgm.images.icons as cgmIcons
+_path_imageFolder = PATHS.Path(cgmIcons.__file__).up().asFriendly()
+
+
 #>>> Root settings =============================================================
 
 __version__ = cgmGEN.__RELEASESTRING
@@ -793,7 +797,6 @@ class cgmWorkspaceUI(mUI.BaseMelWindow):
         mc.uiTemplate('cgmUITemplate')
         mc.separator(dt='cgmUITemplate', height = 10, style = 'none')
         mc.button(dt = 'cgmUITemplate', height = 15, backgroundColor = guiButtonColor,align = 'center')
-        
         mc.window(dt = 'cgmUITemplate', backgroundColor = guiBackgroundColor)
         mc.optionMenu(dt='cgmUITemplate',backgroundColor = guiButtonColor)
         mc.optionMenuGrp(dt ='cgmUITemplate', backgroundColor = guiButtonColor)
