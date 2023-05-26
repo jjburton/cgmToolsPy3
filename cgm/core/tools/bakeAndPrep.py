@@ -285,7 +285,7 @@ def Prep(removeNamespace = False,
     # delete garbage       
     log.debug("{0} || delete set: {1}".format(_str_func,deleteSet))
     if(mc.objExists(deleteSet)):
-        for o in mc.sets( deleteSet, q=True ):
+        for o in mc.sets( deleteSet, q=True ) or []:
             try:mc.delete( o )  
             except Exception as err:
                 log.error("{} | ".format(o,err))

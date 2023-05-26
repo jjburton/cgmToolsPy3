@@ -793,6 +793,7 @@ class cgmWorkspaceUI(mUI.BaseMelWindow):
         mc.uiTemplate('cgmUITemplate')
         mc.separator(dt='cgmUITemplate', height = 10, style = 'none')
         mc.button(dt = 'cgmUITemplate', height = 15, backgroundColor = guiButtonColor,align = 'center')
+        
         mc.window(dt = 'cgmUITemplate', backgroundColor = guiBackgroundColor)
         mc.optionMenu(dt='cgmUITemplate',backgroundColor = guiButtonColor)
         mc.optionMenuGrp(dt ='cgmUITemplate', backgroundColor = guiButtonColor)
