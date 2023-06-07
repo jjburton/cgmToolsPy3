@@ -193,7 +193,13 @@ def generateWithPayload(
         img_bytes = base64.b64decode(img_str)
         img_buffer = BytesIO(img_bytes)
 
-        imageName = re.sub("[^A-Za-z]", "_", info["prompt"])[:60]
+        # default imageName to "output.png" if info["prompt" is empty
+        imageName = info["prompt"]
+        if imageName == "":
+            imageName = "output-image"
+        # remove any non-alphanumeric characters from the prompt and truncate
+        imageName = re.sub("[^A-Za-z]", "_", imageName)[:60]
+        # remove any double underscores
         imageName = imageName.replace("__", "_")
         imageName = imageName + ".png"
 
