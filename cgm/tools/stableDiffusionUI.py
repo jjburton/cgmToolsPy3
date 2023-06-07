@@ -68,6 +68,7 @@ _defaultOptions = {
     "mask_blur": 4,
     "batch_count": 1,
     "batch_size": 1,
+    "batch_mode": "None",
     "cfg_scale": 7,
     "auto_depth_enabled": True,
     "control_nets":[
@@ -1283,24 +1284,44 @@ class ui(cgmUI.cgmGUI):
         mUI.MelSpacer(_row, w=5)
         _row.layout()
 
-        _subRow = mUI.MelHSingleStretchLayout(
+
+        self.uiLayout_batchMode = mUI.MelHSingleStretchLayout(
             _inside, expand=True, ut="cgmUISubTemplate"
         )
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Batch Project Enabled:", align="right")
-        self.uiCB_batchProject = mUI.MelCheckBox(
-            _subRow, v=False, annotation="Enable batch project"
+
+        mUI.MelSpacer(self.uiLayout_batchMode, w=5)
+
+        mUI.MelLabel(self.uiLayout_batchMode, l="Batch Mode:", align="right")
+
+        self.uiOM_batchMode = mUI.MelOptionMenu(
+            self.uiLayout_batchMode,
+            useTemplate="cgmUITemplate"
         )
-        self.uiCB_batchProject(
-            edit=True,
-            cc=lambda *a: self.saveOptionFromUI(
-                "batch_project", self.uiCB_batchProject
-            ),
+        self.uiOM_batchMode(e=True, cc=cgmGEN.Callback(self.uiFunc_project_handleBatchModeChange))
+
+        batchModes = ["None", "Bake Projection", "Latent Space"]
+
+        for mode in batchModes:
+            self.uiOM_batchMode.append(mode)
+
+        self.uiLayout_batchMode_bakeProjection = mUI.MelHSingleStretchLayout(
+            self.uiLayout_batchMode, expand=True, ut="cgmUISubTemplate"
         )
-        mUI.MelSpacer(_subRow, w=5)
-        mUI.MelLabel(_subRow, l="Generate Every Frame:", align="right")
+        # mUI.MelSpacer(_subRow, w=5)
+        
+        # self.uiCB_batchProject = mUI.MelCheckBox(
+        #     _subRow, v=False, annotation="Enable batch project"
+        # )
+        # self.uiCB_batchProject(
+        #     edit=True,
+        #     cc=lambda *a: self.saveOptionFromUI(
+        #         "batch_project", self.uiCB_batchProject
+        #     ),
+        # )
+        mUI.MelSpacer(self.uiLayout_batchMode_bakeProjection, w=5)
+        mUI.MelLabel(self.uiLayout_batchMode_bakeProjection, l="Generate Every Frame:", align="right")
         self.uiCB_batchGenerate = mUI.MelCheckBox(
-            _subRow, v=False, annotation="Generate every frame"
+            self.uiLayout_batchMode_bakeProjection, v=False, annotation="Generate every frame"
         )
         self.uiCB_batchGenerate(
             edit=True,
@@ -1309,11 +1330,14 @@ class ui(cgmUI.cgmGUI):
             ),
         )
 
-        _subRow.setStretchWidget(mUI.MelSeparator(_subRow, w=2))
+        self.uiLayout_batchMode_bakeProjection.setStretchWidget(mUI.MelSeparator(self.uiLayout_batchMode_bakeProjection, w=2))
 
-        mUI.MelLabel(_subRow, l="Start:", align="right")
+
+        self.uiMelRow_batchTimeRange = mUI.MelRowLayout(self.uiLayout_batchMode, useTemplate="cgmUISubTemplate", numberOfColumns=6)
+
+        mUI.MelLabel(self.uiMelRow_batchTimeRange, l="Start:", align="right")
         self.uiIF_batchProjectStart = mUI.MelIntField(
-            _subRow,
+            self.uiMelRow_batchTimeRange,
             minValue=-1,
             value=int(mc.playbackOptions(q=True, minTime=True)),
             annotation="Start time for batch project",
@@ -1325,9 +1349,9 @@ class ui(cgmUI.cgmGUI):
             ),
         )
 
-        mUI.MelLabel(_subRow, l="End:", align="right")
+        mUI.MelLabel(self.uiMelRow_batchTimeRange, l="End:", align="right")
         self.uiIF_batchProjectEnd = mUI.MelIntField(
-            _subRow,
+            self.uiMelRow_batchTimeRange,
             minValue=-1,
             value=int(mc.playbackOptions(q=True, maxTime=True)),
             annotation="End time for batch project",
@@ -1339,9 +1363,9 @@ class ui(cgmUI.cgmGUI):
             ),
         )
 
-        mUI.MelLabel(_subRow, l="Step:", align="right")
+        mUI.MelLabel(self.uiMelRow_batchTimeRange, l="Step:", align="right")
         self.uiIF_batchProjectStep = mUI.MelIntField(
-            _subRow, minValue=1, value=1, annotation="Frame step for batch project"
+            self.uiMelRow_batchTimeRange, minValue=1, value=1, annotation="Frame step for batch project"
         )
         self.uiIF_batchProjectStep(
             edit=True,
@@ -1350,8 +1374,13 @@ class ui(cgmUI.cgmGUI):
             ),
         )
 
-        mUI.MelSpacer(_subRow, w=5)
-        _subRow.layout()
+        self.uiLayout_batchMode_bakeProjection.layout()
+
+        self.uiLayout_batchMode.setStretchWidget(self.uiLayout_batchMode_bakeProjection)
+        
+        mUI.MelSpacer(self.uiLayout_batchMode, w=5)
+
+        self.uiLayout_batchMode.layout()        
 
         # Generate Button
         #
@@ -1382,6 +1411,8 @@ class ui(cgmUI.cgmGUI):
         )
 
         _row.layout()
+
+        mUI.MelSpacer(_inside, w=5, h=10)
         #
         # End Generate Button
 
@@ -2313,6 +2344,25 @@ class ui(cgmUI.cgmGUI):
         self.controlNets[index]['custom_image_row'](e=True, vis=self.controlNets[index]['custom_image_cb'].getValue())
         self.uiFunc_saveControlNetFromUI(index=index)
 
+    def uiFunc_project_handleBatchModeChange(self):
+        _str_func = "uiFunc_project_handleBatchModeChange"
+
+        val = self.uiOM_batchMode.getValue()
+        self.saveOption("batch_mode", val)
+
+        self.uiFunc_project_updateBatchMode()
+        
+    def uiFunc_project_updateBatchMode(self):
+        _str_func = "uiFunc_project_updateBatchMode"
+
+        val = self.uiOM_batchMode.getValue()
+
+        log.debug("%s %s" % (_str_func, val ))
+
+        self.uiLayout_batchMode_bakeProjection(e=True, vis=val.lower() == "bake projection")
+        self.uiMelRow_batchTimeRange(e=True, vis=val.lower() != "none")
+        self.uiLayout_batchMode.layout()
+
     def uiFunc_auto_populate_fields(self):
         _str_func = "uiFunc_auto_populate_fields"
 
@@ -2817,7 +2867,7 @@ class ui(cgmUI.cgmGUI):
         _str_func = "uiFunc_bakeProjection"
         # self.assignImageToProjection(imagePath, info)
 
-        _batch = self.uiCB_batchProject.getValue()
+        _batch = self.uiOM_batchMode.getValue() == "Bake Projection"
         _generate = self.uiCB_batchGenerate.getValue()
 
         frames = [mc.currentTime(q=True)]
@@ -4034,6 +4084,9 @@ class ui(cgmUI.cgmGUI):
         
         self.uiAutoDepthEnabledCB.setValue(_options["auto_depth_enabled"])
         self.uiFunc_project_setAutoDepth()
+
+        self.uiOM_batchMode.setValue(_options["batch_mode"])
+        self.uiFunc_project_updateBatchMode()
 
         # Load Control Nets
         for i, _controlNetOptions in enumerate(_options["control_nets"]):
