@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = 'cgmGEN'
 
-__RELEASE = '23.05.20.01'
+__RELEASE = '23.05.16.01'
 
 __BRANCH = 'Stable Diffusion'
 

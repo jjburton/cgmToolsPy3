@@ -1161,7 +1161,7 @@ class ui(cgmUI.cgmGUI):
         _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
 
         mUI.MelSpacer(_row, w=5)
-        mUI.MelLabel(_row, l="Auto Depth:", align="right")
+        mUI.MelLabel(_row, l="Auto Depth Estimation:", align="right")
         _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
         self.uiAutoDepthEnabledCB = mUI.MelCheckBox(
             _row, useTemplate="cgmUITemplate", v=True
