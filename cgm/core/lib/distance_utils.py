@@ -177,7 +177,10 @@ def get_size_byShapes(arg, mode = 'max'):
     else:
         raise ValueError("|{0}| >> unknown mode: {1}".format(_str_func,mode))
         
-def get_arcLen(arg):
+def get_arcLen(arg=None):
+    if not arg:
+        arg = mc.ls(sl=True,flatten = False)
+        if arg:arg=arg[0]
     shapes = mc.listRelatives(arg,shapes=True,path = 1)
     shapeLengths = []
     for shape in shapes:
