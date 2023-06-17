@@ -82,7 +82,7 @@ _d_ann = SCENEUTILS.d_annotations
 
 # >>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
-__toolname__ = "MRSScene"
+__toolname__ ='mrsScene'
 
 _subLineBGC = [0.75, 0.75, 0.75]
 _l_directoryMask = [
@@ -1000,17 +1000,22 @@ class ui(cgmUI.cgmGUI):
 
         self._uiRow_dir = mUI.MelHSingleStretchLayout(_directoryColumn)
 
-        mUI.MelLabel(self._uiRow_dir, l="Content", w=100)
-        self.directoryTF = mUI.MelTextField(
-            self._uiRow_dir, editable=False, bgc=(0.8, 0.8, 0.8)
-        )
-        self.directoryTF.setValue(self.directory)
-        mUI.MelButton(
-            self._uiRow_dir,
-            l="Explorer",
-            ut="cgmUITemplate",
-            c=lambda *a: self.OpenDirectory(self.directory),
-        )
+        mUI.MelLabel(self._uiRow_dir,l='Content', w=100)
+        self.directoryTF = mUI.MelTextField(self._uiRow_dir, editable = False, bgc=(.8,.8,.8))
+        self.directoryTF.setValue( self.directory )
+        
+        #mUI.MelButton(self._uiRow_dir,l='Explorer', ut = 'cgmUITemplate',
+        #              c=lambda *a:self.OpenDirectory(self.directory))
+        
+        mUI.MelIconButton(parent=self._uiRow_dir,
+                          ut = 'cgmUITemplate',
+                          style='iconOnly',
+                          w=25,
+                          h=25,
+                          image= os.path.join(_path_imageFolder,'explorer_25.png'),
+                          bgc = cgmUI.guiButtonColor,                                            
+                          c=lambda *a:self.OpenDirectory(self.directory))
+        
 
         mUI.MelSpacer(self._uiRow_dir, w=2)
 
@@ -1019,11 +1024,23 @@ class ui(cgmUI.cgmGUI):
 
         self._uiRow_export = mUI.MelHSingleStretchLayout(_directoryColumn)
 
-        mUI.MelLabel(self._uiRow_export, l="Export Dir", w=100)
-        self.exportDirectoryTF = mUI.MelTextField(
-            self._uiRow_export, editable=False, bgc=(0.8, 0.8, 0.8)
-        )
-        self.exportDirectoryTF.setValue(self.exportDirectory)
+        mUI.MelLabel(self._uiRow_export,l='Export Dir', w=100)
+        self.exportDirectoryTF = mUI.MelTextField(self._uiRow_export, editable = False, bgc=(.8,.8,.8))
+        self.exportDirectoryTF.setValue( self.exportDirectory )
+        
+        """
+        mUI.MelButton(self._uiRow_export,l='Explorer', ut = 'cgmUITemplate',
+                      c=lambda *a:self.OpenDirectory(self.exportDirectory))"""      
+        
+        mUI.MelIconButton(parent=self._uiRow_export,
+                          ut = 'cgmUITemplate',
+                          w=25,
+                          h=25,
+                          style='iconOnly',
+                          image= os.path.join(_path_imageFolder,'explorer_25.png'),
+                          bgc = cgmUI.guiButtonColor,
+                          c=lambda *a:self.OpenDirectory(self.exportDirectory))
+
 
         mUI.MelButton(
             self._uiRow_export,
@@ -1694,35 +1711,75 @@ class ui(cgmUI.cgmGUI):
 
         self.buildAssetForm()
 
+        
         ##############################
         # Bottom
         ##############################
-        _bottomColumn = mUI.MelColumnLayout(
-            _MainForm, useTemplate="cgmUISubTemplate", adjustableColumn=True
-        )  # mc.columnLayout(adjustableColumn = True)
+        def create_exportButton(parent,ann,image,c=None):
+            return mUI.MelIconButton(parent,
+                                     ann = ann,
+                                     bgc = cgmUI.guiButtonColor,
+                                     image=image,
+                                     w=30,
+                                     h=30,
+                                     c=c)         
+        
+        
+        _bottomColumn    = mUI.MelColumnLayout(_MainForm,useTemplate = 'cgmUISubTemplate', adjustableColumn=True)#mc.columnLayout(adjustableColumn = True)
 
         mc.setParent(_bottomColumn)
         cgmUI.add_LineSubBreak()
 
-        _row = mUI.MelHLayout(_bottomColumn, ut="cgmUISubTemplate", padding=5)
+        _row = mUI.MelHSingleStretchLayout(_bottomColumn,ut='cgmUISubTemplate',h=40)#padding = 5)
 
-        mUI.MelSpacer(_row, w=10)
-        mUI.MelLabel(_row, label="Export: ", h=self.__itemHeight, align="right")
+        mUI.MelSpacer(_row,w=10)
+        
+        
+        create_exportButton(_row,'Create a new scene with project settings', os.path.join(_path_imageFolder,'new_file.png'), partial(SCENEUTILS.uiFunc_newProjectScene,self))
+        mUI.MelLabel(_row, label="  |  ", h=self.__itemHeight, align = 'center')
+        create_exportButton(_row,'Select Open File', os.path.join(_path_imageFolder,'find_file.png'), partial(self.uiFunc_selectOpenFile))
 
-        self.exportButton = mUI.MelButton(
-            _row,
-            label="Static",
-            ut="cgmUITemplate",
-            c=partial(self.RunExportCommand, 4),
-            h=self.__itemHeight,
-        )
-        self.exportButton = mUI.MelButton(
-            _row,
-            label="Anim",
-            ut="cgmUITemplate",
-            c=partial(self.RunExportCommand, 1),
-            h=self.__itemHeight,
-        )
+
+        
+        
+        mUI.MelLabel(_row, label="Export: ", h=self.__itemHeight, align = 'right')
+        
+        #self.exportButton = mUI.MelButton(_row, label="Static", ut = 'cgmUITemplate', c=partial(self.RunExportCommand,4), h=self.__itemHeight)
+        
+        
+        """
+        self.exportButton = mUI.MelIconButton(_row,
+                                              ann = 'Static...',
+                                              bgc = cgmUI.guiButtonColor,
+                                              image=os.path.join(_path_imageFolder,'export.png') ,
+                                              h=40,
+                                              #marginWidth = 10,
+                                              c=partial(self.RunExportCommand,4))"""
+        
+        create_exportButton(_row,'Static...',os.path.join(_path_imageFolder,'export.png'), partial(self.RunExportCommand,4))        
+        
+        self.exportButton = create_exportButton(_row,'Anim',os.path.join(_path_imageFolder,'anim_2.png'), partial(self.RunExportCommand,1))        
+
+        #self.exportButton = mUI.MelButton(_row, label="Anim", ut = 'cgmUITemplate', c=partial(self.RunExportCommand,1), h=self.__itemHeight)
+
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Bake", c=partial(self.RunExportCommand,0), h=self.__itemHeight)
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Rig", c=partial(self.RunExportCommand,3), h=self.__itemHeight)
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Cutscene", c=partial(self.RunExportCommand,2), h=self.__itemHeight)
+        
+        create_exportButton(_row,'Bake',os.path.join(_path_imageFolder,'bake.png'), partial(self.RunExportCommand,0))
+        create_exportButton(_row,'Rig',os.path.join(_path_imageFolder,'rig_export.png'), partial(self.RunExportCommand,3))
+        create_exportButton(_row,'Cutscene',os.path.join(_path_imageFolder,'scene.png'), partial(self.RunExportCommand,2))
+        
+        mUI.MelLabel(_row, label="       | ", h=self.__itemHeight, align = 'center')
+        
+        mUI.MelLabel(_row, label="Add to queue as: ", h=self.__itemHeight, align = 'right')
+        
+        create_exportButton(_row,'Anim', os.path.join(_path_imageFolder,'anim_2.png'), lambda *a:(self.AddToExportQueue('export')))
+        create_exportButton(_row,'Rig', os.path.join(_path_imageFolder,'rig_export.png'), lambda *a:(self.AddToExportQueue('rig')))
+        create_exportButton(_row,'Cutscene', os.path.join(_path_imageFolder,'scene.png'),  lambda *a:(self.AddToExportQueue('cutscene')))
+        
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Rig",  c=lambda *a:(self.AddToExportQueue('rig')), h=self.__itemHeight)
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Cutscene",  c=lambda *a:(self.AddToExportQueue('cutscene')), h=self.__itemHeight)
 
         mUI.MelButton(
             _row,
@@ -1746,41 +1803,17 @@ class ui(cgmUI.cgmGUI):
             h=self.__itemHeight,
         )
 
-        _split = mUI.MelLabel(_row, label=" | ", h=self.__itemHeight, align="center")
-
-        mUI.MelLabel(
-            _row, label="Add to queue as: ", h=self.__itemHeight, align="right"
-        )
-
-        mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Anim",
-            c=lambda *a: (self.AddToExportQueue("export")),
-            h=self.__itemHeight,
-        )
-        mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Rig",
-            c=lambda *a: (self.AddToExportQueue("rig")),
-            h=self.__itemHeight,
-        )
-        mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Cutscene",
-            c=lambda *a: (self.AddToExportQueue("cutscene")),
-            h=self.__itemHeight,
-        )
-
-        # _row.setStretchWidget(_split)
-
-        # mUI.MelSpacer(_row,w=0)
-        mUI.MelSpacer(_row, w=10)
+        #mUI.MelSpacer(_row,w=0)
+        mUI.MelLabel(_row, label="       | ", h=self.__itemHeight, align = 'center')
+        
+        self.loadBtn = mUI.MelButton(_row, ut = 'cgmUITemplate', label="Load File", c=self.LoadFile, h=self.__itemHeight)        
+        _row.setStretchWidget(self.loadBtn)
+        
+        mUI.MelSpacer(_row,w=10)
 
         _row.layout()
-
+        
+        """
         mc.setParent(_bottomColumn)
         cgmUI.add_LineSubBreak()
 
@@ -1790,30 +1823,13 @@ class ui(cgmUI.cgmGUI):
         )
         # mUI.MelSpacer(_row,w=5)
 
-        mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Create New Scene",
-            c=partial(SCENEUTILS.uiFunc_newProjectScene, self),
-            h=self.__itemHeight,
-            w=200,
-            ann="Create a new scene with project settings",
-        )
-        mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Select Open File",
-            c=partial(self.uiFunc_selectOpenFile),
-            h=self.__itemHeight,
-            w=200,
-        )
-        self.loadBtn = mUI.MelButton(
-            _row,
-            ut="cgmUITemplate",
-            label="Load File",
-            c=self.LoadFile,
-            h=self.__itemHeight,
-        )
+        create_exportButton(_row,'Create a new scene with project settings', os.path.join(_path_imageFolder,'new_file.png'), partial(SCENEUTILS.uiFunc_newProjectScene,self))
+        create_exportButton(_row,'Select Open File', os.path.join(_path_imageFolder,'find_file.png'), partial(self.uiFunc_selectOpenFile))
+
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Create New Scene", c= partial(SCENEUTILS.uiFunc_newProjectScene,self), h=self.__itemHeight, w= 200,
+                      #ann="Create a new scene with project settings")
+        #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Select Open File", c= partial(self.uiFunc_selectOpenFile), h=self.__itemHeight, w= 200)
+        self.loadBtn = mUI.MelButton(_row, ut = 'cgmUITemplate', label="Load File", c=self.LoadFile, h=self.__itemHeight)
         _row.setStretchWidget(self.loadBtn)
 
         # _row.setStretchWidget( self.loadBtn )
@@ -1821,6 +1837,7 @@ class ui(cgmUI.cgmGUI):
         # mUI.MelSpacer(_row,w=5)
 
         _row.layout()
+        """
 
         mc.setParent(_bottomColumn)
         cgmUI.add_LineSubBreak()
@@ -2178,12 +2195,8 @@ class ui(cgmUI.cgmGUI):
                     self.reload_headerImage(d_userPaths["image"])
                 )
             else:
-                _imageFailPath = os.path.join(
-                    mImagesPath.asFriendly(),
-                    "cgm_project_{0}.png".format(
-                        self.mDat.d_project.get("type", "unity")
-                    ),
-                )
+                _imageFailPath = os.path.join(mImagesPath.asFriendly(),
+                                              'cgm_project_{0}.png'.format(self.mDat.d_project.get('type','unity')))
                 self.reload_headerImage(_imageFailPath)
 
             self.buildMenu_category()
@@ -2383,42 +2396,11 @@ class ui(cgmUI.cgmGUI):
         )
         mUI.MelMenuItemDiv(self.uiMenu_HelpMenu, l="Dev")
 
-        _log = mUI.MelMenuItem(
-            self.uiMenu_HelpMenu, l="Logs:", subMenu=True, tearOff=True
-        )
-
-        mUI.MelMenuItem(_log, l="Dat", c=lambda *a: self.mDat.log_self())
-        mUI.MelMenuItem(
-            _log, l="Open File Dat", c=lambda *a: self.uiFunc_getOpenFileDict()
-        )
-        mUI.MelMenuItem(_log, l="States", c=lambda *a: self.report_states())
-        mUI.MelMenuItem(
-            _log, l="Export Batch", c=lambda *a: pprint.pprint(self.batchExportItems)
-        )
-        mUI.MelMenuItem(
-            _log, l="Last Selection", c=lambda *a: self.report_lastSelection()
-        )
-        mUI.MelMenuItem(_log, l="Log Self", c=lambda *a: cgmUI.log_selfReport(self))
-
-        mUI.MelMenuItem(
-            _log, l="Rebuild scriptUI", c=lambda *a: self.rebuild_scriptUI()
-        )
-
-        # Logger toggle
-        iMenu_loggerMaster = mUI.MelMenuItem(
-            self.uiMenu_HelpMenu, l="Logger Level", subMenu=True
-        )
-        mUI.MelMenuItem(
-            iMenu_loggerMaster,
-            l="Info",
-            c=lambda *a: mc.evalDeferred(self.set_loggingInfo, lp=True),
-        )
-
-        mUI.MelMenuItem(
-            iMenu_loggerMaster,
-            l="Debug",
-            c=lambda *a: mc.evalDeferred(self.set_loggingDebug, lp=True),
-        )
+        mUI.MelMenuItem( self.uiMenu_HelpMenu, l="Refresh",
+                         c=lambda *a:self.uiProject_refreshDisplay())
+                         #c=lambda *a:self.uiProject_saveAndRefresh())
+        
+        _log = mUI.MelMenuItem( self.uiMenu_HelpMenu, l="Logs:",subMenu=True, tearOff = True)
 
     def set_loggingInfo(self):
         self.var_DebugMode.value = 0
@@ -3648,8 +3630,13 @@ class ui(cgmUI.cgmGUI):
 
         tx = mUI.MelTextField(rcl)
         rcl.setStretchWidget(tx)
-        b = mUI.MelButton(rcl, label="clear", ut="cgmUISubTemplate")
-
+        
+        #b = mUI.MelButton(rcl, label='clear', ut='cgmUISubTemplate')
+        b = mUI.MelIconButton(rcl,
+                              ann='Clear the field',
+                              image=os.path.join(_path_imageFolder,'clear.png') ,
+                              w=25,h=25)        
+        
         tsl = cgmUI.cgmScrollList(form)
         tsl.allowMultiSelect(False)
 
