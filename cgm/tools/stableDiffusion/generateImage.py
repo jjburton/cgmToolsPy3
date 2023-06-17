@@ -1,8 +1,10 @@
+import tempfile
+from cgm.lib import files
 import maya.cmds as mc
 
 import cgm.core.tools.Project as PROJECT
-from cgm.tools import stableDiffusionTools as sd
-from cgm.tools import renderTools as rt
+from cgm.tools.stableDiffusion import stableDiffusionTools as sd
+from cgm.tools.stableDiffusion import renderTools as rt
 from cgm.tools import imageViewer as iv
 from cgm.tools import imageTools as it
 
@@ -41,21 +43,6 @@ def setButtonProperties(button, state, label=None, bgColor=None):
         button(edit=True, label=label)
     button(edit=True, bgc=bgColor)
 
-def encodeImageToString(path):
-    with open(path, "rb") as c:
-        # Read the image data
-        data = c.read()
-
-        # Encode the image data as base64
-        base64encoded = base64.b64encode(data)
-
-        # Convert the base64 bytes to string
-        image_string = base64encoded.decode("utf-8")
-
-        c.close()
-    
-    return image_string
-
 def processImg2Img(self, meshes, camera, _options):
     _str_func = "generateImage.processImg2Img"
 
@@ -83,7 +70,7 @@ def processImg2Img(self, meshes, camera, _options):
 
             log.debug("composite path: {0}".format(composite_path))
 
-            _options["init_images"] = [encodeImageToString(composite_path)]
+            _options["init_images"] = [iv.encodeImageToString(composite_path)]
 
         elif option == "custom":
             custom_image = self.uiTextField_customImage(query=True, text=True)
@@ -108,7 +95,7 @@ def processImg2Img(self, meshes, camera, _options):
             log.debug("render layer: {0}".format(outputImage))
 
             if outputImage:
-                _options["init_images"] = [encodeImageToString(outputImage)]
+                _options["init_images"] = [iv.encodeImageToString(outputImage)]
 
 def processControlNets(self, meshes, camera, _options):
     _str_func = "generateImage.processControlNets"
@@ -121,7 +108,15 @@ def processControlNets(self, meshes, camera, _options):
             continue
         
         preprocessor = self.controlNets[i]['preprocessor_menu'](q=True, value=True)
-        if preprocessor == "none":
+        if self.controlNets[i]['custom_image_cb'].getValue():
+            control_net_image_path = ""
+            if self.controlNets[i]['custom_image_cb'].getValue():
+                control_net_image_path = self.controlNets[i]['custom_image_tf'].getValue()
+            
+            if os.path.exists(control_net_image_path):
+                _controlNetOptions["control_net_image"] = it.encodeImageToString(control_net_image_path)
+        elif preprocessor == "none":
+
             imgMode = None
             if 'depth' in _controlNetOptions["control_net_model"]:
                 imgMode = "depth"
@@ -191,26 +186,19 @@ def processControlNets(self, meshes, camera, _options):
                 )
                 _controlNetOptions["control_net_enabled"] = False
         else:
-            control_net_image_path = ""
-            if self.controlNets[i]['custom_image_cb'].getValue():
-                control_net_image_path = self.controlNets[i]['custom_image_tf'].getValue()
-            
-            control_net_image = None
+            self.uiFunc_assignMaterial("composite", meshes)
 
-            if not os.path.exists(control_net_image_path):
-                self.uiFunc_assignMaterial("composite", meshes)
-
-                control_net_image_path = rt.renderMaterialPass(
-                    fileName="CustomPass", camera=camera, resolution=self.resolution
-                )
+            control_net_image_path = rt.renderMaterialPass(
+                fileName="CustomPass", camera=camera, resolution=self.resolution
+            )
 
             if os.path.exists(control_net_image_path):
-                _controlNetOptions["control_net_image"] = encodeImageToString(control_net_image_path)
+                _controlNetOptions["control_net_image"] = it.encodeImageToString(control_net_image_path)
 
         _options['control_nets'][i] = _controlNetOptions
 
 def getImageAndUpdateUI(self, _options, cameraInfo, origText, bgColor, display=True):
-    try:
+    try:            
         imagePaths, info = sd.getImageFromAutomatic1111(_options)
 
         log.debug(f"Generated: {imagePaths} {info}")
@@ -318,11 +306,73 @@ def generateImageFromUI(self, display=True):
     )
     _options["output_path"] = output_path
 
-    processImg2Img(self, meshes, camera, _options)
+    _latentBatch = self.uiOM_batchMode.getValue() == "Latent Space"
 
-    processControlNets(self, meshes, camera, _options)
+    if _latentBatch:
+        frames = range(
+            self.uiIF_batchProjectStart.getValue(),
+            self.uiIF_batchProjectEnd.getValue()+1,
+            self.uiIF_batchProjectStep.getValue(),
+        )
 
-    processAlphaMatte(self, meshes, camera, _options)
+        img2img_images = []
+        controlNet_images = [[] for x in range(4)]
+        alpha_images = []
+        for i in frames:
+            mc.currentTime(i)
+            processImg2Img(self, meshes, camera, _options)
+            if "init_images" in _options.keys():
+                if len(_options["init_images"]) > 0:
+                    img2img_images.append(_options["init_images"][0])
+            
+            processControlNets(self, meshes, camera, _options)
+            for i in range(4):
+                if _options['control_nets'][i]['control_net_enabled']:
+                    controlNet_images[i].append(_options['control_nets'][i]['control_net_image'])
+
+            processAlphaMatte(self, meshes, camera, _options)
+            if "mask" in _options.keys():
+                alpha_images.append(_options["mask"])
+
+        setButtonProperties(self.generateBtn, True, origText, bgColor)
+
+        tmpdir = tempfile.TemporaryDirectory().name
+        os.mkdir(tmpdir)
+        log.debug(f"Created temporary directory: {tmpdir}")
+
+        resolution = (_options["width"], _options["height"])
+        if len(img2img_images) > 0:
+            contactSheet = it.createContactSheetFromStrings(img2img_images)
+            wantedName = os.path.join(tmpdir, "img2img_contact_sheet.png")
+            wantedName = files.create_unique_filename(wantedName)
+            contactSheet.save(wantedName)
+            log.debug(f"img2img_images: {wantedName}")
+            _options["init_images"] = it.encodeImageToString(wantedName)
+            resolution = (contactSheet.width, contactSheet.height)
+        for i in range(4):
+            if len(controlNet_images[i]) > 0:
+                contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
+                wantedName = os.path.join(tmpdir, "controlnet_%s_contact_sheet.png"%i)
+                wantedName = files.create_unique_filename(wantedName)
+                contactSheet.save(wantedName)
+                log.debug(f"controlNet_images[{i}]: {wantedName}")
+                _options['control_nets'][i]['control_net_image'] = it.encodeImageToString(wantedName)
+                resolution = (contactSheet.width, contactSheet.height)
+        if len(alpha_images) > 0:
+            contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
+            wantedName = os.path.join(tmpdir, "alpha_contact_sheet.png")
+            wantedName = files.create_unique_filename(wantedName)
+            contactSheet.save(wantedName)
+            log.debug(f"alpha_images: {wantedName}")
+            _options["mask"] = it.encodeImageToString(wantedName)
+            resolution = (contactSheet.width, contactSheet.height)
+        
+        _options["width"] = resolution[0]
+        _options["height"] = resolution[1]
+    else:
+        processImg2Img(self, meshes, camera, _options)
+        processControlNets(self, meshes, camera, _options)
+        processAlphaMatte(self, meshes, camera, _options)
 
     cameraInfo = getCameraInfo(camera)
 

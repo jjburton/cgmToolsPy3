@@ -37,8 +37,9 @@ import cgm.core.tools.Project as PROJECT
 import cgm.core.cgmPy.validateArgs as VALID
 
 from functools import partial
-from cgm.tools import stableDiffusionTools as sd
-from cgm.tools import renderTools as rt
+from cgm.tools.stableDiffusion import stableDiffusionTools as sd
+from cgm.tools.stableDiffusion import renderTools as rt
+from cgm.tools.stableDiffusion import generateImage as gi
 from cgm.tools import imageViewer as iv
 from cgm.tools import imageTools as it
 from cgm.lib import dictionary
@@ -199,8 +200,14 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelMenuItem(
             self.uiMenu_FirstMenu,
-            l="Load From Image Node",
+            l="Load From Image",
             c=lambda *a: mc.evalDeferred(self.uiFunc_load_settings_from_image, lp=True),
+        )
+
+        mUI.MelMenuItem(
+            self.uiMenu_FirstMenu,
+            l="Load From Image Node",
+            c=lambda *a: mc.evalDeferred(self.uiFunc_load_settings_from_image_node, lp=True),
         )
 
         mUI.MelMenuItemDiv(self.uiMenu_FirstMenu)
@@ -244,6 +251,53 @@ class ui(cgmUI.cgmGUI):
         self.loadOptions()
 
     def uiFunc_load_settings_from_image(self):
+        _str_func = "uiFunc_load_settings_from_image"
+
+        # open file dialog
+        _path = mc.fileDialog2(
+            fileMode=1,
+            caption="Select Image",
+            fileFilter="Image Files (*.png)",
+            dialogStyle=2,
+        )
+        if not _path:
+            return
+        
+        # get metadata from image
+        data = sd.parametersToDict(it.getPngMetadata(_path[0])['pngInfo']['parameters'])
+        
+        if data is None:
+            return
+
+        _options = self.getOptions()
+
+        _options["prompt"] = data["Prompt"]
+        _options["negative_prompt"] = data["Negative prompt"]
+        _options["seed"] = data["Seed"]
+        _options["width"], _options["height"] = [int(x) for x in data["Size"].split("x")]
+
+        _options["sampling_steps"] = data["Steps"]
+        _options["sampling_method"] = data["Sampler"]
+        _options["cfg_scale"] = data["CFG scale"]
+
+        for i in range(4):
+            _options["control_nets"][i]["control_net_enabled"] = False
+        
+        for key, value in data.items():
+            if key.startswith("ControlNet"):
+                idx = int(key[-1])
+                _options["control_nets"][idx]["control_net_enabled"] = True
+                _options["control_nets"][idx]["control_net_model"] = data[key]["model"]
+                _options["control_nets"][idx]["control_net_preprocessor"] = data[key]["preprocessor"]
+                _options["control_nets"][idx]["control_net_weight"] = data[key]["weight"]
+                _options["control_nets"][idx]["control_net_guidance_start"] = data[key]["starting/ending"][0]
+                _options["control_nets"][idx]["control_net_guidance_end"] = data[key]["starting/ending"][1]
+
+        self.config.setValue(json.dumps(_options))
+
+        self.loadOptions(_options)
+
+    def uiFunc_load_settings_from_image_node(self):
         fileNodes = mc.ls(sl=True, type="file")
         if len(fileNodes) == 0:
             return
@@ -1389,7 +1443,7 @@ class ui(cgmUI.cgmGUI):
         self.generateBtn = cgmUI.add_Button(
             _row,
             "Generate Art",
-            cgmGEN.Callback(self.uiFunc_generateImage),
+            cgmGEN.Callback(gi.generateImageFromUI, self),
             "Generate",
             h=50,
         )
@@ -2874,7 +2928,7 @@ class ui(cgmUI.cgmGUI):
         if _batch:
             frames = range(
                 self.uiIF_batchProjectStart.getValue(),
-                self.uiIF_batchProjectEnd.getValue(),
+                self.uiIF_batchProjectEnd.getValue()+1,
                 self.uiIF_batchProjectStep.getValue(),
             )
 

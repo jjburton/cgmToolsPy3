@@ -7,7 +7,8 @@ import pprint
 import base64
 from PIL import Image, PngImagePlugin
 
-from cgm.tools import renderTools as rt
+from cgm.tools.stableDiffusion import renderTools as rt
+from cgm.tools import imageTools as it
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.lib import files
 import cgm.core.tools.Project as PROJECT
@@ -186,6 +187,8 @@ def generateWithPayload(
     output_images = []
     info = json.loads(outputData["info"])
 
+    print("info: ", info)
+
     for i, image in enumerate(outputData["images"]):
         img_str = image  # extract the base64 encoded data from the string
 
@@ -214,7 +217,18 @@ def generateWithPayload(
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
 
-        img.save(output_path)
+        # save the image
+        # try:
+        #     pngInfo = it.setPngMetadata(img, {'parameters': convertOptionsToA1111Metadata(info, i)})
+        # except:
+        #     print("Error: Could not set PNG metadata")
+        #     pngInfo = None
+        #     print(info)
+        
+        pngInfo = it.makePngInfo({'parameters': info['infotexts'][min(i, len(info['infotexts']) - 1)]})
+        img.save(output_path, "PNG", pnginfo=pngInfo)
+        img.close()
+
         output_images.append(output_path)
 
     return output_images, info
@@ -708,4 +722,158 @@ def clean_cgm_sd_tags(objs=[]):
             if mShape.hasAttr(_a):
                 print("Removing attr: {}.{}".format(mShape.p_nameShort, _a))
                 mShape.delAttr(_a)
+
+######################################################################
+#>> Metadata
+######################################################################
+
+   
+def parametersToDict(s):
+    """
+    Parse the parameters string from the A1111 metadata block into a dictionary.
+
+    Parameters
+    ----------
+    s : str
+        The parameter string to parse.
+
+    Returns
+    -------
+    dict
+        The parsed parameters as a dictionary.
+    """
+    # Initialize an empty dictionary to store the key-value pairs
+    result = {}
+
+    # Special handling for ControlNet blocks
+    control_net_blocks = []
+
+    # Separate ControlNet blocks from the rest of the parameters
+    while 'ControlNet' in s:
+        control_net_start = s.index('ControlNet')
+        control_net_end = s.index(')"') + 2  # 2 for ')"'
+        control_net_blocks.append(s[control_net_start:control_net_end])
+        s = s[:control_net_start] + s[control_net_end+1:]
+
+    # Separate the prompt from the rest of the string
+    lines = s.split('\n')
+    s = lines.pop()
+    prompts = '\n'.join([x.strip() for x in lines]).split('Negative prompt:')
+    result['Prompt'] = prompts[0].strip()
+    if len(prompts) > 1:
+        result['Negative prompt'] = prompts[-1].strip()
+
+    # Split the string into parts
+    parts = [part.strip() for part in s.split(', ') if part.strip()]
+    
+    print("Parts:\n",parts, "\n\ns:\n", s)
+    
+    # Process the remaining parts
+    for part in parts:
+        try:
+            # Split the part into key and value
+            key, value = part.split(': ', 1)
+
+            # Try to convert value into int or float or keep as string
+            try:
+                if '.' in value:
+                    value = float(value)
+                else:
+                    value = int(value)
+            except ValueError:
+                pass
+
+            # Add the key and value to the result dictionary
+            result[key] = value
+        except ValueError as e:
+            print(f"Error processing part '{part}': {e}")
+
+    # Process ControlNet blocks
+    for block in control_net_blocks:
+        try:
+            # Split the block into key and value
+            key, value = block.split(': ', 1)
+            value = value.strip('"')  # Remove the quotes
+
+            # Initialize an empty sub-dictionary
+            controlNet_dict = {}
+
+            # Split the value into sub-parts, avoiding breaking tuples
+            sub_parts = [sub_part.strip() for sub_part in re.split(r', (?![^()]*\))', value) if sub_part.strip()]
+
+            # Process each sub-part
+            for sub_part in sub_parts:
+                try:
+                    # Split the sub-part into sub-key and sub-value
+                    sub_key, sub_value = sub_part.split(': ', 1)
+
+                    # Try to convert sub-value into int or float or tuple or keep as string
+                    try:
+                        if '(' in sub_value and ')' in sub_value:
+                            sub_value = tuple(map(float if '.' in sub_value else int, sub_value.strip('()').split(', ')))
+                        elif '.' in sub_value:
+                            sub_value = float(sub_value)
+                        else:
+                            sub_value = int(sub_value)
+                    except ValueError:
+                        if sub_value == 'False':
+                            sub_value = False
+                        elif sub_value == 'True':
+                            sub_value = True
+
+                    # Add the sub-key and sub-value to the sub-dictionary
+                    controlNet_dict[sub_key] = sub_value
+                except ValueError as e:
+                    print(f"Error processing sub_part '{sub_part}': {e}")
+
+            # Add the key and the sub-dictionary to the result dictionary
+            result[key] = controlNet_dict
+        except ValueError as e:
+            print(f"Error processing block '{block}': {e}")
+
+    return result
+
+def convertOptionsToA1111Metadata(data, index=0):
+    """
+    Convert the options dictionary to a string that can be used as the A1111 metadata.
+
+    Parameters
+    ----------
+    options : dict
+        The options dictionary to convert.
+
+    Returns
+    -------
+    str
+        The options dictionary converted to a string that can be used as the A1111 metadata.
+    """
+
+    ignore = ['prompt', 'all_prompts', 'all_subseeds', 'negative_prompt', 'all_negative_prompts', 'extra_generation_params', 'all_seeds', 'seed']
+
+    s = ""
+
+    # Add the prompt
+    s += f"{data['all_prompts'][min(index, len(data['all_prompts'])-1)]}\n"
+
+    # Add the negative prompt
+    if 'negative_prompt' in data:
+        s += f"Negative prompt: {data['all_negative_prompts'][min(index, len(data['all_negative_prompts'])-1)]}\n"
+
+    # Add the parameters
+    for key, value in data.items():
+        if key in ['prompt', 'negative_prompt']:
+            continue    # Skip the prompt and negative prompt
+        if key == 'extra_generation_params':
+            for sub_key, sub_value in value.items():
+                # convert sub_value dict to string
+                sub_value = str(sub_value)
+                s += f"{sub_key}: \"{sub_value}\", "
+        if key == 'all_seeds':
+            s += f"Seed: {value[min(index, len(value)-1)]}, "
+        else:
+            if key in ignore:
+                continue
+            s += f"{key.replace('_', ' ').capitalize()}: {value}, "
+
+    return s
     

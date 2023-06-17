@@ -215,19 +215,22 @@ def animFilter():
 
 def grAIBox():
     import importlib
-    from cgm.tools import stableDiffusionUI as sdui
+    from cgm.tools.stableDiffusion import stableDiffusionUI as sdui
     importlib.reload(sdui)
     
-    from cgm.tools import renderTools as rt
+    from cgm.tools.stableDiffusion import renderTools as rt
     importlib.reload(rt)
     
-    from cgm.tools import stableDiffusionTools as sd
+    from cgm.tools.stableDiffusion import stableDiffusionTools as sd
     importlib.reload(sd)
-    
+
+    from cgm.tools.stableDiffusion import generateImage as gi
+    importlib.reload(gi)
+
     from cgm.tools import imageViewer as iv
     importlib.reload(iv)
-    
-    mel.eval('python "from cgm.tools import stableDiffusionUI as sdui;graiboxUI = sdui.ui()"')
+
+    mel.eval('python "from cgm.tools.stableDiffusion import stableDiffusionUI as sdui;graiboxUI = sdui.ui()"')
             
 
     #except Exception,err:
