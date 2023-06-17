@@ -9417,6 +9417,7 @@ class ui_createBlock(CGMUI.cgmGUI):
     def build_menus(self):
         self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc = cgmGEN.Callback(self.buildMenu_file))
         self.uiMenu_SetupMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_setup))
+        self.uiMenu_snap = mUI.MelMenu( l='Snap', pmc=self.buildMenu_snap,pmo=True, tearOff=1)                
         self.uiMenu_HelpMenu = mUI.MelMenu(l='Help', pmc = cgmGEN.Callback(self.buildMenu_help))
 
     def buildMenu_file(self):
@@ -9911,15 +9912,18 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         
         #_row_blockTypes = mUI.MelHRowLayout(_inside,ut='cgmUIHeaderTemplate')
+        #_centerMe = mUI.MelHRowLayout(_inside)
+        
         _row_blockTypes = mUI.MelGridLayout(_inside,ut='cgmUIHeaderTemplate',
-                                            numberOfColumns=2, cellWidthHeight=(60, 70),
+                                            numberOfColumns=1, cellWidthHeight=(60, 75),
                                             columnsResizable =True,
-                                            bgc=d_state_colors['form'],                                            
+                                            bgc=cgmUI.guiButtonColor,                                            
                                             #highlightColor=[1,1,1],
                                             )
+        mUI.MelSpacer(_row_blockTypes, w=5)
         
         _d = copy.copy(self._d_modules)
-        for b in _d[0]:
+        for b in sorted(_d[0]):
             if _d[0][b].__dict__.get('__menuVisible__'):
                 
                 #mUI.MelIconButton(_row_blockTypes,w=50,
@@ -9937,12 +9941,13 @@ class ui_createBlock(CGMUI.cgmGUI):
                                       style='iconAndTextVertical',
                                       l=b,
                                       image =_icon ,
-                                      ua=True,
+                                      #ua=True,
                                       #mw=5,
-                                      scaleIcon=True,
+                                      scaleIcon=False,
                                       #olc=[float(v) for v in d_state_colors['form']],
                                       #olb=[float(v) for v in d_state_colors['form']]+[.5],
-                                      #w=20,h=20,
+                                      w=60,h=60,
+                                      #bgc = [0,0,0],
                                       c=cgmGEN.Callback(self.uiFunc_setBlockType,b))
                 else:
                     mUI.MelButton(_row_blockTypes,l=b,ann=b, bgc=d_state_colors['prerig'],
@@ -9985,7 +9990,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         #Block settings section ------------------------------------------------------------------
         self.uiBlock_options = mUI.MelScrollLayout(_MainForm,
-                                             bgc=cgmUI.guiBackgroundColorLight,
+                                             bgc=cgmUI.guiHeaderColor,
                                              #adj = True,
                                              useTemplate = 'cgmUITemplate')
         
