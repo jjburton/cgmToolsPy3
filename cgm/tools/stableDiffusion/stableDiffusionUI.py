@@ -271,14 +271,18 @@ class ui(cgmUI.cgmGUI):
 
         _options = self.getOptions()
 
-        _options["prompt"] = data["Prompt"]
-        _options["negative_prompt"] = data["Negative prompt"]
-        _options["seed"] = data["Seed"]
-        _options["width"], _options["height"] = [int(x) for x in data["Size"].split("x")]
+        _options["prompt"] = data["Prompt"] if "Prompt" in data else ""
+        _options["negative_prompt"] = data["Negative prompt"] if "Negative prompt" in data else ""
+        _options["seed"] = data["Seed"] if "Seed" in data else -1
+        if "Size" in data:
+            _options["width"], _options["height"] = [int(x) for x in data["Size"].split("x")]
 
-        _options["sampling_steps"] = data["Steps"]
-        _options["sampling_method"] = data["Sampler"]
-        _options["cfg_scale"] = data["CFG scale"]
+        if "Steps" in data:
+            _options["sampling_steps"] = data["Steps"]
+        if "Sampler" in data:
+            _options["sampling_method"] = data["Sampler"]
+        if "Model" in data:
+            _options["cfg_scale"] = data["CFG scale"]
 
         for i in range(4):
             _options["control_nets"][i]["control_net_enabled"] = False
@@ -287,11 +291,15 @@ class ui(cgmUI.cgmGUI):
             if key.startswith("ControlNet"):
                 idx = int(key[-1])
                 _options["control_nets"][idx]["control_net_enabled"] = True
-                _options["control_nets"][idx]["control_net_model"] = data[key]["model"]
-                _options["control_nets"][idx]["control_net_preprocessor"] = data[key]["preprocessor"]
-                _options["control_nets"][idx]["control_net_weight"] = data[key]["weight"]
-                _options["control_nets"][idx]["control_net_guidance_start"] = data[key]["starting/ending"][0]
-                _options["control_nets"][idx]["control_net_guidance_end"] = data[key]["starting/ending"][1]
+                if "model" in data[key]:
+                    _options["control_nets"][idx]["control_net_model"] = data[key]["model"]
+                if "preprocessor" in data[key]:
+                    _options["control_nets"][idx]["control_net_preprocessor"] = data[key]["preprocessor"]
+                if "weight" in data[key]:
+                    _options["control_nets"][idx]["control_net_weight"] = data[key]["weight"]
+                if "starting/ending" in data[key]:
+                    _options["control_nets"][idx]["control_net_guidance_start"] = data[key]["starting/ending"][0]
+                    _options["control_nets"][idx]["control_net_guidance_end"] = data[key]["starting/ending"][1]
 
         self.config.setValue(json.dumps(_options))
 

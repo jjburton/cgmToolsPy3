@@ -197,11 +197,13 @@ def generateWithPayload(
         img_buffer = BytesIO(img_bytes)
 
         # default imageName to "output.png" if info["prompt" is empty
-        imageName = info["prompt"]
+
+        leading_number = files.find_last_leading_number(outputDir)+1
+
+        imageName = '%04d_%d_%s' % (leading_number, info["all_seeds"][min(i, len(info["all_seeds"])-1)], re.sub("[^A-Za-z0-9]", "_", info["prompt"][:50].strip()))
         if imageName == "":
-            imageName = "output-image"
+            imageName = "output-image" % leading_number
         # remove any non-alphanumeric characters from the prompt and truncate
-        imageName = re.sub("[^A-Za-z]", "_", imageName)[:60]
         # remove any double underscores
         imageName = imageName.replace("__", "_")
         imageName = imageName + ".png"

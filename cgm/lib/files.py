@@ -1,6 +1,22 @@
 import os
 import re
 
+def find_last_leading_number(directory):
+    files = os.listdir(directory)
+
+    numbers = []
+    for file in files:
+        match = re.match(r'^(\d+)', file)  # Use regex to match leading digits
+        if match:
+            number = match.group(1)
+            numbers.append(int(number))
+
+    if numbers:
+        sorted_numbers = sorted(numbers)
+        return sorted_numbers[-1]
+    else:
+        return -1
+
 def create_unique_filename(filename):
     # Remove or replace invalid characters
     path, basefilename = os.path.split(filename)
