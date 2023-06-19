@@ -2,6 +2,9 @@ import os
 import re
 
 def find_last_leading_number(directory):
+    if not os.path.exists(directory):
+        return -1
+    
     files = os.listdir(directory)
 
     numbers = []
