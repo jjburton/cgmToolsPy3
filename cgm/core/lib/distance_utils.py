@@ -177,7 +177,10 @@ def get_size_byShapes(arg, mode = 'max'):
     else:
         raise ValueError("|{0}| >> unknown mode: {1}".format(_str_func,mode))
         
-def get_arcLen(arg):
+def get_arcLen(arg=None):
+    if not arg:
+        arg = mc.ls(sl=True,flatten = False)
+        if arg:arg=arg[0]
     shapes = mc.listRelatives(arg,shapes=True,path = 1)
     shapeLengths = []
     for shape in shapes:
@@ -761,7 +764,26 @@ def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
             _res.append([o,d])
     return _res
     #return [[d_dists[d],d] for d in l_dists]
+
+def get_min_max_bbPoints_distances(source = None, targets = []):
+    if VALID.vectorArg(source) is not False:
+        _point = source   
+    elif mc.objExists(source):
+        _point = POS.get(source)    
+    
+    targets = VALID.listArg(targets)
         
+    if not _point:raise ValueError("Must have point of reference")
+    
+    l_dists = []
+    
+    for p in ['bottom','top','left','right','front','back']:
+        l_dists.append(get_distance_between_points(_point, POS.get_bb_pos(targets,mode=p)))
+
+    #pprint.pprint(l_dists)
+    return min(l_dists), max(l_dists)
+
+
 def get_closest_point(source = None, targetSurface = None, loc = False):
     """
     Get the closest point on a target surface/curve/mesh to a given point or object.
