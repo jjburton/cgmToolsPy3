@@ -70,7 +70,7 @@ def processImg2Img(self, meshes, camera, _options):
 
             log.debug("composite path: {0}".format(composite_path))
 
-            _options["init_images"] = [iv.encodeImageToString(composite_path)]
+            _options["init_images"] = [it.encodeImageToString(composite_path)]
 
         elif option == "custom":
             custom_image = self.uiTextField_customImage(query=True, text=True)
@@ -95,7 +95,7 @@ def processImg2Img(self, meshes, camera, _options):
             log.debug("render layer: {0}".format(outputImage))
 
             if outputImage:
-                _options["init_images"] = [iv.encodeImageToString(outputImage)]
+                _options["init_images"] = [it.encodeImageToString(outputImage)]
 
 def processControlNets(self, meshes, camera, _options):
     _str_func = "generateImage.processControlNets"
