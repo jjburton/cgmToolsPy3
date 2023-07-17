@@ -273,7 +273,7 @@ def getControlNetModelsFromAutomatic1111(url="127.0.0.1:7860"):
 
 def getControlNetPreprocessorsFromAutomatic1111(url="127.0.0.1:7860"):
     endpoint = "/controlnet/module_list"
-    return getFromAutomatic1111(endpoint, url="127.0.0.1:7860")
+    return getFromAutomatic1111(endpoint, url)
 
 def getOptionsFromAutomatic(url="127.0.0.1:7860"):
     endpoint = "/sdapi/v1/options"

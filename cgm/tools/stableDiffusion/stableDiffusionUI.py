@@ -3228,7 +3228,7 @@ class ui(cgmUI.cgmGUI):
 
         url = self.uiTextField_automaticURL(query=True, text=True)
 
-        _samplers = sd.getSamplersFromAutomatic1111()
+        _samplers = sd.getSamplersFromAutomatic1111(url)
 
         if not _samplers:
             self.uiFunc_setConnected(False)
@@ -3244,7 +3244,8 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_updateControlNetPreprocessorsMenu(self):
         _str_func = "uiFunc_updateControlNetPreprocessorsMenu"
 
-        _preprocessors = sd.getControlNetPreprocessorsFromAutomatic1111()
+        url = self.uiTextField_automaticURL(query=True, text=True)
+        _preprocessors = sd.getControlNetPreprocessorsFromAutomatic1111(url)
 
         if not _preprocessors:
             self.uiFunc_setConnected(False)
@@ -3260,11 +3261,12 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_changeControlNetPreProcessor(self, index):
         _str_func = "uiFunc_changeControlNetPreProcessor"
 
-        self.uiFunc_updateControlNetModelsFromAutomatic()
+        url = self.uiTextField_automaticURL(query=True, text=True)
+        self.uiFunc_updateControlNetModelsFromAutomatic(url)
 
         controlNet = self.controlNets[index]
 
-        arg = controlNet["preprocessor_menu"].getValue()
+        arg = controlNet['preprocessor_menu'].getValue()
         log.debug("|{0}| >> arg: {1}".format(_str_func, arg))
 
         self.uiFunc_saveControlNetFromUI(index)
@@ -3282,7 +3284,7 @@ class ui(cgmUI.cgmGUI):
         # get current model
         for controlNet in self.controlNets:
 
-            preprocessor = controlNet["preprocessor_menu"](query=True, value=True)
+            preprocessor = controlNet['preprocessor_menu'](query=True, value=True)
 
             filter = preprocessor.split('_')[0]
             if preprocessor == "none":
