@@ -818,8 +818,12 @@ def uiSection_mrsAnim(parent):
     mc.menuItem(parent = parent,
                 l='cgmAnimFilterTool',
                 ann = "Launch cgm's animFilterTool - a tool for simple dynamics",
-                
-                c=lambda *a: TOOLCALLS.animFilter())        
+                c=lambda *a: TOOLCALLS.animFilter())
+    mc.menuItem(parent = parent,
+                l='cgmKeyEaser',
+                ann = "Launch cgm's KeyEaser - a tool for easing anim curves",
+                c=lambda *a: TOOLCALLS.keyEaser())    
+    
     mc.menuItem(parent = parent,
                 l='cgmFuncIterTime',
                 ann = "Launch cgm's funcIterTime - a tool for doing stuff over time via the script editor",
