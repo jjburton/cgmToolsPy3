@@ -2887,7 +2887,7 @@ def rig_controls(self):
         #IK Neck Root ----------------------------------------------------------------
         mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
         if mBlock.neckIKRoot and not mControlIKNeckRoot:
-            raise ValueError,"Should have a neckIKRoot shape by now"
+            raise ValueError("Should have a neckIKRoot shape by now")
         if mControlIKNeckRoot:
             mControlIKNeckRoot = mRigNull.controlIKNeckRoot
             log.debug("|{0}| >> Found controlBaseIK : {1}".format(_str_func, mControlIKNeckRoot))
