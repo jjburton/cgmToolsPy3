@@ -6461,10 +6461,11 @@ def rig_segments(self):
                                          worldUpType = 'objectrotation', 
                                          worldUpVector = self.v_twistUp)#[-1,0,0])
                     
-                else:
+                else:#Reg handle...
                     log.debug("|{0}| >> Reg handle...".format(_str_func))                                        
                     _aimForward = ml_handleJoints[idx_parent+1].p_nameShort
                     _aimBack = ml_handleJoints[idx_parent-1].p_nameShort
+                    
                     
                     log.debug("|{0}| >> Blend handles | forward: {1} | back: {2}".format(_str_func,_aimForward,_aimBack))
                     
@@ -6545,7 +6546,11 @@ def rig_segments(self):
                         mc.aimConstraint(mControlMid.mNode,
                                          ml_segMidHandles[ii].mNode,
                                          maintainOffset = False,**_d)
-            
+                        
+                    #Orient the handle to the half of the prev an this one
+                    const = mc.orientConstraint([ml_blendJoints[idx_parent-1].mNode,ml_blendJoints[idx_parent].mNode], mParent.masterGroup.mNode, maintainOffset = False)[0]
+                    
+                    
             #Seg handles -------------------------------------------------------------------
             ml_segJoints = mRigNull.msgList_get('segJoints_{0}'.format(i))
             log.debug("|{0}| >> Segment joints...".format(_str_func,i))
@@ -9693,6 +9698,12 @@ def get_handleIndices(self):
                 
         return idx_start,idx_end
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+
+
+d_controlDat_links = {
+    'fk' : ['leverFK','fkJoints','controlsFK','controlFK'],
+    'root' : ['cog','rigRoot','limbRoot'],
+}
 
 def controller_getDat(self):
     _str_func = 'controller_getDat'
