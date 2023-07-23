@@ -396,7 +396,7 @@ def adjust_favoring(favor=1.0, midpoint=0.5):
         for obj, attr_dict in object_dict.items():
             for attr, keys in attr_dict.items():
                 if len(keys) < 3:
-                    print(f"For object {obj} and attribute {attr}, please select at least three keys to adjust favoring.")
+                    print("For object {} and attribute {}, please select at least three keys to adjust favoring.".format(obj,attr))
                     continue
 
                 # Get the first and last key
@@ -447,7 +447,7 @@ def set_values_by_ratio(ratio = 0):
         for obj, attr_dict in object_dict.items():
             for attr, keys in attr_dict.items():
                 if len(keys) < 2: # We need at least two keys to interpolate between
-                    print(f"For object {obj} and attribute {attr}, please select at least two keys.")
+                    print("For object {} and attribute {}, please select at least two keys.".format(obj,attr))                    
                     continue
 
                 # Get the first and last key values
