@@ -10,6 +10,7 @@ Example ui to start from
 ================================================================
 """
 # From Python =============================================================
+import copy
 import logging
 import math
 logging.basicConfig()
@@ -112,12 +113,14 @@ class ui(cgmUI.cgmGUI):
 
         self.easeColumn = self.buildColumn_ease(self.uiTabLayout, asScroll=True)
         self.noiseColumn = self.buildColumn_noise(self.uiTabLayout, asScroll=True)
+        self.springColumn = self.buildColumn_noise(self.uiTabLayout, asScroll=True)
 
         mc.tabLayout(self.uiTabLayout,
             edit=True,
             tabLabel=(
-                (self.easeColumn, "Ease"),
-                (self.noiseColumn, "Noise"),
+                (self.easeColumn, "Take It Easy"),
+                (self.noiseColumn, "Bring The Noise"),
+                (self.springColumn, "Spring To Action"),
             ),
             cc=lambda *a: mc.evalDeferred(
                 cgmGEN.Callback(self.uiFunc_handleTabChange), lp=True
@@ -187,20 +190,6 @@ class ui(cgmUI.cgmGUI):
         _row.setStretchWidget(self.uiSlider_midPoint)
         mUI.MelSpacer(_row, w=5)
         _row.layout()
-        
-        # Generate Button
-        #
-        _row = mUI.MelHLayout(_inside, ut="cgmUISubTemplate", padding=10)
-
-        self.generateBtn = cgmUI.add_Button(
-            _row,
-            "Take It Easy",
-            cgmGEN.Callback(self.uiFunc_setFavorSlider, "field"),
-            "Set",
-            h=50,
-        )
-
-        _row.layout()
 
         return _inside
 
@@ -262,19 +251,85 @@ class ui(cgmUI.cgmGUI):
         _row.setStretchWidget(self.uiSlider_noise_frequency)
         mUI.MelSpacer(_row, w=5)
         _row.layout()
-        
-        # Generate Button
-        #
-        _row = mUI.MelHLayout(_inside, ut="cgmUISubTemplate", padding=10)
 
-        self.generateBtn = cgmUI.add_Button(
+        return _inside
+
+    #############################################
+    # Spring
+    #############################################
+    def buildColumn_noise(self,parent, asScroll = False):
+        if asScroll:
+            _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUISubTemplate') 
+        else:
+            _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUISubTemplate') 
+
+        defaultDamp = .5
+        defaultFrequency = .5
+
+        cmd = cgmGEN.Callback(self.uiFunc_setSpringDampSlider, "slider")
+
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+
+        mUI.MelLabel(_row, l="Use Last Key As Target:", align="right")
+
+        _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
+
+        self.uiSpringLastKeyCB = mUI.MelCheckBox(
             _row,
-            "Bring the Noise",
-            cgmGEN.Callback(self.uiFunc_setAmplitudeSlider, "field"),
-            "Set",
-            h=50,
+            useTemplate="cgmUITemplate",
+            v=False,
+            en=True,
+            changeCommand=cmd,
         )
 
+        mUI.MelSpacer(_row, w=5)
+        _row.layout()
+
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Damp:", align="right")
+        self.uiTF_spring_damp = mUI.MelFloatField(
+            _row,
+            minValue=0.0,
+            value=defaultDamp,
+            precision=2,
+            annotation="Damp"
+        )
+        self.uiTF_spring_damp(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_setSpringDampSlider, "field"))
+        
+        self.uiSlider_spring_damp = mUI.MelFloatSlider(_row,0.0, 1.0, defaultDamp, step=0.01)
+        self.uiSlider_spring_damp.setValue(defaultDamp)
+
+        self.uiSlider_spring_damp(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_handleChange, cmd))
+        self.uiSlider_spring_damp(edit=True, dragCommand=cgmGEN.Callback(self.uiFunc_handleDrag, cmd))
+
+        _row.setStretchWidget(self.uiSlider_spring_damp)
+        mUI.MelSpacer(_row, w=5)
+        _row.layout()
+
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Frequency:", align="right")
+        self.uiTF_spring_frequency = mUI.MelFloatField(
+            _row,
+            minValue=0.0,
+            value=defaultFrequency,
+            precision=2,
+            annotation="Frequency"
+        )
+        
+        self.uiTF_spring_frequency(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_setSpringFrequencySlider, "field"))
+        
+        self.uiSlider_spring_frequency = mUI.MelFloatSlider(_row,0.0, 10.0, defaultFrequency, step=0.01)
+        self.uiSlider_spring_frequency.setValue(defaultFrequency)
+        cmd = cgmGEN.Callback(self.uiFunc_setSpringFrequencySlider, "slider")
+        
+        self.uiSlider_spring_frequency(edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_handleChange, cmd))
+        self.uiSlider_spring_frequency(edit=True, dragCommand=cgmGEN.Callback(self.uiFunc_handleDrag, cmd))
+
+        _row.setStretchWidget(self.uiSlider_spring_frequency)
+        mUI.MelSpacer(_row, w=5)
         _row.layout()
 
         return _inside
@@ -319,6 +374,16 @@ class ui(cgmUI.cgmGUI):
         uiFunc_setFieldSlider(self.uiTF_noise_frequency, self.uiSlider_noise_frequency, source, 1.0, .01)
 
         adjust_noise(self._selected_objects, self.uiSlider_noise_amplitude.getValue(), self.uiSlider_noise_frequency.getValue())
+
+    def uiFunc_setSpringDampSlider(self, source):
+        uiFunc_setFieldSlider(self.uiTF_spring_damp, self.uiSlider_spring_damp, source, 1.0, .01)
+
+        adjust_spring(self._selected_objects, self.uiSlider_spring_damp.getValue(), self.uiSlider_spring_frequency.getValue(), self.uiSpringLastKeyCB.getValue())
+
+    def uiFunc_setSpringFrequencySlider(self, source):
+        uiFunc_setFieldSlider(self.uiTF_spring_frequency, self.uiSlider_spring_frequency, source, 10.0, .01)
+
+        adjust_spring(self._selected_objects, self.uiSlider_spring_damp.getValue(), self.uiSlider_spring_frequency.getValue(), self.uiSpringLastKeyCB.getValue())
 
 def uiFunc_setFieldSlider(field, slider, source, maxVal=100, step=1):
     _value = 0
@@ -477,3 +542,53 @@ def adjust_noise(selected_objects, amplitude=0, frequency=0.5):
                     mc.setKeyframe(attr_full_name, time=key[0], value=new_value)
 
                 mc.dgdirty(obj)
+
+def adjust_spring(selected_objects, damp=0, frequency=0.5, useLastKeyAsDestination=False):
+    fps = get_fps()
+
+    for object_dict in selected_objects:
+        # add noise to each key value based on time multiplied by frequency and amplitude
+        for obj, attr_dict in object_dict.items():
+            for attr, keys in attr_dict.items():
+                if len(keys) < 2: # We need at least two keys to interpolate between
+                    print("For object {} and attribute {}, please select at least two keys.".format(obj,attr))                    
+                    continue
+
+                # Iterate over all keys
+                new_keys = copy.copy(keys)
+                v = 0
+                for i, key in enumerate(new_keys):
+                    if i == 0:
+                        continue
+                    
+                    lastKeyDelta = key[0] - new_keys[i-1][0]
+
+                    print("Running spring with this: Math.spring(%f, %f, %f, %f, %f, %f)"%(key[1], v, new_keys[len(new_keys)-1][1] if useLastKeyAsDestination else key[1], damp, frequency, lastKeyDelta / fps))
+                    new_value, v = MATH.spring(new_keys[i-1][1], v, new_keys[len(new_keys)-1][1] if useLastKeyAsDestination else key[1], damp, frequency, lastKeyDelta / fps)
+                    new_keys[i] = (key[0], new_value)
+
+                    # Set the new key value
+                    attr_full_name = "{}.{}".format(obj, attr)
+                    mc.setKeyframe(attr_full_name, time=key[0], value=new_value)
+
+                mc.dgdirty(obj)
+
+def get_fps():
+    time_unit = mc.currentUnit(q=True, time=True)
+    fps = 0.0
+
+    # Convert time unit to frames per second (FPS)
+    if time_unit == 'ntsc':
+        fps = 30.0
+    elif time_unit == 'film':
+        fps = 24.0
+    elif time_unit == 'pal':
+        fps = 25.0
+    elif time_unit == 'show':
+        fps = 48.0
+    elif time_unit == 'palf':
+        fps = 50.0
+    elif time_unit == 'ntscf':
+        fps = 60.0
+
+    return fps
