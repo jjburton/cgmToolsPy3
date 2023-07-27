@@ -2215,6 +2215,7 @@ def uiCB_contextualActionMM(self,**kws):
 def uiCB_contextualAction(self,**kws):
     _str_func='uiCB_contextualTime'
     log.debug(cgmGEN.logString_start(_str_func))
+    err=None
     
     l_kws = []
     for k,v in list(kws.items()):
@@ -2512,7 +2513,6 @@ def uiCB_contextualAction(self,**kws):
     d_buffer = {}
     _primeAxis = False
     _keyResult = False
-    err=None
     if len(_keys) > 1:
         log.info("key result...")
         _keyResult=True
@@ -2729,8 +2729,8 @@ def uiCB_contextualAction(self,**kws):
         try:cgmUI.progressBar_end(self.uiProgressBar)
         except:pass
         
-        if err:
-            cgmGEN.cgmExceptCB(Exception,err,localDat=vars())            
+        #if err:
+        #    cgmGEN.cgmExceptCB(Exception,err,localDat=vars())            
         return endCall(self)            
         
         
