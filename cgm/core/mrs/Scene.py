@@ -3394,6 +3394,12 @@ example:
         """
         if VALID.fileOpen(self.versionFile,True,True):
             self.refreshMetaData()
+            
+        if cgmGEN.__mayaVersionInt__ > 2021:
+            if mc.objExists('sceneConfigurationScriptNode'):
+                mNode = cgmMeta.asMeta('sceneConfigurationScriptNode')
+                import maya.mel as MEL
+                MEL.eval(mNode.before)
         
     def uiFunc_getOpenFileDict(self,*args):
         
@@ -4531,7 +4537,9 @@ example:
             if result != 'OK':
                 log.error(">> Replacing Cancelled | {0}".format(filePath))
                 return False
-            mc.file(rn=filePath)
+            
+            mc.file(rn=os.path.normpath(filePath))
+            #mc.file(filePath)
             mc.file(s=True)
         else:
             log.info( "Version file doesn't exist" )
