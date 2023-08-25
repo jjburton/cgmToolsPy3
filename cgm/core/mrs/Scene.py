@@ -3397,9 +3397,11 @@ example:
             
         if cgmGEN.__mayaVersionInt__ > 2021:
             if mc.objExists('sceneConfigurationScriptNode'):
-                mNode = cgmMeta.asMeta('sceneConfigurationScriptNode')
-                import maya.mel as MEL
-                MEL.eval(mNode.before)
+                _before = mc.getAttr('sceneConfigurationScriptNode.before')
+                if _before and _before.count('playbackOptions') == 1 and not _before.count(';'):
+                    print("sceneConfigurationScriptNode: {}".format(_before))
+                    import maya.mel as MEL
+                    MEL.eval(_before)
         
     def uiFunc_getOpenFileDict(self,*args):
         
