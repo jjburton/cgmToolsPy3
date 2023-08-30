@@ -182,4 +182,3 @@ def get3dViewFromCamera(camera_shape):
             return temp_view
 
     raise ValueError("No 3D view found associated with camera {}.".format(camera_shape))
-
