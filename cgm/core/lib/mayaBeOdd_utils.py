@@ -37,6 +37,21 @@ import cgm.core.cgmPy.os_Utils as CGMOS
 
 #>>> Utilities
 #===================================================================
+def check_internalStandInShaderWiring():
+    _node = 'internal_standInShader'
+    import cgm.core.lib.attribute_utils as ATTR
+    from cgm.core.cgmPy import validateArgs as VALID
+    if not mc.objExists(_node):
+        return log.error("Node not found: {}".format(_node))
+    
+    _connections = ATTR.get_driver(_node, 'incandescence') or []
+    _connections = VALID.listArg(_connections)
+    if _connections:
+        log.warning("Found wiring on 'incandescence'")
+    for c in _connections:
+        print("Breaking: {} << {}".format("{}.{}".format(_node,'incandescence'), c))
+        ATTR.break_connection("{}.{}".format(_node,'incandescence'))
+        
 def killRoguePanel(method = ''):
     """
     hattip:

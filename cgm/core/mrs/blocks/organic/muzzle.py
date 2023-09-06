@@ -121,12 +121,14 @@ d_attrStateMask = {'define':[
     'bridgeSetup',
     'cheekSetup',
     'cheekUprSetup',
+    'defineProfile',
     'chinSetup',
     'faceType',
     'jawLwrSetup',
     'jawUprSetup',
     'lipSetup',
      'muzzleSetup',
+     'mouthBagSetup',
      'noseSetup',
      'nostrilSetup',
      'numBridgeSplit',
@@ -236,6 +238,7 @@ l_attrsStandard = ['side',
                    'moduleTarget',]
 
 d_attrsToMake = {'faceType':'default:muzzle:beak',
+                 'defineProfile':'human:muzzle:beak:muppet',
                  'muzzleSetup':'none:dag:joint',
                  'noseSetup':'none:simple',
                  'jawLwrSetup':'none:simple:slide',
@@ -248,15 +251,18 @@ d_attrsToMake = {'faceType':'default:muzzle:beak',
                  'tongueSetup':'none:single',
                  'sneerSetup':'none:single',
                  'smileSetup':'none:single:lineSimple',
+                 'mouthBagSetup':'none:define',
                  
                  #Jaw...
                  'jawUprSetup':'none:simple',
                  'chinSetup':'none:single',
+                 
                  #Nose...
                  'nostrilSetup':'none:default',
                  'bridgeSetup':'none:default',
                  'numJointsNostril':'int',
                  'numJointsNoseTip':'int',
+                 
                  #Lips...
                  'lipMidFollowSetup':'ribbon:prntConstraint:parent',
                  'lipMidSealSetup':'bool',
@@ -347,109 +353,127 @@ d_defaultSettings = {'version':__version__,
                      #'baseSize':MATH.get_space_value(__dimensions[1]),
                      }
 
-_d_scaleSpace = {'beak':
-                 {'cheekBoneRight': [-0.4706429982653817,
-                                     0.09505896616210308,
-                                     0.7782782571806026],
-                  'cheekRight': [-0.7577426494534092, -0.1000000000000032, 0.25237789627805113],
-                  'cornerBackRight': [-0.2799999999999998,
-                                      -0.16730074985625443,
-                                      0.9000000000000001],
-                  'cornerBagRight': [-0.2999999999999985,
-                                     -0.16730074985625443,
-                                     0.8500000000000001],
-                  'cornerFrontRight': [-0.2999999999999985,
-                                       -0.16730074985625443,
-                                       1.0000000000000007],
-                  'cornerPeakRight': [-0.3581046628664546,
-                                      -0.1637323149082519,
-                                      0.9251310369583978],
-                  'jawFrontRight': [-0.15871517417250391,
-                                    -0.8944764139389338,
-                                    0.48158759765709797],
-                  'jawNeck': [8.881784197001252e-16, -1.0, -0.09999999999999987],
-                  'jawNeckRight': [-0.3999999999999999,
-                                   -0.8000000000000007,
-                                   -0.24999999999999997],
-                  'jawRight': [-0.8500000000000001, -0.3000000000000007, -1.0],
-                  'jawTopRight': [-0.9999999999999987, 0.5, -1.0],
-                  'lwrBack': [8.881784197001252e-16, -0.25811272959247056, 1.4366308171068805],
-                  'lwrBackOutLeft': [0.14600316686371873,
-                                     -0.2382539451300385,
-                                     1.1014928068592929],
-                  'lwrBackOutRight': [-0.14600316686371784,
-                                      -0.2382539451300385,
-                                      1.1014928068592929],
-                  'lwrBackRight': [-0.07041679936800271,
-                                   -0.25811272959247056,
-                                   1.3721398724832463],
-                  'lwrFront': [8.881784197001252e-16, -0.25811272959247056, 1.5100974054480814],
-                  'lwrFrontOutLeft': [0.16836614122778926,
-                                      -0.2464644544312744,
-                                      1.1419072659670515],
-                  'lwrFrontOutRight': [-0.16836614122778837,
-                                       -0.2464644544312744,
-                                       1.1419072659670515],
-                  'lwrFrontRight': [-0.0999999999999952,
-                                    -0.25811272959247056,
-                                    1.460097405448082],
-                  'lwrGum': [3.552713678800501e-15, -0.3828124377718929, 1.3555163105674595],
-                  'lwrGumOutRight': [-0.12285507421543107,
-                                     -0.31773137293822806,
-                                     1.0735065119064129],
-                  'lwrPeak': [-1.7763568394002505e-15, -0.36757669158860473, 1.470463494666341],
-                  'lwrPeakOutLeft': [0.1643090294234293,
-                                     -0.3184307982092278,
-                                     1.1239340074675737],
-                  'lwrPeakOutRight': [-0.1643090294234284,
-                                      -0.3184307982092278,
-                                      1.1239340074675737],
-                  'lwrPeakRight': [-0.09552407160766885,
-                                   -0.3383278497732505,
-                                   1.3652433978548943],
-                  'orbFrontRight': [-0.5052126275807152,
-                                    0.4879150381731616,
-                                    0.6929776357587651],
-                  'orbRight': [-0.7275390891024611, 0.5640872012272311, 0.24922301958874898],
-                  'smileRight': [-0.4344443854213531, -0.1388694510960402, 0.853222188289098],
-                  'uprBack': [4.884981308350689e-15, -0.25978087813038186, 1.5018211539415889],
-                  'uprBackOutLeft': [0.14739875106495814,
-                                     -0.23064632176076216,
-                                     1.1035608764729905],
-                  'uprBackOutRight': [-0.14739875106495726,
-                                      -0.23064632176076216,
-                                      1.1035608764729905],
-                  'uprBackRight': [-0.07123755755266226,
-                                   -0.25741394469547707,
-                                   1.3680678889065139],
-                  'uprFront': [8.881784197001252e-16, -0.3363247362670556, 1.6045441923683403],
-                  'uprFrontOutLeft': [0.1747895324661024,
-                                      -0.24635271777310486,
-                                      1.1475659097281832],
-                  'uprFrontOutRight': [-0.17478953246610152,
-                                       -0.24635271777310486,
-                                       1.1475659097281832],
-                  'uprFrontRight': [-0.09999999999999254,
-                                    -0.25741394469547707,
-                                    1.456726679658548],
-                  'uprGum': [3.552713678800501e-15, -0.09568063015775685, 1.4845226141398844],
-                  'uprGumOutRight': [-0.1455244682733401,
-                                     -0.14289519688253272,
-                                     1.094882888563098],
-                  'uprPeak': [3.552713678800501e-15, -0.16101775510074567, 1.632339068615723],
-                  'uprPeakOutLeft': [0.19521451801805734,
-                                     -0.16717155191035893,
-                                     1.1661646804732075],
-                  'uprPeakOutRight': [-0.1952145180180569,
-                                      -0.16717155191035893,
-                                      1.1661646804732075],
-                  'uprPeakRight': [-0.11029238066243474,
-                                   -0.1574139446954792,
-                                   1.5359215390758874]}
-,
-                 
-                 
-                 
+_d_scaleSpace = {
+    'muppet':
+                 {'bridge': [6.617444900424222e-24, 0.7119054214044773, 1.3271621184403883],
+                  'bridgeOuterLeft': [0.18729736376914286,
+                                      0.6654414273750131,
+                                      0.9908282807184101],
+                  'bridgeOuterRight': [-0.18729736376914283,
+                                       0.6654414273750131,
+                                       0.9908282807184101],
+                  'bridgeRight': [-0.10286757330047164, 0.7009123505204435, 1.3032800012869035],
+                  'bulb': [6.617444900424222e-24, 0.39005799548828435, 1.4328131504101937],
+                  'bulbRight': [-0.11468922985910648, 0.38223156537965686, 1.391380017814702],
+                  'cheekBoneRight': [-0.5848587837359853,
+                                     0.2894947782982946,
+                                     0.7495439432150794],
+                  'cheekRight': [-0.9737103857255595,
+                                 -0.07974751909913103,
+                                 -0.10215773399907913],
+                  'chinRight': [-0.36542079645026765, -0.7497383895643654, 0.9460989438586402],
+                  'cornerBackRight': [-0.8384541139408674,
+                                      -0.20740679560049458,
+                                      0.18170200030231587],
+                  'cornerBagRight': [-0.6533842308578784,
+                                     -0.28970941424011976,
+                                     -0.07351462602931769],
+                  'cornerFrontRight': [-0.9150664201749135,
+                                       -0.23215147286975757,
+                                       0.23476862762587258],
+                  'cornerLwrRight': [-0.9196582572635654,
+                                     -0.3915755616068193,
+                                     0.2600908341184641],
+                  'cornerPeakRight': [-0.9529794817408644,
+                                      -0.23215147286977533,
+                                      0.1804638274446878],
+                  'cornerUprRight': [-0.9187639245107152,
+                                     -0.04189363402240609,
+                                     0.2617995090925054],
+                  'jawFrontRight': [-0.36962233968790603,
+                                    -0.9240010049543823,
+                                    0.936565071483282],
+                  'jawNeck': [6.617444900424222e-24, -1.2173357951244217, 0.45931090262267016],
+                  'jawNeckRight': [-0.9084376443328624,
+                                   -0.6390036604357086,
+                                   0.09588862520568858],
+                  'jawRight': [-0.9634967059996269, -0.5810373648283846, -0.46021350693906893],
+                  'jawTopRight': [-1.002509260463563, 0.4561344761291881, -0.37317360485348805],
+                  'lwrBack': [0, -0.3037060733705097, 0.7994843746455893],
+                  'lwrBackRight': [-0.5340392236994518, -0.24029295729729228, 0.293704553125681],
+                  'lwrFront': [6.617444900424222e-24, -0.30316153816911573, 0.9726691027120613],
+                  'lwrFrontRight': [-0.4073950810759738,
+                                    -0.29925163551046907,
+                                    0.8359528746842595],
+                  'lwrGum': [6.617444900424222e-24, -0.611961228542766, 0.69855843482444],
+                  'lwrOver': [6.617444900424222e-24, -0.5869600554548917, 0.9939662664626849],
+                  'lwrOverRight': [-0.40258166336056317,
+                                   -0.5262106964462525,
+                                   0.8904778410322158],
+                  'lwrPeak': [6.617444900424222e-24, -0.36881209279583693, 1.0177348783071096],
+                  'lwrPeakRight': [-0.4316636613601202,
+                                   -0.33921160576472786,
+                                   0.8625238855989621],
+                  'mouthBagBack': [6.617444900424222e-24,
+                                   -0.30913356019430793,
+                                   -0.5185203517200778],
+                  'mouthBagBottom': [6.617444900424222e-24,
+                                     -0.7387313209446997,
+                                     0.08316614589086718],
+                  'mouthBagRight': [-0.6951842247125819,
+                                    -0.3357142034735361,
+                                    -0.4934290020805305],
+                  'mouthBagTop': [6.617444900424222e-24,
+                                  0.11855117025756101,
+                                  0.13350413315881093],
+                  'noseBase': [6.617444900424222e-24, 0.0980172452526702, 1.0802431602787392],
+                  'noseBaseRight': [-0.06447592850531289,
+                                    0.1312707544658558,
+                                    1.0264669005428835],
+                  'noseTip': [6.617444900424222e-24, 0.261470920198299, 1.4561538299435526],
+                  'noseTipRight': [-0.12175008451239276, 0.2638110760009287, 1.4352360083808022],
+                  'noseTop': [6.617444900424222e-24, 0.9976837756942682, 1.002586422922707],
+                  'noseTopRight': [-0.09073310410417967, 0.9855281389409907, 0.963336296442221],
+                  'noseUnder': [6.617444900424222e-24, 0.15068071834849484, 1.413193899939158],
+                  'nostrilBaseRight': [-0.17840265418137208,
+                                       0.13183220981177612,
+                                       1.0820948312223626],
+                  'nostrilLineInnerLeft': [0.05220606107410563,
+                                           0.1655798660665475,
+                                           1.3228474312211935],
+                  'nostrilLineInnerRight': [-0.05220606107410563,
+                                            0.1655798660665475,
+                                            1.3228474312211935],
+                  'nostrilLineOuterRight': [-0.1403097181284395,
+                                            0.1927274491792872,
+                                            1.258653342471839],
+                  'nostrilRight': [-0.23094209451046774,
+                                   0.20589739950114172,
+                                   0.9975915899024255],
+                  'nostrilTopRight': [-0.21194843773659713,
+                                      0.3923897628136057,
+                                      0.9776489676767361],
+                  'orbFrontRight': [-0.5924508681974274, 0.5097291426521302, 0.802984768889557],
+                  'orbRight': [-0.8592522662071523, 0.4310727464754862, 0.3720415061915493],
+                  'smileRight': [-0.9447446334141945, -0.20253722379706574, 0.10425571338295875],
+                  'sneerRight': [-0.1650209689485439, 0.9036412653062555, 0.8603416611983652],
+                  'uprBack': [-0.005559025181135858, -0.26621430219109143, 0.8130835245154717],
+                  'uprBackRight': [-0.34275257785629065,
+                                   -0.24322209321731947,
+                                   0.6679266619018258],
+                  'uprFront': [6.617444900424222e-24, -0.26339937113841216, 0.9807891218240232],
+                  'uprFrontRight': [-0.4073950810759738,
+                                    -0.2351521908300267,
+                                    0.8079507750711228],
+                  'uprGum': [6.617444900424222e-24, 0.10817846136983889, 0.7160626661886829],
+                  'uprOver': [6.617444900424222e-24, 0.02648282709150429, 1.0211166964547387],
+                  'uprOverRight': [-0.43767073445600774,
+                                   0.005788914605096451,
+                                   0.8794701445810409],
+                  'uprPeak': [6.617444900424222e-24, -0.19691243592580143, 1.0271498010531217],
+                  'uprPeakRight': [-0.4465273910651476, -0.1404288489594805, 0.87938720633154]},
+
+
                  'canine':
                  {'bridge': [0, 0.7498176416406359, 1.0360182177554098],
                   'bridgeOuterLeft': [0.1957615666726813,
@@ -800,7 +824,8 @@ def define(self):
     
     
     #Buffer our values...
-    _str_faceType = self.getEnumValueString('faceType')
+    _str_defineProfile= self.getEnumValueString('defineProfile')
+    
     _str_muzzleSetup = self.getEnumValueString('muzzleSetup')
     _str_noseSetup = self.getEnumValueString('noseSetup')
     _str_jawLwrSetup = self.getEnumValueString('jawLwrSetup')    
@@ -808,6 +833,7 @@ def define(self):
     _str_teethSetup = self.getEnumValueString('teethSetup')
     _str_cheekSetup = self.getEnumValueString('cheekSetup')
     _str_tongueSetup = self.getEnumValueString('tongueSetup')
+    _str_mouthBagSetup = self.getEnumValueString('mouthBagSetup')
     
     #Cleaning =========================================================        
     _shapes = self.getShapes()
@@ -824,7 +850,10 @@ def define(self):
     #rigBlock Handle ===========================================================
     log.debug("|{0}| >>  RigBlock Handle...".format(_str_func))            
     _size = MATH.average(self.baseSize[1:])
-    self.jointRadius = _size / 10
+    
+    if self.jointRadius == 1.0:
+        self.jointRadius = _size / 10
+    
     _crv = CURVES.create_fromName(name='locatorForm',#'axis3d',#'arrowsAxis', 
                                   direction = 'z+', size = _size/4)
     SNAP.go(_crv,self.mNode,)
@@ -848,7 +877,6 @@ def define(self):
     #mScaleNull.p_position = POS.get(mBBShape.mNode,'bb')
     #mScaleNull.dagLock()
     
-    
     CORERIG.copy_pivot(mBBShape.mNode,self.mNode)
     mHandleFactory.color(mBBShape.mNode,controlType='sub')
     mBBShape.setAttrFlags()
@@ -868,8 +896,8 @@ def define(self):
     d_curves = {}
     d_curveCreation = {}
     d_toParent = {}
-    _str_pose = self.blockProfile#'human'        
-    if not _d_scaleSpace.get(_str_pose):
+    _str_pose = _str_defineProfile#self.blockProfile#'human'        
+    if not _d_scaleSpace.get(_str_defineProfile):
         log.error(cgmGEN.logString_sub(_str_func,'Unregistered scaleSpace blockProfile: {0}'.format(_str_pose)))        
         return False
     l_mainHandles = []
@@ -910,7 +938,7 @@ def define(self):
             _d[k+'Left'] =  {'color':'blueBright','tagOnly':1,'arrow':0,'jointLabel':0,'vectorLine':0}
             _d[k+'Right'] =  {'color':'redBright','tagOnly':1,'arrow':0,'jointLabel':0,'vectorLine':0}
         
-        get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
+        get_handleScaleSpaces(_d,_d_scaleSpace,_str_defineProfile,'Left','Right')
         """
         for k,d in _d.iteritems():
             if 'Left' in k:
@@ -998,7 +1026,7 @@ def define(self):
         d_pairs.update(_d_pairs)#push to master list...        
         
         #Process scaleSpace------------------------------------------------------------------
-        get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
+        get_handleScaleSpaces(_d,_d_scaleSpace,_str_defineProfile,'Left','Right')
 
         _keys = list(_d.keys())
         _keys.sort()
@@ -1289,7 +1317,7 @@ def define(self):
                                                 'color':'yellowWhite',
                                                 'rebuild':0}"""
     #mouthbag ================================================================================
-    if self.lipSetup:
+    if self.mouthBagSetup:
         log.debug(cgmGEN.logString_sub(_str_func,'Mouth bag: {0}'.format(_str_lipSetup)))
         
         #Declarations of keys...---------------------------------------------------------------------
@@ -1312,7 +1340,7 @@ def define(self):
         d_pairs.update(_d_pairs)#push to master list...        
         
         #Process scaleSpace------------------------------------------------------------------
-        get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
+        get_handleScaleSpaces(_d,_d_scaleSpace,_str_defineProfile,'Left','Right')
    
         _keys = list(_d.keys())
         _keys.sort()
@@ -1374,7 +1402,7 @@ def define(self):
         d_pairs.update(_d_pairs)#push to master list...        
         
         #Process
-        get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
+        get_handleScaleSpaces(_d,_d_scaleSpace,_str_defineProfile,'Left','Right')
 
         _keys = list(_d.keys())
         _keys.sort()
@@ -1473,7 +1501,7 @@ def define(self):
         d_pairs.update(_d_pairs)#push to master list...        
         
         #Process
-        get_handleScaleSpaces(_d,_d_scaleSpace,_str_pose,'Left','Right')
+        get_handleScaleSpaces(_d,_d_scaleSpace,_str_defineProfile,'Left','Right')
 
         _keys = list(_d.keys())
         _keys.sort()
@@ -1571,7 +1599,6 @@ def define(self):
         elif "Right" in k:
             d_curveCreation[k]['color'] = 'redWhite'
             
-    
     
     md_resCurves = self.UTILS.create_defineCurve(self, d_curveCreation, md_handles, mNoTransformNull)
     self.msgList_connect('defineHandles',ml_handles)#Connect    
