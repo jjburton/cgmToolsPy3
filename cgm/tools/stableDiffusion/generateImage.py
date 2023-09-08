@@ -231,6 +231,7 @@ def getImageAndUpdateUI(self, _options, cameraInfo, origText, bgColor, display=T
                 info['latent_batch'] = True
                 log.debug(f"latent_batch_num_images from getImageAndUpdate: {_options['latent_batch_num_images']}")
                 info['latent_batch_num_images'] = _options['latent_batch_num_images']
+                info['latent_batch_camera_info'] = _options['latent_batch_camera_info']
 
             if display:
                 displayImage(imagePaths, info, callbacks)
@@ -329,6 +330,8 @@ def generateImageFromUI(self, display=True):
         img2img_images = []
         controlNet_images = [[] for x in range(4)]
         alpha_images = []
+        _options['latent_batch_camera_info'] = []
+
         for i in frames:
             mc.currentTime(i)
             processImg2Img(self, meshes, camera, _options)
@@ -337,13 +340,17 @@ def generateImageFromUI(self, display=True):
                     img2img_images.append(_options["init_images"][0])
             
             processControlNets(self, meshes, camera, _options)
-            for i in range(4):
-                if _options['control_nets'][i]['control_net_enabled']:
-                    controlNet_images[i].append(_options['control_nets'][i]['control_net_image'])
+            for p in range(4):
+                if _options['control_nets'][p]['control_net_enabled']:
+                    controlNet_images[p].append(_options['control_nets'][p]['control_net_image'])
 
             processAlphaMatte(self, meshes, camera, _options)
             if "mask" in _options.keys():
                 alpha_images.append(_options["mask"])
+            
+            frameCamInfo = getCameraInfo(camera)
+            frameCamInfo['frame'] = i
+            _options['latent_batch_camera_info'].append(frameCamInfo)
 
         setButtonProperties(self.generateBtn, True, origText, bgColor)
 
@@ -352,10 +359,8 @@ def generateImageFromUI(self, display=True):
         log.debug(f"Created temporary directory: {tmpdir}")
 
         resolution = (_options["width"], _options["height"])
-        max_latent_batch_images = 0
 
         if len(img2img_images) > 0:
-            max_latent_batch_images = max(max_latent_batch_images, len(img2img_images))
             log.debug(f"len img2img_images: {len(img2img_images)}")
 
             contactSheet = it.createContactSheetFromStrings(img2img_images)
@@ -367,7 +372,6 @@ def generateImageFromUI(self, display=True):
             resolution = (contactSheet.width, contactSheet.height)
         for i in range(4):
             if len(controlNet_images[i]) > 0:
-                max_latent_batch_images = max(max_latent_batch_images, len(controlNet_images[i]))
                 log.debug(f"len controlNet_images[{i}]: {len(controlNet_images[i])}")
                 contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
                 wantedName = os.path.join(tmpdir, "controlnet_%s_contact_sheet.png"%i)
@@ -377,7 +381,6 @@ def generateImageFromUI(self, display=True):
                 _options['control_nets'][i]['control_net_image'] = it.encodeImageToString(wantedName)
                 resolution = (contactSheet.width, contactSheet.height)
         if len(alpha_images) > 0:
-            max_latent_batch_images = max(max_latent_batch_images, len(alpha_images))
             contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
             wantedName = os.path.join(tmpdir, "alpha_contact_sheet.png")
             wantedName = files.create_unique_filename(wantedName)
@@ -387,7 +390,7 @@ def generateImageFromUI(self, display=True):
             resolution = (contactSheet.width, contactSheet.height)
         
         _options["latent_batch"] = True
-        _options["latent_batch_num_images"] = max_latent_batch_images
+        _options["latent_batch_num_images"] = len(_options['latent_batch_camera_info'])
         log.debug(f"latent_batch_num_images from generateImageFromUI: {_options['latent_batch_num_images']}")
 
         _options["width"] = resolution[0]
