@@ -33,7 +33,6 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as SHARED
 import cgm.core.cgm_General as cgmGEN
 
-
 #DO NOT IMPORT: DIST
 '''
 Lerp and Slerp functions translated from taken from https://keithmaggio.wordpress.com/2011/02/15/math-magician-lerp-slerp-and-nlerp/
@@ -63,7 +62,6 @@ class Vector3(EUCLID.Vector3):
     @staticmethod
     def    down():
         return EUCLID.Vector3(0,-1,0)
-
 
     @staticmethod
     def    zero():

@@ -3887,6 +3887,12 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_assignMaterial("projection")
         rt.assignImageToProjectionShader(projectionShader, imagePath, info)
 
+    def bakeLatentSpaceImageOnSelected(self, imagePath, info):
+        _str_func = "bakeLatentSpaceImageOnSelected"
+        log.debug("|{0}| >> ...".format(_str_func))
+        log.debug("|{0}| >> ...".format(imagePath))
+        log.debug("|{0}| >> ...".format(info))
+
     def uiFunc_viewImage(self):
         _str_func = "uiFunc_viewImage"
 

@@ -221,6 +221,17 @@ def getImageAndUpdateUI(self, _options, cameraInfo, origText, bgColor, display=T
                 }
             )
 
+            if "latent_batch" in _options.keys() and _options["latent_batch"]:
+                callbacks.append(
+                    {
+                        "label": "Bake LSP on Selected",
+                        "function": self.bakeLatentSpaceImageOnSelected,
+                    }
+                )
+                info['latent_batch'] = True
+                log.debug(f"latent_batch_num_images from getImageAndUpdate: {_options['latent_batch_num_images']}")
+                info['latent_batch_num_images'] = _options['latent_batch_num_images']
+
             if display:
                 displayImage(imagePaths, info, callbacks)
 
@@ -341,7 +352,12 @@ def generateImageFromUI(self, display=True):
         log.debug(f"Created temporary directory: {tmpdir}")
 
         resolution = (_options["width"], _options["height"])
+        max_latent_batch_images = 0
+
         if len(img2img_images) > 0:
+            max_latent_batch_images = max(max_latent_batch_images, len(img2img_images))
+            log.debug(f"len img2img_images: {len(img2img_images)}")
+
             contactSheet = it.createContactSheetFromStrings(img2img_images)
             wantedName = os.path.join(tmpdir, "img2img_contact_sheet.png")
             wantedName = files.create_unique_filename(wantedName)
@@ -351,6 +367,8 @@ def generateImageFromUI(self, display=True):
             resolution = (contactSheet.width, contactSheet.height)
         for i in range(4):
             if len(controlNet_images[i]) > 0:
+                max_latent_batch_images = max(max_latent_batch_images, len(controlNet_images[i]))
+                log.debug(f"len controlNet_images[{i}]: {len(controlNet_images[i])}")
                 contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
                 wantedName = os.path.join(tmpdir, "controlnet_%s_contact_sheet.png"%i)
                 wantedName = files.create_unique_filename(wantedName)
@@ -359,6 +377,7 @@ def generateImageFromUI(self, display=True):
                 _options['control_nets'][i]['control_net_image'] = it.encodeImageToString(wantedName)
                 resolution = (contactSheet.width, contactSheet.height)
         if len(alpha_images) > 0:
+            max_latent_batch_images = max(max_latent_batch_images, len(alpha_images))
             contactSheet = it.createContactSheetFromStrings(controlNet_images[i])
             wantedName = os.path.join(tmpdir, "alpha_contact_sheet.png")
             wantedName = files.create_unique_filename(wantedName)
@@ -367,6 +386,10 @@ def generateImageFromUI(self, display=True):
             _options["mask"] = it.encodeImageToString(wantedName)
             resolution = (contactSheet.width, contactSheet.height)
         
+        _options["latent_batch"] = True
+        _options["latent_batch_num_images"] = max_latent_batch_images
+        log.debug(f"latent_batch_num_images from generateImageFromUI: {_options['latent_batch_num_images']}")
+
         _options["width"] = resolution[0]
         _options["height"] = resolution[1]
     else:
