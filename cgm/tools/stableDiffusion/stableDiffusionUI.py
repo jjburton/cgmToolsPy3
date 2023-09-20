@@ -886,7 +886,7 @@ class ui(cgmUI.cgmGUI):
         self.uiOM_modelMenu = mUI.MelOptionMenu(
             _row,
             useTemplate="cgmUITemplate",
-            changeCommand=lambda *a: self.setModelFromUI(),
+            changeCommand=lambda *a: self.uiFunc_setModelFromUI(),
         )
 
         # self.uiFunc_updateModelsFromAutomatic()
@@ -1240,7 +1240,7 @@ class ui(cgmUI.cgmGUI):
         # >>>Depth Slider...
         minDepth = 0
         maxDepth = 50.0
-        depthShader = self.getDepthShader()
+        depthShader = self.uiFunc_getDepthShader()
         if depthShader:
             minDepth = mc.getAttr("%s.minDistance" % depthShader)
             maxDepth = mc.getAttr("%s.maxDistance" % depthShader)
@@ -1460,7 +1460,7 @@ class ui(cgmUI.cgmGUI):
             _row,
             "Bake Projection on All",
             cgmGEN.Callback(self.uiFunc_bakeProjection),
-            "Bake Projection",
+            "Bake Projection on All",
             h=50,
         )
 
@@ -1468,7 +1468,7 @@ class ui(cgmUI.cgmGUI):
             _row,
             "Bake Projection on Selected",
             cgmGEN.Callback(self.uiFunc_bakeProjection, True),
-            "Merge Composite",
+            "Bake Projection on Selected",
             h=50,
         )
 
@@ -1772,6 +1772,35 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_saveControlNetFromUI(self, index):
         self.saveOption("control_nets", self.uiFunc_getControlNets())
 
+    def uiFunc_setSize(self, source):
+        _str_func = "uiFunc_setSize"
+
+        width, height = 0, 0
+
+        if source == "menu":
+            size = self.uiOM_SizeMenu(query=True, value=True)
+            width, height = [int(x) for x in size.split("x")]
+            self.uiIF_Width(edit=True, value=width)
+            self.uiIF_Height(edit=True, value=height)
+        else:
+            width = self.uiIF_Width(query=True, value=True)
+            height = self.uiIF_Height(query=True, value=True)
+
+        # set render globals
+        mc.setAttr("defaultResolution.width", width)
+        mc.setAttr("defaultResolution.height", height)
+
+        aspectRatio = float(width) / float(height)
+        mc.setAttr("defaultResolution.deviceAspectRatio", aspectRatio)
+
+        projectionCam = self.uiTextField_projectionCamera(q=True, text=True)
+        if projectionCam:
+            mc.setAttr("%s.horizontalFilmAperture" % projectionCam, aspectRatio)
+            mc.setAttr("%s.verticalFilmAperture" % projectionCam, 1.0)
+
+        self.saveOption("width", width)
+        self.saveOption("height", height)
+
     # =============================================================================================================
     # >> Edit Column
     # =============================================================================================================
@@ -2002,7 +2031,7 @@ class ui(cgmUI.cgmGUI):
                 )
                 mc.menuItem(
                     label="Open UV in Explorer",
-                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, _orig_path),
+                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, os.path.split(_uv_projection_path)[0]),
                 )
 
             info_row = mUI.MelColumn(subrow_layout, useTemplate="cgmUISubTemplate")
@@ -2356,159 +2385,43 @@ class ui(cgmUI.cgmGUI):
 
             mc.connectAttr(xyzFile + ".outColor", mesh + ".cgmXYZFile", force=True)
 
-    # =============================================================================================================
-    # >> UI Funcs -- Project Tab
-    # =============================================================================================================
-    def uiFunc_project_setAutoDepth(self, *a):
-        _str_func = "uiFunc_project_setAutoDepth"
-        self.saveOptionFromUI("auto_depth_enabled", self.uiAutoDepthEnabledCB)
-
-        val = self.uiAutoDepthEnabledCB.getValue()
-        self.uiDepthRow(e=True, vis=not val)
-                
-    def uiFunc_changeAutomatic1111Url(self):
-        _str_func = "uiFunc_changeAutomatic1111Url"
-
-        log.debug(_str_func + " start")
-        self.saveOption(
-            "automatic_url", self.uiTextField_automaticURL(query=True, text=True)
-        )
-
-        self.uiFunc_tryAutomatic1111Connect()
-        # self.handleReset()
-
-    def uiFunc_setImg2ImgPass(self, *a):
-        _str_func = "uiFunc_setImg2ImgPass"
-        log.debug("%s %s" % (_str_func, a))
-
-        option = a[0].lower()
-        val = option != "none"
-
-        self.img2imgLayout(e=True, vis=val)
-
-        self.customImage_row(e=True, vis=option == "custom")
-        self.renderLayer_row(e=True, vis=option == "render layer")
-        self.uiAlphaMatteCB(e=True, en=val)
-
-        self.saveOption("img2img_pass", a[0])
-
-    def uiFunc_setAlphaMatteCB(self, *a):
-        _str_func = "uiFunc_setAlphaMatteCB"
-        log.debug("%s %s" % (_str_func, a))
-
-        val = a[0]
-
-        self.alphaMatteLayout(e=True, vis=val)
-
-        self.saveOption("use_alpha_pass", val)
-
-    def uiFunc_project_handleCustomImageCBChange(self, index):
-        self.controlNets[index]['custom_image_row'](e=True, vis=self.controlNets[index]['custom_image_cb'].getValue())
-        self.uiFunc_saveControlNetFromUI(index=index)
-
-    def uiFunc_project_handleBatchModeChange(self):
-        _str_func = "uiFunc_project_handleBatchModeChange"
-
-        val = self.uiOM_batchMode.getValue()
-        self.saveOption("batch_mode", val)
-
-        self.uiFunc_project_updateBatchMode()
-        
-    def uiFunc_project_updateBatchMode(self):
-        _str_func = "uiFunc_project_updateBatchMode"
-
-        val = self.uiOM_batchMode.getValue()
-
-        log.debug("%s %s" % (_str_func, val ))
-
-        self.uiLayout_batchMode_bakeProjection(e=True, vis=val.lower() == "bake projection")
-        self.uiMelRow_batchTimeRange(e=True, vis=val.lower() != "none")
-        self.uiLayout_batchMode.layout()
-
-    def uiFunc_auto_populate_fields(self):
-        _str_func = "uiFunc_auto_populate_fields"
-
-        self.uiFunc_loadAllMeshes()
-
-        for cam in mc.ls("*.cgmCamera"):
-            if mc.getAttr(cam) == "projection":
-                self.uiTextField_projectionCamera(edit=True, text=cam.split(".")[0])
-                break
-
-        for shader in mc.ls("*.cgmShader"):
-            if mc.getAttr(shader) == "sd_projection":
-                self.uiTextField_projectionShader(edit=True, text=shader.split(".")[0])
-                continue
-            if mc.getAttr(shader) == "sd_alpha":
-                self.uiTextField_alphaProjectionShader(
-                    edit=True, text=shader.split(".")[0]
-                )
-                continue
-            if mc.getAttr(shader) == "sd_depth":
-                self.uiTextField_depthShader(edit=True, text=shader.split(".")[0])
-                continue
-            if mc.getAttr(shader) == "sd_normal":
-                self.uiTextField_normalShader(edit=True, text=shader.split(".")[0])
-                continue
-
-    def uiFunc_makeMaterialFromType(self, materialType):
-        if materialType == "projection":
-            return self.uiFunc_makeProjectionShader()
-        if materialType == "alphaProjection":
-            return self.uiFunc_makeAlphaProjectionShader()
-        if materialType == "depth":
-            return self.uiFunc_makeDepthShader()
-        if materialType == "normal":
-            return self.uiFunc_makeNormalShader()
-        
-        log.error("Invalid material type: %s" % materialType)
-        return None
-
+    # ===========================================================================
+    # Materials
+    # ===========================================================================
+    
     def uiFunc_getMaterial(self, materialType, mesh=None):
         _str_func = "uiFunc_getMaterial"
 
         if materialType == "projection":
-            return self.uiTextField_projectionShader(query=True, text=True)
+            return self.uiFunc_getProjectionShader()
         if materialType == "alphaProjection":
-            return self.uiTextField_alphaProjectionShader(query=True, text=True)
+            return self.uiFunc_getAlphaShader()
         if materialType == "depth":
-            return self.uiTextField_depthShader(query=True, text=True)
+            return self.uiFunc_getDepthShader()
         if materialType == "normal":
-            return self.uiTextField_normalShader(query=True, text=True)
+            return self.uiFunc_getNormalShader()
         
         if not mesh or not mc.objExists(mesh):
             log.error("|{0}| >> No mesh specified.".format(_str_func))
             return None
 
-        attrs = {
-            "composite": "cgmCompositeMaterial",
-            "alphaMatte": "cgmAlphaMatteMaterial",
-            "merged": "cgmMergedMaterial",
-            "xyz": "cgmXYZMaterial",
-        }
-        if materialType not in attrs:
-            log.error(
-                "|{0}| >> Invalid material type {1}.".format(_str_func, materialType)
-            )
-            return None
+        return sd.getMeshMaterial(mesh, materialType)
 
-        attr = attrs[materialType]
-        if not mc.objExists(mesh + "." + attr):
-            log.error(
-                "|{0}| >> Mesh doesn't have attribute {1}.".format(_str_func, attr)
-            )
-            return None
+    def uiFunc_getDepthShader(self):
+        _str_func = "uiFunc_getDepthShader"
+        return self.uiTextField_depthShader(q=True, tx=True)
 
-        connections = mc.listConnections(mesh + "." + attr)[0]
-        if not connections:
-            log.error(
-                "|{0}| >> Mesh doesn't have connected material {1}.".format(
-                    _str_func, attr
-                )
-            )
-            return None
+    def uiFunc_getNormalShader(self):
+        _str_func = "uiFunc_getNormalShader"
+        return self.uiTextField_normalShader(q=True, tx=True)
+    
+    def uiFunc_getAlphaShader(self):
+        _str_func = "uiFunc_getAlphaShader"
+        return self.uiTextField_alphaProjectionShader(q=True, tx=True)
 
-        return connections
+    def uiFunc_getProjectionShader(self):
+        _str_func = "uiFunc_getProjectionShader"
+        return self.uiTextField_projectionShader(q=True, tx=True)
 
     def uiFunc_assignMaterial(self, materialType, meshes=None):
         _str_func = "uiFunc_assignMaterial"
@@ -2561,34 +2474,9 @@ class ui(cgmUI.cgmGUI):
             log.debug("Assigning {0} to {1}".format(_material, _mesh))
             rt.assignMaterial(_mesh, _sg)
 
-    def uiFunc_setSize(self, source):
-        _str_func = "uiFunc_setSize"
-
-        width, height = 0, 0
-
-        if source == "menu":
-            size = self.uiOM_SizeMenu(query=True, value=True)
-            width, height = [int(x) for x in size.split("x")]
-            self.uiIF_Width(edit=True, value=width)
-            self.uiIF_Height(edit=True, value=height)
-        else:
-            width = self.uiIF_Width(query=True, value=True)
-            height = self.uiIF_Height(query=True, value=True)
-
-        # set render globals
-        mc.setAttr("defaultResolution.width", width)
-        mc.setAttr("defaultResolution.height", height)
-
-        aspectRatio = float(width) / float(height)
-        mc.setAttr("defaultResolution.deviceAspectRatio", aspectRatio)
-
-        projectionCam = self.uiTextField_projectionCamera(q=True, text=True)
-        if projectionCam:
-            mc.setAttr("%s.horizontalFilmAperture" % projectionCam, aspectRatio)
-            mc.setAttr("%s.verticalFilmAperture" % projectionCam, 1.0)
-
-        self.saveOption("width", width)
-        self.saveOption("height", height)
+    # ===========================================================================
+    # Rendering
+    # ===========================================================================
 
     def uiFunc_renderLayer(self, display=True):
         _str_func = "uiFunc_renderLayer"
@@ -2930,7 +2818,7 @@ class ui(cgmUI.cgmGUI):
         # self.assignImageToProjection(imagePath, info)
 
         _batch = self.uiOM_batchMode.getValue() == "Bake Projection"
-        _generate = self.uiCB_batchGenerate.getValue()
+        _generate = self.uiCB_batchGenerate.getValue() and _batch
 
         frames = [mc.currentTime(q=True)]
         if _batch:
@@ -2939,7 +2827,7 @@ class ui(cgmUI.cgmGUI):
                 self.uiIF_batchProjectEnd.getValue()+1,
                 self.uiIF_batchProjectStep.getValue(),
             )
-
+        
         meshes = self.uiList_projectionMeshes(query=True, allItems=True)
 
         if bakeSelectedOnly:
@@ -2955,6 +2843,9 @@ class ui(cgmUI.cgmGUI):
             log.error("|{0}| >> No meshes to bake".format(_str_func))
             return
 
+        projectionShader = self.uiFunc_getMaterial("projection", meshes[0])
+        alphaShader = self.uiFunc_getMaterial("alphaProjection", meshes[0])
+
         # store current batch settings
         _batchCount = self.uiIF_batchCount.getValue()
         _batchSize = self.uiIF_batchSize.getValue()
@@ -2968,6 +2859,16 @@ class ui(cgmUI.cgmGUI):
             self.uiIF_batchSize.setValue(1)
             self.uiFunc_setBatchSize("field")
 
+        additionalDictInfo = {}
+        camera = self.uiTextField_projectionCamera(query=True, text=True)
+        if camera:
+            cameraTransform = mc.listRelatives(camera, parent=True)[0]
+            additionalDictInfo['bakedcamera_info'] = {
+                "position": mc.xform(cameraTransform, q=True, ws=True, t=True),
+                "rotation": mc.xform(cameraTransform, q=True, ws=True, ro=True),
+                "fov": mc.getAttr(camera + ".focalLength"),
+            }
+
         for frame in frames:
             mc.currentTime(frame)
             mc.refresh()
@@ -2977,47 +2878,7 @@ class ui(cgmUI.cgmGUI):
                 if imagePaths:
                     self.assignImageToProjection(imagePaths[0], info)
 
-            for mesh in meshes:
-                projectionShader = self.uiFunc_getMaterial("projection", mesh)
-                alphaShader = self.uiFunc_getMaterial("alphaProjection", mesh)
-
-                bakedImage = rt.bakeProjection(projectionShader, mesh)
-                bakedAlpha = rt.bakeProjection(alphaShader, mesh)
-
-                mFile = cgmMeta.asMeta(bakedImage)
-
-                projection = mc.listConnections(projectionShader, type="projection")
-                if projection:
-                    projection = projection[0]
-                    projectionFile = mc.listConnections(f"{projection}.image")
-                    if projectionFile:
-                        mFile.doStore(
-                            "cgmSourceProjectionImage",
-                            mc.getAttr(f"{projectionFile[0]}.fileTextureName"),
-                        )
-
-                        cgmImageProjectionData = json.loads(mc.getAttr(f"{projectionFile[0]}.cgmImageProjectionData")) or {}
-                        log.debug(f"Found cgmImageProjectionData: {cgmImageProjectionData}")
-                        
-                        _camera = self.uiTextField_projectionCamera(query=True, text=True)
-                        if _camera:
-                            cameraTransform = mc.listRelatives(_camera, parent=True)[0]
-                            cgmImageProjectionData['baked_camera_info'] = {
-                                "position": mc.xform(cameraTransform, q=True, ws=True, t=True),
-                                "rotation": mc.xform(cameraTransform, q=True, ws=True, ro=True),
-                                "fov": mc.getAttr(_camera + ".focalLength"),
-                            }
-                        
-                        mFile.doStore(
-                            "cgmImageProjectionData",
-                            json.dumps(cgmImageProjectionData),
-                        )
-
-                compositeShader = self.uiFunc_getMaterial("composite", mesh)
-                alphaMatteShader = self.uiFunc_getMaterial("alphaMatte", mesh)
-
-                rt.addImageToCompositeShader(compositeShader, bakedImage, bakedAlpha)
-                rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)
+            sd.bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData=additionalDictInfo)
 
         # restore sd batch settings
         if _generate:
@@ -3028,6 +2889,372 @@ class ui(cgmUI.cgmGUI):
 
         # assign composite shader
         self.uiFunc_assignMaterial("composite")
+
+    # =============================================================================================================
+    # >> UI Funcs -- Settings Tab
+    # =============================================================================================================
+    def uiFunc_makeProjectionCamera(self):
+        cam, shape = rt.makeProjectionCamera()
+        self.uiTextField_projectionCamera(edit=True, text=shape)
+
+        return shape
+
+    def uiFunc_makeProjectionShader(self):
+        _str_func = "uiFunc_makeProjectionShader"
+        _camera = self.uiTextField_projectionCamera(query=True, text=True)
+
+        if not mc.objExists(_camera):
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
+            result = mc.confirmDialog(
+                title="No Camera",
+                message="No projection camera loaded.  Create one?",
+                button=["Yes", "No"],
+                defaultButton="Yes",
+                cancelButton="No",
+                dismissString="No",
+            )
+            if result == "Yes":
+                _camera = self.uiFunc_makeProjectionCamera()
+            else:
+                return
+
+        shader, sg = rt.makeProjectionShader(_camera)
+        self.uiTextField_projectionShader(edit=True, text=shader)
+
+        return shader, sg
+
+    def uiFunc_makeAlphaProjectionShader(self):
+        _str_func = "uiFunc_makeAlphaProjectionShader"
+        _camera = self.uiTextField_projectionCamera(query=True, text=True)
+
+        if not mc.objExists(_camera):
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
+            result = mc.confirmDialog(
+                title="No Camera",
+                message="No projection camera loaded.  Create one?",
+                button=["Yes", "No"],
+                defaultButton="Yes",
+                cancelButton="No",
+                dismissString="No",
+            )
+            if result == "Yes":
+                _camera = self.uiFunc_makeProjectionCamera()
+            else:
+                return
+
+        shader, sg = rt.makeAlphaProjectionShader(_camera)
+
+        depthShader = self.uiTextField_depthShader(query=True, text=True)
+        if mc.objExists(depthShader):
+            ramp = mc.listConnections(depthShader + ".outColor", type="ramp")
+            if ramp:
+                mult = mc.listConnections(shader + ".outColorG", type="multiplyDivide")
+                if mult:
+                    mc.connectAttr(
+                        ramp[0] + ".outColorG", mult[0] + ".input2Y", force=True
+                    )
+                else:
+                    mc.connectAttr(
+                        ramp[0] + ".outColorG", shader + ".outColorG", force=True
+                    )
+
+        self.uiTextField_alphaProjectionShader(edit=True, text=shader)
+
+        return shader, sg
+
+    def uiFunc_makeDepthShader(self):
+        _str_func = "uiFunc_makeDepthShader"
+
+        shader, sg = rt.makeDepthShader()
+        self.uiTextField_depthShader(edit=True, text=shader)
+
+        alphaShader = self.uiTextField_alphaProjectionShader(query=True, text=True)
+        if mc.objExists(alphaShader):
+            ramp = mc.listConnections(shader + ".outColor", type="ramp")
+            if ramp:
+                mult = mc.listConnections(
+                    alphaShader + ".outColorG", type="multiplyDivide"
+                )
+                if mult:
+                    mc.connectAttr(
+                        ramp[0] + ".outColorG", mult[0] + ".input2Y", force=True
+                    )
+                else:
+                    mc.connectAttr(
+                        ramp[0] + ".outColorG", alphaShader + ".outColorG", force=True
+                    )
+
+        mc.setAttr(
+            shader + ".maxDistance", self.uiFF_maxDepthDistance(query=True, value=True)
+        )
+
+        return shader, sg
+
+    def uiFunc_makeNormalShader(self):
+        _str_func = "uiFunc_makeNormalShader"
+
+        shader, sg = rt.makeNormalShader()
+        self.uiTextField_normalShader(edit=True, text=shader)
+
+        return shader, sg
+
+    def uiFunc_snapCameraFromData(self, cameraData):
+        _str_func = "uiFunc_snapCameraFromData"
+
+        log.debug("|{0}| >> cameraData: {1}".format(_str_func, cameraData))
+
+        camera = self.uiTextField_projectionCamera(query=True, text=True)
+        if not mc.objExists(camera):
+            log.error("|{0}| >> No camera loaded.".format(_str_func))
+            return
+
+        if not cameraData:
+            log.error("|{0}| >> No camera data loaded.".format(_str_func))
+            return
+
+        cameraTransform = mc.listRelatives(camera, parent=True)[0]
+        # get camera data
+
+        position = cameraData["position"]
+        rotation = cameraData["rotation"]
+        fov = cameraData["fov"]
+
+        # set camera data
+        mc.setAttr(cameraTransform + ".translateX", position[0])
+        mc.setAttr(cameraTransform + ".translateY", position[1])
+        mc.setAttr(cameraTransform + ".translateZ", position[2])
+        mc.setAttr(cameraTransform + ".rotateX", rotation[0])
+        mc.setAttr(cameraTransform + ".rotateY", rotation[1])
+        mc.setAttr(cameraTransform + ".rotateZ", rotation[2])
+
+        # set fov
+        mc.setAttr(camera + ".focalLength", fov)
+
+    def uiFunc_loadSelectedMeshes(self):
+        _str_func = "uiFunc_loadSelectedMeshes"
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        sel = mc.ls(sl=True)
+
+        unvalidatedMeshes = []
+        validatedMeshes = []
+
+        for obj in mc.ls(sl=True):
+            shape = mc.listRelatives(obj, shapes=True, type="mesh")
+            if shape:
+                if not sd.validateProjectionMesh(shape[0]):
+                    unvalidatedMeshes.append(shape[0])
+                else:
+                    validatedMeshes.append(shape[0])
+            else:
+                log.warning("|{0}| >> No shape found for {1}".format(_str_func, obj))
+
+        if unvalidatedMeshes:
+            log.debug(unvalidatedMeshes)
+            # make a confirm dialog prompt that asks if the user wants to validate the meshes
+            result = mc.confirmDialog(
+                title="Validate Meshes",
+                message="The following meshes are not valid for projection. Would you like to validate them?\n\n{0}".format(
+                    "\n".join(unvalidatedMeshes)
+                ),
+                button=["Yes", "No"],
+                defaultButton="Yes",
+                cancelButton="No",
+                dismissString="No",
+            )
+            if result == "Yes":
+                sd.initializeProjectionMeshes(unvalidatedMeshes)
+                # append the newly validated meshes to the validatedMeshes list
+                validatedMeshes.extend(unvalidatedMeshes)
+
+                itemList = {
+                    "projectionCamera": self.uiTextField_projectionCamera.getValue(),
+                    "projectionShader": self.uiTextField_projectionShader.getValue(),
+                    "alphaProjectionShader": self.uiTextField_alphaProjectionShader.getValue(),
+                    "depthShader": self.uiTextField_depthShader.getValue(),
+                    "normalShader": self.uiTextField_normalShader.getValue(),
+                }
+
+                unvalidatedItems = []
+                for item in itemList:
+                    if not itemList[item] or not mc.objExists(itemList[item]):
+                        unvalidatedItems.append(item)
+
+                if unvalidatedItems:
+                    result = mc.confirmDialog(
+                        title="Validate Items",
+                        message="Some items aren't found. Would you like to create them?\n\n{0}".format(
+                            "\n".join(unvalidatedItems)
+                        ),
+                        button=["Yes", "No"],
+                        defaultButton="Yes",
+                        cancelButton="No",
+                        dismissString="No",
+                    )
+                    if result == "Yes":
+                        for item in unvalidatedItems:
+                            if item == "projectionCamera":
+                                self.uiFunc_makeProjectionCamera()
+                            elif item == "projectionShader":
+                                self.uiFunc_makeProjectionShader()
+                            elif item == "alphaProjectionShader":
+                                self.uiFunc_makeAlphaProjectionShader()
+                            elif item == "depthShader":
+                                self.uiFunc_makeDepthShader()
+                            elif item == "normalShader":
+                                self.uiFunc_makeNormalShader()
+
+        if validatedMeshes:
+            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
+
+    def uiFunc_loadAllMeshes(self):
+        _str_func = "uiFunc_loadAllMeshes"
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        self.uiList_projectionMeshes.clear()
+
+        # find all instances of objects with the relevant attributes
+        unvalidatedMeshes = []
+        validatedMeshes = []
+
+        for shape in [x.split(".")[0] for x in mc.ls("*.cgmCompositeMaterial")]:
+            if shape in unvalidatedMeshes or shape in validatedMeshes:
+                continue
+
+            if not sd.validateProjectionMesh(shape):
+                unvalidatedMeshes.append(shape)
+            else:
+                validatedMeshes.append(shape)
+
+        if validatedMeshes:
+            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
+
+    def uiFunc_clearAllMeshes(self):
+        _str_func = "uiFunc_clearAllMeshes"
+        log.debug("|{0}| >> ...".format(_str_func))
+        self.uiList_projectionMeshes.clear()
+
+    def uiFunc_removeSelectedMeshes(self):
+        _str_func = "uiFunc_removeSelectedMeshes"
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
+        self.uiList_projectionMeshes(edit=True, removeItem=sel)
+
+    def uiFunc_selectMeshes(self):
+        _str_func = "uiFunc_selectMeshes"
+        log.debug("|{0}| >> ...".format(_str_func))
+
+        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
+        mc.select(sel)
+
+    # =============================================================================================================
+    # >> UI Funcs -- Project Tab
+    # =============================================================================================================
+    def uiFunc_project_setAutoDepth(self, *a):
+        _str_func = "uiFunc_project_setAutoDepth"
+        self.saveOptionFromUI("auto_depth_enabled", self.uiAutoDepthEnabledCB)
+
+        val = self.uiAutoDepthEnabledCB.getValue()
+        self.uiDepthRow(e=True, vis=not val)
+                
+    def uiFunc_changeAutomatic1111Url(self):
+        _str_func = "uiFunc_changeAutomatic1111Url"
+
+        log.debug(_str_func + " start")
+        self.saveOption(
+            "automatic_url", self.uiTextField_automaticURL(query=True, text=True)
+        )
+
+        self.uiFunc_tryAutomatic1111Connect()
+        # self.handleReset()
+
+    def uiFunc_setImg2ImgPass(self, *a):
+        _str_func = "uiFunc_setImg2ImgPass"
+        log.debug("%s %s" % (_str_func, a))
+
+        option = a[0].lower()
+        val = option != "none"
+
+        self.img2imgLayout(e=True, vis=val)
+
+        self.customImage_row(e=True, vis=option == "custom")
+        self.renderLayer_row(e=True, vis=option == "render layer")
+        self.uiAlphaMatteCB(e=True, en=val)
+
+        self.saveOption("img2img_pass", a[0])
+
+    def uiFunc_setAlphaMatteCB(self, *a):
+        _str_func = "uiFunc_setAlphaMatteCB"
+        log.debug("%s %s" % (_str_func, a))
+
+        val = a[0]
+
+        self.alphaMatteLayout(e=True, vis=val)
+
+        self.saveOption("use_alpha_pass", val)
+
+    def uiFunc_project_handleCustomImageCBChange(self, index):
+        self.controlNets[index]['custom_image_row'](e=True, vis=self.controlNets[index]['custom_image_cb'].getValue())
+        self.uiFunc_saveControlNetFromUI(index=index)
+
+    def uiFunc_project_handleBatchModeChange(self):
+        _str_func = "uiFunc_project_handleBatchModeChange"
+
+        val = self.uiOM_batchMode.getValue()
+        self.saveOption("batch_mode", val)
+
+        self.uiFunc_project_updateBatchMode()
+        
+    def uiFunc_project_updateBatchMode(self):
+        _str_func = "uiFunc_project_updateBatchMode"
+
+        val = self.uiOM_batchMode.getValue()
+
+        log.debug("%s %s" % (_str_func, val ))
+
+        self.uiLayout_batchMode_bakeProjection(e=True, vis=val.lower() == "bake projection")
+        self.uiMelRow_batchTimeRange(e=True, vis=val.lower() != "none")
+        self.uiLayout_batchMode.layout()
+
+    def uiFunc_auto_populate_fields(self):
+        _str_func = "uiFunc_auto_populate_fields"
+
+        self.uiFunc_loadAllMeshes()
+
+        for cam in mc.ls("*.cgmCamera"):
+            if mc.getAttr(cam) == "projection":
+                self.uiTextField_projectionCamera(edit=True, text=cam.split(".")[0])
+                break
+
+        for shader in mc.ls("*.cgmShader"):
+            if mc.getAttr(shader) == "sd_projection":
+                self.uiTextField_projectionShader(edit=True, text=shader.split(".")[0])
+                continue
+            if mc.getAttr(shader) == "sd_alpha":
+                self.uiTextField_alphaProjectionShader(
+                    edit=True, text=shader.split(".")[0]
+                )
+                continue
+            if mc.getAttr(shader) == "sd_depth":
+                self.uiTextField_depthShader(edit=True, text=shader.split(".")[0])
+                continue
+            if mc.getAttr(shader) == "sd_normal":
+                self.uiTextField_normalShader(edit=True, text=shader.split(".")[0])
+                continue
+
+    def uiFunc_makeMaterialFromType(self, materialType):
+        if materialType == "projection":
+            return self.uiFunc_makeProjectionShader()
+        if materialType == "alphaProjection":
+            return self.uiFunc_makeAlphaProjectionShader()
+        if materialType == "depth":
+            return self.uiFunc_makeDepthShader()
+        if materialType == "normal":
+            return self.uiFunc_makeNormalShader()
+        
+        log.error("Invalid material type: %s" % materialType)
+        return None
 
     def uiFunc_guessDepth(self):
         _str_func = "uiFunc_guessDepth"
@@ -3060,7 +3287,7 @@ class ui(cgmUI.cgmGUI):
         pass
         
     def uiFunc_setDepth(self, source):
-        shader = self.getDepthShader()
+        shader = self.uiFunc_getDepthShader()
 
         _minDepth = 0.0
         _maxDepth = 0.0
@@ -3202,7 +3429,7 @@ class ui(cgmUI.cgmGUI):
         name = self.uiOM_modelMenu(query=True, value=True)
         return self.getModelFromName(name)
 
-    def setModelFromUI(self):
+    def uiFunc_setModelFromUI(self):
         _str_func = "uiFunc_setModelFromUI"
         newModel = self.getModelFromUI()
 
@@ -3573,268 +3800,6 @@ class ui(cgmUI.cgmGUI):
                 self.layers[index]["remapColorNodes"][i], valueDict[i]
             )
 
-    # =============================================================================================================
-    # >> UI Funcs -- Settings Tab
-    # =============================================================================================================
-    def uiFunc_makeProjectionCamera(self):
-        cam, shape = rt.makeProjectionCamera()
-        self.uiTextField_projectionCamera(edit=True, text=shape)
-
-        return shape
-
-    def uiFunc_makeProjectionShader(self):
-        _str_func = "uiFunc_makeProjectionShader"
-        _camera = self.uiTextField_projectionCamera(query=True, text=True)
-
-        if not mc.objExists(_camera):
-            log.error("|{0}| >> No camera loaded.".format(_str_func))
-            result = mc.confirmDialog(
-                title="No Camera",
-                message="No projection camera loaded.  Create one?",
-                button=["Yes", "No"],
-                defaultButton="Yes",
-                cancelButton="No",
-                dismissString="No",
-            )
-            if result == "Yes":
-                _camera = self.uiFunc_makeProjectionCamera()
-            else:
-                return
-
-        shader, sg = rt.makeProjectionShader(_camera)
-        self.uiTextField_projectionShader(edit=True, text=shader)
-
-        return shader, sg
-
-    def uiFunc_makeAlphaProjectionShader(self):
-        _str_func = "uiFunc_makeAlphaProjectionShader"
-        _camera = self.uiTextField_projectionCamera(query=True, text=True)
-
-        if not mc.objExists(_camera):
-            log.error("|{0}| >> No camera loaded.".format(_str_func))
-            result = mc.confirmDialog(
-                title="No Camera",
-                message="No projection camera loaded.  Create one?",
-                button=["Yes", "No"],
-                defaultButton="Yes",
-                cancelButton="No",
-                dismissString="No",
-            )
-            if result == "Yes":
-                _camera = self.uiFunc_makeProjectionCamera()
-            else:
-                return
-
-        shader, sg = rt.makeAlphaProjectionShader(_camera)
-
-        depthShader = self.uiTextField_depthShader(query=True, text=True)
-        if mc.objExists(depthShader):
-            ramp = mc.listConnections(depthShader + ".outColor", type="ramp")
-            if ramp:
-                mult = mc.listConnections(shader + ".outColorG", type="multiplyDivide")
-                if mult:
-                    mc.connectAttr(
-                        ramp[0] + ".outColorG", mult[0] + ".input2Y", force=True
-                    )
-                else:
-                    mc.connectAttr(
-                        ramp[0] + ".outColorG", shader + ".outColorG", force=True
-                    )
-
-        self.uiTextField_alphaProjectionShader(edit=True, text=shader)
-
-        return shader, sg
-
-    def uiFunc_makeDepthShader(self):
-        _str_func = "uiFunc_makeDepthShader"
-
-        shader, sg = rt.makeDepthShader()
-        self.uiTextField_depthShader(edit=True, text=shader)
-
-        alphaShader = self.uiTextField_alphaProjectionShader(query=True, text=True)
-        if mc.objExists(alphaShader):
-            ramp = mc.listConnections(shader + ".outColor", type="ramp")
-            if ramp:
-                mult = mc.listConnections(
-                    alphaShader + ".outColorG", type="multiplyDivide"
-                )
-                if mult:
-                    mc.connectAttr(
-                        ramp[0] + ".outColorG", mult[0] + ".input2Y", force=True
-                    )
-                else:
-                    mc.connectAttr(
-                        ramp[0] + ".outColorG", alphaShader + ".outColorG", force=True
-                    )
-
-        mc.setAttr(
-            shader + ".maxDistance", self.uiFF_maxDepthDistance(query=True, value=True)
-        )
-
-        return shader, sg
-
-    def uiFunc_makeNormalShader(self):
-        _str_func = "uiFunc_makeNormalShader"
-
-        shader, sg = rt.makeNormalShader()
-        self.uiTextField_normalShader(edit=True, text=shader)
-
-        return shader, sg
-
-    def uiFunc_snapCameraFromData(self, cameraData):
-        _str_func = "uiFunc_snapCameraFromData"
-
-        log.debug("|{0}| >> cameraData: {1}".format(_str_func, cameraData))
-
-        camera = self.uiTextField_projectionCamera(query=True, text=True)
-        if not mc.objExists(camera):
-            log.error("|{0}| >> No camera loaded.".format(_str_func))
-            return
-
-        if not cameraData:
-            log.error("|{0}| >> No camera data loaded.".format(_str_func))
-            return
-
-        cameraTransform = mc.listRelatives(camera, parent=True)[0]
-        # get camera data
-
-        position = cameraData["position"]
-        rotation = cameraData["rotation"]
-        fov = cameraData["fov"]
-
-        # set camera data
-        mc.setAttr(cameraTransform + ".translateX", position[0])
-        mc.setAttr(cameraTransform + ".translateY", position[1])
-        mc.setAttr(cameraTransform + ".translateZ", position[2])
-        mc.setAttr(cameraTransform + ".rotateX", rotation[0])
-        mc.setAttr(cameraTransform + ".rotateY", rotation[1])
-        mc.setAttr(cameraTransform + ".rotateZ", rotation[2])
-
-        # set fov
-        mc.setAttr(camera + ".focalLength", fov)
-
-    def uiFunc_loadSelectedMeshes(self):
-        _str_func = "uiFunc_loadSelectedMeshes"
-        log.debug("|{0}| >> ...".format(_str_func))
-
-        sel = mc.ls(sl=True)
-
-        unvalidatedMeshes = []
-        validatedMeshes = []
-
-        for obj in mc.ls(sl=True):
-            shape = mc.listRelatives(obj, shapes=True, type="mesh")
-            if shape:
-                if not sd.validateProjectionMesh(shape[0]):
-                    unvalidatedMeshes.append(shape[0])
-                else:
-                    validatedMeshes.append(shape[0])
-            else:
-                log.warning("|{0}| >> No shape found for {1}".format(_str_func, obj))
-
-        if unvalidatedMeshes:
-            log.debug(unvalidatedMeshes)
-            # make a confirm dialog prompt that asks if the user wants to validate the meshes
-            result = mc.confirmDialog(
-                title="Validate Meshes",
-                message="The following meshes are not valid for projection. Would you like to validate them?\n\n{0}".format(
-                    "\n".join(unvalidatedMeshes)
-                ),
-                button=["Yes", "No"],
-                defaultButton="Yes",
-                cancelButton="No",
-                dismissString="No",
-            )
-            if result == "Yes":
-                sd.initializeProjectionMeshes(unvalidatedMeshes)
-                # append the newly validated meshes to the validatedMeshes list
-                validatedMeshes.extend(unvalidatedMeshes)
-
-                itemList = {
-                    "projectionCamera": self.uiTextField_projectionCamera.getValue(),
-                    "projectionShader": self.uiTextField_projectionShader.getValue(),
-                    "alphaProjectionShader": self.uiTextField_alphaProjectionShader.getValue(),
-                    "depthShader": self.uiTextField_depthShader.getValue(),
-                    "normalShader": self.uiTextField_normalShader.getValue(),
-                }
-
-                unvalidatedItems = []
-                for item in itemList:
-                    if not itemList[item] or not mc.objExists(itemList[item]):
-                        unvalidatedItems.append(item)
-
-                if unvalidatedItems:
-                    result = mc.confirmDialog(
-                        title="Validate Items",
-                        message="Some items aren't found. Would you like to create them?\n\n{0}".format(
-                            "\n".join(unvalidatedItems)
-                        ),
-                        button=["Yes", "No"],
-                        defaultButton="Yes",
-                        cancelButton="No",
-                        dismissString="No",
-                    )
-                    if result == "Yes":
-                        for item in unvalidatedItems:
-                            if item == "projectionCamera":
-                                self.uiFunc_makeProjectionCamera()
-                            elif item == "projectionShader":
-                                self.uiFunc_makeProjectionShader()
-                            elif item == "alphaProjectionShader":
-                                self.uiFunc_makeAlphaProjectionShader()
-                            elif item == "depthShader":
-                                self.uiFunc_makeDepthShader()
-                            elif item == "normalShader":
-                                self.uiFunc_makeNormalShader()
-
-        if validatedMeshes:
-            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
-
-    def uiFunc_loadAllMeshes(self):
-        _str_func = "uiFunc_loadAllMeshes"
-        log.debug("|{0}| >> ...".format(_str_func))
-
-        self.uiList_projectionMeshes.clear()
-
-        # find all instances of objects with the relevant attributes
-        unvalidatedMeshes = []
-        validatedMeshes = []
-
-        for shape in [x.split(".")[0] for x in mc.ls("*.cgmCompositeMaterial")]:
-            if shape in unvalidatedMeshes or shape in validatedMeshes:
-                continue
-
-            if not sd.validateProjectionMesh(shape):
-                unvalidatedMeshes.append(shape)
-            else:
-                validatedMeshes.append(shape)
-
-        if validatedMeshes:
-            self.uiList_projectionMeshes(edit=True, append=validatedMeshes)
-
-    def uiFunc_clearAllMeshes(self):
-        _str_func = "uiFunc_clearAllMeshes"
-        log.debug("|{0}| >> ...".format(_str_func))
-        self.uiList_projectionMeshes.clear()
-
-    def uiFunc_removeSelectedMeshes(self):
-        _str_func = "uiFunc_removeSelectedMeshes"
-        log.debug("|{0}| >> ...".format(_str_func))
-
-        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
-        self.uiList_projectionMeshes(edit=True, removeItem=sel)
-
-    def uiFunc_selectMeshes(self):
-        _str_func = "uiFunc_selectMeshes"
-        log.debug("|{0}| >> ...".format(_str_func))
-
-        sel = self.uiList_projectionMeshes(query=True, selectItem=True)
-        mc.select(sel)
-
-    # ===========================================================================
-    # UI Funcs -- General
-    # ===========================================================================
-
     # ===========================================================================
     # Image Viewer Callbacks
     # ===========================================================================
@@ -3887,12 +3852,6 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_assignMaterial("projection")
         rt.assignImageToProjectionShader(projectionShader, imagePath, info)
 
-    def bakeLatentSpaceImageOnSelected(self, imagePath, info):
-        _str_func = "bakeLatentSpaceImageOnSelected"
-        log.debug("|{0}| >> ...".format(_str_func))
-        log.debug("|{0}| >> ...".format(imagePath))
-        log.debug("|{0}| >> ...".format(info))
-
     def uiFunc_viewImage(self):
         _str_func = "uiFunc_viewImage"
 
@@ -3929,21 +3888,64 @@ class ui(cgmUI.cgmGUI):
             log.warning("|{0}| >> No images selected.".format(_str_func))
             return
 
-    def getDepthShader(self):
-        _str_func = "getDepthShader"
-        return self.uiTextField_depthShader(q=True, tx=True)
+    def uiFunc_bakeLatentSpaceImageOnSelected(self, imagePath, info):
+        _str_func = "uiFunc_bakeLatentSpaceImageOnSelected"
+        log.debug("|{0}| >> ...".format(_str_func))
+        log.debug("|imagePath| >> ... {0}".format(imagePath))
+        log.debug("|info| >> ... {0}".format(info))
 
-    def getNormalShader(self):
-        _str_func = "getNormalShader"
-        return self.uiTextField_normalShader(q=True, tx=True)
-    
-    def getAlphaShader(self):
-        _str_func = "getAlphaShader"
-        return self.uiTextField_alphaProjectionShader(q=True, tx=True)
+        if not os.path.exists(imagePath):
+            log.error("|{0}| >> Contact Sheet path not valid. No image found.".format(_str_func))
+            return
+        
+        if not 'latent_batch' in info or not info['latent_batch']:
+            log.error("|{0}| >> Latent Batch is not enabled. Proper data is not found.".format(_str_func))
+            return
 
-    def getProjectionShader(self):
-        _str_func = "getProjectionShader"
-        return self.uiTextField_projectionShader(q=True, tx=True)
+        _sel = mc.ls(sl=True, type="transform")
+
+        meshes = []
+        for obj in _sel or []:
+            shape = mc.listRelatives(obj, s=True)[0]
+            if sd.validateProjectionMesh(shape):
+                meshes.append(shape)
+
+        if not meshes:
+            log.error("|{0}| >> No meshes to bake. Please select valid meshes to bake onto".format(_str_func))
+            return
+
+        projectionShader = self.uiFunc_getMaterial("projection", meshes[0])
+        alphaShader = self.uiFunc_getMaterial("alphaProjection", meshes[0])
+
+        contact_sheet = Image.open(imagePath)
+        resolution = it.getResolutionFromContactSheet(contact_sheet, info['latent_batch_num_images'])
+
+        split_images = it.splitContactSheet(contact_sheet, resolution=resolution, image_path=imagePath)
+
+        log.debug("|meshes| >> ... {0}".format(meshes))
+        log.debug("|projectionShader| >> ... {0}".format(projectionShader))
+        log.debug("|alphaProjection| >> ... {0}".format(alphaShader))
+        log.debug("|split_images| >> ... {0}".format(split_images))     
+
+        for i in range(info['latent_batch_num_images']):
+            mc.currentTime(info['latent_batch_camera_info'][i]['frame'])
+            mc.refresh()
+
+            self.assignImageToProjection(split_images[i], info)
+
+            log.debug("|assigning to projection| >> ... {0}".format(split_images[i]))   
+
+            self.uiFunc_snapCameraFromData(info['latent_batch_camera_info'][i])
+
+            sd.bakeProjection(meshes, projectionShader, alphaShader)
+        
+        # assign composite shader
+        self.uiFunc_assignMaterial("composite")
+
+        return split_images
+
+    def generateFromImageData(self, imagePath, info):
+        pass
 
     # =============================================================================================================
     # >> OPTIONS

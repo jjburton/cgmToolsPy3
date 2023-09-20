@@ -419,6 +419,8 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
     images_data.reverse()
     result_image = rt.overlay_images(images_data)
 
+    result_image = it.expand_uv_borders(result_image)
+
     # Get the current time after running the code
     endTime = time.time()
 
@@ -728,7 +730,6 @@ def clean_cgm_sd_tags(objs=[]):
 ######################################################################
 #>> Metadata
 ######################################################################
-
    
 def parametersToDict(s):
     """
@@ -878,4 +879,72 @@ def convertOptionsToA1111Metadata(data, index=0):
             s += f"{key.replace('_', ' ').capitalize()}: {value}, "
 
     return s
+
+def getMeshMaterial(mesh, materialType):
+    _str_func = 'getMeshMaterial'
+
+    attrs = {
+        "composite": "cgmCompositeMaterial",
+        "alphaMatte": "cgmAlphaMatteMaterial",
+        "merged": "cgmMergedMaterial",
+        "xyz": "cgmXYZMaterial",
+    }
+    if materialType not in attrs:
+        log.error(
+            "|{0}| >> Invalid material type {1}.".format(_str_func, materialType)
+        )
+        return None
+
+    attr = attrs[materialType]
+    if not mc.objExists(mesh + "." + attr):
+        log.error(
+            "|{0}| >> Mesh doesn't have attribute {1}.".format(_str_func, attr)
+        )
+        return None
+
+    connections = mc.listConnections(mesh + "." + attr)[0]
+    if not connections:
+        log.error(
+            "|{0}| >> Mesh doesn't have connected material {1}.".format(
+                _str_func, attr
+            )
+        )
+        return None
+
+    return connections
+
+def bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData={}):
+    if not isinstance(additionalImageProjectionData, dict):
+        additionalImageProjectionData = {}
     
+    for mesh in meshes:
+        bakedImage = rt.bakeProjection(projectionShader, mesh)
+        bakedAlpha = rt.bakeProjection(alphaShader, mesh)
+
+        mFile = cgmMeta.asMeta(bakedImage)
+
+        projection = mc.listConnections(projectionShader, type="projection")
+        if projection:
+            projection = projection[0]
+            projectionFile = mc.listConnections(f"{projection}.image")
+            if projectionFile:
+                mFile.doStore(
+                    "cgmSourceProjectionImage",
+                    mc.getAttr(f"{projectionFile[0]}.fileTextureName"),
+                )
+
+                cgmImageProjectionData = json.loads(mc.getAttr(f"{projectionFile[0]}.cgmImageProjectionData")) or {}
+                log.debug(f"Found cgmImageProjectionData: {cgmImageProjectionData}")
+                
+                cgmImageProjectionData.update(additionalImageProjectionData)
+
+                mFile.doStore(
+                    "cgmImageProjectionData",
+                    json.dumps(cgmImageProjectionData),
+                )
+
+        compositeShader = getMeshMaterial(mesh, "composite")
+        alphaMatteShader = getMeshMaterial(mesh, "alphaMatte")
+
+        rt.addImageToCompositeShader(compositeShader, bakedImage, bakedAlpha)
+        rt.updateAlphaMatteShader(alphaMatteShader, compositeShader)

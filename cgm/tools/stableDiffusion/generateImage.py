@@ -65,7 +65,7 @@ def processImg2Img(self, meshes, camera, _options):
                 )
             )
             composite_path = rt.renderMaterialPass(
-                camera=camera, resolution=wantedResolution
+                camera=camera, format="jpg", resolution=wantedResolution
             )
 
             log.debug("composite path: {0}".format(composite_path))
@@ -220,12 +220,18 @@ def getImageAndUpdateUI(self, _options, cameraInfo, origText, bgColor, display=T
                     "function": self.assignImageToProjection,
                 }
             )
+            callbacks.append(
+                {
+                    "label": "Regenerate",
+                    "function": self.generateFromImageData,
+                }
+            )
 
             if "latent_batch" in _options.keys() and _options["latent_batch"]:
                 callbacks.append(
                     {
                         "label": "Bake LSP on Selected",
-                        "function": self.bakeLatentSpaceImageOnSelected,
+                        "function": self.uiFunc_bakeLatentSpaceImageOnSelected,
                     }
                 )
                 info['latent_batch'] = True
@@ -364,11 +370,11 @@ def generateImageFromUI(self, display=True):
             log.debug(f"len img2img_images: {len(img2img_images)}")
 
             contactSheet = it.createContactSheetFromStrings(img2img_images)
-            wantedName = os.path.join(tmpdir, "img2img_contact_sheet.png")
+            wantedName = os.path.join(tmpdir, "img2img_contact_sheet.jpg")
             wantedName = files.create_unique_filename(wantedName)
             contactSheet.save(wantedName)
             log.debug(f"img2img_images: {wantedName}")
-            _options["init_images"] = it.encodeImageToString(wantedName)
+            _options["init_images"] = [it.encodeImageToString(wantedName)]
             resolution = (contactSheet.width, contactSheet.height)
         for i in range(4):
             if len(controlNet_images[i]) > 0:

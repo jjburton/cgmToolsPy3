@@ -25,6 +25,9 @@ mUI = cgmUI.mUI
 
 from cgm.core import cgm_General as cgmGEN
 from tempfile import NamedTemporaryFile
+from cgm.tools.stableDiffusion.stableDiffusionTools import parametersToDict
+
+from cgm.tools import imageTools as it
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -50,8 +53,13 @@ class ui(cgmUI.cgmGUI):
         if args:log.debug("args: %s"%str(args))
         log.info(self.__call__(q=True, title=True))
 
-        self.imagePaths = args[1]
-        self.imageData = args[2]
+        self.imagePaths = []
+        self.imageData = {}
+        if len(args) > 1:
+            self.imagePaths = args[1]
+        if len(args) > 2:
+            self.imageData = args[2]
+            
         self.index = 0
 
         self.callbackData = []
@@ -67,6 +75,7 @@ class ui(cgmUI.cgmGUI):
 
  
     def build_menus(self):
+        self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc = cgmGEN.Callback(self.buildMenu_file))
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_first))
 
     def buildMenu_first(self):
@@ -80,7 +89,16 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Reset",
                          c = lambda *a:mc.evalDeferred(self.reload,lp=True))
-        
+    
+    def buildMenu_file(self):
+        self.uiMenu_FileMenu.clear()
+        #>>> Reset Options		                     
+
+        mUI.MelMenuItemDiv( self.uiMenu_FileMenu )
+
+        mUI.MelMenuItem( self.uiMenu_FileMenu, l="Open",
+                         c = lambda *a:mc.evalDeferred(self.uiFunc_openFile,lp=True))
+
     def build_layoutWrapper(self,parent):
         _str_func = 'build_layoutWrapper'
         #self._d_uiCheckBoxes = {}
@@ -149,11 +167,12 @@ class ui(cgmUI.cgmGUI):
             self.uiOM_SizeMenu.append('{}%'.format(percent))
 
         # Open the image and get its dimensions
-        with Image.open(self.imagePaths[self.index]) as img:
-            self.DEFAULT_HEIGHT = img.height + 120
-            self.DEFAULT_WIDTH = img.width + 25
-            self.width = img.width + 25
-            self.height = img.height + 120
+        if len(self.imagePaths) > self.index:
+            with Image.open(self.imagePaths[self.index]) as img:
+                self.DEFAULT_HEIGHT = img.height + 120
+                self.DEFAULT_WIDTH = img.width + 25
+                self.width = img.width + 25
+                self.height = img.height + 120
 
         closest_scale = 100
         # min_distance = float('inf')
@@ -221,9 +240,15 @@ class ui(cgmUI.cgmGUI):
         selected_percent = float(self.uiOM_SizeMenu( q=True, value=True).replace('%', '')) / 100.0
 
         # Get the image data and path of the current image
-        current_image_path = self.imagePaths[self.index]
-
+        current_image_path = None
+        if len(self.imagePaths) > self.index:
+            current_image_path = self.imagePaths[self.index]
+        
         # Open the image
+        if not current_image_path:
+            return
+        
+        print("current_image_path -- {0}".format(current_image_path))
         img = Image.open(current_image_path)
         if img.mode != 'RGBA':
             img = img.convert('RGBA')
@@ -293,6 +318,33 @@ class ui(cgmUI.cgmGUI):
         else:
             log.warning("|{0}| >> No images selected.".format(_str_func))
             return
+    
+    def uiFunc_openFile(self):
+        _str_func = "uiFunc_openFile"
+
+        # open file dialog
+        _path = mc.fileDialog2(
+            fileMode=4,
+            caption="Select Image",
+            fileFilter="Image Files (*.png)",
+            dialogStyle=2,
+        )
+        if not _path:
+            return
+       
+        self.imagePaths = []
+        self.imageData = []
+
+        for path in _path:
+            self.imagePaths.append(path)
+            # get metadata from image
+            meta = it.getPngMetadata(_path[0])['pngInfo']
+            data = {}
+            if 'parameters' in meta:
+                data = parametersToDict(it.getPngMetadata(_path[0])['pngInfo']['parameters'])
+            self.imageData.append(data)
+
+        self.updateUI()
 
     def uiFunc_toggleChannel(self, channel):
         self.channelState[channel] = not self.channelState[channel]

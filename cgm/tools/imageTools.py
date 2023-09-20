@@ -3,6 +3,49 @@ import random
 from math import ceil, sqrt
 import base64
 from io import BytesIO
+import os
+from cgm.lib import files
+import tempfile
+
+import numpy as np
+import cv2
+from scipy.spatial import cKDTree
+
+def expand_uv_borders(image, dilation_radius=5, erosion_radius=3):
+    # 2. Convert the PIL image to a numpy array
+    image_np = np.array(image)
+
+    # Create a binary mask where the texture exists (non-black pixels)
+    uv_mask = np.any(image_np[:, :, :3] != [0, 0, 0], axis=-1).astype(np.uint8)
+
+    # Erode the UV mask if erosion_radius is provided
+    if erosion_radius > 0:
+        erosion_kernel = np.ones((erosion_radius, erosion_radius), np.uint8)
+        uv_mask = cv2.erode(uv_mask, erosion_kernel, iterations=erosion_radius)
+
+    # 3. Dilate the UV mask to create the expansion area
+    dilation_kernel = np.ones((dilation_radius, dilation_radius), np.uint8)
+    dilated_mask = cv2.dilate(uv_mask, dilation_kernel, iterations=erosion_radius + dilation_radius)
+
+    # 4. Identify the new border pixels
+    border_mask = dilated_mask - uv_mask
+
+    # Find coordinates of border pixels and UV pixels
+    border_coords = np.column_stack(np.where(border_mask > 0))
+    uv_coords = np.column_stack(np.where(uv_mask > 0))
+
+    # Use cKDTree to find nearest UV pixel for each boundary pixel
+    tree = cKDTree(uv_coords)
+    distances, indices = tree.query(border_coords)
+
+    # Replace boundary pixels with color of nearest UV pixel
+    for border_coord, uv_index in zip(border_coords, indices):
+        y, x = border_coord
+        nearest_y, nearest_x = uv_coords[uv_index]
+        image_np[y, x] = image_np[nearest_y, nearest_x]
+
+    # 5. Convert the numpy array back to a PIL image and return
+    return Image.fromarray(image_np)
 
 def multiply(image1, image2):
     return ImageChops.multiply(image1, image2)
@@ -88,6 +131,17 @@ def createContactSheet(images):
             y_offset += max_height
     return contact_sheet
 
+def getResolutionFromContactSheet(contact_sheet, num_images):
+    # Calculate number of columns and rows
+    num_cols = ceil(sqrt(num_images))
+    num_rows = ceil(num_images / num_cols)
+    
+    # Width and height of the widest and tallest image respectively
+    max_width = contact_sheet.size[0] // num_cols
+    max_height = contact_sheet.size[1] // num_rows
+
+    return max_width, max_height
+
 def createContactSheetFromStrings(image_strings):
     images = [decodeStringToImage(x) for x in image_strings]
     return createContactSheet(images)
@@ -96,12 +150,18 @@ def createContactSheetFromPaths(image_paths):
     images = [Image.open(path) for path in image_paths]
     return createContactSheet(images)
 
-def splitContactSheet(contact_sheet, resolution=(512, 512)):
+def splitContactSheet(contact_sheet, resolution=(512, 512), image_path=None):
     width, height = contact_sheet.size
     res_width, res_height = resolution
     num_cols = width // res_width
     num_rows = height // res_height
     image_paths = []
+    if not image_path:
+        tmpdir = tempfile.TemporaryDirectory().name
+        os.mkdir(tmpdir)
+        image_path = os.path.join(tmpdir, "split_contact_sheet.png")
+    base, ext = os.path.splitext(image_path)
+
     for row in range(num_rows):
         for col in range(num_cols):
             x1 = col * res_width
@@ -109,8 +169,10 @@ def splitContactSheet(contact_sheet, resolution=(512, 512)):
             x2 = x1 + res_width
             y2 = y1 + res_height
             box = (x1, y1, x2, y2)
+            
             image = contact_sheet.crop(box)
-            image_path = f'F:/image_{row}_{col}.jpg'
+            wantedName = f'{base}_{row}_{col}.{ext}'
+            image_path = files.create_unique_filename(wantedName)
             image.save(image_path)
             image_paths.append(image_path)
     return image_paths
