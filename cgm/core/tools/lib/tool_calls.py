@@ -174,8 +174,8 @@ def mrsScene():
     try:
         import cgm.core.mrs.Scene as SCENE
         cgmGEN._reloadMod(SCENE)
-        #mel.eval('python "import cgm.core.mrs.Scene as SCENE;cgmSceneUI = SCENE.ui()"')
-        SCENE.ui()
+        mel.eval('python "import cgm.core.mrs.Scene as SCENE;cgmSceneUI = SCENE.ui()"')
+        #SCENE.ui()
     except Exception as err:
         cgmGEN.cgmException(Exception,err)
         
