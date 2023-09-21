@@ -25,9 +25,9 @@ mUI = cgmUI.mUI
 
 from cgm.core import cgm_General as cgmGEN
 from tempfile import NamedTemporaryFile
-from cgm.tools.stableDiffusion.stableDiffusionTools import parametersToDict
+from cgm.core.tools.stableDiffusion.stableDiffusionTools import parametersToDict
 
-from cgm.tools import imageTools as it
+from cgm.core.tools import imageTools as it
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING

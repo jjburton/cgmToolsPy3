@@ -3,10 +3,10 @@ from cgm.lib import files
 import maya.cmds as mc
 
 import cgm.core.tools.Project as PROJECT
-from cgm.tools.stableDiffusion import stableDiffusionTools as sd
-from cgm.tools.stableDiffusion import renderTools as rt
-from cgm.tools import imageViewer as iv
-from cgm.tools import imageTools as it
+from cgm.core.tools.stableDiffusion import stableDiffusionTools as sd
+from cgm.core.tools.stableDiffusion import renderTools as rt
+from cgm.core.tools import imageViewer as iv
+from cgm.core.tools import imageTools as it
 
 import os
 import base64

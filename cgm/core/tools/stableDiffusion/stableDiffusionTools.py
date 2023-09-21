@@ -7,8 +7,8 @@ import pprint
 import base64
 from PIL import Image, PngImagePlugin
 
-from cgm.tools.stableDiffusion import renderTools as rt
-from cgm.tools import imageTools as it
+from cgm.core.tools.stableDiffusion import renderTools as rt
+from cgm.core.tools import imageTools as it
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.lib import files
 import cgm.core.tools.Project as PROJECT

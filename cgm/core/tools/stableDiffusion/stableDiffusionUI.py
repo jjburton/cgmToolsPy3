@@ -37,11 +37,11 @@ import cgm.core.tools.Project as PROJECT
 import cgm.core.cgmPy.validateArgs as VALID
 
 from functools import partial
-from cgm.tools.stableDiffusion import stableDiffusionTools as sd
-from cgm.tools.stableDiffusion import renderTools as rt
-from cgm.tools.stableDiffusion import generateImage as gi
-from cgm.tools import imageViewer as iv
-from cgm.tools import imageTools as it
+from cgm.core.tools.stableDiffusion import stableDiffusionTools as sd
+from cgm.core.tools.stableDiffusion import renderTools as rt
+from cgm.core.tools.stableDiffusion import generateImage as gi
+from cgm.core.tools import imageViewer as iv
+from cgm.core.tools import imageTools as it
 from cgm.lib import dictionary
 
 # >>> Root settings =============================================================
