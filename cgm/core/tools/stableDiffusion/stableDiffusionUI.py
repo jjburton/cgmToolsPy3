@@ -1398,10 +1398,10 @@ class ui(cgmUI.cgmGUI):
         self.uiMelRow_batchTimeRange = mUI.MelRowLayout(self.uiLayout_batchMode, useTemplate="cgmUISubTemplate", numberOfColumns=6)
 
         mUI.MelLabel(self.uiMelRow_batchTimeRange, l="Start:", align="right")
+        minTime = int(mc.playbackOptions(q=True, minTime=True))
         self.uiIF_batchProjectStart = mUI.MelIntField(
             self.uiMelRow_batchTimeRange,
-            minValue=-1,
-            value=int(mc.playbackOptions(q=True, minTime=True)),
+            value=minTime,
             annotation="Start time for batch project",
         )
         self.uiIF_batchProjectStart(
@@ -1412,10 +1412,10 @@ class ui(cgmUI.cgmGUI):
         )
 
         mUI.MelLabel(self.uiMelRow_batchTimeRange, l="End:", align="right")
+        maxTime = int(mc.playbackOptions(q=True, maxTime=True))
         self.uiIF_batchProjectEnd = mUI.MelIntField(
             self.uiMelRow_batchTimeRange,
-            minValue=-1,
-            value=int(mc.playbackOptions(q=True, maxTime=True)),
+            value=maxTime,
             annotation="End time for batch project",
         )
         self.uiIF_batchProjectEnd(
