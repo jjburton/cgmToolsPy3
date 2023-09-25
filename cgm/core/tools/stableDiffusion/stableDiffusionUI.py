@@ -2522,6 +2522,8 @@ class ui(cgmUI.cgmGUI):
         if meshes is None or len(meshes) == 0:
             log.warning("|{0}| >> No meshes loaded.".format(_str_func))
 
+        self.uiFunc_setSize("field")
+
         bgColor = self.generateBtn(q=True, bgc=True)
         origText = self.generateBtn(q=True, label=True)
         self.generateBtn(edit=True, enable=False)
@@ -3763,6 +3765,8 @@ class ui(cgmUI.cgmGUI):
             b=True,
         )
 
+        sd.clean_and_reorder_layeredTexture(layeredTexture)
+
         self.uiFunc_refreshEditTab()
 
     def uiFunc_edit_mergeComposite(self, shader, mergedShader):
@@ -3904,6 +3908,8 @@ class ui(cgmUI.cgmGUI):
 
         _sel = mc.ls(sl=True, type="transform")
 
+        camera = self.uiTextField_projectionCamera(query=True, text=True)
+
         meshes = []
         for obj in _sel or []:
             shape = mc.listRelatives(obj, s=True)[0]
@@ -3936,6 +3942,10 @@ class ui(cgmUI.cgmGUI):
             log.debug("|assigning to projection| >> ... {0}".format(split_images[i]))   
 
             self.uiFunc_snapCameraFromData(info['latent_batch_camera_info'][i])
+
+            mc.setAttr('{0}.sx'.format(camera), 1.0)
+            mc.setAttr('{0}.sy'.format(camera), 1.0)
+            mc.setAttr('{0}.sz'.format(camera), 1.0)
 
             sd.bakeProjection(meshes, projectionShader, alphaShader)
         

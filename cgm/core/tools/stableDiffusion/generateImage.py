@@ -326,6 +326,8 @@ def generateImageFromUI(self, display=True):
 
     _latentBatch = self.uiOM_batchMode.getValue() == "Latent Space"
 
+    self.uiFunc_setSize("field")
+
     if _latentBatch:
         frames = range(
             self.uiIF_batchProjectStart.getValue(),

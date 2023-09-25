@@ -15,6 +15,7 @@ import cgm.core.tools.Project as PROJECT
 
 import re
 import time
+from collections import defaultdict
 
 import logging
 
@@ -521,6 +522,35 @@ def mergeCompositeShaderToImage(compositeShader, mergedShader):
 
     return fileNode
 
+def clean_and_reorder_layeredTexture(layeredTexture):
+    # Store current attributes and connections
+    connectionList = mc.listConnections(f'{layeredTexture}.inputs', p=True, connections=True) or []
+    connections = {(src, dest) for src, dest in zip(connectionList[::2], connectionList[1::2])}
+
+    # Remove all current attributes
+    multiAttrs = mc.listAttr(f'{layeredTexture}.inputs', multi=True) or []
+    attr_indices = {x.split('[')[1].split(']')[0] for x in multiAttrs if '[' in x and ']' in x}
+    for attr_index in attr_indices:
+        mc.removeMultiInstance(f'{layeredTexture}.inputs[{attr_index}]', b=True)
+
+    # Remap attributes
+    index_grouped = defaultdict(list)
+    remapped_connections = set()
+  
+    for src, dest in connections:
+        index = src.split('[')[1].split(']')[0]
+        index_grouped[index].append((src, dest))
+  
+    new_index = 0
+    for _, pairs in index_grouped.items():
+        for src, dest in pairs:
+            remapped_src = f'{src.split(".inputs")[0]}.inputs[{new_index}].{src.split(".")[-1]}'
+            remapped_connections.add((remapped_src, dest))
+        new_index += 1
+
+    # Reconnect the attributes
+    for remapped_src, dest in remapped_connections:
+        mc.connectAttr(dest, remapped_src, f=True)
 
 # def makeImagePlane(imagePath, info):
 
