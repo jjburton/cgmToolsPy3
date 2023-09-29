@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = "cgmGEN"
 
-__RELEASE = "23.09.05.01"
+__RELEASE = "23.09.28.01"
 
 __BRANCH = "PY3"
 
@@ -601,8 +601,8 @@ class cgmFuncCls(object):
                 self.update_moduleData()
                 # mUtils.formatGuiException = self._ExceptionHook_#Link our exception hook
 
-            self._ExceptionHook_(self._Exception, self._ExceptionError)
-            raise self._Exception(self._ExceptionError)
+            #self._ExceptionHook_(self._Exception, self._ExceptionError)
+            raise self._ExceptionError#self._Exception(self._ExceptionError)
             # raise self._Exception,"{0} >> {1}".format(self._str_funcCombined,str(self._ExceptionError))
             # else:
             # raise self._Exception,"{0} | {1} | {2}".format(self._str_reportStart,self._str_step,self._ExceptionError)

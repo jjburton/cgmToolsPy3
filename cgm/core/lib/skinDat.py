@@ -225,7 +225,7 @@ class data(object):
         else:
             raise ValueError("Not a usable mesh type : {0}".format(_type))
         
-        _shape = mc.listRelatives(_mesh,shapes=True,fullPath=False)[0]
+        _shape = mc.listRelatives(_mesh,shapes=True,fullPath=True)[0]
         _return = {'mesh':_mesh,
                    'meshType':_type,
                    'shape':_shape,
