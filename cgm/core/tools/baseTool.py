@@ -41,7 +41,7 @@ __toolname__ ='baseTool'
 
 class ui(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
-    WINDOW_NAME = '{0}_ui'.format(__toolname__)    
+    WINDOW_NAME = '{0}_ui'.format(__toolname__.strip().replace(" ", ""))    
     WINDOW_TITLE = '{1} - {0}'.format(__version__,__toolname__)
     DEFAULT_MENU = None
     RETAIN = True
