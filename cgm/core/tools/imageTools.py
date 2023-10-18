@@ -6,6 +6,7 @@ from io import BytesIO
 import os
 from cgm.lib import files
 import tempfile
+import maya.cmds as mc
 
 import numpy as np
 import cv2
@@ -115,32 +116,76 @@ def addMonochromaticNoise(image, noise_intensity=0.1, blur_radius=0):
 
 def createContactSheet(images):
     widths, heights = zip(*(i.size for i in images))
-    max_width = max(widths)
-    max_height = max(heights)
+    total_width = sum(widths)
+    total_height = max(heights)
     num_images = len(images)
-    num_cols = ceil(sqrt(num_images))
-    num_rows = ceil(num_images / num_cols)
-    contact_sheet = Image.new('RGB', (num_cols * max_width, num_rows * max_height))
+    
+    # Calculate most efficient number of rows and columns
+    num_cols = num_images
+    num_rows = 1
+    min_area = total_width * total_height
+
+    for cols in range(1, ceil(sqrt(num_images)) + 1):
+        rows = ceil(num_images / cols)
+        area = cols * max(widths) * rows * max(heights)
+        if area < min_area:
+            min_area = area
+            num_cols = cols
+            num_rows = rows
+            
+    contact_sheet = Image.new('RGB', (num_cols * max(widths), num_rows * max(heights)))
+    
     x_offset = 0
     y_offset = 0
+    
     for i, im in enumerate(images):
         contact_sheet.paste(im, (x_offset, y_offset))
         x_offset += im.size[0]
         if (i + 1) % num_cols == 0:
             x_offset = 0
-            y_offset += max_height
+            y_offset += max(heights)
+            
     return contact_sheet
 
 def getResolutionFromContactSheet(contact_sheet, num_images):
-    # Calculate number of columns and rows
-    num_cols = ceil(sqrt(num_images))
-    num_rows = ceil(num_images / num_cols)
+    total_width, total_height = contact_sheet.size
+    best_fit_area = 0
+    best_fit_resolutions = []
     
-    # Width and height of the widest and tallest image respectively
-    max_width = contact_sheet.size[0] // num_cols
-    max_height = contact_sheet.size[1] // num_rows
+    for cols in range(1, num_images + 1):
+        rows = ceil(num_images / cols)
+        
+        candidate_width = total_width // cols
+        candidate_height = total_height // rows
 
-    return max_width, max_height
+        if total_width % candidate_width == 0 and total_height % candidate_height == 0:
+            candidate_area = candidate_width * candidate_height
+            
+            if candidate_area > best_fit_area:
+                best_fit_area = candidate_area
+                best_fit_resolutions = [(candidate_width, candidate_height)]
+            elif candidate_area == best_fit_area:
+                best_fit_resolutions.append((candidate_width, candidate_height))
+
+    if len(best_fit_resolutions) > 1:
+        resolution_strings = [f"{res[0]}x{res[1]}" for res in best_fit_resolutions]
+        choice_str = mc.confirmDialog(title='Choose Orientation',
+                                      message='Multiple orientations found. Choose one:',
+                                      button=resolution_strings,
+                                      defaultButton=resolution_strings[0],
+                                      cancelButton=resolution_strings[-1],
+                                      dismissString='Cancel')
+
+        for res in best_fit_resolutions:
+            if f"{res[0]}x{res[1]}" == choice_str:
+                return res
+    
+    return best_fit_resolutions[0]
+
+# Sample usage with a PIL Image object for the contact_sheet
+# Uncomment the last line to run the function
+# print(getResolutionFromContactSheet(contact_sheet, 2))
+
 
 def createContactSheetFromStrings(image_strings):
     images = [decodeStringToImage(x) for x in image_strings]

@@ -2020,7 +2020,7 @@ class ui(cgmUI.cgmGUI):
                 )
                 mc.menuItem(
                     label="Open Orig in Explorer",
-                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, _orig_path),
+                    command=cgmGEN.Callback(self.uiFunc_openExplorerPath, os.path.split(_orig_path)[0]),
                 )
             if os.path.exists(_uv_projection_path):
                 mc.menuItem(
@@ -3943,9 +3943,10 @@ class ui(cgmUI.cgmGUI):
 
             self.uiFunc_snapCameraFromData(info['latent_batch_camera_info'][i])
 
-            mc.setAttr('{0}.sx'.format(camera), 1.0)
-            mc.setAttr('{0}.sy'.format(camera), 1.0)
-            mc.setAttr('{0}.sz'.format(camera), 1.0)
+            camTransform = mc.listRelatives(camera, parent=True)[0]
+            mc.setAttr('{0}.sx'.format(camTransform), 1.0)
+            mc.setAttr('{0}.sy'.format(camTransform), 1.0)
+            mc.setAttr('{0}.sz'.format(camTransform), 1.0)
 
             sd.bakeProjection(meshes, projectionShader, alphaShader)
         
@@ -4089,7 +4090,7 @@ class ui(cgmUI.cgmGUI):
 
         if self.uiOM_modelMenu and sdModels and sdOptions:
             for model in sdModels:
-                if model["title"] == sdOptions["sd_model_checkpoint"]:
+                if model["title"] == sdOptions.get("sd_model_checkpoint",""):
                     self.uiOM_modelMenu(edit=True, value=model["model_name"])
                     break
 

@@ -75,7 +75,7 @@ __version__ = cgmGEN.__RELEASESTRING
 __toolname__ ='mrsScene'
 
 _subLineBGC = [.75,.75,.75]
-_l_directoryMask = ['meta','.mayaSwatches','incrementalSave','cgmDat','mayaSwatches']
+_l_directoryMask = ['meta','.mayaSwatches','incrementalSave','cgmDat','mayaSwatches', 'images']
 
 class ui(cgmUI.cgmGUI):
     '''
