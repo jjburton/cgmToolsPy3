@@ -11,8 +11,8 @@ to apply a skin without a reference object in scene if geo or joint counts don't
 Currently only regular skin clusters are storing...
 
 Features...
-- Skin data gather
 - Read/write skin data to a readable config file
+- Skin data gather
 - Apply skinning data to geo of different vert count
 - 
 
@@ -816,78 +816,209 @@ def applySkin(*args,**kws):
             '''
             '''    
             _targetSkin = self.mData.d_target['skin']      
+
             mi_skinCluster = cgmMeta.cgmNode(_targetSkin)
-            skinFn = OMA.MFnSkinCluster( mi_skinCluster.mNodeMObject )
-            
-            #...get some api stuff
-            fnSet = OM.MFnSet(skinFn.deformerSet())
-            members = OM.MSelectionList()
-            fnSet.getMembers(members, False)
-            dagPath = OM.MDagPath()
-            components = OM.MObject()
-            members.getDagPath(0, dagPath, components)         
-            influencePaths = OM.MDagPathArray()
-            numInfluences = skinFn.influenceObjects(influencePaths)
-            if numInfluences != len(self.l_jointsToUse):
-                return self._FailBreak_("Influences don't match data")              
-            
-            #...get weights
-            weights = OM.MDoubleArray()
-            util = OM.MScriptUtil()
-            util.createFromInt(0)
-            pUInt = util.asUintPtr()
-            skinFn.getWeights(dagPath, components, weights, pUInt)  
+
+            if cgmGEN.__mayaVersionInt__ >= 2022:
+                # Get the skinCluster MObject
+                selectionList = OM.MSelectionList()
+                selectionList.add(_targetSkin, True)
+                mobject = OM.MObject()
+                selectionList.getDependNode(0, mobject)
+                skinFn = OMA.MFnSkinCluster(mobject)                      
                 
-            numComponentsPerInfluence = weights.length() / numInfluences   
-            
-            influenceIndices = OM.MIntArray(numInfluences)
-            for i in range(numInfluences):
-                influenceIndices.set(i, i)   
+                inputs_plug = skinFn.findPlug("input", False)
                 
-            #...Set our weights ------------------------------------------------------------------------------------
-            #weightListP = skinFn.findPlug( "weightList" )
-            #weightListObj = weightListP.attribute()
-            #weightsP = skinFn.findPlug( "weights" )
-        
-            #tmpIntArray = OM.MIntArray()
-            #baseFmtStr = mi_skinCluster.mNode +'.weightList[{0}]'  #pre build this string: fewer string ops == faster-ness!
-            
-            self.progressBar_start(stepMaxValue=self.mData.d_target['pointCount'], 
-                                   statusMessage='Calculating....', 
-                                   interruptableState=False)    
-            
-            
-            for i in range(numInfluences):
-                for c in range(numComponentsPerInfluence):
-                    weights.set(0.0, c*numInfluences+i)                    
-            
-            for vertIdx in list(self._d_vertToWeighting.keys()):
-                self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
-                _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                num_inputs = inputs_plug.evaluateNumElements()
                 
-                #we need to use the api to query the physical indices used
-                #weightsP.selectAncestorLogicalIndex( vertIdx, weightListObj )
-                #weightsP.getExistingArrayAttributeIndices( tmpIntArray )
-        
-                #weightFmtStr = baseFmtStr.format(vertIdx) +'.weights[{0}]'
-            
-                #clear out any existing skin data - and awesomely we cannot do this with the api - so we need to use a weird ass mel command
-                #for n in range( tmpIntArray.length() ):
-                    #mc.removeMultiInstance( weightFmtStr.format(tmpIntArray[n]) )            
-            
-                #at this point using the api or mel to set the data is a moot point...  we have the strings already so just use mel
+                #tmp query
+                for ii in range(num_inputs):
+                    # get the input shape and component for this index
+                    shape_obj = skinFn.inputShapeAtIndex(ii)
+                    shape_dag_path = OM.MDagPath.getAPathTo(shape_obj)
+                    transform_dag_path = OM.MDagPath(shape_dag_path)
+                    transform_dag_path.pop()
+                    component = skinFn.getComponentAtIndex(ii)
+                
+                
+                    # print the elements for the component
+                    comp_fn = OM.MFnSingleIndexedComponent(component)
+                    elements = OM.MIntArray()
+                    comp_fn.getElements(elements)
+                    #pprint.pprint ([shape_dag_path.fullPathName(), transform_dag_path.fullPathName(), elements])
+
+                    # print the weights for the dag path and component
+                    weights = OM.MDoubleArray()
+                    count_util = OM.MScriptUtil(0)
+                    count_ptr = count_util.asUintPtr()
+                    skinFn.getWeights(transform_dag_path, component, weights, count_ptr)
+                    count = count_util.getUint(count_ptr)
+                    #pprint.pprint ([count, weights])        
                     
-                for jointIdx in list(_d_vert.keys()):
-                    #self.log_info(" vtx: {0} | jnt:{1} | value:{2}".format(vertIdx,jointIdx, _d_vert[jointIdx]))
-                    #self.log_info("{0} | {1}".format( weightFmtStr.format(jointIdx),_d_vert[jointIdx]))
-                    #mc.setAttr( weightFmtStr.format(jointIdx), _d_vert[jointIdx] ) 
-                    #weights.set(self.data['weights'][src][j], j*numInfluences+1)
-                    #weights.set(_d_vert[jointIdx], vertIdx)
-                    weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
-            self.progressBar_end()
+                    #...bringing in old bit
+                    influencePaths = OM.MDagPathArray()
+                    numInfluences = skinFn.influenceObjects(influencePaths)
+                    if numInfluences != len(self.l_jointsToUse):
+                        return self._FailBreak_("Influences don't match data")
+                    
+                    numComponentsPerInfluence = int(weights.length() / numInfluences)
+                    
+                    influenceIndices = OM.MIntArray(numInfluences)
+                    for i in range(numInfluences):
+                        influenceIndices.set(i, i)
+                        
+                        
+                    self.progressBar_start(stepMaxValue=self.mData.d_target['pointCount'], 
+                                           statusMessage='Calculating....', 
+                                           interruptableState=False)    
+                    
+                    
+                    for i in range(numInfluences):
+                        for c in range(numComponentsPerInfluence):
+                            weights.set(0.0, c*numInfluences+i)                    
+                    
+                    for vertIdx in list(self._d_vertToWeighting.keys()):
+                        self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
+                        _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                        
+                        for jointIdx in list(_d_vert.keys()):
+                            weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
+
+                    skinFn.setWeights(transform_dag_path, component, influenceIndices, weights, False)
+                            
+                    self.progressBar_end()                    
+                    
+                    
+                #...-----------------------------------------
+                """
+                for i in range(numInfluences):
+                    for c in range(numComponentsPerInfluence):
+                        weights[c * numInfluences + i] = 0.0
             
-            skinFn.setWeights(dagPath, components, influenceIndices, weights, False)
+                for vertIdx, _d_vert in self._d_vertToWeighting.items():
+                    for jointIdx, weight in _d_vert.items():
+                        weights[vertIdx * numInfluences + jointIdx] = weight
+                        """
+                
+                """
+                from maya.api import OpenMaya as OM2
+                #Need dagpath...#components
+                #sel_list = OM.MSelectionList()
+                #sel_list.add(self.mData.d_target['mesh'])
+                # Get the MObject of the skin cluster
+                # Get the MObject of the skin cluster node
+                selection_list = OM2.MSelectionList()
+                selection_list.add(_targetSkin)
+                skin_cluster_node = selection_list.getDependNode(0)
+                skinFn = OM2.MFnSkinCluster(skin_cluster_node)
+                
+ 
+                
+                #--- http://discourse.techart.online/t/openmaya-how-to-properly-get-set-weights/15247/2
+                sel_list = OM2.MSelectionList()
+                sel_list.add('{}.vtx[*]'.format(self.mData.d_target['shape']))
+                dagPath, components = sel_list.getComponent(0)
+                
+                influencePaths = OM2.MDagPathArray()
+                numInfluences = skinFn.influenceObjects(influencePaths)
+                if numInfluences != len(self.l_jointsToUse):
+                    return self._FailBreak_("Influences don't match data")
+                
+                
+                weights = OM2.MDoubleArray()
+                skinFn.getWeights(dagPath, components, weights)
+                
+                numComponentsPerInfluence = weights.length() // numInfluences
+                
+                influenceIndices = range(numInfluences)
+                
+                for i in range(numInfluences):
+                    for c in range(numComponentsPerInfluence):
+                        weights[c * numInfluences + i] = 0.0
+                
+                for vertIdx, _d_vert in self._d_vertToWeighting.items():
+                    for jointIdx, weight in _d_vert.items():
+                        weights[vertIdx * numInfluences + jointIdx] = weight
+                
+                skinFn.setWeights(dagPath, components, influenceIndices, weights, False)                
+                """
+
+                
+            else:
+                mi_skinCluster = cgmMeta.cgmNode(_targetSkin)
+                skinFn = OMA.MFnSkinCluster( mi_skinCluster.mNodeMObject )
+                
+                dagPath = OM.MDagPath()
+                components = OM.MObject()                
+                
+                #...get some api stuff
+                fnSet = OM.MFnSet(skinFn.deformerSet())
+                members = OM.MSelectionList()
+                fnSet.getMembers(members, False)
+                members.getDagPath(0, dagPath, components)
+                
+                influencePaths = OM.MDagPathArray()
+                numInfluences = skinFn.influenceObjects(influencePaths)
+                if numInfluences != len(self.l_jointsToUse):
+                    return self._FailBreak_("Influences don't match data")              
+                
+                #...get weights
+                weights = OM.MDoubleArray()
+                util = OM.MScriptUtil()
+                util.createFromInt(0)
+                pUInt = util.asUintPtr()
+                skinFn.getWeights(dagPath, components, weights, pUInt)  
+                    
+                numComponentsPerInfluence = int(weights.length() / numInfluences)
+                
+                influenceIndices = OM.MIntArray(numInfluences)
+                for i in range(numInfluences):
+                    influenceIndices.set(i, i)   
+                    
+                #...Set our weights ------------------------------------------------------------------------------------
+                #weightListP = skinFn.findPlug( "weightList" )
+                #weightListObj = weightListP.attribute()
+                #weightsP = skinFn.findPlug( "weights" )
             
+                #tmpIntArray = OM.MIntArray()
+                #baseFmtStr = mi_skinCluster.mNode +'.weightList[{0}]'  #pre build this string: fewer string ops == faster-ness!
+                
+                self.progressBar_start(stepMaxValue=self.mData.d_target['pointCount'], 
+                                       statusMessage='Calculating....', 
+                                       interruptableState=False)    
+                
+                
+                for i in range(numInfluences):
+                    for c in range(numComponentsPerInfluence):
+                        weights.set(0.0, c*numInfluences+i)                    
+                
+                for vertIdx in list(self._d_vertToWeighting.keys()):
+                    self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
+                    _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                    
+                    #we need to use the api to query the physical indices used
+                    #weightsP.selectAncestorLogicalIndex( vertIdx, weightListObj )
+                    #weightsP.getExistingArrayAttributeIndices( tmpIntArray )
+            
+                    #weightFmtStr = baseFmtStr.format(vertIdx) +'.weights[{0}]'
+                
+                    #clear out any existing skin data - and awesomely we cannot do this with the api - so we need to use a weird ass mel command
+                    #for n in range( tmpIntArray.length() ):
+                        #mc.removeMultiInstance( weightFmtStr.format(tmpIntArray[n]) )            
+                
+                    #at this point using the api or mel to set the data is a moot point...  we have the strings already so just use mel
+                        
+                    for jointIdx in list(_d_vert.keys()):
+                        #self.log_info(" vtx: {0} | jnt:{1} | value:{2}".format(vertIdx,jointIdx, _d_vert[jointIdx]))
+                        #self.log_info("{0} | {1}".format( weightFmtStr.format(jointIdx),_d_vert[jointIdx]))
+                        #mc.setAttr( weightFmtStr.format(jointIdx), _d_vert[jointIdx] ) 
+                        #weights.set(self.data['weights'][src][j], j*numInfluences+1)
+                        #weights.set(_d_vert[jointIdx], vertIdx)
+                        weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
+                self.progressBar_end()
+                
+                skinFn.setWeights(dagPath, components, influenceIndices, weights, False)
+                
 
             #...blendWeights
             
@@ -916,14 +1047,69 @@ def gather_skinning_dict(*args,**kws):
     :param mInstanes: given metaClass to test inheritance - cls or [cls]
 '''
     def __getGeometryComponents(fn):
-        # Has jurisdiction over what is allowed to be influenced.
-        fnSet = OM.MFnSet(fn.deformerSet())
-        members = OM.MSelectionList()
-        fnSet.getMembers(members, False)
-        dagPath = OM.MDagPath()
-        components = OM.MObject()
-        members.getDagPath(0, dagPath, components)
-        return dagPath, components
+        if cgmGEN.__mayaVersionInt__ >= 2022:
+            inputs_plug = fn.findPlug("input", False)
+            num_inputs = inputs_plug.evaluateNumElements()
+            
+            #tmp query
+            for ii in range(num_inputs):
+                # get the input shape and component for this index
+                shape_obj = fn.inputShapeAtIndex(ii)
+                shape_dag_path = OM.MDagPath.getAPathTo(shape_obj)
+                transform_dag_path = OM.MDagPath(shape_dag_path)
+                transform_dag_path.pop()
+                component = fn.getComponentAtIndex(ii)
+            
+                return transform_dag_path,component
+                # print the elements for the component
+                comp_fn = OM.MFnSingleIndexedComponent(component)
+                elements = OM.MIntArray()
+                comp_fn.getElements(elements)
+                #pprint.pprint ([shape_dag_path.fullPathName(), transform_dag_path.fullPathName(), elements])
+
+                # print the weights for the dag path and component
+                weights = OM.MDoubleArray()
+                count_util = OM.MScriptUtil(0)
+                count_ptr = count_util.asUintPtr()
+                fn.getWeights(transform_dag_path, component, weights, count_ptr)
+                count = count_util.getUint(count_ptr)
+                #pprint.pprint ([count, weights])        
+                
+                #...bringing in old bit
+                influencePaths = OM.MDagPathArray()
+                numInfluences = fn.influenceObjects(influencePaths)
+                if numInfluences != len(self.l_jointsToUse):
+                    raise Exception("Influences don't match data")
+                
+                numComponentsPerInfluence = int(weights.length() / numInfluences)
+                
+                influenceIndices = OM.MIntArray(numInfluences)
+                for i in range(numInfluences):
+                    influenceIndices.set(i, i)
+                    
+
+                
+                for i in range(numInfluences):
+                    for c in range(numComponentsPerInfluence):
+                        weights.set(0.0, c*numInfluences+i)                    
+                
+                for vertIdx in list(self._d_vertToWeighting.keys()):
+                    _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                    
+                    for jointIdx in list(_d_vert.keys()):
+                        weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
+
+                return dagPath, component
+
+        else:
+            # Has jurisdiction over what is allowed to be influenced.
+            fnSet = OM.MFnSet(fn.deformerSet())
+            members = OM.MSelectionList()
+            fnSet.getMembers(members, False)
+            dagPath = OM.MDagPath()
+            components = OM.MObject()
+            members.getDagPath(0, dagPath, components)
+            return dagPath, components
 
     def __getCurrentWeights(fn, dagPath, components):
         weights = OM.MDoubleArray()
@@ -941,7 +1127,7 @@ def gather_skinning_dict(*args,**kws):
 
         influencePaths = OM.MDagPathArray()
         numInfluences = fn.influenceObjects(influencePaths)
-        numComponentsPerInfluence = weights.length() / numInfluences
+        numComponentsPerInfluence = int(weights.length() / numInfluences)
         
         #progressBar_start(stepMaxValue=influencePaths.length(), 
         #                       statusMessage='Calculating....', 

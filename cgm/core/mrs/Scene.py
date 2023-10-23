@@ -5451,7 +5451,6 @@ def ExportScene(mode = -1,
     #Bake Check -----------------------------------------------------------------------------------------------
     #if mc.objExists(bakeSetName) and mc.sets(bakeSetName, q=True):
     #    log.info("bake...")        
-
     if not exportStatic:
         bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
                          euler=euler,tangent=tangent)
