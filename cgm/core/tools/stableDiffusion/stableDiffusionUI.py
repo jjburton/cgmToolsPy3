@@ -3412,7 +3412,7 @@ class ui(cgmUI.cgmGUI):
         self.uiOM_modelMenu.clear()
         for model in self.models:
             # if model is a string, continue
-            self.uiOM_modelMenu.append(model["model_name"])
+            self.uiOM_modelMenu.append(model.get("model_name", model.get("name")))
 
         return self.models
 
@@ -3420,7 +3420,7 @@ class ui(cgmUI.cgmGUI):
         _str_func = "uiFunc_getModelFromName"
 
         for model in self.models:
-            if model["model_name"] == name:
+            if model.get("model_name", model.get("name")) == name:
                 return model
 
         return None
@@ -4091,7 +4091,7 @@ class ui(cgmUI.cgmGUI):
         if self.uiOM_modelMenu and sdModels and sdOptions:
             for model in sdModels:
                 if model["title"] == sdOptions.get("sd_model_checkpoint",""):
-                    self.uiOM_modelMenu(edit=True, value=model["model_name"])
+                    self.uiOM_modelMenu(edit=True, value=model.get("model_name", model.get("name")))
                     break
 
         # iterate through options dict and set default from self._defaultOptions if not found
