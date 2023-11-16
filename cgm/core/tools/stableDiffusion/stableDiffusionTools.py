@@ -114,7 +114,6 @@ def getImageFromAutomatic1111(data):
     for i, controlNetDict in enumerate(data["control_nets"]):
         if controlNetDict["control_net_enabled"]:
             controlNetArgs = {
-                        "enable": True,
                         "lowvram": controlNetDict["control_net_low_v_ram"],
                         "module": controlNetDict["control_net_preprocessor"],
                         "model": controlNetDict["control_net_model"],
