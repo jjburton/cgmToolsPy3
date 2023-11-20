@@ -4381,6 +4381,7 @@ def prerig(self):
                 _dTmp = copy.copy(_d_name)
                 _dTmp['cgmDirection'] = side
                 
+                pprint.pprint(d_handleKWS)
                 
                 d_handleKWS = {
                     'mode' : 'handle',
