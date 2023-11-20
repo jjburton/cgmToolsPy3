@@ -4001,7 +4001,7 @@ example:
             if not os.path.exists(currentFile):
                 #If the open file hasn't been saved
                 log.debug("Doesn't exist: {}".format(currentFile))
-                baseFile = self.versionList['scrollList'].getSelectedItem()
+                baseFile = versionList['scrollList'].getSelectedItem()
                 baseName, ext = baseFile.split('.')
 
                 if not wantedBasename in baseName:
