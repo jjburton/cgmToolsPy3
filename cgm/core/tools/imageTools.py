@@ -264,3 +264,22 @@ def makePngInfo(metadata):
     except IOError:
         print(f"Error: File does not appear to exist.")
         return None
+
+def makePNGFromString(img_str, output_path):
+    # convert the base64 encoded data to bytes and create a BytesIO object
+    img_bytes = base64.b64decode(img_str)
+    img_buffer = BytesIO(img_bytes)
+
+    img = Image.open(img_buffer)
+
+    output_path = files.create_unique_filename(output_path)
+    print("output_path", output_path)
+    
+    img.save(output_path, "PNG")
+    img.close()
+
+    return output_path
+
+
+
+

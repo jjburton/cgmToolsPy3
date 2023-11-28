@@ -6,6 +6,7 @@ import os
 import pprint
 import base64
 from PIL import Image, PngImagePlugin
+from datetime import datetime
 
 from cgm.core.tools.stableDiffusion import renderTools as rt
 from cgm.core.tools import imageTools as it
@@ -185,11 +186,13 @@ def generateWithPayload(
     # assuming i contains the base64 encoded image string
 
     output_images = []
-    info = json.loads(outputData["info"])
+    info = {}
+    if 'info' in outputData:
+        info = json.loads(outputData["info"])
 
     print("info: ", info)
 
-    for i, image in enumerate(outputData["images"]):
+    for i, image in enumerate(outputData.get("images", [outputData['image']] if 'image' in outputData else [])):
         img_str = image  # extract the base64 encoded data from the string
 
         # convert the base64 encoded data to bytes and create a BytesIO object
@@ -200,7 +203,10 @@ def generateWithPayload(
 
         leading_number = files.find_last_leading_number(outputDir)+1
 
-        imageName = '%04d_%d_%s' % (leading_number, info["all_seeds"][min(i, len(info["all_seeds"])-1)], re.sub("[^A-Za-z0-9]", "_", info["prompt"][:50].strip()))
+        now = datetime.now()
+        imageName = now.strftime("Image_%Y%m%d_%H%M%S")
+        if 'all_seeds' in info and 'prompt' in info:
+            imageName = '%04d_%d_%s' % (leading_number, info["all_seeds"][min(i, len(info["all_seeds"])-1)], re.sub("[^A-Za-z0-9]", "_", info["prompt"][:50].strip()))
         if imageName == "":
             imageName = "output-image" % leading_number
         # remove any non-alphanumeric characters from the prompt and truncate
@@ -227,7 +233,8 @@ def generateWithPayload(
         #     pngInfo = None
         #     print(info)
         
-        pngInfo = it.makePngInfo({'parameters': info['infotexts'][min(i, len(info['infotexts']) - 1)]})
+        parameters = info['infotexts'][min(i, len(info['infotexts']) - 1)] if 'infotexts' in info else ""
+        pngInfo = it.makePngInfo({'parameters':  parameters})
         img.save(output_path, "PNG", pnginfo=pngInfo)
         img.close()
 
