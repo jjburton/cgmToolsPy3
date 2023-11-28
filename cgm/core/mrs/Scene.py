@@ -3852,6 +3852,11 @@ example:
         log.info(log_msg(_str_func,"Save to: {0}".format(saveLocation)))
 
         saveFile = os.path.normpath(os.path.join(saveLocation,wantedName) ) 
+        
+        #Set our base timeline to not be huge
+        mc.playbackOptions(minTime=0, maxTime=10)
+        mc.playbackOptions(animationStartTime=0, animationEndTime=10)
+        
         log.info( "Saving file: %s" % saveFile )
         mc.file( rename=saveFile )
         mc.file( save=True )
@@ -3996,7 +4001,7 @@ example:
             if not os.path.exists(currentFile):
                 #If the open file hasn't been saved
                 log.debug("Doesn't exist: {}".format(currentFile))
-                baseFile = self.versionList['scrollList'].getSelectedItem()
+                baseFile = versionList['scrollList'].getSelectedItem()
                 baseName, ext = baseFile.split('.')
 
                 if not wantedBasename in baseName:
@@ -5444,12 +5449,13 @@ def ExportScene(mode = -1,
         _end = None
 
     log.info( log_sub(_str_func,'Bake | start: {0} | end: {1}'.format(_start,_end)) )
+    if _start and _end:
+        mc.playbackOptions(minTime=_start, maxTime=_end)
 
 
     #Bake Check -----------------------------------------------------------------------------------------------
     #if mc.objExists(bakeSetName) and mc.sets(bakeSetName, q=True):
     #    log.info("bake...")        
-
     if not exportStatic:
         bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
                          euler=euler,tangent=tangent)

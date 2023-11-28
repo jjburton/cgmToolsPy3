@@ -83,7 +83,9 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
             if mc.objExists(bakeSet):
                 if bakeSet not in bakeSets:
                     bakeSets.append(bakeSet)
-                    bakeTransforms += mc.sets(bakeSet, q=True)
+                    _stuff = mc.sets(bakeSet, q=True)
+                    if _stuff:
+                        bakeTransforms += _stuff
             else:
                 bakeTransforms.append(asset)
                 #else:
@@ -93,7 +95,9 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
             if mc.objExists(bakeSetName):
                 if bakeSetName not in bakeSets:
                     bakeSets.append(bakeSetName)
-                    bakeTransforms += mc.sets(bakeSetName, q=True)
+                    _stuff = mc.sets(bakeSetName, q=True)
+                    if _stuff:
+                        bakeTransforms += _stuff
                     log.info("{0} || bakeSet: {1}".format(_str_func,bakeSetName))                    
             elif asset not in bakeTransforms:
                 bakeTransforms.append(asset)
@@ -102,6 +106,7 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                 #else:
                 #    bakeTransforms.append(asset)
     #pprint.pprint(vars())
+    log.info("Shall we bake...")
     if len(bakeTransforms) > 0:
         log.info("{0} || baking transforms...".format(_str_func))
         
@@ -209,8 +214,6 @@ def Prep(removeNamespace = False,
     if len(namespaces) > 0:
         for space in namespaces[:-1]:
             mc.namespace( removeNamespace = space, mergeNamespaceWithRoot = True)
-
-
         ns = '%s:' % namespaces[-1].replace('|', '')
     else:
         ns = None
@@ -234,7 +237,6 @@ def Prep(removeNamespace = False,
         exportSetObjs = [topNode]
 
 
-    
 
 
     if exportSetObjs:
@@ -289,11 +291,12 @@ def Prep(removeNamespace = False,
     exportObjs = cgmMeta.asMeta(mc.ls(sl=True))
     for obj in exportObjs:
         log.info("{0} || parent pass: {1}".format(_str_func,obj))
-        
-        try:
-            mc.parent(obj.mNode, w=True)
-        except:
-            print(("%s already a child of 'world'" % obj))
+        if obj.p_parent:
+            obj.p_parent = False
+        #try:
+        #    mc.parent(obj.mNode, w=True)
+        #except:
+        #    print(("%s already a child of 'world'" % obj))
             
             
     # delete garbage       
