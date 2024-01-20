@@ -55,6 +55,8 @@ _defaultOptions = {
     "seed": -1,
     "width": 512,
     "height": 512,
+    "bake_width":2048,
+    "bake_height":2048,
     "sampling_steps": 5,
     "min_depth_distance": 0.0,
     "max_depth_distance": 30.0,
@@ -121,7 +123,6 @@ _defaultOptions = {
         }
     ]
 }
-
 
 class ui(cgmUI.cgmGUI):
     USE_Template = "cgmUITemplate"
@@ -1444,6 +1445,51 @@ class ui(cgmUI.cgmGUI):
 
         self.uiLayout_batchMode.layout()        
 
+        # _row = mUI.MelHLayout(_inside,expand = False,ut = 'cgmUISubTemplate', padding=5)
+        _row = mUI.MelHSingleStretchLayout(_inside, expand=True, ut="cgmUISubTemplate")
+        mUI.MelSpacer(_row, w=5)
+        mUI.MelLabel(_row, l="Bake Resolution:", align="right")
+
+        _row.setStretchWidget(mUI.MelSeparator(_row, w=2))
+
+        self.uiIF_BakeWidth = mUI.MelIntField(
+            _row,
+            minValue=32,
+            value=2048,
+            changeCommand=cgmGEN.Callback(self.uiFunc_setBakeSize, "field"),
+            annotation="Width of baked texture image to create",
+            width=50
+        )
+
+        self.uiIF_BakeHeight = mUI.MelIntField(
+            _row,
+            minValue=32,
+            value=2048,
+            changeCommand=cgmGEN.Callback(self.uiFunc_setBakeSize, "field"),
+            annotation="Height of baked texture image to create",
+            width=50
+        )
+
+        _bakeSizeOptions = [
+            "512x512",
+            "1024x1024",
+            "2048x2048",
+            "4096x4096",
+        ]
+        self.uiOM_BakeSizeMenu = mUI.MelOptionMenu(_row, useTemplate="cgmUITemplate")
+        for option in _bakeSizeOptions:
+            self.uiOM_BakeSizeMenu.append(option)
+
+        self.uiOM_BakeSizeMenu(
+            edit=True, changeCommand=cgmGEN.Callback(self.uiFunc_setBakeSize, "menu")
+        )
+
+        # _row.setStretchWidget( self.sizeMenu )
+        mUI.MelSpacer(_row, w=5)
+
+        _row.layout()
+
+
         # Generate Button
         #
         _row = mUI.MelHLayout(_inside, ut="cgmUISubTemplate", padding=10)
@@ -1800,6 +1846,30 @@ class ui(cgmUI.cgmGUI):
 
         self.saveOption("width", width)
         self.saveOption("height", height)
+
+    def uiFunc_setBakeSize(self, source):
+        _str_func = "uiFunc_setBakeSize"
+
+        width, height = 0, 0
+
+        if source == "menu":
+            size = self.uiOM_BakeSizeMenu(query=True, value=True)
+            width, height = [int(x) for x in size.split("x")]
+            self.uiIF_BakeWidth(edit=True, value=width)
+            self.uiIF_BakeHeight(edit=True, value=height)
+        else:
+            width = self.uiIF_BakeWidth(query=True, value=True)
+            height = self.uiIF_BakeHeight(query=True, value=True)
+            resolutionString = "{}x{}".format(width, height)
+            log.debug(resolutionString)
+            for menuItem in self.uiOM_BakeSizeMenu(query=True, itemListLong=True):
+                log.debug(mc.menuItem(menuItem, query=True, label=True))
+                if (mc.menuItem(menuItem, query=True, label=True) == resolutionString):
+                    self.uiOM_BakeSizeMenu(edit=True, value=resolutionString)
+                    break
+
+        self.saveOption("bake_width", width)
+        self.saveOption("bake_height", height)
 
     # =============================================================================================================
     # >> Edit Column
@@ -2822,6 +2892,8 @@ class ui(cgmUI.cgmGUI):
         _batch = self.uiOM_batchMode.getValue() == "Bake Projection"
         _generate = self.uiCB_batchGenerate.getValue() and _batch
 
+        _bakeResolution = (self.uiIF_BakeWidth.getValue(), self.uiIF_BakeHeight.getValue())
+
         frames = [mc.currentTime(q=True)]
         if _batch:
             frames = range(
@@ -2880,7 +2952,7 @@ class ui(cgmUI.cgmGUI):
                 if imagePaths:
                     self.assignImageToProjection(imagePaths[0], info)
 
-            sd.bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData=additionalDictInfo)
+            sd.bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData=additionalDictInfo, resolution=_bakeResolution)
 
         # restore sd batch settings
         if _generate:
@@ -3948,7 +4020,7 @@ class ui(cgmUI.cgmGUI):
             mc.setAttr('{0}.sy'.format(camTransform), 1.0)
             mc.setAttr('{0}.sz'.format(camTransform), 1.0)
 
-            sd.bakeProjection(meshes, projectionShader, alphaShader)
+            sd.bakeProjection(meshes, projectionShader, alphaShader, resolution=_toolOptions["textureBakeResolution"])
         
         # assign composite shader
         self.uiFunc_assignMaterial("composite")
@@ -4050,6 +4122,8 @@ class ui(cgmUI.cgmGUI):
 
         self.config.setValue(json.dumps(_options))
 
+        self.toolOptionsVar.setValue(json.dumps(self.toolOptions))
+
         log.debug("saving {0}".format(_options))
 
     def loadOptions(self, options=None):
@@ -4074,7 +4148,7 @@ class ui(cgmUI.cgmGUI):
 
         log.debug("|{0}| >> loaded _options: {1}".format(_str_func, _options))
 
-        # go through options and set default if not found
+       # go through options and set default if not found
         for key in _defaultOptions:
             if key not in _options:
                 _options[key] = _defaultOptions[key]
@@ -4083,6 +4157,10 @@ class ui(cgmUI.cgmGUI):
                         _str_func, key, _defaultOptions[key]
                     )
                 )
+
+        self.uiIF_BakeWidth(e=True, v=_options["bake_width"])
+        self.uiIF_BakeHeight(e=True, v=_options["bake_height"])
+        self.uiFunc_setBakeSize("field")
 
         # load model from automatic
         sdModels = sd.getModelsFromAutomatic1111(_options["automatic_url"])

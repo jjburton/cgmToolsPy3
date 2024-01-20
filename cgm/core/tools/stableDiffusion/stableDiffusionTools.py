@@ -949,13 +949,13 @@ def getMeshMaterial(mesh, materialType):
 
     return connections
 
-def bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData={}):
+def bakeProjection(meshes, projectionShader, alphaShader, additionalImageProjectionData={}, resolution=(2048, 2048)):
     if not isinstance(additionalImageProjectionData, dict):
         additionalImageProjectionData = {}
     
     for mesh in meshes:
-        bakedImage = rt.bakeProjection(projectionShader, mesh)
-        bakedAlpha = rt.bakeProjection(alphaShader, mesh)
+        bakedImage = rt.bakeProjection(projectionShader, mesh, resolution)
+        bakedAlpha = rt.bakeProjection(alphaShader, mesh, resolution)
 
         mFile = cgmMeta.asMeta(bakedImage)
 
