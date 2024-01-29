@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 import json
 import datetime
+import copy
 
 from shutil import copyfile
 #import fnmatch
@@ -218,7 +219,8 @@ example:
         self.d_labels = {}        
         self.d_userPaths = {}
         self.mExportDat = None
-
+        self.l_dirMask = []
+        
         global UI
         UI = self
 
@@ -481,7 +483,7 @@ example:
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
         _dirs = CGMOS.get_lsFromPath(_path,'dir')        
 
-        for d in _l_directoryMask:
+        for d in self.l_dirMask:
             if d in _dirs:
                 _dirs.remove(d)
 
@@ -517,7 +519,7 @@ example:
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
         _dirs = CGMOS.get_lsFromPath(_path,'dir')
 
-        for d in _l_directoryMask:
+        for d in self.l_dirMask:
             if d in _dirs:
                 _dirs.remove(d)
 
@@ -544,7 +546,7 @@ example:
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
         _dirs = CGMOS.get_lsFromPath(_path,'dir')
 
-        for d in _l_directoryMask:
+        for d in self.l_dirMask:
             if d in _dirs:
                 _dirs.remove(d)
 
@@ -572,7 +574,7 @@ example:
             _dirs = CGMOS.get_lsFromPath(_path_set,'dir')        
 
 
-        for d in _l_directoryMask:
+        for d in self.l_dirMask:
             if d in _dirs:
                 _dirs.remove(d)
 
@@ -1714,7 +1716,7 @@ example:
         if not d_userPaths.get('content'):
             log.error("No Content path found")
             self.reload_headerImage()            
-            return False
+            #return False
 
         if not d_userPaths.get('export'):
             log.error("No Export path found")
@@ -1727,8 +1729,8 @@ example:
             self.uiScrollList_dirExport.mDat = self.mDat        
             self.uiScrollList_dirExport.rebuild( self.exportDirectory)            
 
-
-        if os.path.exists(d_userPaths['content']):
+        _path_content = d_userPaths.get('content')
+        if _path_content and os.path.exists(_path_content):
             self.LoadCategoryList(d_userPaths['content'])
 
             _l = self.mDat.assetTypes_get() if self.mDat.assetTypes_get() else self.mDat.d_structure.get('assetTypes', [])
@@ -1762,8 +1764,10 @@ example:
 
             self.assetList['scrollList'].clearSelection()
         else:
-            mel.eval('error "Project path does not exist"')
+            log.error('error "Project content path does not exist')
             self.reload_headerImage()
+            
+            #HERE JOSH 
 
         self.uiScrollList_dirContent.mDat = self.mDat
         self.uiScrollList_dirContent.rebuild( self.directory)
@@ -3179,7 +3183,7 @@ example:
                     #    continue
                     animDir = os.path.normpath(os.path.join(charDir, d))
                     if self.showAllFiles:
-                        if d in _l_directoryMask:
+                        if d in self.l_dirMask:
                             continue
                         for chk in ['MRSbatch']:
                             _break = False
@@ -3251,7 +3255,7 @@ example:
                     #	if os.path.splitext(f)[-1].lower() == ".%s" % ext :
                     if d[0] == '_' or d[0] == '.':
                         continue
-                    if d in _l_directoryMask:
+                    if d in self.l_dirMask:
                         continue
 
 
@@ -4086,8 +4090,24 @@ example:
             mel.eval('warning "No Project Set"')
             return
 
-
+        #Clear our previous data...
+        for mSet in [self.assetList,self.subTypeSearchList,self.variationList,self.versionList]:
+            mSet['scrollList'].clear()
+        self.pathProject = None
+        self.directory = ''
+        self.path_current = ''
+        self.exportDirectory = ''
+        #----------------------------------------------------
+        
+        
         mDat = Project.data(filepath=path)
+        
+        #DirMask --------------
+        self.l_dirMask = copy.copy(_l_directoryMask)
+        
+        if mDat.d_project.get('dirMask'):
+            _l_mask = CORESTRING.parseCommaString(mDat.d_project.get('dirMask'))
+            self.l_dirMask.extend(_l_mask)
 
 
 
