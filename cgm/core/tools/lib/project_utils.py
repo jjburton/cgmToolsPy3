@@ -156,7 +156,7 @@ _projSettings = [{'n':'name','t':'text','dv':'Name me'},
                  {'n':'mayaFilePref','t':l_mayaFileType,'dv':'mb'},
                  #{'n':'projectPathMode','t':l_projectPathModes,'dv':'art'},
                  {'n':'nameStyle','t':l_nameConventions,'dv':'none'},
-                 {'n':'dirMask','t':'text','dv':"meta,.mayaSwatches,incrementalSave,cgmDat,mayaSwatches"},
+                 {'n':'dirMask','t':'text','dv':""},
                  ]
                  
 _animSettings = [{'n':'frameRate','t':_fpsStrings,'dv':'24fps'},

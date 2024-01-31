@@ -484,7 +484,7 @@ example:
         _dirs = CGMOS.get_lsFromPath(_path,'dir')        
 
         for d in self.l_dirMask:
-            if d in _dirs:
+            if d in [d2.lower for d2 in _dirs]:
                 _dirs.remove(d)
 
         if _dirs:
@@ -520,7 +520,7 @@ example:
         _dirs = CGMOS.get_lsFromPath(_path,'dir')
 
         for d in self.l_dirMask:
-            if d in _dirs:
+            if d in [d2.lower() for d2 in _dirs]:
                 _dirs.remove(d)
 
             #return False
@@ -547,7 +547,7 @@ example:
         _dirs = CGMOS.get_lsFromPath(_path,'dir')
 
         for d in self.l_dirMask:
-            if d in _dirs:
+            if d in [d2.lower() for d2 in _dirs]:
                 _dirs.remove(d)
 
         if _dirs:
@@ -575,7 +575,7 @@ example:
 
 
         for d in self.l_dirMask:
-            if d in _dirs:
+            if d in [d2.lower() for d2 in _dirs]:
                 _dirs.remove(d)
 
         if _dirs:
@@ -1676,6 +1676,18 @@ example:
 
     def uiProject_refreshDisplay(self):
         #self.uiFunc_displayProject(self.displayProject)
+        
+        #DirMask -------------------------------------------------------
+        self.l_dirMask = copy.copy(_l_directoryMask)
+        
+        if self.mDat.d_project.get('dirMask'):
+            _l_mask = CORESTRING.parseCommaString(self.mDat.d_project.get('dirMask'))
+            self.l_dirMask.extend(_l_mask)
+        
+            if self.l_dirMask:
+                self.l_dirMask = [n.lower() for n in self.l_dirMask]
+        #----------------------------------------------------------------
+        
 
         _bgColor = self.v_bgc
         self.d_userPaths = {}
@@ -1778,6 +1790,11 @@ example:
             self.var_posePathLocal.value = d_userPaths['poses']
 
         self.rebuild_scriptUI()
+        
+        
+        self.LoadPreviousSelection()
+        
+        
 
         """
         log.debug( "+"*100)
@@ -3101,6 +3118,8 @@ example:
                 #	if os.path.splitext(f)[-1].lower() == ".%s" % ext :
                 if d[0] == '_' or d[0] == '.':
                     continue
+                if d.lower() in self.l_dirMask:
+                    continue
 
                 charDir = os.path.normpath(os.path.join(categoryDirectory, d))
                 if os.path.isdir(charDir):
@@ -3183,7 +3202,7 @@ example:
                     #    continue
                     animDir = os.path.normpath(os.path.join(charDir, d))
                     if self.showAllFiles:
-                        if d in self.l_dirMask:
+                        if d.lower() in self.l_dirMask:
                             continue
                         for chk in ['MRSbatch']:
                             _break = False
@@ -3255,7 +3274,7 @@ example:
                     #	if os.path.splitext(f)[-1].lower() == ".%s" % ext :
                     if d[0] == '_' or d[0] == '.':
                         continue
-                    if d in self.l_dirMask:
+                    if d.lower() in self.l_dirMask:
                         continue
 
 
@@ -3410,6 +3429,18 @@ example:
                     import maya.mel as MEL
                     MEL.eval(_before)
 
+    def uiFuncTF_update(self,tf,datDict, datKey, refreshDisplay = False):
+        _str_func = 'uiFuncTF_update'
+        log.debug(log_start(_str_func))
+        #log.info(tf)
+        #log.info(datDict)
+        #log.info(datKey)
+        #log.info(tf.getValue())
+        datDict[datKey] = tf.getValue()
+        
+        if refreshDisplay:
+            self.uiProject_refreshDisplay()
+        
     def uiFunc_getOpenFileDict(self,*args):
 
         _str_func = 'uiFunc_selectOpenFile'
@@ -4085,6 +4116,7 @@ example:
         else:
             log.warning("Path not found - {0}".format(path))
 
+        
     def LoadProject(self, path, *args):
         if not os.path.exists(path):
             mel.eval('warning "No Project Set"')
@@ -4101,13 +4133,7 @@ example:
         
         
         mDat = Project.data(filepath=path)
-        
-        #DirMask --------------
-        self.l_dirMask = copy.copy(_l_directoryMask)
-        
-        if mDat.d_project.get('dirMask'):
-            _l_mask = CORESTRING.parseCommaString(mDat.d_project.get('dirMask'))
-            self.l_dirMask.extend(_l_mask)
+
 
 
 
@@ -4130,17 +4156,33 @@ example:
                     return log.warning("Project load aborted: {0}".format(path))
 
 
-
+        
         self.b_loadState = True
         self.report_lastSelection()        
-
+    
         self.mDat = mDat
-
+    
         #print"{}...".format('projectload')                
         PROJECT.uiProject_load(self, path=path)
         #self.report_lastSelection()
-
+    
         self.var_lastProject.setValue( path )
+        
+        self.uiProject_refreshDisplay()
+        
+        self.uiFunc_projectDirtyState(False)
+        
+        
+        self.b_loadState = False
+        self.path_current = os.path.normpath(path)
+        self.mPathList_recent.append_recent(path)
+        
+        self.d_tf['general']['dirMask'](edit=True, cc = cgmGEN.Callback(self.uiFuncTF_update,self.d_tf['general']['dirMask'], self.mDat.d_project, 'dirMask', refreshDisplay=True))
+        
+        return
+    
+        #Moving this stuff...
+        
 
         #print"{}...".format('refresh')        
         self.uiProject_refreshDisplay()
@@ -4151,7 +4193,7 @@ example:
         #self.report_lastSelection()
 
         #print"{}...".format('previous')                
-        self.LoadPreviousSelection()
+        #self.LoadPreviousSelection()
         #self.report_lastSelection()
 
         self.b_loadState = False
