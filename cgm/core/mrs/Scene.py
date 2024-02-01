@@ -342,11 +342,15 @@ example:
         try:return os.path.normpath(os.path.join( self.path_dir_category, self.assetList['scrollList'].getSelectedItem() )) if self.assetList['scrollList'].getSelectedItem() else None
         except Exception as err:
             log.debug(err)
-            return False        
+            return False
+        
     @property
     def selectedSet(self):
-        return self.subTypeSearchList['scrollList'].getSelectedItem()	
-
+        _path = self.path_set
+        if PATHS.Path(_path).isDir():
+            return self.subTypeSearchList['scrollList'].getSelectedItem()	
+        return False
+    
     @property
     def path_subType(self):
         try:
@@ -484,7 +488,7 @@ example:
         _dirs = CGMOS.get_lsFromPath(_path,'dir')        
 
         for d in self.l_dirMask:
-            if d in [d2.lower for d2 in _dirs]:
+            if d in [d2.lower() for d2 in _dirs]:
                 _dirs.remove(d)
 
         if _dirs:
@@ -4092,10 +4096,11 @@ example:
 
 
         saveLocation = os.path.join(self.path_asset, self.subType)
-        if self.hasSub:
-            saveLocation = self.path_set
-        if self.hasSub and self.hasVariant:
-            saveLocation = self.path_variationDirectory
+        if self.hasNested:                
+            if self.hasSub:
+                saveLocation = self.path_set
+            if self.hasSub and self.hasVariant:
+                saveLocation = self.path_variationDirectory
 
         saveFile = os.path.normpath(os.path.join(saveLocation, wantedName) ) 
         log.info( "Saving file: %s" % saveFile )
