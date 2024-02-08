@@ -487,8 +487,8 @@ example:
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
         _dirs = CGMOS.get_lsFromPath(_path,'dir')        
 
-        for d in self.l_dirMask:
-            if d in [d2.lower() for d2 in _dirs]:
+        for d in _dirs:
+            if d.lower() in self.l_dirMask:
                 _dirs.remove(d)
 
         if _dirs:
@@ -521,14 +521,15 @@ example:
         log.debug(log_msg(_str_func, self.subType))
 
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
-        _dirs = CGMOS.get_lsFromPath(_path,'dir')
-
-        for d in self.l_dirMask:
-            if d in [d2.lower() for d2 in _dirs]:
-                _dirs.remove(d)
+        _dirsRaw = CGMOS.get_lsFromPath(_path,'dir')
+        _dirs = []
+        for d in _dirsRaw:
+            if d.lower() not in self.l_dirMask:
+                _dirs.append(d)
 
             #return False
-
+        #log.info("hasSubTypes...")
+        #pprint.pprint(_dirs)
         if _dirs:
             _res = True
 
@@ -548,11 +549,14 @@ example:
         log.debug(log_msg(_str_func, self.subType))
 
         #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
-        _dirs = CGMOS.get_lsFromPath(_path,'dir')
-
-        for d in self.l_dirMask:
-            if d in [d2.lower() for d2 in _dirs]:
-                _dirs.remove(d)
+        _dirsRaw = CGMOS.get_lsFromPath(_path,'dir')
+        _dirs = []
+        for d in _dirsRaw:
+            if d.lower() not in self.l_dirMask:
+                _dirs.append(d)
+                
+        #log.info("hasNested...")
+        #pprint.pprint(_dirs)        
 
         if _dirs:
             _res = True
@@ -565,6 +569,7 @@ example:
         _str_func = 'hasVariant'
         _res = False
         _dirs = []
+        _dirsRaw = []
         try:
             _path_set= self.path_set
             log.debug(log_msg(_str_func, _path_set))
@@ -575,12 +580,14 @@ example:
         log.debug(log_start(_str_func))
         log.debug(log_msg(_str_func, "path_set | {}".format(_path_set)))        
         if _path_set and os.path.isdir(_path_set):
-            _dirs = CGMOS.get_lsFromPath(_path_set,'dir')        
+            _dirsRaw = CGMOS.get_lsFromPath(_path_set,'dir')
 
-
-        for d in self.l_dirMask:
-            if d in [d2.lower() for d2 in _dirs]:
-                _dirs.remove(d)
+        for d in _dirsRaw:
+            if d.lower() not in self.l_dirMask:
+                _dirs.append(d)
+                
+        #log.info("hasVariant...")
+        #pprint.pprint(_dirs)             
 
         if _dirs:
             _res = True
@@ -1692,6 +1699,8 @@ example:
                 self.l_dirMask = [n.lower() for n in self.l_dirMask]
         #----------------------------------------------------------------
         
+        log.info("DirMask:")
+        pprint.pprint(self.l_dirMask)
 
         _bgColor = self.v_bgc
         self.d_userPaths = {}
@@ -4138,8 +4147,6 @@ example:
         
         
         mDat = Project.data(filepath=path)
-
-
 
 
         #We want to check our project version at open
