@@ -4005,6 +4005,9 @@ class ui(cgmUI.cgmGUI):
         log.debug("|alphaProjection| >> ... {0}".format(alphaShader))
         log.debug("|split_images| >> ... {0}".format(split_images))     
 
+        width = self.uiIF_BakeWidth(query=True, value=True)
+        height = self.uiIF_BakeHeight(query=True, value=True)
+
         for i in range(info['latent_batch_num_images']):
             mc.currentTime(info['latent_batch_camera_info'][i]['frame'])
             mc.refresh()
@@ -4020,7 +4023,7 @@ class ui(cgmUI.cgmGUI):
             mc.setAttr('{0}.sy'.format(camTransform), 1.0)
             mc.setAttr('{0}.sz'.format(camTransform), 1.0)
 
-            sd.bakeProjection(meshes, projectionShader, alphaShader, resolution=_toolOptions["textureBakeResolution"])
+            sd.bakeProjection(meshes, projectionShader, alphaShader, resolution=(width, height))
         
         # assign composite shader
         self.uiFunc_assignMaterial("composite")
@@ -4158,6 +4161,8 @@ class ui(cgmUI.cgmGUI):
                     )
                 )
 
+        log.debug("loading options:\n%s"%(str(_options)))
+
         self.uiIF_BakeWidth(e=True, v=_options["bake_width"])
         self.uiIF_BakeHeight(e=True, v=_options["bake_height"])
         self.uiFunc_setBakeSize("field")
@@ -4247,6 +4252,11 @@ class ui(cgmUI.cgmGUI):
         self.uiFunc_project_setAutoDepth()
 
         self.uiOM_batchMode.setValue(_options["batch_mode"])
+        
+        self.uiIF_batchProjectStart.setValue(_options.get("batch_min_time", 0))
+        self.uiIF_batchProjectEnd.setValue(_options.get("batch_max_time", int(mc.playbackOptions(q=True, maxTime=True))))
+        self.uiIF_batchProjectStep.setValue(_options.get("batch_step_time", 1))
+
         self.uiFunc_project_updateBatchMode()
 
         # Load Control Nets
