@@ -12,6 +12,12 @@ import numpy as np
 import cv2
 from scipy.spatial import cKDTree
 
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
+
 def expand_uv_borders(image, dilation_radius=5, erosion_radius=3):
     # 2. Convert the PIL image to a numpy array
     image_np = np.array(image)
@@ -115,36 +121,32 @@ def addMonochromaticNoise(image, noise_intensity=0.1, blur_radius=0):
     return noisy_image    
 
 def createContactSheet(images):
+    log.debug("Creating contact sheets with %i images."%(len(images)))
+    
     widths, heights = zip(*(i.size for i in images))
-    total_width = sum(widths)
-    total_height = max(heights)
+    widths = list(widths)
+    heights = list(heights)
+
+    log.debug("widths: %s"%str(widths))
+    log.debug("heights: %s"%str(heights))
+
     num_images = len(images)
     
     # Calculate most efficient number of rows and columns
-    num_cols = num_images
-    num_rows = 1
-    min_area = total_width * total_height
-
-    for cols in range(1, ceil(sqrt(num_images)) + 1):
-        rows = ceil(num_images / cols)
-        area = cols * max(widths) * rows * max(heights)
-        if area < min_area:
-            min_area = area
-            num_cols = cols
-            num_rows = rows
-            
-    contact_sheet = Image.new('RGB', (num_cols * max(widths), num_rows * max(heights)))
+    aspect_ratio = sum(widths) / sum(heights)
+    num_rows = int(sqrt(num_images * aspect_ratio))
+    num_cols = ceil(num_images / num_rows)
     
+    contact_sheet = Image.new('RGB', (num_cols * max(widths), num_rows * max(heights)))
     x_offset = 0
     y_offset = 0
-    
     for i, im in enumerate(images):
         contact_sheet.paste(im, (x_offset, y_offset))
         x_offset += im.size[0]
         if (i + 1) % num_cols == 0:
             x_offset = 0
             y_offset += max(heights)
-            
+    
     return contact_sheet
 
 def getResolutionFromContactSheet(contact_sheet, num_images):
@@ -192,6 +194,7 @@ def createContactSheetFromStrings(image_strings):
     return createContactSheet(images)
 
 def createContactSheetFromPaths(image_paths):
+    log.debug("image_paths: %s"%str(image_paths))
     images = [Image.open(path) for path in image_paths]
     return createContactSheet(images)
 
