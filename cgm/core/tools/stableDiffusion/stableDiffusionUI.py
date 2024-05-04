@@ -991,14 +991,16 @@ class ui(cgmUI.cgmGUI):
             align="right",
             annotation="Value that model tries to conform to the prompt",
         )
-        self.uiIF_CFGScale = mUI.MelIntField(
+        self.uiFF_CFGScale = mUI.MelFloatField(
             _row,
             minValue=1,
+            precision=1,
             value=7,
             annotation="Value that model tries to conform to the prompt",
             changeCommand=cgmGEN.Callback(self.uiFunc_setCFGScale, "field"),
         )
-        self.uiSlider_CFGScale = mUI.MelIntSlider(_row, 1, 100, 1, step=1)
+
+        self.uiSlider_CFGScale = mUI.MelFloatSlider(_row, 1, 100, 1, step=1)
         self.uiSlider_CFGScale.setChangeCB(
             cgmGEN.Callback(self.uiFunc_setCFGScale, "slider")
         )
@@ -3456,7 +3458,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_setCFGScale(self, source):
         val = uiFunc_setFieldSlider(
-            self.uiIF_CFGScale, self.uiSlider_CFGScale, source, 30
+            self.uiFF_CFGScale, self.uiSlider_CFGScale, source, 30
         )
 
         self.saveOption("cfg_scale", val)
@@ -4058,7 +4060,7 @@ class ui(cgmUI.cgmGUI):
         _options["mask_blur"] = self.uiIF_maskBlur.getValue()
         _options["batch_count"] = self.uiIF_batchCount.getValue()
         _options["batch_size"] = self.uiIF_batchSize.getValue()
-        _options["cfg_scale"] = self.uiIF_CFGScale.getValue()
+        _options["cfg_scale"] = self.uiFF_CFGScale.getValue()
         _options["auto_depth_enabled"] = self.uiAutoDepthEnabledCB.getValue()
 
         _options["control_nets"] = self.uiFunc_getControlNets()
@@ -4213,7 +4215,7 @@ class ui(cgmUI.cgmGUI):
                 "|{0}| >> Failed to find sampling method in options".format(_str_func)
             )
 
-        self.uiIF_CFGScale.setValue(_options["cfg_scale"])
+        self.uiFF_CFGScale.setValue(_options["cfg_scale"])
         self.uiFunc_setCFGScale("field")
 
         self.uiIF_batchCount.setValue(_options["batch_count"])
