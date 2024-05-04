@@ -12,7 +12,7 @@ __MAYALOCAL = "cgmGEN"
 
 __RELEASE = "24.05.04.01"
 
-__BRANCH = "diffusionTools"
+__BRANCH = "diffusionTools-dev"
 
 import maya.cmds as mc
 import maya.mel as mel
