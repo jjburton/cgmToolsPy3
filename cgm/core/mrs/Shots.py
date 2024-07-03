@@ -89,7 +89,7 @@ example:
         mc.setParent('..')
 
         mc.button( label="Add Sub Animation", w=self.width, command=self.AddShotUI )
-        mc.button( label="Refresh", w=self.width, command=self.RefreshShotList )
+        mc.button( label="Refresh", w=self.width, command=self.RefreshShotListUI )
 
         mc.showWindow( self.window )
 
@@ -256,7 +256,12 @@ example:
         mc.deleteUI( self.window, window=True )
         self.CreateWindow()
 
-    def RefreshShotList(self, *args):
+    def RefreshShotListUI(self, *args):
+        self.LoadAnimList()
+        self.Sort(self.sortType)
+        self.RefreshShotList()
+
+    def RefreshShotList(self, *args):       
         children = mc.rowColumnLayout(self.shotRCL, q=True, childArray=True)
         for child in children if children else []:
             mc.deleteUI(child)
