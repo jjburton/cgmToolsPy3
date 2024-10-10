@@ -17,9 +17,11 @@ def BakeAndPrep(bakeSetName = 'bake_tdSet',
                 endFrame = None,
                 sampleBy=1.0,                
                 euler = True,
-                tangent = 'auto'):
+                tangent = 'auto',
+                simplify = False,
+                reducer = True):
     
-    baked = Bake(bakeSetName,startFrame = startFrame,endFrame=endFrame, sampleBy=sampleBy,euler=euler, tangent=tangent)
+    baked = Bake(bakeSetName,startFrame = startFrame,endFrame=endFrame, sampleBy=sampleBy,euler=euler, tangent=tangent, simplify=simplify, reducer=reducer)
     if baked:
         prepped = Prep(deleteSetName,
                        exportSetName)
@@ -36,7 +38,10 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
          endFrame = None,
          sampleBy=1.0,
          euler = True,
-         tangent = 'auto'):
+         tangent = 'auto',
+         simplify = False,
+         reducer = True):
+    
     _str_func = 'Bake'
     
     if startFrame is None:
@@ -125,12 +130,16 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                         bakeOnOverrideLayer = False, 
                         minimizeRotation = True, 
                         controlPoints = False, 
+                        # smart= True,
+                        # sparseAnimCurveBake = .00001,
                         shape = True )
 
         mc.setInfinity(bakeTransforms, pri='constant', poi='constant')
+
+        #Simplify
         
         #Filter euler
-        if euler or tangent:
+        if euler or tangent or reducer or simplify:
             for obj in bakeTransforms:
                 if euler:
                     for a in ['rotateX','rotateY','rotateZ']:
@@ -147,7 +156,19 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                         else:
                             mc.keyTangent(_anim, e=1, itt=tangent,ott=tangent,animation='keysOrObjects')            
             
-            
+                if simplify:
+                    _anim = mc.listConnections(obj, type = 'animCurve')
+                    if _anim:
+                        mc.simplify(_anim, time=":", float=":", timeTolerance=0.05, valueTolerance=0.00001)
+
+                if reducer:
+                    _anim = mc.listConnections(obj, type = 'animCurve')
+                    if _anim:
+                        mc.filterCurve(_anim, 
+                                        filter="keyReducer", 
+                                        precisionMode=1, 
+                                        precision=0.1, 
+                                        preserveKeyTangent="auto")
 
         baked = True
     else:
@@ -173,7 +194,6 @@ def Prep(removeNamespace = False,
     
     prepped = True
     
-    
     #if(mc.optionVar(exists='cgm_delete_set')):
     #    deleteSetName = mc.optionVar(q='cgm_delete_set')
     #if(mc.optionVar(exists='cgm_export_set')):
@@ -193,7 +213,6 @@ def Prep(removeNamespace = False,
     
     log.info("{0} || mNode: {1}".format(_str_func,topNode.mNode))
     log.info("{0} || topNode: {1} | namespaces: {2}".format(_str_func,topNodeSN,namespaces))
-    
     log.info("{0} || ref import".format(_str_func))
     
     # import reference
