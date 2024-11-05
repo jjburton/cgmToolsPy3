@@ -17,6 +17,8 @@ import copy
 import time
 import pprint
 import os
+import platform
+import tempfile
 import subprocess, os
 import sys
 
@@ -4168,17 +4170,36 @@ class ui_toStandAlone(cgmUI.cgmGUI):
                 log.warning("Not writable: {0}".format(_batchPath))
         
         self.Close()
-        
-        if process:
-            log.debug(cgmGEN.logString_sub(_str_func,"Processing ..."))        
-            for f in l_batch:
-                log.warning("Processing file: {0}".format(f.asFriendly()))            
-                #subprocess.call([sys.argv[0].replace("maya.exe","mayapy.exe"),f.asFriendly()])
-                subprocess.Popen([sys.argv[0].replace("maya.exe",
-                                                      "mayapy.exe"),'-i',
-                                  f.asFriendly()],
-                                 creationflags = subprocess.CREATE_NEW_CONSOLE)# env=my_env
-                
+
+
+        for f in l_batch:
+            log.warning("Processing file: {0}".format(f.asFriendly()))
+            python_script_path = f.asFriendly()  # Ensure this is the path to the generated .py file
+
+            if platform.system() == "Windows":
+                # Windows-specific command with CREATE_NEW_CONSOLE
+                creation_flags = subprocess.CREATE_NEW_CONSOLE
+                subprocess.Popen([sys.argv[0].replace("maya.exe", "mayapy.exe"), '-i', python_script_path],
+                                creationflags=creation_flags)
+            else:
+                # macOS: Create a temporary shell script to run mayapy with the script
+                mayapy_path = "/Applications/Autodesk/maya2024/Maya.app/Contents/bin/mayapy"
+                shell_command = f'"{mayapy_path}" -i "{python_script_path}"'
+
+                # Create a temporary .sh script to execute in iTerm
+                with tempfile.NamedTemporaryFile('w', delete=False, suffix=".sh") as temp_script:
+                    temp_script.write(f"#!/bin/zsh\n{shell_command}\n")
+                    temp_script_path = temp_script.name
+
+                # Make the script executable
+                os.chmod(temp_script_path, 0o755)
+
+                # Open iTerm and execute the temporary script using open -a iTerm.app
+                subprocess.Popen(["open", "-a", "iTerm.app", temp_script_path])
+
+                # Optional: Clean up the temporary script after execution
+                # os.remove(temp_script_path)
+              
                 #if deleteAfterProcess:
                 #    os.remove(f)
 
