@@ -8,6 +8,7 @@ __MAYALOCAL = 'CURVES'
 
 # From Python =============================================================
 import copy
+from doctest import debug
 import re
 import pprint
 
@@ -877,6 +878,7 @@ def create_fromName(name = None, size = None, direction = 'z+', absoluteSize = T
         mc.makeIdentity(_res, apply=True,r =1, n= 1,s=0)
         
         if cgmValid.isListArg(size):
+            log.info(size)
             #TRANS.scale_to_boundingBox(_res,size)
             #for a in 'xyz':
             #    v = ATTR.get(_res,'s{0}'.format(a))
@@ -885,7 +887,8 @@ def create_fromName(name = None, size = None, direction = 'z+', absoluteSize = T
             for i,a in enumerate('xyz'):
                 _v = size[i]
                 if _v is None:
-                    _v = max(size)
+                    filtered_values = [v for v in size if v is not None]
+                    _v = max(filtered_values)
                 ATTR.set(_res,'s{0}'.format(a),_v)
         else:
             if absoluteSize:
