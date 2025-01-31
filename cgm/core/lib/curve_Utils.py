@@ -8,8 +8,6 @@ __MAYALOCAL = 'CURVES'
 
 # From Python =============================================================
 import copy
-from doctest import debug
-import re
 import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
