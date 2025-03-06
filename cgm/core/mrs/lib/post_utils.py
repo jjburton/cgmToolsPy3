@@ -156,7 +156,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
     if not ml_blends:
         ml_blends = mRigNull.msgList_get('fkJoints')
     
-    mTargetSurface = cgmMeta.validateObjArg(controlSurface,mayaType='nurbsSurface')
+    mTargetSurface = cgmMeta.validateObjArg(controlSurface)
     
     if not waveControl:
         mSettings = ml_blends[0].doCreateAt()
