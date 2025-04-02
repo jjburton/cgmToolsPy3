@@ -40,3 +40,29 @@ Once Maya starts, verify installation by running this in the Script Editor (Pyth
     print(cgm.__path__)
 
 If installed correctly, it will print the path to the `cgmTools` directory.
+
+### 4. Load the Tools
+
+To open the cgmToolbox UI and finish setup, run the following command in the MEL tab of the Script Editor:
+
+    cgmToolbox
+
+This will launch the main cgmTools interface.
+
+---
+
+## Updating
+
+To update your local copy of `cgmTools`:
+
+1. Navigate to the folder where you cloned the repo:
+
+    cd /path/to/cgmTools
+
+2. Pull the latest changes:
+
+    git pull
+
+3. Restart Maya to apply the updates.
+
+If you encounter any issues after updating, try deleting Maya’s script cache or preferences.
