@@ -27,7 +27,9 @@ You’ll need to add the `cgmTools` directory to your Python or Maya script path
 2. Add this line to the file, replacing the path with where you cloned the repo:
 
 ```
-PYTHONPATH=/path/to/cgmTools
+REPOSPATH = D:/path/to/cgmTools
+MAYA_SCRIPT_PATH = %REPOSPATH%/;
+PYTHONPATH = %REPOSPATH%;
 ```
 
 ### 3. Launch Maya
