@@ -210,7 +210,8 @@ def Prep(removeNamespace = False,
     topNodeSN = topNode.mNode.split(':')[-1]
 
     namespaces = topNode.mNode.split(':')[:-1]
-    
+    baseName = topNode.p_nameBase
+
     log.info("{0} || mNode: {1}".format(_str_func,topNode.mNode))
     log.info("{0} || topNode: {1} | namespaces: {2}".format(_str_func,topNodeSN,namespaces))
     log.info("{0} || ref import".format(_str_func))
@@ -289,8 +290,15 @@ def Prep(removeNamespace = False,
             newTopNode = topNode
     else:
         newTopNode = cgmMeta.asMeta(newTopNode)
+
+    if baseName != newTopNode.p_nameBase:
+        if mc.objExists(baseName) and cgmMeta.cgmObj(baseName)!=newTopNode:
+            mc.delete(baseName)
+
+        log.info("{0} || renaming topNode: {1} to {2}".format(_str_func,newTopNode.mNode,baseName))
+        newTopNode.rename(baseName)
             
-    log.info("{0} || topNode: {1}".format(_str_func,newTopNode.mNode))
+    log.info("{0} || baseName: {1} | newTopNode: {2}".format(_str_func,baseName,newTopNode.mNode))
             
     
     # revert to old name
