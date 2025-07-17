@@ -53,25 +53,35 @@
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_anim_map.html">Pro_Pack : anim_map</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_animation.html">Pro_Pack : animation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_audio.html">Pro_Pack : audio</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_capture.html">Pro_Pack : capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_deformers.html">Pro_Pack : deformers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_export.html">Pro_Pack : exporter</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_general.html">Pro_Pack : general</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_importexport.html">Pro_Pack : importexport</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_metadata_pro.html">Pro_Pack : metadata_pro</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_optimiser.html">Pro_Pack : optimiser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_perforce.html">Pro_Pack : perforce</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_project.html">Pro_Pack : project</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_r9data.html">Pro_Pack : r9Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_r9file.html">Pro_Pack : r9file</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_rigutils.html">Pro_Pack : rigutils</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_skining.html">Pro_Pack : skining</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_shaders.html">Pro_Pack : shaders</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_skinning.html">Pro_Pack : skinning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Red9_Pro_uibase.html">Pro_Pack : uibase</a></li>
 </ul>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="Red9_Pro_anim_binder.html">Pro_Pack : tools : anim_binder</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Red9_Pro_anim_tools.html">Pro_Pack : tools : anim_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_anim_trails.html">Pro_Pack : tools : anim_trails</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Red9_Pro_deformer_tools.html">Pro_Pack : tools : deformer_tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Red9_Pro_health_manager.html">Pro_Pack : tools : health_manager</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Pro_Pack : tools : metahuman_tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Red9_Pro_project_manager.html">Pro_Pack : tools : project_manager</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Red9_Pro_rig_manager.html">Pro_Pack : tools : rig_manager</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../puppet/Red9_Pro_finger_pose_creator.html">Pro_Pack : puppet : finger_pose_creator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../puppet/Red9_Pro_ikfk_match.html">Pro_Pack : puppet : ikfk_match</a></li>
 </ul>
 
         </div>
@@ -112,6 +122,13 @@ against a given pre-published base PuppetRig asset. Including the wiring up of t
 hooking up all the MetaData wires, and wiring up the MetaHuman facial board to the new mclass nodes</p>
 <p class="rubric">Main Classes</p>
 <dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.reset_globals">
+<code class="descname">reset_globals</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.reset_globals" title="Permalink to this definition">¶</a></dt>
+<dd><p>reset to defaults in the globals so the UI can overload 
+them without us loosing the initial data</p>
+</dd></dl>
+
+<dl class="function">
 <dt id="Red9.pro_pack.tools.metahuman_tools.lod_group_picker">
 <code class="descname">lod_group_picker</code><span class="sig-paren">(</span><em>geo_grp</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.lod_group_picker" title="Permalink to this definition">¶</a></dt>
 <dd><p>simple proc to return the required lod group under a given node.
@@ -148,6 +165,25 @@ so this fixes that limitation</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>rootjnt</strong> – (auto found if not given) the jnt we’ll be wiring too, else we use the METAHUMAN_FACIAL_ROOT_JNT global to try and id the jnt</li>
 <li><strong>ctrl_expression</strong> – (auto found if not given) the CTRL_expressions node in the MH facial rig that holds all of the channel targets for the system</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.auto_calculate_mirror_sets">
+<code class="descname">auto_calculate_mirror_sets</code><span class="sig-paren">(</span><em>frig</em>, <em>primer=('CTRL_L_'</em>, <em>'CTRL_R_')</em>, <em>offset=20</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.auto_calculate_mirror_sets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Experimental setup for auto-complete the mirror Markers</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>primer</strong> – (‘<a href="#id1"><span class="problematic" id="id2">l_</span></a>’,’<a href="#id3"><span class="problematic" id="id4">r_</span></a>’) string primers used to id left and right ctrls in the rig. These work in
+by looking at the ctrls in mrig.getChildren() and then matching the primer to id left or right matching pairs</li>
+<li><strong>offset</strong> – the starting mirrorID. You may for example need the mirrorIDs to start at 200 to buffer them away from existing ID’s</li>
 </ul>
 </td>
 </tr>
@@ -218,6 +254,187 @@ via the RigManager calls. If you want to manually add the nodes in code use the 
 </div>
 </dd></dl>
 
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rename_root_drv">
+<code class="descname">rename_root_drv</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rename_root_drv" title="Permalink to this definition">¶</a></dt>
+<dd><p>simple rename call to properly rename the _drv jnt hierarchy, used for the Red9 BND
+file to make sure the source skl matches the output skl naming. We strip off the _drv
+then we update the internal bpose and tpose attr dicts that are stored on the root jnt</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.reconnect_to_drv_skel">
+<code class="descname">reconnect_to_drv_skel</code><span class="sig-paren">(</span><em>src_root</em>, <em>drv_root</em>, <em>suffix='_drv'</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.reconnect_to_drv_skel" title="Permalink to this definition">¶</a></dt>
+<dd><p>given a previously setup rbf “root_drv” skeleton, re-connect a main deformation “root” skeleton
+so that the drv / rbf’s drive it correctly. This takes into account the additional offset parent 
+jnts that the rbf setup inserts into it’s skeletal hierarchy</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>src_root</strong> – main deformation “root” skeleton</li>
+<li><strong>drv_root</strong> – the _drv skeleton that contains the RBF solvers</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">both skeletons must be in the same base pose for this to properly bind</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_open_posse_editor">
+<code class="descname">rbf_open_posse_editor</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_open_posse_editor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Show PoseWrangler ui and keeps a single instance of the interface</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_api_check">
+<code class="descname">rbf_api_check</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_api_check" title="Permalink to this definition">¶</a></dt>
+<dd><p>check the RBF API is available and fill in the global if it is</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_get_solvers_from">
+<code class="descname">rbf_get_solvers_from</code><span class="sig-paren">(</span><em>joints=[]</em>, <em>solver_names=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_get_solvers_from" title="Permalink to this definition">¶</a></dt>
+<dd><p>return the rbf solvers from either a given list of solver names, or from a given set of joints
+or a mix of both.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>joints</strong> – [] list of joints to inspect for RBF membership, ie, they’re being actively driven by an RBF solver</li>
+<li><strong>solver_names</strong> – [] list of specific solver names to search for in the scene</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>:return [&lt;UERBFSolverNode&gt;] list if instantiated RBFSolver nodes</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_solver_from_name">
+<code class="descname">rbf_solver_from_name</code><span class="sig-paren">(</span><em>solver_name</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_solver_from_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>from a given solver (str) return a &lt;UERBFSolver&gt; node</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>solver_name</strong> – str() the name of the solver we’re going to instantiate as a &lt;UERBFSolver&gt;</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_save_solvers">
+<code class="descname">rbf_save_solvers</code><span class="sig-paren">(</span><em>filepath</em>, <em>joints=None</em>, <em>solver_names=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_save_solvers" title="Permalink to this definition">¶</a></dt>
+<dd><p>save off the given rbf’s to file. If joints are passed in then we
+search through them for rbf connections and include those found rbf’s in the file.
+If solver_names are given we search against those named rbfs, else we store all rbf’s in the scene</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filepath</strong> – filepath to the solver json file we’re going to load</li>
+<li><strong>joints</strong> – list of joints to inspect for RBF drivers</li>
+<li><strong>solver_names</strong> – list of solver names to save</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_load_solvers">
+<code class="descname">rbf_load_solvers</code><span class="sig-paren">(</span><em>filepath</em>, <em>solver_names=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_load_solvers" title="Permalink to this definition">¶</a></dt>
+<dd><p>load all rbf’s in the given rbf json file</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filepath</strong> – filepath to save the solver json file</li>
+<li><strong>solver_names</strong> – [str(),.. ] list of solver names we’re going to save, else we save all solvers in the scene</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_delete_solver">
+<code class="descname">rbf_delete_solver</code><span class="sig-paren">(</span><em>solver_name</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_delete_solver" title="Permalink to this definition">¶</a></dt>
+<dd><p>delete the given rbf solver</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>solver_name</strong> – str() the name of the solver we’re going to delete</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.rbf_delete_solvers">
+<code class="descname">rbf_delete_solvers</code><span class="sig-paren">(</span><em>solvers=None</em>, <em>joints=None</em>, <em>solver_names=None</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.rbf_delete_solvers" title="Permalink to this definition">¶</a></dt>
+<dd><p>wrap over the delete solver call so you can pass in either solver nodes, joints, or solve_names 
+and have the code figure out what it should be deleting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>solvers</strong> – list of instantiated &lt;UERBFSolver&gt; nodes</li>
+<li><strong>joints</strong> – list of joints to inspect for RBF drivers</li>
+<li><strong>solver_names</strong> – list of solver names to delete</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Red9.pro_pack.tools.metahuman_tools.reset_metapipe_skel">
+<code class="descname">reset_metapipe_skel</code><span class="sig-paren">(</span><em>master_pose=None</em>, <em>verbose=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.reset_metapipe_skel" title="Permalink to this definition">¶</a></dt>
+<dd><p>this is a test function. 
+We take a r9Pose thats been saved against the core body skeleton of a metaHuman setup (no facial jnts),
+and we update a character thats already loaded in Maya but thats comes from MetaPipe. This will update 
+and correct the loaded root_drv, DHIhead and DHIbody so that the core skeleton is rebuilt correctly against this master pose.</p>
+<p>MetaPipe has an issue in that it re positions the skeleton jnts, simply moving them without even updating the jointOrients.
+This process is designed to revert the skeleton for the body, and facial skeletons back to that of the master pose</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>master_pose</strong> – an r9 skeleton pose, created from the RigManager “PuppetTools&gt;Skeleton Pose : File: Save”. 
+This should just be a pose saved from the root_drv skeleton of the MetaHuman</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">the skinning info must be saved off and deleted prior to running this. Once run just reload
+the skin data back using the Red9 Skinning UI</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">Red9.pro_pack</span> <span class="k">import</span> <span class="n">r9pro</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r9metahuman_tools</span> <span class="o">=</span> <span class="n">r9pro</span><span class="o">.</span><span class="n">r9import</span><span class="p">(</span><span class="s1">&#39;r9metahuman_tools&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r9metahuman_tools</span><span class="o">.</span><span class="n">reset_metapipe_skel</span><span class="p">(</span><span class="s2">&quot;R:/client/RIP_WIP/character/_master_mh_body_only.pose&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
 <dl class="class">
 <dt id="Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman">
 <em class="property">class </em><code class="descname">Publish_MetaHuman</code><span class="sig-paren">(</span><em>parent=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman" title="Permalink to this definition">¶</a></dt>
@@ -230,8 +447,23 @@ clients running MetaHuman body and or facial setups</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.pull_globals">
+<code class="descname">pull_globals</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.pull_globals" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_globals">
+<code class="descname">set_globals</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_globals" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_path_metahuman">
 <code class="descname">set_path_metahuman</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_path_metahuman" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_path_metahuman_face">
+<code class="descname">set_path_metahuman_face</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.Publish_MetaHuman.set_path_metahuman_face" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -249,7 +481,7 @@ clients running MetaHuman body and or facial setups</p>
 
 <dl class="function">
 <dt id="Red9.pro_pack.tools.metahuman_tools.run_publish">
-<code class="descname">run_publish</code><span class="sig-paren">(</span><em>pub_file</em>, <em>metahuman_file</em>, <em>metahuman_facial=None</em>, <em>name=None</em>, <em>bindmethod='constraint'</em>, <em>grp_bases=True</em>, <em>lod_grp=None</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.run_publish" title="Permalink to this definition">¶</a></dt>
+<code class="descname">run_publish</code><span class="sig-paren">(</span><em>pub_file</em>, <em>metahuman_file</em>, <em>metahuman_facial=None</em>, <em>name=None</em>, <em>bindmethod='constraint'</em>, <em>grp_bases=True</em>, <em>grp_name='MetaHuman_SRC'</em>, <em>lod_grp=None</em>, <em>optimize=True</em><span class="sig-paren">)</span><a class="headerlink" href="#Red9.pro_pack.tools.metahuman_tools.run_publish" title="Permalink to this definition">¶</a></dt>
 <dd><p>from a given Red9 PUB file and a MetaHuman setup SRC file,
 run the binding process to merge the 2 into 1 Red9 PuppetRig</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -259,9 +491,10 @@ run the binding process to merge the 2 into 1 Red9 PuppetRig</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>pub_file</strong> – a Red9 PuppetRig master PUB file, one that hasn’t got the standard SRC skeleton and model on it</li>
 <li><strong>metahuman_file</strong> – as it says, a MetaHuman base file with the root_drv skeleton and the connected deformation skeleton for export</li>
-<li><strong>name</strong> – name of the new character if importing the data</li>
+<li><strong>name</strong> – name of the new character, used to setup the exportTags</li>
 <li><strong>bindmethod</strong> – the way we’re going to attache dthe 2 skeletons, PUB skeleton and MetaHuman root_drv</li>
 <li><strong>grp_bases</strong> – if True (default) we group all top nodes that came in with the MetaHuman file under the Master_Node in the rig</li>
+<li><strong>grp_name</strong> – if grp_bases ythis is the name of the grp that we create and parent the skeleton and meshes under</li>
 <li><strong>lod_grp</strong> – lod grp containing the child meshes for the renderMeshes, if not given we open up a confirmDialog to enable you to specify which LOD group you want to use.
 With LOD PICKER UI that shows the “ALL” button would return r9metahuman_tools.METAHUMAN_BODY_GEO_GRP which is the “body_grp|geometry_grp”</li>
 </ul>

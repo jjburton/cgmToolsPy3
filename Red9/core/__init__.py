@@ -53,7 +53,7 @@ def _setlogginglevel_debug(module='all'):
         r9Anim.log.setLevel(r9Anim.logging.DEBUG)
         print('Red9_AnimationUtils set to DEBUG state')
     if module == 'r9General' or  module == 'all':
-        Red9_General.log.setLevel(Red9_General.logging.DEBUG)
+        r9General.log.setLevel(r9General.logging.DEBUG)
         print('Red9_General set to DEBUG state')
     if module == 'r9Tools' or  module == 'all':
         r9Tools.log.setLevel(r9Tools.logging.DEBUG)
@@ -80,7 +80,7 @@ def _setlogginglevel_info(module='all'):
         r9Anim.log.setLevel(r9Anim.logging.INFO)
         print('Red9_AnimationUtils set to INFO state')
     if module == 'r9General' or  module == 'all':
-        Red9_General.log.setLevel(Red9_General.logging.INFO)
+        r9General.log.setLevel(r9General.logging.INFO)
         print('Red9_General set to INFO state')
     if module == 'r9Tools' or  module == 'all':
         r9Tools.log.setLevel(r9Tools.logging.INFO)

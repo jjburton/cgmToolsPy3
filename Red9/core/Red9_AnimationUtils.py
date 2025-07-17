@@ -75,6 +75,7 @@ Code examples:
 
 import maya.cmds as cmds
 import maya.mel as mel
+import maya.OpenMaya as OpenMaya
 
 import Red9.startup.setup as r9Setup
 from . import Red9_CoreUtils as r9Core
@@ -88,9 +89,11 @@ import random
 import sys
 import re
 import shutil
+import math
+import traceback
 
 import Red9.packages.configobj as configobj
-# from Red9.startup.setup import ProPack_Error
+
 
 import logging
 logging.basicConfig()
@@ -155,8 +158,14 @@ def getChannelBoxSelection(longNames=False):
     :param longNames: return the longNames of the attrs selected, else we default to Maya's short attr names
     '''
     attrs = cmds.channelBox('mainChannelBox', q=True, selectedMainAttributes=True)
+    _attrs = []
     if attrs and longNames:
-        attrs = [cmds.attributeQuery(a, n=cmds.ls(sl=True, l=True)[0], ln=1) for a in attrs]
+        for attr in attrs:
+            try:
+                _attrs.append(cmds.attributeQuery(attr, n=cmds.ls(sl=True, l=True)[0], ln=1))
+            except:
+                pass
+        # attrs = [cmds.attributeQuery(a, n=cmds.ls(sl=True, l=True)[0], ln=1) for a in attrs]
     return attrs
 
 def getNodeAttrStatus(node=None, asDict=True, incLocked=True):
@@ -164,9 +173,43 @@ def getNodeAttrStatus(node=None, asDict=True, incLocked=True):
     stub function/ wrapper of getChannelBoxAttrs as the name is a
     little misleading and not really what the function is doing in hindsight.
     '''
-    return getChannelBoxAttrs(node=None, asDict=True, incLocked=True)
+    return getChannelBoxAttrs(node=node, asDict=True, incLocked=True)
 
-def getChannelBoxAttrs(node=None, asDict=True, incLocked=True):
+def is_compound_attr(node, attr):
+    '''
+    return True is a given attr is a compound attr. This has a catch in it to prevent errors
+    in the code below when listAttr returns attrs that arne't technically legal when being queried
+    ie, listAttr(node) where node is a parentConstraint and you get .target.targetWeight which can't be queried
+    without some prior work
+    '''
+    try:
+        selection = OpenMaya.MSelectionList()
+        selection.add('%s.%s' % (node, attr))
+        plug = OpenMaya.MPlug()
+        selection.getPlug(0, plug)
+        return plug.isCompound()
+    except:
+        return True
+
+def plug_is_driven(node, attr):
+    '''
+    return True is a given attr plug has incoming connections.
+    '''
+    try:
+        connections = OpenMaya.MPlugArray()
+        selection = OpenMaya.MSelectionList()
+        selection.add('%s.%s' % (node, attr))
+        plug = OpenMaya.MPlug()
+        selection.getPlug(0, plug)
+
+        plug.connectedTo(connections, True, False)
+        if connections.length() == 0:
+            return False
+        return True
+    except:
+        return True
+
+def getChannelBoxAttrs(node=None, asDict=True, incLocked=True, skipcompound=False, nodeOrder=True):
     '''
     return the status of all attrs on the given node, either as a flat list or
     a dict. As dict it contains all data which controls the lock, keyable, hidden states etc
@@ -177,13 +220,30 @@ def getChannelBoxAttrs(node=None, asDict=True, incLocked=True):
     :param asDict: True returns a dict with keys 'keyable','locked','nonKeyable' of attrs
         False returns a list (non ordered) of all attr states.
     :param incLocked: True by default - whether to include locked channels in the return (only valid if not asDict)
+    :param skipcompound: if True we remove the compound parent attrs from any return (ie double3 or float3 which
+         prevents unlocked compounds like "rotate", "translate", "scale" from getting into the return
+    :param nodeOrder: True by default if not returning in asDict then return the attrs in the original attr order of the node, else alphabetically
     '''
-    statusDict = {}
+    # from collections import OrderedDict
+    statusDict = {}  # OrderedDict()  # {}
     if not node:
         node = cmds.ls(sl=True, l=True)[0]
-    statusDict['keyable'] = cmds.listAttr(node, keyable=True, unlocked=True)
-    statusDict['locked'] = cmds.listAttr(node, keyable=True, locked=True)
-    statusDict['nonKeyable'] = cmds.listAttr(node, channelBox=True)
+    
+    if skipcompound:
+        # skip double3 or float3 containters
+        statusDict['keyable'] = [attr for attr in cmds.listAttr(node, keyable=True, unlocked=True) or [] \
+                                 if not is_compound_attr(node, attr)]
+
+        statusDict['locked'] = [attr for attr in cmds.listAttr(node, keyable=True, locked=True) or [] \
+                                if not is_compound_attr(node, attr)]
+
+        statusDict['nonKeyable']  = [attr for attr in cmds.listAttr(node, channelBox=True) or [] \
+                                     if not is_compound_attr(node, attr)]
+    else:
+        statusDict['keyable'] = cmds.listAttr(node, keyable=True, unlocked=True)
+        statusDict['locked'] = cmds.listAttr(node, keyable=True, locked=True)
+        statusDict['nonKeyable']  = cmds.listAttr(node, channelBox=True)
+    
     if asDict:
         return statusDict
     else:
@@ -194,32 +254,55 @@ def getChannelBoxAttrs(node=None, asDict=True, incLocked=True):
             attrs.extend(statusDict['nonKeyable'])
         if incLocked and statusDict['locked']:
             attrs.extend(statusDict['locked'])
-        return attrs
 
-def getSettableChannels(node=None, incStatics=True):
+        # return in node attr order
+        if nodeOrder:
+            return sorted(attrs, key=lambda x: cmds.listAttr(node).index(x))
+        else:
+            # return sorted(attrs)
+            return attrs
+
+def getSettableChannels(node=None, incStatics=True, skipcompound=False, skip_driven=False):
     '''
     return a list of settable attributes on a given node.
 
     :param node: node to inspect.
     :param incStatics: whether to include non-keyable static channels (On by default).
-
+    :param skipcompound: if True we remove the compound parent attrs from any return (double3 or float3 at the moment
+        this prevents unlocked compounds like "rotate", "translate", "scale" from getting into the return
+    :param skip_driven: if True we check if the attributes about to be returns have incoming plugs and if so, 
+        we remove them from the return
+    
     FIXME: BUG some Compound attrs such as constraints return invalid data for some of the
     base functions using this as they can't be simply set. Do we strip them here?
     ie: pointConstraint.target.targetWeight
 
-    #TODO: need to check the blendshape channels are settable also!
+    # TODO: need to check the blendshape channels are settable also!
     '''
     if not node:
         node = cmds.ls(sl=True, l=True)[0]
     if cmds.nodeType(node) == 'blendShape':
         return r9Core.getBlendTargetsFromMesh(node)
-
+    attrs = []
     if not incStatics:
         # keyable and unlocked only
-        return cmds.listAttr(node, k=True, u=True)
+        if not skipcompound:
+            attrs = cmds.listAttr(node, k=True, u=True)
+        else:
+            attrs = [attr for attr in cmds.listAttr(node, k=True, u=True) or [] \
+                        if not is_compound_attr(node, attr)]
     else:
         # all settable attrs in the channelBox
-        return getChannelBoxAttrs(node, asDict=False, incLocked=False)
+        attrs = getChannelBoxAttrs(node, asDict=False, incLocked=False, skipcompound=skipcompound)
+    
+    if skip_driven:
+        _free = []
+        for attr in attrs:
+            if not plug_is_driven(node, attr):
+                _free.append(attr)
+        return _free
+    else: 
+        return attrs
 
 def nodesDriven(nodes, allowReferenced=False, skipLocked=False, nodes_only=False):
     '''
@@ -230,6 +313,8 @@ def nodesDriven(nodes, allowReferenced=False, skipLocked=False, nodes_only=False
         that are referenced are skipped. This by-passes internal rig constraints and only returns
         constraints made in the main scene.
     :parm skipLocked: if True we ignore the relevant channels that are constrained if the attrs themselves aren't keyable
+    
+    #TODO: expand this to cater for OPM connections
     '''
     
     data = []
@@ -366,10 +451,28 @@ def animLayersConfirmCheck(nodes=None, deleteMerged=True):
             return False
     return True
 
+def selectAnimLayers(layers=[], root=True):
+    '''
+    select the given animLayers
+    
+    :param layers: layer to select by name
+    :param root: if True we select the root animLayer by flag rather than name (usually BaseAnimation)
+    '''
+    for each in cmds.ls(type='animLayer'):
+        cmds.animLayer(each, edit=True, selected=False, preferred=False)
+    for layer in layers:
+        if cmds.animLayer(layer, q=True, ex=True):
+            cmds.animLayer(layer, edit=True, selected=True, preferred=True)
+    if root:
+        root = cmds.animLayer(q=True, r=True)
+        cmds.animLayer(root, edit=True, selected=True, preferred=True)
+
 
 def mergeAnimLayers(nodes, deleteBaked=True):
     '''
     from the given nodes find, merge and remove any animLayers found
+    
+    # TODO: Replace this with the r9Anim LayerMerge code for speed when ProPack is available
     '''
     animLayers = getAnimLayersFromGivenNodes(nodes)
     if animLayers:
@@ -578,26 +681,35 @@ def animRangeFromNodes(nodes, setTimeline=True, decimals=-1, transforms_only=Fal
         cmds.playbackOptions(ast=min_rng, aet=max_rng)
     return min_rng, max_rng
 
-def timeLineRangeGet(always=True):
+def timeLineRangeGet(always=True, was_selected=False):
     '''
     Return the current PlaybackTimeline OR if a range is selected in the
     TimeLine, (Highlighted in Red) return that instead.
 
     :param always: always return a timeline range, if none selected return the playbackRange.
+    :param was_selected: if False we return just the timerange (start, end) 
+        if True we return ((start, end), was_selected) where 'was_selected' is True if the timerange
+        was calculated from the selected bounds in the timeslider, else False
     :rtype: tuple
     :return: (start,end)
     '''
     playbackRange = None
+    time_selected=False
     if not r9Setup.mayaIsBatch():
         PlayBackSlider = mel.eval('$tmpVar=$gPlayBackSlider')
         if cmds.timeControl(PlayBackSlider, q=True, rangeVisible=True):
             time = cmds.timeControl(PlayBackSlider, q=True, rangeArray=True)
             playbackRange = (time[0], time[1])
+            time_selected=True
         elif always:
             playbackRange = (cmds.playbackOptions(q=True, min=True), cmds.playbackOptions(q=True, max=True))
     else:
         playbackRange = (cmds.playbackOptions(q=True, min=True), cmds.playbackOptions(q=True, max=True))
-    return playbackRange
+    if not was_selected:
+        return playbackRange
+    else:
+        return playbackRange, time_selected
+
 
 def timeLineRangeProcess(start, end, step=1, incEnds=True, nodes=[], process_animlayers=True):
     '''
@@ -642,7 +754,9 @@ def timeLineRangeProcess(start, end, step=1, incEnds=True, nodes=[], process_ani
     if step < 0:
         startFrm = end
         endFrm = start
-    rng = [time for time in range(int(startFrm), int(endFrm), int(step))]
+
+    # ceil added so that fractional keys are stepped up to, range(int(1.0), int(3.5)) = [1, 2] NOT [1, 2, 3]
+    rng = [time for time in range(int(startFrm), int(math.ceil(endFrm)), int(step))]
     if incEnds:
         rng.append(endFrm)
     return rng
@@ -795,8 +909,8 @@ class AnimationUI(object):
 
         self.buttonBgc = r9Setup.red9ButtonBGC(1)
         self.win = 'Red9AnimToolsWin'
-        self.initial_winsize = (355, 790)
-        self.initial_workspace_width = 355
+        self.initial_winsize = (335,790)  # (355, 790)
+        self.initial_workspace_width = 335  #  355
         self.dockCnt = 'Red9AnimToolsDoc'
         self.workspaceCnt = 'Red9AnimToolsWorkspace'
         self.label = LANGUAGE_MAP._AnimationUI_.title
@@ -808,7 +922,11 @@ class AnimationUI(object):
         self.filterSettings = r9Core.FilterNode_Settings()
         self.filterSettings.transformClamp = True
         self.presetDir = r9Setup.red9Presets()  # os.path.join(r9Setup.red9ModulePath(), 'presets')
-        self.basePreset = 'Default.cfg'  # this is only ever run once, after which the data is pushed to the settings file
+        
+        if r9Setup.has_pro_pack(folder_exists=True):
+            self.basePreset = 'Red9_PuppetRig.cfg'  # Default.cfg'  # this is only ever run once, after which the data is pushed to the settings file
+        else:
+            self.basePreset = 'Default.cfg'
 
         # Pose Management variables
         self.posePath = None  # working variable
@@ -920,7 +1038,7 @@ class AnimationUI(object):
             for func in RED_ANIMATION_UI_OPENCALLBACKS:
                 if r9General.is_callable(func):
                     try:
-                        print('calling RED_ANIMATION_UI_OPENCALLBACKS')
+                        # print('calling RED_ANIMATION_UI_OPENCALLBACKS')
                         log.debug('calling RED_ANIMATION_UI_OPENCALLBACKS')
                         func(RED_ANIMATION_UI)
                     except:
@@ -977,6 +1095,7 @@ class AnimationUI(object):
         self.uicbStabTrans = 'uicbStabTrans'
         self.uicbStabRots = 'uicbStabRots'
         self.uiffgStabStep = 'uiffgStabStep'
+        self.uicbAllAttrs = 'uicbAllAttrs'
 
         # TimeOffset
         # ====================
@@ -991,7 +1110,10 @@ class AnimationUI(object):
         self.uiffgTimeOffset = 'uiffgTimeOffset'
         self.uibtnTimeOffset = 'uibtnTimeOffset'
 
+        # Mirror
+        # ====================
         self.uicbMirrorHierarchy = 'uicbMirrorHierarchy'
+        self.uicbMirrorRange = 'uicbMirrorRange'
 
         # Hierarchy Controls
         # =====================
@@ -1045,6 +1167,7 @@ class AnimationUI(object):
         if cmds.window(self.win, exists=True):
             cmds.deleteUI(self.win, window=True)
 
+    @r9General.windows_qt_wrap
     def _showUI(self, *args):
         '''
         PRIVATE FUNCTION, DO NOT CALL FROM CODE
@@ -1092,17 +1215,12 @@ class AnimationUI(object):
         # TAB1: ####################################################################
 
         self.AnimLayout = cmds.columnLayout(adjustableColumn=True)
-        cmds.separator(h=5, style='none')
 
         # ====================
         # CopyAttributes
         # ====================
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.copy_attrs, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        cmds.button(label=LANGUAGE_MAP._AnimationUI_.copy_attrs, bgc=self.buttonBgc,
-                    ann=LANGUAGE_MAP._AnimationUI_.copy_attrs_ann,
-                    command=partial(self.__uiCall, 'CopyAttrs'))
-
         cmds.separator(h=5, style='none')
         cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10)])
         cmds.checkBox(self.uicbCAttrHierarchy, l=LANGUAGE_MAP._Generic_.hierarchy, al='left', v=False,
@@ -1112,18 +1230,21 @@ class AnimationUI(object):
                                                 ann=LANGUAGE_MAP._AnimationUI_.copy_attrs_to_many_ann)
         cmds.checkBox(self.uicbCAttrChnAttrs, ann=LANGUAGE_MAP._AnimationUI_.cbox_attrs_ann,
                                             l=LANGUAGE_MAP._AnimationUI_.cbox_attrs, al='left', v=False)
-        cmds.setParent(self.AnimLayout)
 
+        cmds.setParent('..')
+        cmds.separator(h=5, style='none')
+        cmds.button(label=LANGUAGE_MAP._AnimationUI_.copy_attrs, bgc=self.buttonBgc,
+                    ann=LANGUAGE_MAP._AnimationUI_.copy_attrs_ann,
+                    command=partial(self.__uiCall, 'CopyAttrs'))
+        cmds.setParent(self.AnimLayout)
+        cmds.separator(h=20, st='in')
+        
         # ====================
         # CopyKeys
         # ====================
-        cmds.separator(h=10, st='in')
+
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.copy_keys, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        cmds.button(label=LANGUAGE_MAP._AnimationUI_.copy_keys, bgc=self.buttonBgc,
-                    ann=LANGUAGE_MAP._AnimationUI_.copy_keys_ann,
-                    command=partial(self.__uiCall, 'CopyKeys'))
-
         cmds.separator(h=5, style='none')
         cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10)], rowSpacing=[(1, 5)])
         # cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1, 75), (2, 80), (3, 80), (3, 80)], columnSpacing=[(1, 10), (2, 10)], rowSpacing=[(1,5)])
@@ -1161,19 +1282,22 @@ class AnimationUI(object):
             cmds.menuItem(l=preset)
         cmds.optionMenu('om_PasteMethod', e=True, v='replace')
         cmds.floatFieldGrp(self.uiffgCKeyStep, l=LANGUAGE_MAP._AnimationUI_.offset, value1=0, cw2=(40, 50))
+
+        cmds.setParent('..')
+        cmds.separator(h=8, style='none')
+        cmds.button(label=LANGUAGE_MAP._AnimationUI_.copy_keys, bgc=self.buttonBgc,
+                    ann=LANGUAGE_MAP._AnimationUI_.copy_keys_ann,
+                    command=partial(self.__uiCall, 'CopyKeys'))
         cmds.setParent(self.AnimLayout)
+        cmds.separator(h=20, st='in')
 
         # ====================
         # SnapTransforms
         # ====================
-        cmds.separator(h=10, st='in')
+
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.snaptransforms, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        cmds.button(label=LANGUAGE_MAP._AnimationUI_.snaptransforms, bgc=self.buttonBgc,
-                     ann=LANGUAGE_MAP._AnimationUI_.snaptransforms_ann,
-                     command=partial(self.__uiCall, 'Snap'))
         cmds.separator(h=5, style='none')
-
         # cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10)], rowSpacing=[(1,2)])
         cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1, 75), (2, 50), (3, 90), (4, 85)],
                              columnSpacing=[(1, 8), (2, 8), (3, 8)], rowSpacing=[(1, 2)])
@@ -1201,16 +1325,39 @@ class AnimationUI(object):
         cmds.intFieldGrp(self.uiifSnapIterations, l=LANGUAGE_MAP._AnimationUI_.iteration, en=False, value1=1, cw2=(45, 30),
                                            ann=LANGUAGE_MAP._AnimationUI_.iteration_ann)
 
+        cmds.setParent('..')
+        cmds.separator(h=5, style='none')       
+        cmds.button(label=LANGUAGE_MAP._AnimationUI_.snaptransforms, bgc=self.buttonBgc,
+                     ann=LANGUAGE_MAP._AnimationUI_.snaptransforms_ann,
+                     command=partial(self.__uiCall, 'Snap'))
         cmds.setParent(self.AnimLayout)
+        cmds.separator(h=20, st='in')
 
+    
         # ====================
         # Stabilizer
         # ====================
-        cmds.separator(h=10, st='in')
+
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.tracknstabilize, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        # cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10), (3, 5)])
-        cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1, 100), (2, 55), (3, 55), (4, 100)], columnSpacing=[(1, 10), (3, 5)])
+        cmds.separator(h=5, style='none')  
+        # cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1, 100), (2, 55), (3, 55), (4, 100)], columnSpacing=[(1, 10), (3, 5)])
+        # cmds.checkBox(self.uicbStabRange, l=LANGUAGE_MAP._AnimationUI_.timerange, al='left', v=False,
+        #                                     ann=LANGUAGE_MAP._AnimationUI_.snaptransforms_timerange_ann,
+        #                                     cc=lambda x: self.__uiCache_addCheckbox(self.uicbStabRange))
+        # cmds.checkBox(self.uicbStabTrans, l=LANGUAGE_MAP._AnimationUI_.trans, al='left', v=True,
+        #                                    ann=LANGUAGE_MAP._AnimationUI_.trans_ann,
+        #                                    cc=lambda x: self.__uiCache_addCheckbox(self.uicbStabTrans))
+        # cmds.checkBox(self.uicbStabRots, l=LANGUAGE_MAP._AnimationUI_.rots, al='left', v=True,
+        #                                   ann=LANGUAGE_MAP._AnimationUI_.rots_ann,
+        #                                   cc=lambda x: self.__uiCache_addCheckbox(self.uicbStabRots))
+        # cmds.floatFieldGrp(self.uiffgStabStep, l=LANGUAGE_MAP._AnimationUI_.step, value1=1, cw2=(40, 50),
+        #                                       ann=LANGUAGE_MAP._AnimationUI_.step_ann)
+        # cmds.checkBox(self.uicbAllAttrs, l=LANGUAGE_MAP._AnimationUI_.all_attrs, al='left', v=True,
+        #                                   ann=LANGUAGE_MAP._AnimationUI_.all_attrs_ann,
+        #                                   cc=lambda x: self.__uiCache_addCheckbox(self.uicbAllAttrs))
+        
+        cmds.rowColumnLayout(numberOfColumns=5, columnWidth=[(1, 85), (2, 50), (3, 50), (4, 65), (5, 65)], columnSpacing=[(1, 8)])  # , (3, 5)])
         cmds.checkBox(self.uicbStabRange, l=LANGUAGE_MAP._AnimationUI_.timerange, al='left', v=False,
                                             ann=LANGUAGE_MAP._AnimationUI_.snaptransforms_timerange_ann,
                                             cc=lambda x: self.__uiCache_addCheckbox(self.uicbStabRange))
@@ -1220,10 +1367,15 @@ class AnimationUI(object):
         cmds.checkBox(self.uicbStabRots, l=LANGUAGE_MAP._AnimationUI_.rots, al='left', v=True,
                                           ann=LANGUAGE_MAP._AnimationUI_.rots_ann,
                                           cc=lambda x: self.__uiCache_addCheckbox(self.uicbStabRots))
-        cmds.floatFieldGrp(self.uiffgStabStep, l=LANGUAGE_MAP._AnimationUI_.step, value1=1, cw2=(40, 50),
+        cmds.checkBox(self.uicbAllAttrs, l=LANGUAGE_MAP._AnimationUI_.all_attrs, al='left', v=True,
+                                          ann=LANGUAGE_MAP._AnimationUI_.all_attrs_ann,
+                                          cc=lambda x: self.__uiCache_addCheckbox(self.uicbAllAttrs))
+        cmds.floatFieldGrp(self.uiffgStabStep, l=LANGUAGE_MAP._AnimationUI_.step, value1=1, cw2=(30, 30),
                                               ann=LANGUAGE_MAP._AnimationUI_.step_ann)
+
         cmds.setParent('..')
-        cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1, 160), (2, 160)], columnSpacing=[(2, 2)])
+        cmds.separator(h=5, st='none')
+        cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1, 161), (2, 161)], columnSpacing=[(2, 4)])
         cmds.button(label=LANGUAGE_MAP._AnimationUI_.track_process_back, bgc=self.buttonBgc,
                      ann=LANGUAGE_MAP._AnimationUI_.track_process_ann,
                      command=partial(self.__uiCall, 'StabilizeBack'))
@@ -1231,14 +1383,15 @@ class AnimationUI(object):
                      ann=LANGUAGE_MAP._AnimationUI_.track_process_ann,
                      command=partial(self.__uiCall, 'StabilizeFwd'))
         cmds.setParent(self.AnimLayout)
+        cmds.separator(h=20, st='in')
 
         # ====================
         # TimeOffset
         # ====================
-        cmds.separator(h=10, st='in')
+
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.timeoffset, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        # cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1, 100), (2, 55), (3, 55), (4, 100)], columnSpacing=[(1, 10), (3, 5)])
+        cmds.separator(h=5, st='none')
         cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10), (3, 5)], rowSpacing=[(1, 5), (2, 5)])
         cmds.checkBox(self.uicbTimeOffsetHierarchy,
                                             l=LANGUAGE_MAP._Generic_.hierarchy, al='left', en=True, v=False,
@@ -1283,7 +1436,7 @@ class AnimationUI(object):
 
         cmds.separator(style='none')
         cmds.setParent('..')
-        cmds.separator(h=2, style='none')
+        cmds.separator(h=5, style='none')
 
         cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 250), (2, 60)], columnSpacing=[(2, 5)])
         cmds.button(self.uibtnTimeOffset, label=LANGUAGE_MAP._AnimationUI_.offsetby, bgc=self.buttonBgc,
@@ -1291,21 +1444,28 @@ class AnimationUI(object):
                      command=partial(self.__uiCall, 'TimeOffset'))
         cmds.floatFieldGrp(self.uiffgTimeOffset, value1=1, ann=LANGUAGE_MAP._AnimationUI_.offset_frms_ann)
         cmds.setParent(self.AnimLayout)
-
+        cmds.separator(h=20, st='in')
+        
         # ===================
         # Mirror Controls
         # ====================
-        cmds.separator(h=10, st='in')
+
         cmds.frameLayout(label=LANGUAGE_MAP._AnimationUI_.mirror_controls, cll=True)  # , borderStyle='etchedOut')
         cmds.columnLayout(adjustableColumn=True)
-        cmds.separator(h=3, st='none')
+        cmds.separator(h=5, st='none')
         cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10), (3, 5)])
         cmds.checkBox(self.uicbMirrorHierarchy,
                                             l=LANGUAGE_MAP._Generic_.hierarchy, al='left', en=True, v=False,
                                             ann=LANGUAGE_MAP._AnimationUI_.mirror_hierarchy_ann,
                                             cc=lambda x: self.__uiCache_addCheckbox(self.uicbMirrorHierarchy))
+        cmds.checkBox(self.uicbMirrorRange, l=LANGUAGE_MAP._AnimationUI_.timerange, al='left', v=False,
+                                            ann=LANGUAGE_MAP._AnimationUI_.snaptransforms_timerange_ann,
+                                            cc=lambda x: self.__uiCache_addCheckbox(self.uicbMirrorRange))
+        cmds.setParent('..')
+        cmds.separator(h=10, st='in')
+        cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 100), (2, 100), (3, 100)], columnSpacing=[(1, 10), (2, 10), (3, 5)])
 
-        #cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1, 160), (2, 160)], columnSpacing=[(2, 2)])
+        cmds.text(l='Mirror Data : ')
         cmds.button(label=LANGUAGE_MAP._AnimationUI_.mirror_animation, bgc=self.buttonBgc,
                      ann=LANGUAGE_MAP._AnimationUI_.mirror_animation_ann,
                      command=partial(self.__uiCall, 'MirrorAnim'))
@@ -1335,11 +1495,13 @@ class AnimationUI(object):
                      ann=LANGUAGE_MAP._AnimationUI_.symmetry_pose_ann + ' : push Left to Right',
                      command=partial(self.__uiCall, 'SymmetryPose_LR'))
         cmds.setParent('..')
-        cmds.separator(h=10, st='in')
+        cmds.separator(h=20, st='in')
+
         cmds.text(l='Note: Symmetry is aimed at simple Z+ facing game loops\nor facial data, not complex full body data')
         cmds.setParent(self.AnimLayout)
         cmds.setParent(self.tabs)
 
+        
         # TAB2: ####################################################################
 
         # =====================================================================
@@ -1575,16 +1737,18 @@ class AnimationUI(object):
         cmds.setParent(self.poseUILayout)
         cmds.separator(h=5, style='none')
         cmds.frameLayout(self.uiflPoseRelativeFrame, label=LANGUAGE_MAP._AnimationUI_.pose_rel_methods, cll=True, en=False)
-        cmds.rowColumnLayout(nc=3, columnWidth=[(1, 120), (2, 80), (3, 80)])
+        cmds.rowColumnLayout(nc=4, columnWidth=[(1, 120), (2, 80), (3, 80)])
 
         self.uircbPoseRotMethod = cmds.radioCollection('relativeRotate')
         cmds.text(label=LANGUAGE_MAP._AnimationUI_.pose_rel_rotmethod)
         cmds.radioButton('rotProjected', label=LANGUAGE_MAP._AnimationUI_.pose_rel_projected)
         cmds.radioButton('rotAbsolute', label=LANGUAGE_MAP._AnimationUI_.pose_rel_absolute)
+        cmds.radioButton('rotSkip', label='skip')  # LANGUAGE_MAP._AnimationUI_.pose_rel_skip)
         self.uircbPoseTranMethod = cmds.radioCollection('relativeTranslate')
         cmds.text(label=LANGUAGE_MAP._AnimationUI_.pose_rel_tranmethod)
         cmds.radioButton('tranProjected', label=LANGUAGE_MAP._AnimationUI_.pose_rel_projected)
         cmds.radioButton('tranAbsolute', label=LANGUAGE_MAP._AnimationUI_.pose_rel_absolute)
+        cmds.radioButton('tranSkip', label='skip')  # LANGUAGE_MAP._AnimationUI_.pose_rel_absolute)
         cmds.setParent(self.poseUILayout)
 
         cmds.radioCollection(self.uircbPoseRotMethod, edit=True, select='rotProjected')
@@ -2825,6 +2989,7 @@ class AnimationUI(object):
                         self.__uiPresetSelection(Read=True, store_change=False)
                     except:
                         log.debug('given basePreset not found')
+
             # we already have the filerNode_preset in the config so we can write it (store_change=True)
             if 'filterNode_preset' in AnimationUI and AnimationUI['filterNode_preset']:
                 try:
@@ -2848,7 +3013,7 @@ class AnimationUI(object):
             if 'poseSubPath' in AnimationUI and AnimationUI['poseSubPath']:
                 cmds.textFieldButtonGrp('uitfgPoseSubPath', edit=True, text=AnimationUI['poseSubPath'])
             if 'poseRoot' in AnimationUI and AnimationUI['poseRoot']:
-                if cmds.objExists(AnimationUI['poseRoot']) or AnimationUI['poseRoot'] == '****  AUTO__RESOLVED  ****':
+                if AnimationUI['poseRoot'] == '****  AUTO__RESOLVED  ****' or cmds.objExists(AnimationUI['poseRoot']):
                     cmds.textFieldButtonGrp(self.uitfgPoseRootNode, e=True, text=AnimationUI['poseRoot'])
 
             __uiCache_LoadCheckboxes()
@@ -3023,7 +3188,8 @@ class AnimationUI(object):
             time = timeLineRangeGet()
         AnimFunctions.stabilizer(cmds.ls(sl=True, l=True), time, step,
                                  cmds.checkBox(self.uicbStabTrans, q=True, v=True),
-                                 cmds.checkBox(self.uicbStabRots, q=True, v=True))
+                                 cmds.checkBox(self.uicbStabRots, q=True, v=True),
+                                 cmds.checkBox(self.uicbAllAttrs, q=True, v=True))
 
     def __TimeOffset(self):
         '''
@@ -3105,10 +3271,16 @@ class AnimationUI(object):
 
         relativeRots = 'projected'
         relativeTrans = 'projected'
-        if not rotRelMethod == 'rotProjected':
+        
+        if rotRelMethod == 'rotAbsolute':
             relativeRots = 'absolute'
-        if not tranRelMethod == 'tranProjected':
+        elif rotRelMethod == 'rotSkip':
+            relativeRots = 'skip'
+
+        if tranRelMethod == 'tranAbsolute':
             relativeTrans = 'absolute'
+        elif tranRelMethod == 'tranSkip':
+            relativeTrans = 'skip'
 
         path = self.getPosePath()
         log.info('PosePath : %s' % path)
@@ -3117,12 +3289,12 @@ class AnimationUI(object):
         poseNode.matchMethod = self.matchMethod
 
         poseNode.poseLoad(self.__uiCB_getPoseInputNodes(),
-                                                      path,
-                                                      useFilter=poseHierarchy,
-                                                      relativePose=poseRelative,
-                                                      relativeRots=relativeRots,
-                                                      relativeTrans=relativeTrans,
-                                                      maintainSpaces=maintainSpaces)
+                          path,
+                          useFilter=poseHierarchy,
+                          relativePose=poseRelative,
+                          relativeRots=relativeRots,
+                          relativeTrans=relativeTrans,
+                          maintainSpaces=maintainSpaces)
 
     def __PoseCompare(self, compareDict='skeletonDict', *args):
         '''
@@ -3155,40 +3327,42 @@ class AnimationUI(object):
             under the attr 'renderMeshes' OR the second selected object is the reference Mesh
             Without either of these you'll just get a locator as the PPC root
         '''
+
         objs = cmds.ls(sl=True)
         meshes = []
+        managelocators = True
         mRef = r9Meta.MetaClass(self.__uiCB_getPoseInputNodes())
+
         if mRef.hasAttr('renderMeshes') and mRef.renderMeshes:
-            meshes = mRef.renderMeshes
-        elif len(objs) == 2:
+            managelocators = False
+        if len(objs) == 2 and not self.poseRootMode == 'MetaRoot':
             if cmds.nodeType(cmds.listRelatives(objs[1])[0]) == 'mesh':
                 meshes = objs
+                managelocators = False
 
         if func == 'make':
             if not objs:
                 raise Exception('you need to select a reference object to use as pivot for the PPCloud')
-            rootReference = objs[0]
-            if not meshes:
-                # turn on locator visibility
+
+            self.ppc = r9Pose.PosePointCloud(mRef, self.filterSettings, meshes=meshes)
+            self.ppc.prioritySnapOnly = cmds.checkBox(self.uicbSnapPriorityOnly, q=True, v=True)
+            self.ppc.buildOffsetCloud(objs[0])
+                   
+            # turn on locator visibility if there are no meshes hooked
+            if managelocators:
                 panel = cmds.getPanel(wf=True)
                 if 'modelPanel' in panel:
                     cmds.modelEditor(cmds.getPanel(wf=True), e=True, locators=True)
                 else:
                     cmds.modelEditor('modelPanel4', e=True, locators=True)
-            self.ppc = r9Pose.PosePointCloud(self.__uiCB_getPoseInputNodes(),
-                                             self.filterSettings,
-                                             meshes=meshes)
-            self.ppc.prioritySnapOnly = cmds.checkBox(self.uicbSnapPriorityOnly, q=True, v=True)
-            self.ppc.buildOffsetCloud(rootReference)
-            return
+
         # sync current instance
         if not hasattr(self, 'ppc') or not self.ppc:
             current = r9Pose.PosePointCloud.getCurrentInstances()
             if current:
-                self.ppc = r9Pose.PosePointCloud(self.__uiCB_getPoseInputNodes(),
-                                                 self.filterSettings,
-                                                 meshes=meshes)
+                self.ppc = r9Pose.PosePointCloud(mRef, self.filterSettings, meshes=meshes)
                 self.ppc.syncdatafromCurrentInstance()
+
         # process current intance
         if self.ppc:
             if func == 'delete':
@@ -3211,7 +3385,7 @@ class AnimationUI(object):
             return
 
 #         self.kws['pasteKey'] = cmds.optionMenu('om_PasteMethod', q=True, v=True)
-        self.kws['pasteKey'] = 'replaceCompletely'  # replaced 25/02/20
+        # self.kws['pasteKey'] = 'replaceCompletely'  # replaced 25/02/20
         hierarchy = cmds.checkBox(self.uicbMirrorHierarchy, q=True, v=True)
 
         if hierarchy:
@@ -3219,6 +3393,9 @@ class AnimationUI(object):
         mirror = MirrorHierarchy(nodes=nodes,
                                      filterSettings=self.filterSettings,
                                      **self.kws)
+        time = ()
+        if cmds.checkBox(self.uicbMirrorRange, q=True, v=True):
+            time = timeLineRangeGet()
 
         # Check for AnimLayers and throw the warning
         if mirrorMode == 'Anim':
@@ -3235,14 +3412,14 @@ class AnimationUI(object):
 
         if not hierarchy:
             if process == 'mirror':
-                mirror.mirrorData(nodes, mode=mirrorMode)
+                mirror.mirrorData(nodes, mode=mirrorMode, time=time)
             else:
-                mirror.makeSymmetrical(nodes, mode=mirrorMode, primeAxis=side)
+                mirror.makeSymmetrical(nodes, mode=mirrorMode, primeAxis=side, time=time)
         else:
             if process == 'mirror':
-                mirror.mirrorData(mode=mirrorMode)
+                mirror.mirrorData(mode=mirrorMode, time=time)
             else:
-                mirror.makeSymmetrical(mode=mirrorMode, primeAxis=side)
+                mirror.makeSymmetrical(mode=mirrorMode, primeAxis=side, time=time)
 
     # MAIN CALL
     # ------------------------------------------------------------------------------
@@ -3444,6 +3621,7 @@ class AnimFunctions(object):
             animLayer to extract a compiled version of the animData from. This gets deleted afterwards.
 
         TODO: this needs to support 'skipAttrs' param like the copyAttrs does - needed for the snapTransforms calls
+        TODO: need to filter out setDriven data as that doesn't get correctly handled by Maya copyKeys
         '''
 
         # this is so it carries on the legacy behaviour where these are always passed in
@@ -3594,7 +3772,8 @@ class AnimFunctions(object):
 #     @r9General.evalManager_idleAction
     def snapTransform(self, nodes=None, time=(), step=1, preCopyKeys=1, preCopyAttrs=1, filterSettings=None,
                       iterations=1, matchMethod=None, prioritySnapOnly=False, snapRotates=True, snapTranslates=True, 
-                      snapScales=False, additionalCalls=[], cutkeys=False, smartbake=False, smartBakeRef=[], additionalCalls_pre=[], **kws):
+                      snapScales=False, additionalCalls=[], cutkeys=False, smartbake=False, smartBakeRef=[], additionalCalls_pre=[], 
+                      tangentType=None, **kws):
         '''
         Snap objects over a timeRange. This wraps the default hierarchy filters
         so it's capable of multiple hierarchy filtering and matching methods.
@@ -3633,6 +3812,8 @@ class AnimFunctions(object):
             are then respected during the process
         :param smartBakeRef: smartbake=True if given, used as reference nodes to extract keytimes from, else we look at all nodes about to be
             processed which isn't always what we want. If we still find no keytimes we revert to base range times with step given
+        :param tangentType: if given then we use this for both itt and ott key tangent values, else we use the current global tangent types 
+            valid entries : "auto", "clamped", "fast", "flat", "linear", "plateau", "slow", "spline", "step", and "stepnext"
 
         .. note::
             you can also pass the CopyKey kws in to the preCopy call, see copyKeys above
@@ -3658,6 +3839,13 @@ class AnimFunctions(object):
             filterSettings = self.settings
         if not matchMethod:
             matchMethod = self.matchMethod
+
+        if not tangentType:
+            itt = cmds.keyTangent(q=True, g=True, outTangentType=True)[0]
+            ott = cmds.keyTangent(q=True, g=True, inTangentType=True)[0]
+        else:
+            itt = tangentType
+            ott = tangentType
 
         if _smartBakeRef:
             smartbake = True
@@ -3766,20 +3954,29 @@ class AnimFunctions(object):
                                                 log.debug('skipping time : %s : node : %s' % (t, r9Core.nodeNameStrip(src)))
                                         else:
 #                                             cmds.matchTransform(src, dest, pos=snapTranslates, rot=snapRotates, scl=snapScales)  # still not an option
-                                            cmds.SnapTransforms(source=src, destination=dest,
-                                                                timeEnabled=True,
-#                                                                 time=t,
-                                                                snapRotates=snapRotates,
-                                                                snapTranslates=snapTranslates,
-                                                                snapScales=snapScales)
-                                            cmds.setKeyframe(dest, at=_keyed_attrs)
-
-                                            if logging_is_debug():
-                                                log.debug('Snapfrm %s : source(%s) >> target(%s) ::  %s to %s' % (str(t),
-                                                                                                                  r9Core.nodeNameStrip(src),
-                                                                                                                  r9Core.nodeNameStrip(dest),
-                                                                                                                  dest,
-                                                                                                                  src))
+                                            try:
+                                                cmds.SnapTransforms(source=src, destination=dest,
+                                                                    timeEnabled=True,
+    #                                                                 time=t,
+                                                                    snapRotates=snapRotates,
+                                                                    snapTranslates=snapTranslates,
+                                                                    snapScales=snapScales)
+                                                cmds.setKeyframe(dest, at=_keyed_attrs, itt=itt, ott=ott)
+    
+                                                if logging_is_debug():
+                                                    log.debug('Snapfrm %s : source(%s) >> target(%s) ::  %s to %s' % (str(t),
+                                                                                                                      r9Core.nodeNameStrip(src),
+                                                                                                                      r9Core.nodeNameStrip(dest),
+                                                                                                                      dest,
+                                                                                                                      src))
+                                            except Exception as err:
+                                                if logging_is_debug():
+                                                    log.debug('Snapfrm FAILED : %s : source(%s) >> target(%s) ::  %s to %s' % (str(t),
+                                                                                                                      r9Core.nodeNameStrip(src),
+                                                                                                                      r9Core.nodeNameStrip(dest),
+                                                                                                                      dest,
+                                                                                                                      src))
+                                                    log.debug(traceback.format_exc())
                                     # standard POST-SNAP additional calls
                                     if additionalCalls:
                                         for func in additionalCalls:
@@ -3870,7 +4067,7 @@ class AnimFunctions(object):
                                 timeEnabled=False)
 
     @staticmethod
-    def stabilizer(nodes=None, time=(), step=1, trans=True, rots=True):
+    def stabilizer(nodes=None, time=(), step=1, trans=True, rots=True, all_attrs=False):
         '''
         This is designed with 2 specific functionalities:
         If you have a single node selected it will stabilize it regardless
@@ -3885,56 +4082,68 @@ class AnimFunctions(object):
         :param step: int value for frame advance between process runs
         :param trans: track translates
         :param rots: track rotates
+        :param all_attrs: if True we cache and lock all secondary attrs on the node, designed for things like the
+            foot setups when you might need to also hold toe_tap etc
         '''
         # destObj = None  #Main Object being manipulated and keyed
         # snapRef = None  #Tracking ReferenceObject Used to Pass the transforms over
         deleteMe = []
         duration = step
         timeRange = []
+        _bases = ['translateX','translateY','translateZ','rotateX', 'rotateY', 'rotateZ']
+        _chans = []
+        _keyed_attrs = []   # xform attrs we're going to drop a key on
+        _cached_attrs = {}  # static cache of "all_attrs" behaviour, only relevant when mode=='stabilise'
 
-        _keyed_attrs = []
-        if trans:
-            _keyed_attrs.extend(['tx', 'ty', 'tz'])
-        if rots:
-            _keyed_attrs.extend(['rx', 'ry', 'rz'])
         try:
             checkRunTimeCmds()
         except Exception as error:
             raise Exception(error)
+
+        if not nodes:
+            nodes = cmds.ls(sl=True, l=True)
+        destObj = nodes[-1]
+        
+        mode = 'stabilise'
+        if len(nodes) == 2:
+            mode = 'tracking'
+
+        if trans:
+            _keyed_attrs.extend(['translateX', 'translateY', 'translateZ'])
+        if rots:
+            _keyed_attrs.extend(['rotateX', 'rotateY', 'rotateZ'])
+
+        if all_attrs and mode == 'stabilise':
+            _chans = [attr for attr in getChannelBoxAttrs(destObj, asDict=True, incLocked=False, skipcompound=True)['keyable'] if not attr in _bases]
 
         eval_mode = 'static'
         if time:
             eval_mode = 'anim'
 
         with r9General.AnimationContext(eval_mode=eval_mode, time=False):  # , cached_eval=False):
-            if time:
-                timeRange = timeLineRangeProcess(time[0], time[1], step, incEnds=True)  # this is a LIST of frames
-                cmds.currentTime(timeRange[0], e=True)  # ensure that the initial time is updated
-                duration = time[1] - time[0]
-                log.debug('timeRange : %s', timeRange)
-
-            if not nodes:
-                nodes = cmds.ls(sl=True, l=True)
-
-            destObj = nodes[-1]
+            
             snapRef = cmds.createNode('transform', ss=True)
             deleteMe.append(snapRef)
+            
+            if time:
+                timeRange = timeLineRangeProcess(time[0], time[1], step, incEnds=True)  # this is a LIST of frames
+                cmds.currentTime(timeRange[0], e=True)  # ensure that the initial time is updated so we're starting a timerange[0]
+                if _chans:
+                    _cached_attrs = {attr:cmds.getAttr('{}.{}'.format(destObj, attr)) for attr in _chans}  # cache at time[0]
+                log.debug('timeRange : %s', timeRange)
 
             try:
                 # Generate the reference node that we'll use to snap too
                 # ==========================================================
-                if len(nodes) == 2:
+                if mode == 'tracking':
                     # Tracker Mode 2 nodes passed in - Reference taken against the source node position
                     offsetRef = nodes[0]
                     if cmds.nodeType(nodes[0]) == 'mesh':  # Component level selection method
-                        if r9Setup.mayaVersion() >= 2011:
-                            offsetRef = cmds.spaceLocator()[0]
-                            deleteMe.append(offsetRef)
-                            cmds.select([nodes[0], offsetRef])
-                            pointOnPolyCmd([nodes[0], offsetRef])
-                        else:
-                            raise Exception('Component Level Tracking is only available in Maya2011 upwards')
-
+                        offsetRef = cmds.spaceLocator()[0]
+                        deleteMe.append(offsetRef)
+                        cmds.select([nodes[0], offsetRef])
+                        pointOnPolyCmd([nodes[0], offsetRef])
+                        
                     cmds.parent(snapRef, offsetRef)
                     cmds.SnapTransforms(source=destObj, destination=snapRef, snapTranslates=trans, snapRotates=rots)
                 else:
@@ -3944,13 +4153,20 @@ class AnimFunctions(object):
                 if time:
                     # Now run the snap against the reference node we've just made
                     # ==========================================================
-                    progressBar = r9General.ProgressBarContext(duration, step=step, ismain=True)
+                    progressBar = r9General.ProgressBarContext(time[1] - time[0], step=step, ismain=True)
                     with progressBar:
                         for time in timeRange:
                             if progressBar.isCanceled():
                                 break
-                            # Switched to using the Commands time query to stop  the viewport updates
                             cmds.currentTime(time, e=True, u=False)
+
+                            if _cached_attrs:
+                                for attr, value in list(_cached_attrs.items()):
+                                    try:
+                                        cmds.setKeyframe(destObj, at=attr, v=value)
+                                    except:
+                                        log.debug('failed to set full keydata on %s.%s' % (destObj, attr))
+                                        
                             cmds.SnapTransforms(source=snapRef, destination=destObj, timeEnabled=True, snapTranslates=trans, snapRotates=rots)
                             try:
                                 cmds.setKeyframe(destObj, at=_keyed_attrs)
@@ -3958,12 +4174,25 @@ class AnimFunctions(object):
                                 log.debug('failed to set full keydata on %s' % destObj)
                             progressBar.updateProgress()
                 else:
+                    # we change time but DON'T update, that way the rig is still in the 
+                    # previous frames state and we can use that for the cache
                     cmds.currentTime(cmds.currentTime(q=True) + step, e=True, u=False)
+
+                    if _chans:
+                        _cached_attrs = {attr:cmds.getAttr('{}.{}'.format(destObj, attr)) for attr in _chans}
+                        if _cached_attrs:
+                            for attr, value in list(_cached_attrs.items()):
+                                try:
+                                    cmds.setKeyframe(destObj, at=attr, v=value)
+                                except:
+                                    log.debug('failed to set full keydata on %s.%s' % (destObj, attr))
+                                    
                     cmds.SnapTransforms(source=snapRef, destination=destObj, timeEnabled=True, snapTranslates=trans, snapRotates=rots)
                     try:
                         cmds.setKeyframe(destObj, at=_keyed_attrs)
                     except:
                         log.debug('failed to set full keydata on %s' % destObj)
+
             except Exception as err:
                 log.warning('Stabilizer Error %s' % err)
             finally:
@@ -3971,7 +4200,7 @@ class AnimFunctions(object):
 #                 cmds.select(nodes)
 
     def bindNodes(self, nodes=None, attributes=None, attributes_all_settable=False, filterSettings=None, bindMethod='connect',
-                  matchMethod=None, manage_scales=False, unlock=False, **kws):
+                  matchMethod=None, manage_scales=False, unlock=False, skip_driven=False, **kws):
         '''
         bindNodes is a Hi-Level wrapper function to bind animation data between
         filtered nodes, either in hierarchies or just selected pairs. This has been uplifted to sync
@@ -3991,6 +4220,7 @@ class AnimFunctions(object):
         :param manage_scales: bool, do we also look at binding jnt scales where applicable, this only runs
             if the source jnt has incoming scale connections which would then be propagated via a scaleConstrain
         :param unlock: if True force unlock the required transform attrs on the destination skeleton first
+        :param skip_driven: if True, and bindMethod='connect', we skip any plugs that already have incoming connections, else we force connect
 
         TODO: expose this to the UI's!!!!
         '''
@@ -4025,7 +4255,7 @@ class AnimFunctions(object):
                 try:
                     if bindMethod == 'connect':
                         if attributes_all_settable:
-                            _attributes = attributes + getSettableChannels(src, incStatics=False)
+                            _attributes = attributes + getSettableChannels(src, incStatics=False, skip_driven=skip_driven)
                         else:
                             _attributes = attributes
                         # Bind only specific attributes
@@ -4062,23 +4292,29 @@ class AnimFunctions(object):
         return True
 
     @staticmethod
-    def inverseAnimChannels(node, channels, time=None):
+    def inverseAnimChannels(node, channels=[], time=None):
         '''
         really basic method used in the Mirror calls
         '''
-        if not channels:
-            log.debug('abort: no animChannels passed in to inverse')
-            return
+        if r9General.is_basestring(channels):
+            channels = [channels]
+
+        if not 'animCurve' in cmds.nodeType(node):
+            if not channels:
+                log.debug('abort: no animChannels passed in to inverse')
+                return
         if time:
             cmds.scaleKey(node, valueScale=-1, attribute=channels, time=time)
         else:
             cmds.scaleKey(node, valueScale=-1, attribute=channels)
 
     @staticmethod
-    def inverseAttributes(node, channels):
+    def inverseAttributes(node, channels, **kws):
         '''
         really basic method used in the Mirror calls
         '''
+        if r9General.is_basestring(channels):
+            channels = [channels]
         for chan in channels:
             try:
                 cmds.setAttr('%s.%s' % (node, chan), cmds.getAttr('%s.%s' % (node, chan)) * -1)
@@ -4086,7 +4322,7 @@ class AnimFunctions(object):
                 log.debug('failed to inverse %s.%s attr' % (node, chan))
 
     @staticmethod
-    def inverseAnimCurves(nodes=None, curves=[], time=(), timePivot=None, mode='object', mRigs=False):
+    def inverseAnimCurves(nodes=None, curves=[], time=(), timePivot=None, mode='object', mRigs=False, **kws):
         '''
         really basic method to inverse anim curves for a given time, or for the current playback timerange
 
@@ -4251,6 +4487,7 @@ class RandomizeKeys(object):
     def showOptions(cls):
         cls()._showUI()
 
+    @r9General.windows_qt_wrap
     def _showUI(self):
 
             if cmds.window(self.win, exists=True):
@@ -4505,7 +4742,7 @@ class RandomizeKeys(object):
 class FilterCurves(object):
 
     def __init__(self):
-        self.win = LANGUAGE_MAP._CurveFilters_.title
+        self.win = 'interactiveCurveFilter'  # LANGUAGE_MAP._CurveFilters_.title
         self.contextManager = curveModifierContext
         self.dragActive = False
         self.undoFuncCache = ['simplifyWrapper', 'snapAnimCurvesToFrms', 'resampleCurves']
@@ -4529,9 +4766,10 @@ class FilterCurves(object):
         if cmds.window(self.win, exists=True):
             cmds.deleteUI(self.win, window=True)
 
+    @r9General.windows_qt_wrap
     def _showUI(self):
         self.close()
-        cmds.window(self.win, title=self.win)
+        cmds.window(self.win, title=LANGUAGE_MAP._CurveFilters_.title)  # self.win)
         cmds.menuBarLayout()
         cmds.menu(l=LANGUAGE_MAP._Generic_.vimeo_menu)
         cmds.menuItem(l=LANGUAGE_MAP._Generic_.vimeo_help,
@@ -4773,7 +5011,7 @@ class MirrorHierarchy(object):
         self.mergeLayers = True
         self.indexednodes = []  # all nodes to process - passed to the Animlayer context
         self.kws = kws  # allows us to pass kws into the copyKey and copyAttr call if needed, ie, pasteMethod!
-        # print 'kws in Mirror call : ', self.kws
+        self.kws.setdefault('pasteKey', 'replaceCompletely')  # replaced 25/02/20
 
         # cache the function pointers for speed
         self.transferCallKeys = AnimFunctions().copyKeys
@@ -4803,6 +5041,11 @@ class MirrorHierarchy(object):
                 raise ValueError('given mirror side is not a valid int entry: 0, 1 or 2')
             else:
                 return True
+
+#         # allow simple prefix rather than just full mirror sides
+#         if side in ['C', 'L' ,'R']:
+#             return True
+
         if side not in self.mirrorDict:
             raise ValueError('given mirror side is not a valid key: Left, Right or Centre')
         else:
@@ -4869,7 +5112,7 @@ class MirrorHierarchy(object):
         Add/Set the default attrs required by the MirrorSystems.
 
         :param node: nodes to take the attrs
-        :param side: valid values are 'Centre','Left' or 'Right' or 0, 1, 2
+        :param side: valid values are 'Centre','Left', 'Right' or 0, 1, 2 or 'C', 'L', 'R'
         :param slot: bool Mainly used to pair up left and right paired controllers
         :param axis: eg 'translateX,rotateY,rotateZ' simple comma separated string
             If this is set then it overrides the default mirror axis.
@@ -4883,6 +5126,10 @@ class MirrorHierarchy(object):
         # Note using the MetaClass as all the type checking
         # and attribute handling is done for us
         mClass = r9Meta.MetaClass(node)
+
+        if side in ['C', 'L' ,'R']:
+            side = ['C', 'L', 'R'].index(side)
+
         if self._validateMirrorEnum(side):
             mClass.addAttr(self.mirrorSide, attrType='enum', enumName='Centre:Left:Right', hidden=True)
             mClass.__setattr__(self.mirrorSide, side)
@@ -5102,10 +5349,13 @@ class MirrorHierarchy(object):
                         print('clashing Index : %s : %s : %s' %
                               (key, i, ', '.join([r9Core.nodeNameStrip(n) for n in val[i]])))
 
-    def switchPairData(self, objA, objB, mode='Anim'):
+    def switchPairData(self, objA, objB, mode='Anim', time=()):
         '''
         take the left and right matched pairs and exchange the animData
-        or poseData across between them
+        or poseData across between them. If time is passed in then we
+        also manage a cutKey on the range as the key paste method gets switched
+        under the hood from 'replaceCompletely' to 'merge' so we have to punch
+        a hole in the curves
 
         :param objA:
         :param objB:
@@ -5115,29 +5365,35 @@ class MirrorHierarchy(object):
         if mode == 'Anim':
             transferCall = self.transferCallKeys  # AnimFunctions().copyKeys
         else:
+            time = ()
             transferCall = self.transferCallAttrs  # AnimFunctions().copyAttributes
 
         # switch the anim data over via temp
         temp = cmds.duplicate(objA, name='DELETE_ME_TEMP', po=True)[0]
         transferCall([objA, temp], **self.kws)
+        if time:
+            cmds.cutKey(objA, time=time)
         transferCall([objB, objA], **self.kws)
+        if time:
+            cmds.cutKey(objB, time=time)
         transferCall([temp, objB], **self.kws)
         cmds.delete(temp)
 
-    def makeSymmetrical(self, nodes=None, mode='Anim', primeAxis='Left'):
+    def makeSymmetrical(self, nodes=None, mode='Anim', primeAxis='Left', time=()):
         '''
         similar to the mirrorData except this is designed to take the data from an object in
         one side of the mirrorDict and pass that data to the opposite matching node, thus
         making the anim/pose symmetrical according to the mirror setups.
         Really useful for facial setups!
 
-        :param nodes: optional specific listy of nodes to process, else we run the filterSetting code
+        :param nodes: optional specific list of nodes to process, else we run the filterSetting code
             on the initial nodes past to the class
         :param mode: 'Anim' ot 'Pose' process as a single pose or an animation
         :param primeAxis: 'Left' or 'Right' whether to take the data from the left or right side of the setup
+        :param time: if given this allows us to just make a selected timerange chunk symmetrical
         '''
         self.getMirrorSets(nodes)
-
+        self.kws['time'] = ()
         if not self.indexednodes:
             raise IOError('No nodes mirrorIndexed nodes found from given / selected nodes')
 
@@ -5145,6 +5401,9 @@ class MirrorHierarchy(object):
             transferCall = self.transferCallKeys  # AnimFunctions().copyKeys
             inverseCall = AnimFunctions.inverseAnimChannels
             self.mergeLayers = True
+            if time:
+                self.kws['time'] = time
+                self.kws['pasteKey'] = 'merge'
         else:
             transferCall = self.transferCallAttrs  # AnimFunctions().copyAttributes
             inverseCall = AnimFunctions.inverseAttributes
@@ -5157,6 +5416,7 @@ class MirrorHierarchy(object):
             masterAxis = 'Right'
             slaveAxis = 'Left'
 
+        log.info('Symmertry Keys: %s' % self.kws)
         with AnimationLayerContext(self.indexednodes, mergeLayers=self.mergeLayers, restoreOnExit=False):
             for index, masterSide in list(self.mirrorDict[masterAxis].items()):
                 if index not in list(self.mirrorDict[slaveAxis].keys()):
@@ -5171,10 +5431,10 @@ class MirrorHierarchy(object):
                     if logging_is_debug():
                         log.debug('Symmetrical Axis Inversion: %s' % ','.join(slaveData['axis']))
                     if slaveData['axis']:
-                        inverseCall(slaveData['node'], slaveData['axis'])
+                        inverseCall(slaveData['node'], slaveData['axis'], time=self.kws['time'])
 
     # @r9General.Timer
-    def mirrorData(self, nodes=None, mode='Anim'):
+    def mirrorData(self, nodes=None, mode='Anim', time=()):
         '''
         Using the FilterSettings obj find all nodes in the return that have
         the mirrorSide attr, then process the lists into Side and Index slots
@@ -5184,7 +5444,8 @@ class MirrorHierarchy(object):
         :param nodes: optional specific list of nodes to process, else we run the filterSetting code
             on the initial nodes past to the class
         :param mode: 'Anim' or 'Pose' process as a single pose or an animation
-
+        :param time: if given this allows us to just mirror a selected timerange chunk
+        
         TODO: Issue where if nodeA on Left has NO key data at all, and nodeB on right
         does, then nodeB will be left incorrect. We need to clean the data if there
         are no keys.
@@ -5194,7 +5455,10 @@ class MirrorHierarchy(object):
         between the nodes, then we inverse the channels required. If the node on the side being inversed has limits 
         that don't allow that initial copy then the mirror will result in zero
         '''
-
+        
+        self.kws['time'] = ()
+        context_kws = {'time': False, 'undo': True, 'autokey': False}
+        
         self.getMirrorSets(nodes)
         if not self.indexednodes:
             raise IOError('No nodes mirrorIndexed nodes found from given / selected nodes')
@@ -5203,7 +5467,6 @@ class MirrorHierarchy(object):
             log.warning('Failed validation call - some nodes may be driven by constraints or pairBlends')
             return
 
-        context_kws = {'time': False, 'undo': True, 'autokey': False}
         if mode == 'Anim':
             if not self._validateKeyedNodes(self.indexednodes):
                 log.warning('Failed validation call - some nodes are unkeyed which will cause inconsistencies')
@@ -5211,11 +5474,15 @@ class MirrorHierarchy(object):
             inverseCall = AnimFunctions.inverseAnimChannels
             self.mergeLayers = True
             context_kws['eval_mode'] = 'anim'
+            if time:
+                self.kws['time'] = time
+                self.kws['pasteKey'] = 'merge'
         else:
             inverseCall = AnimFunctions.inverseAttributes
             self.mergeLayers = False
             context_kws['eval_mode'] = 'static'
 
+        log.info('Mirror Keys: %s' % self.kws)
         with r9General.AnimationContext(**context_kws):
             with AnimationLayerContext(self.indexednodes, mergeLayers=self.mergeLayers, restoreOnExit=False):
                 # Switch Pairs on the Left and Right and inverse the channels
@@ -5227,19 +5494,20 @@ class MirrorHierarchy(object):
                         if logging_is_debug():
                             log.debug('SwitchingPairs : %s >> %s' % (r9Core.nodeNameStrip(leftData['node']),
                                                                      r9Core.nodeNameStrip(rightData['node'])))
-                        self.switchPairData(leftData['node'], rightData['node'], mode=mode)
+
+                        self.switchPairData(leftData['node'], rightData['node'], mode=mode, time=self.kws['time'])
 
                         if logging_is_debug():
                             log.debug('Axis Inversions: left: %s' % ','.join(leftData['axis']))
                             log.debug('Axis Inversions: right: %s' % ','.join(rightData['axis']))
                         if leftData['axis']:
-                            inverseCall(leftData['node'], leftData['axis'])
+                            inverseCall(leftData['node'], leftData['axis'], time=self.kws['time'])
                         if rightData['axis']:
-                            inverseCall(rightData['node'], rightData['axis'])
+                            inverseCall(rightData['node'], rightData['axis'], time=self.kws['time'])
 
                 # Inverse the Centre Nodes
                 for data in list(self.mirrorDict['Centre'].values()):
-                    inverseCall(data['node'], data['axis'])
+                    inverseCall(data['node'], data['axis'], time=self.kws['time'])
 
     def saveMirrorSetups(self, filepath):
         '''
@@ -5341,6 +5609,7 @@ class MirrorSetup(object):
         if cmds.window(self.win, exists=True):
             cmds.deleteUI(self.win, window=True)
 
+    @r9General.windows_qt_wrap
     def _showUI(self):
         self.close()
 
