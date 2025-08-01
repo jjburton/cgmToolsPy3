@@ -39,6 +39,33 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 # =========================================================================
 
+# Dependency checks ========================================================
+def check_numpy_available():
+    """
+    Check if NumPy is available in the current Maya environment
+    
+    :returns:
+        bool: True if NumPy is available, False otherwise
+    """
+    try:
+        import numpy
+        return True
+    except ImportError:
+        return False
+
+def get_numpy_version():
+    """
+    Get NumPy version if available
+    
+    :returns:
+        str: NumPy version string or None if not available
+    """
+    try:
+        import numpy
+        return numpy.__version__
+    except ImportError:
+        return None
+
 # Strings settings
 _str_subLine = "-" * 75
 _str_hardLine = "=" * 75
@@ -1329,6 +1356,30 @@ def verify_mirrorSideArg(*args, **kws):
 
     return fncWrap(*args, **kws).go()
 
+
+def get_mayaFBXVersionsAvailable():
+    def is_valid_fbx_version(version):
+        try:
+            mel.eval('FBXExportFileVersion "{}";'.format(version))
+            result = mel.eval('FBXExportFileVersion -q;')
+            return result == version
+        except RuntimeError:
+            return False
+
+    start_year = 2010
+    end_year = 2050
+
+    available_versions = []
+
+    for year in range(start_year, end_year + 1):
+        version = "FBX{}00".format(year)
+        if is_valid_fbx_version(version):
+            available_versions.append(version)
+
+    print("Available FBX versions:")
+    for v in available_versions:
+        print("  ", v)
+    return available_versions
 
 def get_mayaEnviornmentDict():
     _d = {}

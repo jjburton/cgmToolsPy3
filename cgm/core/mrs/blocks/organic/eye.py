@@ -5937,7 +5937,7 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
         
     #mProxyEye.doSnapTo(mDirect)
     if skin:
-        MRSPOST.skin_mesh(mProxyEye,[mDirect])
+        MRSPOST.skin_mesh(mProxyEye,[mPrerigNull.getMessageAsMeta('eyeJoint')])
     else:
         mProxyEye.p_parent = mDirect
         
@@ -6035,7 +6035,7 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
                     _d_create['esw'] = 360
                     _d_create['r'] = _baseSize[0] /2 * .9
                 else:
-                    _color = 'sub'
+                    _color = 'main'
                     _d_create['ssw'] = 0
                     _d_create['esw'] = 180
                     _d_create['r'] = _baseSize[0]/2 * .9                    
@@ -6066,7 +6066,7 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
                 ml_proxy.append(mShapeSource) 
                 
                 if skin:
-                    MRSPOST.skin_mesh(mShapeSource,[mLidSkin.rigJoint])
+                    MRSPOST.skin_mesh(mShapeSource,[mLidSkin])
                 else:
                     mShapeSource.p_parent = mLidSkin.rigJoint#mModule
             
