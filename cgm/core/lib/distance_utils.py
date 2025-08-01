@@ -46,6 +46,11 @@ import cgm.core.lib.node_utils as NODES
 #reload(POS)
 #reload(MATHUTILS)
 
+# Check for NumPy availability for vectorized operations
+NUMPY_AVAILABLE = cgmGEN.check_numpy_available()
+if NUMPY_AVAILABLE:
+    import numpy as np
+
 #from cgm.lib import attributes
 #>>> Utilities
 #===================================================================
@@ -386,6 +391,41 @@ def get_distance_between_targets(targetList=None, average = False):
     
     return sum(l_dist)
 
+def get_distance_between_targets_vectorized(targetList=None, average = False):
+    """
+    Vectorized version of get_distance_between_targets
+    """
+    _str_func = 'get_distance_between_targets_vectorized'
+    if not targetList:
+        targetList = mc.ls(sl=True,flatten = False)
+    
+    if len(targetList) <= 1:
+        raise ValueError("|{0}| >> Must have more positions. targetList: {1}".format(_str_func,targetList))
+    
+    # Get all positions at once
+    positions = np.array([POS.get(o) for o in targetList])
+    
+    # Calculate distances between consecutive points using vectorized operations
+    # Compute differences between consecutive positions
+    diffs = positions[1:] - positions[:-1]
+    
+    # Calculate distances using vectorized Euclidean distance
+    distances = np.sqrt(np.sum(diffs**2, axis=1))
+    
+    # Log distances for debugging
+    for i, d in enumerate(distances):
+        log.debug("|{0}| >> {1} |---------| {2} : {3}".format(_str_func,targetList[i],targetList[i+1],d))
+    
+    if average:
+        return float(np.mean(distances))
+    
+    return float(np.sum(distances))
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_distance_between_targets_original = get_distance_between_targets
+    get_distance_between_targets = get_distance_between_targets_vectorized
+
 def get_vector_between_targets(targetList=None):
     """
     """
@@ -406,6 +446,38 @@ def get_vector_between_targets(targetList=None):
         l_vec.append(d)
         
     return l_vec
+
+def get_vector_between_targets_vectorized(targetList=None):
+    """
+    Vectorized version of get_vector_between_targets
+    """
+    _str_func = 'get_vector_between_targets_vectorized'
+    if not targetList:
+        targetList = mc.ls(sl=True,flatten = False)
+    
+    if len(targetList) <= 1:
+        raise ValueError("|{0}| >> Must have more positions. targetList: {1}".format(_str_func,targetList))
+    
+    # Get all positions at once
+    positions = np.array([POS.get(o) for o in targetList])
+    
+    # Calculate vectors between consecutive points using vectorized operations
+    # Compute differences between consecutive positions
+    vectors = positions[1:] - positions[:-1]
+    
+    # Convert to list format for consistency
+    vectors_list = vectors.tolist()
+    
+    # Log vectors for debugging
+    for i, vec in enumerate(vectors_list):
+        log.debug("|{0}| >> {1} |---------| {2} : {3}".format(_str_func,targetList[i],targetList[i+1],vec))
+    
+    return vectors_list
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_vector_between_targets_original = get_vector_between_targets
+    get_vector_between_targets = get_vector_between_targets_vectorized
 
 def get_vectorOffset(obj = None, origin = None, distance = 0, asEuclid = False):
     """
@@ -613,6 +685,20 @@ def get_average_position(posList):
         posZ.append(posBuffer[2])
     return [float(sum(posX)/len(posList)), float(sum(posY)/len(posList)), float(sum(posZ)/len(posList))]
 
+def get_average_position_vectorized(posList):
+    """
+    Vectorized version of get_average_position
+    """
+    if not posList:
+        return [0.0, 0.0, 0.0]
+    pos_array = np.array(posList)
+    return pos_array.mean(axis=0).tolist()
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_average_position_original = get_average_position
+    get_average_position = get_average_position_vectorized
+
 def get_pos_by_linearPct(point1,point2,f=.5):
     """
     Get the pct distance between two points by vector distance
@@ -764,6 +850,58 @@ def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
             _res.append([o,d])
     return _res
     #return [[d_dists[d],d] for d in l_dists]
+
+def get_targetsOrderedByDist_vectorized(source = None, objects = None, allowDups = True):
+    """
+    Vectorized version of get_targetsOrderedByDist
+    """
+    _str_func = 'get_targetsOrderedByDist_vectorized'
+    _point = False
+    
+    if VALID.vectorArg(source) is not False:
+        _point = source   
+    elif mc.objExists(source):
+        _point = POS.get(source)
+
+    if not _point:raise ValueError("Must have point of reference")
+    
+    # Get all target positions at once
+    target_positions = np.array([POS.get(obj) for obj in objects])
+    source_point = np.array(_point)
+    
+    # Calculate all distances at once using vectorized operations
+    # Compute differences between source and all targets
+    diffs = target_positions - source_point
+    
+    # Calculate distances using vectorized Euclidean distance
+    distances = np.sqrt(np.sum(diffs**2, axis=1))
+    
+    # Create result list with objects and distances
+    result = []
+    d_dists = {}
+    
+    for i, (obj, dist) in enumerate(zip(objects, distances)):
+        if dist in d_dists and not allowDups:
+            pprint.pprint(objects)
+            raise ValueError("Cannot handle matching distances. {0}".format(_str_func))
+        
+        if dist not in d_dists:
+            d_dists[dist] = []
+        d_dists[dist].append(obj)
+    
+    # Sort distances and build result
+    sorted_distances = np.sort(distances)
+    _res = []
+    for d in sorted_distances:
+        for o in d_dists[d]:
+            _res.append([o, float(d)])
+    
+    return _res
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_targetsOrderedByDist_original = get_targetsOrderedByDist
+    get_targetsOrderedByDist = get_targetsOrderedByDist_vectorized
 
 def get_min_max_bbPoints_distances(source = None, targets = []):
     if VALID.vectorArg(source) is not False:
@@ -1225,6 +1363,43 @@ def get_normalizedWeightsByDistance(obj,targets,normalizeTo=1.0):
     vList = [normalizeTo - v for v in vList]
     
     return vList
+
+def get_normalizedWeightsByDistance_vectorized(obj,targets,normalizeTo=1.0):
+    """
+    Vectorized version of get_normalizedWeightsByDistance
+    """
+    _str_func = 'get_normalizedWeightsByDistance_vectorized'
+    
+    pos_obj = POS.get(VALID.mNodeString(obj))
+    targets = VALID.mNodeStringList(targets)
+    
+    # Get all target positions at once
+    target_positions = np.array([POS.get(t) for t in targets])
+    source_point = np.array(pos_obj)
+    
+    # Calculate all distances at once using vectorized operations
+    diffs = target_positions - source_point
+    distances = np.sqrt(np.sum(diffs**2, axis=1))
+    
+    # Use the vectorized normalizeListToSum from math_utils if available
+    if hasattr(MATHUTILS, 'normalizeListToSum_vectorized'):
+        vList = MATHUTILS.normalizeListToSum_vectorized(distances.tolist(), normalizeTo)
+    else:
+        vList = MATHUTILS.normalizeListToSum(distances.tolist(), normalizeTo)
+    
+    log.debug("|{0}| >> targets: {1} ".format(_str_func,targets))                     
+    log.debug("|{0}| >> raw: {1} ".format(_str_func,distances.tolist()))             
+    log.debug("|{0}| >> normalize: {1} ".format(_str_func,vList))  
+    
+    # Invert the weights
+    vList = [normalizeTo - v for v in vList]
+    
+    return vList
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_normalizedWeightsByDistance_original = get_normalizedWeightsByDistance
+    get_normalizedWeightsByDistance = get_normalizedWeightsByDistance_vectorized
     
 
 def get_normalizedWeightsByDistanceToObj(obj,targets):
@@ -1270,7 +1445,55 @@ def get_normalizedWeightsByDistanceToObj(obj,targets):
         index = distances.index(dist)
         weights.append( normalizedDistances[index] )
     
-    return weights    
+    return weights
+
+def get_normalizedWeightsByDistanceToObj_vectorized(obj,targets):
+    """
+    Vectorized version of get_normalizedWeightsByDistanceToObj
+    """
+    _str_func = 'get_normalizedWeightsByDistanceToObj_vectorized'
+    
+    obj = VALID.mNodeString(obj)
+    _p_base = POS.get(obj)
+    
+    targets = VALID.mNodeStringList(targets)
+    
+    # Get all target positions at once
+    target_positions = np.array([POS.get(t) for t in targets])
+    source_point = np.array(_p_base)
+    
+    # Calculate all distances at once using vectorized operations
+    diffs = target_positions - source_point
+    distances = np.sqrt(np.sum(diffs**2, axis=1))
+    
+    # Create mapping dictionaries for consistency with original function
+    distanceObjDict = {}
+    objDistanceDict = {}
+    
+    for i, t in enumerate(targets):
+        dist = distances[i]
+        distanceObjDict[dist] = t
+        objDistanceDict[t] = dist
+    
+    # Use the vectorized normalizeListToSum from math_utils if available
+    if hasattr(MATHUTILS, 'normalizeListToSum_vectorized'):
+        normalizedDistances = MATHUTILS.normalizeListToSum_vectorized(distances.tolist())
+    else:
+        normalizedDistances = MATHUTILS.normalizeListToSum(distances.tolist())
+    
+    # Build weights list maintaining original order
+    weights = []
+    for t in targets:
+        dist = objDistanceDict[t] 
+        index = distances.tolist().index(dist)
+        weights.append(normalizedDistances[index])
+    
+    return weights
+
+# Conditional reassignment for vectorized version
+if NUMPY_AVAILABLE:
+    get_normalizedWeightsByDistanceToObj_original = get_normalizedWeightsByDistanceToObj
+    get_normalizedWeightsByDistanceToObj = get_normalizedWeightsByDistanceToObj_vectorized    
  
 
 

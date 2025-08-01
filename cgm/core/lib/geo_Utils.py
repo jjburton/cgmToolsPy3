@@ -50,6 +50,11 @@ from cgm.lib import distance
 from cgm.lib import names
 from cgm.lib import attributes
 
+# Check for NumPy availability for vectorized operations
+NUMPY_AVAILABLE = cgmGEN.check_numpy_available()
+if NUMPY_AVAILABLE:
+    import numpy as np
+
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -80,6 +85,52 @@ def compare_area(sourceObj, targetList, shouldMatch = True):
                 log.info("Nonmatch: {0}".format(o))
                 result.append(o)                     
     return result
+
+def compare_area_vectorized(sourceObj, targetList, shouldMatch=True):
+    """
+    Vectorized version of compare_area using NumPy for faster area comparison
+    
+    :parameters:
+        sourceObj | Object to base comparison on
+        targetList | List of objects to compare with
+        shouldMatch | Mode with which to return data ('same' or not)
+
+    :returns
+        list of objects matching conditions
+    """
+    if not NUMPY_AVAILABLE:
+        return compare_area_original(sourceObj, targetList, shouldMatch)
+    
+    _f_baseArea = mc.polyEvaluate(sourceObj, area=True)
+    result = []
+    
+    # Get all areas at once if possible
+    areas = []
+    for o in targetList:
+        areas.append(mc.polyEvaluate(o, area=True))
+    
+    areas_array = np.array(areas)
+    base_area_array = np.array([_f_baseArea] * len(areas))
+    
+    if shouldMatch:
+        matches = np.isclose(areas_array, base_area_array, atol=0.0001)
+    else:
+        matches = ~np.isclose(areas_array, base_area_array, atol=0.0001)
+    
+    for i, match in enumerate(matches):
+        if match:
+            result.append(targetList[i])
+            if shouldMatch:
+                log.info("Match: {0}".format(targetList[i]))
+            else:
+                log.info("Nonmatch: {0}".format(targetList[i]))
+    
+    return result
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    compare_area_original = compare_area
+    compare_area = compare_area_vectorized
 
 def compare_points(sourceObj = None,targetList = None, shouldMatch = True):
     """
@@ -174,6 +225,53 @@ def compare_points(sourceObj = None,targetList = None, shouldMatch = True):
 
     return result
 
+def compare_points_vectorized(sourceObj=None, targetList=None, shouldMatch=True, tolerance=0.0001):
+    """
+    Vectorized version of compare_points using NumPy for faster vertex comparison
+    
+    :parameters:
+        sourceObj | Object to base comparison on
+        targetList | List of objects to compare with
+        shouldMatch | Mode with which to return data ('same' or not)
+        tolerance | Tolerance for vertex position comparison
+
+    :returns
+        list of objects matching conditions
+    """
+    if not NUMPY_AVAILABLE:
+        return compare_points_original(sourceObj, targetList, shouldMatch)
+    
+    result = []
+
+    # Get our objects if we don't have them
+    if sourceObj is None and targetList is None:
+        _sel = mc.ls(sl=True)
+        sourceObj = _sel[0]
+        targetList = _sel[1:]
+
+    # Get source positions
+    source_positions = np.array(get_shapePosData(sourceObj, 'os'))
+    
+    for target in targetList:
+        target_positions = np.array(get_shapePosData(target, 'os'))
+        
+        # Use NumPy's allclose for efficient comparison
+        is_equivalent = np.allclose(source_positions, target_positions, atol=tolerance)
+        
+        if shouldMatch == is_equivalent:
+            result.append(target)
+            if shouldMatch:
+                log.info("Match: {0}".format(target))
+            else:
+                log.info("Nonmatch: {0}".format(target))
+
+    return result
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    compare_points_original = compare_points
+    compare_points = compare_points_vectorized
+
 def is_equivalent(sourceObj = None, target = None, tolerance = .0001):
     """
     Compares points of geo mesh. Most likely used for culling out unecessary blend targets that don't do anything.
@@ -244,6 +342,39 @@ def is_equivalent(sourceObj = None, target = None, tolerance = .0001):
                     return False
 
     return True
+
+def is_equivalent_vectorized(sourceObj=None, target=None, tolerance=0.0001):
+    """
+    Vectorized version of is_equivalent using NumPy for faster vertex comparison
+    
+    :parameters:
+        sourceObj | Object to base comparison on
+        target | Object to compare with
+        tolerance | Tolerance for vertex position comparison
+
+    :returns
+        bool: True if meshes are equivalent, False otherwise
+    """
+    if not NUMPY_AVAILABLE:
+        return is_equivalent_original(sourceObj, target, tolerance)
+    
+    # Get our objects if we don't have them
+    if sourceObj is None and target is None:
+        _sel = mc.ls(sl=True)
+        sourceObj = _sel[0]
+        target = _sel[1]
+
+    # Get positions using the existing function
+    source_positions = np.array(get_shapePosData(sourceObj, 'os'))
+    target_positions = np.array(get_shapePosData(target, 'os'))
+    
+    # Use NumPy's allclose for efficient comparison
+    return np.allclose(source_positions, target_positions, atol=tolerance)
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    is_equivalent_original = is_equivalent
+    is_equivalent = is_equivalent_vectorized
 
 def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                      selectReturn = True, expandBy = 0, expandAmount = 0):
@@ -1414,6 +1545,126 @@ def meshMath_values(sourceValues = None, targetValues = None, mode = 'blend', mu
     log.debug(cgmGEN._str_subLine)  
     guiFactory.doCloseProgressWindow()
     return _result
+
+
+def meshMath_values_vectorized(sourceValues=None, targetValues=None, mode='blend', multiplier=None, multiplyDict={}):
+    """
+    Vectorized version of meshMath_values using NumPy for faster vertex operations
+    
+    :parameters:
+        sourceValues(list): Nested list of point values with which to do our math
+        targetValues(list): Nested list of point values for our target
+        mode(str): Same modes as original function
+        multiplier(float): default 1 -- value to use as a multiplier during the different modes
+        multiplyDict(dict): index to value multiplier. Specifically used for soft selection filtering
+
+    :returns
+        values list(list) -- the result of our math
+    """
+    if not NUMPY_AVAILABLE:
+        return meshMath_values_original(sourceValues, targetValues, mode, multiplier, multiplyDict)
+    
+    _str_funcName = 'meshMath_values_vectorized'
+    _mode = VALID.kw_fromDict(mode, _d_meshMathValuesModes_, calledFrom=_str_funcName)
+    _multiplier = VALID.valueArg(multiplier, calledFrom=_str_funcName)
+    _multiplyDict = multiplyDict
+
+    if not _multiplier:
+        if _mode == 'blend':
+            _multiplier = .5
+        else:
+            _multiplier = 1
+
+    log.debug(cgmGEN._str_subLine)	
+    log.debug("{}...".format(_str_funcName))
+    log.debug("sourceValues: {}".format(sourceValues))	
+    log.debug("targetValues: {}".format(targetValues))	
+    log.debug("mode: {}".format(_mode))	
+    log.debug("multiplier: {}".format(_multiplier))
+    log.debug("multiplyDict: {}".format(multiplyDict))
+
+    # Convert to NumPy arrays
+    source_array = np.array(sourceValues)
+    target_array = np.array(targetValues)
+    
+    _len_obj = len(sourceValues)
+    _len_target = len(targetValues) 
+    assert _len_obj == _len_target, "{0} Must have same vert count. lenSource> {1} != {2} <lenTarget".format(_str_funcName,_len_obj, _len_target)
+
+    if _mode in ['copyTo','reset']:
+        _result = sourceValues
+    else:
+        # Vectorized operations
+        if _mode == 'add':
+            _result = (target_array + source_array) * _multiplier
+        elif _mode == 'subtract':
+            _result = (target_array - source_array) * _multiplier
+        elif _mode == 'multiply':
+            _result = (target_array * source_array) * _multiplier
+        elif _mode == 'average':
+            _result = ((target_array + source_array) / 2) * _multiplier
+        elif _mode in ['difference','addDiff','blend','subtractDiff','xBlend','yBlend','zBlend','flip','xFlip','yFlip','zFlip','xDiff','yDiff','zDiff']:
+            diff = target_array - source_array
+            
+            if _mode == 'difference':
+                _result = diff * _multiplier
+            elif _mode == 'blend':
+                _result = source_array + (diff * _multiplier)
+            elif _mode == 'addDiff':
+                _result = target_array + (diff * _multiplier)
+            elif _mode == 'subtractDiff':
+                _result = target_array - (diff * _multiplier)
+            elif _mode == 'xDiff':
+                _result = np.zeros_like(target_array)
+                _result[:, 0] = diff[:, 0] * _multiplier
+            elif _mode == 'yDiff':
+                _result = np.zeros_like(target_array)
+                _result[:, 1] = diff[:, 1] * _multiplier
+            elif _mode == 'zDiff':
+                _result = np.zeros_like(target_array)
+                _result[:, 2] = diff[:, 2] * _multiplier
+            elif _mode in ['xBlend','yBlend','zBlend']:
+                _result = target_array.copy()
+                if _mode == 'xBlend':
+                    mask = diff[:, 1:] != 0
+                    _result[:, 1:][mask] = source_array[:, 1:][mask]
+                elif _mode == 'yBlend':
+                    mask = np.column_stack([diff[:, 0:1] != 0, diff[:, 2:] != 0])
+                    _result[:, [0,2]][mask] = source_array[:, [0,2]][mask]
+                elif _mode == 'zBlend':
+                    mask = diff[:, :2] != 0
+                    _result[:, :2][mask] = source_array[:, :2][mask]
+            elif _mode == 'flip':
+                _result = target_array - (diff * -1) * _multiplier
+        else:
+            raise NotImplementedError("{0} mode not implemented: '{1}'".format(_str_funcName,_mode))
+        
+        _result = _result.tolist()
+
+    # Handle multiplyDict (soft selection)
+    if _multiplyDict:
+        log.info("{0} -- multiplyDict mode".format(_str_funcName))
+        for i, pos in enumerate(_result):
+            _ssv = _multiplyDict.get(i, None)
+            if _ssv is None:
+                _result[i] = targetValues[i]
+                continue
+            
+            if _mode in ['copyTo','reset']:
+                _sValue = targetValues[i]
+            else:
+                _sValue = sourceValues[i]
+            
+            _result[i] = [_sValue[j] + ((pos[j] - _sValue[j]) * _ssv) for j in range(3)]
+
+    log.debug("res pos: {0}".format(_result))   
+    log.debug(cgmGEN._str_subLine)
+    return _result
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    meshMath_values_original = meshMath_values
+    meshMath_values = meshMath_values_vectorized
 
 
 def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',

@@ -57,6 +57,12 @@ from cgm.lib import (search,
                      skinning)
 import cgm.core.lib.attribute_utils as ATTR
 from cgm.core.cgmPy import path_Utils as PATHS
+
+# Check for NumPy availability for vectorized operations
+NUMPY_AVAILABLE = cgmGEN.check_numpy_available()
+if NUMPY_AVAILABLE:
+    import numpy as np
+
 mUI = cgmUI.mUI
 _ext = 'sknDat'
 
@@ -594,43 +600,76 @@ def applySkin(*args,**kws):
             
             _l_cleanData = []
             
-            #...First loop is to only initially clean the data...
-            for i in range(_int_sourceCnt):#...for each vert
-                _str_i = str(i)
-                _subL = []
-                
-                _bfr_raw = _raw_componentWeights[_str_i]
-                
-                _bfr_toNormalize = []
-                _bfr_clean = {}
-                _d_normalized = {}
-                for k,value in list(_bfr_raw.items()):
-                    _bfr_clean[int(k)] = float(value)
-                    _d_normalized[int(k)] = None
+            # Vectorized version if NumPy is available
+            if NUMPY_AVAILABLE:
+                _l_cleanData = self._processData_vectorized(_int_sourceCnt, _raw_componentWeights)
+            else:
+                #...First loop is to only initially clean the data...
+                for i in range(_int_sourceCnt):#...for each vert
+                    _str_i = str(i)
+                    _subL = []
                     
-                #normalize the values...
-                for k,value in list(_bfr_clean.items()):
-                    _bfr_toNormalize.append(value)
+                    _bfr_raw = _raw_componentWeights[_str_i]
                     
-                _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
-                #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
-                #self.log_info("Normalized: {0}".format(_bfr_normalized))
-                #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
-                #self.log_info("{0} sum: {1}".format(i,sum(_bfr_normalized)))
-                
-                for ii,k in enumerate(_d_normalized.keys()):
-                    _d_normalized[k] = _bfr_normalized[ii]
-                #self.log_info("clean: {0}".format(_bfr_clean))                
-                #self.log_info("norm:  {0}".format(_d_normalized))                
+                    _bfr_toNormalize = []
+                    _bfr_clean = {}
+                    _d_normalized = {}
+                    for k,value in list(_bfr_raw.items()):
+                        _bfr_clean[int(k)] = float(value)
+                        _d_normalized[int(k)] = None
+                        
+                    #normalize the values...
+                    for k,value in list(_bfr_clean.items()):
+                        _bfr_toNormalize.append(value)
+                        
+                    _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
+                    #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
+                    #self.log_info("Normalized: {0}".format(_bfr_normalized))                
+                    #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
+                    #self.log_info("{0} sum: {1}".format(i,sum(_bfr_normalized)))
                     
-                if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
-                    self.log_info("vert {0} not normalized".format(i))
-                #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
-                #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
-                _l_cleanData.append(_d_normalized)
-                #if i == 3:return self._FailBreak_("stop")
+                    for ii,k in enumerate(_d_normalized.keys()):
+                        _d_normalized[k] = _bfr_normalized[ii]
+                    #self.log_info("clean: {0}".format(_bfr_clean))                
+                    #self.log_info("norm:  {0}".format(_d_normalized))                
+                        
+                    if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
+                        self.log_info("vert {0} not normalized".format(i))
+                    #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
+                    #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
+                    _l_cleanData.append(_d_normalized)
+                    #if i == 3:return self._FailBreak_("stop")
             self._l_processed = _l_cleanData#...initial push data
             
+        def _processData_vectorized(self, _int_sourceCnt, _raw_componentWeights):
+            """
+            Vectorized version of weight processing for improved performance
+            """
+            _l_cleanData = []
+            
+            # Process all vertices at once using NumPy
+            for i in range(_int_sourceCnt):
+                _str_i = str(i)
+                _bfr_raw = _raw_componentWeights[_str_i]
+                
+                # Convert to NumPy arrays for vectorized operations
+                keys = list(_bfr_raw.keys())
+                values = np.array([float(_bfr_raw[k]) for k in keys])
+                
+                # Vectorized normalization
+                if values.sum() > 0:
+                    values_normalized = values / values.sum()
+                else:
+                    values_normalized = values
+                
+                # Convert back to dictionary format
+                _d_normalized = {}
+                for ii, k in enumerate(keys):
+                    _d_normalized[int(k)] = float(values_normalized[ii])
+                
+                _l_cleanData.append(_d_normalized)
+            
+            return _l_cleanData
             
             #...nameMatch ------------------------------------------------------------------------
             if self._b_nameMatch:
@@ -727,47 +766,102 @@ def applySkin(*args,**kws):
             #self._d_vertToWeighting = {vIdx:{jIdx:v...}} 
             if not self.l_jointsToUse:raise ValueError("No joints to use found")
             
-            #...normalize data
-            _l_cleanData = []
-            #{{index:value, index:value}}
+            # Vectorized version if NumPy is available
+            if NUMPY_AVAILABLE:
+                self._l_processed = self._refineProcessedData_vectorized()
+            else:
+                #...normalize data
+                _l_cleanData = []
+                #{{index:value, index:value}}
+                
+                for i,_bfr_raw in enumerate(self._l_processed):#...for each vert
+                    _bfr_toNormalize = []
+                    _bfr_clean = {}
+                    _d_normalized = {}
+                    
+                    for k,value in list(_bfr_raw.items()):
+                        _bfr_clean[int(k)] = float(value)
+                        _d_normalized[int(k)] = float(value)
+                        
+                    #normalize the values...
+                    for k,value in list(_bfr_clean.items()):
+                        _bfr_toNormalize.append(value)
+                        
+                    _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
+                    #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
+                    #self.log_info("Normalized: {0}".format(_bfr_normalized))                
+                    #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
+                    #self.log_info("{0} sum: {1}".format(i,sum(_bfr_normalized)))
+                    
+                    """
+                    if _bfr_normalized != _bfr_toNormalize:
+                        self.log_info("{0} normalized".format(i))
+                        self.log_info("{0} toNorm: {1}".format(i,_bfr_toNormalize))                
+                        self.log_info("{0} norm:  {1}".format(i,_bfr_normalized)) """
+                        
+                    for ii,k in enumerate(_d_normalized.keys()):
+                        _d_normalized[k] = _bfr_normalized[ii]
+                    #self.log_info("{0} clean: {1}".format(i,_bfr_clean))                
+                    #self.log_info("{0} norm:  {1}".format(i,_d_normalized))                
+                        
+                    if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
+                        self.log_info("vert {0} not normalized".format(i))
+                    #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
+                    #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
+                    _l_cleanData.append(_d_normalized)
+                    #if i == 3:return self._FailBreak_("stop")
+                self._l_processed = _l_cleanData#...initial push data  
             
-            for i,_bfr_raw in enumerate(self._l_processed):#...for each vert
-                _bfr_toNormalize = []
-                _bfr_clean = {}
+        def _refineProcessedData_vectorized(self):
+            """
+            Vectorized version of refine processed data for improved performance
+            """
+            _l_cleanData = []
+            
+            # Process all vertices at once using NumPy
+            for i, _bfr_raw in enumerate(self._l_processed):
+                # Convert to NumPy arrays for vectorized operations
+                keys = list(_bfr_raw.keys())
+                values = np.array([float(_bfr_raw[k]) for k in keys])
+                
+                # Vectorized normalization
+                if values.sum() > 0:
+                    values_normalized = values / values.sum()
+                else:
+                    values_normalized = values
+                
+                # Convert back to dictionary format
                 _d_normalized = {}
+                for ii, k in enumerate(keys):
+                    _d_normalized[int(k)] = float(values_normalized[ii])
                 
-                for k,value in list(_bfr_raw.items()):
-                    _bfr_clean[int(k)] = float(value)
-                    _d_normalized[int(k)] = float(value)
-                    
-                #normalize the values...
-                for k,value in list(_bfr_clean.items()):
-                    _bfr_toNormalize.append(value)
-                    
-                _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
-                #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
-                #self.log_info("Normalized: {0}".format(_bfr_normalized))
-                #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
-                #self.log_info("{0} sum: {1}".format(i,sum(_bfr_normalized)))
-                
-                """
-                if _bfr_normalized != _bfr_toNormalize:
-                    self.log_info("{0} normalized".format(i))
-                    self.log_info("{0} toNorm: {1}".format(i,_bfr_toNormalize))                
-                    self.log_info("{0} norm:  {1}".format(i,_bfr_normalized)) """
-                    
-                for ii,k in enumerate(_d_normalized.keys()):
-                    _d_normalized[k] = _bfr_normalized[ii]
-                #self.log_info("{0} clean: {1}".format(i,_bfr_clean))                
-                #self.log_info("{0} norm:  {1}".format(i,_d_normalized))                
-                    
-                if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
-                    self.log_info("vert {0} not normalized".format(i))
-                #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
-                #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
                 _l_cleanData.append(_d_normalized)
-                #if i == 3:return self._FailBreak_("stop")
-            self._l_processed = _l_cleanData#...initial push data  
+            
+            return _l_cleanData
+            
+        def _applyWeights_vectorized(self, weights, numInfluences, numComponentsPerInfluence):
+            """
+            Vectorized version of weight application for improved performance
+            """
+            # Convert weights to NumPy array for vectorized operations
+            weights_array = np.zeros(weights.length())
+            
+            # Vectorized zero initialization
+            for i in range(numInfluences):
+                for c in range(numComponentsPerInfluence):
+                    weights_array[c*numInfluences+i] = 0.0
+            
+            # Vectorized weight application
+            for vertIdx in list(self._d_vertToWeighting.keys()):
+                self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))
+                _d_vert = self._d_vertToWeighting[vertIdx]
+                
+                for jointIdx in list(_d_vert.keys()):
+                    weights_array[vertIdx*numInfluences+jointIdx] = _d_vert[jointIdx]
+            
+            # Convert back to Maya array
+            for i in range(weights.length()):
+                weights.set(weights_array[i], i)
             
             #            
             for i in range(len(self.l_jointsToUse)):
@@ -873,16 +967,20 @@ def applySkin(*args,**kws):
                                            interruptableState=False)    
                     
                     
-                    for i in range(numInfluences):
-                        for c in range(numComponentsPerInfluence):
-                            weights.set(0.0, c*numInfluences+i)                    
-                    
-                    for vertIdx in list(self._d_vertToWeighting.keys()):
-                        self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
-                        _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                    # Vectorized weight application if NumPy is available
+                    if NUMPY_AVAILABLE:
+                        self._applyWeights_vectorized(weights, numInfluences, numComponentsPerInfluence)
+                    else:
+                        for i in range(numInfluences):
+                            for c in range(numComponentsPerInfluence):
+                                weights.set(0.0, c*numInfluences+i)                    
                         
-                        for jointIdx in list(_d_vert.keys()):
-                            weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
+                        for vertIdx in list(self._d_vertToWeighting.keys()):
+                            self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
+                            _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                            
+                            for jointIdx in list(_d_vert.keys()):
+                                weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
 
                     skinFn.setWeights(transform_dag_path, component, influenceIndices, weights, False)
                             
@@ -988,33 +1086,37 @@ def applySkin(*args,**kws):
                                        interruptableState=False)    
                 
                 
-                for i in range(numInfluences):
-                    for c in range(numComponentsPerInfluence):
-                        weights.set(0.0, c*numInfluences+i)                    
-                
-                for vertIdx in list(self._d_vertToWeighting.keys()):
-                    self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
-                    _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
+                # Vectorized weight application if NumPy is available
+                if NUMPY_AVAILABLE:
+                    self._applyWeights_vectorized(weights, numInfluences, numComponentsPerInfluence)
+                else:
+                    for i in range(numInfluences):
+                        for c in range(numComponentsPerInfluence):
+                            weights.set(0.0, c*numInfluences+i)                    
                     
-                    #we need to use the api to query the physical indices used
-                    #weightsP.selectAncestorLogicalIndex( vertIdx, weightListObj )
-                    #weightsP.getExistingArrayAttributeIndices( tmpIntArray )
-            
-                    #weightFmtStr = baseFmtStr.format(vertIdx) +'.weights[{0}]'
-                
-                    #clear out any existing skin data - and awesomely we cannot do this with the api - so we need to use a weird ass mel command
-                    #for n in range( tmpIntArray.length() ):
-                        #mc.removeMultiInstance( weightFmtStr.format(tmpIntArray[n]) )            
-                
-                    #at this point using the api or mel to set the data is a moot point...  we have the strings already so just use mel
+                    for vertIdx in list(self._d_vertToWeighting.keys()):
+                        self.progressBar_iter(status = 'Setting {0}'.format(vertIdx))                
+                        _d_vert = self._d_vertToWeighting[vertIdx]#...{0:value,...}
                         
-                    for jointIdx in list(_d_vert.keys()):
-                        #self.log_info(" vtx: {0} | jnt:{1} | value:{2}".format(vertIdx,jointIdx, _d_vert[jointIdx]))
-                        #self.log_info("{0} | {1}".format( weightFmtStr.format(jointIdx),_d_vert[jointIdx]))
-                        #mc.setAttr( weightFmtStr.format(jointIdx), _d_vert[jointIdx] ) 
-                        #weights.set(self.data['weights'][src][j], j*numInfluences+1)
-                        #weights.set(_d_vert[jointIdx], vertIdx)
-                        weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
+                        #we need to use the api to query the physical indices used
+                        #weightsP.selectAncestorLogicalIndex( vertIdx, weightListObj )
+                        #weightsP.getExistingArrayAttributeIndices( tmpIntArray )
+                
+                        #weightFmtStr = baseFmtStr.format(vertIdx) +'.weights[{0}]'
+                    
+                        #clear out any existing skin data - and awesomely we cannot do this with the api - so we need to use a weird ass mel command
+                        #for n in range( tmpIntArray.length() ):
+                            #mc.removeMultiInstance( weightFmtStr.format(tmpIntArray[n]) )            
+                    
+                        #at this point using the api or mel to set the data is a moot point...  we have the strings already so just use mel
+                            
+                        for jointIdx in list(_d_vert.keys()):
+                            #self.log_info(" vtx: {0} | jnt:{1} | value:{2}".format(vertIdx,jointIdx, _d_vert[jointIdx]))
+                            #self.log_info("{0} | {1}".format( weightFmtStr.format(jointIdx),_d_vert[jointIdx]))
+                            #mc.setAttr( weightFmtStr.format(jointIdx), _d_vert[jointIdx] ) 
+                            #weights.set(self.data['weights'][src][j], j*numInfluences+1)
+                            #weights.set(_d_vert[jointIdx], vertIdx)
+                            weights.set(_d_vert[jointIdx], vertIdx*numInfluences+jointIdx)#...this was a bugger to get to, 
                 self.progressBar_end()
                 
                 skinFn.setWeights(dagPath, components, influenceIndices, weights, False)

@@ -33,6 +33,11 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as SHARED
 import cgm.core.cgm_General as cgmGEN
 
+# Check for NumPy availability
+NUMPY_AVAILABLE = cgmGEN.check_numpy_available()
+if NUMPY_AVAILABLE:
+    import numpy as np
+
 #DO NOT IMPORT: DIST
 '''
 Lerp and Slerp functions translated from taken from https://keithmaggio.wordpress.com/2011/02/15/math-magician-lerp-slerp-and-nlerp/
@@ -140,6 +145,24 @@ def get_average_pos(posList = []):
         posY.append(posBuffer[1])
         posZ.append(posBuffer[2])
     return [float(sum(posX)/len(posList)), float(sum(posY)/len(posList)), float(sum(posZ)/len(posList))]    
+
+def get_average_pos_vectorized(posList = []):
+    """
+    Vectorized version of get_average_pos using NumPy
+    
+    :parameters:
+        posList(list): List of positions
+    :returns
+        average(list)
+    """
+    if not posList:
+        return [0.0, 0.0, 0.0]
+    pos_array = np.array(posList)
+    return pos_array.mean(axis=0).tolist()
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    get_average_pos = get_average_pos_vectorized
 
 def get_normalized_parameter(minV,maxV,value,asEuclid=False):
     """
@@ -541,6 +564,39 @@ def normalizeList(L, normalizeTo=1):
     vMax = max(L)
     return [ x/(vMax*1.0)*normalizeTo for x in L]
 
+def normalizeList_vectorized(L, normalizeTo=1):
+    """
+    Vectorized version of normalizeList using NumPy
+    """
+    arr = np.array(L)
+    return (arr / arr.max() * normalizeTo).tolist()
+
+def normalizeListToSum(L, normalizeTo=1.0):
+    """normalize values of a list to make sum = normalizeTo
+
+    For example [.2, .5] becomes [0.33333333333333331, 0.66666666666666663] for a sum of 1.0
+
+    Thanks to:
+    http://stackoverflow.com/questions/26785354/normalizing-a-list-of-numbers-in-python
+    """
+
+    #return [float(i)/normalizeTo for i in [float(i)/sum(L) for i in L]]
+    norm = normalizeList(L)
+    normSum = [float(i)/sum(L) for i in L]
+    return [i * normalizeTo for i in normSum]
+
+def normalizeListToSum_vectorized(L, normalizeTo=1.0):
+    """
+    Vectorized version of normalizeListToSum using NumPy
+    """
+    arr = np.array(L)
+    return (arr / arr.sum() * normalizeTo).tolist()
+
+# Use vectorized versions if NumPy is available
+if NUMPY_AVAILABLE:
+    normalizeList = normalizeList_vectorized
+    normalizeListToSum = normalizeListToSum_vectorized
+
 def find_valueInList(v,l,mode='near'):
     _d = {}
     _l = []
@@ -670,20 +726,6 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
     #pprint.pprint(vars())
     return _res
 
-
-def normalizeListToSum(L, normalizeTo=1.0):
-    """normalize values of a list to make sum = normalizeTo
-
-    For example [.2, .5] becomes [0.33333333333333331, 0.66666666666666663] for a sum of 1.0
-
-    Thanks to:
-    http://stackoverflow.com/questions/26785354/normalizing-a-list-of-numbers-in-python
-    """
-
-    #return [float(i)/normalizeTo for i in [float(i)/sum(L) for i in L]]
-    norm = normalizeList(L)
-    normSum = [float(i)/sum(L) for i in L]
-    return [i * normalizeTo for i in normSum]
 
 def get_evenSplitDict(L):
     """
@@ -822,6 +864,14 @@ def list_subtract(l1,l2):
         l_return.append( x-l2[i])
     return l_return
 
+def list_subtract_vectorized(l1,l2):
+    """
+    Vectorized version of list_subtract using NumPy
+    """
+    if len(l1)!=len(l2):
+        raise ValueError("list_subtract>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
+    return (np.array(l1) - np.array(l2)).tolist()
+
 def list_add(l1,l2):
     """ 
     """
@@ -831,6 +881,14 @@ def list_add(l1,l2):
     for i,x in enumerate(l1):
         l_return.append( x+l2[i])
     return l_return
+
+def list_add_vectorized(l1,l2):
+    """
+    Vectorized version of list_add using NumPy
+    """
+    if len(l1)!=len(l2):
+        raise ValueError("list_add>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
+    return (np.array(l1) + np.array(l2)).tolist()
 
 def list_mult(l1,l2):
     """ 
@@ -842,6 +900,14 @@ def list_mult(l1,l2):
         l_return.append( x*l2[i])
     return l_return
 
+def list_mult_vectorized(l1,l2):
+    """
+    Vectorized version of list_mult using NumPy
+    """
+    if len(l1)!=len(l2):
+        raise ValueError("list_mult>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
+    return (np.array(l1) * np.array(l2)).tolist()
+
 def list_div(l1,l2):
     """ 
     """
@@ -851,6 +917,21 @@ def list_div(l1,l2):
     for i,x in enumerate(l1):
         l_return.append( x/l2[i])
     return l_return
+
+def list_div_vectorized(l1,l2):
+    """
+    Vectorized version of list_div using NumPy
+    """
+    if len(l1)!=len(l2):
+        raise ValueError("list_div>>> lists must be same length! l1: %s | l2: %s"%(l1,l2))
+    return (np.array(l1) / np.array(l2)).tolist()
+
+# Use vectorized versions if NumPy is available
+if NUMPY_AVAILABLE:
+    list_subtract = list_subtract_vectorized
+    list_add = list_add_vectorized
+    list_mult = list_mult_vectorized
+    list_div = list_div_vectorized
 
 def average(*args):
     """ 
@@ -923,6 +1004,16 @@ def average_vector_args(vectors):
                       sum_vector[2] / len(vectors)] 
     # Return the average vector 
     return average_vector
+
+def average_vector_args_vectorized(vectors):
+    """
+    Vectorized version of average_vector_args using NumPy
+    """
+    return np.array(vectors).mean(axis=0).tolist()
+
+# Use vectorized version if NumPy is available
+if NUMPY_AVAILABLE:
+    average_vector_args = average_vector_args_vectorized
 
 def dotproduct(v1, v2):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
