@@ -1257,6 +1257,10 @@ example:
                                                            ann=_d_ann.get('replace','Replace'),
                                                            command=self.file_replace))
 
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Export Selection Here",
+                                                           ann="Export selected objects using Maya's Export Selection",
+                                                           command=self.ExportSelection_variant))
+
         self.uiPop_sendToProject_variant = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True )
         self.ml_fileOptions_variant.append(self.uiPop_sendToProject_variant)
 
@@ -1327,6 +1331,10 @@ example:
         mUI.MelMenuItem(pum,label="Replace",
                         ann=_d_ann.get('replace','Replace'),
                         command=self.file_replace)        
+
+        mUI.MelMenuItem(pum, label="Export Selection Here",
+                        ann="Export selected objects using Maya's Export Selection",
+                        command=self.ExportSelection_version)
 
         self.uiPop_sendToProject_version = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True )
         mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild,en=1)
@@ -1881,7 +1889,8 @@ example:
         #Recent -------------------------------------------------------------------
 
 
-
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, label='Export Selection',
+        c = lambda *a:self.ExportSelection() )
         #>>> Reset Options		                     
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu, label='Basic' )
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="New",
@@ -4654,6 +4663,96 @@ example:
             mc.file(s=True)
         else:
             log.info( "Version file doesn't exist" )
+
+    def ExportSelection_variant(self, *args):
+        """
+        Export the currently selected objects using Maya's built-in Export Selection command.
+        Preloads the export dialog with the variation directory context.
+        """
+        if not mc.ls(sl=True):
+            log.warning("Export Selection | No objects selected")
+            return
+        
+        log.info("ExportSelection_variant")
+ 
+        
+        # Use the same path as the variation Explorer
+        export_dir = self.path_variationDirectory
+        
+        # Temporarily change working directory for ExportSelection command
+        if export_dir and os.path.exists(export_dir):
+            
+            original_dir = os.getcwd()
+            try:
+                log.info("Changing directory to: {0}".format(export_dir))
+                mel.eval('setProject "{0}";'.format(VALID.sanitize_filepath(export_dir)))
+                mel.eval('ExportSelection')
+            finally:
+                log.info("Restoring original directory: {0}".format(self.mDat.userPaths_get()['content']))
+                mel.eval('setProject "{0}";'.format(self.mDat.userPaths_get()['content']))
+        else:
+            # Fallback to standard ExportSelection if directory doesn't exist
+            mel.eval('ExportSelection')
+
+    def ExportSelection_version(self, *args):
+        """
+        Export the currently selected objects using Maya's built-in Export Selection command.
+        Preloads the export dialog with the version directory context.
+        """
+        if not mc.ls(sl=True):
+            log.warning("Export Selection | No objects selected")
+            return
+        
+        log.info("ExportSelection_version")
+ 
+        
+        # Use the same path as the version Explorer
+        export_dir = self.path_versionDirectory
+        
+        # Temporarily change working directory for ExportSelection command
+        if export_dir and os.path.exists(export_dir):
+            
+            original_dir = os.getcwd()
+            try:
+                log.info("Changing directory to: {0}".format(export_dir))
+                mel.eval('setProject "{0}";'.format(VALID.sanitize_filepath(export_dir)))
+                mel.eval('ExportSelection')
+            finally:
+                log.info("Restoring original directory: {0}".format(self.mDat.userPaths_get()['content']))
+                mel.eval('setProject "{0}";'.format(self.mDat.userPaths_get()['content']))
+        else:
+            # Fallback to standard ExportSelection if directory doesn't exist
+            mel.eval('ExportSelection')
+
+    def ExportSelection(self, *args):
+        """
+        Export the currently selected objects using Maya's built-in Export Selection command.
+        Preloads the export dialog with the content directory context.
+        """
+        if not mc.ls(sl=True):
+            log.warning("Export Selection | No objects selected")
+            return
+        
+        log.info("ExportSelection")
+
+        
+        # Use the content directory as the starting path
+        export_dir = self.mDat.userPaths_get()['content']
+        
+        # Temporarily change working directory for ExportSelection command
+        if export_dir and os.path.exists(export_dir):
+            
+            original_dir = os.getcwd()
+            try:
+                log.info("Changing directory to: {0}".format(export_dir))
+                mel.eval('setProject "{0}";'.format(VALID.sanitize_filepath(export_dir)))
+                mel.eval('ExportSelection')
+            finally:
+                log.info("Restoring original directory: {0}".format(self.mDat.userPaths_get()['content']))
+                mel.eval('setProject "{0}";'.format(self.mDat.userPaths_get()['content']))
+        else:
+            # Fallback to standard ExportSelection if directory doesn't exist
+            mel.eval('ExportSelection')
 
     def UpdateAssetTSLPopup(self, *args):
         ''''''
