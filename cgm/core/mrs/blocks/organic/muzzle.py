@@ -4611,7 +4611,7 @@ def prerig(self):
                                                              None,
                                                              side,
                                                              nameDict=_dUse,
-                                                             mStateNull=mStateNull,
+                                                             mParent=mStateNull,
                                                              size= _size_anchorLips)
                     
                     #mAnchor.rotate = 0,0,0
