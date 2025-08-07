@@ -1257,7 +1257,7 @@ example:
                                                            ann=_d_ann.get('replace','Replace'),
                                                            command=self.file_replace))
 
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Export Selection Here",
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Export Here",
                                                            ann="Export selected objects using Maya's Export Selection",
                                                            command=self.ExportSelection_variant))
 
@@ -1332,7 +1332,7 @@ example:
                         ann=_d_ann.get('replace','Replace'),
                         command=self.file_replace)        
 
-        mUI.MelMenuItem(pum, label="Export Selection Here",
+        mUI.MelMenuItem(pum, label="Export Here",
                         ann="Export selected objects using Maya's Export Selection",
                         command=self.ExportSelection_version)
 
