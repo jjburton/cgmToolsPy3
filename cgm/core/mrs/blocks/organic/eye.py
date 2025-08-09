@@ -6113,8 +6113,11 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
         
                 mShapeSource.overrideEnabled = 1
                 mShapeSource.overrideDisplayType = 2
-        
-                mShapeSource.p_parent = mLidSkin.rigJoint#mModule
+
+                if skin:
+                    mShapeSource.p_parent = mLidSkin.rigJoint#mModule
+                else:
+                    mShapeSource.p_parent = mModule
                 #mShapeSource.resetAttrs()
         
                 mShapeSource.doStore('cgmName',"{0}_{1}Lid".format(str_partName,k),attrType='string')
@@ -6126,7 +6129,10 @@ def create_simpleMesh(self,  deleteHistory = True, cap=True, skin = True, **kws)
                 if skin:
                     MRSPOST.skin_mesh(mShapeSource,[mLidSkin])
                 else:
-                    mShapeSource.p_parent = mLidSkin.rigJoint#mModule
+                    if mLidSkin.getMessage('rigJoint'):
+                        mShapeSource.p_parent = mLidSkin.rigJoint#mModule
+                    else:
+                        mShapeSource.p_parent = False
             
             
         else:
