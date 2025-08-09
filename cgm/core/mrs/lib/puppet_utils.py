@@ -311,15 +311,28 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
             md_sideControls[_side].append(mObj)
             
         if d1 and d2:
-            log.debug("|{0}| >> d1 and d2...".format(_str_func))            
-            for key in BLOCKSHARE._l_controlOrder:
+            log.debug("|{0}| >> d1 and d2...".format(_str_func))
+                   
+            # Build the base order from BLOCKSHARE._l_controlOrder
+            l_baseOrder = list(BLOCKSHARE._l_controlOrder)
+            # Collect all keys from d1 and d2 md_controls
+            d1_keys = set(d1.get('md_controls', {}).keys())
+            d2_keys = set(d2.get('md_controls', {}).keys())
+            all_keys = set(l_baseOrder) | d1_keys | d2_keys
+            # Preserve order: start with l_baseOrder, then add any new keys from d1/d2 not already in l_baseOrder
+            l_order = list(l_baseOrder)
+            for k in all_keys:
+                if k not in l_baseOrder:
+                    l_order.append(k)
+
+            for key in l_order:
                 self_keyControls = d1['md_controls'].get(key,[])
                 mirr_keyControls = d2['md_controls'].get(key,[])
                 
                 len_self = len(self_keyControls)
                 len_mirr = len(mirr_keyControls)
                 
-                log.debug(cgmGEN.logString_msg("|{0}| >> Key: {1} | self: {2} | mirror: {3}".format(_str_func,key,len_self,len_mirr)))
+                log.info(cgmGEN.logString_msg("|{0}| >> Key: {1} | self: {2} | mirror: {3}".format(_str_func,key,len_self,len_mirr)))
                 
                 ml_primeControls = self_keyControls #...longer list of controls
                 ml_secondControls = mirr_keyControls
@@ -376,9 +389,11 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
                         try:ml_controlOrphans.remove(mMirror)                        
                         except:pass
                     else:
-                        log.debug("Looking for match...")
+                        log.debug("|{0}| >> Looking for match for: {1}".format(_str_func, mObj.p_nameBase))
+                        log.debug("|{0}| >> Available candidates: {1}".format(_str_func, [c.p_nameBase for c in ml_cull]))
                         
                         mMatch = False
+                        tags_prime = md_cgmTags.get(mObj) or mObj.getCGMNameTags(['cgmDirection'])
                         
                         for mCandidate in ml_cull:
                             #First try a simple name match
@@ -386,34 +401,96 @@ def mirror_verify(self,progressBar = None,progressEnd=True):
                             
                             _match = True
                             tags_second = md_cgmTags.get(mCandidate) or mCandidate.getCGMNameTags(['cgmDirection'])
+                            log.debug("|{0}| >> Tag matching: {1} vs {2}".format(_str_func, mObj.p_nameBase, mCandidate.p_nameBase))
+                            log.debug("|{0}| >> Tags prime: {1}".format(_str_func, tags_prime))
+                            log.debug("|{0}| >> Tags second: {1}".format(_str_func, tags_second))
                             for a,v in list(tags_second.items()):
                                 if tags_prime[a] != v:
                                     _match = False
+                                    log.debug("|{0}| >> Tag mismatch: {1} != {2}".format(_str_func, tags_prime[a], v))
                                     break
                             
                             if _match:
                                 mMatch = mCandidate
+                                log.debug("|{0}| >> Tag match found: {1} <-> {2}".format(_str_func, mObj.p_nameBase, mCandidate.p_nameBase))
                                 break
 
                         if not mMatch:
-                            log.debug("Trying name match...")
+                            log.debug("|{0}| >> No tag match found for {1}, trying name match...".format(_str_func, mObj.p_nameBase))
                             _nameBase = mObj.p_nameBase
                             _matchString = None
-                            if _nameBase.startswith('L_'):
-                                _matchString = 'R_' + _nameBase[2:]
-                            elif _nameBase.startswith('R_'):
-                                _matchString = 'L_' + _nameBase[2:]
+                            
+                            # Enhanced name matching for complex patterns
+                            def find_mirror_name(name):
+                                """Find the mirror name for a given control name"""
+                                # Split the name by underscores to analyze the pattern
+                                parts = name.split('_')
+                                
+                                # Handle simple L_/R_ patterns
+                                if len(parts) >= 2 and parts[0] in ['L', 'R']:
+                                    # Simple L_/R_ swap
+                                    if parts[0] == 'L':
+                                        return 'R_' + '_'.join(parts[1:])
+                                    elif parts[0] == 'R':
+                                        return 'L_' + '_'.join(parts[1:])
+                                
+                                # Handle complex patterns like L_FRNT_quad_limbRoot_anim
+                                # Look for side indicators in different positions
+                                side_indicators = ['L', 'R']
+                                for i, part in enumerate(parts):
+                                    if part in side_indicators:
+                                        # Create mirror by swapping the side indicator
+                                        mirror_parts = parts.copy()
+                                        mirror_parts[i] = 'R' if part == 'L' else 'L'
+                                        return '_'.join(mirror_parts)
+                                
+                                return None
+                            
+                            _matchString = find_mirror_name(_nameBase)
+                            log.debug("|{0}| >> Looking for mirror of: {1} -> {2}".format(_str_func, _nameBase, _matchString))
                             
                             if _matchString:
                                 log.debug("matchstring: {0}".format(_matchString))
+                                # Log available candidates for debugging
+                                log.debug("|{0}| >> Available candidates: {1}".format(_str_func, [c.p_nameBase for c in ml_cull]))
                                 for mCandidate in ml_cull:
                                     #First try a simple name match
                                     #l_candSplit = mCandidate.p_nameBase.split('_')
                                     if _matchString == mCandidate.p_nameBase:
                                         mMatch = mCandidate
+                                        log.debug("|{0}| >> Found match: {1} <-> {2}".format(_str_func, mObj.p_nameBase, mCandidate.p_nameBase))
                                         break
-                             
+                                if not mMatch:
+                                    log.debug("|{0}| >> No match found for: {1}".format(_str_func, _matchString))
                                 
+                                # Fallback: try to find controls with similar patterns
+                                if not mMatch and _matchString:
+                                    log.debug("|{0}| >> Trying fallback pattern matching...".format(_str_func))
+                                    for mCandidate in ml_cull:
+                                        candidate_name = mCandidate.p_nameBase
+                                        # Check if the candidate has the same structure but different side
+                                        if len(candidate_name.split('_')) == len(_nameBase.split('_')):
+                                            # Compare parts, allowing for side differences
+                                            candidate_parts = candidate_name.split('_')
+                                            original_parts = _nameBase.split('_')
+                                            
+                                            if len(candidate_parts) == len(original_parts):
+                                                match_count = 0
+                                                side_different = False
+                                                
+                                                for i, (orig_part, cand_part) in enumerate(zip(original_parts, candidate_parts)):
+                                                    if orig_part == cand_part:
+                                                        match_count += 1
+                                                    elif (orig_part in ['L', 'R'] and cand_part in ['L', 'R'] and orig_part != cand_part):
+                                                        side_different = True
+                                                        match_count += 1
+                                                
+                                                # If most parts match and sides are different, it's likely a mirror
+                                                if match_count >= len(original_parts) - 1 and side_different:
+                                                    mMatch = mCandidate
+                                                    log.debug("|{0}| >> Fallback match found: {1} <-> {2}".format(_str_func, mObj.p_nameBase, mCandidate.p_nameBase))
+                                                    break
+
                         if mMatch:
                             log.debug("|{0}| >> Match found: {1} | {2}".format(_str_func,mObj.p_nameShort,mMatch.p_nameShort))
                             
@@ -1333,9 +1410,19 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
         
 #Controls dat ===========================================================================        
 l_controlOrder = ['root','settings','motionHandle']
-d_controlLinks = {'root':['masterControl'],
+d_controlLinks = {'root':['masterControl','cog','rigRoot','scaleRoot','limbRoot'],
                   'motionHandle':['rootMotionHandle'],
-                  'pivots':['pivot{0}'.format(n.capitalize()) for n in BLOCKSHARE._l_pivotOrder]}
+                  'fk':['leverFK','controlsFK','fkControls','controlFK'],
+                  'fkReverse':['fkReverseControls'],
+                  'ik':['controlsIK','controlIK','controlIKEnd','controlBallRotation',
+                        'controlIKBase','controlFollowParentBank',
+                        'controlIKBall','controlIKBallHinge','controlIKToe',
+                        'controlIKMid','leverIK','eyeLookAt','lookAt',
+                        'ikBase'],
+                  'face':['controlsFace'],
+                  'pivot':['pivot{0}'.format(n.capitalize()) for n in BLOCKSHARE._l_pivotOrder],
+                  'segmentHandle':['handleJoints','controlSegMidIK'],
+                  'direct':['rigJoints']}
 
 def controls_getDat(self, keys = None, ignore = [], report = False, listOnly = False,rewire=False):
     """
@@ -1405,20 +1492,55 @@ def controls_getDat(self, keys = None, ignore = [], report = False, listOnly = F
     if ml_objs:
         ml_dup = copy.copy(ml_objs)
         log.debug("|{0}| >> Second pass {1}... ".format(_str_func,len(ml_objs))+'-'*20)
+        
+        # Create reverse lookup from specific tags to main categories
+        d_tagToCategory = {}
+        for category, tags in d_controlLinks.items():
+            for tag in tags:
+                d_tagToCategory[tag] = category
+        
         for mObj in ml_dup:
             log.debug("|{0}| >> {1} ".format(_str_func,mObj))            
+            
+            # Check for cgmControlDat tags
             if mObj.hasAttr('cgmControlDat'):
                 _tags = mObj.cgmControlDat.get('tags',[])
-                log.debug("|{0}| >> tags: {1} ".format(_str_func,_tags))            
+                log.debug("|{0}| >> cgmControlDat tags: {1} ".format(_str_func,_tags))            
                 for t in _tags:
                     _t = str(t)
-                    #if keys is not None and _t not in l_useKeys:
-                    #    continue
-                    if not md_controls.get(_t):
-                        md_controls[_t] = []
-                    _ml = md_controls[_t] 
-                    ml_controls.append(mObj)                    
-                    addMObj(mObj,_ml)
+                    # Find the main category for this tag
+                    category = d_tagToCategory.get(_t, _t)
+                    log.debug("|{0}| >> tag '{1}' maps to category '{2}' ".format(_str_func,_t,category))
+                    
+                    # Only add to main categories that are in l_useKeys
+                    if category in l_useKeys:
+                        if not md_controls.get(category):
+                            md_controls[category] = []
+                        _ml = md_controls[category] 
+                        ml_controls.append(mObj)                    
+                        addMObj(mObj,_ml)
+                    else:
+                        log.debug("|{0}| >> Skipping tag '{1}' - category '{2}' not in l_useKeys ".format(_str_func,_t,category))
+            
+            # Check for cgmTypeModifier tags
+            if mObj.hasAttr('cgmTypeModifier'):
+                _typeModifier = mObj.cgmTypeModifier.get()
+                log.debug("|{0}| >> cgmTypeModifier: {1} ".format(_str_func,_typeModifier))            
+                if _typeModifier:
+                    _t = str(_typeModifier)
+                    # Find the main category for this tag
+                    category = d_tagToCategory.get(_t, _t)
+                    log.debug("|{0}| >> typeModifier '{1}' maps to category '{2}' ".format(_str_func,_t,category))
+                    
+                    # Only add to main categories that are in l_useKeys
+                    if category in l_useKeys:
+                        if not md_controls.get(category):
+                            md_controls[category] = []
+                        _ml = md_controls[category] 
+                        ml_controls.append(mObj)                    
+                        addMObj(mObj,_ml)
+                    else:
+                        log.debug("|{0}| >> Skipping typeModifier '{1}' - category '{2}' not in l_useKeys ".format(_str_func,_t,category))
 
     if not keys and 'spacePivots' not in ignore:
         md_controls['spacePivots'] = []
@@ -1894,7 +2016,7 @@ def controller_verify(self,progressBar = None,progressEnd=True):
                 if mBlock.blockType in ['eye','muzzle','brow']:
                     _b_face = True
             
-            for tag in ['root','settings','fk','ik','segmentHandles','direct','face']:
+            for tag in ['root','settings','fk','fkReverse','ik','segmentHandles','direct','face']:
                 log.debug(cgmGEN.logString_msg(_str_func,"tag: {0}".format(tag)))
                 #First validate...
                 _l_tag = md_controls.get(tag,[])
