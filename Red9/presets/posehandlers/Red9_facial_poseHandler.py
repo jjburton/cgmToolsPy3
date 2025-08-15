@@ -15,7 +15,7 @@ def poseGetNodesLoad(poseObj, nodes, *args):
     Why load in relative space????????????
     '''
     print('OVERLOADED FACIAL HANDLERS')
-    cmds.select(poseObj.metaRig.FACE_Neck)
+    #cmds.select(poseObj.metaRig.FACE_Neck)
     return getNodesOverload(poseObj, nodes, *args)
 
 def poseGetNodesSave(poseObj, nodes, *args):

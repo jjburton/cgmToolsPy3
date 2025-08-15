@@ -13,6 +13,8 @@
 
 '''
 
+
+
 import maya.cmds as cmds
 
 from functools import partial
@@ -22,8 +24,8 @@ import os
 
 import Red9.startup.setup as r9Setup
 from . import Red9_Meta as r9Meta
-# import Red9_CoreUtils as r9Core
 from . import Red9_AnimationUtils as r9Anim
+from . import Red9_General as r9General
 
 import logging
 logging.basicConfig()
@@ -53,6 +55,7 @@ class SceneReviewerUI(object):
         if cmds.window(self.win, exists=True):
             cmds.deleteUI(self.win, window=True)
 
+    @r9General.windows_qt_wrap
     def _showUI(self):
 
         self.close()
@@ -328,9 +331,10 @@ class RecordAttrs(object):
             cmds.button('MouseMoCapRecord', e=True, label='STOP', bgc=[0.8, 0.1, 0.1])
             self.recordStart()
         else:
-            cmds.button('MouseMoCapRecord', e=True, label='RECORD', bgc=[0.1, 0.8, 0.1])
+            cmds.button('MouseMoCapRecord', e=True, label='RECORD', bgc=r9Setup.red9ButtonBGC(1))  # [0.1, 0.8, 0.1])
             self.recordStop()
 
+    @r9General.windows_qt_wrap
     def _showUI(self):
         self.close()
         cmds.window('MouseMoCap', title="MouseMoCap")  # , widthHeight=(260, 180))
@@ -347,7 +351,7 @@ class RecordAttrs(object):
                     ann='Remove Attrs from Record selected in the channelBox',
                      command=partial(self.removeAttrsToRecord))
         cmds.separator(h=15, style='none')
-        cmds.button('MouseMoCapRecord', label='RECORD', bgc=[0.1, 0.8, 0.1],
+        cmds.button('MouseMoCapRecord', label='RECORD', bgc=r9Setup.red9ButtonBGC(1),  # [0.1, 0.8, 0.1],
                      command=partial(self._runRecord), h=35)
         cmds.separator(h=25, style='none')
         cmds.iconTextButton(style='iconOnly', bgc=(0.7, 0, 0),
