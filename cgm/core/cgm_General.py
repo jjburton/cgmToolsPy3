@@ -9,7 +9,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 __MAYALOCAL = "cgmGEN"
-__RELEASE = "25.07.31.01"
+__RELEASE = "25.08.15.01"
 __BRANCH = "PY3"
 
 import maya.cmds as mc
@@ -1358,24 +1358,40 @@ def verify_mirrorSideArg(*args, **kws):
 
 
 def get_mayaFBXVersionsAvailable():
+    """
+    Returns a list of available FBX export file versions for Maya by querying the FBX plugin.
+    This function attempts to set and then query the FBXExportFileVersion for a range of years,
+    and returns those that are accepted by Maya.
+
+    Returns:
+        list: Available FBX version strings (e.g., ['FBX201600', 'FBX201700', ...])
+    """
+    # The best way to get available FBX versions is to query the FBX plugin directly.
+    # However, Maya does not provide a direct command to list all supported FBX versions.
+    # The approach here is to try setting the version for a range of plausible years and
+    # see which ones Maya accepts.
+
     def is_valid_fbx_version(version):
         try:
+            # Try to set the FBX export version
             mel.eval('FBXExportFileVersion "{}";'.format(version))
+            # Query the current FBX export version
             result = mel.eval('FBXExportFileVersion -q;')
             return result == version
-        except RuntimeError:
+        except Exception:
             return False
 
+    # Reasonable range of years for FBX versions
     start_year = 2010
     end_year = 2050
 
     available_versions = []
-
     for year in range(start_year, end_year + 1):
         version = "FBX{}00".format(year)
         if is_valid_fbx_version(version):
             available_versions.append(version)
 
+    # Print and return the available versions
     print("Available FBX versions:")
     for v in available_versions:
         print("  ", v)
