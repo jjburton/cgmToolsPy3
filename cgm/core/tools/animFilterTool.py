@@ -1468,9 +1468,9 @@ class ui_post_dragger_column(ui_post_filter):
                               endTime= self.uiIF_endFrame.getValue() if self.uiCB_endFrame.getValue() else None,
                               )
 
-    def uiFunc_apply_dragger_preset(self):
-        """Apply selected dragger preset to the UI fields"""
-        selected_preset = self.uiOM_dragger_presets.getValue()
+    def uiFunc_apply_dragger_translate_preset(self):
+        """Apply selected dragger translate preset to UI fields"""
+        selected_preset = self.uiOM_dragger_translate_presets.getValue()
         
         if selected_preset == 'Presets...':
             return
@@ -1478,18 +1478,45 @@ class ui_post_dragger_column(ui_post_filter):
         if selected_preset in self._dragger_presets:
             preset_data = self._dragger_presets[selected_preset]
             
-            # Apply preset values to UI fields
+            # Turn on translate section if it's currently off
+            if not self.uiFF_translate.getValue():
+                self.uiFF_translate.setValue(True)
+                self.uiFunc_set_translate()
+            
+            # Apply preset values to translate UI fields only
             if 'damp' in preset_data:
                 self.uiFF_post_damp.setValue(preset_data['damp'])
+            
+            # Reset the menu to show "Presets..."
+            self.uiOM_dragger_translate_presets.setValue('Presets...')
+            
+            log.info("Applied Dragger translate preset: {}".format(selected_preset))
+
+    def uiFunc_apply_dragger_rotate_preset(self):
+        """Apply selected dragger rotate preset to UI fields"""
+        selected_preset = self.uiOM_dragger_rotate_presets.getValue()
+        
+        if selected_preset == 'Presets...':
+            return
+            
+        if selected_preset in self._dragger_presets:
+            preset_data = self._dragger_presets[selected_preset]
+            
+            # Turn on rotate section if it's currently off
+            if not self.uiFF_rotate.getValue():
+                self.uiFF_rotate.setValue(True)
+                self.uiFunc_set_rotate()
+            
+            # Apply preset values to rotate UI fields only
             if 'angularDamp' in preset_data:
                 self.uiFF_post_angular_damp.setValue(preset_data['angularDamp'])
             if 'angularUpDamp' in preset_data:
                 self.uiFF_post_angular_up_damp.setValue(preset_data['angularUpDamp'])
             
             # Reset the menu to show "Presets..."
-            self.uiOM_dragger_presets.setValue('Presets...')
+            self.uiOM_dragger_rotate_presets.setValue('Presets...')
             
-            log.info("Applied Dragger preset: {}".format(selected_preset))
+            log.info("Applied Dragger rotate preset: {}".format(selected_preset))
 
 
 class ui_post_spring_column(ui_post_filter):
@@ -1780,9 +1807,9 @@ class ui_post_spring_column(ui_post_filter):
         self.uiCL_translate(e=True, vis=self._optionDict['translate'])
         self.uiCL_rotate(e=True, vis=self._optionDict['rotate'])
 
-    def uiFunc_apply_designer_spring_preset(self):
-        """Apply selected designer spring preset to UI fields"""
-        selected_preset = self.uiOM_designer_spring_presets.getValue()
+    def uiFunc_apply_designer_spring_translate_preset(self):
+        """Apply selected designer spring translate preset to UI fields"""
+        selected_preset = self.uiOM_designer_spring_translate_presets.getValue()
         
         if selected_preset == 'Presets...':
             return
@@ -1790,11 +1817,38 @@ class ui_post_spring_column(ui_post_filter):
         if selected_preset in self._designer_spring_presets:
             preset_data = self._designer_spring_presets[selected_preset]
             
-            # Apply preset values to UI fields
+            # Turn on translate section if it's currently off
+            if not self.uiFF_translate.getValue():
+                self.uiFF_translate.setValue(True)
+                self.uiFunc_set_translate()
+            
+            # Apply preset values to translate UI fields only
             if 'springForce' in preset_data:
                 self.uiFF_post_spring.setValue(preset_data['springForce'])
             if 'damp' in preset_data:
                 self.uiFF_post_damp.setValue(preset_data['damp'])
+            
+            # Reset the menu to show "Presets..."
+            self.uiOM_designer_spring_translate_presets.setValue('Presets...')
+            
+            log.info("Applied Designer Spring translate preset: {}".format(selected_preset))
+
+    def uiFunc_apply_designer_spring_rotate_preset(self):
+        """Apply selected designer spring rotate preset to UI fields"""
+        selected_preset = self.uiOM_designer_spring_rotate_presets.getValue()
+        
+        if selected_preset == 'Presets...':
+            return
+            
+        if selected_preset in self._designer_spring_presets:
+            preset_data = self._designer_spring_presets[selected_preset]
+            
+            # Turn on rotate section if it's currently off
+            if not self.uiFF_rotate.getValue():
+                self.uiFF_rotate.setValue(True)
+                self.uiFunc_set_rotate()
+            
+            # Apply preset values to rotate UI fields only
             if 'angularSpringForce' in preset_data:
                 self.uiFF_post_angular_spring.setValue(preset_data['angularSpringForce'])
             if 'angularDamp' in preset_data:
@@ -1805,9 +1859,9 @@ class ui_post_spring_column(ui_post_filter):
                 self.uiFF_post_angular_up_damp.setValue(preset_data['angularUpDamp'])
             
             # Reset the menu to show "Presets..."
-            self.uiOM_designer_spring_presets.setValue('Presets...')
+            self.uiOM_designer_spring_rotate_presets.setValue('Presets...')
             
-            log.info("Applied Designer Spring preset: {}".format(selected_preset))
+            log.info("Applied Designer Spring rotate preset: {}".format(selected_preset))
 
     def get_data(self):
         self.update_dict()
@@ -2210,18 +2264,6 @@ class ui_post_designer_spring_column(ui_post_filter):
         #
         self.add_objectsRow(parentColumn)
         
-        # Add Preset Menu for Designer Spring
-        _row = mUI.MelHSingleStretchLayout(parentColumn,padding = 5)
-        mUI.MelSpacer(_row,w=_padding)
-        mUI.MelLabel(_row,l='Presets:')
-        self.uiOM_designer_spring_presets = mUI.MelOptionMenu(_row, bgc=self._colors['button'], 
-                                                             changeCommand=cgmGEN.Callback(self.uiFunc_apply_designer_spring_preset))
-        self.uiOM_designer_spring_presets.append('Presets...')
-        for preset_name in self._designer_spring_presets.keys():
-            self.uiOM_designer_spring_presets.append(preset_name)
-        mUI.MelSpacer(_row,w=_padding)
-        _row.layout()
-        
         #
         # End Objects
 
@@ -2235,6 +2277,16 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
         self.uiFF_translate = mUI.MelCheckBox(_row, ut='cgmUISubTemplate', v=self._optionDict.get('translate', True), changeCommand=cgmGEN.Callback(self.uiFunc_set_translate))
+
+        mUI.MelSpacer(_row,w=_padding)
+        
+        # Add Translate Preset Menu for Designer Spring
+        mUI.MelLabel(_row,l='Presets:')
+        self.uiOM_designer_spring_translate_presets = mUI.MelOptionMenu(_row, bgc=self._colors['button'], 
+                                                                       changeCommand=cgmGEN.Callback(self.uiFunc_apply_designer_spring_translate_preset))
+        self.uiOM_designer_spring_translate_presets.append('Presets...')
+        for preset_name in self._designer_spring_presets.keys():
+            self.uiOM_designer_spring_translate_presets.append(preset_name)
 
         mUI.MelSpacer(_row,w=_padding)
 
@@ -2299,6 +2351,16 @@ class ui_post_designer_spring_column(ui_post_filter):
         _row.setStretchWidget( mUI.MelSeparator(_row) )
 
         self.uiFF_rotate = mUI.MelCheckBox(_row, ut='cgmUISubTemplate', v=self._optionDict.get('rotate', True), changeCommand=cgmGEN.Callback(self.uiFunc_set_rotate))
+
+        mUI.MelSpacer(_row,w=_padding)
+        
+        # Add Rotate Preset Menu for Designer Spring
+        mUI.MelLabel(_row,l='Presets:')
+        self.uiOM_designer_spring_rotate_presets = mUI.MelOptionMenu(_row, bgc=self._colors['button'], 
+                                                                    changeCommand=cgmGEN.Callback(self.uiFunc_apply_designer_spring_rotate_preset))
+        self.uiOM_designer_spring_rotate_presets.append('Presets...')
+        for preset_name in self._designer_spring_presets.keys():
+            self.uiOM_designer_spring_rotate_presets.append(preset_name)
 
         mUI.MelSpacer(_row,w=_padding)
 
