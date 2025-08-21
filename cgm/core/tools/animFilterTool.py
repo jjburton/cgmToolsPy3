@@ -721,15 +721,31 @@ def uiFunc_rename_action(self, idx):
     result = mc.promptDialog(
             title='Rename Action',
             message='Enter Name:',
-            button=['OK', 'Cancel'],
+            button=['OK', 'Guess','Cancel'],
             defaultButton='OK',
             cancelButton='Cancel',
             dismissString='Cancel')
 
     if result == 'OK':
         text = mc.promptDialog(query=True, text=True)
+        
+        # Get the old name before updating
+        old_name = self._actionList[idx].name
+        
+        # Update the action name
         self._actionList[idx].name = text
-        self._actionFrames[idx](edit=True, label="{0} - {1}".format(text, self._actionList[idx].filterType)) 
+        self._actionFrames[idx](edit=True, label="{0} - {1}".format(text, self._actionList[idx].filterType))
+        
+        # Rename the corresponding animation layer if it exists
+        if old_name:
+            old_layer_name = CORESTRINGS.stripInvalidChars(old_name)
+            if mc.objExists(old_layer_name) and SEARCH.get_mayaType(old_layer_name) == 'animLayer':
+                log.info("|{0}| >> Renaming animLayer from '{1}' to '{2}'".format(_str_func, old_layer_name, text))
+                try:
+                    mc.rename(old_layer_name, text)
+                    log.info("|{0}| >> Successfully renamed animLayer".format(_str_func))
+                except Exception as e:
+                    log.warning("|{0}| >> Failed to rename animLayer: {1}".format(_str_func, e)) 
 
 def uiFunc_move_action(self, idx, direction):
     _str_func = 'uiFunc_move_action[{0}]'.format(self.__class__.TOOLNAME)            
