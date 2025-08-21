@@ -642,7 +642,7 @@ def uiFunc_duplicate_action(self, idx):
     _str_func = 'uiFunc_duplicate_action[{0}]'.format(self.__class__.TOOLNAME)            
     log.info("|{0}| >>...".format(_str_func)) 
 
-    self.uiFunc_updateActionDicts()
+    uiFunc_updateActionDicts(self)
 
     action = self._actionList[idx]   
 
@@ -654,7 +654,7 @@ def uiFunc_save_actions(self):
     log.info("|{0}| >>...".format(_str_func)) 
 
     if os.path.exists(self._loadedFile):
-        self.uiFunc_updateActionDicts()
+        uiFunc_updateActionDicts(self)
         f = open(self._loadedFile, 'w')
         f.write(json.dumps( [copy.copy(action._optionDict) for action in self._actionList] ))
         f.close()
@@ -670,7 +670,7 @@ def uiFunc_save_as_actions(self):
     _str_func = 'uiFunc_save_actions[{0}]'.format(self.__class__.TOOLNAME)            
     log.info("|{0}| >>...".format(_str_func)) 
 
-    self.uiFunc_updateActionDicts()
+    uiFunc_updateActionDicts(self)
 
     basicFilter = "*.afs"
     filename = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2, fileMode=0)
@@ -735,7 +735,7 @@ def uiFunc_move_action(self, idx, direction):
     _str_func = 'uiFunc_move_action[{0}]'.format(self.__class__.TOOLNAME)            
     log.info("|{0}| >>...".format(_str_func)) 
 
-    self.uiFunc_updateActionDicts()
+    uiFunc_updateActionDicts(self)
 
     action = self._actionList.pop(idx)
 
@@ -778,7 +778,7 @@ def uiFunc_add_action(self):
 
     uiBuild_ActionsColumn(self) 
     
-    self.uiFunc_updateActionDicts() 
+    uiFunc_updateActionDicts(self) 
     if hasattr(action,'uiTF_objects'):action.uiFunc_setObjects()
 
 def uiFunc_updateActionDicts(self):
@@ -1488,6 +1488,87 @@ class ui_post_dragger_column(ui_post_filter):
 class ui_post_spring_column(ui_post_filter):
     filterType = 'spring'
 
+    def __init__(self, optionDict = {}):
+        super(ui_post_spring_column, self).__init__(optionDict)
+        
+        # Spring presets
+        self._spring_presets = {
+            'Light': {
+                'damp': 0.1,
+                'springForce': 3.0,
+                'angularDamp': 0.1,
+                'angularSpringForce': 3.0,
+                'angularUpDamp': 0.1,
+                'angularUpSpringForce': 3.0
+            },
+            'Medium': {
+                'damp': 0.3,
+                'springForce': 6.0,
+                'angularDamp': 0.3,
+                'angularSpringForce': 6.0,
+                'angularUpDamp': 0.3,
+                'angularUpSpringForce': 6.0
+            },
+            'Heavy': {
+                'damp': 0.5,
+                'springForce': 9.0,
+                'angularDamp': 0.5,
+                'angularSpringForce': 9.0,
+                'angularUpDamp': 0.5,
+                'angularUpSpringForce': 9.0
+            },
+            'Bouncy': {
+                'damp': 0.05,
+                'springForce': 8.0,
+                'angularDamp': 0.05,
+                'angularSpringForce': 8.0,
+                'angularUpDamp': 0.05,
+                'angularUpSpringForce': 8.0
+            },
+            'Stiff': {
+                'damp': 0.8,
+                'springForce': 12.0,
+                'angularDamp': 0.8,
+                'angularSpringForce': 12.0,
+                'angularUpDamp': 0.8,
+                'angularUpSpringForce': 12.0
+            }
+        }
+
+    def uiFunc_apply_spring_translate_preset(self, *args):
+        selected_preset = self.uiOM_spring_translate_presets.getValue()
+        if selected_preset in self._spring_presets:
+            preset_data = self._spring_presets[selected_preset]
+            
+            # Apply translate-specific presets
+            self.uiFF_post_spring.setValue(preset_data['springForce'])
+            self.uiFF_post_damp.setValue(preset_data['damp'])
+            
+            # Turn on translate if it's off
+            if not self.uiFF_translate.getValue():
+                self.uiFF_translate.setValue(True)
+                self.uiFunc_set_translate()
+            
+            log.info("Applied Spring translate preset: {}".format(selected_preset))
+
+    def uiFunc_apply_spring_rotate_preset(self, *args):
+        selected_preset = self.uiOM_spring_rotate_presets.getValue()
+        if selected_preset in self._spring_presets:
+            preset_data = self._spring_presets[selected_preset]
+            
+            # Apply rotate-specific presets
+            self.uiFF_post_angular_spring.setValue(preset_data['angularSpringForce'])
+            self.uiFF_post_angular_damp.setValue(preset_data['angularDamp'])
+            self.uiFF_post_angular_up_spring.setValue(preset_data['angularUpSpringForce'])
+            self.uiFF_post_angular_up_damp.setValue(preset_data['angularUpDamp'])
+            
+            # Turn on rotate if it's off
+            if not self.uiFF_rotate.getValue():
+                self.uiFF_rotate.setValue(True)
+                self.uiFunc_set_rotate()
+            
+            log.info("Applied Spring rotate preset: {}".format(selected_preset))
+
     def build_column(self, parentColumn):
         self._parentColumn = parentColumn
 
@@ -1515,6 +1596,13 @@ class ui_post_spring_column(ui_post_filter):
         self.uiFF_translate = mUI.MelCheckBox(_row, ut='cgmUISubTemplate', v=self._optionDict.get('translate', True), changeCommand=cgmGEN.Callback(self.uiFunc_set_translate))
 
         mUI.MelSpacer(_row,w=_padding)
+
+        # Add translate presets menu
+        mUI.MelLabel(_row, l='Presets:')
+        self.uiOM_spring_translate_presets = mUI.MelOptionMenu(_row, bgc=self._colors['button'], changeCommand=cgmGEN.Callback(self.uiFunc_apply_spring_translate_preset))
+        for preset_name in self._spring_presets.keys():
+            self.uiOM_spring_translate_presets.append(preset_name)
+        self.uiOM_spring_translate_presets.setValue('Medium')
 
         _row.layout()
         
@@ -1579,6 +1667,13 @@ class ui_post_spring_column(ui_post_filter):
         self.uiFF_rotate = mUI.MelCheckBox(_row, ut='cgmUISubTemplate', v=self._optionDict.get('rotate', True), changeCommand=cgmGEN.Callback(self.uiFunc_set_rotate))
 
         mUI.MelSpacer(_row,w=_padding)
+
+        # Add rotate presets menu
+        mUI.MelLabel(_row, l='Presets:')
+        self.uiOM_spring_rotate_presets = mUI.MelOptionMenu(_row, bgc=self._colors['button'], changeCommand=cgmGEN.Callback(self.uiFunc_apply_spring_rotate_preset))
+        for preset_name in self._spring_presets.keys():
+            self.uiOM_spring_rotate_presets.append(preset_name)
+        self.uiOM_spring_rotate_presets.setValue('Medium')
 
         _row.layout()
         
@@ -1927,7 +2022,7 @@ class ui_post_trajectory_aim_column(ui_post_filter):
 
         mUI.MelLabel(_row,l='Fwd:') 
 
-        self.post_fwdMenu = mUI.MelOptionMenu(_row,bgc=self._colors['button'], changeCommand=cgmGEN.Callback(self.uiFunc_setPostAim))
+        self.post_fwdMenu = mUI.MelOptionMenu(_row, bgc=self._colors['button'], changeCommand=cgmGEN.Callback(self.uiFunc_setPostAim))
         for dir in directions:
             self.post_fwdMenu.append(dir)
         
@@ -2155,14 +2250,16 @@ class ui_post_designer_spring_column(ui_post_filter):
             'rotate' : True
         }):
         super(ui_post_designer_spring_column, self).__init__(optionDict)
-        
-        # Define designer spring presets
+
+                    # Define designer spring presets
         self._designer_spring_presets = {
-            'Light': {'springForce': 0.5, 'damp': 2.0, 'angularSpringForce': 0.5, 'angularDamp': 2.0, 'angularUpSpringForce': 0.5, 'angularUpDamp': 2.0},
-            'Medium': {'springForce': 1.5, 'damp': 1.0, 'angularSpringForce': 1.5, 'angularDamp': 1.0, 'angularUpSpringForce': 1.5, 'angularUpDamp': 1.0},
-            'Heavy': {'springForce': 3.0, 'damp': 0.5, 'angularSpringForce': 3.0, 'angularDamp': 0.5, 'angularUpSpringForce': 3.0, 'angularUpDamp': 0.5},
-            'Very Heavy': {'springForce': 5.0, 'damp': 0.2, 'angularSpringForce': 5.0, 'angularDamp': 0.2, 'angularUpSpringForce': 5.0, 'angularUpDamp': 0.2}
+            'Snappy': {'springForce': 0.08, 'damp': 12.0, 'angularSpringForce': 0.08, 'angularDamp': 12.0, 'angularUpSpringForce': 0.08, 'angularUpDamp': 12.0},
+            'Responsive': {'springForce': 0.15, 'damp': 5.0, 'angularSpringForce': 0.15, 'angularDamp': 5.0, 'angularUpSpringForce': 0.15, 'angularUpDamp': 5.0},
+            'Smooth': {'springForce': 0.25, 'damp': 3.0, 'angularSpringForce': 0.25, 'angularDamp': 3.0, 'angularUpSpringForce': 0.25, 'angularUpDamp': 3.0},
+            'Gentle': {'springForce': 0.6, 'damp': 1.5, 'angularSpringForce': 0.6, 'angularDamp': 1.5, 'angularUpSpringForce': 0.6, 'angularUpDamp': 1.5}
         }
+        
+
 
     def build_column(self, parentColumn):
         self._parentColumn = parentColumn
