@@ -347,6 +347,10 @@ def uiFunc_convert_filter(self, idx, new_filter_type):
         else:
             log.info("|{0}| >> Missing limit attr {1}".format(_str_func, attr))
     
+    # Common parameters (preserved across all filter types)
+    preserved_data['objectScale'] = current_action._optionDict.get('objectScale', 10.0)
+    log.info("|{0}| >> Preserving objectScale: {1}".format(_str_func, preserved_data['objectScale']))
+    
     # Filter-specific parameters
     if current_action.filterType == 'dragger':
         preserved_data['damp'] = current_action._optionDict.get('damp', 0.5)
@@ -721,31 +725,108 @@ def uiFunc_rename_action(self, idx):
     result = mc.promptDialog(
             title='Rename Action',
             message='Enter Name:',
+            text=self._actionList[idx].name,
             button=['OK', 'Guess','Cancel'],
             defaultButton='OK',
             cancelButton='Cancel',
             dismissString='Cancel')
 
+    text = False
     if result == 'OK':
         text = mc.promptDialog(query=True, text=True)
         
-        # Get the old name before updating
-        old_name = self._actionList[idx].name
+    elif result == 'Guess':
+        # Generate a suggested name
+        text = _generate_suggested_name(self, idx)
         
-        # Update the action name
-        self._actionList[idx].name = text
-        self._actionFrames[idx](edit=True, label="{0} - {1}".format(text, self._actionList[idx].filterType))
+    if result == 'Cancel' or not text:
+        return
+    
+    # Get the old name before updating
+    old_name = self._actionList[idx].name
+
+    # Update the action name
+    self._actionList[idx].name = text
+    self._actionFrames[idx](edit=True, label="{0} - {1}".format(text, self._actionList[idx].filterType)) 
+
+    # Rename the corresponding animation layer if it exists
+    if old_name:
+        old_layer_name = CORESTRINGS.stripInvalidChars(old_name)
+        if mc.objExists(old_layer_name) and SEARCH.get_mayaType(old_layer_name) == 'animLayer':
+            log.info("|{0}| >> Renaming animLayer from '{1}' to '{2}'".format(_str_func, old_layer_name, text))
+            try:
+                mc.rename(old_layer_name, text)
+                log.info("|{0}| >> Successfully renamed animLayer".format(_str_func))
+            except Exception as e:
+                log.warning("|{0}| >> Failed to rename animLayer: {1}".format(_str_func, e))
+
+
+def _generate_suggested_name(self, idx):
+    """Generate a suggested name based on filter type and objects"""
+    _str_func = '_generate_suggested_name[{0}]'.format(self.__class__.TOOLNAME)
+    
+    if idx >= len(self._actionList):
+        return "Action_{0}".format(idx)
+    
+    action = self._actionList[idx]
+    action.update_dict()  # Ensure we have latest data
+    
+    filter_type = action.filterType
+    objects = action._optionDict.get('objs', [])
+    translate = action._optionDict.get('translate', False)
+    rotate = action._optionDict.get('rotate', False)
+
+    mObjs = cgmMeta.asMeta(objects)
+    
+    # Build the base name based on filter type
+    if filter_type == 'dragger':
+        base_name = 'DRG'
+    elif filter_type == 'spring':
+        base_name = 'SPRNG'
+    elif filter_type == 'designer spring':
+        base_name = 'DSPRNG'
+    elif filter_type == 'trajectory aim':
+        base_name = 'TRAJ'
+    elif filter_type == 'keyframe to motion curve':
+        base_name = 'KTM'
+    else:
+        base_name = filter_type
+    
+    # Add mode indicators
+    mode_parts = []
+    if translate and not rotate:
+        mode_parts.append('T')
+    elif rotate and not translate:
+        mode_parts.append('R')
+    
+    # Build object part
+    if not objects:
+        object_part = 'NoObj'
+    elif len(mObjs) == 1:
+        object_part = mObjs[0].p_nameBase
+    else:
+        # Multiple objects - try to find common pattern
+        short_names = [mObj.p_nameBase for mObj in mObjs]
         
-        # Rename the corresponding animation layer if it exists
-        if old_name:
-            old_layer_name = CORESTRINGS.stripInvalidChars(old_name)
-            if mc.objExists(old_layer_name) and SEARCH.get_mayaType(old_layer_name) == 'animLayer':
-                log.info("|{0}| >> Renaming animLayer from '{1}' to '{2}'".format(_str_func, old_layer_name, text))
-                try:
-                    mc.rename(old_layer_name, text)
-                    log.info("|{0}| >> Successfully renamed animLayer".format(_str_func))
-                except Exception as e:
-                    log.warning("|{0}| >> Failed to rename animLayer: {1}".format(_str_func, e)) 
+        # Look for common prefixes or suffixes
+        common_prefix = CORESTRINGS.findCommonParts(short_names)
+        if common_prefix:
+            object_part = common_prefix
+        else:
+            # Use first object's short name with count
+            first_short = short_names[0] if short_names else 'Multi'
+            object_part = "{0}_{1}Obj".format(first_short, len(objects))
+    
+    # Combine parts
+    if mode_parts:
+        suggested_name = "{0}_{1}_{2}".format(base_name, ''.join(mode_parts), object_part)
+    else:
+        suggested_name = "{0}_{1}".format(base_name, object_part)
+    
+    log.info("|{0}| >> Generated suggested name: {1}".format(_str_func, suggested_name))
+    pprint.pprint(vars())
+    return suggested_name
+
 
 def uiFunc_move_action(self, idx, direction):
     _str_func = 'uiFunc_move_action[{0}]'.format(self.__class__.TOOLNAME)            
@@ -1088,10 +1169,10 @@ class ui_post_dragger_column(ui_post_filter):
         
         # Define dragger presets
         self._dragger_presets = {
-            'Light': {'damp': 3.0, 'angularDamp': 3.0, 'angularUpDamp': 3.0},
-            'Medium': {'damp': 7.0, 'angularDamp': 7.0, 'angularUpDamp': 7.0},
-            'Heavy': {'damp': 12.0, 'angularDamp': 12.0, 'angularUpDamp': 12.0},
-            'Very Heavy': {'damp': 20.0, 'angularDamp': 20.0, 'angularUpDamp': 20.0}
+            'Heavy': {'damp': 2.0, 'angularDamp': 2.0, 'angularUpDamp': 2.0},
+            'Medium': {'damp': 8.0, 'angularDamp': 8.0, 'angularUpDamp': 8.0},
+            'Light': {'damp': 18.0, 'angularDamp': 18.0, 'angularUpDamp': 18.0},
+            'Slight': {'damp': 28.0, 'angularDamp': 28.0, 'angularUpDamp': 28.0}
         }
 
     def build_column(self, parentColumn):
@@ -2698,7 +2779,7 @@ class ui_post_designer_spring_column(ui_post_filter):
 
             postInstance.bake(startTime=self.uiIF_startFrame.getValue() if self.uiCB_startFrame.getValue() else None,
                               endTime= self.uiIF_endFrame.getValue() if self.uiCB_endFrame.getValue() else None)
-
+            
     def uiFunc_apply_designer_spring_preset(self):
         """Apply selected designer spring preset to the UI fields"""
         selected_preset = self.uiOM_designer_spring_presets.getValue()
