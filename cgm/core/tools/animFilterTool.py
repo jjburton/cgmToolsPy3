@@ -780,13 +780,13 @@ def _generate_suggested_name(self, idx):
     
     # Build the base name based on filter type
     if filter_type == 'dragger':
-        base_name = 'DRG'
+        base_name = 'D'
     elif filter_type == 'spring':
-        base_name = 'SPRNG'
+        base_name = 'S'
     elif filter_type == 'designer spring':
-        base_name = 'DSPRNG'
+        base_name = 'D'
     elif filter_type == 'trajectory aim':
-        base_name = 'TRAJ'
+        base_name = 'TA'
     elif filter_type == 'keyframe to motion curve':
         base_name = 'KTM'
     else:

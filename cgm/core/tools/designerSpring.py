@@ -291,7 +291,7 @@ class DesignerSpring(PostBake.PostBake):
                                 if self.obj.getMayaAttr(_attr) > _value:
                                     self.obj.setMayaAttr(_attr, _value,force=False)                                 
 
-            if self.debug:
+            if self.debug and self.rotate:
                 if not self._debugLoc:
                     self._debugLoc = cgmMeta.asMeta(LOC.create(name='debug_loc'))
                 self._debugLoc.p_position = self.aimTargetPos
