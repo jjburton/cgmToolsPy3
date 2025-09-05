@@ -139,16 +139,10 @@ _sidePadding = 25
 
 def reloadMRSStuff():
     log.info("reloading...")
-    from cgm.core.mrs.lib import module_utils as MODULEUTILS
-    from cgm.core.mrs.lib import puppet_utils as PUPPETUTILS
-    
-    for m in [BUILDERUTILS,BLOCKUTILS,BLOCKSHARE,SHARED,RIGFRAME,cgmGEN,IK,
-              BLOCKGEN,CONTEXT,BLOCKSHAPES,NAMETOOLS,CGMUI,RIGSHAPES,MRSPOST,MODULEUTILS,PUPPETUTILS,
-              MODULECONTROLFACTORY,MODULESHAPECASTER]:
-        print(m)
+    for m in [BLOCKGEN,MRSPOST,RIGSHAPES]:
         cgmGEN._reloadMod(m)
-    log.info(cgmGEN._str_subLine)
-    
+    BLOCKGEN.reloadMRSStuff()
+
 
 def check_cgm():
     return
@@ -7305,8 +7299,10 @@ class ui(cgmUI.cgmGUI):
                          c=lambda *a: BLOCKGEN.verify_sceneBlocks() )
         
         mUI.MelMenuItem( self.uiMenu_help, l="Reload BlocksStuff",
-                         c=lambda *a: reloadMRSStuff() )        
-        
+                         c=lambda *a: reloadMRSStuff() )   
+
+        mUI.MelMenuItem( self.uiMenu_help, l="Reload Modules",
+                    c=lambda *a: BLOCKGEN.reloadModules() )        
         
         mUI.MelMenuItem( self.uiMenu_help, l="Thanks!",
                          c=lambda *a: cgmUI.uiWindow_thanks() )
