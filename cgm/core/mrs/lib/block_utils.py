@@ -68,6 +68,7 @@ import cgm.core.mrs.lib.builder_utils as BUILDUTILS
 from cgm.core.lib import nameTools as NAMETOOLS
 import cgm.core.classes.DraggerContextFactory as DRAGFACTORY
 import cgm.core.lib.list_utils as LISTS
+import cgm.core.lib.rigging_utils as RIGUTILS
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 import cgm.core.lib.constraint_utils as CONSTRAINT
 import cgm.core.lib.skin_utils as CORESKIN
@@ -2624,7 +2625,8 @@ def pivots_setup(self, mControl = None,
                 NODEFACTORY.argsToNodes(str_arg).doBuild()
             else:
                 mPlug_bankBall.doConnectOut("{0}.rz".format(mDriven.mNode))         
-    
+
+
     if setupWobble:
         mDriven = d_drivenGroups['tilt']
         mSpin = d_pivots['spin']
@@ -2656,12 +2658,17 @@ def pivots_setup(self, mControl = None,
             log.debug("|{0}| >> Spin Right arg: {1}".format(_str_func,str_arg))        
             NODEFACTORY.argsToNodes(str_arg).doBuild()
         else:
-            mPlug.doConnectOut("{0}.ry".format(mInnerSpinGroup.mNode))           
-            
-        
+            mPlug.doConnectOut("{0}.ry".format(mInnerSpinGroup.mNode))   
+                    
+    if setup == 'ballRotate':
+        #add_ball_auto_roll(ball_grp="ball_pivotHelper1", rotate_target = "ball_pivotHelper1", ctrl="box_tilt_pivot_anim", invertX = True, invertZ = False, radius=26)
+        DIST.get_bb_size(self.pivotHelper.pivotBall.mNode,True,True)
+        RIGUTILS.add_ball_auto_roll(pivotResult.mNode, ctrl=d_pivots['tilt'].mNode, radius=26, invertX=True, invertZ=False)
+
+        mLastParent = d_pivots['tilt'].masterGroup.p_parent  
             
     if mPivotResult:#Do this at the very end...
-        mPivotResult.parent = mLastParent        
+        mPivotResult.parent = mLastParent     
 
 
     
