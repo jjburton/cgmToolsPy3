@@ -709,7 +709,7 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ikEndLever':'bool',
                  'ikBaseExtend':'bool',
                  'ikEndExtend':'bool',
-                 'addPivot':'none:simple:wobbleAdd:wobbleOnly',
+                 'addPivot':'none:simple:wobbleAdd:wobbleOnly:ballRotate',
                  #'nameIter':'string',
                  #'numControls':'int',
                  #'numShapers':'int',
@@ -1354,7 +1354,7 @@ def prerig(self):
     if self.addPivot and self.addPivot != 'none':
         _size_pivot = _size
         _pivotSetup = self.getEnumValueString('addPivot')
-        if _pivotSetup in ['simple','wobbleOnly','wobbleAdd']:
+        if _pivotSetup in ['simple','wobbleOnly','wobbleAdd','ballRotate']:
             if ml_formHandles:
                 _size_pivot = DIST.get_bb_size(ml_formHandles[0].mNode,True,True)
                     
@@ -1363,6 +1363,9 @@ def prerig(self):
             if _pivotSetup == 'wobbleOnly':
                 _kws['baseShape'] = 'squircle'
                 _kws['l_pivots'] = ['pivotFront','pivotCenter']
+            elif _pivotSetup == 'ballRotate':
+                _kws['baseShape'] = 'squircle'
+                _kws['l_pivots'] = ['pivotCenter']
 
             mPivot = BLOCKSHAPES.pivotHelper(self,self,baseSize=_size_pivot,loft=False, mParent = mPrerigNull, **_kws)
             mPivot.p_parent = mPrerigNull
@@ -1376,20 +1379,20 @@ def prerig(self):
             #mHandleFactory.addPivotSetupHelper()
             self.connectChildNode(mPivot,'pivotHelper')
 
-            if _pivotSetup in ['wobbleOnly','wobbleAdd']:
+            if _pivotSetup in ['wobbleOnly','wobbleAdd','ballRotate']:
                 #...Make Pivot point
                 #...Make Tilt shape
                 
+                #Tilt Shape ------------------------------------------------------------------------------
                 crv = CURVES.create_fromName('arrowsOnBall', direction = 'y+', size = _size_pivot * 2.0)
                 mTilt = cgmMeta.validateObjArg(crv, 'cgmObject', setClass=True)
                 
                 BLOCKSHAPES.color(self, mTilt,controlType='sub')
                 
-                mTilt.scale = 2,2,2
+                # mTilt.scale = 2,2,2
                 
-                mTilt.doSnapTo(ml_formHandles[-1])
-                mTilt.p_parent = mPrerigNull
-                
+                mTilt.p_position = ml_formHandles[-1].p_position
+                mTilt.p_parent = mPivot
                 
                 mTilt.addAttr('cgmName','tilt')
                 mTilt.addAttr('cgmType','pivotHelper')            
@@ -1398,17 +1401,17 @@ def prerig(self):
                 mPivot.connectChildNode(mTilt,'pivotTilt')
                 self.msgList_append('prerigHandles',mTilt)
                 
-                #...Make Spin shape
+                #...Make Spin shape ------------------------------------------------------------------------------
                 mSpin = mHandleFactory.buildBaseShape('arrowRotate180_smallest')
                 BLOCKSHAPES.color(self, mSpin,controlType='sub')
                 
-                mTilt.p_parent = mPivot
-                mTilt.resetAttrs()
-                
+                mSpin.p_parent = mPivot
+                mSpin.resetAttrs()
+                mSpin.p_position = ml_formHandles[0].p_position
+
                 mSpin.rx = 90
                 mSpin.rz = 90
-                mSpin.scale = _size_pivot,_size_pivot,_size_pivot
-                mSpin.p_parent = mPrerigNull
+                # mSpin.scale = _size_pivot,_size_pivot,_size_pivot
                 
                 mSpin.addAttr('cgmName','spin')
                 mSpin.addAttr('cgmType','pivotHelper')            
@@ -1416,6 +1419,24 @@ def prerig(self):
                 
                 mPivot.connectChildNode(mSpin,'pivotSpin')
                 self.msgList_append('prerigHandles',mSpin)
+
+                if _pivotSetup == 'ballRotate':
+                    mSpin.p_parent = mPivot
+
+                    mBall = mHandleFactory.buildBaseShape('sphere')
+                    BLOCKSHAPES.color(self, mBall,controlType='sub')
+
+                    mBall.scale = _size_pivot,_size_pivot,_size_pivot
+                    mBall.doSnapTo(ml_formHandles[0])
+
+                    mBall.addAttr('cgmName','ball')
+                    mBall.addAttr('cgmType','pivotHelper')            
+                    mBall.doName()
+                    
+                    mBall.p_parent = mPivot
+                    mBall.doName()
+                    mPivot.connectChildNode(mBall,'pivotBall')
+                    self.msgList_append('prerigHandles',mBall)
                 
         else:
             raise ValueError("Unknown pivot setup: {}".format(_pivotSetup))        
@@ -2673,6 +2694,9 @@ def rig_shapes(self):
             elif self.str_addPivot == 'wobbleAdd':
                 _l  = ['center','back','front','left','right','spin','tilt']
                 RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)            
+            elif self.str_addPivot == 'ballRotate':
+                _l  = ['spin','tilt']
+                RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l, mode = 'ballRotate')  
             else:
                 RIGSHAPES.pivotShapes(self,mBlock.pivotHelper)        
             
@@ -3013,6 +3037,8 @@ def rig_controls(self):
                 l_order = ['spin','tilt','center']
             elif self.str_addPivot == 'wobbleAdd':
                 l_order  = ['center','back','front','left','right','spin','tilt']                
+            elif self.str_addPivot == 'ballRotate':
+                l_order  = ['spin','tilt']
             else:
                 l_order = ['center','front','back','left','right']
                 
@@ -3032,6 +3058,8 @@ def rig_controls(self):
                     
                     mPivot = d_buffer['instance']
                     ml_controlsAll.append(mPivot)
+                    if self.str_addPivot == 'ballRotate':
+                        continue
                     
                     if self.str_addPivot not in ['wobbleOnly']:
                         if self.str_addPivot == 'wobbleAdd' and a in ['spin','tilt']:
@@ -3110,6 +3138,9 @@ def rig_segments(self):
     
     try:mRoot = mRigNull.scaleRoot
     except:mRoot = mRigNull.rigRoot
+
+    if self.str_addPivot == 'ballRotate':
+        mRoot = mRigNull.pivotResultDriver
         
     if len(ml_rigJoints)<2:
         log.debug("|{0}| >> Not enough rig joints for setup".format(_str_func))                      
@@ -3336,7 +3367,48 @@ def rig_frame(self):
         mIKControl = mRigNull.getMessageAsMeta('controlIK')
             
         mIKHandleDriver = mIKControl
-        
+
+        #Pivot Setup ========================================================================================
+        # We need to do this here to get our pivot result which will be our new root
+        if mBlock.getMessage('pivotHelper'):
+            log.info("|{0}| >> Pivot setup...".format(_str_func))
+            
+            if self.str_addPivot == 'ballRotate':
+                mPivotResultDriver = mBlock.pivotHelper.pivotBall.doCreateAt()
+            else:
+                mPivotResultDriver = ml_fkJoints[0].doCreateAt()
+
+            mPivotResultDriver = ml_fkJoints[0].doCreateAt()
+            mPivotResultDriver.addAttr('cgmName','pivotResult')
+            mPivotResultDriver.addAttr('cgmType','driver')
+            mPivotResultDriver.doName()
+
+            
+            mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
+            
+            mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
+            
+            cgmGEN._reloadMod(mBlock.UTILS)
+            
+            _pivot_kws = {}
+            pivotSetup = 'default'
+            if self.str_addPivot == 'wobbleOnly':
+                _pivot_kws['l_pivotOrder'] = ['spin','tilt','center']
+                pivotSetup = 'wobble'
+                _pivot_kws['setupWobble'] = True 
+            elif self.str_addPivot == 'wobbleAdd':
+                _pivot_kws['l_pivotOrder']  = ['center','back','front','left','right','spin','tilt']                
+                _pivot_kws['setupWobble'] = True 
+                _pivot_kws['setupSpin'] = False
+            elif self.str_addPivot == 'ballRotate':
+                _pivot_kws['l_pivotOrder'] = ['spin','tilt']
+                pivotSetup = 'ballRotate' 
+                
+            
+            mBlock.atBlockUtils('pivots_setup', mControl = mRoot, mRigNull = mRigNull, pivotResult = mPivotResultDriver, rollSetup = 'default',
+                                front = 'front', back = 'back', setup= pivotSetup, **_pivot_kws)#front, back to clear the toe, heel defaults
+            mRoot = mPivotResultDriver#...set new root after pivot setup
+
         
         log.debug("|{0}| >> segmentScale measure...".format(_str_func))
         res_segScale = self.UTILS.get_blockScale(self,'segMeasure')
@@ -3846,39 +3918,6 @@ def rig_frame(self):
                                             driver = mPlug_FKReverse.p_combinedName,
                                             l_constraints=['parent','scale'])                
                 
-            #Pivot Setup ========================================================================================
-            if mBlock.getMessage('pivotHelper'):
-                log.info("|{0}| >> Pivot setup...".format(_str_func))
-                
-                mPivotResultDriver = ml_ikJoints[0].doCreateAt()
-                mPivotResultDriver.addAttr('cgmName','pivotResult')
-                mPivotResultDriver.addAttr('cgmType','driver')
-                mPivotResultDriver.doName()
-                
-                mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
-                
-                mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
-                
-                cgmGEN._reloadMod(mBlock.UTILS)
-                
-                _pivot_kws = {}
-                pivotSetup = 'default'
-                if self.str_addPivot == 'wobbleOnly':
-                    _pivot_kws['l_pivotOrder'] = ['spin','tilt','center']
-                    pivotSetup = 'wobble'
-                    _pivot_kws['setupWobble'] = True 
-                elif self.str_addPivot == 'wobbleAdd':
-                    _pivot_kws['l_pivotOrder']  = ['center','back','front','left','right','spin','tilt']                
-                    _pivot_kws['setupWobble'] = True 
-                    _pivot_kws['setupSpin'] = False 
-                    
-                
-                
-                mBlock.atBlockUtils('pivots_setup', mControl = mRoot, mRigNull = mRigNull, pivotResult = mPivotResultDriver, rollSetup = 'default',
-                                    front = 'front', back = 'back', setup= pivotSetup, **_pivot_kws)#front, back to clear the toe, heel defaults
-                
-                
-                        
             
 
             #Setup blend ----------------------------------------------------------------------------------

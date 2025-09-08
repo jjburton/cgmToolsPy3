@@ -1658,15 +1658,15 @@ def rig_shapes(self):
         if self.str_addPivot == 'wobbleOnly':
             #_l = ['center','front','spin','tilt']
             _l = ['spin','tilt','center']
-            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)
+            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l, mode = self.str_addPivot)
         elif self.str_addPivot == 'wobbleAdd':
             _l  = ['center','back','front','left','right','spin','tilt']
-            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)            
+            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l, mode = self.str_addPivot)            
         elif self.str_addPivot == 'ballRotate':
             _l  = ['spin','tilt']
-            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)  
+            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l, mode = self.str_addPivot)  
         else:
-            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper)
+            RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, mode = self.str_addPivot)
         
         #mBlock.atBlockUtils('pivots_buildShapes', mMainHandle.pivotHelper, mRigNull)
 

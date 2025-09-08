@@ -967,7 +967,7 @@ def lever(self,ball = False):
 
 l_pivotOrder = BLOCKSHARE._l_pivotOrder
 d_pivotBankNames = BLOCKSHARE._d_pivotBankNames
-def pivotShapes(self, mPivotHelper = None, l_pivotOrder = l_pivotOrder):
+def pivotShapes(self, mPivotHelper = None, l_pivotOrder = l_pivotOrder, mode = 'default'):
     """
     Builder of shapes for pivot setup. Excpects to find pivotHelper on block
     
@@ -1002,7 +1002,7 @@ def pivotShapes(self, mPivotHelper = None, l_pivotOrder = l_pivotOrder):
             mPivotOrig = mPivotHelper.getMessage(str_a,asMeta=True)[0]
             
             if a in ['tilt','spin']:
-                if a == 'tilt' and self.str_addPivot != 'ballRotate':
+                if a == 'tilt' and mode != 'ballRotate':
                     _tag = 'front'
                 else:
                     _tag = 'center'
