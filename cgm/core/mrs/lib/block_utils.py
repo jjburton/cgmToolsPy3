@@ -28,7 +28,7 @@ import logging
 import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 #========================================================================
 
 import maya.cmds as mc
@@ -1380,8 +1380,15 @@ def get_castMesh(self,extend=False,pivotEnd=False):
     _str_func =  'get_castMesh'
     log.debug(cgmGEN.logString_start(_str_func))
     ml_delete = []        
-    
-    if pivotEnd:
+    str_addPivot = self.getEnumValueString('addPivot')
+    str_ikEnd = self.getEnumValueString('ikEnd')
+    b_doPivot = True
+    if str_addPivot and str_addPivot in ['ballRotate','wobbleOnly']:
+        b_doPivot = False
+    if str_ikEnd and str_ikEnd in ['ball']:
+        b_doPivot = False
+
+    if b_doPivot:
         #New override to make just a foot for casting
         l_targets = []
         ml_formHandles = self.msgList_get('formHandles')
@@ -1421,7 +1428,7 @@ def get_castMesh(self,extend=False,pivotEnd=False):
             mObj.delete()
         return cgmMeta.asMeta(mesh)
         
-    if extend and self.blockType not in ['handle','muzzle','brow','eye','facs']:
+    if extend and self.blockType not in ['handle','muzzle','brow','eye','facs'] and b_doPivot != False:
         log.debug(cgmGEN.logString_msg(_str_func,'extend'))
         ml_formHandles = self.msgList_get('formHandles')
         l_targets = []
@@ -1445,7 +1452,7 @@ def get_castMesh(self,extend=False,pivotEnd=False):
                 for mSub in ml_sub:
                     l_targets.append(mSub.mNode)
             if mHandle == ml_formHandles[-1]:
-                if mHandle.getMessage('pivotHelper') and self.blockProfile not in ['arm']:
+                if mHandle.getMessage('pivotHelper') and self.blockProfile not in ['arm'] and str_addPivot not in ['ballRotate','wobbleOnly'] and str_ikEnd not in ['ball']:
                     mPivotHelper = ml_formHandles[-1].pivotHelper
                     log.debug("|{0}| >> foot ".format(_str_func))
         
@@ -2659,11 +2666,11 @@ def pivots_setup(self, mControl = None,
             NODEFACTORY.argsToNodes(str_arg).doBuild()
         else:
             mPlug.doConnectOut("{0}.ry".format(mInnerSpinGroup.mNode))   
-                    
+
     if setup == 'ballRotate':
         #add_ball_auto_roll(ball_grp="ball_pivotHelper1", rotate_target = "ball_pivotHelper1", ctrl="box_tilt_pivot_anim", invertX = True, invertZ = False, radius=26)
-        DIST.get_bb_size(self.pivotHelper.pivotBall.mNode,True,True)
-        RIGUTILS.add_ball_auto_roll(pivotResult.mNode, ctrl=d_pivots['tilt'].mNode, radius=26, invertX=True, invertZ=False)
+        _radius = DIST.get_bb_size(self.pivotHelper.pivotBall.mNode,True,True)
+        RIGUTILS.add_ball_auto_roll(pivotResult.mNode, ctrl=d_pivots['tilt'].mNode, maintain_ground=False, radius=_radius, invertX=True, invertZ=False)
 
         mLastParent = d_pivots['tilt'].masterGroup.p_parent  
             
@@ -9662,7 +9669,16 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     if uSplit == None:
         uSplit = self.loftSides
         
-        
+    b_doPivot = True
+    str_addPivot = self.getEnumValueString('addPivot')
+    str_ikEnd = self.getEnumValueString('ikEnd')
+    if self.blockProfile  in ['arm']:
+        b_doPivot = False
+    elif str_addPivot and str_addPivot in ['ballRotate','wobbleOnly'] :
+        b_doPivot = False
+    elif str_ikEnd and str_ikEnd in ['ball']:
+        b_doPivot = False
+
     log.debug(cgmGEN.logString_sub(_str_func,"Gather loft curves"))
     for i,mHandle in enumerate(ml_formHandles):
         if skip and i in skip:
@@ -9675,7 +9691,7 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
                 if mSub.getMessage('loftCurve'):
                     ml_loftCurves.append(mSub.getMessage('loftCurve',asMeta=1)[0])
         
-    if ml_formHandles[-1].getMessage('pivotHelper') and self.blockProfile not in ['arm']:
+    if ml_formHandles[-1].getMessage('pivotHelper') and b_doPivot:
         mPivotHelper = ml_formHandles[-1].pivotHelper
         log.debug("|{0}| >> pivot helper found ".format(_str_func))
     
