@@ -9,7 +9,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 __MAYALOCAL = "cgmGEN"
-__RELEASE = "25.08.15.01"
+__RELEASE = "25.09.11.01"
 __BRANCH = "PY3"
 
 import maya.cmds as mc
