@@ -1382,13 +1382,13 @@ def get_castMesh(self,extend=False,pivotEnd=False):
     ml_delete = []        
     str_addPivot = self.getEnumValueString('addPivot')
     str_ikEnd = self.getEnumValueString('ikEnd')
-    b_doPivot = True
+    b_doPivotLofts = True
     if str_addPivot and str_addPivot in ['ballRotate','wobbleOnly']:
-        b_doPivot = False
+        b_doPivotLofts = False
     if str_ikEnd and str_ikEnd in ['ball']:
-        b_doPivot = False
+        b_doPivotLofts = False
 
-    if b_doPivot:
+    if pivotEnd:
         #New override to make just a foot for casting
         l_targets = []
         ml_formHandles = self.msgList_get('formHandles')
@@ -1428,7 +1428,7 @@ def get_castMesh(self,extend=False,pivotEnd=False):
             mObj.delete()
         return cgmMeta.asMeta(mesh)
         
-    if extend and self.blockType not in ['handle','muzzle','brow','eye','facs'] and b_doPivot != False:
+    if extend and self.blockType not in ['handle','muzzle','brow','eye','facs']:
         log.debug(cgmGEN.logString_msg(_str_func,'extend'))
         ml_formHandles = self.msgList_get('formHandles')
         l_targets = []
@@ -1452,7 +1452,7 @@ def get_castMesh(self,extend=False,pivotEnd=False):
                 for mSub in ml_sub:
                     l_targets.append(mSub.mNode)
             if mHandle == ml_formHandles[-1]:
-                if mHandle.getMessage('pivotHelper') and self.blockProfile not in ['arm'] and str_addPivot not in ['ballRotate','wobbleOnly'] and str_ikEnd not in ['ball']:
+                if mHandle.getMessage('pivotHelper') and self.blockProfile not in ['arm'] and b_doPivotLofts:
                     mPivotHelper = ml_formHandles[-1].pivotHelper
                     log.debug("|{0}| >> foot ".format(_str_func))
         
