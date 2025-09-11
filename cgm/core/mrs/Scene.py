@@ -1883,6 +1883,69 @@ example:
 
         self.LoadProject(self.mDat.str_filepath)
 
+    def uiProject_duplicate(self):
+        """
+        Duplicate the current project with a new name.
+        Prompts user for new project name, clears current project path,
+        sets new name in mDat, and triggers save as dialog.
+        """
+        _str_func = 'uiProject_duplicate'
+        log.debug("|{0}| >>...".format(_str_func))
+        
+        # Get current project name
+        current_name = self.mDat.d_project.get('name', 'Unnamed Project')
+        
+        # Prompt for new project name
+        result = mc.promptDialog(
+            title='Duplicate Project',
+            message='Enter new project name:',
+            button=['OK', 'Cancel'],
+            text=current_name + '_copy',
+            defaultButton='OK',
+            cancelButton='Cancel',
+            dismissString='Cancel'
+        )
+        
+        if result != 'OK':
+            log.info("Project duplication cancelled by user")
+            return False
+            
+        new_name = mc.promptDialog(query=True, text=True)
+        
+        if not new_name or new_name.strip() == '':
+            log.warning("No project name entered")
+            return False
+            
+        new_name = new_name.strip()
+        
+        # If name is the same as current, don't proceed
+        if new_name == current_name:
+            log.warning("New project name is the same as current project name")
+            return False
+            
+        log.info("Duplicating project '{0}' as '{1}'".format(current_name, new_name))
+        
+        # Clear current project path and set new name
+        self.mDat.str_filepath = None
+        self.mDat.d_project['name'] = new_name
+        
+        # Clear UI fields
+        self.directory = ''
+        self.exportDirectoryTF.setValue('')
+        self.assetList['scrollList'].clear()
+        self.subTypeSearchList['scrollList'].clear()
+        self.variationList['scrollList'].clear()
+        self.versionList['scrollList'].clear()
+        
+        # Refresh display to show new project name
+        self.uiProject_refreshDisplay()
+        
+        # Trigger save as dialog
+        PROJECT.uiProject_saveAs(self)
+        
+        log.info("Project duplication completed successfully")
+        return True
+
     def buildMenu_first(self):
         self.uiMenu_FirstMenu.clear()
 
@@ -1928,6 +1991,9 @@ example:
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Save As",
                          c = lambda *a:mc.evalDeferred(cgmGEN.Callback(PROJECT.uiProject_saveAs,self),lp=True))
 
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Clone",
+                         ann='Create a duplicate of the current project with a new name',
+                         c = lambda *a:mc.evalDeferred(self.uiProject_duplicate,lp=True))
 
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu, label='Utils' )
 
