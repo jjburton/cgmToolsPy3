@@ -785,7 +785,7 @@ d_controlDat_links = {
     'fk' : ['leverFK','fkJoints','controlsFK','controlFK','fkReverseControls'],
     'ik' : ['leverFK',
             'controlIKBase',
-            'controlIKMid',
+            'controlIKMid','controlSegMidIK',
             'controlIKEnd','controlIK',
             'controlBallRotation','leverIK',
             'controlIKBallHinge','controlIKBall','controlIKToe',
@@ -2420,6 +2420,7 @@ def rig_skeleton(self):
                     mRigNull.connectChildNode(mMidIK,'controlSegMid_{}_IK'.format(i),'rigNull')
                     
                     self.ml_ikMidControls.append(mMidIK)
+                mRigNull.msgList_connect('controlSegMidIK',self.ml_ikMidControls)
             
             """
             #Add base joint for now...
@@ -2927,6 +2928,11 @@ def rig_controls(self):
                 mNew.masterGroup.parent = mRootParent
                 ml_controlsAll.append(mNew)            
                 ml_controlsIK.insert(-1,mNew)
+
+                if ml_blendJoints:
+                    self.atUtils('get_switchTarget', mNew, DIST.get_closestTarget(mNew.mNode,[mTarget.mNode for mTarget in ml_blendJoints]))
+
+
             
             
         """
@@ -3060,7 +3066,7 @@ def rig_controls(self):
                     ml_controlsAll.append(mPivot)
                     if self.str_addPivot == 'ballRotate':
                         continue
-                    
+
                     if self.str_addPivot not in ['wobbleOnly']:
                         if self.str_addPivot == 'wobbleAdd' and a in ['spin','tilt']:
                             continue
