@@ -5351,6 +5351,7 @@ example:
                     removeNamespace = self.d_tf['exportOptions']['removeNameSpace'].getValue(),
                     zeroRoot = self.d_tf['exportOptions']['zeroRoot'].getValue(),
                     animationName = _l_openTokens[0],#self.selectedSet,
+                    exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
                     tangent=postTangent,
                     euler=postEuler,                            
                     sampleBy=sampleBy,
@@ -5405,7 +5406,7 @@ def BatchExport(dataList = []):
             _d['reducer'] = False if fileDat.get('reducer',"False") == "False" else True
             
             _d['simplify'] = False if fileDat.get('simplify',"False") == "False" else True
-
+            _d['exportShotsToIndividualFiles'] = False if fileDat.get('exportShotsToIndividualFiles',"False") == "False" else True
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
 
             log.info(mFile)
@@ -5466,6 +5467,7 @@ def ExportScene(mode = -1,
                 animationName = None,
                 workspace = None,
                 updateAndIncrement = False,
+                exportShotsToIndividualFiles = True,
                 updateRigs = False,
                 euler = False,
                 sampleBy = 1.0,
@@ -5794,21 +5796,64 @@ def ExportScene(mode = -1,
                 log.info("{0} | {1}".format(i,o))
 
             if(exportFBXFile):
-                mel.eval('FBXExportSplitAnimationIntoTakes -c')
+                if exportShotsToIndividualFiles:
+                    # global FBX options you probably want once
+                    mel.eval('FBXResetExport;')
+                    mel.eval('FBXExportSplitAnimationIntoTakes -clear;')  # no multi-take
+                    # mel.eval('FBXExportBakeComplexAnimation -v true;')
+                    # mel.eval('FBXExportBakeComplexStep -v 1;')            # key every frame; adjust if needed
+                    mel.eval('FBXExportSkins -v true;')
+                    mel.eval('FBXExportConstraints -v false;')
+                    mel.eval('FBXExportSmoothingGroups -v true;')
+                    mel.eval('FBXExportInAscii -v false;')
 
-                if obj not in cameras:#...cameras we don't want in takes
-                    for shot in animList.shotList:
-                        log.info( log_msg(_str_func, "shot..."))
-                        log.info(shot)
-                        mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
+                    exportDir = os.path.split(exportFile)[0]
+                    baseName  = os.path.splitext(os.path.basename(exportFile))[0]
+                    
+                    # Create subdirectory for this baseName
+                    baseDir = os.path.join(exportDir, baseName)
+                    if not os.path.exists(baseDir):
+                        log.info("making export dir... {0}".format(baseDir))
+                        os.makedirs(baseDir)
 
-                exportDir = os.path.split(exportFile)[0]
-                if not os.path.exists(exportDir):
-                    log.info("making export dir... {0}".format(exportDir))
-                    os.makedirs(exportDir)
+                    if obj not in cameras:
+                        for shot in animList.shotList:
+                            shotName = shot[0]
+                            s, e = shot[1][0], shot[1][1]
+                            log.info(log_msg(_str_func, "shot..."))
+                            log.info((shotName, (s, e)))
 
-                log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
-                mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                            safe = CORESTRING.stripInvalidChars(shotName)
+                            outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
+
+                            # Set time range for this shot and export
+                            mel.eval('FBXResetExport;')
+                            mel.eval('FBXExportSplitAnimationIntoTakes -clear;')
+                            mel.eval('FBXExportBakeComplexStart -v {0};'.format(int(s)))
+                            mel.eval('FBXExportBakeComplexEnd -v {0};'.format(int(e)))
+                            
+                            # Set Maya timeline to shot range
+                            mel.eval('playbackOptions -min {0} -max {1};'.format(int(s), int(e)))
+
+                            log.info('Export Command: FBXExport -f \"{}\" -s'.format(outFile))
+                            mel.eval('FBXExport -f \"{}\" -s'.format(outFile)) 
+
+                else:
+                    mel.eval('FBXExportSplitAnimationIntoTakes -c')
+
+                    if obj not in cameras:#...cameras we don't want in takes
+                        for shot in animList.shotList:
+                            log.info( log_msg(_str_func, "shot..."))
+                            log.info(shot)
+                            mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
+
+                    exportDir = os.path.split(exportFile)[0]
+                    if not os.path.exists(exportDir):
+                        log.info("making export dir... {0}".format(exportDir))
+                        os.makedirs(exportDir)
+
+                    log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
+                    mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
 
                 if len(exportObjs) > 1 and removeNamespace:
                     # Deleting the exported transforms in case another file has duplicate export names
