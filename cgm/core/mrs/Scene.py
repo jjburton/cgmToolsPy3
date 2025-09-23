@@ -5076,7 +5076,7 @@ example:
 
     def batch_buildFile(self, *args):
         _str_func = 'batch_buildFile'
-        log.debug(log_start(_str_func))
+        log.info(log_start(_str_func))
 
 
         if self.useMayaPy:
@@ -5106,7 +5106,7 @@ example:
                       'sampleBy':self.d_tf['exportOptions']['sampleBy'].getValue(),
                       'simplify':self.d_tf['exportOptions']['simplify'].getValue(),
                       'reducer':self.d_tf['exportOptions']['reducer'].getValue(),
-
+                      'exportShotsToIndividualFiles':self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
                       }
 
             for animDict in self.batchExportItems:
@@ -5268,7 +5268,7 @@ example:
     #   - just the asset name
     def RunExportCommand(self, *args):
         _str_func = 'RunExportCommand'
-        log.debug(log_start(_str_func))
+        log.info(log_start(_str_func))
 
         _l_openTokens = self.uiFunc_getOpenFilePathTokens()
 
@@ -5291,14 +5291,15 @@ example:
 
         d_userPaths = self.mDat.userPaths_get()
 
-
         postEuler = self.d_tf['exportOptions']['postEuler'].getValue()
         postTangent = self.d_tf['exportOptions']['postTangent'].getValue()
         sampleBy = self.d_tf['exportOptions']['sampleBy'].getValue()
         reducer = self.d_tf['exportOptions']['reducer'].getValue()
         simplify = self.d_tf['exportOptions']['simplify'].getValue()
+        exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue()
 
         pprint.pprint(vars())
+        pprint.pprint(self.d_tf['exportOptions'])
 
         if postTangent == 'none':
             postTangent = False
@@ -5334,7 +5335,9 @@ example:
                 'workspace':d_userPaths['content'],
                 'simplify':simplify,
                 'reducer':reducer,
+                'exportShotsToIndividualFiles':exportShotsToIndividualFiles,
             }
+            pprint.pprint(d)
 
             BATCH.create_Scene_batchFile([d])
             return
@@ -5368,7 +5371,7 @@ example:
 
 def BatchExport(dataList = []):
     _str_func = 'BatchExport'
-    log.debug(log_start(_str_func))
+    log.info(log_start(_str_func))
 
     t1 = time.time()
 
@@ -5410,8 +5413,7 @@ def BatchExport(dataList = []):
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
 
             log.info(mFile)
-            #pprint.pprint(_d)
-
+            pprint.pprint(_d)
 
             _path = mFile.asString()
             if not mFile.exists():
