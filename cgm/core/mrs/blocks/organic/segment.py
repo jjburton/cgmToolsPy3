@@ -679,7 +679,9 @@ d_attrsToMake = {'visMeasure':'bool',
                  'squashExtraControl' : 'bool',
                  'squashFactorMax':'float',
                  'squashFactorMin':'float',
-                 'shapersAim':'toEnd:chain:orientToHandle',
+                 'formAim':'none:simple:chain',
+                 'shapersAim':'none:chain:orientToHandle',
+                 'shapersAimUp':'none:handle:blockOrient',
                  'squashSkipAim':'bool',
                  'loftSetup':'default:loftList',
                  'special_swim':'none:wave:sine',
@@ -721,6 +723,9 @@ d_defaultSettings = {'version':__version__,
                      'baseAim':[0,1,0],
                      'numControls': 3,
                      'numSubShapers':0,
+                     'formAim':'simple',
+                     'shapersAim':'chain',
+                     'shapersAimUp':'handle',
                      'loftSetup':0,
                      'loftShape':'circle',
                      'numShapers':3,
@@ -782,7 +787,7 @@ d_skeletonSetup = {'mode':'curveCast',
 #d_preferredAngles = {'head':[0,-10, 10]}#In terms of aim up out for orientation relative values, stored left, if right, it will invert
 #d_rotationOrders = {'head':'yxz'}
 d_controlDat_links = {
-    'fk' : ['leverFK','fkJoints','controlsFK','controlFK','fkReverseControls'],
+    'fk' : ['leverFK','controlsFK','controlFK','fkReverseControls'],
     'ik' : ['leverFK',
             'controlIKBase',
             'controlIKMid','controlSegMidIK',
@@ -991,7 +996,8 @@ def form(self):
         _ikEnd = self.getEnumValueString('ikEnd')
         _loftSetup = self.getEnumValueString('loftSetup')
         _shapersAim = self.getEnumValueString('shapersAim')
-        
+        _shapersAimUp = self.getEnumValueString('shapersAimUp') or 'blockOrient'    
+
         #Get base dat =======================================================================            
         log.debug("|{0}| Base dat...".format(_str_func)+ '-'*40)
         md_defineHandles,md_vectorHandles = self.UTILS.define_getHandles(self)
@@ -1073,7 +1079,8 @@ def form(self):
             self,
             aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             loftShape=_loftShape,l_basePos = _l_basePos, baseSize=_size_handle,
-            orientHelperPlug='orientHelper',formAim =  self.getEnumValueString('shapersAim'),
+            orientHelperPlug='orientHelper',formAim =  self.getEnumValueString('formAim'),
+            shapersAim =  self.getEnumValueString('shapersAim'),shapersAimUp = self.getEnumValueString('shapersAimUp'),
             sizeWidth = _size_width, sizeLoft=_size_loft,side = _side,
             mFormNull = mFormNull,mNoTransformNull = mNoTransformNull,
             mDefineEndObj=mDefineEndObj)
@@ -2286,7 +2293,7 @@ def rig_skeleton(self):
         ml_fkJoints = BLOCKUTILS.skeleton_buildHandleChain(mBlock,'fk','fkJoints')
         ml_jointsToHide.extend(ml_fkJoints)
         
-        ml_fkControls = copy.copy(ml_fkJoints)
+        ml_controlsFK = copy.copy(ml_fkJoints)
         if self.str_ikBase in ['hips','head']:
             log.debug("|{0}| >> FK hips. no shape on frame...".format(_str_func))
             
@@ -2302,10 +2309,10 @@ def rig_skeleton(self):
             
             ml_fkJoints[1].p_parent = False
             
-            ml_fkControls[0] = mFKpelvis
+            ml_controlsFK[0] = mFKpelvis
             mFKpelvis.doName()
             
-        mRigNull.msgList_connect('fkControls',ml_fkControls)
+        mRigNull.msgList_connect('controlsFK',ml_controlsFK)
         mk_fkUse = ml_fkJoints
         
         
@@ -2523,7 +2530,7 @@ def rig_shapes(self):
         ml_formHandles = mBlock.msgList_get('formHandles')
         ml_prerigHandleTargets = mBlock.atBlockUtils('prerig_getHandleTargets')
         ml_fkJoints = mRigNull.msgList_get('fkJoints')
-        ml_fkControls = mRigNull.msgList_get('fkControls')
+        ml_controlsFK = mRigNull.msgList_get('controlsFK')
         ml_ikJoints = mRigNull.msgList_get('ikJoints',asMeta=True)
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
         ml_rigJoints = self.mRigNull.msgList_get('rigJoints')
@@ -2651,7 +2658,7 @@ def rig_shapes(self):
         #                                        offset = _offset,
         #                                        mode = 'frameHandle')        
         for i,mCrv in enumerate(ml_fkShapes):
-            mJnt = ml_fkControls[i]
+            mJnt = ml_controlsFK[i]
             #CORERIG.match_orientation(mCrv.mNode,mJnt.mNode)
             
             #if i == 0 and str_ikBase in ['hips','head']:
@@ -2812,7 +2819,7 @@ def rig_controls(self):
                 
         #FK controls =============================================================================================
         log.debug("|{0}| >> FK Controls...".format(_str_func))
-        ml_fkJoints = self.mRigNull.msgList_get('fkControls')
+        ml_fkJoints = self.mRigNull.msgList_get('controlsFK')
         
         if str_ikBase in ['hips','head']:
             p_pelvis = ml_fkJoints[0].p_position
@@ -3351,7 +3358,7 @@ def rig_frame(self):
         cgmGEN._reloadMod(IK)
         ml_rigJoints = mRigNull.msgList_get('rigJoints')
         ml_fkJoints = mRigNull.msgList_get('fkJoints')
-        ml_fkControls = mRigNull.msgList_get('fkControls')
+        ml_controlsFK = mRigNull.msgList_get('controlsFK')
         ml_fkUseJoints = ml_fkJoints
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
         ml_baseIKDrivers = mRigNull.msgList_get('baseIKDrivers')
@@ -3891,13 +3898,13 @@ def rig_frame(self):
             
             
             if str_ikBase in ['hips','head']:
-                ml_fkControls[0].masterGroup.p_parent = mFKGroup
-                ml_fkControls[1].masterGroup.p_parent = mFKGroup
+                ml_controlsFK[0].masterGroup.p_parent = mFKGroup
+                ml_controlsFK[1].masterGroup.p_parent = mFKGroup
                 
                 #mPlug_FKonUse.doConnectOut("{0}.visibility".format(ml_fkJoints[1].masterGroup.mNode))
             else:
                 #mPlug_FKonUse.doConnectOut("{0}.visibility".format(ml_fkJoints[0].masterGroup.mNode))
-                ml_fkControls[0].masterGroup.p_parent = mFKGroup
+                ml_controlsFK[0].masterGroup.p_parent = mFKGroup
                 
                 
             
@@ -4664,7 +4671,7 @@ def controller_getDat(self):
     md['pivots'] = checkList(['pivot{0}'.format(n.capitalize()) for n in BLOCKSHARE._l_pivotOrder])
     
     #FK...
-    md['fk'] = checkList(['leverFK','fkControl','fkControls','controlsFK','controlFK'])
+    md['fk'] = checkList(['leverFK','fkControl','controlsFK','controlsFK','controlFK'])
     md['fkReverse'] = checkList(['fkReverseControls'])
     
     md['noHide'] = md['root'] + md['settings']

@@ -28,7 +28,7 @@ import logging
 import importlib
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 #========================================================================
 
 import maya.cmds as mc
@@ -6993,6 +6993,7 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
                      loftShape=None,l_basePos = None, baseSize=1.0,
                      sizeWidth = 1.0, sizeLoft=1.0,
                      side = None,orientHelperPlug = 'orientHelper',formAim='toEnd',
+                     shapersAim = 'toEnd',shapersAimUp = 'handle',
                      mFormNull = None,mNoTransformNull = None,
                      mDefineEndObj=None):
     """
@@ -7019,6 +7020,8 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     ml_shapers = []
     ml_handles_chain = []
     _formAim = formAim
+    _shapersAim = shapersAim
+    _shapersAimUp = shapersAimUp
     
     _short = self.mNode        
     _int_shapers = self.getMayaAttr(aShapers)
@@ -7054,7 +7057,9 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     mHandleFactory = self.asHandleFactory()
     mRootUpHelper = self.vectorUpHelper
     #_mVectorAim = MATH.get_obj_vector(self.vectorEndHelper.mNode,asEuclid=True)
-    _mVectorUp = MATH.get_obj_vector(mRootUpHelper.mNode,'y+',asEuclid=True)            
+    _mVectorUp = MATH.get_obj_vector(mRootUpHelper.mNode,'y+',asEuclid=True)   
+    _str_shapersAimUp = self.getEnumValueString('shapersAimUp') or 'blockOrient'    
+
     #pprint.pprint(vars())
     for i,n in enumerate(['start','end']):
         log.debug("|{0}| >> {1}:{2}...".format(_str_func,i,n)) 
@@ -7098,7 +7103,6 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             mTransformedGroup = mLoftCurve.doGroup(True,True,asMeta=True,typeModifier = 'transformed',setClass='cgmObject')
         mHandle.doConnectOut('scale', "{0}.scale".format(mTransformedGroup.mNode))
         mc.pointConstraint(mHandle.mNode,mTransformedGroup.mNode,maintainOffset=False)
-        #mc.scaleConstraint(mHandle.mNode,mTransformedGroup.mNode,maintainOffset=True)
     
         mBaseAttachGroup = mHandle.doGroup(True,True, asMeta=True,typeModifier = 'attach')
     
@@ -7122,14 +7126,6 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     mOrientHelperAimGroup = mBaseOrientCurve.doGroup(True,asMeta=True,typeModifier = 'aim')
     mc.pointConstraint(md_handles['start'].mNode, mOrientHelperAimGroup.mNode )
     
-    _const = mc.aimConstraint(ml_handles[1].mNode, mOrientHelperAimGroup.mNode, maintainOffset = False,
-                              aimVector = [0,0,1], upVector = [0,1,0], 
-                              worldUpObject = mRootUpHelper.mNode,
-                              worldUpType = 'objectrotation', 
-                              worldUpVector = [0,1,0])
-            #worldUpType = 'vector',
-            #worldUpVector = [_worldUpVector.x,_worldUpVector.y,_worldUpVector.z])    
-
     self.connectChildNode(mBaseOrientCurve.mNode,orientHelperPlug)
 
     mBaseOrientCurve.setAttrFlags(['ry','rx','translate','scale','v'])
@@ -7137,7 +7133,7 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     mc.select(cl=True)
 
     ml_handles_chain = copy.copy(ml_handles)
-    #reload(CORERIG)
+
     if _int_shapers > 2:
         log.debug("|{0}| >> more handles necessary...".format(_str_func)) 
         #Mid Track curve ============================================================================
@@ -7160,8 +7156,6 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             mHandle.scale = 1,1,1
 
         _l_posMid = CURVES.returnSplitCurveList(mMidTrackCurve.mNode,_int_shapers,markPoints = False)
-        #_l_pos = [ DIST.get_pos_by_vec_dist(_pos_start, _vec, (_offsetDist * i)) for i in range(self.numControls-1)] + [_pos_end]
-
 
         #Sub handles... -----------------------------------------------------------------------------------
         log.debug("|{0}| >> Mid Handle creation...".format(_str_func))
@@ -7195,38 +7189,25 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             mTransformedGroup = mHandle.getMessageAsMeta('transformedGroup')
             if not mTransformedGroup:
                 mTransformedGroup = mHandle.doGroup(True,True,asMeta=True,typeModifier = 'transformed')
-            #mGroup = mHandle.doGroup(True,True,asMeta=True,typeModifier = 'master')
-            #mAimGroup = mHandle.doGroup(True,True,asMeta=True,typeModifier = 'aim')
 
 
             _vList = DIST.get_normalizedWeightsByDistance(mTransformedGroup.mNode,
                                                           [ml_handles[0].mNode,ml_handles[-1].mNode])
 
-            #_scale = mc.scaleConstraint([ml_handles[0].mNode,ml_handles[-1].mNode],
-            #                            mTransformedGroup.mNode,maintainOffset = False)
-            
+
             BLOCKSHAPES.attachToCurve(mHandle, mMidTrackCurve, parentTo = mNoTransformNull, trackLink='transformedGroup')
             
-            #_res_attach = RIGCONSTRAINT.attach_toShape(mTransformedGroup.mNode, mMidTrackCurve.mNode, 'conPoint')
-            #TRANS.parent_set(_res_attach[0], mNoTransformNull.mNode)
-
             mTransformedGroup.resetAttrs('rotate')
-
 
             mLoftCurve.p_parent = mFormNull
             mLoftTransformedGroup = mLoftCurve.getMessageAsMeta('transformedGroup')
             if not mLoftTransformedGroup:
                 mLoftTransformedGroup = mLoftCurve.doGroup(True,asMeta=True,typeModifier = 'transformed')
 
-            #mTransformedGroup = mLoftCurve.doGroup(True,True,asMeta=True,typeModifier = 'transformed')
-            #mHandle.doConnectOut('scale', "{0}.scale".format(mScaleGroup.mNode))
             mc.scaleConstraint(mHandle.mNode,
                                mLoftTransformedGroup.mNode,maintainOffset = False)                
             mc.pointConstraint(mHandle.mNode,mLoftTransformedGroup.mNode,maintainOffset=False)
 
-
-            #for c in [_scale]:
-                #CONSTRAINT.set_weightsByDistance(c[0],_vList)
 
             mHandleFactory = self.asHandleFactory(mHandle.mNode)
 
@@ -7235,12 +7216,28 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
 
         #Push scale back...
         for i,mHandle in enumerate(ml_handles):
+            log.debug("|{0}| >> Push scale back... | i: {1}".format(_str_func,i))
             mHandle.scale = l_scales[i]
+
 
 
 
         #Main Track curve ============================================================================
         ml_handles_chain = [ml_handles[0]] + ml_midHandles + [ml_handles[-1]]
+
+        for i,mHandle in enumerate( ml_midHandles + [ml_handles[-1]]):
+            #// make another cphere forseeing up vector
+            crv = CURVES.create_fromName('sphere2', _size_handle * .25 , direction = 'y+')
+            mHandleUp = cgmMeta.validateObjArg(crv, 'cgmObject', setClass=True)
+            mHandleUp.p_parent = mHandle
+            mHandleUp.resetAttrs(['translate','rotate'])
+            mHandleUp.ty = _size_handle
+            CORERIG.colorControl(mHandleUp.mNode,_side,'main',transparent = True)
+            RIGUTILS.shapeParent_in_place(mHandle.mNode,mHandleUp.mNode,False)
+
+
+            #--------------------------------------------------------------------------------
+
 
         log.debug("|{0}| >> Main TrackCrv...".format(_str_func)) 
         _mainTrackResult = CORERIG.create_at([mObj.mNode for mObj in ml_handles_chain],'linearTrack',
@@ -7253,49 +7250,52 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
         for s in _mainTrackResult[1]:
             ATTR.set(s[1],'visibility',False)            
 
+    # _formAim = 'simple'
+    # _shapersAim = 'chain'
+    # _shapersAimUp = 'handle'
+
+    if _formAim != 'none':
+        log.debug("|{0}| >> Aim main handles...".format(_str_func)+'-'*40) 
+
+        #AimEndHandle ============================================================================
+        log.debug("|{0}| >> Aim end...".format(_str_func)) 
+        mGroup =  md_handles['end'].doGroup(True,True,asMeta=True,typeModifier = 'aim')            
+        _const = mc.aimConstraint(self.mNode, mGroup.mNode,
+                                maintainOffset = False,
+                                aimVector = [0,0,-1],
+                                upVector = [0,1,0], 
+                                worldUpObject = mRootUpHelper.mNode,
+                                worldUpType = 'objectrotation', 
+                                worldUpVector = [0,1,0])        
+        #mAimGroup = md_handles['end'].doGroup(True, asMeta=True,typeModifier = 'aim')
+        #...not doing this now...
+        #SNAP.go(md_handles['end'].mNode, self.mNode, position=False)
+
+        """
+                        _const = mc.aimConstraint(self.mNode, md_handles['end'].mNode, maintainOffset = False,
+                                                aimVector = [0,0,-1], upVector = [0,1,0], 
+                                                worldUpObject = mBaseOrientCurve.mNode,
+                                                worldUpType = 'objectrotation', 
+                                                worldUpVector = [0,1,0])"""
+
+        #cgmMeta.cgmNode(_const[0]).doConnectIn('worldUpVector','{0}.baseUp'.format(self.mNode))
 
 
-    log.debug("|{0}| >> Aim main handles...".format(_str_func)+'-'*40) 
-
-    #AimEndHandle ============================================================================
-    log.debug("|{0}| >> Aim end...".format(_str_func)) 
-    mGroup =  md_handles['end'].doGroup(True,True,asMeta=True,typeModifier = 'aim')            
-    _const = mc.aimConstraint(self.mNode, mGroup.mNode,
-                              maintainOffset = False,
-                              aimVector = [0,0,-1],
-                              upVector = [0,1,0], 
-                              worldUpObject = mRootUpHelper.mNode,
-                              worldUpType = 'objectrotation', 
-                              worldUpVector = [0,1,0])        
-    #mAimGroup = md_handles['end'].doGroup(True, asMeta=True,typeModifier = 'aim')
-    #...not doing this now...
-    #SNAP.go(md_handles['end'].mNode, self.mNode, position=False)
-
-    """
-                    _const = mc.aimConstraint(self.mNode, md_handles['end'].mNode, maintainOffset = False,
-                                              aimVector = [0,0,-1], upVector = [0,1,0], 
-                                              worldUpObject = mBaseOrientCurve.mNode,
-                                              worldUpType = 'objectrotation', 
-                                              worldUpVector = [0,1,0])"""
-
-    #cgmMeta.cgmNode(_const[0]).doConnectIn('worldUpVector','{0}.baseUp'.format(self.mNode))
+        #AimStartHandle ============================================================================
+        log.debug("|{0}| >> Aim main handles...".format(_str_func)) 
+        mGroup =  md_handles['start'].doGroup(True,True,asMeta=True,typeModifier = 'aim')            
+        _const = mc.aimConstraint(md_handles['end'].mNode, mGroup.mNode,
+                                maintainOffset = False,
+                                aimVector = [0,0,1],
+                                upVector = [0,1,0], 
+                                worldUpObject = mRootUpHelper.mNode,
+                                worldUpType = 'objectrotation', 
+                                worldUpVector = [0,1,0])
 
 
-    #AimStartHandle ============================================================================
-    log.debug("|{0}| >> Aim main handles...".format(_str_func)) 
-    mGroup =  md_handles['start'].doGroup(True,True,asMeta=True,typeModifier = 'aim')            
-    _const = mc.aimConstraint(md_handles['end'].mNode, mGroup.mNode,
-                              maintainOffset = False,
-                              aimVector = [0,0,1],
-                              upVector = [0,1,0], 
-                              worldUpObject = mRootUpHelper.mNode,
-                              worldUpType = 'objectrotation', 
-                              worldUpVector = [0,1,0])
-
-
-
+    
     #>>> Aim Main loft curves ================================================================== 
-    log.debug("|{0}| >> Aim main loft curves...".format(_str_func)) 
+    log.debug("|{0}| >> Aim main Handle...".format(_str_func)) 
 
 
     #Aim the segment -------------------------------------------------------------------------
@@ -7324,6 +7324,30 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
 
 
     for i,mHandle in enumerate(ml_handles_chain):
+        log.debug("|{0}| >> Aim Pass Handle: {1} | formAim: {2} | shapersAim: {3} | shapersAimUp: {4}".format(_str_func,mHandle.p_nameBase,_formAim,_shapersAim,_shapersAimUp))
+        if mHandle not in [md_handles['end'],md_handles['start']]:
+            log.debug("|{0}| >> {2} | Aiming Handle: {1}".format(_str_func,mHandle,_formAim))
+            _aimForward = ml_handles_chain[i+1].mNode
+            
+            mHandleAimGroup = mHandle.getMessageAsMeta('transformedGroup')
+            if not mHandleAimGroup:
+                mHandleAimGroup = mHandle.doGroup(True,asMeta=True,typeModifier = 'transformed')
+
+            if _formAim == 'simple':
+                mc.aimConstraint(md_handles['end'].mNode,
+                                 mHandleAimGroup.mNode, maintainOffset = False,
+                                 aimVector = [0,0,1], upVector = [0,1,0], 
+                                 worldUpObject = mBaseOrientCurve.mNode,
+                                 worldUpType = 'objectrotation', 
+                                 worldUpVector = [0,1,0])
+            elif _formAim == 'chain':
+                mc.aimConstraint(_aimForward, mHandleAimGroup.mNode, maintainOffset = False,
+                                 aimVector = [0,0,1], upVector = [0,1,0], 
+                                 worldUpObject = mBaseOrientCurve.mNode,
+                                 worldUpType = 'objectrotation', 
+                                 worldUpVector = [0,1,0])
+
+
         mLoft = mHandle.loftCurve
         _str_handle = mHandle.mNode
 
@@ -7337,9 +7361,11 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
         for mShape in mLoft.getShapes(asMeta=True):
             mShape.overrideDisplayType = 0
             
-        if _formAim == 'orientToHandle':
+        if _shapersAim == 'none':
+            continue
+        elif _shapersAim == 'orientToHandle':
             mc.orientConstraint([mHandle.mNode],
-                                mTransformedGroup.mNode, maintainOffset = False)
+                                mTransformedGroup.mNode, maintainOffset = True)
         else:
             _worldUpType = 'objectrotation'
             _worldUpBack = 'objectrotation'
@@ -7348,6 +7374,11 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             _aimBack = None
             _aimForward = None
             _backUpObj = None
+
+            if _shapersAimUp == 'handle':
+                _worldUpObject = mHandle.mNode
+            else:
+                _worldUpObject = mBaseOrientCurve.mNode
     
             if mHandle == ml_handles_chain[0]:
                 _aimForward = ml_handles_chain[i+1].mNode
@@ -7367,25 +7398,25 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
             if _aimForward and _aimBack is None:
                 mc.aimConstraint(_aimForward, mTransformedGroup.mNode, maintainOffset = False,
                                  aimVector = [0,0,1], upVector = [0,1,0], 
-                                 worldUpObject = mBaseOrientCurve.mNode,
+                                 worldUpObject = _worldUpObject,
                                  worldUpType = _worldUpType, 
                                  worldUpVector = [0,1,0])
             elif _aimBack and _aimForward is None:
                 mc.aimConstraint(_aimBack, mTransformedGroup.mNode, maintainOffset = False,
                                  aimVector = [0,0,-1], upVector = [0,1,0], 
-                                 worldUpObject = mBaseOrientCurve.mNode,
+                                 worldUpObject = _worldUpObject,
                                  worldUpType = _worldUpBack, 
                                  worldUpVector = [0,1,0])
             else:
                 mAimForward = mLoft.doCreateAt()
-                mAimForward.p_parent = mHandle.p_parent#mLoft
+                mAimForward.p_parent = mHandle#mLoft
                 mAimForward.doStore('cgmName',mHandle)                
                 mAimForward.doStore('cgmTypeModifier','forward')
                 mAimForward.doStore('cgmType','aimer')
                 mAimForward.doName()
     
                 mAimBack = mLoft.doCreateAt()
-                mAimBack.p_parent = mHandle.p_parent
+                mAimBack.p_parent = mHandle
                 mAimBack.doStore('cgmName',mHandle)                                
                 mAimBack.doStore('cgmTypeModifier','back')
                 mAimBack.doStore('cgmType','aimer')
@@ -7393,12 +7424,12 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     
                 mc.aimConstraint(_aimForward, mAimForward.mNode, maintainOffset = False,
                                  aimVector = [0,0,1], upVector = [0,1,0], 
-                                 worldUpObject = mBaseOrientCurve.mNode,
+                                 worldUpObject = _worldUpObject,
                                  worldUpType = _worldUpType, 
                                  worldUpVector = [0,1,0])
     
                 if _backUpObj == None:
-                    _backUpObj =  mBaseOrientCurve.mNode
+                    _backUpObj =  _worldUpObject
     
                 mc.aimConstraint(_aimBack, mAimBack.mNode, maintainOffset = False,
                                  aimVector = [0,0,-1], upVector = [0,1,0], 
@@ -7413,27 +7444,7 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
     
                 #...also aim our main handles...
                 
-        if mHandle not in [md_handles['end'],md_handles['start']]:
-            log.debug("|{0}| >> {2} | Aiming Handle: {1}".format(_str_func,mHandle,_formAim))
-            _aimForward = ml_handles_chain[i+1].mNode
-            
-            mHandleAimGroup = mHandle.getMessageAsMeta('transformedGroup')
-            if not mHandleAimGroup:
-                mHandleAimGroup = mHandle.doGroup(True,asMeta=True,typeModifier = 'transformed')
 
-            if _formAim == 'toEnd':
-                mc.aimConstraint(md_handles['end'].mNode,
-                                 mHandleAimGroup.mNode, maintainOffset = False,
-                                 aimVector = [0,0,1], upVector = [0,1,0], 
-                                 worldUpObject = mBaseOrientCurve.mNode,
-                                 worldUpType = 'objectrotation', 
-                                 worldUpVector = [0,1,0])
-            elif _formAim == 'chain':
-                mc.aimConstraint(_aimForward, mHandleAimGroup.mNode, maintainOffset = False,
-                                 aimVector = [0,0,1], upVector = [0,1,0], 
-                                 worldUpObject = mBaseOrientCurve.mNode,
-                                 worldUpType = 'objectrotation', 
-                                 worldUpVector = [0,1,0])
 
         """
         if mHandle in [md_handles['start'],md_handles['end']]:
@@ -7572,7 +7583,8 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
                 if _leverLoftAimMode:
                     upObj = md_handles['lever'].mNode
                 else:
-                    upObj = mBaseOrientCurve.mNode
+                    upObj = _mStart.mNode
+                    #upObj = mBaseOrientCurve.mNode
 
 
 
@@ -7611,60 +7623,11 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
 
             _mStart.msgList_connect('subShapers',[mObj.mNode for mObj in ml_shapersTmp])                    
 
-            #Push scale back...
-            #for mHandle in mPair:
-                #mHandle.scale = l_scales_seg[i]
-
-            #Form Loft Mesh -------------------------------------
-            #mFormLoft = self.getMessage('formLoftMesh',asMeta=True)[0]        
-            #for s in mFormLoft.getShapes(asMeta=True):
-                #s.overrideDisplayType = 1       
-
-
-            #Aim the segment
-            """
-                    for ii,mHandle in enumerate(ml_shapersTmp):
-                        mAimGroup = mHandle.doGroup(True,asMeta=True,typeModifier = 'aim')
-                        log.debug("|{0}| >> seg constrain: {1} {2} | end: {3}".format(_str_func,i,ii,_end))
-
-                        mc.aimConstraint([_end], mAimGroup.mNode, maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,1], upVector = [0,1,0],
-                                         worldUpObject = mBaseOrientCurve.mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [0,1,0])"""        
-    
     
     controller_wireHandles(self,ml_handles + ml_shapers,'form')
     controller_walkChain(self,ml_handles_chain,'form')
     
-    """
-    ml_done = []
-    if cgmGEN.__mayaVersion__ >= 2018:
-    
-        for mHandle in ml_handles + ml_shapers:
-            if mHandle in ml_done:
-                continue
-            if not mHandle:
-                continue
-            mLoft = mHandle.getMessageAsMeta('loftCurve')
-            if mLoft:
-                mLoft = cgmMeta.controller_get(mLoft)
-                mLoft.visibilityMode = 2
-                ml_done.append(mLoft)
-            mController = cgmMeta.controller_get(mHandle)
-            mController.visibilityMode = 2                            
-            ml_done.append(mController)
-                
-                
-                
-        for mObj in ml_done:
-            try:
-                ATTR.connect("{0}.visProximityMode".format(self.mNode),
-                             "{0}.visibilityMode".format(mObj.mNode))    
-            except Exception,err:
-                log.error(err)
 
-            self.msgList_append('formStuff',mObj)
-            """
     return md_handles,ml_handles,ml_shapers,ml_handles_chain
 
 
