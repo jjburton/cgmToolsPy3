@@ -210,6 +210,7 @@ l_attrsStandard = ['side',
                    'shapeDirection',
                    'meshBuild',
                    'proxyGeoCap',
+                   'dynParentModeEnabled',
                    'moduleTarget']
 
 d_attrsToMake = {'axisAim':":".join(CORESHARE._l_axis_by_string),
@@ -229,7 +230,6 @@ d_attrsToMake = {'axisAim':":".join(CORESHARE._l_axis_by_string),
                  'shapersAim':'none:chain:orientToHandle',
                  'shapersAimUp':'none:handle:blockOrient',
                  'dynParentMode':'space:orient:follow:point',
-                 'dynParentScaleMode':'off:link:space',
                  'rootJoint':'messageSimple'}
 
 d_defaultSettings = {'version':__version__,
@@ -239,7 +239,7 @@ d_defaultSettings = {'version':__version__,
                      'addCog':False,
                      'shapeDirection':2,
                      'controlOffsetMult':1.0,
-                     
+                     'dynParentModeEnabled':True,
                      'axisAim':2,
                      'axisUp':4,
                      'addScalePivot':False,
@@ -1366,6 +1366,16 @@ d_preferredAngles = {'head':[0,-10, 10]}#In terms of aim up out for orientation 
 d_rotateOrders = {'head':'yxz'}
 
 #Rig build stuff goes through the rig build factory ------------------------------------------------------
+def rig_prechecks(self):
+    _str_func = 'rig_prechecks'
+    log.debug(cgmGEN.logString_start(_str_func))
+    
+    mBlock = self.mBlock
+    
+    if not mBlock.dynParentModeEnabled and not mBlock.parentToDriver:
+        self.l_precheckErrors.append("If dynParentModeEnabled is False, parentToDriver must be True")
+    
+
 @cgmGEN.Timer
 def rig_dataBuffer(self):
     try:
@@ -1723,7 +1733,7 @@ def rig_controls(self):
             
             
             _d = MODULECONTROL.register(mRoot,
-                                        addDynParentGroup = True,
+                                        addDynParentGroup = self.mBlock.dynParentModeEnabled,
                                         mirrorSide= self.d_module['mirrorDirection'],
                                         mirrorAxis="translateX,rotateY,rotateZ",
                                         makeAimable = True)
@@ -2056,51 +2066,52 @@ def rig_cleanUp(self):
     
     #>>  DynParentGroups - Register parents for various controls ============================================
     #>>  DynParentGroups - Register parents for various controls ============================================
-    ml_baseDynParents = []
-    ml_endDynParents = self.ml_dynParentsAbove + self.ml_dynEndParents# + [mRoot]
-    ml_ikDynParents = []
-    
-    
-    #...Handle -----------------------------------------------------------------------------------   
-    ml_targetDynParents = copy.copy(ml_baseDynParents)
-    ml_targetDynParents.append(self.md_dynTargetsParent['attachDriver'])
-    ml_targetDynParents.extend(ml_endDynParents)
-    
-    ml_targetDynParents.append(self.md_dynTargetsParent['world'])
-    
-    mRoot = mRigNull.getMessageAsMeta('rigRoot')
-    if mRoot:
-        mDynGroup = mRoot.getMessageAsMeta('dynParentGroup')
-        mDynGroup.dynMode = 0
-        for o in ml_targetDynParents:
-            mDynGroup.addDynParent(o)
-        mDynGroup.rebuild()
-        
-        ml_targetDynParents.insert(0,mRoot)
-    
-    #...don't add space pivots till here    
-    ml_targetDynParents.extend(mHandle.msgList_get('spacePivots',asMeta = True))
-    
-    #Add our parents
-    mDynGroup = mHandle.getMessageAsMeta('dynParentGroup')
-    if mDynGroup:
-        log.info("|{0}| >> dynParentSetup : {1}".format(_str_func,mDynGroup))  
+    if self.mBlock.dynParentModeEnabled:
+        ml_baseDynParents = []
+        ml_endDynParents = self.ml_dynParentsAbove + self.ml_dynEndParents# + [mRoot]
+        ml_ikDynParents = []
         
         
-        mDynGroup.dynMode = mBlock.dynParentMode#0
-        mDynGroup.scaleMode = mBlock.dynParentScaleMode
-    
-        for o in ml_targetDynParents:
-            mDynGroup.addDynParent(o)
-        mDynGroup.rebuild()
-    else:
-        mc.parentConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
-                            mHandle.masterGroup.mNode,maintainOffset = True)
-        mc.scaleConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
-                            mHandle.masterGroup.mNode,maintainOffset = True)
-    
-    if mDynGroup.getMessage('dynFollow'):
-        mDynGroup.dynFollow.parent = mMasterDeformGroup
+        #...Handle -----------------------------------------------------------------------------------   
+        ml_targetDynParents = copy.copy(ml_baseDynParents)
+        ml_targetDynParents.append(self.md_dynTargetsParent['attachDriver'])
+        ml_targetDynParents.extend(ml_endDynParents)
+        
+        ml_targetDynParents.append(self.md_dynTargetsParent['world'])
+        
+        mRoot = mRigNull.getMessageAsMeta('rigRoot')
+        if mRoot:
+            mDynGroup = mRoot.getMessageAsMeta('dynParentGroup')
+            mDynGroup.dynMode = 0
+            for o in ml_targetDynParents:
+                mDynGroup.addDynParent(o)
+            mDynGroup.rebuild()
+            
+            ml_targetDynParents.insert(0,mRoot)
+        
+        #...don't add space pivots till here    
+        ml_targetDynParents.extend(mHandle.msgList_get('spacePivots',asMeta = True))
+        
+        #Add our parents
+        mDynGroup = mHandle.getMessageAsMeta('dynParentGroup')
+        if mDynGroup:
+            log.info("|{0}| >> dynParentSetup : {1}".format(_str_func,mDynGroup))  
+            
+            
+            mDynGroup.dynMode = mBlock.dynParentMode#0
+            mDynGroup.scaleMode = mBlock.dynParentScaleMode
+        
+            for o in ml_targetDynParents:
+                mDynGroup.addDynParent(o)
+            mDynGroup.rebuild()
+        else:
+            mc.parentConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
+                                mHandle.masterGroup.mNode,maintainOffset = True)
+            mc.scaleConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
+                                mHandle.masterGroup.mNode,maintainOffset = True)
+        
+        if mDynGroup.getMessage('dynFollow'):
+            mDynGroup.dynFollow.parent = mMasterDeformGroup
     
     
     #Direct ---------------------------------------------------------------------------------------------
