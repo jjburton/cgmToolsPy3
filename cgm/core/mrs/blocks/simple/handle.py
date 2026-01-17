@@ -2222,6 +2222,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                     if str_proxyType == 'geoOnly':
                         continue
                     else:
+                        log.debug("|{0}| >> nurbs creation from: {1}".format(_str_func,mGeo))
                         mMesh = RIGCREATE.get_meshFromNurbs(mGeo,
                                                             mode = 'general',
                                                             uNumber = self.loftSplit, vNumber=self.loftSides)
@@ -2237,6 +2238,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
         
         
         for mGeo in ml_proxy:
+            log.debug("|{0}| >> color_mesh: {1}".format(_str_func,mGeo))
             CORERIG.color_mesh(mGeo.mNode)
         
         if len(ml_proxy) > 1:
