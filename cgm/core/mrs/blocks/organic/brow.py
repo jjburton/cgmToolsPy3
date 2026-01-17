@@ -128,6 +128,7 @@ d_attrStateMask = {'define':['addEyeSqueeze',
                    'skeleton':[ 'numBrowJoints',
                     ],
                    'rig':[
+                    'ribbonAttachEndsToInfluence',
                    ],
                    'vis':['visFormHandles']}
 
@@ -163,7 +164,7 @@ l_attrsStandard = ['side',
                    'controlOffset',
                    'conDirectOffset',
                    'ribbonParam',
-                   
+                   'ribbonAttachEndsToInfluence',
                    'ribbonAim',
                    'ribbonConnectBy',                 
                    'squashMeasure',
@@ -218,6 +219,7 @@ d_defaultSettings = {'version':__version__,
                      'squashFactorMax':1.0,
                      'squashFactorMin':1.0,
                      'visFormHandles':True,
+                     'ribbonAttachEndsToInfluence':'start',
                      #'baseSize':MATH.get_space_value(__dimensions[1]),
                      }
 
@@ -1934,7 +1936,7 @@ def rig_dataBuffer(self):
     #if mBlock.browSetup:
     #    self.str_browSetup  = mBlock.getEnumValueString('browSetup')
         
-    for k in ['browSetup','buildSDK','browType']:
+    for k in ['browSetup','buildSDK','browType','ribbonAttachEndsToInfluence']:
         self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k) or False
         
     self.b_SDKonly = False
@@ -2547,12 +2549,15 @@ def rig_frame(self):
                            'skinDrivers':ml_leftHandles},
                    'right':{'ribbonJoints':ml_right,
                            'skinDrivers':ml_rightHandles}}
+
+
         
         for _side,dat in list(d_sides.items()):
             d_ik = {'jointList':[mObj.mNode for mObj in dat['ribbonJoints']],
                     'baseName' : self.d_module['partName'] + "_{0}".format(_side) + '_ikRibbon',
                     'extendEnds':True,
-                    'attachEndsToInfluences':1,
+                    'attachEndToInfluence':False,
+                    'attachStartToInfluence':True,
                     'orientation':'xyz',
                     'loftAxis' : 'z',
                     'tightenWeights':False,
@@ -2567,7 +2572,12 @@ def rig_frame(self):
                     'extraSquashControl':True,
                     'influences':dat['skinDrivers'],
                     'moduleInstance' : self.mModule}    
-            
+            if self.str_ribbonAttachEndsToInfluence == 'both':
+                d_ik['attachEndsToInfluences'] = True
+            elif self.str_ribbonAttachEndsToInfluence == 'start':
+                d_ik['attachStartToInfluence'] = True
+            elif self.str_ribbonAttachEndsToInfluence == 'end':
+                d_ik['attachEndToInfluence'] = True
             if self.b_scaleSetup:
                 d_ik['masterScalePlug'] = mPlug_masterScale                
                 d_ik.update(self.d_squashStretch)
