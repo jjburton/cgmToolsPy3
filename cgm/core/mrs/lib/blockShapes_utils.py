@@ -2008,6 +2008,7 @@ def create_face_handle(self, pos, tag, k, side,
                        shapeToSurf = False,
                        orientToDriver = False,
                        orientToNormal = False,
+                       mParent = None,
                        aimGroup = 0,nameDict = None):
     _str_func = 'create_face_handle'
     #Main handle ==================================================================================
@@ -2024,8 +2025,11 @@ def create_face_handle(self, pos, tag, k, side,
         mHandle._verifyMirrorable()
         mHandle.doSnapTo(self)
         if pos:mHandle.p_position = pos
-    
-    mHandle.p_parent = mStateNull
+
+    if mParent is None:
+        mParent = mStateNull
+
+    mHandle.p_parent = mParent
     
     #Name...
     if nameDict:
@@ -2078,7 +2082,7 @@ def create_face_handle(self, pos, tag, k, side,
     
     if not mHandleShape:
         mDagHelper.p_orient = mHandle.p_orient
-        mDagHelper.p_parent = mStateNull
+        mDagHelper.p_parent = mParent
     
     if pos:mDagHelper.p_position = pos
     
@@ -2254,7 +2258,7 @@ def create_face_anchorHandleCombo(self, pos, tag, k, side,
                                 handleShape = 'squareRounded',
                                 size = 1.0,
                                 offset = 1,
-                                mParent = None,
+                                mStateNull = None,
                                 mNoTransformNull = None,
                                 mDriver = None,
                                 mAttachCrv = None,
@@ -2268,10 +2272,13 @@ def create_face_anchorHandleCombo(self, pos, tag, k, side,
                                 orientToDriver = False,
                                 aimGroup = 0,nameDict = None,
                                 anchorSize = 1.0,
+                                mParent = None,
                                 orientToSurf = False,**kws):
                                     
     d_anchor = copy.copy(nameDict)
     d_anchor['cgmType'] = 'preAnchor'
+    if mParent is None:
+        mParent = mStateNull
     
     mAnchor = create_face_anchor(self, pos, mSurface,tag,k,side,controlType,orientToSurf,
                                  d_anchor, anchorSize,mParent)
@@ -2298,7 +2305,7 @@ def create_face_anchorHandleCombo(self, pos, tag, k, side,
                                       attachToSurf=attachToSurf,
                                       orientToDriver = orientToDriver,
                                       nameDict= d_use,
-                                      mParent = mParent,
+                                      mStateNull = mStateNull,
                                       mNoTransformNull=mNoTransformNull)
     
     try:kws.get('ml_handles').extend([mAnchor,mShape,mDag])
