@@ -3938,6 +3938,7 @@ def prerig(self):
                 'attachToSurf':True,
                 'nameDict':_dTmp,
                 'md_mirrorDat':md_mirrorDat,
+                'mStateNull':mStateNull,
                 'ml_handles':ml_handles,
                 'md_handles':md_handles,
                 'ml_jointHandles':ml_jointHandles,
@@ -4056,7 +4057,7 @@ def prerig(self):
                     'anchorSize' : _size_anchor,
                     'orientToDriver':True,
                     'orientToSurf':False,
-                    
+                    'mStateNull':mStateNull,
                     'attachToSurf':True,
                     'nameDict':_dTmp,
                     'md_mirrorDat':md_mirrorDat,
@@ -4131,6 +4132,7 @@ def prerig(self):
                     'attachToSurf':True,
                     'nameDict':_dTmp,
                     'md_mirrorDat':md_mirrorDat,
+                    'mStateNull':mStateNull,
                     'ml_handles':ml_handles,
                     'md_handles':md_handles,
                     'ml_jointHandles':ml_jointHandles,
@@ -4166,7 +4168,7 @@ def prerig(self):
                         'anchorSize' : _size_anchor,
                         'orientToDriver':True,
                         'orientToSurf':True,
-                        
+                        'mStateNull':mStateNull,
                         'attachToSurf':True,
                         'nameDict':_dTmp,
                         'md_mirrorDat':md_mirrorDat,
@@ -4228,6 +4230,8 @@ def prerig(self):
                     'ml_handles':ml_handles,
                     'md_handles':md_handles,
                     'ml_jointHandles':ml_jointHandles,
+                    'mStateNull':mStateNull,
+
                 }
                 d_handleKWS.update(d_baseHandeKWS)
 
@@ -4286,6 +4290,7 @@ def prerig(self):
                     'ml_handles':ml_handles,
                     'md_handles':md_handles,
                     'ml_jointHandles':ml_jointHandles,
+                    'mStateNull':mStateNull,
                 }
                 d_handleKWS.update(d_baseHandeKWS)
 
@@ -4343,6 +4348,7 @@ def prerig(self):
                         'ml_handles':ml_handles,
                         'md_handles':md_handles,
                         'ml_jointHandles':ml_jointHandles,
+                        'mStateNull':mStateNull,
                     }
                     d_handleKWS.update(d_baseHandeKWS)
     
@@ -4405,6 +4411,7 @@ def prerig(self):
                     'ml_handles':ml_handles,
                     'md_handles':md_handles,
                     'ml_jointHandles':ml_jointHandles,
+                    'mStateNull':mStateNull,
                 }
                 d_handleKWS.update(d_baseHandeKWS)
 
@@ -4464,6 +4471,7 @@ def prerig(self):
                         'ml_handles':ml_handles,
                         'md_handles':md_handles,
                         'ml_jointHandles':ml_jointHandles,
+                        'mStateNull':mStateNull,
                     }
                     d_handleKWS.update(d_baseHandeKWS)
                     
@@ -6930,13 +6938,16 @@ def rig_frame(self):
             mRemap_jawRX_neg.inputMin = -180
             mRemap_jawRX_neg.outputMax = -180"""
             
-            
+            l_parentsCheek = [mJaw.mNode]
+            if mJawUpr:
+                l_parentsCheek.append(mJawUpr.mNode)
+
             for k in ['cheekLeft','cheekRight']:
                 log.debug("|{0}| >> {1}...".format(_str_func,k))
                 mHandle = mdD[k]
                 mdD[k].masterGroup.p_parent = self.mDeformNull
                 
-                mc.parentConstraint([mFollowParent.mNode, mJaw.mNode],
+                mc.parentConstraint(l_parentsCheek,
                                     mdD[k].masterGroup.mNode,maintainOffset=True)
                 
                 mOffsetGroup = mdD[k].doGroup(True,asMeta=True,typeModifier = 'offset')
@@ -7062,10 +7073,13 @@ def rig_frame(self):
                 log.debug("|{0}| >> {1}...".format(_str_func,k))
                 mdD[k].masterGroup.p_parent = mJawUpr or self.mDeformNull
                 
+                if mJawUpr:
+                    continue
+                
                 mTrack = mdD[k].masterGroup.doCreateAt(setClass=1)
                 mTrack.p_parent = mFollowParent
                 mTrack.rename("{0}_baseTrack".format(mdD[k].p_nameBase))
-                _c = mc.parentConstraint([mFollowBase.mNode, mTrack.mNode],
+                _c = mc.parentConstraint([mFollowParentUpr.mNode, mTrack.mNode],
                                     mdD[k].masterGroup.mNode,maintainOffset=True)[0]
                 
                 targetWeights = mc.parentConstraint(_c,q=True,
@@ -7144,11 +7158,14 @@ def rig_frame(self):
                 for k in ['cheekUprLeft','cheekUprRight']:
                     log.debug("|{0}| >> {1}...".format(_str_func,k))
                     mdD[k].masterGroup.p_parent = mJawUpr or self.mDeformNull
+
+                    if mJawUpr:
+                        continue
                     
                     mTrack = mdD[k].masterGroup.doCreateAt(setClass=1)
                     mTrack.p_parent = mFollowParent
                     
-                    _c = mc.parentConstraint([mFollowBase.mNode, mTrack.mNode],
+                    _c = mc.parentConstraint([mFollowParentUpr.mNode, mTrack.mNode],
                                         mdD[k].masterGroup.mNode,
                                         maintainOffset=True)[0]
                     
