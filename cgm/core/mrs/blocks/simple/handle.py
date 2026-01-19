@@ -230,6 +230,7 @@ d_attrsToMake = {'axisAim':":".join(CORESHARE._l_axis_by_string),
                  'shapersAim':'none:chain:orientToHandle',
                  'shapersAimUp':'none:handle:blockOrient',
                  'dynParentMode':'space:orient:follow:point',
+                 'dynParentScaleMode':'off:link:space',
                  'rootJoint':'messageSimple'}
 
 d_defaultSettings = {'version':__version__,
