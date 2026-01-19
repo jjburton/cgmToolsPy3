@@ -128,7 +128,7 @@ d_attrStateMask = {'define':['baseSizeX','baseSizeY','baseSizeZ'],
                    'form':['formEndAim','loftShape',
                            'loftShapeEnd','loftShapeStart'],
                    'prerig':[],
-                   'skeleton':['numJoints'],
+                   'skeleton':['numJoints','skeletonMode'],
                    'squashStretch':['squashSkipAim','segmentStretchBy'],
                    'space':['ikMidDynParentMode','ikMidDynScaleMode'],
                    'rig':['segmentType','special_swim','ikEndShape','ikSplineAimEnd','ikSplineTwistEndConnect','ikSplineExtendEnd','ikSplineParentSegEnd','ikMidSetup','ikMidControlNum','ikSplineTwistAxis',
@@ -670,6 +670,7 @@ l_attrsStandard = ['side',
                    'controlOffsetMult',
                    'squashFactorMode',
                    'settingsDirection',
+                   'skeletonMode',
                    'moduleTarget']
 
 d_attrsToMake = {'visMeasure':'bool',
@@ -1940,9 +1941,9 @@ def skeleton_build(self, forceNew = True):
     self.atBlockUtils('skeleton_connectToParent')
     for mJnt in ml_joints:mJnt.rotateOrder = 5
     
-    if self.scaleSetup:
+    if self.skeletonMode == 'floating':
         for mJnt in ml_joints[1:]:
-            mJnt.p_parent = ml_joints[0]
+            mJnt.p_parent = ml_joints[0].p_parent
     
     return ml_joints
     #except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        

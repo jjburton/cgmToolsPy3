@@ -207,6 +207,7 @@ _d_attrsTo_make = {'side':'none:left:right:center',
                    
                    'ribbonParam': 'fixed:floating:blend',
                    'ribbonAttachEndsToInfluence':'none:start:end:both',
+                   'skeletonMode':'chain:floating',
 
                    'dynParentMode':arg_dynParentModes,
                    'dynParentScaleMode':arg_scaleDynParentModes,
