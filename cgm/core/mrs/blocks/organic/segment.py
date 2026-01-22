@@ -1941,7 +1941,7 @@ def skeleton_build(self, forceNew = True):
     self.atBlockUtils('skeleton_connectToParent')
     for mJnt in ml_joints:mJnt.rotateOrder = 5
     
-    if self.skeletonMode == 'floating':
+    if self.getEnumValueString('skeletonMode') == 'floating':
         for mJnt in ml_joints[1:]:
             mJnt.p_parent = ml_joints[0].p_parent
     
