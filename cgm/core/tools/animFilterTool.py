@@ -917,11 +917,11 @@ class ui_post_filter(object):
     
     def uiFunc_set_translate(self):
         self._optionDict['translate'] = self.uiFF_translate.getValue()
-        self.uiCL_translate(e=True, vis=self._optionDict['translate'])
+        self.uiCL_translate(e=True, vis=self._optionDict.get('translate', True))
 
     def uiFunc_set_rotate(self):
         self._optionDict['rotate'] = self.uiFF_rotate.getValue()
-        self.uiCL_rotate(e=True, vis=self._optionDict['rotate'])
+        self.uiCL_rotate(e=True, vis=self._optionDict.get('rotate', True))
 
     def uiFunc_setPostAim(self):
         aimFwd = self.post_fwdMenu.getValue()
@@ -1241,7 +1241,7 @@ class ui_post_dragger_column(ui_post_filter):
         self.add_limitRow(self.uiCL_translate,'translate')
         mUI.MelSeparator(self.uiCL_translate, style = 'shelf')
 
-        self.uiCL_translate(e=True, vis=self._optionDict['translate'])
+        self.uiCL_translate(e=True, vis=self._optionDict.get('translate', True))
 
         #mUI.MelSpacer(parentColumn,h=pad_sep)
 
@@ -1381,7 +1381,7 @@ class ui_post_dragger_column(ui_post_filter):
         mUI.MelSeparator(self.uiCL_rotate, style = 'shelf')        
         #Extra rows -------------------------------------------------------------
         add_timeRows(self,parentColumn)#...add our time rows
-        self.uiCL_rotate(e=True, vis=self._optionDict['rotate'])
+        self.uiCL_rotate(e=True, vis=self._optionDict.get('rotate', True))
 
         mc.setParent(parentColumn)
         cgmUI.add_LineSubBreak()  
@@ -1963,8 +1963,8 @@ class ui_post_spring_column(ui_post_filter):
         mUI.MelSpacer(parentColumn,h=pad_sep)
 
 
-        self.uiCL_translate(e=True, vis=self._optionDict['translate'])
-        self.uiCL_rotate(e=True, vis=self._optionDict['rotate'])
+        self.uiCL_translate(e=True, vis=self._optionDict.get('translate', True))
+        self.uiCL_rotate(e=True, vis=self._optionDict.get('rotate', True))
 
 
 
@@ -2661,8 +2661,8 @@ class ui_post_designer_spring_column(ui_post_filter):
         mUI.MelSpacer(parentColumn,h=pad_sep)
 
 
-        self.uiCL_translate(e=True, vis=self._optionDict['translate'])
-        self.uiCL_rotate(e=True, vis=self._optionDict['rotate'])
+        self.uiCL_translate(e=True, vis=self._optionDict.get('translate', True))
+        self.uiCL_rotate(e=True, vis=self._optionDict.get('rotate', True))
 
     def get_data(self):
         self.update_dict()
