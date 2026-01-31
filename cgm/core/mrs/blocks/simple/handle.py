@@ -96,7 +96,7 @@ d_build_profiles = {'unityLow':{'default':{}},
 
 d_attrStateMask = {'define':[],
                    'form':['loftList','basicShape','proxyShape','proxyType','shapersAim'],
-                   'prerig':['addScalePivot','addPivot'],
+                   'prerig':['addScalePivot','addPivot','pivotDriverSetup'],
                    'skeleton':['hasJoint'],
                    'proxySurface':['proxy'],
                    'rig':['rotPivotPlace','dynParentMode','dynParentScaleMode','mirrorSetup'],
@@ -221,6 +221,7 @@ d_attrsToMake = {'axisAim':":".join(CORESHARE._l_axis_by_string),
                  'addPivot':'none:simple:wobbleAdd:wobbleOnly:ballRotate',
                  'addAim':'none:default:handle',
                  'mirrorSetup':'auto:on:off',
+                 'pivotDriverSetup':'default:dynParent',
                  
                  'parentVisAttr':'bool',
                  'proxyShape':'cube:sphere:cylinder:cone:torus:shapers:geoOnly',
@@ -241,6 +242,7 @@ d_defaultSettings = {'version':__version__,
                      'shapeDirection':2,
                      'controlOffsetMult':1.0,
                      'dynParentModeEnabled':True,
+                     'pivotDriverSetup':'default',
                      'axisAim':2,
                      'axisUp':4,
                      'addScalePivot':False,
@@ -1408,7 +1410,7 @@ def rig_dataBuffer(self):
         
         log.debug(cgmGEN._str_subLine)
         
-        for k in ['addPivot','mirrorSetup','addAim']:
+        for k in ['addPivot','mirrorSetup','addAim','pivotDriverSetup']:
             self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)        
         
         #Offset ============================================================================    
@@ -1946,7 +1948,6 @@ def rig_frame(self):
             mAimDriver = mPivotResultDriver
             mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
             
-            cgmGEN._reloadMod(mBlock.UTILS)
             
             _pivot_kws = {}
             pivotSetup = 'default'
@@ -1963,7 +1964,12 @@ def rig_frame(self):
                 pivotSetup = 'ballRotate'
 
             
-            
+            if self.str_pivotDriverSetup == 'dynParent':
+                _pivot_kws['mDag'] = self.mDeformNull
+                mDriverPoint =self.mModule.atUtils('get_driverPoint',None)
+                mc.parentConstraint(mDriverPoint.mNode,
+                                    self.mDeformNull.mNode, maintainOffset = True)
+
             mBlock.atBlockUtils('pivots_setup', mControl = mHandle, mRigNull = mRigNull, pivotResult = mPivotResultDriver, rollSetup = 'default',
                                 front = 'front', back = 'back', setup= pivotSetup, **_pivot_kws)#front, back to clear the toe, heel defaults
             
@@ -2032,12 +2038,17 @@ def rig_frame(self):
     
         #Direct  ===================================================================================
         ml_rigJoints = mRigNull.msgList_get('rigJoints')
+
+        if self.str_pivotDriverSetup == 'default':
+            mParentForDirect = mDirectDriver
+        else:
+            mParentForDirect = mHandle
         
         #Parent the direct control to the 
         if ml_rigJoints[0].getMessage('masterGroup'):
-            ml_rigJoints[0].masterGroup.parent = mDirectDriver
+            ml_rigJoints[0].masterGroup.parent = mParentForDirect
         else:
-            ml_rigJoints[0].parent = mDirectDriver
+            ml_rigJoints[0].parent = mParentForDirect
             
         log.info("|{0}| >> Time >> = {1} seconds".format(_str_func, "%0.3f"%(time.time()-_start)))
     except Exception as err:
@@ -2072,7 +2083,13 @@ def rig_cleanUp(self):
         ml_endDynParents = self.ml_dynParentsAbove + self.ml_dynEndParents# + [mRoot]
         ml_ikDynParents = []
         
-        
+        if self.str_pivotDriverSetup == 'dynParent':
+            mDriver = mRigNull.getMessage('pivotResultDriver',asMeta=True)
+            if mDriver:
+                ml_baseDynParents.insert(0, mDriver)
+                if not mDriver[0].hasAttr('cgmAlias'):
+                    mDriver.addAttr('cgmAlias','pivotDriver')
+
         #...Handle -----------------------------------------------------------------------------------   
         ml_targetDynParents = copy.copy(ml_baseDynParents)
         ml_targetDynParents.append(self.md_dynTargetsParent['attachDriver'])

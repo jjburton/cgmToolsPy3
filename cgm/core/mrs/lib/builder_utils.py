@@ -1372,12 +1372,7 @@ def get_dynParentTargetsDat(self,allParents=True):
     
     mMasterAnim = self.d_module['mMasterControl']
 
-    
-    #self.md_dynTargetsParent['driverPoint'] = mModule.atUtils('get_driverPoint',
-    #                                                         ATTR.get_enumValueString(mBlock.mNode,'attachPoint'))
-    #
     self.md_dynTargetsParent['attachDriver'] = mModule.rigNull.getMessageAsMeta('attachDriver')
-    
     _mBase = mModule.atUtils('get_driverPoint','base')
     _mEnd = mModule.atUtils('get_driverPoint','end')
     
@@ -1387,7 +1382,6 @@ def get_dynParentTargetsDat(self,allParents=True):
     if _mEnd:
         self.md_dynTargetsParent['end'] = _mEnd
         self.ml_dynParentsAbove.append(_mEnd)    
-    
     
     if allParents:ml_moduleParents = mModule.atUtils('parentModules_get')
     else: ml_moduleParents = [mModuleParent]

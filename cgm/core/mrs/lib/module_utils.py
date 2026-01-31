@@ -682,12 +682,17 @@ def get_attachPoint(self, mode = 'end',idx = None, noneValid = True):
             raise ValueError(_msg)
         return mTarget
     
-def get_driverPoint(self, mode = 'end',idx = None,noneValid = True):
+def get_driverPoint(self, mode = None,idx = None,noneValid = True):
     """
     Get the main driver point for a 
     """
     _str_func = 'get_driverPoint'
     log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
+    if not mode and self.getMessage('rigBlock'):
+        mode = ATTR.get_enumValueString(self.rigBlock.mNode,'attachPoint')
+        log.debug("|{0}| >> mode not provided, using attachPoint: {1}".format(_str_func,mode))
+    if not mode:
+        mode = 'end'
     
     mParentModule = self.getMessage('moduleParent',asMeta=True)
     b_parentMode = False
