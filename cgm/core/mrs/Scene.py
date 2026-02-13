@@ -1507,6 +1507,7 @@ example:
         _row = mUI.MelHLayout(_col,padding=5)
         mUI.MelButton(_row, label="Save", ut = 'cgmUITemplate', command=partial(self.ExportQueue_write))
         mUI.MelButton(_row, label="Load", ut = 'cgmUITemplate', command=partial(self.ExportQueue_load))
+        mUI.MelButton(_row, label="Update", ut = 'cgmUITemplate', command=partial(self.ExportQueue_update))
         _row.layout()
 
 
@@ -5037,6 +5038,158 @@ example:
             self.batchExportItems = mDat.dat.get('data',[])
 
         self.RefreshQueueList()
+
+    def ExportQueue_getEntryDirectoryAndPrefix(self, animDict):
+        """Resolve directory and version filename prefix for a queue entry."""
+        _str_func = 'ExportQueue_getEntryDirectoryAndPrefix'
+        if not self.directory:
+            log.debug(log_msg(_str_func, 'No directory set'))
+            return None, None
+        try:
+            categoryDirectory = os.path.normpath(os.path.join(self.directory, animDict.get('category', '')))
+            path_asset = os.path.normpath(os.path.join(categoryDirectory, animDict.get('asset', '')))
+            path_set = os.path.normpath(os.path.join(path_asset, animDict.get('subType', '')))
+            if animDict.get('path'):
+                searchDir = os.path.dirname(animDict['path'])
+                if not os.path.isdir(searchDir):
+                    log.debug(log_msg(_str_func, 'Path dir not found: {}'.format(searchDir)))
+                    return None, None
+            else:
+                if animDict.get('variation'):
+                    searchDir = os.path.normpath(os.path.join(path_set, animDict['variation']))
+                else:
+                    searchDir = path_set
+            if not os.path.isdir(searchDir):
+                log.debug(log_msg(_str_func, 'Dir not found: {}'.format(searchDir)))
+                return searchDir, None
+            exportMode = animDict.get('exportMode', 'export')
+            if exportMode == 'rig':
+                if animDict.get('set'):
+                    prefix = '{0}_{1}_rig_'.format(animDict.get('asset', ''), animDict.get('set', ''))
+                else:
+                    prefix = '{0}_rig_'.format(animDict.get('asset', ''))
+            else:
+                if animDict.get('variation'):
+                    prefix = '{0}_{1}_{2}_'.format(
+                        animDict.get('asset', ''),
+                        animDict.get('set', ''),
+                        animDict.get('variation', ''))
+                elif animDict.get('set'):
+                    prefix = '{0}_{1}_'.format(animDict.get('asset', ''), animDict.get('set', ''))
+                else:
+                    baseName = (animDict.get('version') or '').split('.')[0]
+                    if baseName:
+                        prefix = re.sub(r'[0-9]+$', '', baseName)
+                    else:
+                        return searchDir, None
+            return searchDir, prefix
+        except Exception as err:
+            log.debug(log_msg(_str_func, 'Error: {}'.format(err)))
+            return None, None
+
+    def ExportQueue_checkForUpdates(self):
+        """Scan batchExportItems for entries that have newer versions available. Returns list of updatable items."""
+        _str_func = 'ExportQueue_checkForUpdates'
+        log.debug(log_start(_str_func))
+        l_updatable = []
+        fileExtensions = ['ma', 'mb']
+        for idx, animDict in enumerate(self.batchExportItems):
+            currentVersion = animDict.get('version')
+            if not currentVersion:
+                continue
+            searchDir, prefix = self.ExportQueue_getEntryDirectoryAndPrefix(animDict)
+            if not searchDir or not prefix or not os.path.isdir(searchDir):
+                continue
+            try:
+                allFiles = CGMOS.get_lsFromPath(searchDir)
+            except (ValueError, TypeError):
+                continue
+            matched = []
+            for f in allFiles:
+                if f[0] in '_.':
+                    continue
+                if os.path.isdir(os.path.join(searchDir, f)):
+                    continue
+                if os.path.splitext(f)[-1].lower()[1:] not in fileExtensions:
+                    continue
+                if prefix in f:
+                    try:
+                        numPart = re.findall(r'[0-9]+', f.split('.')[0].split('_')[-1])
+                        num = int(numPart[0]) if numPart else 0
+                        matched.append((f, num))
+                    except (IndexError, ValueError):
+                        matched.append((f, 0))
+            if not matched:
+                continue
+            matched.sort(key=lambda x: x[1])
+            latestFile = matched[-1][0]
+            currentBase = currentVersion.split('{')[0] if '{' in currentVersion else currentVersion
+            if latestFile != currentBase:
+                newPath = os.path.normpath(os.path.join(searchDir, latestFile))
+                l_updatable.append({
+                    'idx': idx,
+                    'entry': animDict,
+                    'current_version': currentVersion,
+                    'new_version': latestFile,
+                    'new_path': newPath,
+                })
+        return l_updatable
+
+    def ExportQueue_updateDialog(self, l_updatable):
+        """Show popup with checkboxes for each updatable entry. Apply updates on confirm."""
+        _str_func = 'ExportQueue_updateDialog'
+        winName = 'cgmSceneQueueUpdateWin'
+        if mc.window(winName, exists=True):
+            mc.deleteUI(winName)
+        win = mc.window(winName, title='Update Queue Entries', resizeToFitChildren=True, sizeable=True)
+        mainCol = mUI.MelColumnLayout(win, ut='cgmUISubTemplate')
+        mUI.MelLabel(mainCol, label='Select entries to update to newer versions:', align='left')
+        cgmUI.add_LineSubBreak()
+        scroll = mUI.MelScrollLayout(mainCol, useTemplate='cgmUISubTemplate')
+        col = mUI.MelColumnLayout(scroll, adjustableColumn=True)
+        checkboxes = []
+        for i, item in enumerate(l_updatable):
+            lbl = '{0} -> {1}'.format(item['current_version'], item['new_version'])
+            _ut = 'cgmUIInstructionsTemplate' if MATH.is_even(i) else 'cgmUISubTemplate'
+            row = mUI.MelHSingleStretchLayout(col, padding=2, ut=_ut)
+            cb = mUI.MelCheckBox(row, label=lbl, v=True)
+            row.setStretchWidget(cb)
+            checkboxes.append((item['idx'], cb, item))
+            row.layout()
+        cgmUI.add_LineSubBreak()
+        btnRow = mUI.MelHLayout(mainCol, padding=5)
+        def _checkAll(*a):
+            for _, cb, _ in checkboxes:
+                mc.checkBox(cb, edit=True, value=True)
+        def _clearAll(*a):
+            for _, cb, _ in checkboxes:
+                mc.checkBox(cb, edit=True, value=False)
+        def _apply(*a):
+            for idx, cb, item in checkboxes:
+                if mc.checkBox(cb, q=True, v=True):
+                    self.batchExportItems[idx]['version'] = item['new_version']
+                    self.batchExportItems[idx]['path'] = item['new_path']
+            self.RefreshQueueList()
+            mc.deleteUI(winName)
+        mUI.MelButton(btnRow, label='Check All', ut='cgmUITemplate', c=cgmGEN.Callback(_checkAll))
+        mUI.MelButton(btnRow, label='Clear', ut='cgmUITemplate', c=cgmGEN.Callback(_clearAll))
+        mUI.MelButton(btnRow, label='Apply', ut='cgmUITemplate', c=cgmGEN.Callback(_apply))
+        mUI.MelButton(btnRow, label='Cancel', ut='cgmUITemplate', c=cgmGEN.Callback(mc.deleteUI, winName))
+        btnRow.layout()
+        mc.showWindow(win)
+
+    def ExportQueue_update(self, *args):
+        """Check queue for newer versions and offer to update selected entries."""
+        _str_func = 'ExportQueue_update'
+        log.debug(log_start(_str_func))
+        if not self.batchExportItems:
+            mc.confirmDialog(title='Update Queue', message='Queue is empty.')
+            return
+        l_updatable = self.ExportQueue_checkForUpdates()
+        if not l_updatable:
+            mc.confirmDialog(title='Update Queue', message='No entries have newer versions available.')
+            return
+        self.ExportQueue_updateDialog(l_updatable)
 
     def AddToExportQueue(self, exportMode = 'export', *args):
         if self.versionList['scrollList'].getSelectedItem() != None:
