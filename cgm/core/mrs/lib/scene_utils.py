@@ -92,6 +92,33 @@ log_msg = cgmGEN.logString_msg
 #>> Queries
 #=============================================================================================================
 find_tmpFiles = CGMOS.find_tmpFiles
+
+# Maya returns "step" but PU._tangents uses "stepped" - normalize for (current) display
+_d_mayaTangentToDisplay = {'step': 'stepped'}
+
+def _normalizeTangentForDisplay(val):
+    return _d_mayaTangentToDisplay.get(val, val)
+
+def _buildTangentSubmenuContent(self, subMenu, mode):
+    """Rebuild tangent submenu with fresh current values - called via pmc when submenu is shown."""
+    try:
+        mc.menu(subMenu, e=True, dai=True)
+    except Exception:
+        pass
+    if mode == 'inTangent':
+        fnc = MAYASET.defaultInTangent_set
+        _current = _normalizeTangentForDisplay(MAYASET.defaultInTangent_get())
+    elif mode == 'outTangent':
+        fnc = MAYASET.defaultOutTangent_set
+        _current = _normalizeTangentForDisplay(MAYASET.defaultOutTangent_get())
+    else:
+        fnc = MAYASET.defaultTangents_set
+        _in = _normalizeTangentForDisplay(MAYASET.defaultInTangent_get())
+        _out = _normalizeTangentForDisplay(MAYASET.defaultOutTangent_get())
+        _current = _in if _in == _out else None
+    for t in PU._tangents:
+        _l = "{0}(current)".format(t) if t == _current else t
+        mUI.MelMenuItem(subMenu, l=_l, c=cgmGEN.Callback(fnc, t))
     
 def buildMenu_utils(self, mMenu):
     mUI.MelMenuItem( mMenu, l="New Scene",
@@ -99,29 +126,12 @@ def buildMenu_utils(self, mMenu):
     mUI.MelMenuItemDiv( mMenu, label='Maya Settings..' )
     
     for a in 'inTangent','outTangent','both':
-        
-        if a == 'inTangent':
-            fnc = MAYASET.defaultInTangent_set
-            _current = MAYASET.defaultInTangent_get()
-        elif a == 'outTangent':
-            fnc = MAYASET.defaultOutTangent_set
-            _current = MAYASET.defaultOutTangent_get()
-        else:
-            fnc = MAYASET.defaultTangents_set
-            _current = MAYASET.defaultOutTangent_get()
-            
-        _sub = mUI.MelMenuItem( mMenu, l=a,
-                         subMenu=True)
-        
-        for t in PU._tangents:
-            if t == _current:
-                _l = "{0}(current)".format(t)
-            else:
-                _l = t
-                
-            mUI.MelMenuItem( _sub,
-                             l=_l,                
-            c = cgmGEN.Callback(fnc,t))        
+        _sub = mUI.MelMenuItem(mMenu, l=a, subMenu=True)
+        try:
+            mc.menu(_sub, e=True, postMenuCommand=cgmGEN.Callback(_buildTangentSubmenuContent, self, _sub, a))
+        except Exception:
+            pass
+        _buildTangentSubmenuContent(self, _sub, a)        
 
     mUI.MelMenuItemDiv( mMenu, label='Global Settings..' )
     mUI.MelMenuItem( mMenu, l="World Match",
@@ -309,7 +319,8 @@ def uiFunc_newProjectScene(self,*args):
 
     if createPrompt == 'Yes':
         mc.file(new=True, f=True)
-        fncMayaSett_do(self, True, True)    else:
+        fncMayaSett_do(self, True, True)
+    else:
         log.warning("No new file created")   
         
     log.debug(cgmGEN._str_hardBreak)

@@ -221,7 +221,7 @@ example:
         self.d_labels = {}        
         self.d_userPaths = {}
         self.mExportDat = None
-        self.l_dirMask = []
+        self.l_dirMask = copy.copy(_l_directoryMask)
         
         global UI
         UI = self
@@ -692,13 +692,9 @@ example:
         self.var_categoryStore.setValue( self.categoryIndex )
         self.var_subTypeStore.setValue( self.subTypeIndex )
 
-
-
-
-
-        #self.uiFunc_showDirectories( self.showDirectories )
-        #self.uiFunc_displayDetails( self.displayDetails )
-        #self.uiFunc_displayProject( self.displayProject )
+        self.uiFunc_showDirectories(self.showDirectories)
+        self.uiFunc_displayDetails(self.displayDetails)
+        self.uiFunc_displayProject(self.displayProject)
 
     def UpdateToLatestRig(self, *args):
         for obj in mc.ls(sl=True):
@@ -1389,13 +1385,13 @@ example:
         ##############################
         # Bottom 
         ##############################
-        def create_exportButton(parent,ann,image,c=None):
+        def create_exportButton(parent,ann,image,c=None,w=30,h=30):
             return mUI.MelIconButton(parent,
                                      ann = ann,
                                      #bgc = cgmUI.guiButtonColor,
                                      image=image,
-                                     w=30,
-                                     h=30,
+                                     w=w,
+                                     h=h,
                                      c=c)
 
 
@@ -1501,21 +1497,24 @@ example:
 
         self.queueTSL = cgmUI.cgmScrollList(_rcl)
         self.queueTSL.allowMultiSelect(True)
+        self.queueTSL(e=True, dcc=cgmGEN.Callback(self.ExportQueue_selectEntryInUI))
 
-        _col = mUI.MelColumnLayout(_rcl,width=200,adjustableColumn=True,useTemplate = 'cgmUISubTemplate')#mc.columnLayout(width=200,adjustableColumn=True)
+        _col = mUI.MelColumnLayout(_rcl,width=200,adjustableColumn=True,useTemplate = 'cgmUISubTemplate',rowSpacing=0)#mc.columnLayout(width=200,adjustableColumn=True)
 
-        _row = mUI.MelHLayout(_col,padding=5)
-        mUI.MelButton(_row, label="Save", ut = 'cgmUITemplate', command=partial(self.ExportQueue_write))
-        mUI.MelButton(_row, label="Load", ut = 'cgmUITemplate', command=partial(self.ExportQueue_load))
-        mUI.MelButton(_row, label="Update", ut = 'cgmUITemplate', command=partial(self.ExportQueue_update))
+        _row = mUI.MelHSingleStretchLayout(_col, ut='cgmUISubTemplate', padding=5, h=40)
+        mUI.MelSpacer(_row, w=10)
+        create_exportButton(_row, 'Save', os.path.join(_path_imageFolder, 'file_save.png'), partial(self.ExportQueue_write))
+        create_exportButton(_row, 'Load', os.path.join(_path_imageFolder, 'file_open.png'), partial(self.ExportQueue_load))
+        create_exportButton(_row, 'Update', os.path.join(_path_imageFolder, 'refresh.png'), partial(self.ExportQueue_update))
+        create_exportButton(_row, 'Report', os.path.join(_path_imageFolder, 'report.png'), partial(self.ExportQueue_report))
+        create_exportButton(_row, 'Sort', os.path.join(_path_imageFolder, 'sortBy_name.png'), partial(self.ExportQueue_sort))
+        _spacer = mUI.MelSpacer(_row, w=0)
+        _row.setStretchWidget(_spacer)
         _row.layout()
-
 
         mc.setParent(_col)
         cgmUI.add_LineSubBreak()
-        #mUI.MelButton(_col, label="Add", ut = 'cgmUITemplate', command=partial(self.AddToExportQueue))
-        #cgmUI.add_LineSubBreak()
-        mUI.MelButton(_col, label="Remove", ut = 'cgmUITemplate', command=partial(self.RemoveFromQueue, 0))
+        mUI.MelButton(_col, label="Remove", ut='cgmUITemplate', command=partial(self.RemoveFromQueue, 0))
         cgmUI.add_LineSubBreak()
         mUI.MelButton(_col, label="Remove All", ut = 'cgmUITemplate', command=partial(self.RemoveFromQueue, 1))
         cgmUI.add_LineSubBreak()
@@ -5097,6 +5096,9 @@ example:
             currentVersion = animDict.get('version')
             if not currentVersion:
                 continue
+            baseName = currentVersion.split('.')[0]
+            if not re.search(r'[0-9]+$', baseName):
+                continue
             searchDir, prefix = self.ExportQueue_getEntryDirectoryAndPrefix(animDict)
             if not searchDir or not prefix or not os.path.isdir(searchDir):
                 continue
@@ -5190,6 +5192,103 @@ example:
             mc.confirmDialog(title='Update Queue', message='No entries have newer versions available.')
             return
         self.ExportQueue_updateDialog(l_updatable)
+
+    def ExportQueue_report(self, *args):
+        """Show a hierarchical report of queue data by category, asset, set, variation."""
+        _str_func = 'ExportQueue_report'
+        if not self.batchExportItems:
+            mc.confirmDialog(title='Queue Report', message='Queue is empty.')
+            return
+        lines = []
+        lines.append('Export Queue Report ({} entries)'.format(len(self.batchExportItems)))
+        lines.append('=' * 50)
+        d_tree = {}
+        for item in self.batchExportItems:
+            cat = item.get('category') or '(none)'
+            asset = item.get('asset') or '(none)'
+            subType = item.get('subType') or '(none)'
+            s = item.get('set') or '(none)'
+            var = item.get('variation') or '(none)'
+            ver = item.get('version') or '(none)'
+            mode = item.get('exportMode') or 'export'
+            path = item.get('path') or '(no path)'
+            if cat not in d_tree:
+                d_tree[cat] = {}
+            if asset not in d_tree[cat]:
+                d_tree[cat][asset] = {}
+            if subType not in d_tree[cat][asset]:
+                d_tree[cat][asset][subType] = {}
+            if s not in d_tree[cat][asset][subType]:
+                d_tree[cat][asset][subType][s] = {}
+            if var not in d_tree[cat][asset][subType][s]:
+                d_tree[cat][asset][subType][s][var] = []
+            d_tree[cat][asset][subType][s][var].append({'version': ver, 'mode': mode, 'path': path})
+        for cat in sorted(d_tree.keys()):
+            lines.append('')
+            lines.append('Category: {}'.format(cat))
+            for asset in sorted(d_tree[cat].keys()):
+                lines.append('  Asset: {}'.format(asset))
+                for subType in sorted(d_tree[cat][asset].keys()):
+                    lines.append('    SubType: {}'.format(subType))
+                    for s in sorted(d_tree[cat][asset][subType].keys()):
+                        lines.append('      Set: {}'.format(s))
+                        for var in sorted(d_tree[cat][asset][subType][s].keys()):
+                            lines.append('        Variation: {}'.format(var))
+                            for ent in d_tree[cat][asset][subType][s][var]:
+                                lines.append('          - {} [{}]'.format(ent['version'], ent['mode']))
+        reportText = '\n'.join(lines)
+        winName = 'cgmSceneQueueReportWin'
+        if mc.window(winName, exists=True):
+            mc.deleteUI(winName)
+        win = mc.window(winName, title='Queue Report', resizeToFitChildren=True, sizeable=True)
+        mainCol = mUI.MelColumnLayout(win, ut='cgmUISubTemplate')
+        mUI.MelLabel(mainCol, label='Queue data breakdown by category, asset, set, variation:', align='left')
+        cgmUI.add_LineSubBreak()
+        scrollField = mUI.MelScrollField(mainCol, h=400, text=reportText, wordWrap=False, editable=False)
+        cgmUI.add_LineSubBreak()
+        mUI.MelButton(mainCol, label='Close', ut='cgmUITemplate', c=cgmGEN.Callback(mc.deleteUI, winName))
+        mc.showWindow(win)
+
+    def ExportQueue_sort(self, *args):
+        """Sort batchExportItems by category, asset, subType, set, variation, version."""
+        if not self.batchExportItems:
+            return
+        def _sortKey(item):
+            return (
+                (item.get('category') or '').lower(),
+                (item.get('asset') or '').lower(),
+                (item.get('subType') or '').lower(),
+                (item.get('set') or '').lower(),
+                (item.get('variation') or '').lower(),
+                (item.get('version') or '').lower(),
+            )
+        self.batchExportItems.sort(key=_sortKey)
+        self.RefreshQueueList()
+
+    def ExportQueue_selectEntryInUI(self, *args):
+        """On double-click of queue entry, navigate the top section to select that file (like Select Open File)."""
+        idx = self.queueTSL.getSelectedIdx()
+        if idx is None or idx < 0 or idx >= len(self.batchExportItems):
+            return
+        animDict = self.batchExportItems[idx]
+        try:
+            if animDict.get('category') and animDict['category'] in self.categoryList:
+                self.SetCategory(self.categoryList.index(animDict['category']))
+            if animDict.get('subType') and animDict['subType'] in self.subTypes:
+                self.SetSubType(self.subTypes.index(animDict['subType']))
+            if animDict.get('asset'):
+                self.assetList['scrollList'].selectByValue(animDict['asset'])
+            self.LoadSubTypeList()
+            if animDict.get('set'):
+                self.subTypeSearchList['scrollList'].selectByValue(animDict['set'])
+            self.LoadVariationList()
+            if animDict.get('variation'):
+                self.variationList['scrollList'].selectByValue(animDict['variation'])
+            self.LoadVersionList()
+            if animDict.get('version'):
+                self.versionList['scrollList'].selectByValue(animDict['version'])
+        except Exception as err:
+            log.warning("ExportQueue_selectEntryInUI: could not navigate to entry - {}".format(err))
 
     def AddToExportQueue(self, exportMode = 'export', *args):
         if self.versionList['scrollList'].getSelectedItem() != None:
@@ -5365,9 +5464,8 @@ example:
     def RefreshQueueList(self, *args):
         self.queueTSL.clear()
         for i,item in enumerate(self.batchExportItems):
-            self.queueTSL.append( "%i ||| Cat: %s | asset: %s | set: %s | var: %s | version: %s | ----- Mode: [ %s ] " % (
+            self.queueTSL.append( "%i ||| asset: %s | set: %s | var: %s | version: %s | ----- Mode: [ %s ] " % (
                 i,
-            item["category"],
             item["asset"],
             item["set"],
             item["variation"],
