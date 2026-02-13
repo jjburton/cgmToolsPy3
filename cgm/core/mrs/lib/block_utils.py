@@ -10825,6 +10825,8 @@ def prerig_handlesLayout(self,mode='even',curve='linear',spans=2):
         raise ValueError("|{0}| >>  Nothing found to snap | start: {1} | end: {2} | {3}".format(_str_func,idx_start,idx_end,self))
     
     #pprint.pprint(vars())
+    if len(ml_toSnap) < 3:
+        return log.error("|{0}| >>  Not enough handles to snap | {1}".format(_str_func,self))
     
     return ARRANGE.alongLine([mObj.mNode for mObj in ml_toSnap],mode,curve,spans)
 
