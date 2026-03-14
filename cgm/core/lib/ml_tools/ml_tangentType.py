@@ -1,15 +1,15 @@
-# -= ml_tangentWeight.py =-
+# -= ml_tangentType.py =-
 #                __   by Morgan Loomis
 #     ____ ___  / /  http://morganloomis.com
-#    / __ `__ \/ /  Revision 5
-#   / / / / / / /  2018-05-14
+#    / __ `__ \/ /  Revision 1
+#   / / / / / / /  2019-10-10
 #  /_/ /_/ /_/_/  _________
 #               /_________/
 # 
 #     ______________
 # - -/__ License __/- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # 
-# Copyright 2018 Morgan Loomis
+# Copyright 2019 Morgan Loomis
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of 
 # this software and associated documentation files (the "Software"), to deal in 
@@ -37,8 +37,8 @@
 # Run the tool in a python shell or shelf button by importing the module, 
 # and then calling the primary function:
 # 
-#     import ml_tangentWeight
-#     ml_tangentWeight.ui()
+#     import ml_tangentType
+#     ml_tangentType.ui()
 # 
 # 
 #     __________________
@@ -73,10 +73,6 @@
 #                                                             __________
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - /_ Enjoy! _/- - -
 
-__author__ = 'Morgan Loomis'
-__license__ = 'MIT'
-__revision__ = 5
-__category__ = 'animation'
 
 shelfButton = {'annotation': 'Open a UI for setting keyframe tangent weight.',
                'menuItem': [['+ Plus', 'import ml_tangentWeight;ml_tangentWeight.plus()'],
@@ -85,20 +81,7 @@ shelfButton = {'annotation': 'Open a UI for setting keyframe tangent weight.',
 
 import maya.cmds as mc
 from maya import OpenMaya
-
-try:
-    import ml_utilities as utl
-    utl.upToDateCheck(32)
-except ImportError:
-    result = mc.confirmDialog( title='Module Not Found', 
-                message='This tool requires the ml_utilities module. Once downloaded you will need to restart Maya.', 
-                button=['Download Module','Cancel'], 
-                defaultButton='Cancel', cancelButton='Cancel', dismissString='Cancel' )
-    
-    if result == 'Download Module':
-        mc.showHelp('http://morganloomis.com/tool/ml_utilities/',absolute=True)
-
-hotkey = {'-':'minus()','=':'plus()',';':'sharkFinLeft()',"'":'sharkFinRight()'}
+import ml_utilities as utl
 
 def ui():
     '''
@@ -122,82 +105,32 @@ If no keys are selected, the keys on the current frame will be affected.''') as 
             ))
 
 
-def plus(*args):
-    tangentScale(1.25)
 
+def tangentType(tangentType, deleteSubFrames=False, insert=False, selectedChannels=False, visibleInGraphEditor=False, keyKeyed=False, keyShapes=False):
+    '''
+    The main function arguments:
 
-def minus(*args):
-    tangentScale(0.8)
+        selectedChannels:       Only key channels that are selected in the Channel Box
+        visibleInGraphEditor:   Only key curves visible in Graph Editor
+        keyKeyed:               Only set keys on channels that are already keyed
+        keyShapes:              Set keyframes on shapes as well as transforms
+    '''
 
+    keySel = utl.KeySelection()
 
-def sharkFinLeft(*args):
-    tangentScale(1.2,0.8333)
-
-
-def sharkFinRight(*args):
-    tangentScale(0.8333,1.2)
-
-
-def tangentScale(value, outValue=None):
-
-    if outValue == None:
-        outValue = value
-
-    curves = None
-
-    #order of operations:
-    #selected keys, visible in graph editor on current frame
-    selected = False
-    time = mc.currentTime(query=True)
-    curves = mc.keyframe(query=True, name=True, selected=True)
-    if curves:
-        #try selected keys first
-        selected = True
+    if visibleInGraphEditor and keySel.visibleInGraphEditor():
+        pass
+    elif keyKeyed and keySel.keyedChannels(includeShapes=keyShapes):
+        pass
     else:
-        #then visible in graph editor
-        graphVis = mc.selectionConnection('graphEditor1FromOutliner', query=True, obj=True)
-        if graphVis:
-            curves = mc.keyframe(graphVis, query=True, name=True)
-        else:
-            #otherwise try keyed channels.
-            sel = mc.ls(sl=True)
-            if not sel:
-                return
-            curves = mc.listConnections(sel, s=True, d=False, type='animCurve')
-            if not curves:
-                return
+        keySel.selectedObjects()
 
-    for curve in curves:
+    if not keySel.initialized:
+        return
 
-        keyTimes = list()
 
-        #set tangents weighted if they aren't already
-        if mc.keyTangent(curve, query=True, weightedTangents=True):
-            mc.keyTangent(curve, edit=True, weightedTangents=True)
-
-        if selected:
-            keyTimes = mc.keyframe(curve, query=True, timeChange=True, selected=True)
-        else:
-            keyTimes = [time]
-
-        for t in keyTimes:
-
-            weight = mc.keyTangent(curve, time=(t,), query=True, inWeight=True, outWeight=True)
-            if not weight:
-                continue
-
-            inOut = list()
-
-            for w,v in zip(weight,[value,outValue]):
-                if v<1 and w < 0.1:
-                    inOut.append(0)
-                elif v>1 and w == 0:
-                    inOut.append(0.1)
-                else:
-                    inOut.append(w*v)
-
-            mc.keyTangent(curve, time=(t,), edit=True, absolute=True, inWeight=inOut[0], outWeight=inOut[1])
+    #set the actual keyframe
+    keySel.setKeyframe(insert=insert, shape=keyShapes, deleteSubFrames=deleteSubFrames)
 
 
 if __name__ == '__main__':ui()
-
