@@ -1,8 +1,8 @@
-# -= ml_cameraDepthDragger.py =-
+# -= ml_keyValueDragger.py =-
 #                __   by Morgan Loomis
 #     ____ ___  / /  http://morganloomis.com
-#    / __ `__ \/ /  Revision 4
-#   / / / / / / /  2018-02-17
+#    / __ `__ \/ /  Revision 5
+#   / / / / / / /  2018-05-14
 #  /_/ /_/ /_/_/  _________
 #               /_________/
 # 
@@ -32,27 +32,28 @@
 # - -/__ Installation __/- - - - - - - - - - - - - - - - - - - - - - - - - - 
 # 
 # Copy this file into your maya scripts directory, for example:
-#     C:/Documents and Settings/user/My Documents/maya/scripts/ml_cameraDepthDragger.py
+#     C:/Documents and Settings/user/My Documents/maya/scripts/ml_keyValueDragger.py
 # 
 # Run the tool in a python shell or shelf button by importing the module, 
 # and then calling the primary function:
 # 
-#     import ml_cameraDepthDragger
-#     ml_cameraDepthDragger.drag()
+#     import ml_keyValueDragger
+#     ml_keyValueDragger.drag()
 # 
 # 
 #     __________________
 # - -/__ Description __/- - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # 
-# Move objects closer to or further from camera, such that they don't change
-# location in screen space, just get larger or smaller in frame.
+# Scale keyframes to their default value by dragging in the viewport.
 # 
 #     ____________
 # - -/__ Usage __/- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # 
-# Run the tool, and then click and drag the mouse in the viewport to move
-# selected objects closer or further from camera. When you release click, the tool
-# will exit.
+# Run the tool, and the cursor will turn into a hand. Left-click and hold in the
+# viewport, and then drag either left or right to scale the key value up or down.
+# If you have no keys selectd, the tool will act only on curves that are visibile
+# in the graph editor. If there are no keys at the current frame, keys will be
+# set.
 # 
 # 
 #     ___________________
@@ -66,8 +67,12 @@
 
 __author__ = 'Morgan Loomis'
 __license__ = 'MIT'
-__revision__ = 4
+__revision__ = 5
 __category__ = 'animation'
+
+shelfButton = {'annotation': 'Adjust the value of the current key by dragging in the viewport.',
+               'command': 'import ml_keyValueDragger;ml_keyValueDragger.drag()',
+               'order': 13}
 
 import maya.cmds as mc
 import maya.mel as mm
@@ -87,88 +92,65 @@ except ImportError:
 
 def drag():
     '''The primary command to run the tool'''
-    CameraDepthDragger()
+    KeyValueDragger()
 
 
-class CameraDepthDragger(utl.Dragger):
+class KeyValueDragger(utl.Dragger):
+    '''Creates the tool and manages the data'''
 
     def __init__(self,
-                 name='mlCameraDepthDraggerContext',
-                 minValue=None,
+                 name='mlKeyValueDraggerContext',
+                 minValue=0,
                  maxValue=None,
-                 defaultValue=0,
-                 title = 'CameraDepth'):
+                 defaultValue=1,
+                 title = 'Scale'):
+
+        self.keySel = utl.KeySelection()
+        selected = False
+        if self.keySel.selectedKeys():
+            selected = True
+            pass
+        elif self.keySel.visibleInGraphEditor():
+            self.keySel.setKeyframe()
+        elif self.keySel.keyedChannels():
+            self.keySel.setKeyframe()
+        elif self.keySel.selectedObjects():
+            self.keySel.setKeyframe()
+
+        if not self.keySel.initialized:
+            return
 
         utl.Dragger.__init__(self, defaultValue=defaultValue, minValue=minValue, maxValue=maxValue, name=name, title=title)
 
-        #get the camera that we're looking through, and the objects selected
-        cam = utl.getCurrentCamera()
-        sel = mc.ls(sl=True)
+        self.time = dict()
+        self.default = dict()
+        self.value = dict()
+        self.curves = self.keySel.curves
 
-        if not sel:
-            OpenMaya.MGlobal.displayWarning('Please make a selection.')
-            return
+        for curve in self.curves:
+            if selected:
+                self.time[curve] = mc.keyframe(curve, query=True, timeChange=True, sl=True)
+                self.value[curve] = mc.keyframe(curve, query=True, valueChange=True, sl=True)
+            else:
+                self.time[curve] = self.keySel.time
+                self.value[curve] = mc.keyframe(curve, time=self.keySel.time, query=True, valueChange=True)
 
-        #get the position of the camera in space and convert it to a vector
-        camPnt = mc.xform(cam, query=True, worldSpace=True, rotatePivot=True)
-        self.cameraVector = utl.Vector(camPnt[0],camPnt[1],camPnt[2])
-
-        self.objs = list()
-        self.vector = list()
-        self.normalized = list()
-        for obj in sel:
-            #make sure all translate attributes are settable
-            if not mc.getAttr(obj+'.translate', settable=True):
-                print('not settable')
-                continue
-
-            #get the position of the objects as a vector, and subtract the camera vector from that
-            objPnt = mc.xform(obj, query=True, worldSpace=True, rotatePivot=True)
-            objVec = utl.Vector(objPnt[0],objPnt[1],objPnt[2])
-            self.objs.append(obj)
-            self.vector.append(objVec-self.cameraVector)
-            self.normalized.append(self.vector[-1].normalized())
-
-        if not self.objs:
-            OpenMaya.MGlobal.displayWarning('No selected objects are freely translatable')
-            return
-
-        if len(sel) != len(self.objs):
-            OpenMaya.MGlobal.displayWarning('Some objects skipped, due to not being freely translatable')
+            #get the attribute's default value
+            node, attr = mc.listConnections('.'.join((curve,'output')), source=False, plugs=True)[0].split('.')
+            self.default[curve] = mc.attributeQuery(attr, listDefault=True, node=node)[0]
 
         self.setTool()
-
-
-    def dragMult(self, mult):
-        #as the mouse is dragging, update the position of each object by muliplying
-        #the vector and adding to the original position
-        for obj, v, n in zip(self.objs,self.vector,self.normalized):
-            vector = (n * self.x * mult) + v + self.cameraVector
-
-            mc.move(vector[0],vector[1],vector[2], obj, absolute=True, worldSpace=True)
+        onscreenInstructions = 'Drag left to scale toward default, and right to go in the opposite direction.'
+        self.drawString(onscreenInstructions)
+        OpenMaya.MGlobal.displayWarning(onscreenInstructions)
 
 
     def dragLeft(self):
         '''
-        drag normal speed
+        Activated by the left mouse button, this scales keys toward or away from their default value.
         '''
-        self.dragMult(4)
-
-
-#     def dragShiftLeft(self):
-#         '''
-#         drag double speed
-#         '''
-#         print 'shift'
-#         self.dragMult(8)
-#
-#
-#     def dragControlLeft(self):
-#         '''
-#         drag half speed
-#         '''
-#         print 'ctrl'
-#         self.dragMult(2)
-
-if __name__ == '__main__': drag()
+        self.drawString('Scale '+str(int(self.x*100))+' %')
+        for curve in self.curves:
+            for i,v in zip(self.time[curve], self.value[curve]):
+                mc.keyframe(curve, time=(i,), valueChange=self.default[curve]+((v-self.default[curve])*self.x))
 
