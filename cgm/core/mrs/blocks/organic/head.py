@@ -452,6 +452,20 @@ def headGeo_replace(self,arg = None):
     headGeo_add(self,ml_stuff)
     
 
+def headGeo_update(self):
+    """Sync headMeshProxy msgList with all geo currently in the geo group."""
+    _str_func = 'headGeo_update'
+    mGroup = headGeo_getGroup(self)
+    if not mGroup:
+        return log.error("|{0}| No head geo group found".format(_str_func))
+    l_children = mGroup.getChildren(asMeta=False)
+    ml_geo = cgmMeta.validateObjListArg(l_children)
+    if not ml_geo:
+        return log.warning("|{0}| No geo in group to connect".format(_str_func))
+    self.msgList_connect('headMeshProxy', ml_geo, 'block')
+    log.info("|{0}| Connected {1} objects to headMeshProxy".format(_str_func, len(ml_geo)))
+
+
 def uiBuilderMenu(self,parent = None):
     #uiMenu = mc.menuItem( parent = parent, l='Head:', subMenu=True)
     _short = self.p_nameShort
@@ -468,6 +482,9 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] REPLACE existing geo with selected'.format(_short),
                 c = cgmGEN.Callback(headGeo_replace,self),
                 label = "Replace with selected")
+    mUI.MelMenuItem(parent, ann='[{0}] Sync msgList from geo group'.format(_short),
+                    c=cgmGEN.Callback(headGeo_update,self),
+                    label="Update msgList from group")
     mc.menuItem(ann = '[{0}]Remove selected to head geo proxy group'.format(_short),
                 c = cgmGEN.Callback(headGeo_remove,self),
                 label = "Remove selected")        

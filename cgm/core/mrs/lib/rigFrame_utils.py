@@ -807,11 +807,24 @@ def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseCon
         _aimNeg = self.d_orientation['vectorAimNeg']
         _up = self.d_orientation['vectorUp']
         _out = self.d_orientation['vectorOut']        
+
+        def pickAxis_of_root(mObj,mEnd):
+            _dist = DIST.get_distance_between_points(mObj.p_position,mEnd.p_position)
+            _aim_point = mObj.getPositionByAxisDistance( "{}+".format(_jointOrientation[0]),_dist)
+            _up_point = mObj.getPositionByAxisDistance( "{}+".format(_jointOrientation[1]),_dist)
+            _aimDist = DIST.get_distance_between_points(_aim_point,mEnd.p_position)
+            _upDist = DIST.get_distance_between_points(_up_point,mEnd.p_position)
+            if _aimDist > _upDist:
+                _upParent = self.d_orientation['vectorUp']
+            else:
+                _upParent = self.d_orientation['vectorAim']
+            return _upParent
+
+        _upParent = pickAxis_of_root(mIKBaseControl,ml_handles[-1])
     
         if str_ikBase == 'hips':
             log.warning("|{0}| >> hips setup...".format(_str_func))
             
-        print(str_ikBase)
     
         if len(ml_handles) == 1:
             mHipHandle = ml_handles[0]
@@ -819,7 +832,8 @@ def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseCon
                                             ml_ribbonIkHandles,
                                             [mIKBaseControl],#ml_handleParents,
                                             mode = 'singleBlend',
-                                            upMode = 'objectRotation')
+                                            upMode = 'objectRotation',
+                                            upParent=_upParent)
         else:
             if str_ikBase == 'pickles':#'hips':
                 log.debug("|{0}| >> hips handles...".format(_str_func))                    
@@ -1079,8 +1093,6 @@ def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseCon
             else:
                 mHandle.followRoot = .5
                 ATTR.set_default(mHandle.mNode,'followRoot',.5)
-    
-
       
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
     

@@ -39,6 +39,8 @@ import cgm.core.cgm_General as cgmGEN
 from cgm.core.lib import curve_Utils as CURVES
 from cgm.core.lib import rigging_utils as CORERIG
 import cgm.core.classes.NodeFactory as NODEFACTORY
+import cgm.core.classes.GuiFactory as cgmUI
+mUI = cgmUI.mUI
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import attribute_utils as ATTR
 import cgm.core.lib.math_utils as MATH
@@ -373,6 +375,20 @@ def proxyGeo_replace(self,arg = None):
     proxyGeo_add(self,ml_stuff)
     
 
+def proxyGeo_update(self):
+    """Sync proxyMeshGeo msgList with all geo currently in the geo group."""
+    _str_func = 'proxyGeo_update'
+    mGroup = proxyGeo_getGroup(self)
+    if not mGroup:
+        return log.error("|{0}| No proxy geo group found".format(_str_func))
+    l_children = mGroup.getChildren(asMeta=False)
+    ml_geo = cgmMeta.validateObjListArg(l_children)
+    if not ml_geo:
+        return log.warning("|{0}| No geo in group to connect".format(_str_func))
+    self.msgList_connect('proxyMeshGeo', ml_geo, 'block')
+    log.info("|{0}| Connected {1} objects to proxyMeshGeo".format(_str_func, len(ml_geo)))
+
+
 def uiBuilderMenu(self,parent = None):
     #uiMenu = mc.menuItem( parent = parent, l='Head:', subMenu=True)
     _short = self.p_nameShort
@@ -389,6 +405,9 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] REPLACE existing geo with selected'.format(_short),
                 c = cgmGEN.Callback(proxyGeo_replace,self),
                 label = "Replace with selected")
+    mUI.MelMenuItem(parent, ann='[{0}] Sync msgList from geo group'.format(_short),
+                    c=cgmGEN.Callback(proxyGeo_update,self),
+                    label="Update msgList from group")
     mc.menuItem(ann = '[{0}]Remove selected to proxy geo proxy group'.format(_short),
                 c = cgmGEN.Callback(proxyGeo_remove,self),
                 label = "Remove selected")        
