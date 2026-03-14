@@ -160,6 +160,7 @@ def setupCGMScriptPaths():
               os.path.join('cgm','lib','zoo','zooMel'),
               os.path.join('cgm','lib','zoo','zooPy'),     
               os.path.join('cgm','core','mel'),
+              os.path.join('cgm','core','lib','ml_tools'),
               'Red9']
 
     for path in _paths:
@@ -167,13 +168,10 @@ def setupCGMScriptPaths():
         if fullPath not in mayaScriptPathsSet:
             log.info("setupCGMScriptPaths>> Path not found. Appending: {0}".format(fullPath))            
             mayaScriptPaths.append( cgmPath.Path(fullPath.asFriendly()) )
-            mayaScriptPaths.extend( fullPath.dirs( recursive=True ) )
 
             mayaScriptPaths = mUI.removeDupes( mayaScriptPaths )
-            newScriptPath = os.pathsep.join( [ p for p in mayaScriptPaths ] )
-            #for p in mayaScriptPaths:
-                #print ("{0} >> {1}".format(p,p.unresolved()))
-            maya.mel.eval( 'putenv MAYA_SCRIPT_PATH "%s"' % newScriptPath )
+            newScriptPath = os.pathsep.join( [ str(p).replace('\\', '/') for p in mayaScriptPaths ] )
+            os.environ['MAYA_SCRIPT_PATH'] = newScriptPath
 
 def setupCGMPlugins():
     thisFile = cgmPath.Path( __file__ )
