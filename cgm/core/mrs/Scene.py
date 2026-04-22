@@ -5788,25 +5788,93 @@ def ExportScene(mode = -1,
 
     #...get our objects...
     if not exportObjs:
-        log.info("No exportObjs passed #2....")        
+        log.info("No exportObjs passed #2....")
         exportObjs = []
-        for s in mc.ls('*%s' % exportSetName, r=True):
-            _lenColon = len(s.split(':'))
-            if _lenColon == 2:
-                # print(2)
-                ns = s.split(':')[0]
-                for p in mc.ls(mc.sets(s,q=True)[0], l=True)[0].split('|'):
-                    print(p)
-                    if mc.objExists(p) and ns in p and p not in exportObjs:
-                        exportObjs.append(p)
-                        break#...this is to get rid of stuff being 
-                        
-            if _lenColon == 1:
-                # print(1)
-                for p in mc.sets(s,q=True):
-                    print(p)
-                    if mc.objExists(p) and p not in exportObjs:
-                        exportObjs.append(p)
+
+        _setMatchesRaw = mc.ls('*%s' % exportSetName, r=True) or []
+        _setMatches = []
+        for s in _setMatchesRaw:
+            if s not in _setMatches:
+                _setMatches.append(s)
+
+        log.info("Export sets found (raw): {0}".format(_setMatchesRaw))
+        log.info("Export sets found (deduped): {0}".format(_setMatches))
+
+        for s in _setMatches:
+            if not mc.objExists(s):
+                log.warning("Missing export set: {0}".format(s))
+                continue
+
+            _setMembers = mc.sets(s, q=True) or []
+            if not _setMembers:
+                log.warning("Export set empty: {0}".format(s))
+                continue
+
+            _setTokens = s.split(':')
+            _setNamespace = _setTokens[0] if len(_setTokens) == 2 else None
+            _rootCandidates = []
+            _skippedMissingMembers = []
+            _skippedNamespaceMembers = []
+
+            for m in _setMembers:
+                if not mc.objExists(m):
+                    _skippedMissingMembers.append(m)
+                    continue
+                _longPath = (mc.ls(m, l=True) or [m])[0]
+                _dagTokens = [t for t in _longPath.split('|') if t]
+                if not _dagTokens:
+                    continue
+
+                if _setNamespace:
+                    _nsTokens = [t for t in _dagTokens if t.startswith('{0}:'.format(_setNamespace))]
+                    if not _nsTokens:
+                        _skippedNamespaceMembers.append(m)
+                        continue
+                    _candidate = _nsTokens[0]
+                else:
+                    _candidate = _dagTokens[0]
+
+                if mc.objExists(_candidate) and _candidate not in _rootCandidates:
+                    _rootCandidates.append(_candidate)
+
+            log.info("Set [{0}] members: {1}".format(s, _setMembers))
+            log.info("Set [{0}] root candidates: {1}".format(s, _rootCandidates))
+            if _skippedMissingMembers:
+                log.warning("Set [{0}] skipped missing members: {1}".format(s, _skippedMissingMembers))
+            if _skippedNamespaceMembers:
+                log.warning("Set [{0}] skipped members outside namespace [{1}]: {2}".format(s, _setNamespace, _skippedNamespaceMembers))
+
+            if _setNamespace:
+                _master = '{0}:master'.format(_setNamespace)
+                if mc.objExists(_master):
+                    _chosen = _master
+                    log.info("Set [{0}] selected namespace master: {1}".format(s, _chosen))
+                elif _rootCandidates:
+                    _chosen = _rootCandidates[0]
+                    log.warning("Set [{0}] namespace master missing, using fallback root: {1}".format(s, _chosen))
+                else:
+                    _chosen = None
+
+                if _chosen and _chosen not in exportObjs:
+                    exportObjs.append(_chosen)
+                    log.info("Set [{0}] chose export root: {1}".format(s, _chosen))
+                elif not _chosen:
+                    log.error("Set [{0}] has no valid export root candidates. Members: {1}".format(s, _setMembers))
+                continue
+
+            _masterCandidates = [c for c in _rootCandidates if c.split('|')[-1] == 'master']
+            _chosenRoots = _masterCandidates if _masterCandidates else _rootCandidates
+            if not _chosenRoots:
+                log.error("Set [{0}] has no valid export roots after candidate filtering.".format(s))
+                continue
+            if _masterCandidates:
+                log.info("Set [{0}] selected non-namespaced master roots: {1}".format(s, _masterCandidates))
+            else:
+                log.warning("Set [{0}] has no 'master' roots, using fallback roots: {1}".format(s, _chosenRoots))
+            for _chosen in _chosenRoots:
+                if _chosen not in exportObjs:
+                    exportObjs.append(_chosen)
+                    log.info("Set [{0}] chose export root: {1}".format(s, _chosen))
 
     #...cam check...
     for obj in exportObjs:
