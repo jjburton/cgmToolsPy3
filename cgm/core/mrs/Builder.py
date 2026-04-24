@@ -3951,13 +3951,73 @@ def uiStandAlone_get():
 """
 
 
+def _mrs_build_window_place_on_screen(window_name, width, height):
+    """
+    Put MRS Build on a visible monitor: centered on Maya's main window by default,
+    or offset from the mouse if env CGM_MRS_BUILD_AT_CURSOR is 1/true/yes.
+    """
+    try:
+        if mc.windowPref(exists=window_name):
+            mc.windowPref(window_name, remove=True)
+    except Exception:
+        pass
+
+    use_cursor = os.environ.get("CGM_MRS_BUILD_AT_CURSOR", "").strip().lower() in ("1", "true", "yes")
+    tl_x = 120
+    tl_y = 120
+
+    if use_cursor:
+        try:
+            try:
+                from PySide6.QtGui import QCursor
+            except ImportError:
+                from PySide2.QtGui import QCursor
+            pos = QCursor.pos()
+            tl_x = pos.x() - width // 2
+            tl_y = pos.y() - height // 2
+        except Exception:
+            use_cursor = False
+
+    if not use_cursor:
+        if mc.window("MayaWindow", exists=True):
+            mwh = mc.window("MayaWindow", query=True, widthHeight=True)
+            mtlc = mc.window("MayaWindow", query=True, topLeftCorner=True)
+            mw, mh = mwh[0], mwh[1]
+            mx, my = mtlc[0], mtlc[1]
+            cx = mx + mw // 2
+            cy = my + mh // 2
+            tl_x = cx - width // 2
+            tl_y = cy - height // 2
+
+    try:
+        try:
+            from PySide6.QtWidgets import QApplication
+            from PySide6.QtCore import QPoint
+        except ImportError:
+            from PySide2.QtWidgets import QApplication
+            from PySide2.QtCore import QPoint
+        app = QApplication.instance()
+        if app:
+            pt = QPoint(int(tl_x), int(tl_y))
+            screen = app.screenAt(pt) or app.primaryScreen()
+            if screen:
+                g = screen.availableGeometry()
+                tl_x = max(g.left(), min(tl_x, g.right() - width + 1))
+                tl_y = max(g.top(), min(tl_y, g.bottom() - height + 1))
+    except Exception:
+        pass
+
+    if mc.window(window_name, exists=True):
+        mc.window(window_name, edit=True, topLeftCorner=[int(tl_x), int(tl_y)])
+
 
 class ui_toStandAlone(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
     WINDOW_NAME = 'MRSBuildSTANDALONE'    
     WINDOW_TITLE = 'MRS Build | {0}'.format(__version__)
     DEFAULT_MENU = None
-    RETAIN = True
+    # Do not persist position between sessions (avoids off-screen coords when monitors change).
+    RETAIN = False
     MIN_BUTTON = False
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
@@ -3988,6 +4048,15 @@ class ui_toStandAlone(cgmUI.cgmGUI):
                                                      defaultValue = 'unityMed')
         global UISTANDALONE
         UISTANDALONE = self"""
+
+    def post_init(self, *args, **kws):
+        """After show(), move window onto the active display (center Maya or follow cursor)."""
+        _w, _h = self.DEFAULT_SIZE
+
+        def _place():
+            _mrs_build_window_place_on_screen(self.WINDOW_NAME, _w, _h)
+
+        mc.evalDeferred(_place, lp=True)
         
     def build_menus(self):pass
     
@@ -4034,7 +4103,15 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         ml_masters = r9Meta.getMetaNodes(mTypes = 'cgmRigBlock',
                                          nTypes=['transform','network'],
                                          mAttrs='blockType=master')
-        
+        log.info(
+            cgmGEN.logString_msg(
+                _str_func,
+                "Rig block prechecks (current scene) | master blocks: {0}".format(
+                    len(ml_masters) if ml_masters else 0
+                ),
+            )
+        )
+
         l_fails = []
         ml_fails = []
         for mMaster in ml_masters:    
@@ -4056,7 +4133,12 @@ class ui_toStandAlone(cgmUI.cgmGUI):
             #if result != 'OK':
             #    log.error("|{0}| >> Cancelled | {1} | {2}.".format(_str_func,_state_target,self))
             #    return False            
-            return (log.warning("Prechecks failed. Check script editor!"))
+            return (
+                log.warning(
+                    "{0} | Aborted before batch file step (rig prechecks failed in current scene; "
+                    "queued files were not processed). Check script editor.".format(_str_func)
+                )
+            )
         
         log.info("Batch file creating...")        
         log.debug(self.l_files)
@@ -4100,6 +4182,7 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         if not l_check:
             log.info(cgmGEN.logString_msg(_str_func,"No file passed. Using current"))
             l_check = [mc.file(q=True, sn=True)]
+        log.info(cgmGEN.logString_msg(_str_func, "Files to batch | {0}".format(l_check)))
             
         
         _current = os.path.normpath(mc.file(q=True, sn=True))
@@ -4108,11 +4191,18 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         for f in l_check:
             mFile = PATHS.Path(f)
             if not mFile.exists():
-                log.error("Invalid file: {0}".format(f))
+                log.error(
+                    "{0} | Skip — path does not exist | {1}".format(_str_func, f)
+                )
                 continue
             
             if os.path.normpath(f) == _current:
                 if VALID.fileDirtyCheck() == False:
+                    log.info(
+                        "{0} | Skip — unsaved scene dialog cancelled or save aborted | {1}".format(
+                            _str_func, f
+                        )
+                    )
                     continue
             
             log.debug(cgmGEN.logString_sub(_str_func))
@@ -4161,6 +4251,21 @@ class ui_toStandAlone(cgmUI.cgmGUI):
             else:
                 log.warning("Not writable: {0}".format(_batchPath))
         
+        if not l_batch:
+            log.warning(
+                cgmGEN.logString_msg(
+                    _str_func,
+                    "No batch scripts written — check skips above (missing path, dirty dialog "
+                    "cancelled, or destination not writable).",
+                )
+            )
+        else:
+            log.info(
+                cgmGEN.logString_msg(
+                    _str_func, "Wrote {0} batch script(s); launching mayapy if enabled.".format(len(l_batch))
+                )
+            )
+
         self.Close()
         
         if process:

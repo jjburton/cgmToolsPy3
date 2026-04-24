@@ -4565,8 +4565,55 @@ class cgmRigMaster(cgmMeta.cgmObject):
                 for k in list(_d.keys()):
                     #Make our node ------------------------------------------
                     mHelperBase = mPrerigNull.getMessageAsMeta(k)
+                    # getMessageAsMeta returns False when no message is connected (not None).
+                    if not mHelperBase:
+                        log.warning(
+                            "|{0}| >> Prerig null has no '{1}' helper message; "
+                            "building procedural vis/settings control.".format(_str_func, k)
+                        )
+                        _average = MATH.average([size[0], size[2]])
+                        _offsetSize = _average * 0.1
+                        _subSize = _offsetSize * 2
+                        pos_zForward = self.getPositionByAxisDistance(
+                            "z+", (size[2] * 0.5) + (_offsetSize * 2.5)
+                        )
+                        mHandleFactory = BLOCKSHAPES.handleFactory(node=_short)
+                        mHelper = self.getMessageAsMeta(k)
+                        newShape = CURVES.create_fromName(_d[k][0], _subSize, "y+")
+                        if not mHelper:
+                            log.debug("|{0}| >> Creating: {1}".format(_str_func, k))
+                            mHelper = cgmMeta.createMetaNode("cgmObject")
+                            mHelper.p_parent = self.mNode
+                            mHelper.rename(_d[k][2])
+                            ATTR.connect(
+                                "{0}.{1}".format(self.mNode, _d[k][2]),
+                                "{0}.v".format(mHelper.mNode),
+                            )
+                            if k == "controlVis":
+                                self.controlVis = mHelper.mNode
+                            elif k == "controlSettings":
+                                self.controlSettings = mHelper.mNode
+                        else:
+                            log.debug("|{0}| >> Recreating shapes: {1}".format(_str_func, k))
+                            mc.delete(mHelper.getShapes())
+                        SNAP.go(newShape, mHelper.mNode)
+                        CORERIG.shapeParent_in_place(
+                            mHelper.mNode, newShape, keepSource=False
+                        )
+                        mHelper.setAttrFlags(attrs=["t"], lock=False)
+                        mHandleFactory.color(
+                            mHelper.mNode, "center", "sub", transparent=False
+                        )
+                        vec_use = self.getAxisVector(_d[k][1])
+                        pos = DIST.get_pos_by_vec_dist(
+                            pos_zForward, vec_use, size[0] * 0.5
+                        )
+                        mHelper.p_position = pos
+                        mHelper.setAttrFlags(
+                            attrs=["t", "r", "s", "v"], lock=True, visible=False
+                        )
+                        continue
 
-    
                     log.debug("|{0}| >> Creating: {1}".format(_str_func,k))
                     mHelper = mHelperBase.doDuplicate(po=False)
                     mHelper.p_parent = self.mNode

@@ -1064,8 +1064,12 @@ class KeySelection(object):
                 else:
                     plug = mc.listConnections('.'.join((c,'output')), source=False, plugs=True)
                     if plug:
-                        if not mc.getAttr(plug, keyable=True) and not mc.getAttr(plug, settable=True):
-                            remove.append(c)
+                        plugToCheck = plug[0]  # getAttr only accepts one attribute
+                        try:
+                            if not mc.getAttr(plugToCheck, keyable=True) and not mc.getAttr(plugToCheck, settable=True):
+                                remove.append(c)
+                        except (RuntimeError, Exception):
+                            pass  # if we can't evaluate, keep the curve (safer)
             if remove:
                 for r in remove:
                     self._curves.remove(r)

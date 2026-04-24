@@ -5,6 +5,7 @@ import pprint
 import logging
 
 from cgm.core import cgm_Meta as cgmMeta
+from cgm.core import cgm_General as cgmGEN
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
     
     bakeTransforms = []
     bakeSets = []
+    missingBakeSets = []
 
     currentTime = mc.currentTime(q=True)
     log.info("{0} ||currentTime: {1}".format(_str_func,currentTime))
@@ -72,30 +74,41 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
     for asset in assets:
         #if ':' in assets:
         log.info("{0} || asset: {1}".format(_str_func,asset))
-        
-        topNodeSN = asset.split(':')[-1]
+
+        _assetShort = asset.split('|')[-1]
+        topNodeSN = _assetShort.split(':')[-1]
         if topNodeSN:
             # gather data
-            namespaces = asset.split(':')[:-1]
+            namespaces = _assetShort.split(':')[:-1]
     
             if len(namespaces) > 0:
-                ns = ':'.join( asset.split(':')[:-1] ) + ':'
+                ns = ':'.join(namespaces) + ':'
             else:
-                ns = "%s_" % asset.split('|')[-1]
+                ns = "%s_" % _assetShort
             
             # bake
-            bakeSet = "%s%s" % (ns, bakeSetName)
-            if mc.objExists(bakeSet):
+            _bakeSetCandidates = ["%s%s" % (ns, bakeSetName), bakeSetName]
+            _bakeSetMatches = [s for s in _bakeSetCandidates if mc.objExists(s)]
+            if _bakeSetMatches:
+                bakeSet = _bakeSetMatches[0]
                 if bakeSet not in bakeSets:
                     bakeSets.append(bakeSet)
-                    _stuff = mc.sets(bakeSet, q=True)
+                    _stuff = mc.sets(bakeSet, q=True) or []
+                    if isinstance(_stuff, str):
+                        _stuff = [_stuff]
                     if _stuff:
+                        log.info("{0} || using bakeSet: {1} | members: {2}".format(_str_func, bakeSet, len(_stuff)))
                         bakeTransforms += _stuff
+                    else:
+                        log.warning("{0} || bakeSet found but empty: {1}".format(_str_func, bakeSet))
             else:
+                for _candidate in _bakeSetCandidates:
+                    if _candidate not in missingBakeSets:
+                        missingBakeSets.append(_candidate)
                 bakeTransforms.append(asset)
                 #else:
                 #    bakeTransforms.append(asset)
-                log.info("{0} || bakeSet: {1}".format(_str_func,bakeSet))
+                log.info("{0} || no bakeSet candidate found. candidates: {1}".format(_str_func, _bakeSetCandidates))
         else:
             if mc.objExists(bakeSetName):
                 if bakeSetName not in bakeSets:
@@ -173,6 +186,10 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
         baked = True
     else:
         baked = False
+        log.warning("{0} || No bake transforms resolved. assets={1} | bakeSetName={2}".format(
+            _str_func, assets, bakeSetName))
+        if missingBakeSets:
+            log.warning("{0} || Missing bake sets encountered: {1}".format(_str_func, missingBakeSets))
 
     mc.keyTangent( g=True, ott=currentTangent )
 
@@ -217,8 +234,8 @@ def BreakTextureLinks(exportObjs=None):
                     # Get shading groups connected to this shape
                     sg = mc.listConnections(shape, type='shadingEngine') or []
                     shadingEngines.update(sg)
-            except:
-                pass
+            except Exception as err:
+                log.warning("{0} || Failed gathering shading groups for {1}: {2}".format(_str_func, obj, err))
         
         # Get file nodes connected to these shading engines
         connectedFileNodes = set()
@@ -227,8 +244,8 @@ def BreakTextureLinks(exportObjs=None):
                 # Get file nodes connected through the shading network
                 files = mc.listConnections(sg, type='file', source=True, destination=False) or []
                 connectedFileNodes.update(files)
-            except:
-                pass
+            except Exception as err:
+                log.warning("{0} || Failed gathering file nodes for shadingEngine {1}: {2}".format(_str_func, sg, err))
         
         # Filter to only connected file nodes
         fileNodes = [f for f in fileNodes if f in connectedFileNodes]
@@ -264,6 +281,78 @@ def BreakTextureLinks(exportObjs=None):
     
     return brokenCount
 
+
+def resolve_delete_set(deleteSetName, namespace_prefix=None):
+    """Pick first existing objectSet for delete_tdSet-style names (handles namespace drift)."""
+    base = deleteSetName.split(':')[-1]
+    candidates = []
+    if namespace_prefix:
+        candidates.append('{0}:{1}'.format(namespace_prefix, base))
+    for c in (deleteSetName, base):
+        if c not in candidates:
+            candidates.append(c)
+    for s in mc.ls('*:{0}'.format(base), type='objectSet') or []:
+        if s not in candidates:
+            candidates.append(s)
+    seen = set()
+    for name in candidates:
+        if name in seen:
+            continue
+        seen.add(name)
+        if mc.objExists(name):
+            return name
+    return None
+
+
+def ProcessDeleteSet(deleteSetName, namespace_prefix=None, _str_func='ProcessDeleteSet'):
+    """
+    Resolve delete set (namespaced or root) and delete members; log survivors.
+    Used by Prep (referenced) and Scene ExportScene non-referenced path.
+    """
+    resolved = resolve_delete_set(deleteSetName, namespace_prefix)
+    if not resolved:
+        log.warning("{0} || No delete set found | deleteSetName={1} | namespace_prefix={2}".format(
+            _str_func, deleteSetName, namespace_prefix))
+        return False
+
+    log.info("{0} || delete set resolved: {1}".format(_str_func, resolved))
+    l_deleteFailures = []
+    l_deleteSurvivors = []
+    l_deleteTargets = mc.sets(resolved, q=True) or []
+    if isinstance(l_deleteTargets, str):
+        l_deleteTargets = [l_deleteTargets]
+    log.info("{0} || delete targets: {1}".format(_str_func, len(l_deleteTargets)))
+
+    for o in l_deleteTargets:
+        try:
+            mc.delete(o)
+        except Exception as err:
+            l_deleteFailures.append((o, err))
+            log.error("{0} || delete failed: {1} | err: {2}".format(_str_func, o, err))
+
+    for o in l_deleteTargets:
+        if mc.objExists(o):
+            l_deleteSurvivors.append(o)
+
+    if l_deleteFailures or l_deleteSurvivors:
+        log.warning(cgmGEN._str_hardBreak)
+        log.warning("{0} || Delete-set cleanup issues detected".format(_str_func))
+        if l_deleteFailures:
+            log.warning("{0} || delete exceptions: {1}".format(_str_func, len(l_deleteFailures)))
+            for i, d in enumerate(l_deleteFailures):
+                log.warning("{0} || fail[{1}] target={2} | err={3}".format(_str_func, i, d[0], d[1]))
+        if l_deleteSurvivors:
+            log.warning("{0} || delete survivors still exist: {1}".format(_str_func, len(l_deleteSurvivors)))
+            for i, o in enumerate(l_deleteSurvivors):
+                log.warning("{0} || survivor[{1}] {2}".format(_str_func, i, o))
+        log.warning("{0} || Troubleshooting: check namespace changes and locked/reference state.".format(_str_func))
+        log.warning(cgmGEN._str_hardBreak)
+        return False
+
+    log.info("{0} || delete set cleanup ok | members={1}".format(_str_func, len(l_deleteTargets)))
+    return True
+
+
 def Prep(removeNamespace = False, 
          deleteSetName = "delete_tdSet",
          exportSetName = "export_tdSet",
@@ -280,10 +369,14 @@ def Prep(removeNamespace = False,
     #    exportSetName = mc.optionVar(q='cgm_export_set')
 
     try:
-        topNode = cgmMeta.asMeta(mc.ls(sl=True)[0])
-    except:
-        print("Select top node and try again.")
-        return
+        _sel = mc.ls(sl=True) or []
+        if not _sel:
+            log.error("{0} || No selection found. Select top node and try again.".format(_str_func))
+            return False
+        topNode = cgmMeta.asMeta(_sel[0])
+    except Exception:
+        log.exception("{0} || Failed to resolve selected top node.".format(_str_func))
+        return False
 
     currentTime = mc.currentTime(q=True)
 
@@ -405,16 +498,11 @@ def Prep(removeNamespace = False,
         #    print(("%s already a child of 'world'" % obj))
             
             
-    # delete garbage       
-    log.info("{0} || delete set: {1}".format(_str_func,deleteSet))
-    if(mc.objExists(deleteSet)):
-        for o in mc.sets( deleteSet, q=True ) or []:
-            try:mc.delete( o )  
-            except Exception as err:
-                log.error("{} | ".format(o,err))
-    else:
-        print("No delete set found.")  
-        prepped = False    
+    # delete garbage
+    log.info("{0} || delete set (Prep): {1}".format(_str_func, deleteSet))
+    _ns_hint = namespaces[-1] if len(namespaces) > 0 else None
+    if not ProcessDeleteSet(deleteSetName, namespace_prefix=_ns_hint, _str_func=_str_func):
+        prepped = False
 
     if removeNamespace:#...attempt to clean name space stuff
         l_targets = mc.ls("{}:*".format(ns)) or []

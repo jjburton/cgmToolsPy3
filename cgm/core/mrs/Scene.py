@@ -72,6 +72,25 @@ log.setLevel(logging.INFO)
 #=========================================================================
 _d_ann = SCENEUTILS.d_annotations
 
+_EXPORT_ERROR_STAGES = (
+    'path_resolve',
+    'prep',
+    'bake',
+    'fbx_export',
+    'post_cleanup',
+    'batch_item',
+)
+
+
+def _export_ctx_to_str(ctx):
+    """Stable key/value formatting for export error reporting."""
+    if not ctx:
+        return 'context=none'
+    l_msg = []
+    for k in sorted(ctx.keys()):
+        l_msg.append('{0}={1}'.format(k, ctx.get(k)))
+    return ' | '.join(l_msg)
+
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -4892,13 +4911,26 @@ example:
             #mMenu.append(item)
 
     def SendToBuild(self,*args):
+        _str_func = 'Scene.SendToBuild'
         f = self.versionFile
         if not f:
             return log.error("SendToBuild: No version file found")
 
-        log.debug ("file: {0}".format(f))
-        mStandAlone = BUILDER.ui_toStandAlone()
+        log.info(log_msg(_str_func, "Opening MRS Build for file | {0}".format(f)))
+        try:
+            mStandAlone = BUILDER.ui_toStandAlone()
+        except Exception:
+            log.exception(log_msg(_str_func, "Failed to open MRS Build UI"))
+            return
         mStandAlone.l_files = [f]
+        log.info(
+            log_msg(
+                _str_func,
+                "Queued for Build button | l_files={0} (click Build in the window)".format(
+                    mStandAlone.l_files
+                ),
+            )
+        )
 
 
     def SendVersionFileToProject(self, infoDict, *args):
@@ -5520,104 +5552,118 @@ example:
     def RunExportCommand(self, *args):
         _str_func = 'RunExportCommand'
         log.info(log_start(_str_func))
+        mode = args[0] if args else -1
+        modeLabel = {0: 'bake', 1: 'export', 2: 'cutscene', 3: 'rig', 4: 'static'}.get(mode, 'unknown')
+        stage = 'path_resolve'
+        _baseCtx = {'mode': mode, 'modeLabel': modeLabel}
 
-        _l_openTokens = self.uiFunc_getOpenFilePathTokens()
+        try:
+            _l_openTokens = self.uiFunc_getOpenFilePathTokens() or []
+            _pathCtx = dict(_baseCtx, stage=stage, openTokens=_l_openTokens, exportDirectory=self.exportDirectory)
+
+            if len(_l_openTokens) < 3:
+                log.error("{0} | Invalid open file path tokens. Need >=3, got {1} | {2}".format(
+                    _str_func, len(_l_openTokens), _export_ctx_to_str(_pathCtx)))
+                return False
+            if not self.exportDirectory:
+                log.error("{0} | Export directory not set | {1}".format(_str_func, _export_ctx_to_str(_pathCtx)))
+                return False
+
+            categoryExportPath = os.path.normpath(os.path.join(self.exportDirectory, _l_openTokens[0]))
+            _l_openTokens.pop(0)
+            exportAssetPath = os.path.normpath(os.path.join(categoryExportPath, _l_openTokens[0]))
+            _l_openTokens.pop(0)
+            _tmp  = _l_openTokens[0]##os.path.join(*_l_openTokens)
+            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath,_tmp))
+
+            d_userPaths = self.mDat.userPaths_get()
+
+            postEuler = self.d_tf['exportOptions']['postEuler'].getValue()
+            postTangent = self.d_tf['exportOptions']['postTangent'].getValue()
+            sampleBy = self.d_tf['exportOptions']['sampleBy'].getValue()
+            reducer = self.d_tf['exportOptions']['reducer'].getValue()
+            simplify = self.d_tf['exportOptions']['simplify'].getValue()
+            exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue()
+            breakTextureLinks = self.d_tf['exportOptions']['breakTextureLinks'].getValue()
+
+            pprint.pprint(vars())
+            pprint.pprint(self.d_tf['exportOptions'])
+
+            if postTangent == 'none':
+                postTangent = False
+
+            _ctx = dict(_baseCtx,
+                        stage=stage,
+                        categoryExportPath=categoryExportPath,
+                        exportAssetPath=exportAssetPath,
+                        exportAnimPath=exportAnimPath,
+                        sceneFile=mc.file(q=True, sn=True))
+
+            if self.useMayaPy:
+                #reload(BATCH)
+                log.debug('Maya Py!')
+
+                bakeSetName = self.var_bakeSet.getValue()
+                deleteSetName = self.var_deleteSet.getValue()
+                exportSetName = self.var_exportSet.getValue()
 
 
-        categoryExportPath = os.path.normpath(os.path.join( self.exportDirectory, _l_openTokens[0]))
-        _l_openTokens.pop(0)
-        exportAssetPath = os.path.normpath(os.path.join( categoryExportPath, _l_openTokens[0]))
-        _l_openTokens.pop(0)
-        _tmp  = _l_openTokens[0]##os.path.join(*_l_openTokens)
-        exportAnimPath = os.path.normpath(os.path.join(exportAssetPath,_tmp))        
+                d = {
+                    'file':mc.file(q=True, sn=True),
+                    'objs':mc.ls(sl=1),
+                    'mode':mode,
+                    'exportName':self.exportFileName,
+                    'exportAssetPath' : PATHS.Path(exportAssetPath).split(),
+                    'categoryExportPath' : PATHS.Path(categoryExportPath).split(),
+                    'subType' : self.subType,
+                    'subSet' : self.selectedSet,
+                    'exportAnimPath' : PATHS.Path(exportAnimPath).split(),
+                    'removeNamespace' : self.d_tf['exportOptions']['removeNameSpace'].getValue(),
+                    'zeroRoot' : self.d_tf['exportOptions']['zeroRoot'].getValue(),
+                    'bakeSetName':bakeSetName,
+                    'exportSetName':exportSetName,
+                    'deleteSetName':deleteSetName,
+                    'animationName':self.selectedSet,
+                    'sampleBy':sampleBy,
+                    'tangent':postTangent,
+                    'euler':postEuler,
+                    'workspace':d_userPaths['content'],
+                    'simplify':simplify,
+                    'reducer':reducer,
+                    'exportShotsToIndividualFiles':exportShotsToIndividualFiles,
+                    'breakTextureLinks':breakTextureLinks,
+                }
+                pprint.pprint(d)
 
-        #pprint.pprint(vars())
+                BATCH.create_Scene_batchFile([d])
+                return True
+            #pprint.pprint(vars())
 
-        #return
-
-        '''Old method
-        categoryExportPath = os.path.normpath(os.path.join( self.exportDirectory, self.category))
-        exportAssetPath = os.path.normpath(os.path.join( categoryExportPath, self.assetList['scrollList'].getSelectedItem()))
-        exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, self.subType))'''
-
-        d_userPaths = self.mDat.userPaths_get()
-
-        postEuler = self.d_tf['exportOptions']['postEuler'].getValue()
-        postTangent = self.d_tf['exportOptions']['postTangent'].getValue()
-        sampleBy = self.d_tf['exportOptions']['sampleBy'].getValue()
-        reducer = self.d_tf['exportOptions']['reducer'].getValue()
-        simplify = self.d_tf['exportOptions']['simplify'].getValue()
-        exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue()
-        breakTextureLinks = self.d_tf['exportOptions']['breakTextureLinks'].getValue()
-
-        pprint.pprint(vars())
-        pprint.pprint(self.d_tf['exportOptions'])
-
-        if postTangent == 'none':
-            postTangent = False
-
-        if self.useMayaPy:
-            #reload(BATCH)
-            log.debug('Maya Py!')
-
-            bakeSetName = self.var_bakeSet.getValue()
-            deleteSetName = self.var_deleteSet.getValue()
-            exportSetName = self.var_exportSet.getValue()
-
-
-            d = {
-                'file':mc.file(q=True, sn=True),
-                'objs':mc.ls(sl=1),
-                'mode':args[0],
-                'exportName':self.exportFileName,
-                'exportAssetPath' : PATHS.Path(exportAssetPath).split(),
-                'categoryExportPath' : PATHS.Path(categoryExportPath).split(),
-                'subType' : self.subType,
-                'subSet' : self.selectedSet,
-                'exportAnimPath' : PATHS.Path(exportAnimPath).split(),
-                'removeNamespace' : self.d_tf['exportOptions']['removeNameSpace'].getValue(),
-                'zeroRoot' : self.d_tf['exportOptions']['zeroRoot'].getValue(),
-                'bakeSetName':bakeSetName,
-                'exportSetName':exportSetName,
-                'deleteSetName':deleteSetName,
-                'animationName':self.selectedSet,
-                'sampleBy':sampleBy,
-                'tangent':postTangent,
-                'euler':postEuler,
-                'workspace':d_userPaths['content'],
-                'simplify':simplify,
-                'reducer':reducer,
-                'exportShotsToIndividualFiles':exportShotsToIndividualFiles,
-                'breakTextureLinks':breakTextureLinks,
-            }
-            pprint.pprint(d)
-
-            BATCH.create_Scene_batchFile([d])
-            return
-        #pprint.pprint(vars())
-
-        ExportScene(mode = args[0],
-                    exportObjs = None,
-                    exportName = self.exportFileName,
-                    exportAssetPath = exportAssetPath,
-                    subType = self.subType,
-                    subSet= self.selectedSet,
-                    categoryExportPath = categoryExportPath,
-                    exportAnimPath = exportAnimPath,
-                    removeNamespace = self.d_tf['exportOptions']['removeNameSpace'].getValue(),
-                    zeroRoot = self.d_tf['exportOptions']['zeroRoot'].getValue(),
-                    animationName = _l_openTokens[0],#self.selectedSet,
-                    exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
-                    tangent=postTangent,
-                    euler=postEuler,                            
-                    sampleBy=sampleBy,
-                    workspace=d_userPaths['content'],
-                    simplify=simplify,
-                    reducer=reducer,
-                    breakTextureLinks=breakTextureLinks,
-                    )        
-
-        return True
+            result = ExportScene(mode = mode,
+                                 exportObjs = None,
+                                 exportName = self.exportFileName,
+                                 exportAssetPath = exportAssetPath,
+                                 subType = self.subType,
+                                 subSet= self.selectedSet,
+                                 categoryExportPath = categoryExportPath,
+                                 exportAnimPath = exportAnimPath,
+                                 removeNamespace = self.d_tf['exportOptions']['removeNameSpace'].getValue(),
+                                 zeroRoot = self.d_tf['exportOptions']['zeroRoot'].getValue(),
+                                 animationName = _l_openTokens[0],#self.selectedSet,
+                                 exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
+                                 tangent=postTangent,
+                                 euler=postEuler,
+                                 sampleBy=sampleBy,
+                                 workspace=d_userPaths['content'],
+                                 simplify=simplify,
+                                 reducer=reducer,
+                                 breakTextureLinks=breakTextureLinks,
+                                 )
+            return bool(result)
+        except Exception:
+            _errCtx = dict(_baseCtx, stage=stage, sceneFile=mc.file(q=True, sn=True))
+            log.exception("{0} | Unhandled export command error | {1}".format(_str_func, _export_ctx_to_str(_errCtx)))
+            return False
 
 
 
@@ -5630,6 +5676,7 @@ def BatchExport(dataList = []):
     t1 = time.time()
 
     _resFail = []
+    _successCount = 0
     for i,fileDat in enumerate(dataList):
         _d = {}
 
@@ -5677,9 +5724,30 @@ def BatchExport(dataList = []):
 
             mc.file(_path, open = 1, f = 1, iv = 1)
 
-            ExportScene(**_d)        
+            _exportOk = ExportScene(**_d)
+            if _exportOk is False:
+                log.error("{0} | ExportScene returned False | index={1} | file={2}".format(
+                    _str_func, i, fileDat.get('file')))
+                _resFail.append({'index': i,
+                                 'file': fileDat.get('file'),
+                                 'mode': fileDat.get('mode'),
+                                 'stage': 'export_scene',
+                                 'error': 'ExportScene returned False (early exit, user cancel, or failure)'})
+                continue
         except Exception as err:
-            _resFail.append(["File: {}".format(i),_d, err])
+            _ctx = {'stage': 'batch_item',
+                    'index': i,
+                    'file': fileDat.get('file'),
+                    'mode': fileDat.get('mode'),
+                    'exportName': fileDat.get('exportName')}
+            log.exception("{0} | Batch item failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+            _resFail.append({'index': i,
+                             'file': fileDat.get('file'),
+                             'mode': fileDat.get('mode'),
+                             'stage': 'batch_item',
+                             'error': str(err)})
+            continue
+        _successCount += 1
 
 
 
@@ -5687,6 +5755,8 @@ def BatchExport(dataList = []):
     log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, "%0.4f"%( t2-t1 )))
     print(('Completed: {}'.format(datetime.datetime.now())))                        
 
+    log.info("{0} | Batch summary | attempted={1} | succeeded={2} | failed={3}".format(
+        _str_func, len(dataList), _successCount, len(_resFail)))
     if _resFail:
         log.warning(cgmGEN._str_hardBreak)
         pprint.pprint(_resFail)
@@ -5735,18 +5805,42 @@ def ExportScene(mode = -1,
                 breakTextureLinks = True,
                 ):
 
-    if workspace:
-        mc.workspace( workspace, openWorkspace=True )
+    _str_func = 'ExportScene'
+    log.info(log_start(_str_func))
+    _ctx_base = {'mode': mode,
+                 'exportName': exportName,
+                 'subType': subType,
+                 'subSet': subSet,
+                 'workspace': workspace,
+                 'sceneFile': mc.file(q=True, sn=True)}
+    _errorEvents = []
 
+    def _finalize_failure(stage, reason, ctx=None):
+        _event = {'stage': stage, 'reason': reason}
+        if ctx:
+            _event.update(ctx)
+        _errorEvents.append(_event)
+        log.error("{0} | {1} | {2}".format(_str_func, reason, _export_ctx_to_str(_event)))
+        log.warning(cgmGEN._str_hardBreak)
+        log.warning("{0} | Export failed. Troubleshooting summary:".format(_str_func))
+        for i, e in enumerate(_errorEvents):
+            log.warning("{0} | {1} | stage={2} | reason={3}".format(_str_func, i, e.get('stage'), e.get('reason')))
+        log.warning(cgmGEN._str_hardBreak)
+        return False
     #pprint.pprint(vars())
-    
 
     #exec(self.exportCommand)
     import cgm.core.tools.bakeAndPrep as bakeAndPrep
     cgmGEN._reloadMod(bakeAndPrep)
     import cgm.core.mrs.Shots as SHOTS
-    _str_func = 'ExportScene'
-    log.info(log_start(_str_func))
+
+    if workspace:
+        try:
+            mc.workspace(workspace, openWorkspace=True)
+        except Exception:
+            _ctx = dict(_ctx_base, stage='path_resolve')
+            log.exception("{0} | Failed opening workspace | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+            return _finalize_failure('path_resolve', 'Failed opening workspace', _ctx)
 
     if updateRigs and updateRigs != '0':
         log.info(log_sub(_str_func,'Rig update'))
@@ -5912,8 +6006,11 @@ def ExportScene(mode = -1,
     log.info("Mode: {0}".format(mode))    
     pprint.pprint(exportObjs)
 
-    if len(exportObjs) > 1 and mode not in  [2,4]:
-        log.info("Multi check")            
+    # Multiple export roots: only mode 1 (anim) needs the cutscene-style confirmation.
+    # Modes 2–4 (cutscene / rig / static) are designed to handle multiple roots; mode 3 rig
+    # must not block on a dialog (batch/mayapy has no user to click Yes — export silently aborts).
+    if len(exportObjs) > 1 and mode == 1:
+        log.info("Multi check (anim mode: offer cutscene-style multi export)")
         result = mc.confirmDialog(
             title='Multiple Object Selected',
                     message='Will export in cutscene mode, is this what you intended? If not, hit Cancel, select one object and try again.',
@@ -6034,15 +6131,173 @@ def ExportScene(mode = -1,
     #if mc.objExists(bakeSetName) and mc.sets(bakeSetName, q=True):
     #    log.info("bake...")        
     if not exportStatic:
-        bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
-                         euler=euler,tangent=tangent, reducer=reducer, simplify=simplify)
+        try:
+            bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
+                             euler=euler,tangent=tangent, reducer=reducer, simplify=simplify)
+        except Exception:
+            _ctx = dict(_ctx_base,
+                        stage='bake',
+                        bakeSetName=bakeSetName,
+                        startFrame=_start,
+                        endFrame=_end,
+                        exportObjCount=len(exportObjs or []))
+            log.exception("{0} | Bake stage failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+            return _finalize_failure('bake', 'Bake stage failed', _ctx)
     #else:
     #    log.info("bake skip...")
 
 
 
-    mc.loadPlugin("fbxmaya")
-    
+    try:
+        mc.loadPlugin("fbxmaya")
+    except Exception:
+        _ctx = dict(_ctx_base, stage='fbx_export', plugin='fbxmaya')
+        log.exception("{0} | Failed loading FBX plugin | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+        return _finalize_failure('fbx_export', 'Failed loading FBX plugin', _ctx)
+
+    # Rig + multiple export roots: prepare each root, then one FBX containing all hierarchies.
+    # (Iterating per root would overwrite the same rig filename and run destructive cleanup between passes.)
+    if exportAsRig and len(exportObjs) > 1:
+        exportFile = os.path.normpath(os.path.join(exportAssetPath, exportName))
+        log.info("{0} | Rig multi-root -> single FBX | path={1} | roots={2}".format(
+            _str_func, exportFile, exportObjs))
+
+        l_cleanup = []
+
+        for obj in exportObjs:
+            log.info(log_sub(_str_func, 'Rig multi prepare | {0}'.format(obj)))
+            cgmObj = cgmMeta.validateObjArg(obj, noneValid=True)
+            cgmObj.select()
+
+            if cgmObj.isReferenced():
+                try:
+                    prepResult = bakeAndPrep.Prep(removeNamespace=removeNamespace,
+                                                  deleteSetName=deleteSetName,
+                                                  exportSetName=exportSetName,
+                                                  zeroRoot=zeroRoot,
+                                                  breakTextures=breakTextureLinks)
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.exception("{0} | Prep stage failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Prep stage failed', _ctx)
+                if prepResult is False:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.error("{0} | Prep stage returned failure | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Prep stage returned failure', _ctx)
+                exportTransforms = mc.ls(sl=True)
+            else:
+                _shortObj = obj.split('|')[-1]
+                _ns_prefix = _shortObj.split(':')[0] if ':' in _shortObj else None
+
+                if _ns_prefix:
+                    bakeAndPrep.ProcessDeleteSet(
+                        deleteSetName,
+                        namespace_prefix=_ns_prefix,
+                        _str_func='{0}|delete_pre_ns'.format(_str_func))
+
+                if removeNamespace and ':' in obj:
+                    _nsParts = _shortObj.split(':')[:-1]
+                    _namespaces = []
+                    _nsAccum = []
+                    for _part in _nsParts:
+                        _nsAccum.append(_part)
+                        _namespaces.append(':'.join(_nsAccum))
+
+                    for _ns in reversed(_namespaces):
+                        if mc.namespace(exists=_ns):
+                            try:
+                                mc.namespace(removeNamespace=_ns, mergeNamespaceWithRoot=True)
+                                log.info("{0} | Removed namespace for non-referenced export object: {1}".format(_str_func, _ns))
+                            except Exception:
+                                _ctx = dict(_ctx_base, stage='prep', exportObj=obj, namespace=_ns)
+                                log.exception("{0} | Failed removing namespace in non-referenced export path | {1}".format(
+                                    _str_func, _export_ctx_to_str(_ctx)))
+                                return _finalize_failure('prep', 'Failed removing namespace in non-referenced export path', _ctx)
+
+                bakeAndPrep.ProcessDeleteSet(
+                    deleteSetName,
+                    namespace_prefix=None,
+                    _str_func='{0}|delete_post_ns'.format(_str_func))
+
+                _constraints = cgmObj.getConstraintsTo()
+                if _constraints:
+                    mc.delete(_constraints)
+                mc.select(cl=True)
+                _rootBase = obj.split('|')[-1].split(':')[-1]
+                exportTransforms = _rootBase if mc.objExists(_rootBase) else obj
+
+            mObjs = cgmMeta.asMeta(exportTransforms)
+
+            if deleteMesh:
+                for mObj in mObjs:
+                    for mMeshShape in mObj.getAllChildren(type='mesh', asMeta=1):
+                        log.info("Deleting: {}".format(mMeshShape))
+                        try:
+                            mc.delete(mMeshShape.getTransform())
+                        except Exception:
+                            log.error("failure: {}".format(mMeshShape.mNode))
+
+            l_cleanup.append((cgmObj, exportTransforms))
+
+        mc.select(cl=True)
+        for _cgmObj, exportTransforms in l_cleanup:
+            if isinstance(exportTransforms, (list, tuple)):
+                for _n in exportTransforms:
+                    if _n and mc.objExists(_n):
+                        mc.select(_n, add=True)
+            else:
+                if exportTransforms and mc.objExists(exportTransforms):
+                    mc.select(exportTransforms, add=True)
+        _selFlat = mc.ls(sl=True)
+        if _selFlat:
+            mc.select(_selFlat, hi=True)
+
+        log.info("Heirarchy (rig multi combined)...")
+        for i, o in enumerate(mc.ls(sl=1)):
+            log.info("{0} | {1}".format(i, o))
+
+        if exportFBXFile:
+            mel.eval('FBXExportSplitAnimationIntoTakes -c')
+
+            _primary = exportObjs[0]
+            if _primary not in cameras:
+                for shot in animList.shotList:
+                    log.info(log_msg(_str_func, "shot..."))
+                    log.info(shot)
+                    mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(
+                        shot[0], shot[1][0], shot[1][1]))
+
+            exportDir = os.path.split(exportFile)[0]
+            if not os.path.exists(exportDir):
+                log.info("making export dir... {0}".format(exportDir))
+                os.makedirs(exportDir)
+
+            log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
+            try:
+                mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+            except Exception:
+                _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObjs=exportObjs)
+                log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+
+        if len(exportObjs) > 1 and removeNamespace:
+            for _cgmObj, exportTransforms in l_cleanup:
+                try:
+                    mc.delete(_cgmObj.mNode)
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='post_cleanup', exportObj=_cgmObj.mNode, exportFile=exportFile)
+                    log.exception("{0} | Failed export cleanup delete (root) | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                try:
+                    if isinstance(exportTransforms, (list, tuple)):
+                        mc.delete(exportTransforms)
+                    else:
+                        mc.delete(exportTransforms)
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='post_cleanup', exportTransforms=exportTransforms, exportFile=exportFile)
+                    log.exception("{0} | Failed export cleanup delete (transforms) | {1}".format(
+                        _str_func, _export_ctx_to_str(_ctx)))
+
+        return True
 
     for obj in exportObjs:			
         log.info( log_sub(_str_func,'On: {0}'.format(obj)) )
@@ -6070,7 +6325,13 @@ def ExportScene(mode = -1,
             # Break texture links for static export if enabled
             if breakTextureLinks:
                 log.info(log_sub(_str_func, "Breaking texture links for static export"))
-                bakeAndPrep.BreakTextureLinks()
+                try:
+                    bakeAndPrep.BreakTextureLinks()
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='prep', exportFile=exportFile, exportObj=obj, breakTextureLinks=breakTextureLinks)
+                    log.exception("{0} | Failed breaking texture links for static export | {1}".format(
+                        _str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Failed breaking texture links for static export', _ctx)
             
             if(exportFBXFile):
                 exportDir = os.path.split(exportFile)[0]
@@ -6096,17 +6357,70 @@ def ExportScene(mode = -1,
                         os.makedirs(exportDir)
 
                 log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
-                mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                try:
+                    mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
+                    log.exception("{0} | Static FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('fbx_export', 'Static FBX export failed', _ctx)
 
         else:
             if cgmObj.isReferenced():
-                bakeAndPrep.Prep(removeNamespace=removeNamespace, deleteSetName=deleteSetName,exportSetName=exportSetName, zeroRoot=zeroRoot, breakTextures=breakTextureLinks)
+                try:
+                    prepResult = bakeAndPrep.Prep(removeNamespace=removeNamespace,
+                                                  deleteSetName=deleteSetName,
+                                                  exportSetName=exportSetName,
+                                                  zeroRoot=zeroRoot,
+                                                  breakTextures=breakTextureLinks)
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.exception("{0} | Prep stage failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Prep stage failed', _ctx)
+                if prepResult is False:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.error("{0} | Prep stage returned failure | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Prep stage returned failure', _ctx)
                 exportTransforms = mc.ls(sl=True)
             else:
+                _shortObj = obj.split('|')[-1]
+                _ns_prefix = _shortObj.split(':')[0] if ':' in _shortObj else None
+
+                # Delete-set cleanup only ran inside Prep(); non-referenced exports skipped Prep entirely.
+                if _ns_prefix:
+                    bakeAndPrep.ProcessDeleteSet(
+                        deleteSetName,
+                        namespace_prefix=_ns_prefix,
+                        _str_func='{0}|delete_pre_ns'.format(_str_func))
+
+                if removeNamespace and ':' in obj:
+                    _nsParts = _shortObj.split(':')[:-1]
+                    _namespaces = []
+                    _nsAccum = []
+                    for _part in _nsParts:
+                        _nsAccum.append(_part)
+                        _namespaces.append(':'.join(_nsAccum))
+
+                    for _ns in reversed(_namespaces):
+                        if mc.namespace(exists=_ns):
+                            try:
+                                mc.namespace(removeNamespace=_ns, mergeNamespaceWithRoot=True)
+                                log.info("{0} | Removed namespace for non-referenced export object: {1}".format(_str_func, _ns))
+                            except Exception:
+                                _ctx = dict(_ctx_base, stage='prep', exportObj=obj, namespace=_ns)
+                                log.exception("{0} | Failed removing namespace in non-referenced export path | {1}".format(
+                                    _str_func, _export_ctx_to_str(_ctx)))
+                                return _finalize_failure('prep', 'Failed removing namespace in non-referenced export path', _ctx)
+
+                bakeAndPrep.ProcessDeleteSet(
+                    deleteSetName,
+                    namespace_prefix=None,
+                    _str_func='{0}|delete_post_ns'.format(_str_func))
+
                 _constraints = cgmObj.getConstraintsTo()
                 if _constraints:mc.delete(_constraints)
                 mc.select(cl=True)
-                exportTransforms = obj
+                _rootBase = obj.split('|')[-1].split(':')[-1]
+                exportTransforms = _rootBase if mc.objExists(_rootBase) else obj
 
             mObjs = cgmMeta.asMeta(exportTransforms)
 
@@ -6127,7 +6441,9 @@ def ExportScene(mode = -1,
                 log.info("{0} | {1}".format(i,o))
 
             if(exportFBXFile):
-                if exportShotsToIndividualFiles:
+                # Rig exports are always single-file exports. Even if the project option
+                # is enabled, skip per-shot file splitting for rig mode.
+                if exportShotsToIndividualFiles and not exportAsRig:
                     # global FBX options you probably want once
                     mel.eval('FBXResetExport;')
                     mel.eval('FBXExportSplitAnimationIntoTakes -clear;')  # no multi-take
@@ -6167,7 +6483,13 @@ def ExportScene(mode = -1,
                             mel.eval('playbackOptions -min {0} -max {1};'.format(int(s), int(e)))
 
                             log.info('Export Command: FBXExport -f \"{}\" -s'.format(outFile))
-                            mel.eval('FBXExport -f \"{}\" -s'.format(outFile)) 
+                            try:
+                                mel.eval('FBXExport -f \"{}\" -s'.format(outFile))
+                            except Exception:
+                                _ctx = dict(_ctx_base, stage='fbx_export', exportFile=outFile, exportObj=obj, shotName=shotName)
+                                log.exception("{0} | Shot FBX export failed | {1}".format(
+                                    _str_func, _export_ctx_to_str(_ctx)))
+                                return _finalize_failure('fbx_export', 'Shot FBX export failed', _ctx)
 
                 else:
                     mel.eval('FBXExportSplitAnimationIntoTakes -c')
@@ -6184,15 +6506,21 @@ def ExportScene(mode = -1,
                         os.makedirs(exportDir)
 
                     log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
-                    mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                    try:
+                        mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                    except Exception:
+                        _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
+                        log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                        return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
 
                 if len(exportObjs) > 1 and removeNamespace:
                     # Deleting the exported transforms in case another file has duplicate export names
                     mc.delete(cgmObj.mNode)
                     try:
                         mc.delete(exportTransforms)
-                    except:
-                        pass
+                    except Exception:
+                        _ctx = dict(_ctx_base, stage='post_cleanup', exportObj=obj, exportFile=exportFile)
+                        log.exception("{0} | Failed export cleanup delete | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
                 
 
     return True

@@ -2218,18 +2218,33 @@ class data(object):
             
         
     def fillDefaults(self,overwrite=False):
+        """Fill missing keys from defaults. Per-key chatter is opt-in only:
+        set env CGM_VERBOSE_FILL_DEFAULTS=1 (otherwise silent even if log level is DEBUG)."""
         _str_func = 'data.fillDefaults'
-        print("|{0}| >>...".format(_str_func))
-        
+        _verbose_fill = os.environ.get("CGM_VERBOSE_FILL_DEFAULTS", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if _verbose_fill:
+            log.debug("|{0}| >>...".format(_str_func))
+
         for k,d in list(PU._dataConfigToStored.items()):
-            log.debug("checking: {0}".format(k))
+            if _verbose_fill:
+                log.debug("checking: {0}".format(k))
             mD = self.__dict__[d]
-            
+
             for d2 in PU._d_defaultsMap.get(k,[]):
-                log.debug("set: {0}".format(d2))
+                if _verbose_fill:
+                    log.debug("set: {0}".format(d2))
                 if mD.get(d2['n']) is None or overwrite:
                     mD[d2['n']] = d2.get('dv')
-                    print("fillDefaults -- [{1}] | [{0}] | {2}".format(d2['n'],k,d2.get('dv')))
+                    if _verbose_fill:
+                        log.debug(
+                            "fillDefaults -- [{1}] | [{0}] | {2}".format(
+                                d2["n"], k, d2.get("dv")
+                            )
+                        )
                     
         if not self.assetDat:
             for k in 'character','environment','prop':
