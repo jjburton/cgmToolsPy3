@@ -7776,7 +7776,7 @@ def build_proxyMeshBAK(self, forceNew = True, puppetMeshMode = False):
 
 #UI ================================================================================================
 def uiFunc_getDefineScaleSpace(self):
-    ml_handles = self.msgList_get('defineHandles')
+    ml_handles = self.msgList_get('defineSubHandles')
     for mObj in ml_handles:
         if 'Left' in mObj.handleTag:
             ml_handles.remove(mObj)
