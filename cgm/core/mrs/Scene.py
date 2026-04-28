@@ -29,6 +29,7 @@ import cgm.core.mrs.Builder as BUILDER
 import cgm.core.lib.mayaBeOdd_utils as MAYABEODD
 import cgm.core.cgmPy.validateArgs as VALID
 import cgm.core.tools.Project as PROJECT
+import cgm.core.tools.lib.project_utils as PU
 import Red9.core.Red9_General as r9General
 import cgm.core.mrs.SceneDat as SCENEDAT
 import cgm.core.lib.string_utils as CORESTRING
@@ -136,6 +137,7 @@ example:
         self.subTypes                    = ['animation']
         self.subTypeIndex                = 0
         self.l_subTypesBase = []
+        self._subTypePathWarningsShown = set()
         self.b_subFile = False
         self.var_lastProject       = cgmMeta.cgmOptionVar("cgmVar_projectCurrent", varType = "string")
         self.var_lastAsset     = cgmMeta.cgmOptionVar("cgmVar_sceneUI_last_asset", varType = "string")
@@ -397,7 +399,7 @@ example:
     @property
     def path_subType(self):
         try:
-            return os.path.normpath(os.path.join( self.path_asset, self.subType ))
+            return self._resolve_subType_container_path(self.path_asset, self.subType)
         except Exception as err:
             log.debug(err)
             return False
@@ -407,11 +409,14 @@ example:
         try:
             if self.hasSub:
                 if self.subTypeSearchList['scrollList'].getSelectedItem():
-                    return os.path.normpath(os.path.join( self.path_asset, self.subType, self.subTypeSearchList['scrollList'].getSelectedItem() ))
+                    _subTypePath = self.path_subType
+                    if not _subTypePath:
+                        return None
+                    return os.path.normpath(os.path.join(_subTypePath, self.subTypeSearchList['scrollList'].getSelectedItem()))
                 else:
                     return None
             else:
-                return os.path.normpath(os.path.join( self.path_asset, self.subType ))
+                return self.path_subType
         except Exception as err:
             log.debug(err)
             return False
@@ -495,7 +500,7 @@ example:
             else:
                 return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem())
         else:
-            return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), self.subType)
+            return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), PU.subtype_file_token(self.subType))
 
 
     @property
@@ -661,6 +666,125 @@ example:
             return hasSub
         except:
             return True
+
+    def _warn_subType_path_resolution(self, subType, msg, title='Subtype Directory Warning', assetPath=None):
+        key = "{0}|{1}".format(subType, msg)
+        if key in self._subTypePathWarningsShown:
+            return
+        self._subTypePathWarningsShown.add(key)
+        log.warning(msg)
+        try:
+            _buttons = ['OK']
+            if assetPath:
+                _buttons.append('Fix Now')
+            _result = mc.confirmDialog(
+                title=title,
+                message=msg,
+                button=_buttons,
+                defaultButton='OK',
+                cancelButton='OK',
+                dismissString='OK')
+            if _result == 'Fix Now' and assetPath:
+                self._fix_subType_directory_discrepancy(assetPath, subType)
+        except Exception as err:
+            log.debug("Subtype warning dialog failed: {}".format(err))
+
+    def _use_plural_subdirs(self):
+        try:
+            raw = self.mDat.d_project.get('usePluralSubDirs', False)
+        except Exception:
+            raw = False
+
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            return raw.strip().lower() in ('true', '1', 'yes')
+        return bool(raw)
+
+    def _fix_subType_directory_discrepancy(self, assetPath, subType):
+        """
+        Resolve legacy/plural subtype directory discrepancies only under a single asset directory.
+        """
+        _str_func = '_fix_subType_directory_discrepancy'
+        if not assetPath or not subType:
+            return False
+
+        _candidates = PU.subtype_dir_candidates(subType, prefer_plural=self._use_plural_subdirs())
+        if len(_candidates) < 2:
+            return False
+
+        _preferred_name = _candidates[0]
+        _legacy_names = _candidates[1:]
+        _preferred_path = os.path.normpath(os.path.join(assetPath, _preferred_name))
+        _legacy_paths = [os.path.normpath(os.path.join(assetPath, n)) for n in _legacy_names]
+        _existing_legacy = [p for p in _legacy_paths if os.path.isdir(p)]
+        _moved = []
+        _skipped = []
+
+        try:
+            if not os.path.isdir(_preferred_path) and _existing_legacy:
+                os.makedirs(_preferred_path)
+
+            for _legacy_path in _existing_legacy:
+                for _name in os.listdir(_legacy_path):
+                    _src = os.path.normpath(os.path.join(_legacy_path, _name))
+                    _dst = os.path.normpath(os.path.join(_preferred_path, _name))
+                    if os.path.exists(_dst):
+                        _skipped.append(_name)
+                        continue
+                    os.rename(_src, _dst)
+                    _moved.append(_name)
+
+                if not os.listdir(_legacy_path):
+                    os.rmdir(_legacy_path)
+
+            _msg = "Subtype directory fix complete for '{0}'.\nMoved: {1}\nSkipped (already exists): {2}".format(
+                subType,
+                len(_moved),
+                len(_skipped))
+            log.warning(log_msg(_str_func, _msg))
+            mc.confirmDialog(title='Subtype Directory Fix', message=_msg, button=['OK'])
+            return True
+        except Exception as err:
+            _msg = "Subtype directory fix failed for '{0}': {1}".format(subType, err)
+            log.error(log_msg(_str_func, _msg))
+            mc.confirmDialog(title='Subtype Directory Fix Failed', message=_msg, button=['OK'])
+            return False
+
+    def _resolve_subType_container_path(self, assetPath, subType):
+        _str_func = '_resolve_subType_container_path'
+        if not assetPath or not subType:
+            return False
+
+        _candidates = PU.subtype_dir_candidates(subType, prefer_plural=self._use_plural_subdirs())
+        if not _candidates:
+            return os.path.normpath(os.path.join(assetPath, subType))
+
+        _paths = [os.path.normpath(os.path.join(assetPath, c)) for c in _candidates]
+        _existing = [p for p in _paths if os.path.isdir(p)]
+        _preferred = _paths[0]
+
+        if len(_existing) > 1:
+            self._warn_subType_path_resolution(
+                subType,
+                "Both plural and legacy subtype directories found for '{0}'. Using: {1}".format(
+                    subType, os.path.basename(_preferred)),
+                assetPath=assetPath,
+            )
+            return _preferred
+
+        if len(_existing) == 1:
+            _chosen = _existing[0]
+            if _chosen != _preferred:
+                self._warn_subType_path_resolution(
+                    subType,
+                    "Using legacy subtype directory for '{0}': {1}".format(
+                        subType, os.path.basename(_chosen)),
+                    assetPath=assetPath,
+                )
+            return _chosen
+
+        return _preferred
 
     def LoadOptions(self, *args):
         self.showAllFiles    = bool(self.var_showAllFiles.getValue())
@@ -3324,7 +3448,7 @@ example:
                 self.LoadVersionList()
                 return
 
-            charDir = os.path.normpath(os.path.join( self.path_dir_category, self.assetList['scrollList'].getSelectedItem(), self.subType ))
+            charDir = self.path_subType
 
             if os.path.exists(charDir):
                 for d in os.listdir(charDir):
@@ -3873,8 +3997,9 @@ example:
             if not os.path.exists(charPath):
                 os.makedirs(charPath)
             for subType in self.l_subTypesBase:
-                if not os.path.exists(os.path.normpath(os.path.join(charPath, subType))):
-                    os.mkdir(os.path.normpath(os.path.join(charPath, subType)))
+                subTypePath = self._resolve_subType_container_path(charPath, subType)
+                if subTypePath and not os.path.exists(subTypePath):
+                    os.mkdir(subTypePath)
 
             self.LoadCategoryList(self.directory)
             self.assetList['scrollList'].selectByValue(charName)
@@ -3957,7 +4082,8 @@ example:
         versionList = self.versionList if self.hasSub else self.subTypeSearchList
         existingFiles = versionList['items']
 
-        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem() if self.hasSub else self.subType)
+        _stok = PU.subtype_file_token(self.subType) if self.subType else self.subType
+        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem() if self.hasSub else _stok)
         if self.hasVariant:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
 
@@ -4011,7 +4137,7 @@ example:
                 namespace=self.assetList['scrollList'].getSelectedItem())        
         SCENEUTILS.fncMayaSett_do(self,True,True)
 
-        saveLocation = os.path.join(self.path_asset, self.subType)
+        saveLocation = self.path_subType
         if self.hasSub:
             saveLocation = self.path_set
         if self.hasSub and self.hasVariant:
@@ -4063,7 +4189,7 @@ example:
 
         if result == 'OK':
             subTypeName = mc.promptDialog(query=True, text=True)
-            subTypeDir = self.path_subType #os.path.normpath(os.path.join(self.path_asset, self.subType)) if self.hasSub else os.path.normpath(self.path_asset)
+            subTypeDir = self._resolve_subType_container_path(self.path_asset, self.subType)
             if not os.path.exists(subTypeDir):
                 os.mkdir(PATHS.get_dir(subTypeDir))
 
@@ -4153,8 +4279,9 @@ example:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
             log.debug("Has variant name: {}".format(wantedName))
 
-        if self.subType and self.subType.lower() not in ['animation','anim']:
-            wantedName = "%s_%s" % (wantedName, self.subType)
+        _fileTok = PU.subtype_file_token(self.subType) if self.subType else ''
+        if _fileTok and _fileTok not in ['animation', 'anim']:
+            wantedName = "%s_%s" % (wantedName, _fileTok)
             log.debug("Has subTpe name: {}".format(wantedName))            
 
         if len(existingFiles) == 0:
@@ -4224,7 +4351,7 @@ example:
             #pprint.pprint(vars())
 
 
-        saveLocation = os.path.join(self.path_asset, self.subType)
+        saveLocation = self.path_subType
         if self.hasNested:                
             if self.hasSub:
                 saveLocation = self.path_set
@@ -4550,13 +4677,14 @@ example:
 
             originalAssetName = self.selectedAsset
 
-            # rename animations
-            for animation in os.listdir(os.path.join(self.path_asset, self.subType)):
-                for variation in os.listdir(os.path.join(self.path_asset, self.subType, animation)):
-                    for version in os.listdir(os.path.join(self.path_asset, self.subType, animation, variation)):
+            # rename animations (subtype container may be Rigs/geo via path_subType)
+            _subRoot = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
+            for animation in os.listdir(_subRoot):
+                for variation in os.listdir(os.path.join(_subRoot, animation)):
+                    for version in os.listdir(os.path.join(_subRoot, animation, variation)):
                         if originalAssetName in version:
-                            originalPath = os.path.join(self.path_asset, self.subType, animation, variation, version)
-                            newPath = os.path.join(self.path_asset, self.subType, animation, variation, version.replace(originalAssetName, newName))
+                            originalPath = os.path.join(_subRoot, animation, variation, version)
+                            newPath = os.path.join(_subRoot, animation, variation, version.replace(originalAssetName, newName))
                             os.rename(originalPath, newPath)
 
             # rename rigs
@@ -4657,14 +4785,14 @@ example:
             mc.file(save = 1)        
 
     def uiPath_mayaOpen_subType(self):
-        _path = os.path.normpath(os.path.join(self.path_asset, self.subType) )
-        if os.path.exists(_path):
+        _path = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
+        if _path and os.path.exists(_path):
             self.uiPath_mayaOpen( _path)
         else:
             log.warning("SubType path doesn't exist")
 
     def uiPath_mayaSaveTo_sets(self):
-        _path = os.path.normpath(os.path.join(self.path_asset, self.subType) )        
+        _path = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
         if _path:
             self.uiPath_mayaSaveTo( _path )
         else:
@@ -4692,7 +4820,8 @@ example:
 
     def OpenSubTypeDirectory(self, *args):
         if self.path_asset:
-            self.OpenDirectory( os.path.normpath(os.path.join(self.path_asset, self.subType) ))
+            _p = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
+            self.OpenDirectory(_p)
         else:
             log.warning("Asset path doesn't exist")
 
@@ -5079,7 +5208,7 @@ example:
         try:
             categoryDirectory = os.path.normpath(os.path.join(self.directory, animDict.get('category', '')))
             path_asset = os.path.normpath(os.path.join(categoryDirectory, animDict.get('asset', '')))
-            path_set = os.path.normpath(os.path.join(path_asset, animDict.get('subType', '')))
+            path_set = self._resolve_subType_container_path(path_asset, animDict.get('subType', ''))
             if animDict.get('path'):
                 searchDir = os.path.dirname(animDict['path'])
                 if not os.path.isdir(searchDir):
@@ -5402,7 +5531,7 @@ example:
                 pprint.pprint(animDict)
                 #path_set= os.path.normpath(os.path.join( path_asset, animDict["subType"], animDict["set"] ))
 
-                path_set= os.path.normpath(os.path.join( path_asset, animDict["subType"] ))
+                path_set = self._resolve_subType_container_path(path_asset, animDict["subType"])
 
                 if animDict.get('path'):
                     versionFile = animDict.get('path')

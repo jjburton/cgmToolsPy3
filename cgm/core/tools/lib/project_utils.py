@@ -30,6 +30,99 @@ from cgm.core import cgm_General as cgmGEN
 _animatable_content = ['animation','template','rig','textures','poses','weights','geo']
 _fbxVersions = cgmGEN.get_mayaFBXVersionsAvailable()
 
+# Optional explicit overrides for irregular subtype folder names.
+# Keep empty unless a project needs exceptions to generic s/es handling.
+d_subTypeDirAliases = {}
+
+
+def _pluralize_token(token):
+    if not token:
+        return token
+    lower = token.lower()
+    if lower.endswith(('s', 'x', 'z', 'ch', 'sh')):
+        return token + 'es'
+    return token + 's'
+
+
+def subtype_file_token(subType):
+    """
+    Canonical lowercase token for Maya file/version basenames (e.g. bob_rig_01.mb).
+    Folder names may be plural (Rigs); filenames should use the logical singular token.
+    """
+    if not subType:
+        return subType
+    t = (subType or '').strip()
+    lower = t.lower()
+    # geo: always this spelling in filenames and as the folder name (no plural folder)
+    if lower in ('geo', 'geos'):
+        return 'geo'
+    if lower in ('rig', 'rigs'):
+        return 'rig'
+    if lower in ('mesh', 'meshes'):
+        return 'mesh'
+    return lower
+
+
+def subtype_dir_candidates(subType, prefer_plural=True):
+    """
+    Return ordered folder-name candidates for a logical subtype token.
+    Order is always plural-preferred, then legacy singular, then raw token.
+    """
+    token = (subType or '').strip()
+    if not token:
+        return []
+
+    lower = token.lower()
+    # geo: only ever "geo" on disk (not geos / Meshes)
+    if lower == 'geo':
+        return ['geo']
+    if lower.endswith('es'):
+        plural = token
+        singular = token[:-2]
+    elif lower.endswith('s'):
+        plural = token
+        singular = token[:-1]
+    else:
+        plural = _pluralize_token(token)
+        singular = token
+
+    alias = d_subTypeDirAliases.get(token.lower())
+    if alias:
+        explicit_preferred = alias.get('preferred')
+        explicit_legacy = alias.get('legacy', [])
+        if prefer_plural:
+            results = [explicit_preferred] + explicit_legacy + [plural, singular, token]
+        else:
+            results = [singular, token] + explicit_legacy + [explicit_preferred, plural]
+    else:
+        if prefer_plural:
+            results = [plural, singular]
+        else:
+            results = [singular, plural]
+
+    unique = []
+    seen = set()
+    for name in results:
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(name)
+    return unique
+
+
+def subtype_dir_preferred(subType, prefer_plural=True):
+    token = (subType or '').strip()
+    if not token:
+        return token
+    alias = d_subTypeDirAliases.get(token.lower())
+    if alias and prefer_plural:
+        return alias.get('preferred') or token
+    candidates = subtype_dir_candidates(token, prefer_plural=prefer_plural)
+    return candidates[0] if candidates else token
+
 d_dirFramework = {
 'game':{'content':['Character','Environment','FX','Poses','Props','Cutscene',
                           'UI','VisDev'],
@@ -129,7 +222,7 @@ _dataConfigToStored = {'general':'d_project',
                        'world':'d_world'}
 
 l_projectPathModes = ['art','content','root']
-l_projectDat = ['name','type','nameStyle','mayaVersion','mayaVersionCheck','mayaFilePref','dirMask','lock']
+l_projectDat = ['name','type','nameStyle','mayaVersion','mayaVersionCheck','usePluralSubDirs','mayaFilePref','dirMask','lock']
 l_nameConventions = ['none','lower','capital','upper','camelCase','capFirst']
 l_mayaVersions = ['2016','2017','2018','2019','2020','2022','2023','2024','2025','2026','2027','2028']
 l_userMode = ['general','master']
@@ -153,6 +246,7 @@ _projSettings = [{'n':'name','t':'text','dv':'Name me'},
                  {'n':'lock','t':'bool','dv':'false'},
                  {'n':'mayaVersion','t':l_mayaVersions,'dv':'2018'},
                  {'n':'mayaVersionCheck','t':'bool','dv':'false'},                 
+                 {'n':'usePluralSubDirs','t':'bool','dv':False},
                  {'n':'mayaFilePref','t':l_mayaFileType,'dv':'mb'},
                  #{'n':'projectPathMode','t':l_projectPathModes,'dv':'art'},
                  {'n':'nameStyle','t':l_nameConventions,'dv':'none'},
