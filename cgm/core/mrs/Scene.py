@@ -803,7 +803,12 @@ example:
         if not token:
             return None
         _t = token.lower()
-        for _sub in self.subTypes:
+        _candidates = []
+        _candidates.extend(self.subTypes or [])
+        _candidates.extend(self.l_subTypesBase or [])
+        # preserve order, remove dupes
+        _candidates = list(dict.fromkeys(_candidates))
+        for _sub in _candidates:
             if _sub.lower() == _t:
                 return _sub
             _cands = PU.subtype_dir_candidates(_sub, prefer_plural=self._use_plural_subdirs())
@@ -2488,10 +2493,11 @@ example:
         l_newTypes = []
         l_expected = []
         for d in CGMOS.get_lsFromPath(path_set,'dir'):
-            if d in self.l_subTypesBase:
-                l_expected.append(d)
+            _subName = self._resolveSubTypeLabelFromPathToken(d) or d
+            if _subName in self.l_subTypesBase:
+                l_expected.append(_subName)
             else:
-                l_newTypes.append(d)
+                l_newTypes.append(_subName)
 
         #pprint.pprint(l_expected)
         #pprint.pprint(l_newTypes)
@@ -2501,6 +2507,8 @@ example:
             self.subTypes.extend(l_expected)
         if l_newTypes:
             self.subTypes.extend(l_newTypes)
+        # De-dupe while preserving order so canonical subtype labels win.
+        self.subTypes = list(dict.fromkeys(self.subTypes))
 
 
         #print self.subType
@@ -3085,7 +3093,7 @@ example:
         data = {}
         data['asset'] = self.assetList['scrollList'].getSelectedItem()
         data['type'] = self.category
-        data['subType'] = self.subType
+        data['subType'] = PU.subtype_file_token(self.subType) if self.subType else self.subType
         data['subTypeAsset'] = self.subTypeSearchList['scrollList'].getSelectedItem() if self.hasSub else ""
         data['variation'] = self.variationList['scrollList'].getSelectedItem() if self.hasVariant else ""
         data['user'] = getpass.getuser()
