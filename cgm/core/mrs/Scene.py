@@ -814,15 +814,33 @@ example:
     def _canonicalize_set_token_for_filename(self, setName):
         """
         Prevent plural subtype directory tokens leaking into file basenames.
-        If the selected set token is just a subtype folder token (rig/rigs/etc),
-        use the canonical subtype file token instead.
+        If a set token includes subtype folder token forms (rig/rigs/templates/etc),
+        force those token parts to canonical singular file token.
         """
         if not setName:
             return setName
-        _setLower = setName.lower()
+        _canonical = PU.subtype_file_token(self.subType)
+        if not _canonical:
+            return setName
+
         _subCandidates = [c.lower() for c in PU.subtype_dir_candidates(self.subType, prefer_plural=self._use_plural_subdirs())]
-        if _setLower in _subCandidates:
-            return PU.subtype_file_token(self.subType)
+        _subCandidates.append(_canonical.lower())
+        _subCandidates = list(dict.fromkeys(_subCandidates))
+
+        _parts = setName.split('_')
+        _changed = False
+        for i, p in enumerate(_parts):
+            if p.lower() in _subCandidates:
+                _parts[i] = _canonical
+                _changed = True
+
+        if _changed:
+            return '_'.join(_parts)
+
+        # Also handle whole-token cases with no underscores.
+        if setName.lower() in _subCandidates:
+            return _canonical
+
         return setName
 
     def LoadOptions(self, *args):
