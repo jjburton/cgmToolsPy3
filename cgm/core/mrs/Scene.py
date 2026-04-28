@@ -848,6 +848,14 @@ example:
 
         return setName
 
+    def _exportSubTypeDirName(self, subTypeToken=None):
+        """Directory label for export paths honoring project plural-subdir policy."""
+        _token = subTypeToken if subTypeToken else self.subType
+        if not _token:
+            return _token
+        _subName = self._resolveSubTypeLabelFromPathToken(_token) or _token
+        return PU.subtype_dir_preferred(_subName, prefer_plural=self._use_plural_subdirs())
+
     def _subtypeDisplayLabel(self):
         """UI display label for subtype actions should use canonical singular token."""
         if not self.subType:
@@ -5624,7 +5632,8 @@ example:
 
                 categoryExportPath = os.path.normpath(os.path.join( self.exportDirectory, animDict["category"]))
                 exportAssetPath = os.path.normpath(os.path.join( categoryExportPath, animDict["asset"]))
-                exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, animDict["subType"]))                
+                _exportSubType = self._exportSubTypeDirName(animDict.get("subType"))
+                exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, _exportSubType))
 
                 if animDict.get('exportMode') == 'rig':
                     if animDict.get('set'):
@@ -5781,7 +5790,7 @@ example:
             _l_openTokens.pop(0)
             exportAssetPath = os.path.normpath(os.path.join(categoryExportPath, _l_openTokens[0]))
             _l_openTokens.pop(0)
-            _tmp  = _l_openTokens[0]##os.path.join(*_l_openTokens)
+            _tmp  = self._exportSubTypeDirName(_l_openTokens[0])##os.path.join(*_l_openTokens)
             exportAnimPath = os.path.normpath(os.path.join(exportAssetPath,_tmp))
 
             d_userPaths = self.mDat.userPaths_get()
@@ -6261,10 +6270,11 @@ def ExportScene(mode = -1,
     log.info(log_msg(_str_func,"Pathcheck..."))
     if not exportAnimPath:
         log.info("Getting path...")                        
+        _exportSubTypeDir = subType
         if exportAsRig:
-            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, subSet, subType))
+            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, subSet, _exportSubTypeDir))
         else:
-            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, subType))
+            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, _exportSubTypeDir))
     log.info("exportPath: {0}".format(exportAnimPath))                
 
 
