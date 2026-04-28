@@ -56,10 +56,12 @@ def subtype_file_token(subType):
     # geo: always this spelling in filenames and as the folder name (no plural folder)
     if lower in ('geo', 'geos'):
         return 'geo'
-    if lower in ('rig', 'rigs'):
-        return 'rig'
-    if lower in ('mesh', 'meshes'):
-        return 'mesh'
+    if lower.endswith('ies') and len(lower) > 3:
+        return lower[:-3] + 'y'
+    if lower.endswith('es') and lower[:-2].endswith(('s', 'x', 'z', 'ch', 'sh')):
+        return lower[:-2]
+    if lower.endswith('s') and not lower.endswith('ss'):
+        return lower[:-1]
     return lower
 
 

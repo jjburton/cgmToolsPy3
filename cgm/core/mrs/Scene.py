@@ -843,6 +843,13 @@ example:
 
         return setName
 
+    def _subtypeDisplayLabel(self):
+        """UI display label for subtype actions should use canonical singular token."""
+        if not self.subType:
+            return "Subtype"
+        _tok = PU.subtype_file_token(self.subType) or self.subType
+        return _tok.capitalize()
+
     def LoadOptions(self, *args):
         self.showAllFiles    = bool(self.var_showAllFiles.getValue())
         self.categoryIndex   = int(self.var_categoryStore.getValue())
@@ -2530,7 +2537,7 @@ example:
         if self.hasSub:
             log.debug(log_msg(_str_func,"hasSub"))
             self.mRow_setButtons.clear()
-            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="New {0}".format(self.subType.capitalize()), command=self.CreateSubAsset)
+            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="New {0}".format(self._subtypeDisplayLabel()), command=self.CreateSubAsset)
             if self.hasVariant == False:
                 mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Add Variation", command=self.CreateVariation)
             #self.subTypeButton(edit=True, label="New {0}".format(self.subType.capitalize()), command=self.CreateSubAsset)
@@ -4243,8 +4250,8 @@ example:
             return
 
         result = mc.promptDialog(
-            title='New {0}'.format(self.subType.capitalize()),
-                    message='{0} Name:'.format(self.subType.capitalize()),
+            title='New {0}'.format(self._subtypeDisplayLabel()),
+                    message='{0} Name:'.format(self._subtypeDisplayLabel()),
                     button=['OK', 'Cancel'],
                     defaultButton='OK',
                             cancelButton='Cancel',
