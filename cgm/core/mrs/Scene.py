@@ -811,6 +811,20 @@ example:
                 return _sub
         return None
 
+    def _canonicalize_set_token_for_filename(self, setName):
+        """
+        Prevent plural subtype directory tokens leaking into file basenames.
+        If the selected set token is just a subtype folder token (rig/rigs/etc),
+        use the canonical subtype file token instead.
+        """
+        if not setName:
+            return setName
+        _setLower = setName.lower()
+        _subCandidates = [c.lower() for c in PU.subtype_dir_candidates(self.subType, prefer_plural=self._use_plural_subdirs())]
+        if _setLower in _subCandidates:
+            return PU.subtype_file_token(self.subType)
+        return setName
+
     def LoadOptions(self, *args):
         self.showAllFiles    = bool(self.var_showAllFiles.getValue())
         self.categoryIndex   = int(self.var_categoryStore.getValue())
@@ -4113,7 +4127,8 @@ example:
         existingFiles = versionList['items']
 
         _stok = PU.subtype_file_token(self.subType) if self.subType else self.subType
-        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem() if self.hasSub else _stok)
+        _setToken = self._canonicalize_set_token_for_filename(self.subTypeSearchList['scrollList'].getSelectedItem())
+        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), _setToken if self.hasSub else _stok)
         if self.hasVariant:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
 
@@ -4299,7 +4314,8 @@ example:
 
         #animationName = self.subTypeSearchList['scrollList'].getSelectedItem()
         if self.hasSub:
-            wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem())
+            _setToken = self._canonicalize_set_token_for_filename(self.subTypeSearchList['scrollList'].getSelectedItem())
+            wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), _setToken)
         else:
             wantedName = "%s" % (self.assetList['scrollList'].getSelectedItem())
 
