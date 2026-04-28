@@ -937,7 +937,7 @@ class ui(cgmUI.cgmGUI):
             _path = PATHS.Path(self.d_tf['paths']['image'].getValue())
             
         if _path.exists():
-            log.warning('Image path: {0}'.format(_path))
+            log.debug('Image path: {0}'.format(_path))
             _imagePath = _path
         else:
             _imagePath = os.path.join(mImagesPath.asFriendly(),
@@ -1089,14 +1089,14 @@ class ui(cgmUI.cgmGUI):
             
         #pprint.pprint(d_toDo)
         for k,l in list(d_toDo.items()):
-            log.info(cgmGEN.logString_sub(_str_func,k))
+            log.debug(cgmGEN.logString_sub(_str_func,k))
             
             _d = self.d_tf[k]
             
             for d in l:
                 try:
                     
-                    log.info(cgmGEN.logString_msg(_str_func,d))
+                    log.debug(cgmGEN.logString_msg(_str_func,d))
                     _type = d.get('t')
                     _dv = d.get('dv')
                     _name = d.get('n')
@@ -1104,12 +1104,12 @@ class ui(cgmUI.cgmGUI):
                     _value = _d[_name].getValue()
                     
                     fnc = d_nameToSet.get(k,{}).get(_name)
-                    log.info(cgmGEN.logString_msg(_str_func,"name: {0} | value: {1}".format(_name,_value)))
+                    log.debug(cgmGEN.logString_msg(_str_func,"name: {0} | value: {1}".format(_name,_value)))
                     
                     if fnc:
                         fnc(_value)
                     else:
-                        log.warning("No function found for {0} | {1}".format(k,_name))
+                        log.debug("No function found for {0} | {1}".format(k,_name))
                 except Exception as err:
                     log.error("Failure {0} | {1} | {2}".format(k,_name,err))
                 
@@ -1183,7 +1183,7 @@ class ui(cgmUI.cgmGUI):
             
         #pprint.pprint(d_toDo)
         for k,l in list(d_settings.items()):
-            log.info(cgmGEN.logString_sub(_str_func,k))
+            log.debug(cgmGEN.logString_sub(_str_func,k))
             
             _d = self.d_tf[k]
             
@@ -1208,7 +1208,7 @@ class ui(cgmUI.cgmGUI):
                             log.debug(cgmGEN.logString_msg(_str_func,"name: {0} | setting: {1} | found :{2}".format(_name,_value,_current)))
                         
                     else:
-                        log.warning("No function found for {0} | {1}".format(k,_name))
+                        log.debug("No function found for {0} | {1}".format(k,_name))
                 except Exception as err:
                     log.error("Failure {0} | {1} | {2}".format(k,_name,err))        
     
@@ -1624,6 +1624,11 @@ def uiProject_lock(self):
 def uiProject_fill(self,fillDir = True):
     _str_func = 'uiProject_fill'
     log.debug("|{0}| >>...".format(_str_func))
+    _verbose_fill = os.environ.get("CGM_VERBOSE_UI_PROJECT_FILL", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     
     l_errs = []
     
@@ -1632,7 +1637,8 @@ def uiProject_fill(self,fillDir = True):
         
         for k,v in list(self.mDat.__dict__[PU._dataConfigToStored[dType]].items()):
             try:
-                log.info(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(k,v)))
+                if _verbose_fill:
+                    log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(k,v)))
                 try:_type = self.d_uiTypes[dType][k]
                 except:_type = None
                     
@@ -1648,10 +1654,19 @@ def uiProject_fill(self,fillDir = True):
                     if v is not None:
                         if k in ['lock','mayaVersion','mayaFilePref']:
                             self.d_tf[dType][k].setValue(str(v),executeChangeCB=False)
+                        elif k in ['mayaVersionCheck','usePluralSubDirs']:
+                            if isinstance(v, str):
+                                _bool_v = v.strip().lower() in ['1','true','yes']
+                            else:
+                                _bool_v = bool(v)
+                            self.d_tf[dType][k].setValue(_bool_v,executeChangeCB=False)
                         else:
                             self.d_tf[dType][k].setValue(v,executeChangeCB=False)
                     else:
-                        self.d_tf[dType][k].setValue('',executeChangeCB=False)
+                        if k in ['mayaVersionCheck','usePluralSubDirs']:
+                            self.d_tf[dType][k].setValue(False,executeChangeCB=False)
+                        else:
+                            self.d_tf[dType][k].setValue('',executeChangeCB=False)
                         
                         
             except Exception as err:
@@ -1673,7 +1688,7 @@ def uiProject_fill(self,fillDir = True):
                 d_pathsUse[k]=v
     else:
         d_pathsUse = self.mDat.d_pathsProject
-        log.warning("Using project paths dat!")
+        log.debug("Using project paths dat!")
         
         
 
@@ -2384,6 +2399,8 @@ class data(object):
                 log.debug("Config file missing section {0}".format(k))
         
         self.assetDat = decodeString(_config.get('assetDat',[]))
+        # Ensure legacy configs missing new keys (e.g. usePluralSubDirs) get defaults.
+        self.fillDefaults()
             
         if report:self.log_self()
         self.str_filepath = str(mPath)

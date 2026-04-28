@@ -268,15 +268,15 @@ example:
 
     def rebuild_scriptUI(self):
         _str_func = 'rebuild_scriptUI'
-        log.info(log_start(_str_func))
+        log.debug(log_start(_str_func))
         self.uiMenu_projectUtils(edit=True, vis=False)
 
         _path = self.d_userPaths.get('scriptUI')
         if not _path:
-            return log.warning(cgmGEN.logString_msg(_str_func, "No scriptUI path"))
+            return log.debug(cgmGEN.logString_msg(_str_func, "No scriptUI path"))
 
         if not os.path.exists(_path):
-            return log.warning(cgmGEN.logString_msg(_str_func, "path doesn't exist: {}".format(_path)))
+            return log.debug(cgmGEN.logString_msg(_str_func, "path doesn't exist: {}".format(_path)))
 
         log.debug(cgmGEN.logString_msg(_str_func, _path))
         module = None
@@ -308,7 +308,7 @@ example:
         self.uiMenu_projectUtils.clear()
 
         if module.__dict__.get('uiMenu'):
-            log.info(log_msg(_str_func, "trying to load..."))
+            log.debug(log_msg(_str_func, "trying to load..."))
             module.uiMenu(self, self.uiMenu_projectUtils)
 
             mUI.MelMenuItemDiv(self.uiMenu_projectUtils)
@@ -324,59 +324,47 @@ example:
 
     def report_selectedPaths(self):
         _str_func = 'report_selectedPaths'
-        log.info(log_start(_str_func))    
-
-        log.info("Directory: {0}".format(self.directory))        
-        log.info("Asset: {0}".format(self.path_asset))
-        log.info("Subtype Dir: {0}".format(self.path_subType))                
-        log.info("Subtype: {0}".format(self.path_subType))
-        log.info("Variation: {0}".format(self.path_variationDirectory))
-        log.info("Version: {0}".format(self.path_versionDirectory))
+        log.debug(log_start(_str_func))
+        log.debug("Directory: {0}".format(self.directory))
+        log.debug("Asset: {0}".format(self.path_asset))
+        log.debug("Subtype Dir: {0}".format(self.path_subType))
+        log.debug("Subtype: {0}".format(self.path_subType))
+        log.debug("Variation: {0}".format(self.path_variationDirectory))
+        log.debug("Version: {0}".format(self.path_versionDirectory))
 
     def report_lastSelection(self):
         _str_func = 'report_lastSelection'
-
-        log.info(log_start(_str_func))    
-
-        log.info("Project: {0}".format(self.var_lastProject.value))        
-        log.info("Asset: {0}".format(self.var_lastAsset.value))        
-        log.info("Subtype: {0}".format(self.var_lastSubtype.value))
-        log.info("Set: {0}".format(self.var_lastSet.value))        
-        log.info("Variation: {0}".format(self.var_lastVariation.value))
-        log.info("Version: {0}".format(self.var_lastVersion.value))
+        log.debug(log_start(_str_func))
+        log.debug("Project: {0}".format(self.var_lastProject.value))
+        log.debug("Asset: {0}".format(self.var_lastAsset.value))
+        log.debug("Subtype: {0}".format(self.var_lastSubtype.value))
+        log.debug("Set: {0}".format(self.var_lastSet.value))
+        log.debug("Variation: {0}".format(self.var_lastVariation.value))
+        log.debug("Version: {0}".format(self.var_lastVersion.value))
 
     def report_states(self):
         _str_func = 'report_states'
-
-        log.info(log_start(_str_func))    
-
-        log.info(log_sub(_str_func,'Options...'))
-        log.info("Category: {0}".format(self.category))
-        log.info("Asset: {0}".format(self.selectedAsset))
-        log.info("Subtype: {0}".format(self.subType))        
-        log.info("Set: {0}".format(self.selectedSet))
-        log.info("Variation: {0}".format(self.selectedVariation))        
-        log.info("Version: {0}".format(self.selectedVersion))        
-
-        log.info("File: {0}".format(self.versionFile))        
-
-
-
-        log.info(log_sub(_str_func,'Paths...'))    
-
-        log.info("Directory: {0}".format(self.directory))        
-        log.info("Asset: {0}".format(self.path_asset))
-        log.info("Subtype Dir: {0}".format(self.path_subType))        
-        log.info("Set: {0}".format(self.path_set))
-
-        log.info("Variation: {0}".format(self.path_variationDirectory))
-        log.info("Version: {0}".format(self.path_versionDirectory))
-
-        log.info(log_sub(_str_func,'States...'))            
-        log.info("hasSub: {0}".format(self.hasSub))
-        log.info("hasVariant: {0}".format(self.hasVariant))
-        log.info("hasNested: {0}".format(self.hasNested))
-        log.info("hasSubTypes: {0}".format(self.hasSubTypes))
+        log.debug(log_start(_str_func))
+        log.debug(log_sub(_str_func,'Options...'))
+        log.debug("Category: {0}".format(self.category))
+        log.debug("Asset: {0}".format(self.selectedAsset))
+        log.debug("Subtype: {0}".format(self.subType))
+        log.debug("Set: {0}".format(self.selectedSet))
+        log.debug("Variation: {0}".format(self.selectedVariation))
+        log.debug("Version: {0}".format(self.selectedVersion))
+        log.debug("File: {0}".format(self.versionFile))
+        log.debug(log_sub(_str_func,'Paths...'))
+        log.debug("Directory: {0}".format(self.directory))
+        log.debug("Asset: {0}".format(self.path_asset))
+        log.debug("Subtype Dir: {0}".format(self.path_subType))
+        log.debug("Set: {0}".format(self.path_set))
+        log.debug("Variation: {0}".format(self.path_variationDirectory))
+        log.debug("Version: {0}".format(self.path_versionDirectory))
+        log.debug(log_sub(_str_func,'States...'))
+        log.debug("hasSub: {0}".format(self.hasSub))
+        log.debug("hasVariant: {0}".format(self.hasVariant))
+        log.debug("hasNested: {0}".format(self.hasNested))
+        log.debug("hasSubTypes: {0}".format(self.hasSubTypes))
 
     @property
     def selectedAsset(self):
@@ -572,7 +560,7 @@ example:
         _dirsRaw = CGMOS.get_lsFromPath(_path,'dir')
         _dirs = []
         for d in _dirsRaw:
-            log.info(d)
+            log.debug(d)
             if d.lower() not in self.l_dirMask:
                 _dirs.append(d)
 
@@ -765,26 +753,63 @@ example:
         _preferred = _paths[0]
 
         if len(_existing) > 1:
-            self._warn_subType_path_resolution(
-                subType,
-                "Both plural and legacy subtype directories found for '{0}'. Using: {1}".format(
-                    subType, os.path.basename(_preferred)),
-                assetPath=assetPath,
-            )
+            if self._use_plural_subdirs():
+                self._warn_subType_path_resolution(
+                    subType,
+                    "Both plural and legacy subtype directories found for '{0}'. Using: {1}".format(
+                        subType, os.path.basename(_preferred)),
+                    assetPath=assetPath,
+                )
             return _preferred
 
         if len(_existing) == 1:
             _chosen = _existing[0]
             if _chosen != _preferred:
-                self._warn_subType_path_resolution(
-                    subType,
-                    "Using legacy subtype directory for '{0}': {1}".format(
-                        subType, os.path.basename(_chosen)),
-                    assetPath=assetPath,
-                )
+                if self._use_plural_subdirs():
+                    self._warn_subType_path_resolution(
+                        subType,
+                        "Using legacy subtype directory for '{0}': {1}".format(
+                            subType, os.path.basename(_chosen)),
+                        assetPath=assetPath,
+                    )
             return _chosen
 
         return _preferred
+
+    def _refreshMetaDataFromSelection(self):
+        """Refresh details panel metadata from the currently selected version file."""
+        _version = self.versionFile
+        if not _version or not os.path.isfile(_version):
+            return False
+        self.assetMetaData = self.getMetaDataFromFile()
+        self.buildDetailsColumn()
+        return True
+
+    def _selectByValueIfPresent(self, scrollList, value):
+        """Avoid Script Editor 'Item not found' warnings when restoring stale selections."""
+        if not value:
+            return False
+        try:
+            _items = list(getattr(scrollList, '_items', []) or [])
+        except Exception:
+            _items = []
+        if value in _items:
+            scrollList.selectByValue(value)
+            return True
+        return False
+
+    def _resolveSubTypeLabelFromPathToken(self, token):
+        """Map path folder tokens (plural/singular/case variants) to a subtype label in self.subTypes."""
+        if not token:
+            return None
+        _t = token.lower()
+        for _sub in self.subTypes:
+            if _sub.lower() == _t:
+                return _sub
+            _cands = PU.subtype_dir_candidates(_sub, prefer_plural=self._use_plural_subdirs())
+            if _t in [c.lower() for c in _cands]:
+                return _sub
+        return None
 
     def LoadOptions(self, *args):
         self.showAllFiles    = bool(self.var_showAllFiles.getValue())
@@ -917,8 +942,9 @@ example:
                         self.assetList['scrollList'].selectByValue(l_temp[1])
 
                     if numItemsFound > 2:
-                        if l_temp[2] in self.subTypes:
-                            self.SetSubType(self.subTypes.index(l_temp[2]))
+                        _subName = self._resolveSubTypeLabelFromPathToken(l_temp[2])
+                        if _subName in self.subTypes:
+                            self.SetSubType(self.subTypes.index(_subName))
                         else:
                             log.warning('{0} not found in subType list'.format(l_temp[2]) )
                             return
@@ -1876,8 +1902,8 @@ example:
                 self.l_dirMask = [n.lower() for n in self.l_dirMask]
         #----------------------------------------------------------------
         
-        log.info("DirMask:")
-        pprint.pprint(self.l_dirMask)
+        log.debug("DirMask:")
+        log.debug(self.l_dirMask)
 
         _bgColor = self.v_bgc
         self.d_userPaths = {}
@@ -2494,12 +2520,11 @@ example:
         #self.report_selectedPaths()
         self.file_subType = None
 
-        try: 
-            _path = os.path.normpath(os.path.join( self.path_dir_category,
-                                                   self.assetList['scrollList'].getSelectedItem(),
-                                                   self.subType, 
-                                                   self.subTypeSearchList['scrollList'].getSelectedItem(),
-                                                   ))
+        try:
+            _subRoot = self.path_subType or self._resolve_subType_container_path(self.path_asset, self.subType)
+            _path = os.path.normpath(os.path.join(_subRoot,
+                                                  self.subTypeSearchList['scrollList'].getSelectedItem(),
+                                                  ))
         except:
             _path = None
 
@@ -2548,6 +2573,7 @@ example:
         #if not self.subTypes:#...if we have 
 
         self.LoadVersionList()
+        self._refreshMetaDataFromSelection()
 
         #else:
         #self.LoadSubTypeList()
@@ -2603,6 +2629,7 @@ example:
                 mUI(edit=True,en=True)                 
 
             self.LoadVersionList()
+            self._refreshMetaDataFromSelection()
 
         self.SaveCurrentSelection()
 
@@ -3744,8 +3771,9 @@ example:
                         log.warning('{0} not found in category list'.format(n) )
                         return
                 if i == 2:
-                    if n in self.subTypes:
-                        self.SetSubType(self.subTypes.index(n))
+                    _subName = self._resolveSubTypeLabelFromPathToken(n)
+                    if _subName in self.subTypes:
+                        self.SetSubType(self.subTypes.index(_subName))
                         continue
                     else:
                         log.warning('{0} not found in subType list'.format(n) )
@@ -3808,8 +3836,9 @@ example:
                         log.warning('{0} not found in category list'.format(n) )
                         return
                 if i == 2:
-                    if n in self.subTypes:
-                        self.SetSubType(self.subTypes.index(n))
+                    _subName = self._resolveSubTypeLabelFromPathToken(n)
+                    if _subName in self.subTypes:
+                        self.SetSubType(self.subTypes.index(_subName))
                         continue
                     else:
                         log.warning('{0} not found in subType list'.format(n) )
@@ -3854,8 +3883,9 @@ example:
                             self.assetList['scrollList'].selectByValue(l_temp[1])
 
                         if numItemsFound > 2:
-                            if l_temp[2] in self.subTypes:
-                                self.SetSubType(self.subTypes.index(l_temp[2]))
+                            _subName = self._resolveSubTypeLabelFromPathToken(l_temp[2])
+                            if _subName in self.subTypes:
+                                self.SetSubType(self.subTypes.index(_subName))
                             else:
                                 log.warning('{0} not found in subType list'.format(l_temp[2]) )
                                 return
@@ -3934,7 +3964,7 @@ example:
         if 'asset' not in skip:
             val_asset = self.var_lastAsset.getValue()
             if val_asset:
-                self.assetList['scrollList'].selectByValue(val_asset )
+                self._selectByValueIfPresent(self.assetList['scrollList'], val_asset)
 
         if self.subTypes:
             _last_subType = self.var_lastSubtype.getValue()
@@ -3948,7 +3978,7 @@ example:
             _last_set = self.var_lastSet.getValue()
             #print "last set: {}".format(_last_set)
             if _last_set:
-                self.subTypeSearchList['scrollList'].selectByValue( _last_set )
+                self._selectByValueIfPresent(self.subTypeSearchList['scrollList'], _last_set)
 
             if not  self.subTypeSearchList['scrollList'].getSelectedItem():
                 self.subTypeSearchList['scrollList'].select_last()
@@ -3960,14 +3990,14 @@ example:
             #print "last variation: {}".format(_last_variation)
 
             if _last_variation:
-                self.variationList['scrollList'].selectByValue( _last_variation )
+                self._selectByValueIfPresent(self.variationList['scrollList'], _last_variation)
 
 
         #self.LoadVersionList()
         _last_version = self.var_lastVersion.getValue()        
         #print "last version: {}".format(_last_version)
         if _last_version:
-            self.versionList['scrollList'].selectByValue( _last_version )
+            self._selectByValueIfPresent(self.versionList['scrollList'], _last_version)
 
         if not  self.versionList['scrollList'].getSelectedItem():
             self.versionList['scrollList'].select_last()        
