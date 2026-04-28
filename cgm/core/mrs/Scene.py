@@ -5134,16 +5134,16 @@ example:
 
         log.info(log_msg(_str_func, "Opening MRS Build for file | {0}".format(f)))
         try:
-            mStandAlone = BUILDER.ui_toStandAlone()
+            m_standalone = BUILDER.ui_toStandAlone()
         except Exception:
             log.exception(log_msg(_str_func, "Failed to open MRS Build UI"))
             return
-        mStandAlone.l_files = [f]
+        m_standalone.l_files = [f]
         log.info(
             log_msg(
                 _str_func,
                 "Queued for Build button | l_files={0} (click Build in the window)".format(
-                    mStandAlone.l_files
+                    m_standalone.l_files
                 ),
             )
         )

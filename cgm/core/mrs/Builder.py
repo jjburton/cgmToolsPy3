@@ -3951,66 +3951,6 @@ def uiStandAlone_get():
 """
 
 
-def _mrs_build_window_place_on_screen(window_name, width, height):
-    """
-    Put MRS Build on a visible monitor: centered on Maya's main window by default,
-    or offset from the mouse if env CGM_MRS_BUILD_AT_CURSOR is 1/true/yes.
-    """
-    try:
-        if mc.windowPref(exists=window_name):
-            mc.windowPref(window_name, remove=True)
-    except Exception:
-        pass
-
-    use_cursor = os.environ.get("CGM_MRS_BUILD_AT_CURSOR", "").strip().lower() in ("1", "true", "yes")
-    tl_x = 120
-    tl_y = 120
-
-    if use_cursor:
-        try:
-            try:
-                from PySide6.QtGui import QCursor
-            except ImportError:
-                from PySide2.QtGui import QCursor
-            pos = QCursor.pos()
-            tl_x = pos.x() - width // 2
-            tl_y = pos.y() - height // 2
-        except Exception:
-            use_cursor = False
-
-    if not use_cursor:
-        if mc.window("MayaWindow", exists=True):
-            mwh = mc.window("MayaWindow", query=True, widthHeight=True)
-            mtlc = mc.window("MayaWindow", query=True, topLeftCorner=True)
-            mw, mh = mwh[0], mwh[1]
-            mx, my = mtlc[0], mtlc[1]
-            cx = mx + mw // 2
-            cy = my + mh // 2
-            tl_x = cx - width // 2
-            tl_y = cy - height // 2
-
-    try:
-        try:
-            from PySide6.QtWidgets import QApplication
-            from PySide6.QtCore import QPoint
-        except ImportError:
-            from PySide2.QtWidgets import QApplication
-            from PySide2.QtCore import QPoint
-        app = QApplication.instance()
-        if app:
-            pt = QPoint(int(tl_x), int(tl_y))
-            screen = app.screenAt(pt) or app.primaryScreen()
-            if screen:
-                g = screen.availableGeometry()
-                tl_x = max(g.left(), min(tl_x, g.right() - width + 1))
-                tl_y = max(g.top(), min(tl_y, g.bottom() - height + 1))
-    except Exception:
-        pass
-
-    if mc.window(window_name, exists=True):
-        mc.window(window_name, edit=True, topLeftCorner=[int(tl_x), int(tl_y)])
-
-
 class ui_toStandAlone(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
     WINDOW_NAME = 'MRSBuildSTANDALONE'    
@@ -4049,15 +3989,6 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         global UISTANDALONE
         UISTANDALONE = self"""
 
-    def post_init(self, *args, **kws):
-        """After show(), move window onto the active display (center Maya or follow cursor)."""
-        _w, _h = self.DEFAULT_SIZE
-
-        def _place():
-            _mrs_build_window_place_on_screen(self.WINDOW_NAME, _w, _h)
-
-        mc.evalDeferred(_place, lp=True)
-        
     def build_menus(self):pass
     
     def uiFunc_batch(self):
