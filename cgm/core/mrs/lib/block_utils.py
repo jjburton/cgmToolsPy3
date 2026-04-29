@@ -3596,6 +3596,39 @@ def prerig_getHandleTargets(self):
 #=============================================================================================================
 #>> blockParent
 #=============================================================================================================
+def moduleTarget_wire_from_blockParent(self):
+    try:
+        _str_func = 'moduleTarget_wire_from_blockParent'
+        log.debug(cgmGEN.logString_start(_str_func))
+        if self.blockType == 'master':
+            return True
+        _str_state = self.getEnumValueString('blockState')
+        if _str_state == 'rig':
+            return True
+        if self.atUtils('is_rigged'):
+            return True
+        if not self.getMessage('moduleTarget'):
+            return True
+        mModule = self.moduleTarget
+        mParentBlock = self.getBlockParent(True)
+        if mParentBlock and mParentBlock.getMessage('moduleTarget'):
+            mParentModuleTarget = mParentBlock.moduleTarget
+            log.debug("|{0}| >> block parent {1} | moduleTarget {2}".format(
+                _str_func, mParentBlock, mParentModuleTarget))
+            mModule.atUtils('parentModule_detach')
+            if mParentBlock.blockType == 'master':
+                mModule.modulePuppet = mParentModuleTarget
+            else:
+                self.atRigModule('set_parentModule', mParentModuleTarget)
+        elif not mParentBlock:
+            mModule.atUtils('parentModule_detach')
+            mPuppet = puppet_get(self)
+            if mPuppet:
+                mModule.modulePuppet = mPuppet
+        return True
+    except Exception as err:
+        cgmGEN.cgmException(Exception,err)
+
 def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = False):
     try:
         _str_func = 'blockParent_set'
@@ -3615,7 +3648,8 @@ def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = 
             if self.getMessage('moduleTarget'):
                 #log.debug("|{0}| >>  parent false. clearing moduleTarget".format(_str_func,self))
                 self.moduleTarget.p_parent = False
-                
+            moduleTarget_wire_from_blockParent(self)
+            
         else:
             mParent = cgmMeta.validateObjArg(parent,'cgmRigBlock',noneValid=True)
             if not mParent:
@@ -3641,19 +3675,7 @@ def blockParent_set(self, parent = False, attachPoint = None, setBuildProfile = 
             #mc.parentConstraint([_parent], self.mNode, maintainOffset = True)
             #mc.scaleConstraint([_parent], self.mNode, maintainOffset = True)
             
-            #Module parent wiring ----------------------------------------------------
-            if mParent.getMessage('moduleTarget'):
-                mParentModuleTarget = mParent.moduleTarget
-                log.debug("|{0}| >>  mParent has moduleTarget: {1}".format(_str_func,mParentModuleTarget))            
-                if self.getMessage('moduleTarget'):
-                    mModuleTarget = self.moduleTarget
-                    log.debug("|{0}| >>  parent true. setting moduleTarget module parent".format(_str_func,self))
-                    if mParent.blockType == 'master':
-                        log.debug("|{0}| >>  master parent. Trying to connect to modulePuppet".format(_str_func))
-                        mModuleTarget.modulePuppet = mParentModuleTarget
-                    else:
-                        log.debug("|{0}| >>  Setting moduleParent".format(_str_func))                    
-                        self.atRigModule('set_parentModule',mParentModuleTarget)
+            moduleTarget_wire_from_blockParent(self)
                         
             #blockProfile ----------------------------------------------------
             if setBuildProfile and mParent.hasAttr('buildProfile'):

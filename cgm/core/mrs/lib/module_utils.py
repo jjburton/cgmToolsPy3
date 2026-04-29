@@ -509,6 +509,19 @@ def rig_reset(self,transformsOnly = True):
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,msg=vars())
     
     
+def parentModule_detach(self):
+    _str_func = ' parentModule_detach'
+    log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
+    mOld = self.getMessageAsMeta('moduleParent')
+    if not mOld:
+        return True
+    ml_children = list(mOld.moduleChildren or [])
+    ml_new = [m for m in ml_children if m != self]
+    if len(ml_new) != len(ml_children):
+        mOld.moduleChildren = ml_new
+    ATTR.set_message(self.mNode, 'moduleParent', False)
+    return True
+
 def parentModule_set(self,mModuleParent = None):
     _str_func = ' parentModule_set'
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
@@ -518,6 +531,13 @@ def parentModule_set(self,mModuleParent = None):
     if not mModuleParent:
         log.debug("|{0}| >> Failed to register as cgmRigModule: {1}".format(_str_func,mModuleParent))            
         return False
+    
+    mOld = self.getMessageAsMeta('moduleParent')
+    if mOld and mOld != mModuleParent:
+        ml_old = list(mOld.moduleChildren or [])
+        ml_old = [m for m in ml_old if m != self]
+        mOld.moduleChildren = ml_old
+        ATTR.set_message(self.mNode, 'moduleParent', False)
     
     ml_children = mModuleParent.moduleChildren or []
 

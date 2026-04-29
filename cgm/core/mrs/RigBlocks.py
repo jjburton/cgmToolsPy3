@@ -3361,9 +3361,8 @@ class rigFactory(object):
             
             
             _d['mModuleParent'] = False            
-            if self.d_block['blockParents']:
-                if not _mModule.getMessage('moduleParent'):
-                    _mModule.atUtils('set_parentModule',self.d_block['blockParents'][0].moduleTarget)
+            if not _d['b_rigged']:
+                self.mBlock.atUtils('moduleTarget_wire_from_blockParent')
 
             if _mModule.getMessage('moduleParent'):
                 _d['mModuleParent'] = _mModule.moduleParent
