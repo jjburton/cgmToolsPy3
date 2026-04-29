@@ -88,21 +88,89 @@ def eyeLook_get(self,autoBuild=False):
     mRigNull = self.mRigNull
     mPuppet = self.mPuppet
 
-    try:return mModule.eyeLook
-    except:pass
-    try:return mModule.moduleParent.eyeLook
-    except:pass
+    try:
+        _m = mModule.eyeLook
+        if _m:
+            return _m
+    except Exception:
+        pass
+    try:
+        _m = mModule.moduleParent.eyeLook
+        if _m:
+            return _m
+    except Exception:
+        pass
     
-    ml_puppetEyelooks = mPuppet.msgList_get('eyeLook')
-    if ml_puppetEyelooks:
-        if len(ml_puppetEyelooks) == 1 and ml_puppetEyelooks[0]:
-            return ml_puppetEyelooks[0]
-        else:
-            raise Exception("More than one puppet eye look")
-        
-    if autoBuild:
-        return eyeLook_verify(self)
-    return False
+    mBlockParent = getattr(mBlock, 'p_blockParent', None)
+    if mBlockParent:
+        for mBlockChild in mBlockParent.getBlockChildren():
+            if getattr(mBlockChild, 'blockType', None) == 'eyeMain':
+                try:
+                    _m = mBlockChild.moduleTarget.getMessageAsMeta('eyeLook')
+                    if _m:
+                        return _m
+                except Exception:
+                    pass
+                try:
+                    _m = mBlockChild.moduleTarget.eyeLook
+                    if _m:
+                        return _m
+                except Exception:
+                    pass
+                break
+    
+    mPuppetDirect = None
+    try:
+        mPuppetDirect = mPuppet.getMessageAsMeta('eyeLook')
+    except Exception:
+        pass
+    if mPuppetDirect is None:
+        try:
+            mPuppetDirect = mPuppet.eyeLook
+        except Exception:
+            pass
+    
+    ml_puppetEyelooks = []
+    try:
+        ml_puppetEyelooks = mPuppet.msgList_get('eyeLook') or []
+    except Exception:
+        pass
+    
+    d_long_to_meta = {}
+    for m in ml_puppetEyelooks:
+        if not m:
+            continue
+        try:
+            ln = m.p_nameLong
+        except Exception:
+            ln = None
+        if ln:
+            d_long_to_meta[ln] = m
+    if mPuppetDirect:
+        try:
+            ln = mPuppetDirect.p_nameLong
+        except Exception:
+            ln = None
+        if ln:
+            d_long_to_meta.setdefault(ln, mPuppetDirect)
+    
+    if ml_puppetEyelooks and not d_long_to_meta and mPuppetDirect is None:
+        raise ValueError(
+            "{0} | puppet '{1}' has eyeLook msgList entries but none resolve to a DAG node "
+            "(count={2})".format(_str_func, mPuppet.p_nameShort, len(ml_puppetEyelooks)))
+    
+    if not d_long_to_meta:
+        if autoBuild:
+            return eyeLook_verify(self)
+        return False
+    
+    if len(d_long_to_meta) == 1:
+        return next(iter(d_long_to_meta.values()))
+    
+    _names = sorted(d_long_to_meta.keys())
+    raise ValueError(
+        "{0} | puppet '{1}' has multiple distinct eyeLook controls: {2}".format(
+            _str_func, mPuppet.p_nameShort, _names))
 
 #@cgmGEN.Timer
 def eyeLook_verify(self):

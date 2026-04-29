@@ -5825,7 +5825,10 @@ def rig_cleanUp(self):
         #Connections... -----------------------------------------------------------------------        
         log.debug("|{0}| >> Connections... ".format(_str_func))
         mModule.connectChildNode(mEyeLook,'eyeLook')
-        mPuppet.msgList_append('eyeLook',mEyeLook,'puppet')
+        try:
+            mPuppet.msgList_index('eyeLook', mEyeLook)
+        except Exception:
+            mPuppet.msgList_append('eyeLook', mEyeLook, 'puppet')
         
         if mBlockParent:
             log.debug("|{0}| >> Adding to blockParent...".format(_str_func))
