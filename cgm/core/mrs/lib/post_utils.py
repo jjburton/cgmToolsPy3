@@ -1285,6 +1285,23 @@ def dynJoints(start='none'):
     
     
 def setup_shapes(d_shapes = {}):
+    '''Post-build: replace control curve shapes from a spec dict.
+
+    ``d_shapes`` maps **control transform name** (string passable to ``validateObjArg``)
+    to a **settings dict**. Typical keys on the inner dict:
+
+    - ``shape`` — preset name for ``CURVES.create_fromName(shape, size)``.
+    - ``size`` — numeric size passed into that call.
+    - ``mirror`` — if truthy, applies the same recipe to ``L_{name}`` and ``R_{name}``
+      (mirror branch skips ``setAttr`` / ``process_obj`` extras compared to single).
+    - ``moveOffsetAim`` — optional local Z offset (aim axis tweak while briefly parented).
+    - ``setAttr`` — optional ``{attr: value}`` applied on the temp curve before shape swap.
+    - ``replaceShape`` — passed through to ``shapeParent_in_place`` (default ``True``).
+
+    For each target, the first existing shape supplies **override RGB** copied onto the
+    new curve before ``shapeParent_in_place``. Missing objects are collected and printed
+    at the end; the incoming dict is logged for debugging.
+    '''
     _str_func = 'setup_shapes'
     log.info(log_start(_str_func))
     pprint.pprint(d_shapes)
