@@ -12,6 +12,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 import random
 import re
 import copy
+from collections import deque
 import time
 import os
 import pprint
@@ -137,19 +138,24 @@ def moduleChildren_get(self,excludeSelf = True):
     
     try:
         ml_children = []
-        ml_childrenCull = self.getMessageAsMeta('moduleChildren',asList=1) or []
-    
-        cnt = 0
-        while len(ml_childrenCull)>0 and cnt < 100:#While we still have a cull list
-            cnt+=1                        
-            if cnt == 99:
-                raise Exception("Max count reached")
-            for mChild in ml_childrenCull:
-                if mChild not in ml_children:
-                    ml_children.append(mChild)
-                for i_subChild in mChild.getMessageAsMeta('moduleChildren',asList=1) or []:
-                    ml_childrenCull.append(i_subChild)
-                ml_childrenCull.remove(mChild) 
+        ml_childrenCull = deque(self.getMessageAsMeta('moduleChildren',asList=1) or [])
+        # Flatten moduleChildren tree. Do not remove from the same list you iterate over
+        # (CPython skips elements); wide sibling lists then needed >98 outer passes and hit
+        # "Max count reached". BFS with deque avoids that; already-seen modules skip dupes.
+        _max_steps = 100000
+        _steps = 0
+        while ml_childrenCull:
+            _steps += 1
+            if _steps > _max_steps:
+                raise Exception(
+                    "Max count reached (possible moduleChildren cycle or excessive hierarchy)"
+                )
+            mChild = ml_childrenCull.popleft()
+            if mChild in ml_children:
+                continue
+            ml_children.append(mChild)
+            for i_subChild in mChild.getMessageAsMeta('moduleChildren',asList=1) or []:
+                ml_childrenCull.append(i_subChild)
         
         if not excludeSelf:
             ml_children.append(self)

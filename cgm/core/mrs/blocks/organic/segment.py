@@ -3804,9 +3804,9 @@ def rig_frame(self):
                 if self.str_ribbonAttachEndsToInfluence == 'both':
                     d_ik['attachEndsToInfluences'] = True
                 elif self.str_ribbonAttachEndsToInfluence == 'start':
-                    d_ik['attachStartToInfluences'] = True
+                    d_ik['attachStartToInfluence'] = True
                 elif self.str_ribbonAttachEndsToInfluence == 'end':
-                    d_ik['attachEndToInfluences'] = True
+                    d_ik['attachEndToInfluence'] = True
                     
                 
                 #if str_ikBase in ['hips','head']:
