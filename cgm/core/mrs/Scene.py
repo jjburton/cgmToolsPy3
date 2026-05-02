@@ -5607,6 +5607,7 @@ example:
                       'simplify':self.d_tf['exportOptions']['simplify'].getValue(),
                       'reducer':self.d_tf['exportOptions']['reducer'].getValue(),
                       'exportShotsToIndividualFiles':self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
+                      'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                       }
 
             for animDict in self.batchExportItems:
@@ -5849,6 +5850,7 @@ example:
                     'reducer':reducer,
                     'exportShotsToIndividualFiles':exportShotsToIndividualFiles,
                     'breakTextureLinks':breakTextureLinks,
+                    'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                 }
                 pprint.pprint(d)
 
@@ -5891,6 +5893,20 @@ def BatchExport(dataList = []):
     log.info(log_start(_str_func))
 
     t1 = time.time()
+
+    if dataList:
+        world_up = dataList[0].get('worldUp')
+        if world_up:
+            from cgm.core.lib import mayaSettings_utils as MAYASET
+            _axis_before = MAYASET.sceneUp_get()
+            if _axis_before != world_up:
+                log.info('{0} | Applying batch worldUp={1} (session was {2})'.format(
+                    _str_func, world_up, _axis_before))
+                MAYASET.sceneUp_set(world_up)
+            else:
+                log.debug('{0} | worldUp already {1}'.format(_str_func, world_up))
+        else:
+            log.debug('{0} | No worldUp in batch payload; Maya up axis unchanged'.format(_str_func))
 
     _resFail = []
     _successCount = 0
@@ -6740,7 +6756,7 @@ def ExportScene(mode = -1,
                         _ctx = dict(_ctx_base, stage='post_cleanup', exportObj=obj, exportFile=exportFile)
                         log.exception("{0} | Failed export cleanup delete | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
                 
-
+    print("UP axis: {}".format(mc.upAxis(q=True, axis=True)))
     return True
 
 
