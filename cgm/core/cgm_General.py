@@ -1911,21 +1911,33 @@ def Func(func):
             err = error
         finally:
             if err:
-                # print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_hardBreak)
-
                 try:
-                    print(("Func: {0}".format(func.__name__)))
-                except:
-                    print(("Func: {0}".format(func)))
+                    _fn = func.__name__
+                except Exception:
+                    _fn = str(func)
+                print(
+                    "{0} Exception in @Func-wrapped {1} | {2}: {3}".format(
+                        _str_headerDiv, _fn, type(err).__name__, err
+                    )
+                )
                 if args:
-                    print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))
-                    for i, arg in enumerate(args):
-                        print(("    arg {0}: {1}".format(i, arg)))
+                    print(
+                        "{0} args ({1}): {2}".format(
+                            _str_headerDiv,
+                            len(args),
+                            ", ".join(repr(a)[:120] for a in args[:4]),
+                        )
+                    )
                 if kws:
-                    print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))
-                    for items in list(kws.items()):
-                        print(("    kw: {0}".format(items)))
-                tb = sys.exc_info()[2]  # get the full traceback
+                    _keys = list(kws.keys())
+                    print(
+                        "{0} kwargs ({1} keys): {2}".format(
+                            _str_headerDiv,
+                            len(_keys),
+                            ", ".join(_keys[:24]),
+                        )
+                    )
+                tb = sys.exc_info()[2]
                 cgmException(Exception, err, tb)
             return res
 
@@ -1950,62 +1962,43 @@ def Wrap_exception(func):
             return res
 
         except Exception as error:
-            # finally:
-            #    if err:
-            # print(_str_headerDiv + " cgmGen.func Log " + _str_headerDiv + _str_subLine)
+            _etype, _value, _tb = sys.exc_info()
             print(_str_hardBreak + _str_hardBreak)
             try:
-                print(("Func: {0} ".format(func.__name__) + ">" * 100))
-            except:
-                print(("Func: {0} ".format(func) + ">" * 100))
+                _fname = func.__name__
+            except Exception:
+                _fname = str(func)
+            print(
+                "{0} Exception in @Timer-wrapped call {1} | {2}: {3}".format(
+                    _str_headerDiv, _fname, _etype.__name__, _value
+                )
+            )
             if args:
-                print((_str_headerDiv + " Args " + _str_headerDiv + _str_subLine))
-                for i, arg in enumerate(args):
-                    print(("    arg {0}: {1}".format(i, arg)))
+                print(
+                    "{0} args ({1}): {2}".format(
+                        _str_headerDiv,
+                        len(args),
+                        ", ".join(repr(a)[:120] for a in args[:4]),
+                    )
+                )
+                if len(args) > 4:
+                    print("    ... and {0} more".format(len(args) - 4))
             if kws:
-                print((_str_headerDiv + " Kws... " + _str_headerDiv + _str_subLine))
-                for items in list(kws.items()):
-                    print(("    kw: {0}".format(items)))
-
-            """
-            tb = sys.exc_info()[2]#...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
-            try:db_file = tb.tb_frame.f_code.co_filename
-            except:db_file = "<maya console>"
-            
-            try:print((_str_headerDiv + " {0}   ".format(tb.tb_frame.f_code.co_name) + _str_headerDiv + _str_subLine))		
-            except:pass
-            print((" file: {0}".format(db_file)))
-            
-            
-            try:
-                _d = tb.tb_frame.f_locals
-            
-                if 'args' in list(_d.keys()):
-                    _args = _d.pop('args')
-                    if _args:
-                        print(("  Args... " + '-'*80))
-                        for a in _args:
-                            print(("      {0}".format(a)))
-                if 'kws' in list(_d.keys()):
-                    _kws = _d.pop('kws')
-                    if _kws:
-                        print(("  KWS..." + '-'*80))
-                        for k,v in _kws.items():
-                            print(("      {0} : {1}".format(k,v)))
-                    
-                #print("  Traceback local..." + _str_subLine)
-                #pprint.pprint(_d)
-            except:pass
-            
-            #traceback.print_tb(tb)
-            #pprint.pprint(traceback.extract_tb(tb))
-            """
+                _keys = list(kws.keys())
+                print(
+                    "{0} kwargs ({1} keys): {2}".format(
+                        _str_headerDiv,
+                        len(_keys),
+                        ", ".join(_keys[:24]),
+                    )
+                )
+                if len(_keys) > 24:
+                    print("    ... and {0} more keys".format(len(_keys) - 24))
 
             print(_str_headerDiv + " Exception Log " + _str_headerDiv + _str_subLine)
-            log_tb()
+            log_tb(_tb, _etype, _value)
 
             print("\n Release: [{}] \n".format(get_releaseString()))
-            # cgmException(err)
             print(_str_subLine + _str_subLine)
             raise
         finally:
@@ -2108,59 +2101,98 @@ def testTimer(sleep=0.5):
     return True
 
 
-def log_tb(tb=None):
-    if tb == None:
+_last_logged_exc_id = None
+
+
+def _normalize_exc_info(etype=None, value=None, tb=None):
+    """Return (exctype, excval, exc_tb) suitable for traceback.format_exception."""
+    if tb is None:
         tb = sys.exc_info()[2]
+    if isinstance(etype, BaseException) and value is None:
+        value = etype
+        etype = type(value)
+    if value is None or etype is None:
+        _t, _v, _tb = sys.exc_info()
+        if value is None:
+            value = _v
+        if etype is None and value is not None:
+            etype = type(value)
+        if tb is None:
+            tb = _tb
+    # format_exception expects the concrete type of the instance (callers often pass Exception)
+    if value is not None:
+        etype = type(value)
+    return etype, value, tb
 
-    frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
-    # print(frame,filename,line_number,function_name,lines,index)
 
-    print(
-        (
-            "\n>> TRACE >>  [func: {}]|| [module: {}]...".format(
-                function_name, filename
+def _summarize_frame_locals(frame, max_keys=28, max_val_len=180):
+    """Compact one-line-per-key view of frame locals (copy only; never mutates the frame)."""
+    try:
+        loc = dict(frame.f_locals)
+    except Exception:
+        return ""
+    lines = []
+    preferred = ("err", "error", "_str_func", "f", "mFile", "newFile", "_path", "blocks", "mMaster")
+    keys = []
+    for k in preferred:
+        if k in loc:
+            keys.append(k)
+    for k in sorted(loc.keys()):
+        if k not in keys:
+            keys.append(k)
+    keys = keys[:max_keys]
+    for k in keys:
+        try:
+            v = loc[k]
+            s = repr(v)
+            if len(s) > max_val_len:
+                s = s[: max_val_len - 3] + "..."
+        except Exception as e:
+            s = "<repr failed: {0}>".format(e)
+        lines.append("      {0}: {1}".format(k, s))
+    if len(loc) > max_keys:
+        lines.append("      ... ({0} more local keys omitted)".format(len(loc) - max_keys))
+    return "\n".join(lines)
+
+
+def log_tb(tb=None, etype=None, value=None):
+    """
+    Print a single standard Python traceback for the active (or passed) exception.
+    Suppresses an immediate duplicate print for the same exception instance (e.g. cgmException then @Timer wrapper).
+    """
+    global _last_logged_exc_id
+
+    etype, value, tb = _normalize_exc_info(etype, value, tb)
+    if tb is None and value is not None:
+        try:
+            tb = value.__traceback__
+        except Exception:
+            pass
+    if tb is None:
+        log.debug("log_tb: no traceback available")
+        return
+
+    if value is not None and id(value) == _last_logged_exc_id:
+        print(
+            "{0} (same exception: full traceback already printed above)\n".format(
+                _str_headerDiv
             )
-            + _str_hardBreak * 2
         )
-    )
+        return
+    if value is not None:
+        _last_logged_exc_id = id(value)
 
-    # try:db_file = tb.tb_frame.f_code.co_filename
-    # except:db_file = "<maya console>"
-    # print((" file: {0}".format(db_file)))
-
-    print("\n Locals..." + _str_subLine * 2)
-    _d = tb.tb_frame.f_locals
-    pprint.pprint(_d)
-    print("\n")
-    # inspect.getinnerframes
-
-    # print(("Locals..." + _str_subLine))
-    # pprint.pprint(tb.tb_frame.f_locals)
-    # print(("Globals..." + _str_subLine))
-    # pprint.pprint(tb.tb_frame.f_globals)
-
-    """
-    while tb.tb_next:
-        tb2 = tb.tb_next
-
-        print(sys.stderr, 'Locals:',  tb2.tb_frame.f_locals)
-        print(sys.stderr, 'Globals:', tb2.tb_frame.f_globals)    
-    """
-
-    for i, item in enumerate(reversed(inspect.getouterframes(tb.tb_frame)[1:])):
-        print(("traceback frame[{0}]".format(i + 1) + _str_subLine))
-        if item[3].endswith("Wrapper"):
-            continue
-        print(' [File "{1}"], [call {3}], [line {2}]'.format(*item))
-        for item2 in inspect.getinnerframes(tb):
-            if (
-                "go" not in item2
-            ):  # Path to get our wrapper stuff out of the traceback report
-                if not item2[3].endswith("Wrapper"):
-                    print(' [File "{1}"], [call {3}], [line {2}]'.format(*item2))
-        if item[4] is not None:
-            for line in item[4]:
-                print(" " + line.lstrip())
+    try:
+        print(_str_hardBreak)
+        if etype is not None and value is not None:
+            text = "".join(traceback.format_exception(etype, value, tb)).rstrip("\n")
+            print(text)
+        else:
+            print("(exception type/value unavailable; stack frames only)")
+            print("".join(traceback.format_tb(tb)).rstrip())
+        print(_str_hardBreak)
+    except Exception:
+        traceback.print_exc()
 
 
 @Func
@@ -2303,53 +2335,35 @@ def test_cgmExceptCB(*args, **kws):
 
 
 def cgmException(etype=None, value=None, tb=None, msg=None, **kws):
+    # Support cgmException(err) as well as cgmException(Exception, err)
+    if isinstance(etype, BaseException) and value is None:
+        value = etype
+        etype = type(value)
     if tb is None:
-        tb = sys.exc_info()[
-            2
-        ]  # ...http://blog.dscpl.com.au/2015/03/generating-full-stack-traces-for.html
+        tb = sys.exc_info()[2]
 
-    try:
-        db_file = tb.tb_frame.f_code.co_filename
-    except:
-        db_file = "<maya console>"
+    etype, value, tb = _normalize_exc_info(etype, value, tb)
 
+    print(
+        "{0} cgmException | {1}: {2}".format(_str_headerDiv, etype.__name__, value)
+    )
     try:
-        print(
-            (
-                _str_headerDiv
-                + " {0}   ".format(tb.tb_frame.f_code.co_name)
-                + _str_headerDiv
-                + _str_subLine
+        if tb and tb.tb_frame:
+            co = tb.tb_frame.f_code
+            print(
+                "{0} Innermost: {1}:{2} in {3}()".format(
+                    _str_headerDiv, co.co_filename, tb.tb_lineno, co.co_name
+                )
             )
-        )
-    except:
+            summ = _summarize_frame_locals(tb.tb_frame)
+            if summ:
+                print("{0} That frame's locals (summary):".format(_str_headerDiv))
+                print(summ)
+    except Exception:
         pass
-    print((" file: {0}".format(db_file)))
 
-    try:
-        _d = tb.tb_frame.f_locals
+    log_tb(tb, etype, value)
 
-        if "args" in list(_d.keys()):
-            _args = _d.pop("args")
-            if _args:
-                print(("  Args... " + "-" * 80))
-                for a in _args:
-                    print(("      {0}".format(a)))
-        if "kws" in list(_d.keys()):
-            _kws = _d.pop("kws")
-            if _kws:
-                print(("  KWS..." + "-" * 80))
-                for k, v in _kws.items():
-                    print(("      {0} : {1}".format(k, v)))
-
-        print("  Local dat...")
-        pprint.pprint(_d)
-
-        log_tb(tb)
-
-    except:
-        pass
-    # pprint.pprint(tb.tb_frame.f_locals)
     if msg:
         print(msg)
     print(("..." + _str_headerDiv))
