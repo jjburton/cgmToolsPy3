@@ -250,6 +250,10 @@ def create_MRS_batchFile(f=None, blocks = [None], process = False,
     'import maya.cmds as mc',
     'mc.loadPlugin("matrixNodes")',      
     'import cgm.core.mrs.lib.batch_utils as MRSBATCH']
+
+
+    if cgmGEN.__mayaVersionInt__ > 2020:
+        l_pre.insert(-2,'mc.loadPlugin("mtoa")',)
     
     l_post = ['except:',
     '    import msvcrt#...waits for key',
