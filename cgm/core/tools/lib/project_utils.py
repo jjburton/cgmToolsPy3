@@ -34,6 +34,19 @@ _fbxVersions = cgmGEN.get_mayaFBXVersionsAvailable()
 # Keep empty unless a project needs exceptions to generic s/es handling.
 d_subTypeDirAliases = {}
 
+# Subtype tokens that use one on-disk / basename form (no generic plural vs singular dirs).
+# Keys: canonical token; values: lowercase spellings accepted from paths or legacy data.
+d_subtype_dir_invariants = {
+    'geo': ['geo', 'geos'],
+    'audio': ['audio', 'audios'],
+    'source': ['source', 'sources'],
+}
+_subtype_invariant_by_lower = {
+    v: canonical
+    for canonical, variants in d_subtype_dir_invariants.items()
+    for v in variants
+}
+
 
 def _pluralize_token(token):
     if not token:
@@ -53,9 +66,9 @@ def subtype_file_token(subType):
         return subType
     t = (subType or '').strip()
     lower = t.lower()
-    # geo: always this spelling in filenames and as the folder name (no plural folder)
-    if lower in ('geo', 'geos'):
-        return 'geo'
+    _invariant = _subtype_invariant_by_lower.get(lower)
+    if _invariant is not None:
+        return _invariant
     if lower.endswith('ies') and len(lower) > 3:
         return lower[:-3] + 'y'
     if lower.endswith('es') and lower[:-2].endswith(('s', 'x', 'z', 'ch', 'sh')):
@@ -75,9 +88,9 @@ def subtype_dir_candidates(subType, prefer_plural=True):
         return []
 
     lower = token.lower()
-    # geo: only ever "geo" on disk (not geos / Meshes)
-    if lower == 'geo':
-        return ['geo']
+    _invariant = _subtype_invariant_by_lower.get(lower)
+    if _invariant is not None:
+        return [_invariant]
     if lower.endswith('es'):
         plural = token
         singular = token[:-2]
