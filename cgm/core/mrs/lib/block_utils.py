@@ -8432,7 +8432,12 @@ def is_rigged(self):
         elif self.blockType in ['eyeMain']:
             return self.atBlockModule('is_rig')
         
-        return self.moduleTarget.atUtils('is_rigged')
+        if self.moduleTarget:
+            return self.moduleTarget.atUtils('is_rigged')
+        
+        if self.blockState == 'rigged':
+            return True
+        return False
 
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
 
