@@ -1407,6 +1407,10 @@ example:
                                                        ann=_d_ann.get('replace','Replace'),
                                                       command=self.file_replace,en=1 ))
 
+        mUI.MelMenuItem(pum, label="Export Here",
+                        ann="Export selected objects using Maya's Export Selection",
+                        c=lambda *a: self.ExportSelection_sets())
+
         self.uiPop_sendToProject_sub = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True, en=1)
         self.ml_fileOptions_set.append(self.uiPop_sendToProject_sub)
 
@@ -1606,7 +1610,36 @@ example:
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'version' ))  
 
-        self.versionButton = mUI.MelButton(_versionForm, ut='cgmUITemplate', label="Save New Version", command=self.SaveVersion)
+        mRow_versionButtons = mUI.MelHLayout(_versionForm, padding=2)
+        self.mRow_versionButtons = mRow_versionButtons
+        mUI.MelIconButton(mRow_versionButtons,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save Maya file",
+                          image=os.path.join(_path_imageFolder, 'new_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.uiPath_mayaSaveTo_version())
+        mUI.MelIconButton(mRow_versionButtons,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save new version",
+                          image=os.path.join(_path_imageFolder, 'new_version.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.SaveVersion())
+        mUI.MelIconButton(mRow_versionButtons,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Export selected objects using Maya's Export Selection",
+                          image=os.path.join(_path_imageFolder, 'export_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.ExportSelection(mode='version'))
+        mRow_versionButtons.layout()
 
         _versionForm( edit=True, 
                       attachForm=[
@@ -1615,12 +1648,12 @@ example:
                           (_versionBtn, 'right', 0), 
                                   (self.versionList['formLayout'], 'left', 0),
                             (self.versionList['formLayout'], 'right', 0),
-                                (self.versionButton, 'bottom', 0), 
-                                (self.versionButton, 'right', 0), 
-                                (self.versionButton, 'left', 0)], 
+                                (mRow_versionButtons, 'bottom', 0), 
+                                (mRow_versionButtons, 'right', 0), 
+                                (mRow_versionButtons, 'left', 0)], 
                       attachControl=[
                           (self.versionList['formLayout'], 'top', 0, _versionBtn),
-                          (self.versionList['formLayout'], 'bottom', 0, self.versionButton)] )
+                          (self.versionList['formLayout'], 'bottom', 0, mRow_versionButtons)] )
 
 
         self._subForms = [_catForm,_setsForm,_variationForm,_versionForm]
@@ -2587,8 +2620,33 @@ example:
             log.debug(log_msg(_str_func,"no sub"))            
             self.mRow_setButtons.clear()
             mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Add Set", command=self.CreateSubAsset)
-            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Save New Version", command=self.SaveVersion)            
-            #self.subTypeButton(edit=True, label="Save New Version", command=self.SaveVersion)
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Save Maya file",
+                              image=os.path.join(_path_imageFolder, 'new_file.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.uiPath_mayaSaveTo_sets())
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Save new version",
+                              image=os.path.join(_path_imageFolder, 'new_version.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.SaveVersion())
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Export selected objects using Maya's Export Selection",
+                              image=os.path.join(_path_imageFolder, 'export_file.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.ExportSelection_sets())
             self.mRow_setButtons.layout()
 
         log.debug(log_msg(_str_func,cgmGEN._str_hardBreak))        
@@ -4365,20 +4423,17 @@ example:
 
 
 
-    def SaveVersion(self, *args):
-        _str_func = 'SaveVersion'
-        log.debug("|{}| >>...".format(_str_func))
-
+    def _compute_next_version_save_basename(self):
+        """
+        Next save filename (with extension) using the same rules as SaveVersion.
+        Used to prefill fileDialog2 via startingDirectory full path.
+        """
         if not self.path_asset:
-            log.error("No asset selected")
-            return
-        _saveTypeDict = {'ma':'mayaAscii', 'mb':'mayaBinary'}
+            return None
         _fileType = self.d_tf['general']['mayaFilePref'].getValue()
-        _saveType = _saveTypeDict[_fileType]
         versionList = self.versionList if self.hasSub else self.subTypeSearchList
         existingFiles = versionList['items']
 
-        #animationName = self.subTypeSearchList['scrollList'].getSelectedItem()
         if self.hasSub:
             _setToken = self._canonicalize_set_token_for_filename(self.subTypeSearchList['scrollList'].getSelectedItem())
             wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), _setToken)
@@ -4394,52 +4449,49 @@ example:
         _fileTok = PU.subtype_file_token(self.subType) if self.subType else ''
         if _fileTok and _fileTok not in ['animation', 'anim']:
             wantedName = "%s_%s" % (wantedName, _fileTok)
-            log.debug("Has subTpe name: {}".format(wantedName))            
+            log.debug("Has subTpe name: {}".format(wantedName))
 
         if len(existingFiles) == 0:
             wantedName = "{0}_0{1}.{2}".format(wantedName, 1, _fileType)
         else:
             print(wantedName)
 
-            wantedBasename = wantedName #"%s_%s" % (self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem())      
+            wantedBasename = wantedName
 
             currentFile = mc.file(q=True, loc=True)
 
             if not os.path.exists(currentFile):
-                #If the open file hasn't been saved
                 log.debug("Doesn't exist: {}".format(currentFile))
                 baseFile = versionList['scrollList'].getSelectedItem()
                 baseName, ext = baseFile.split('.')
 
                 if not wantedBasename in baseName:
-                    baseName = "%s_%02d" % (wantedBasename, 1)                      
+                    baseName = "%s_%02d" % (wantedBasename, 1)
 
             elif 'cat' == 'dog':
-                #If it does exit, split data
-                currentFile = os.path.split(currentFile)[-1]#...split out the directory stuff
+                currentFile = os.path.split(currentFile)[-1]
                 baseName, ext = currentFile.split('.')
 
             else:
                 baseName = wantedBasename
 
-
-
             if '_BUILD' in baseName:
-                baseName = baseName.replace('_BUILD','')
-
+                baseName = baseName.replace('_BUILD', '')
 
             if baseName != wantedBasename:
                 noVersionName = '_'.join(baseName.split('_')[:-1])
                 versionString = baseName.split('_')[-1]
-                try:versionNumString = re.findall('[0-9]+', versionString)[0]
-                except:pass
-                try:versionPrefix = versionString[:versionString.find(versionNumString)]
-                except:versionPrefix = ''                
+                try:
+                    versionNumString = re.findall('[0-9]+', versionString)[0]
+                except Exception:
+                    versionNumString = ''
+                try:
+                    versionPrefix = versionString[:versionString.find(versionNumString)]
+                except Exception:
+                    versionPrefix = ''
             else:
                 noVersionName = baseName
                 versionPrefix = ''
-
-            #version = int(versionNumString)
 
             versionFiles = []
             versions = []
@@ -4448,20 +4500,55 @@ example:
                 pattern = re.compile(matchString)
                 if pattern.match(item):
                     versionFiles.append(item)
-                    versions.append( int(item.split('.')[0].split('_')[-1].replace(versionPrefix, '')) )
+                    versions.append(int(item.split('.')[0].split('_')[-1].replace(versionPrefix, '')))
 
             versions.sort()
 
             if len(versions) > 0:
-                newVersion = versions[-1]+1
+                newVersion = versions[-1] + 1
             else:
                 newVersion = 1
 
             wantedName = "%s_%s%02d.%s" % (noVersionName, versionPrefix, newVersion, _fileType)
 
+        return wantedName
 
-            #pprint.pprint(vars())
+    def _save_here_suggested_stub(self):
+        """
+        Basename for Save Maya here dialog: same logical name as the next SaveVersion file,
+        but without the trailing version digits and without .ma/.mb (user picks type in dialog).
+        """
+        full = self._compute_next_version_save_basename()
+        if not full:
+            return None
+        base, _ext = os.path.splitext(full)
+        parts = base.split('_')
+        if not parts:
+            return None
+        last = parts[-1]
+        m = re.match(r'^([^0-9]*)(\d+)$', last)
+        if not m:
+            return base
+        prefix_before_digits, _digits = m.groups()
+        stub = '_'.join(parts[:-1])
+        if prefix_before_digits:
+            stub = '%s_%s' % (stub, prefix_before_digits)
+        return stub or base
 
+    def SaveVersion(self, *args):
+        _str_func = 'SaveVersion'
+        log.debug("|{}| >>...".format(_str_func))
+
+        if not self.path_asset:
+            log.error("No asset selected")
+            return
+        _saveTypeDict = {'ma':'mayaAscii', 'mb':'mayaBinary'}
+        _fileType = self.d_tf['general']['mayaFilePref'].getValue()
+        _saveType = _saveTypeDict[_fileType]
+        wantedName = self._compute_next_version_save_basename()
+        if not wantedName:
+            log.error("No asset selected")
+            return
 
         saveLocation = self.path_subType
         if self.hasNested:                
@@ -4887,10 +4974,16 @@ example:
 
 
 
-    def uiPath_mayaSaveTo(self,path=None):
+    def uiPath_mayaSaveTo(self, path=None, defaultFilename=None):
         _filter = "Maya Files (*.ma *.mb);;Maya ASCII (*.ma);;Maya Binary (*.mb);;"
-        _res = mc.fileDialog2(fileMode=0,dialogStyle=2,dir=path, fileFilter = _filter)
-        #fileFilter = 'Maya Files (*.ma *.mb)'
+        if path and defaultFilename:
+            _start = os.path.normpath(os.path.join(path, defaultFilename))
+        else:
+            _start = path
+        _fdKw = dict(fileMode=0, dialogStyle=2, fileFilter=_filter)
+        if _start:
+            _fdKw['startingDirectory'] = _start
+        _res = mc.fileDialog2(**_fdKw)
         if _res:
             log.warning("Saving: {0}".format(_res[0]))
             newFile = mc.file(rename = _res[0])
@@ -4903,10 +4996,11 @@ example:
         else:
             log.warning("SubType path doesn't exist")
 
-    def uiPath_mayaSaveTo_sets(self):
+    def uiPath_mayaSaveTo_sets(self, *args):
         _path = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
         if _path:
-            self.uiPath_mayaSaveTo( _path )
+            _suggest = self._save_here_suggested_stub()
+            self.uiPath_mayaSaveTo(_path, defaultFilename=_suggest)
         else:
             log.warning("SubType path doesn't exist")
 
@@ -4920,13 +5014,15 @@ example:
 
     def uiPath_mayaSaveTo_variant(self):
         if self.path_variationDirectory:
-            self.uiPath_mayaSaveTo( self.path_variationDirectory)
+            _suggest = self._save_here_suggested_stub()
+            self.uiPath_mayaSaveTo(self.path_variationDirectory, defaultFilename=_suggest)
         else:
             log.warning("Variation path doesn't exist")
 
-    def uiPath_mayaSaveTo_version(self):
+    def uiPath_mayaSaveTo_version(self, *args):
         if self.path_versionDirectory:
-            self.uiPath_mayaSaveTo( self.path_versionDirectory)
+            _suggest = self._save_here_suggested_stub()
+            self.uiPath_mayaSaveTo(self.path_versionDirectory, defaultFilename=_suggest)
         else:
             log.warning("Version path doesn't exist")
 
@@ -5000,7 +5096,8 @@ example:
         Args:
             mode (str): Determines the starting directory for the export dialog
                 - 'variant': Uses self.path_variationDirectory
-                - 'version': Uses self.path_versionDirectory  
+                - 'version': Uses self.path_versionDirectory
+                - 'sets': Uses subtype/set folder (same as Save Maya here on sets list)
                 - 'content': Uses self.mDat.userPaths_get()['content'] (default)
         """
         if not mc.ls(sl=True):
@@ -5014,6 +5111,8 @@ example:
             export_dir = self.path_variationDirectory
         elif mode == 'version':
             export_dir = self.path_versionDirectory
+        elif mode == 'sets':
+            export_dir = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
         else:  # mode == 'content' or any other value
             export_dir = self.mDat.userPaths_get()['content']
         
@@ -5046,11 +5145,15 @@ example:
     # Legacy method names for backward compatibility - these now call the unified method
     def ExportSelection_variant(self, *args):
         """Legacy method - now calls ExportSelection with mode='variant'"""
-        self.ExportSelection(mode='variant', *args)
-    
+        self.ExportSelection(mode='variant')
+
     def ExportSelection_version(self, *args):
         """Legacy method - now calls ExportSelection with mode='version'"""
-        self.ExportSelection(mode='version', *args)
+        self.ExportSelection(mode='version')
+
+    def ExportSelection_sets(self, *args):
+        """Export with starting directory matching sets/subtype column (no-hasSub layout)."""
+        self.ExportSelection(mode='sets')
 
     def UpdateAssetTSLPopup(self, *args):
         ''''''
