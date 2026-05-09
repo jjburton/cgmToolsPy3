@@ -1625,20 +1625,20 @@ example:
                           ut='cgmUITemplate',
                           style='iconOnly',
                           l='',
-                          ann="Save new version",
-                          image=os.path.join(_path_imageFolder, 'new_version.png'),
-                          w=25, h=25,
-                          bgc=cgmUI.guiButtonColor,
-                          c=lambda *a: self.SaveVersion())
-        mUI.MelIconButton(mRow_versionButtons,
-                          ut='cgmUITemplate',
-                          style='iconOnly',
-                          l='',
                           ann="Export selected objects using Maya's Export Selection",
                           image=os.path.join(_path_imageFolder, 'export_file.png'),
                           w=25, h=25,
                           bgc=cgmUI.guiButtonColor,
                           c=lambda *a: self.ExportSelection(mode='version'))
+        mUI.MelIconButton(mRow_versionButtons,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save new version",
+                          image=os.path.join(_path_imageFolder, 'new_version.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.SaveVersion())
         mRow_versionButtons.layout()
 
         _versionForm( edit=True, 
@@ -2633,20 +2633,20 @@ example:
                               ut='cgmUITemplate',
                               style='iconOnly',
                               l='',
-                              ann="Save new version",
-                              image=os.path.join(_path_imageFolder, 'new_version.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.SaveVersion())
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
                               ann="Export selected objects using Maya's Export Selection",
                               image=os.path.join(_path_imageFolder, 'export_file.png'),
                               w=25, h=25,
                               bgc=cgmUI.guiButtonColor,
                               c=lambda *a: self.ExportSelection_sets())
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Save new version",
+                              image=os.path.join(_path_imageFolder, 'new_version.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.SaveVersion())
             self.mRow_setButtons.layout()
 
         log.debug(log_msg(_str_func,cgmGEN._str_hardBreak))        
