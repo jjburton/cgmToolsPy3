@@ -283,14 +283,33 @@ def BreakTextureLinks(exportObjs=None):
 
 
 def resolve_delete_set(deleteSetName, namespace_prefix=None):
-    """Pick first existing objectSet for delete_tdSet-style names (handles namespace drift)."""
+    """Pick existing objectSet for delete_tdSet-style names.
+
+    When *namespace_prefix* is set, only explicit names for that rig are tried
+    (no global ``*:delete_tdSet`` scan) so multi-reference scenes cannot pick
+    another rig's delete set.
+    """
     base = deleteSetName.split(':')[-1]
     candidates = []
     if namespace_prefix:
-        candidates.append('{0}:{1}'.format(namespace_prefix, base))
-    for c in (deleteSetName, base):
-        if c not in candidates:
-            candidates.append(c)
+        _prefix = namespace_prefix.lstrip('|')
+        candidates.append('{0}:{1}'.format(_prefix, base))
+        for c in (deleteSetName, base):
+            if c not in candidates:
+                candidates.append(c)
+        seen = set()
+        for name in candidates:
+            if name in seen:
+                continue
+            seen.add(name)
+            if mc.objExists(name):
+                return name
+        return None
+
+    if deleteSetName:
+        candidates.append(deleteSetName)
+    if base not in candidates:
+        candidates.append(base)
     for s in mc.ls('*:{0}'.format(base), type='objectSet') or []:
         if s not in candidates:
             candidates.append(s)
@@ -304,12 +323,18 @@ def resolve_delete_set(deleteSetName, namespace_prefix=None):
     return None
 
 
-def ProcessDeleteSet(deleteSetName, namespace_prefix=None, _str_func='ProcessDeleteSet'):
+def ProcessDeleteSet(deleteSetName, namespace_prefix=None, resolved_set=None, _str_func='ProcessDeleteSet'):
     """
     Resolve delete set (namespaced or root) and delete members; log survivors.
     Used by Prep (referenced) and Scene ExportScene non-referenced path.
+
+    If *resolved_set* is passed and exists, it is used directly (per-rig, no
+    cross-namespace resolution).
     """
-    resolved = resolve_delete_set(deleteSetName, namespace_prefix)
+    if resolved_set and mc.objExists(resolved_set):
+        resolved = resolved_set
+    else:
+        resolved = resolve_delete_set(deleteSetName, namespace_prefix)
     if not resolved:
         log.warning("{0} || No delete set found | deleteSetName={1} | namespace_prefix={2}".format(
             _str_func, deleteSetName, namespace_prefix))
@@ -380,10 +405,10 @@ def Prep(removeNamespace = False,
 
     currentTime = mc.currentTime(q=True)
 
-    topNodeSN = topNode.mNode.split(':')[-1]
+    _topShort = topNode.mNode.split('|')[-1]
+    topNodeSN = _topShort.split(':')[-1]
+    namespaces = _topShort.split(':')[:-1]
 
-    namespaces = topNode.mNode.split(':')[:-1]
-    
     log.info("{0} || mNode: {1}".format(_str_func,topNode.mNode))
     log.info("{0} || topNode: {1} | namespaces: {2}".format(_str_func,topNodeSN,namespaces))
     log.info("{0} || ref import".format(_str_func))
@@ -413,7 +438,7 @@ def Prep(removeNamespace = False,
     if len(namespaces) > 0:
         for space in namespaces[:-1]:
             mc.namespace( removeNamespace = space, mergeNamespaceWithRoot = True)
-        ns = '%s:' % namespaces[-1].replace('|', '')
+        ns = '%s:' % namespaces[-1]
     else:
         ns = None
         #ns = "%s_" % topNode.mNode
@@ -500,8 +525,11 @@ def Prep(removeNamespace = False,
             
     # delete garbage
     log.info("{0} || delete set (Prep): {1}".format(_str_func, deleteSet))
-    _ns_hint = namespaces[-1] if len(namespaces) > 0 else None
-    if not ProcessDeleteSet(deleteSetName, namespace_prefix=_ns_hint, _str_func=_str_func):
+    _ns_hint = ns.rstrip(':') if ns else None
+    if mc.objExists(deleteSet):
+        if not ProcessDeleteSet(deleteSetName, resolved_set=deleteSet, _str_func=_str_func):
+            prepped = False
+    elif not ProcessDeleteSet(deleteSetName, namespace_prefix=_ns_hint, _str_func=_str_func):
         prepped = False
 
     if removeNamespace:#...attempt to clean name space stuff

@@ -93,6 +93,31 @@ def _export_ctx_to_str(ctx):
     return ' | '.join(l_msg)
 
 
+def _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj):
+    """
+    After deleteMesh removes mesh transforms, exportTransforms may still list deleted
+    DAG nodes (from Prep). Return names that still exist, or fall back to export root *obj*.
+    Returns None if deleteMesh ran and no valid target could be resolved.
+    """
+    if not deleteMesh:
+        return exportTransforms
+    if isinstance(exportTransforms, (list, tuple)):
+        _alive = [n for n in exportTransforms if n and mc.objExists(n)]
+        exportTransforms = (_alive[0] if len(_alive) == 1 else _alive) if _alive else None
+    elif exportTransforms and mc.objExists(exportTransforms):
+        pass
+    else:
+        exportTransforms = None
+    if not exportTransforms or (isinstance(exportTransforms, list) and len(exportTransforms) == 0):
+        _fb = None
+        for _cand in (obj, obj.split('|')[-1] if obj else '', (obj.split('|')[-1].split(':')[-1] if obj else '')):
+            if _cand and mc.objExists(_cand):
+                _fb = _cand
+                break
+        exportTransforms = _fb
+    return exportTransforms
+
+
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 __toolname__ ='mrsScene'
@@ -5858,6 +5883,11 @@ example:
                 return True
             #pprint.pprint(vars())
 
+            # Cutscene path appends animationName under exportAnimPath (subtype dir). Must be the
+            # animation/set leaf (e.g. flow), not the subtype token (Animations) — _l_openTokens[0]
+            # after path parsing is still the subtype folder name.
+            _animationFolderName = self.selectedSet or (_l_openTokens[-1] if _l_openTokens else None)
+
             result = ExportScene(mode = mode,
                                  exportObjs = None,
                                  exportName = self.exportFileName,
@@ -5868,7 +5898,7 @@ example:
                                  exportAnimPath = exportAnimPath,
                                  removeNamespace = self.d_tf['exportOptions']['removeNameSpace'].getValue(),
                                  zeroRoot = self.d_tf['exportOptions']['zeroRoot'].getValue(),
-                                 animationName = _l_openTokens[0],#self.selectedSet,
+                                 animationName=_animationFolderName,
                                  exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
                                  tangent=postTangent,
                                  euler=postEuler,
@@ -6284,14 +6314,13 @@ def ExportScene(mode = -1,
     #if not os.path.exists(exportAssetPath):
     #    os.mkdir(exportAssetPath)
     log.info(log_msg(_str_func,"Pathcheck..."))
-    if not exportAnimPath:
-        log.info("Getting path...")                        
+    if exportAsRig:
+        exportAnimPath = exportAssetPath
+    elif not exportAnimPath:
+        log.info("Getting path...")
         _exportSubTypeDir = subType
-        if exportAsRig:
-            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, subSet, _exportSubTypeDir))
-        else:
-            exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, _exportSubTypeDir))
-    log.info("exportPath: {0}".format(exportAnimPath))                
+        exportAnimPath = os.path.normpath(os.path.join(exportAssetPath, _exportSubTypeDir))
+    log.info("exportPath: {0}".format(exportAnimPath))
 
 
     #pprint.pprint(vars())
@@ -6306,18 +6335,21 @@ def ExportScene(mode = -1,
         #f.write("filler file")
         #f.close()
 
-    if '.' in animationName:
-        animationName = animationName.split('.')[0]
+    if animationName is not None and str(animationName).strip().lower() in ('none', 'null'):
+        animationName = None
+
+    if animationName:
+        if '.' in animationName:
+            animationName = animationName.split('.')[0]
+        if not exportStatic and not exportAsRig:
+            exportAnimPath = os.path.normpath(os.path.join(exportAnimPath, animationName))
 
     pprint.pprint(vars())
     if exportAsCutscene:
         log.info("export as cutscene...")
-        if animationName is not None:
-            exportAnimPath = os.path.normpath(os.path.join(exportAnimPath, animationName))
 
+    if (exportAsCutscene or animationName) and not exportStatic and not exportAsRig:
         CGMOS.mkdir_recursive(PATHS.get_dir(exportAnimPath))
-        #if not os.path.exists(exportAnimPath):
-        #    os.mkdir(exportAnimPath)
 
     exportFiles = []
 
@@ -6470,6 +6502,12 @@ def ExportScene(mode = -1,
                             mc.delete(mMeshShape.getTransform())
                         except Exception:
                             log.error("failure: {}".format(mMeshShape.mNode))
+            exportTransforms = _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj)
+            if deleteMesh and exportTransforms is None:
+                _ctx = dict(_ctx_base, stage='select', exportObj=obj)
+                log.error("{0} | No export DAG to select after mesh strip | {1}".format(
+                    _str_func, _export_ctx_to_str(_ctx)))
+                return _finalize_failure('select', 'No export DAG to select after mesh strip', _ctx)
 
             l_cleanup.append((cgmObj, exportTransforms))
 
@@ -6500,11 +6538,6 @@ def ExportScene(mode = -1,
                     log.info(shot)
                     mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(
                         shot[0], shot[1][0], shot[1][1]))
-
-            exportDir = os.path.split(exportFile)[0]
-            if not os.path.exists(exportDir):
-                log.info("making export dir... {0}".format(exportDir))
-                os.makedirs(exportDir)
 
             log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
             try:
@@ -6547,9 +6580,12 @@ def ExportScene(mode = -1,
         if( addNamespaceSuffix ):
             exportFile = exportFile.replace(".fbx", "_%s.fbx" % assetName )
         if( exportAsRig ):
-            exportFile = os.path.normpath(os.path.join(exportAssetPath, exportName) )
-
-        #    exportFile = os.path.normpath(os.path.join(exportAssetPath, '{}_rig.fbx'.format( assetName )))
+            # {refNamespace}_rig.fbx (e.g. CrateBase_rig.fbx) — exportName stem is not the ref prefix.
+            _stem, _ext = os.path.splitext(exportName)
+            if not _ext:
+                _ext = '.fbx'
+            _rigFileName = '{0}_rig{1}'.format(assetName, _ext)
+            exportFile = os.path.normpath(os.path.join(exportAssetPath, _rigFileName))
 
         cgmObj.select()
 
@@ -6666,6 +6702,12 @@ def ExportScene(mode = -1,
                             mc.delete(mMeshShape.getTransform())
                         except:
                             log.error("failure: {}".format(mMeshShape.mNode))
+            exportTransforms = _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj)
+            if deleteMesh and exportTransforms is None:
+                _ctx = dict(_ctx_base, stage='select', exportObj=obj)
+                log.error("{0} | No export DAG to select after mesh strip | {1}".format(
+                    _str_func, _export_ctx_to_str(_ctx)))
+                return _finalize_failure('select', 'No export DAG to select after mesh strip', _ctx)
 
             mc.select(exportTransforms, hi=True)		
 
@@ -6677,7 +6719,9 @@ def ExportScene(mode = -1,
             if(exportFBXFile):
                 # Rig exports are always single-file exports. Even if the project option
                 # is enabled, skip per-shot file splitting for rig mode.
-                if exportShotsToIndividualFiles and not exportAsRig:
+                # Cutscene (exportAsCutscene) always uses per-shot files under the anim folder only
+                # (e.g. .../flow/); non-cutscene per-shot can nest one extra folder per export stem.
+                if (exportShotsToIndividualFiles or exportAsCutscene) and not exportAsRig:
                     # global FBX options you probably want once
                     mel.eval('FBXResetExport;')
                     mel.eval('FBXExportSplitAnimationIntoTakes -clear;')  # no multi-take
@@ -6689,10 +6733,13 @@ def ExportScene(mode = -1,
                     mel.eval('FBXExportInAscii -v false;')
 
                     exportDir = os.path.split(exportFile)[0]
-                    baseName  = os.path.splitext(os.path.basename(exportFile))[0]
-                    
-                    # Create subdirectory for this baseName
-                    baseDir = os.path.join(exportDir, baseName)
+
+                    baseName = os.path.splitext(os.path.basename(exportFile))[0]
+                    if exportAsCutscene:
+                        # Single directory (e.g. flow/); disambiguate rigs by filename shot_namespace.
+                        baseDir = exportDir
+                    else:
+                        baseDir = os.path.join(exportDir, baseName)
                     if not os.path.exists(baseDir):
                         log.info("making export dir... {0}".format(baseDir))
                         os.makedirs(baseDir)
@@ -6705,7 +6752,12 @@ def ExportScene(mode = -1,
                             log.info((shotName, (s, e)))
 
                             safe = CORESTRING.stripInvalidChars(shotName)
-                            outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
+                            if exportAsCutscene:
+                                # e.g. AN_CrateHarness_flow_1_resetPadCrane_Crane.fbx (shot_takeNamespace)
+                                _fbxStem = CORESTRING.stripInvalidChars('{0}_{1}'.format(safe, assetName))
+                                outFile = os.path.join(baseDir, "{}.fbx".format(_fbxStem)).replace('\\', '/')
+                            else:
+                                outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
 
                             # Set time range for this shot and export
                             mel.eval('FBXResetExport;')
@@ -6735,7 +6787,7 @@ def ExportScene(mode = -1,
                             mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
 
                     exportDir = os.path.split(exportFile)[0]
-                    if not os.path.exists(exportDir):
+                    if not exportAsRig and not os.path.exists(exportDir):
                         log.info("making export dir... {0}".format(exportDir))
                         os.makedirs(exportDir)
 
