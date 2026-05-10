@@ -1532,7 +1532,15 @@ example:
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'variation' ))  
         #---------------------------------------------------------------------------------------
 
-        self.variationButton = mUI.MelButton(_variationForm, ut='cgmUITemplate', label="New Variation", command=self.CreateVariation)
+        self.variationButton = mUI.MelIconButton(_variationForm,
+                                                 ut='cgmUITemplate',
+                                                 style='iconOnly',
+                                                 l='',
+                                                 ann="New Variation",
+                                                 image=os.path.join(_path_imageFolder, 'new_set.png'),
+                                                 w=25, h=25,
+                                                 bgc=cgmUI.guiButtonColor,
+                                                 c=lambda *a: self.CreateVariation())
 
         _variationForm( edit=True, 
                         attachForm=[
@@ -2611,15 +2619,39 @@ example:
         if self.hasSub:
             log.debug(log_msg(_str_func,"hasSub"))
             self.mRow_setButtons.clear()
-            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="New {0}".format(self._subtypeDisplayLabel()), command=self.CreateSubAsset)
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="New {0}".format(self._subtypeDisplayLabel()),
+                              image=os.path.join(_path_imageFolder, 'new_set.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.CreateSubAsset())
             if self.hasVariant == False:
-                mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Add Variation", command=self.CreateVariation)
+                mUI.MelIconButton(self.mRow_setButtons,
+                                  ut='cgmUITemplate',
+                                  style='iconOnly',
+                                  l='',
+                                  ann="Add Variation",
+                                  image=os.path.join(_path_imageFolder, 'new_set.png'),
+                                  w=25, h=25,
+                                  bgc=cgmUI.guiButtonColor,
+                                  c=lambda *a: self.CreateVariation())
             #self.subTypeButton(edit=True, label="New {0}".format(self.subType.capitalize()), command=self.CreateSubAsset)
             self.mRow_setButtons.layout()
         else:
             log.debug(log_msg(_str_func,"no sub"))            
             self.mRow_setButtons.clear()
-            mUI.MelButton(self.mRow_setButtons, ut='cgmUITemplate', label="Add Set", command=self.CreateSubAsset)
+            mUI.MelIconButton(self.mRow_setButtons,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Add Set",
+                              image=os.path.join(_path_imageFolder, 'new_dir.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.CreateSubAsset())
             mUI.MelIconButton(self.mRow_setButtons,
                               ut='cgmUITemplate',
                               style='iconOnly',
