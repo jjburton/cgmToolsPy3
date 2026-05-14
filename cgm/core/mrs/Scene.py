@@ -446,20 +446,30 @@ example:
             log.debug(err)
             return False
 
-    @property
-    def path_versionDirectory(self):
+    def _version_files_parent_directory(self):
+        """
+        Folder that holds version .ma/.mb files — must match LoadVersionList searchDir
+        (including projects with no subtype tabs, where versions live under path_asset).
+        """
         try:
-
-            if self.hasSub:
-                if self.hasVariant:
-                    return os.path.normpath(os.path.join( self.path_variationDirectory))
-                else:
-                    return os.path.normpath(os.path.join( self.path_set))
+            if not self.subTypes:
+                _d = self.path_asset
+            elif self.hasVariant:
+                _d = self.path_variationDirectory
+            elif self.hasSub:
+                _d = self.path_set
             else:
-                return os.path.normpath(os.path.join( self.path_set))   
+                _d = self.path_subType
+            if not isinstance(_d, str) or not _d:
+                return None
+            return os.path.normpath(_d)
         except Exception as err:
             log.debug(err)
-            return False            
+            return None
+
+    @property
+    def path_versionDirectory(self):
+        return self._version_files_parent_directory()
 
     @property
     def selectedVersion(self):
@@ -1537,7 +1547,7 @@ example:
                                                  style='iconOnly',
                                                  l='',
                                                  ann="New Variation",
-                                                 image=os.path.join(_path_imageFolder, 'new_set.png'),
+                                                 image=os.path.join(_path_imageFolder, 'new_variation.png'),
                                                  w=25, h=25,
                                                  bgc=cgmUI.guiButtonColor,
                                                  c=lambda *a: self.CreateVariation())
@@ -2634,7 +2644,7 @@ example:
                                   style='iconOnly',
                                   l='',
                                   ann="Add Variation",
-                                  image=os.path.join(_path_imageFolder, 'new_set.png'),
+                                  image=os.path.join(_path_imageFolder, 'new_variation.png'),
                                   w=25, h=25,
                                   bgc=cgmUI.guiButtonColor,
                                   c=lambda *a: self.CreateVariation())
@@ -3839,7 +3849,6 @@ example:
                     else:
                         if '{0}_{1}_'.format(self.selectedAsset, self.subType) in f:
                             anims.append(f)
-                            cgmUI
         searchList['items'] = anims
         searchList['scrollList'].clear()
         searchList['scrollList'].setItems(anims)
@@ -4338,11 +4347,10 @@ example:
                 namespace=self.assetList['scrollList'].getSelectedItem())        
         SCENEUTILS.fncMayaSett_do(self,True,True)
 
-        saveLocation = self.path_subType
-        if self.hasSub:
-            saveLocation = self.path_set
-        if self.hasSub and self.hasVariant:
-            saveLocation = self.path_variationDirectory
+        saveLocation = self._version_files_parent_directory()
+        if not saveLocation:
+            log.error(log_msg(_str_func, "No save directory resolved (match LoadVersionList paths)"))
+            return
 
         log.info(log_msg(_str_func,"Save to: {0}".format(saveLocation)))
 
@@ -4582,12 +4590,10 @@ example:
             log.error("No asset selected")
             return
 
-        saveLocation = self.path_subType
-        if self.hasNested:                
-            if self.hasSub:
-                saveLocation = self.path_set
-            if self.hasSub and self.hasVariant:
-                saveLocation = self.path_variationDirectory
+        saveLocation = self._version_files_parent_directory()
+        if not saveLocation:
+            log.error("{0} | No save directory resolved (match LoadVersionList paths)".format(_str_func))
+            return
 
         saveFile = os.path.normpath(os.path.join(saveLocation, wantedName) ) 
         log.info( "Saving file: %s" % saveFile )
@@ -5069,7 +5075,11 @@ example:
         self.OpenDirectory(self.path_set)
 
     def OpenVersionDirectory(self, *args):
-        self.OpenDirectory(self.path_versionDirectory)
+        _p = self.path_versionDirectory
+        if not _p:
+            log.warning("Version path doesn't exist")
+            return
+        self.OpenDirectory(_p)
 
     def ReferenceFile(self, *args):
         #if not self.assetList['scrollList'].getSelectedItem():
@@ -6476,14 +6486,16 @@ def ExportScene(mode = -1,
     if animationName:
         if '.' in animationName:
             animationName = animationName.split('.')[0]
-        if not exportStatic and not exportAsRig:
+        # Only cutscene nests animationName under subtype (e.g. Animations/flow). Regular anim
+        # export stays on exportAnimPath as built (e.g. .../Animations/), not .../Animations/base/.
+        if exportAsCutscene and not exportStatic and not exportAsRig:
             exportAnimPath = os.path.normpath(os.path.join(exportAnimPath, animationName))
 
     pprint.pprint(vars())
     if exportAsCutscene:
         log.info("export as cutscene...")
 
-    if (exportAsCutscene or animationName) and not exportStatic and not exportAsRig:
+    if not exportStatic and not exportAsRig and exportAnimPath:
         CGMOS.mkdir_recursive(PATHS.get_dir(exportAnimPath))
 
     exportFiles = []
@@ -6555,6 +6567,20 @@ def ExportScene(mode = -1,
         _ctx = dict(_ctx_base, stage='fbx_export', plugin='fbxmaya')
         log.exception("{0} | Failed loading FBX plugin | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
         return _finalize_failure('fbx_export', 'Failed loading FBX plugin', _ctx)
+
+    def _rig_fbx_export_to_path(exportPathAbs):
+        """Rig FBX only: no FBXExportSplitAnimationIntoTakes (no takes)."""
+        _dir = os.path.dirname(exportPathAbs)
+        if _dir and not os.path.exists(_dir):
+            log.info("making export dir... {0}".format(_dir))
+            os.makedirs(_dir)
+        _p = exportPathAbs.replace('\\', '/')
+        mel.eval('FBXResetExport;')
+        mel.eval('FBXExportSkins -v true;')
+        mel.eval('FBXExportConstraints -v false;')
+        mel.eval('FBXExportSmoothingGroups -v true;')
+        mel.eval('FBXExportInAscii -v false;')
+        mel.eval('FBXExport -f \"{}\" -s'.format(_p))
 
     # Rig + multiple export roots: prepare each root, then one FBX containing all hierarchies.
     # (Iterating per root would overwrite the same rig filename and run destructive cleanup between passes.)
@@ -6664,19 +6690,9 @@ def ExportScene(mode = -1,
             log.info("{0} | {1}".format(i, o))
 
         if exportFBXFile:
-            mel.eval('FBXExportSplitAnimationIntoTakes -c')
-
-            _primary = exportObjs[0]
-            if _primary not in cameras:
-                for shot in animList.shotList:
-                    log.info(log_msg(_str_func, "shot..."))
-                    log.info(shot)
-                    mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(
-                        shot[0], shot[1][0], shot[1][1]))
-
-            log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
+            log.info('Export Command: FBXExport -f \"{}\" -s (rig multi, no takes)'.format(exportFile))
             try:
-                mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                _rig_fbx_export_to_path(exportFile)
             except Exception:
                 _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObjs=exportObjs)
                 log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
@@ -6854,8 +6870,8 @@ def ExportScene(mode = -1,
             if(exportFBXFile):
                 # Rig exports are always single-file exports. Even if the project option
                 # is enabled, skip per-shot file splitting for rig mode.
-                # Cutscene (exportAsCutscene) always uses per-shot files under the anim folder only
-                # (e.g. .../flow/); non-cutscene per-shot can nest one extra folder per export stem.
+                # Cutscene or single-root anim: per-shot FBXs sit in exportDir only (no extra stem folder).
+                # Multi-root non-cutscene: nest under export stem so shot names cannot collide across assets.
                 if (exportShotsToIndividualFiles or exportAsCutscene) and not exportAsRig:
                     # global FBX options you probably want once
                     mel.eval('FBXResetExport;')
@@ -6870,8 +6886,7 @@ def ExportScene(mode = -1,
                     exportDir = os.path.split(exportFile)[0]
 
                     baseName = os.path.splitext(os.path.basename(exportFile))[0]
-                    if exportAsCutscene:
-                        # Single directory (e.g. flow/); disambiguate rigs by filename shot_namespace.
+                    if exportAsCutscene or len(exportObjs) == 1:
                         baseDir = exportDir
                     else:
                         baseDir = os.path.join(exportDir, baseName)
@@ -6913,26 +6928,35 @@ def ExportScene(mode = -1,
                                 return _finalize_failure('fbx_export', 'Shot FBX export failed', _ctx)
 
                 else:
-                    mel.eval('FBXExportSplitAnimationIntoTakes -c')
-
-                    if obj not in cameras:#...cameras we don't want in takes
-                        for shot in animList.shotList:
-                            log.info( log_msg(_str_func, "shot..."))
-                            log.info(shot)
-                            mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
-
                     exportDir = os.path.split(exportFile)[0]
-                    if not exportAsRig and not os.path.exists(exportDir):
-                        log.info("making export dir... {0}".format(exportDir))
-                        os.makedirs(exportDir)
+                    if exportAsRig:
+                        log.info('Export Command: FBXExport -f \"{}\" -s (rig, no takes)'.format(exportFile))
+                        try:
+                            _rig_fbx_export_to_path(exportFile)
+                        except Exception:
+                            _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
+                            log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                            return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+                    else:
+                        mel.eval('FBXExportSplitAnimationIntoTakes -c')
 
-                    log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
-                    try:
-                        mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
-                    except Exception:
-                        _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
-                        log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                        return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+                        if obj not in cameras:#...cameras we don't want in takes
+                            for shot in animList.shotList:
+                                log.info( log_msg(_str_func, "shot..."))
+                                log.info(shot)
+                                mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
+
+                        if not os.path.exists(exportDir):
+                            log.info("making export dir... {0}".format(exportDir))
+                            os.makedirs(exportDir)
+
+                        log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
+                        try:
+                            mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
+                        except Exception:
+                            _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
+                            log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                            return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
 
                 if len(exportObjs) > 1 and removeNamespace:
                     # Deleting the exported transforms in case another file has duplicate export names
