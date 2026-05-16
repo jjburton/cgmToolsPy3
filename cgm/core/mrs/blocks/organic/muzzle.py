@@ -6720,7 +6720,7 @@ def rig_frame(self):
                     else:
                         mJawTrack.p_parent = mJawSpaceMouth
                     
-                    const = mc.pointConstraint([mMainTrack.mNode,mJawTrack.mNode],
+                    const = mc.parentConstraint([mMainTrack.mNode,mJawTrack.mNode],
                                         mHandle.masterGroup.mNode,
                                         maintainOffset=True)[0]
 
@@ -6732,7 +6732,7 @@ def rig_frame(self):
                                                                          [mMainTrack.mNode,'cornerPin_Right'],
                                                                          keyable=True)
 
-                    targetWeights = mc.pointConstraint(const,q=True,
+                    targetWeights = mc.parentConstraint(const,q=True,
                                                         weightAliasList=True,
                                                         maintainOffset=True)
 
@@ -7943,7 +7943,30 @@ def uiFunc_sealFix(self, ml = None, reset = False):
         
     pprint.pprint(md)
     log.warning("LipSeal Set.")
-        
+
+
+def uiFunc_matchSealRotateToBase(self, ml=None):
+    _str_func = 'uiFunc_matchSealRotateToBase'
+
+    if not ml:
+        ml = cgmMeta.asMeta(sl=1)
+    if not ml:
+        log.warning("Nothing Selected")
+        return False
+    _did = False
+    for mObj in ml:
+        mSeal = mObj.getMessageAsMeta('mTrackSeal')
+        mBase = mObj.getMessageAsMeta('mTrackBase')
+        log.debug("|{0}| >> mSeal: {1}, mBase: {2}".format(_str_func,mSeal,mBase))
+        if not mSeal or not mBase:
+            log.warning("Lacks seal/base tracks: {0}".format(mObj))
+            continue
+        mSeal.rotate = mBase.rotate
+        log.debug("|{0}| >> mSeal.rotate: {1}, mBase.rotate: {2}".format(_str_func,mSeal.rotate,mBase.rotate))
+        _did = True
+    if _did:
+        log.warning("Seal rotate matched to base.")
+    return _did
 
 
 def uiFunc_snapStateHandles(self,ml=None):
@@ -7986,6 +8009,9 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] Seal Fix Reset'.format(_short),
                 c = cgmGEN.Callback(uiFunc_sealFix,self,reset=True),
                 label = "Reset")
+    mc.menuItem(ann = '[{0}] Match local rotate from mTrackBase to mTrackSeal (p_rotate); not world orient.'.format(_short),
+                c = cgmGEN.Callback(uiFunc_matchSealRotateToBase,self),
+                label = "Match Seal Rotate to Base")
     
     
     """
