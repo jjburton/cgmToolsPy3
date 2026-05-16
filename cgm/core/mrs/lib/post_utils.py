@@ -1458,11 +1458,18 @@ def setup_limits(d_limits = {}):
             print(o)
     print((log_msg(_str_func,cgmGEN._str_hardBreak)))
     
-def zUpRoot(root='rootMotion_jnt', rootAnim = 'rootMotion_anim'):
-    mObj = cgmMeta.asMeta(sl=1)
-    if len(mObj) != 1:
-        log.error("Expected 1 object, got {}".format(len(mObj)))
-        return
+def zUpRoot(master = None, root='rootMotion_jnt', rootAnim = 'rootMotion_anim'):
+    if master is None:
+        mObj = cgmMeta.asMeta(sl=1)
+        if len(mObj) != 1:
+            log.error("Expected 1 object, got {}".format(len(mObj)))
+            return
+        mMaster = mObj[0]
+    else:
+        mMaster = cgmMeta.validateObjArg(master)
+        if not mMaster:
+            log.error("Expected master to be {}. Found {}".format(master, mMaster))
+            return
 
     mRoot = cgmMeta.validateObjArg(root)
     if not mRoot:
@@ -1481,7 +1488,6 @@ def zUpRoot(root='rootMotion_jnt', rootAnim = 'rootMotion_anim'):
     for mChild in ml_children:
         mChild.p_parent = False
 
-    mMaster = mObj[0]
     mMaster.rx = 90
 
     mc.pointConstraint(mRootAnim.mNode, mRoot.mNode, maintainOffset=True)
