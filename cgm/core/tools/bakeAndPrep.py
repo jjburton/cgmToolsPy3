@@ -44,6 +44,8 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
          reducer = True):
     
     _str_func = 'Bake'
+
+    cgmGEN.playback_stop()
     
     if startFrame is None:
         startFrame =  mc.playbackOptions(q=True, min=True)

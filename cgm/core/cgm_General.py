@@ -107,6 +107,20 @@ def get_releaseString():
 __RELEASESTRING = get_releaseString()
 
 
+def playback_is_playing():
+    return mc.play(q=True, state=True)
+
+
+def playback_stop(log=True):
+    """Stop timeline playback if active. Returns True if playback was stopped."""
+    if not playback_is_playing():
+        return False
+    mc.play(state=False)
+    if log:
+        log.info("Stopped timeline playback before bake.")
+    return True
+
+
 class cgmFuncCls(object):
     """
     Core cgm function class wrapper. Adds a lot of features for maya functions for free. For example usage:

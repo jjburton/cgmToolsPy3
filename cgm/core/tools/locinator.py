@@ -220,6 +220,8 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
         success(bool)
     """     
     _str_func = 'bake_match'
+
+    cgmGen.playback_stop()
     
     #log.info("|{0}| >> Not updatable: {1}".format(_str_func,NAMES.get_short(_obj)))  
     _targets = VALID.objStringList(l_args=targets,isTransform=True,noneValid=False,calledFrom=_str_func)

@@ -115,6 +115,8 @@ class fOverTimeBAK:
         return func,args,kwargs
  
     def run(self, function = None, *args, **kwargs):
+        cgmGEN.playback_stop()
+
         current_time = mc.currentTime(query=True)
         current_frame = self.frame_start
         while current_frame <= self.frame_end:
@@ -132,6 +134,8 @@ class fOverTimeBAK:
     def run_frames(self, function = None, *args, **kwargs):
         if not self.frames:
             raise ValueError("{} | No frames set".format(self.__class__))
+
+        cgmGEN.playback_stop()
 
         current_time = mc.currentTime(query=True)
         for f in self.frames:
@@ -201,6 +205,8 @@ class overload_call:
     def run(self):
         _str_func = 'run[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
+
+        cgmGEN.playback_stop()
         
         #pprint.pprint(self.__dict__)            
             
@@ -225,10 +231,12 @@ class overload_call:
     def run_frames(self):
         _str_func = 'run_frames[{0}]'.format(self.__class__.__name__)            
         log.debug("|{0}| >>...".format(_str_func))
+
+        cgmGEN.playback_stop()
         
         if not self.frames:
             raise ValueError("{} | No frames set".format(self.__class__))
-        
+
         if not self.pre_run():
             mc.warning(log_msg(_str_func,"pre failed"))
             return False

@@ -968,6 +968,8 @@ def set_connection_offsets(connection_data):
 
 
 def bake(connection_data, start, end):
+    cgmGEN.playback_stop()
+
     bake_range = list(range( int(math.floor(start)), int(math.floor(end+1))))
     if end < start:
         bake_range = list(range(int(math.floor(end)),int(math.floor(start+1))))

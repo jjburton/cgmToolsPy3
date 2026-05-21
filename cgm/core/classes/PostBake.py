@@ -64,6 +64,8 @@ class PostBake(object):
     def bake(self, startTime=None, endTime=None):
         _str_func = 'PostBake.bake'
 
+        cgmGEN.playback_stop()
+
         self._cancelBake = False
 
         self.startTime = int(mc.playbackOptions(q=True, min=True)) if startTime is None else startTime
