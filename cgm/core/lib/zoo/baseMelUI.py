@@ -2461,6 +2461,34 @@ class BaseMelWindow(BaseMelUI):
 
     FORCE_DEFAULT_SIZE = True
 
+    # When True, Close() calls confirmClose() before hiding; cancel re-shows the window.
+    VERIFY_CLOSE = False
+
+    @classmethod
+    def confirmClose( cls ):
+        '''
+        Return True to proceed with close (hide). False to cancel and restore the window.
+        Override in tool subclasses when VERIFY_CLOSE is True.
+        '''
+        return True
+
+    @classmethod
+    def restoreAfterCloseCancelled( cls ):
+        '''
+        Maya runs closeCommand after the window is already closed/hidden. Re-show on cancel.
+        '''
+        _win = cls.WINDOW_NAME
+
+        def _restore():
+            if cmd.window( _win, ex=True ):
+                cmd.window( _win, e=True, visible=True )
+                cmd.showWindow( _win )
+
+        try:
+            cmd.scriptJob( runOnce=True, idleEvent=_restore, parent=_win )
+        except Exception:
+            cmd.evalDeferred( _restore, lp=True )
+
     @classmethod
     def Exists( cls ):
         '''
@@ -2478,7 +2506,9 @@ class BaseMelWindow(BaseMelUI):
         '''
         closes the window (if it exists)
         '''
-        #if cls.Exists():
+        if getattr( cls, 'VERIFY_CLOSE', False ) and not cls.confirmClose():
+            cls.restoreAfterCloseCancelled()
+            return
         try:
             if cmd.window(cls.WINDOW_NAME,ex=True):
                 cmd.window(cls.WINDOW_NAME, e=True, visible=False )

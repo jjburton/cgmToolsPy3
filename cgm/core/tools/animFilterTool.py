@@ -95,7 +95,20 @@ class ui(cgmUI.cgmGUI):
     FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
     DEFAULT_SIZE = 425,350
     TOOLNAME = '{0}.ui'.format(__toolname__)
-    
+    VERIFY_CLOSE = True
+
+    @classmethod
+    def confirmClose(cls):
+        return mc.confirmDialog(
+            title='Close {0}?'.format(__toolname__),
+            message='Close this tool?',
+            button=['Close', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+            icon='question',
+        ) == 'Close'
+
     def insert_init(self,*args,**kws):
         _str_func = '__init__[{0}]'.format(self.__class__.TOOLNAME)            
         log.info("|{0}| >>...".format(_str_func))
