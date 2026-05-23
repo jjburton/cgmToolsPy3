@@ -2147,9 +2147,14 @@ class uiBlockConfigDat(ui):
         if not entry:
             return log.error("No entry found for index {}".format(idx))
         
-        mDat = entry['config'].get('shape')
-        if not mDat:
+        _dSource = entry['config'].get('shape')
+        if not _dSource:
             return log.error("No shapeDat found")
+        
+        _d = {k:_dSource[k] for k in list(_dSource.keys())}
+        
+        mDat = ShapeDat()
+        mDat.fillDat(_d)
         
         mUI = uiShapeDat()
         mUI.uiDat = mDat
