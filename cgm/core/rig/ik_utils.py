@@ -1147,7 +1147,10 @@ def ribbon(jointList = None,
     #Ramp values -------------------------------------------------------------------------
     if extraSquashControl:
         l_scaleFactors = MATH.get_blendList(int_lenJoints,squashFactorMax,squashFactorMin,squashFactorMode)
-    
+        log.debug("|{0}| >> l_scaleFactors...".format(_str_func))
+        pprint.pprint(l_scaleFactors)
+        log.debug("|{0}| >> l_scaleFactors...done")
+
     #Squash stretch -------------------------------------------------------------------------
     b_squashStretch = False
     if squashStretch is not None:

@@ -618,7 +618,34 @@ d_block_profiles = {
              'baseAim':[0,1,0],
              #'baseUp':[0,0,-1],
              'baseDat':{'rp':[0,0,-1],'up':[0,0,-1],'lever':[0,-1,0]},
-             'baseSize':[30,15,76]}}
+             'baseSize':[30,15,76]},
+
+    'tongue':{'attachPoint':'closest',
+              'numShapers':2,
+              'numSubShapers':2,
+              'addCog':False,
+              'cgmName':'tongue',
+              'loftShape':'wideDown',
+              'loftSetup':'default',
+              'ikSetup':'ribbon',
+              'ikBase':'base',
+              'ikEnd':'tip',
+              'nameIter':'tongue',
+              'nameList':['tongueBase','tongueTip'],
+              'numControls':4,
+              'numJoints':5,
+              'ikMidSetup':'cubicTrack',
+              'ikSetup':'spline',
+              'segmentType':'ribbonLive',
+              'scaleSetup':True,
+              'squash':'simple',
+              'segmentStretchBy':'scale',
+              'squashExtraControl':True,
+              'squashMeasure':'arcLength',
+              'squashFactorMode':'blendDown',
+              'squashFactorMax':1.0,
+              'squashFactorMin':.5,
+              'squashSkipAim':False}}
 
 
 #>>>Attrs =====================================================================================================
