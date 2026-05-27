@@ -117,6 +117,33 @@ def create_infoNode(crvShape):
     mc.connectAttr((_transform+'.worldSpace'),(_infoNode+'.inputCurve'))
     
     return _infoNode
+
+
+def get_shapeArcLength(shape):
+    """Arc length for a single nurbsCurve shape (not summed across transform shapes)."""
+    if type(shape) in [list, tuple]:
+        shape = shape[0]
+    _info = mc.createNode('curveInfo')
+    mc.connectAttr(shape + '.worldSpace', _info + '.inputCurve')
+    _len = mc.getAttr(_info + '.arcLength')
+    mc.delete(_info)
+    return _len
+
+
+def _closestPointOnShape(shape, position):
+    """Closest world position and U parameter on a nurbsCurve shape."""
+    _node = mc.createNode('nearestPointOnCurve')
+    mc.connectAttr(shape + '.worldSpace', _node + '.inputCurve')
+    mc.setAttr(_node + '.inPosition', position[0], position[1], position[2])
+    _pos = [
+        mc.getAttr(_node + '.positionX'),
+        mc.getAttr(_node + '.positionY'),
+        mc.getAttr(_node + '.positionZ'),
+    ]
+    _u = mc.getAttr(_node + '.parameter')
+    mc.delete(_node)
+    return _pos, _u
+
     
 def create_pointOnInfoNode(crvShape,parameter= None,turnOnPercentage=None):
     _str_func = 'create_pointOnInfoNode'
@@ -2160,41 +2187,269 @@ def match(base=None, target = None, autoRebuild = True, keepOriginal = True, spa
         
     return True
 
-def distribute(target=None,comp='ep',closed= True, rebuild = 1):
-    _sl=mc.ls(sl=1)    
+
+def distribute(target=None, comp='ep', closed=True, rebuild=0):
+    """
+    Move existing components to evenly spaced positions along the curve.
+
+    Builds a temporary reference curve (duplicate, optionally rebuilt) only to sample
+    world-space targets. The live shape is never rebuilt — only component positions update.
+    Closed: first/last components are not moved.
+
+    rebuild: if True, rebuild the temporary reference curve (same spans/degree) for cleaner
+        arc-% sampling. Does not modify the live shape.
+    """
+    _sl = mc.ls(sl=True)
     if target is None:
         if _sl:
             target = _sl[0]
-            
-    _l_shapes_target = mc.listRelatives(target,shapes=True,fullPath=True)
-    
-    for i,s in enumerate(_l_shapes_target):
-        _l_ep_source = mc.ls("{0}.{1}[*]".format(s,comp),flatten=True)
-        _len = len(_l_ep_source)
-        
-        #if closed:
-        #    _l_split = getUSplitList(target,len(_l_ep_source)+1,rebuild=rebuild, )#rebuildSpans=_len)
-        #else:
-        #    _l_split = getUSplitList(target,len(_l_ep_source),rebuild=rebuild, )#rebuildSpans=_len)
-            
-        #useCurve = mc.rebuildCurve (s, ch=0, rpo=0, rt=6, end=1, kr=0, kcp=0, kep=1, kt=0, s=_len / 2.0, d=3, tol=0.001)[0]
-        useCurve = mc.rebuildCurve (s, ch=0, rpo=0, rt=4,  tol=0.001)[0]
+        else:
+            raise ValueError("No curve target specified or selected.")
 
-        _min = ATTR.get(s,'min')
-        _max = ATTR.get(s,'max')
-        _split = MATH.get_splitValueList(_min,_max, _len+1)
-        
-        pprint.pprint([_len,_split])
-        
-        for ii,ep in enumerate(_l_ep_source):
-            POS.set(ep, mc.pointPosition("{}.u[{}]".format(useCurve,_split[ii]), w=True))
-        """
-        for ii,ep in enumerate(_l_ep_source):
-            POS.set(ep, _l_split[ii])"""
-        
-        #mc.delete(useCurve)
+    _l_shapes = mc.listRelatives(target, shapes=True, fullPath=True)
+    if not _l_shapes:
+        raise ValueError("No shapes found for: {0}".format(target))
+
+    for s in _l_shapes:
+        _l_comp = mc.ls("{0}.{1}[*]".format(s, comp), flatten=True)
+        _num_comp = len(_l_comp)
+        if not _num_comp:
+            log.warning("No components found: {}.{}".format(s, comp))
+            continue
+
+        _isClosed = closed or mc.getAttr(s + '.form') == 2
+
+        if _isClosed:
+            if _num_comp < 3:
+                log.warning(
+                    "|distribute| >> closed curve needs at least 3 {} to redistribute interior: {}".format(
+                        comp, s))
+                continue
+            _l_move = _l_comp[1:-1]
+            # Mid-segment arc % — avoid 0/1 seam where fixed ep[0] and ep[-1] sit.
+            _pct = [((ii + 0.5) / float(_num_comp - 1)) for ii in range(len(_l_move))]
+        else:
+            _l_move = _l_comp
+            _pct = MATH.get_splitValueList(0, 1, _num_comp)
+
+        _base_len = get_shapeArcLength(s)
+        _tol = max(0.0001, _base_len * 0.001)
+
+        # --- Reference curve only (deleted before touching live topology) ---
+        _ref_xform = mc.duplicate(SEARCH.get_transform(s))[0]
+        _ref_shape = mc.listRelatives(_ref_xform, shapes=True, fullPath=True)[0]
+
+        if rebuild:
+            mc.rebuildCurve(
+                _ref_shape,
+                ch=0,
+                rpo=1,
+                rt=0,
+                end=0 if _isClosed else 1,
+                kr=0,
+                kcp=0,
+                kep=1,
+                kt=0,
+                s=mc.getAttr(s + '.spans'),
+                d=mc.getAttr(s + '.degree'),
+                tol=0.001,
+            )
+            _ref_shape = mc.listRelatives(_ref_xform, shapes=True, fullPath=True)[0]
+
+        _u_span = ATTR.get(_ref_shape, 'maxValue') - ATTR.get(_ref_shape, 'minValue')
+        _u_ref = _closestPointOnShape(_ref_shape, POS.get(_l_comp[0]))[1]
+        _l_order = []
+        for ep in _l_move:
+            _u = _closestPointOnShape(_ref_shape, POS.get(ep))[1]
+            if _isClosed:
+                _u = (_u - _u_ref) % _u_span
+            _l_order.append((ep, _u))
+        _l_order.sort(key=lambda x: x[1])
+
+        _poci = create_pointOnInfoNode(_ref_shape, turnOnPercentage=True)
+        if not _poci:
+            mc.delete(_ref_xform)
+            log.warning("|distribute| >> Could not create pointOnCurveInfo for: {}".format(s))
+            continue
+
+        _l_targets = []
+        try:
+            for ii, (ep, _) in enumerate(_l_order):
+                ATTR.set(_poci, 'parameter', _pct[ii])
+                _l_targets.append((ep, ATTR.get(_poci, 'position')))
+        finally:
+            mc.delete([_poci, _ref_xform])
+
+        # --- Live curve: move existing components only ---
+        for ep, _tgt in _l_targets:
+            if DIST.get_distance_between_points(POS.get(ep), _tgt) <= _tol:
+                continue
+            POS.set(ep, _tgt)
+
+        _final_len = get_shapeArcLength(s)
+        log.info("|distribute| >> {} | base arc length: {} | final arc length: {}".format(
+            s, _base_len, _final_len))
+
     if _sl:
         mc.select(_sl)
 
-    
-    
+
+def _nurbs_curve_shape_for_closest(curve):
+    """Single non-intermediate nurbsCurve shape on a transform (for closest-point queries)."""
+    _l = [
+        s for s in TRANS.shapes_get(curve, True)
+        if cgmValid.get_mayaType(s) == 'nurbsCurve'
+    ]
+    if not _l:
+        raise ValueError('No nurbsCurve shape found: {0}'.format(curve))
+    if len(_l) > 1:
+        raise ValueError(
+            'Multiple nurbsCurve shapes on transform; use one per transform: {0}'.format(curve))
+    return SHAPES.get_nonintermediate(_l[0])
+
+
+def _get_edit_point_count(shape):
+    """Edit-point count on a nurbsCurve shape."""
+    return len(mc.ls('{0}.ep[*]'.format(shape), flatten=True) or [])
+
+
+def _closest_point_between_line_and_curve(
+        curve, line_start, line_end, samples=24, refine_steps=8):
+    """
+    Closest point on a nurbs curve (world space) to a line segment.
+
+    Samples the lane segment, finds closest points on the curve, then refines.
+    """
+    _shape = _nurbs_curve_shape_for_closest(curve)
+    _v_start = MATH.Vector3.Create(line_start)
+    _v_end = MATH.Vector3.Create(line_end)
+
+    best_t = 0.0
+    best_d = None
+
+    for i in range(samples + 1):
+        t = float(i) / float(samples)
+        lane_p = MATH.Vector3.AsArray(MATH.Vector3.Lerp(_v_start, _v_end, t))
+        curve_p = _closestPointOnShape(_shape, lane_p)[0]
+        d = DIST.get_distance_between_points(lane_p, curve_p)
+
+        if best_d is None or d < best_d:
+            best_d = d
+            best_t = t
+
+    step = 1.0 / float(samples)
+
+    for _i in range(refine_steps):
+        candidates = [
+            max(0.0, best_t - step),
+            best_t,
+            min(1.0, best_t + step),
+        ]
+
+        for t in candidates:
+            lane_p = MATH.Vector3.AsArray(MATH.Vector3.Lerp(_v_start, _v_end, t))
+            curve_p = _closestPointOnShape(_shape, lane_p)[0]
+            d = DIST.get_distance_between_points(lane_p, curve_p)
+
+            if d < best_d:
+                best_d = d
+                best_t = t
+
+        step *= 0.5
+
+    final_lane_p = MATH.Vector3.AsArray(MATH.Vector3.Lerp(_v_start, _v_end, best_t))
+    return _closestPointOnShape(_shape, final_lane_p)[0]
+
+
+def align_eps_by_lane_projection(curves=None, samples=24, refine_steps=8):
+    """
+    Align middle curve edit points by projecting each EP lane onto the curve.
+
+    Selection order is required:
+
+        first selected  = start curve
+        middle selected = curves to process
+        last selected   = end curve
+
+    For each EP index on the resolved nurbsCurve shapes:
+        - use start.ep[i] and end.ep[i] as a lane (world space)
+        - find closest point on each middle curve to that lane segment
+        - store all solved positions, then move EPs only after solving completes
+
+    All curves must have identical EP counts on their working shapes.
+    Each transform must have exactly one nurbsCurve shape.
+
+    :parameters:
+        curves(list): Optional curve transforms; uses selection if None
+        samples(int): Coarse samples along each lane segment
+        refine_steps(int): Refinement passes around the best coarse sample
+
+    :returns
+        curves(list): Processed curve transforms (selection restored)
+    """
+    _str_func = 'align_eps_by_lane_projection'
+    _sl = mc.ls(sl=True, long=True) or []
+
+    if curves is None:
+        curves = _sl
+    elif type(curves) not in [list, tuple]:
+        curves = [curves]
+    else:
+        curves = list(curves)
+
+    curves = [
+        c for c in curves
+        if [
+            s for s in TRANS.shapes_get(c, True)
+            if cgmValid.get_mayaType(s) == 'nurbsCurve'
+        ]
+    ]
+
+    if len(curves) < 3:
+        raise ValueError(
+            '|{0}| >> Select at least three nurbsCurve transforms '
+            '(start, middle(s), end).'.format(_str_func))
+
+    start = curves[0]
+    end = curves[-1]
+    mids = curves[1:-1]
+
+    d_shape = {c: _nurbs_curve_shape_for_closest(c) for c in curves}
+    ep_count = _get_edit_point_count(d_shape[start])
+
+    for c in curves:
+        c_count = _get_edit_point_count(d_shape[c])
+        if c_count != ep_count:
+            raise ValueError(
+                '|{0}| >> EP count mismatch: {1} has {2}, expected {3}'.format(
+                    _str_func, c, c_count, ep_count))
+
+    solved = {c: [] for c in mids}
+
+    for ep_i in range(ep_count):
+        start_p = POS.get('{0}.ep[{1}]'.format(d_shape[start], ep_i), space='ws')
+        end_p = POS.get('{0}.ep[{1}]'.format(d_shape[end], ep_i), space='ws')
+
+        for c in mids:
+            new_p = _closest_point_between_line_and_curve(
+                c,
+                start_p,
+                end_p,
+                samples=samples,
+                refine_steps=refine_steps,
+            )
+            solved[c].append(new_p)
+
+    for c in mids:
+        shape = d_shape[c]
+        for ep_i, p in enumerate(solved[c]):
+            POS.set('{0}.ep[{1}]'.format(shape, ep_i), p, space='ws')
+
+    log.info(
+        '|{0}| >> Aligned {1} curve(s) across {2} EP(s).'.format(
+            _str_func, len(mids), ep_count))
+
+    mc.select(curves)
+    return curves
+
+

@@ -1426,7 +1426,8 @@ def buildSection_shape(self,parent):
     _row_curveCreate.layout()  
     
     buildRow_resizeObj(self,_shape_inside)
-    buildRow_mirrorCurve(self,_shape_inside)        
+    buildRow_mirrorCurve(self,_shape_inside)
+    buildRow_tweakCurve(self,_shape_inside)
     buildRow_shapeUtils(self,_shape_inside)
     buildRow_colorControls(self,_shape_inside)
     
@@ -1878,6 +1879,52 @@ def buildRow_mirrorCurve(self,parent):
               ann = 'Given a selection of two curves, mirror across X (for now only x)',
               c = cgmGEN.Callback(CURVES.mirror_worldSpace))                   
     _row.layout()   
+
+
+def buildRow_tweakCurve(self, parent):
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='tweak:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+
+    mc.button(
+        parent=_row,
+        ut='cgmUITemplate',
+        l='Align EPs (lane)',
+        ann=(
+            'Align middle curve EPs to lanes between start and end curves. '
+            'Select in order: start curve, middle curve(s), end curve. '
+            'All curves must have matching EP counts; one nurbsCurve shape per transform.'
+        ),
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process,
+            CURVES.align_eps_by_lane_projection,
+            None,
+            'all',
+            'Align EPs by lane projection',
+            noSelect=False,
+        ),
+    )
+    mc.button(
+        parent=_row,
+        ut='cgmUITemplate',
+        l='Distribute EPs',
+        ann=(
+            'Space edit points evenly along the selected curve by arc length. '
+            'Closed curves: first and last EPs are not moved. '
+            'Processes each selected curve transform.'
+        ),
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process,
+            CURVES.distribute,
+            None,
+            'each',
+            'Distribute curve components',
+            noSelect=False,
+        ),
+    )
+    _row.layout()
 
 
 def buildRow_aimMode(self,parent):

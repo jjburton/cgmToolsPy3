@@ -297,39 +297,17 @@ def get_objectSetsDict():
 def get_nonintermediateShape(shape):
     """
     Get the nonintermediate shape on a transform
-    
+
+    Deprecated: use shape_utils.get_nonintermediate (SHAPES).
+
     :parameters:
         shape(str): Shape to check
 
     :returns
         non intermediate shape(string)
-    """   
-    _str_func = "get_nonintermediate"
-    
-    if not VALID.is_shape(shape):
-        _shapes = mc.listRelatives(shape, fullPath = True)
-        _l_matches = []
-        for s in _shapes:
-            if not ATTR.get(s,'intermediateObject'):
-                _l_matches.append(s)
-        if len(_l_matches) == 1:
-            return _l_matches[0]
-        else:
-            raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))        
-    elif ATTR.get(shape,'intermediateObject'):
-        _type = VALID.get_mayaType(shape)
-        _trans = SEARCH.get_transform(shape)
-        _shapes = mc.listRelatives(_trans,s=True,type=_type, fullPath = True)
-        _l_matches = []
-        for s in _shapes:
-            if not ATTR.get(s,'intermediateObject'):
-                _l_matches.append(s)
-        if len(_l_matches) == 1:
-            return _l_matches[0]
-        else:
-            raise ValueError("Not sure what to do with this many intermediate shapes: {0}".format(_l_matches))
-    else:
-        return shape
+    """
+    from cgm.core.lib import shape_utils as SHAPES
+    return SHAPES.get_nonintermediate(shape)
 
 def find_from_string(name = None):
     _str_func = 'find_from_string'

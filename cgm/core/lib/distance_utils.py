@@ -502,7 +502,7 @@ def offsetShape_byVector(dag=None, distance = 1, origin = None, component = 'cv'
                 pMe = POS.get(c)
                 _vec = MATHUTILS.get_vector_of_two_points(_origin,pMe)
                 d = get_distance_between_points(_origin,pMe)
-                newPos = get_pos_by_vec_dist(POS.get(c),_vec,d*factor)
+                newPos = get_pos_by_vec_dist(_origin,_vec,d*factor)
                 POS.set(c,newPos)
                 
                 
