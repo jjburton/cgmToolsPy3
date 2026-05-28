@@ -7044,17 +7044,51 @@ def rig_frame(self):
             mRemap_jawRX_neg.inputMin = -180
             mRemap_jawRX_neg.outputMax = -180"""
             
-            l_parentsCheek = [mJaw.mNode]
-            if mJawUpr:
-                l_parentsCheek.append(mJawUpr.mNode)
-
             for k in ['cheekLeft','cheekRight']:
                 log.debug("|{0}| >> {1}...".format(_str_func,k))
                 mHandle = mdD[k]
-                mdD[k].masterGroup.p_parent = self.mDeformNull
                 
-                mc.parentConstraint(l_parentsCheek,
-                                    mdD[k].masterGroup.mNode,maintainOffset=True)
+                if mJaw:
+                    mHandle.masterGroup.p_parent = mFollowBase
+                    
+                    mMainTrack = mHandle.doCreateAt(setClass=1)
+                    mMainTrack.doStore('cgmName',mHandle)
+                    mMainTrack.doStore('cgmType','mainTrack')
+                    mMainTrack.doName()
+                    mMainTrack.p_parent = mJawUpr or mFollowParent
+                    
+                    mJawTrack = mHandle.doCreateAt(setClass=1)
+                    mJawTrack.doStore('cgmName',mHandle)
+                    mJawTrack.doStore('cgmType','jawTrack')
+                    mJawTrack.doName()
+                    if mJawUpr:
+                        mJawTrack.p_parent = mJaw
+                    else:
+                        mJawTrack.p_parent = mJawSpaceMouth
+                    
+                    const = mc.parentConstraint([mMainTrack.mNode,mJawTrack.mNode],
+                                        mHandle.masterGroup.mNode,
+                                        maintainOffset=True)[0]
+
+                    d_blendReturn = NODEFACTORY.createSingleBlendNetwork([mHandle.mNode,
+                                                                          "cheekPin"],
+                                                                         [mMainTrack.mNode,'cheekPin_Left'],
+                                                                         [mMainTrack.mNode,'cheekPin_Right'],
+                                                                         keyable=True)
+
+                    targetWeights = mc.parentConstraint(const,q=True,
+                                                        weightAliasList=True,
+                                                        maintainOffset=True)
+
+                    d_blendReturn['d_result1']['mi_plug'].doConnectOut('%s.%s' % (const,targetWeights[0]))
+                    d_blendReturn['d_result2']['mi_plug'].doConnectOut('%s.%s' % (const,targetWeights[1]))
+                    d_blendReturn['d_result1']['mi_plug'].p_hidden = True
+                    d_blendReturn['d_result2']['mi_plug'].p_hidden = True
+
+                    ATTR.set_default(mHandle.mNode, 'cheekPin', 0.5)
+                    mHandle.setMayaAttr('cheekPin', .5)
+                else:
+                    mHandle.masterGroup.p_parent = mFollowParent
                 
                 mOffsetGroup = mdD[k].doGroup(True,asMeta=True,typeModifier = 'offset')
                 
