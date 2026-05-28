@@ -10820,42 +10820,95 @@ def get_handleIndices(self):
         
     return idx_start,idx_end
 
-@cgmGEN.Timer
-def prerig_handlesLayout(self,mode='even',curve='linear',spans=2):
-    _str_func = 'prerig_handlesLayout'
-    log.debug(cgmGEN.logString_start(_str_func))
-    
+def prerig_handlesLayout_getHandles(self):
+    """Prerig handles in layout order (respecting block handle index range)."""
+    _str_func = 'prerig_handlesLayout_getHandles'
+
     ml_prerig = self.msgList_get('prerigHandles')
     if not ml_prerig:
-        return log.error(cgmGEN.logString_msg(_str_func,'No prerigHandles found'))
-    
+        log.error(cgmGEN.logString_msg(_str_func, 'No prerigHandles found'))
+        return []
+
     ml_preUse = []
     for mObj in ml_prerig:
-        if mObj.getMayaAttr('cgmType') in ['blockHandle','formHandle','preHandle','blockHelper']:
+        if mObj.getMayaAttr('cgmType') in ['blockHandle', 'formHandle', 'preHandle', 'blockHelper']:
             ml_preUse.append(mObj)
-            #print mObj
-            
-    try:idx_start,idx_end = self.atBlockModule('get_handleIndices')
-    except:
+
+    try:
+        idx_start, idx_end = self.atBlockModule('get_handleIndices')
+    except Exception:
         idx_start = 0
-        idx_end =len(ml_preUse)-1
-        
+        idx_end = len(ml_preUse) - 1
+
     mStart = ml_preUse[idx_start]
     mEnd = ml_preUse[idx_end]
-    
     idx_startNew = ml_preUse.index(mStart)
     idx_endNew = ml_preUse.index(mEnd)
-    
-    ml_toSnap = ml_preUse[idx_startNew:idx_endNew+1]
-    #pprint.pprint(vars())
+    ml_toSnap = ml_preUse[idx_startNew:idx_endNew + 1]
+
     if not ml_toSnap:
-        raise ValueError("|{0}| >>  Nothing found to snap | start: {1} | end: {2} | {3}".format(_str_func,idx_start,idx_end,self))
-    
-    #pprint.pprint(vars())
+        raise ValueError(
+            "|{0}| >> Nothing found to snap | start: {1} | end: {2} | {3}".format(
+                _str_func, idx_start, idx_end, self))
     if len(ml_toSnap) < 3:
-        return log.error("|{0}| >>  Not enough handles to snap | {1}".format(_str_func,self))
-    
-    return ARRANGE.alongLine([mObj.mNode for mObj in ml_toSnap],mode,curve,spans)
+        log.error("|{0}| >> Not enough handles to snap | {1}".format(_str_func, self))
+        return []
+    return ml_toSnap
+
+
+@cgmGEN.Timer
+def prerig_handlesLayout(self, mode='even', curve='linear', spans=2):
+    _str_func = 'prerig_handlesLayout'
+    log.debug(cgmGEN.logString_start(_str_func))
+    ml_toSnap = prerig_handlesLayout_getHandles(self)
+    if not ml_toSnap:
+        return False
+    return ARRANGE.alongLine([mObj.mNode for mObj in ml_toSnap], mode, curve, spans)
+
+
+@cgmGEN.Timer
+def prerig_handlesLayoutRatio(self, preset='golden_all', curve='linear', spans=2,
+                              prompt=False, defaultStyle='golden'):
+    """Proportional prerig handle layout (first/last fixed)."""
+    _str_func = 'prerig_handlesLayoutRatio'
+    log.debug(cgmGEN.logString_start(_str_func))
+    ml_toSnap = prerig_handlesLayout_getHandles(self)
+    if not ml_toSnap:
+        return False
+    _nodes = [mObj.mNode for mObj in ml_toSnap]
+    if prompt:
+        return ARRANGE.alongRatio_prompt(
+            _nodes, curve=curve, spans=spans, defaultStyle=defaultStyle)
+    return ARRANGE.alongRatio(
+        _nodes, preset=preset, curve=curve, spans=spans)
+
+
+def prerig_arrangeRatio_menuDict(uiFunc):
+    """Block menu entries for prerig ratio arrange (MRS Builder)."""
+    _ann = ARRANGE._d_arrangeRatio_ann
+
+    def _item(label, ann_key, *args, **kw):
+        return {
+            label: {
+                'ann': _ann.get(ann_key, ''),
+                'call': cgmGEN.Callback(
+                    uiFunc, 'atUtils', 'prerig_handlesLayoutRatio',
+                    *args, **{'updateUI': 0, **kw}),
+            }}
+
+    _d = {}
+    for _part in (
+        _item('Arrange | Ratio Golden', 'ratioGoldenLinear', 'golden_all', 'linear'),
+        _item('Arrange | Ratio Golden | Curve', 'ratioGoldenCubic', 'golden_all', 'cubic'),
+        _item('Arrange | Ratio Finger', 'ratioFingerLinear', 'finger', 'linear'),
+        _item('Arrange | Ratio Finger | Curve', 'ratioFingerCubic', 'finger', 'cubic'),
+        _item('Arrange | Ratio Custom', 'ratioCustomLinear',
+              'golden_all', 'linear', prompt=True, defaultStyle='golden'),
+        _item('Arrange | Ratio Custom | Curve', 'ratioCustomCubic',
+              'golden_all', 'cubic', prompt=True, defaultStyle='golden'),
+    ):
+        _d.update(_part)
+    return _d
 
     
 def handles_snapToRotatePlane(self,mode = 'form',cleanUp=0):

@@ -288,12 +288,116 @@ def uiSection_query(parent = None):
 
 
 
+def buildRows_ratio_arrange(parent):
+    """Ratio arrange button rows for cgmToolbox / snapTools snap sections."""
+    _ann = ARRANGE._d_arrangeRatio_ann
+    _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_preset, w=5)
+    mUI.MelLabel(_row_preset, l='Ratio:')
+    _row_preset.setStretchWidget(mUI.MelSeparator(_row_preset))
+    mc.button(
+        parent=_row_preset, l='Golden', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'golden_all', 'curve': 'linear'}),
+        ann=_ann.get('ratioGoldenLinear'))
+    mc.button(
+        parent=_row_preset, l='Golden | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'golden_all', 'curve': 'cubic'}),
+        ann=_ann.get('ratioGoldenCubic'))
+    mc.button(
+        parent=_row_preset, l='Finger', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'finger', 'curve': 'linear'}),
+        ann=_ann.get('ratioFingerLinear'))
+    mc.button(
+        parent=_row_preset, l='Finger | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'finger', 'curve': 'cubic'}),
+        ann=_ann.get('ratioFingerCubic'))
+    mUI.MelSpacer(_row_preset, w=5)
+    _row_preset.layout()
+
+    _row_custom = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_custom, w=5)
+    mUI.MelLabel(_row_custom, l='Ratio custom:')
+    _row_custom.setStretchWidget(mUI.MelSeparator(_row_custom))
+    mc.button(
+        parent=_row_custom, l='Custom', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **{'curve': 'linear', 'defaultStyle': 'golden'}),
+        ann=_ann.get('ratioCustomLinear'))
+    mc.button(
+        parent=_row_custom, l='Custom | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **{'curve': 'cubic', 'defaultStyle': 'golden'}),
+        ann=_ann.get('ratioCustomCubic'))
+    mUI.MelSpacer(_row_custom, w=5)
+    _row_custom.layout()
+
+
+def _ui_arrange_ratio(parent, snapMenu=False):
+    """Ratio arrange submenu — presets (golden/finger) plus custom prompt variants."""
+    _ratio = mc.menuItem(parent=parent, subMenu=True, l='Ratio',
+                         ann='Proportional spacing along path; first and last fixed')
+    _kws = {'noSelect': 0} if snapMenu else {}
+    # --- presets (no prompt) ---
+    mc.menuItem(
+        parent=_ratio, l='Golden', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'golden_all', 'curve': 'linear'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioGoldenLinear'))
+    mc.menuItem(
+        parent=_ratio, l='Golden | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'golden_all', 'curve': 'cubic'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioGoldenCubic'))
+    mc.menuItem(
+        parent=_ratio, l='Finger', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'finger', 'curve': 'linear'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioFingerLinear'))
+    mc.menuItem(
+        parent=_ratio, l='Finger | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'finger', 'curve': 'cubic'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioFingerCubic'))
+    mUI.MelMenuItemDiv(_ratio, l='Custom')
+    # --- custom (prompt) ---
+    mc.menuItem(
+        parent=_ratio, l='Custom', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **_kws, **{'curve': 'linear', 'defaultStyle': 'golden'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomLinear'))
+    mc.menuItem(
+        parent=_ratio, l='Custom | Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **_kws, **{'curve': 'cubic', 'defaultStyle': 'golden'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomCubic'))
+
+
 def uiSection_arrange(parent = None, selection = None, pairSelected = True):
     #>>Arrange ----------------------------------------------------------------------------------------
     _arrange= mc.menuItem(parent=parent,subMenu = True,
                           l = 'Arrange',
                           ann = "Ordered layout of selected items")    
-    
+
+    _ui_arrange_ratio(_arrange)
+
+    mUI.MelMenuItemDiv(_arrange, l='Linear')
+
     mc.menuItem(parent=_arrange,
               l = 'Linear[Even]',
               ut = 'cgmUITemplate',
@@ -1652,12 +1756,8 @@ def uiSection_snap(parent, selection = None ):
                           l = 'Arrange',
                           ann = "Ordered layout of selected items")
     
-    mc.menuItem(parent=_arrange,
-              l = 'Ratio | Finger',
-              ut = 'cgmUITemplate',
-              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGEN.ratio, None,'all', 'ratioFinger',noSelect = 0, **{'mode':'finger'}),
-              ann = ARRANGE._d_arrangeLine_ann.get('cubicRebuild3Spaced'))        
-    
+    _ui_arrange_ratio(_arrange, snapMenu=True)
+
     mUI.MelMenuItemDiv(_arrange,l='Linear')
     mc.menuItem(parent=_arrange,
                   l = 'Even',

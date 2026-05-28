@@ -603,9 +603,11 @@ def buildSection_snap(self,parent):
                  c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'even','curve':'cubic'}),                                               
                  ann = "Layout evenly on curve created from the list")        
     mUI.MelSpacer(_row_arrange,w=5)                                              
-    _row_arrange.layout()      
-    
-    
+    _row_arrange.layout()
+
+    UICHUNKS.buildRows_ratio_arrange(_inside)
+
+
 def buildSection_distance(self,parent):
     try:self.var_distanceFrameCollapse
     except:self.create_guiOptionVar('distanceFrameCollapse',defaultValue = 0)

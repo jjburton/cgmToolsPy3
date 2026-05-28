@@ -368,6 +368,7 @@ class ui_blockPicker(cgmUI.cgmGUI):
                                    **{'updateUI':0})},
                    'divTags':['Handles | Lock','Query Indices',
                               'Visualize | RP Pos',
+                              'Arrange | Ratio Golden',
                               ],                   
                    'Arrange | Linear Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_blockCall,
@@ -384,7 +385,8 @@ class ui_blockPicker(cgmUI.cgmGUI):
                    'Arrange | Cubic Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_blockCall,
                                              'atUtils', 'prerig_handlesLayout','spaced','cubicRebuild',
-                                             **{'updateUI':0})},                                      
+                                             **{'updateUI':0})},
+                   **BLOCKUTILS.prerig_arrangeRatio_menuDict(self.uiFunc_blockCall),
 
                    },
                'Geo':{
@@ -2057,6 +2059,7 @@ class ui_blockEditor(cgmUI.cgmGUI):
                                    **{'updateUI':0})},
                    'divTags':['Handles | Lock','Query Indices',
                               'Visualize | RP Pos',
+                              'Arrange | Ratio Golden',
                               ],                   
                    'Arrange | Linear Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_blockCall,
@@ -2073,7 +2076,8 @@ class ui_blockEditor(cgmUI.cgmGUI):
                    'Arrange | Cubic Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_blockCall,
                                              'atUtils', 'prerig_handlesLayout','spaced','cubicRebuild',
-                                             **{'updateUI':0})},                                      
+                                             **{'updateUI':0})},
+                   **BLOCKUTILS.prerig_arrangeRatio_menuDict(self.uiFunc_blockCall),
 
                    },
                'Geo':{
@@ -5056,6 +5060,7 @@ class ui(cgmUI.cgmGUI):
                                    **{'updateUI':0})},
                    'divTags':['Handles | Lock','Query Indices',
                               'Visualize | Fame Shapes',
+                              'Arrange | Ratio Golden',
                               ],                   
                    'Arrange | Linear Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_contextBlockCall,
@@ -5072,7 +5077,8 @@ class ui(cgmUI.cgmGUI):
                    'Arrange | Cubic Spaced':{'ann':'Unlock the prerig handles',
                                              'call':cgmGEN.Callback(self.uiFunc_contextBlockCall,
                                              'atUtils', 'prerig_handlesLayout','spaced','cubicRebuild',
-                                             **{'updateUI':0})},                                      
+                                             **{'updateUI':0})},
+                   **BLOCKUTILS.prerig_arrangeRatio_menuDict(self.uiFunc_contextBlockCall),
 
                    },
                'Geo':{
