@@ -1203,24 +1203,21 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                          l = 'Pivot Mode',
                          rp = direction)
         #self._l_pivotModes = ['rotatePivot','scalePivot','boundingBox']
+        _var_snapPivot = UISNAPCALLS.var_snapPivotMode
         _l_toBuild = [{'l':'rotatePivot',
                        'rp':'W',
-                       #'c':mmCallback(self.raySnap_setAndStart,self.var_rayCastMode.setValue(0))},
-                       'c':lambda *a:self.var_snapPivotMode.setValue(0)},                       
+                       'c':lambda *a:_var_snapPivot.setValue(0)},
                       {'l':'scalePivot',
                        'rp':'SW',
-                       'c':lambda *a:self.var_snapPivotMode.setValue(1)},
+                       'c':lambda *a:_var_snapPivot.setValue(1)},
                       {'l':'boundingBox',
                        'rp':'S',
-                       'c':lambda *a:self.var_snapPivotMode.setValue(2)},
-                      {'l':'closest',
-                       'rp':'SE',
-                       'c':lambda *a:self.var_snapPivotMode.setValue(3)},
+                       'c':lambda *a:_var_snapPivot.setValue(2)},
                       {'l':'closeUI',
                        'rp':'NE',
                        'c':'pass'}]                      
         for i,m in enumerate(_l_toBuild):
-            if i == self.var_snapPivotMode.value:
+            if i < 3 and i == _var_snapPivot.value:
                 m['l'] = m['l'] + '--(Active)'
                 
             mc.menuItem(parent=_r,
@@ -1232,13 +1229,13 @@ class cgmMarkingMenu(cgmUI.markingMenu):
     
     def raySnap_setAndStart(self,func,):
         func
-        raySnap_start(self._l_sel)
+        UISNAPCALLS.raySnap_start(self._l_sel)
     def rayCast_create(self,create = None,drag=False):
-        raySnap_start(self._l_sel,create = create, drag = drag)
+        UISNAPCALLS.rayCast_create(self._l_sel, create=create, drag=drag)
         
     def raySnap_setAndStart_reg(self,var,value):
             var.setValue(value)
-            raySnap_start(self._l_sel)    
+            UISNAPCALLS.raySnap_start(self._l_sel)    
             
     def optionRadial_rayCastMode(self,parent,direction = None):
         _r = mc.menuItem(parent=parent,subMenu = True,
@@ -1554,7 +1551,6 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         """
         Radial menu for snap functionality
         """
-        self.create_guiOptionVar('snapPivotMode', defaultValue = 0)
         #self.create_guiOptionVar('rayCastMode', defaultValue = 0)
         #self.create_guiOptionVar('rayCastOffset', defaultValue = 0)
         #self.create_guiOptionVar('rayCastCreate', defaultValue = 0)
@@ -1573,14 +1569,12 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         mc.menuItem(parent=_pnt,
                     l = 'Object',
                     en = self._b_sel_pair,
-                    c = lambda *a:snap_action(self,'point'),
-                    #c = mmCallback(snap_action,self,'point'),
+                    c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'point'),
                     rp = 'NW')
         mc.menuItem(parent=_pnt,
                     l = 'Closest on Target',
                     en = self._b_sel_pair,
-                    c = lambda *a:snap_action(self,'closestPoint'),
-                    #c = mmCallback(snap_action,self,'closestPoint'),
+                    c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'closestPoint'),
                     rp = 'W')
         mc.menuItem(parent=_pnt,
                   l = 'Along line(Even)',
@@ -1621,29 +1615,23 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         mc.menuItem(parent=_r,
                         l = 'Parent',
                         en = self._b_sel_pair,    
-                        c = lambda *a:snap_action(self,'parent'),                        
-                        #c = mmCallback(snap_action,self,'parent'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'parent'),
                         rp = 'N')
         mc.menuItem(parent=_r,
                         l = 'Orient',
                         en = self._b_sel_pair,   
-                        c = lambda *a:snap_action(self,'orient'),                                                
-                        #c = mmCallback(snap_action,self,'orient'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'orient'),
                         rp = 'NE')
 
         mc.menuItem(parent=_r,
                         l = 'RayCast',
                         en = self._b_sel,
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),
-                        c = lambda *a:raySnap_start(self._l_sel),                                                
-                        #c = mmCallback(raySnap_start,self._l_sel),
+                        c = lambda *a:UISNAPCALLS.raySnap_start(self._l_sel),
                         rp = 'W')	
         mc.menuItem(parent=_r,
                         l = 'AimCast',
                         en = self._b_sel,                        
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),  
-                        c = lambda *a:aimSnap_start(self._l_sel),                                                
-                        #c = mmCallback(aimSnap_start,self._l_sel),
+                        c = lambda *a:UISNAPCALLS.aimSnap_start(self._l_sel),
                         rp = 'E')
         if self._b_sel_few:
             _aim = mc.menuItem(parent=_r,subMenu = True,
@@ -1653,29 +1641,21 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                             rp = 'SE')
             mc.menuItem(parent=_aim,
                         l = 'All to last',
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),         
-                        c = lambda *a:snap_action(self,'aim','eachToLast'),                                                
-                        #c = mmCallback(snap_action,self,'aim','eachToLast'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'aim','eachToLast'),
                         rp = 'E') 
             mc.menuItem(parent=_aim,
                         l = 'Selection Order',
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),      
-                        c = lambda *a:snap_action(self,'aim','eachToNext'),                                                
-                        #c = mmCallback(snap_action,self,'aim','eachToNext'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'aim','eachToNext'),
                         rp = 'SE')
             mc.menuItem(parent=_aim,
                         l = 'First to Midpoint',
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),  
-                        c = lambda *a:snap_action(self,'aim','firstToRest'),                                                
-                        #c = mmCallback(snap_action,self,'aim','firstToRest'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'aim','firstToRest'),
                         rp = 'S')             
         else:
             mc.menuItem(parent=_r,
                         l = 'Aim',
                         en = self._b_sel_pair,
-                        #c = mmCallback(buttonAction,raySnap_start(_sel)),
-                        c = lambda *a:snap_action(self,'aim','eachToLast'),                                                
-                        #c = mmCallback(snap_action,self,'aim','eachToLast'),
+                        c = lambda *a:UISNAPCALLS.snap_action(self._l_sel,'aim','eachToLast'),
                         rp = 'SE')     
         
         """mc.menuItem(parent=_r,
@@ -1743,215 +1723,8 @@ def killUI():
         log.error(err)   
     finally:
         pass
-    
-    
-    
-        
-from cgm.core.classes import DraggerContextFactory as cgmDrag
-#reload(cgmDrag)
-
-def aimSnap_start(targets=[]):
-    raySnap_start(targets, None, False, snap=False, aim=True)
-
-def raySnap_start(targets = [], create = None, drag = False, snap=True, aim=False):
-    
-    _str_func = 'raySnap_start'
-    _toSnap = False
-    _toAim = False
-    
-    if snap:
-        if not create or create == 'duplicate':
-            targets = mc.ls(sl=True)#...to use g to do again?...    
-            _toSnap = targets
-
-            log.debug("|{0}| | targets: {1}".format(_str_func,_toSnap))
-            if not _toSnap:
-                if create == 'duplicate':
-                    log.error("|{0}| >> Must have targets to duplicate!".format(_str_func))
-                return
-    
-    if aim:
-        _toAim = targets
-
-    var_rayCastMode = cgmMeta.cgmOptionVar('cgmVar_rayCastMode', defaultValue=0)
-    var_rayCastOffsetMode = cgmMeta.cgmOptionVar('cgmVar_rayCastOffsetMode', defaultValue=0)
-    var_rayCastOffsetDist = cgmMeta.cgmOptionVar('cgmVar_rayCastOffsetDist', defaultValue=1.0)
-    var_rayCastTargetsBuffer = cgmMeta.cgmOptionVar('cgmVar_rayCastTargetsBuffer',defaultValue = [''])
-    var_rayCastOrientMode = cgmMeta.cgmOptionVar('cgmVar_rayCastOrientMode', defaultValue = 0) 
-    var_objDefaultAimAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultAimAxis', defaultValue = 2)
-    var_objDefaultUpAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultUpAxis', defaultValue = 1)      
-    var_objDefaultOutAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultOutAxis', defaultValue = 0)      
-    var_rayCastDragInterval = cgmMeta.cgmOptionVar('cgmVar_rayCastDragInterval', defaultValue = .2)
-    var_aimMode = cgmMeta.cgmOptionVar('cgmVar_aimMode',defaultValue='world')
-    
-    _rayCastMode = var_rayCastMode.value
-    _rayCastOffsetMode = var_rayCastOffsetMode.value
-    _rayCastTargetsBuffer = var_rayCastTargetsBuffer.value
-    _rayCastOrientMode = var_rayCastOrientMode.value
-    _objDefaultAimAxis = var_objDefaultAimAxis.value
-    _objDefaultUpAxis = var_objDefaultUpAxis.value
-    _objDefaultOutAxis = var_objDefaultOutAxis.value
-    _rayCastDragInterval = var_rayCastDragInterval.value
-    
-    log.debug("|{0}| >> Mode: {1}".format(_str_func,_rayCastMode))
-    log.debug("|{0}| >> offsetMode: {1}".format(_str_func,_rayCastOffsetMode))
-    
-    kws = {'mode':'surface', 'mesh':None,'closestOnly':True, 'create':'locator','dragStore':False,'orientMode':None,
-           'objAimAxis':SHARED._l_axis_by_string[_objDefaultAimAxis], 'objUpAxis':SHARED._l_axis_by_string[_objDefaultUpAxis],'objOutAxis':SHARED._l_axis_by_string[_objDefaultOutAxis],
-           'aimMode':var_aimMode.value,
-           'timeDelay':.1, 'offsetMode':None, 'dragInterval':_rayCastDragInterval, 'offsetDistance':var_rayCastOffsetDist.value}#var_rayCastOffsetDist.value
-    
-    if _rayCastTargetsBuffer:
-        log.debug("|{0}| >> Casting at buffer {1}".format(_str_func,_rayCastMode))
-        kws['mesh'] = _rayCastTargetsBuffer
-        
-    if _toSnap:
-        kws['toSnap'] = _toSnap
-    elif create:
-        kws['create'] = create
-
-    if _toAim:
-        kws['toAim'] = _toAim
-        
-    if _rayCastOrientMode == 1:
-        kws['orientMode'] = 'normal'
-        
-    if create == 'duplicate':
-        kws['toDuplicate'] = _toSnap        
-        if _toSnap:
-            kws['toSnap'] = False
-        else:
-            log.error("|{0}| >> Must have target with duplicate mode!".format(_str_func))
-            cgmGEN.log_info_dict(kws,"RayCast args")        
-            return
-        
-    if drag:
-        kws['dragStore'] = drag
-    
-    if _rayCastMode == 1:
-        kws['mode'] = 'midPoint'
-    elif _rayCastMode == 2:
-        kws['mode'] = 'far'
-    elif _rayCastMode == 3:
-        kws['mode'] = 'surface'
-        kws['closestOnly'] = False
-    elif _rayCastMode == 4:
-        kws['mode'] = 'planeX'
-    elif _rayCastMode == 5:
-        kws['mode'] = 'planeY'   
-    elif _rayCastMode == 6:
-        kws['mode'] = 'planeZ'        
-    elif _rayCastMode != 0:
-        log.warning("|{0}| >> Unknown rayCast mode: {1}!".format(_str_func,_rayCastMode))
-        
-    if _rayCastOffsetMode == 1:
-        kws['offsetMode'] = 'distance'
-    elif _rayCastOffsetMode == 2:
-        kws['offsetMode'] = 'snapCast'
-    elif _rayCastOffsetMode != 0:
-        log.warning("|{0}| >> Unknown rayCast offset mode: {1}!".format(_str_func,_rayCastOffsetMode))
-    cgmGEN.log_info_dict(kws,"RayCast args")
-    
-    cgmDrag.clickMesh(**kws)
-    return
-
-    log.warning("raySnap_start >>> ClickMesh initialized")
-    
-def snap_action(self, snapMode = 'point',selectionMode = 'eachToLast'):
-    
-    if snapMode == 'aim':
-        aim_axis = SHARED._l_axis_by_string[self.var_objDefaultAimAxis.value]
-        up_axis = SHARED._l_axis_by_string[self.var_objDefaultUpAxis.value]
-                
-        kws = {'aimAxis':aim_axis, 'upAxis':up_axis, 'mode':self.var_aimMode.value}
-        
-        if selectionMode == 'firstToRest':
-            MMCONTEXT.func_process(SNAP.aim_atMidPoint, self._l_sel ,selectionMode,'Snap aim', **kws)
-        else:
-            MMCONTEXT.func_process(SNAP.aim, self._l_sel ,selectionMode,'Snap aim', **kws)
-    else:
-        kws = {'position' : False, 'rotation' : False, 'rotateAxis' : False,'rotateOrder' : False,
-               
-               'scalePivot' : False,
-               'pivot' : 'rp', 'space' : 'w', 'mode' : 'xform'}
-        
-        if snapMode in ['point','closestPoint']:
-            kws['position'] = True
-        elif snapMode == 'orient':
-            kws['rotation'] = True
-        elif snapMode == 'parent':
-            kws['position'] = True
-            kws['rotation'] = True
-        elif snapMode == 'aim':
-            kws['rotation'] = True
-        else:
-            raise ValueError("Unknown mode!")
-        
-        _pivotMode = self.var_snapPivotMode.value
-        
-        if snapMode == 'closestPoint':
-            kws['pivot'] = 'closestPoint'
-        else:
-            if not _pivotMode:pass#0 handled by default
-            elif _pivotMode == 1:
-                kws['pivot'] = 'sp'
-            elif _pivotMode == 2:
-                kws['pivot'] = 'boundingBox'
-            else:
-                raise ValueError("Uknown pivotMode: {0}".format(_pivotMode))        
-    
-        MMCONTEXT.func_process(SNAP.go, self._l_sel ,selectionMode,'Snap',noSelect=False, **kws)
-    
-    
-    return
-    '''
-    _str_func = 'snap_action'
-    for o in self._l_sel[:-1]:
-        _msg = "|{0}| >> mode: {1} | obj: {2} |target: {3}".format(_str_func,mode,o,self._l_sel[-1])
-        try:
-            kws = {'obj' : o, 'target' : self._l_sel[-1],
-                   'position' : False, 'rotation' : False, 'rotateAxis' : False,'rotateOrder' : False,'scalePivot' : False,
-                   'pivot' : 'rp', 'space' : 'w', 'mode' : 'xform'}
-            
-            if mode == 'point':
-                kws['position'] = True
-            elif mode == 'orient':
-                kws['rotation'] = True
-            elif mode == 'parent':
-                kws['position'] = True
-                kws['rotation'] = True
-            elif mode == 'aim':
-                kws['rotation'] = True
-            else:
-                raise ValueError,"Unknown mode!"
-            
-            _pivotMode = self.var_snapPivotMode.value
-            
-            if not _pivotMode:pass#0 handled by default
-            elif _pivotMode == 1:
-                kws['pivot'] = 'sp'
-            elif _pivotMode == 2:
-                kws['pivot'] = 'boundingBox'
-            else:
-                raise ValueError,"Uknown pivotMode: {0}".format(_pivotMode)
-            
-            if mode == 'aim':
-                #var_objDefaultAimAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultAimAxis', defaultValue = 2)
-                #var_objDefaultUpAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultUpAxis', defaultValue = 1)  
-                
-                aim_axis = SHARED._l_axis_by_string[self.var_objDefaultAimAxis.value]
-                up_axis = SHARED._l_axis_by_string[self.var_objDefaultUpAxis.value]
-                self.action_logged( SNAP.aim(o, self._l_sel[-1], aim_axis, up_axis), _msg  )
-            else:
-                self.action_logged( SNAP.go(**kws), _msg  )
-        except Exception,err:
-            log.error("|{0}| ||| Failure >>> err:s[{1}]".format(_msg,err))
-    mc.select(self._l_sel)    
-    '''
-    
 
 
-    
 def setKey(keyModeOverride = None):
     _str_func = "setKey"        
     KeyTypeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyType', defaultValue = 0)
