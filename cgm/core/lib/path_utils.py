@@ -216,5 +216,113 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
     return _d_dir, _d_levels, _l_keys
 
 
+#>>> Export output path helpers
+#===================================================================
+_non_writable_export_paths = []
 
-    
+
+class ExportOutputNotWritableError(Exception):
+    """Raised when an FBX export target path cannot be written."""
+
+    def __init__(self, path, reason=None):
+        self.path = os.path.normpath(path) if path else path
+        self.reason = reason or 'Export output is not writable'
+        _msg = '{0}: {1} — check out in Perforce (p4 edit) or clear read-only'.format(
+            self.reason, self.path)
+        super(ExportOutputNotWritableError, self).__init__(_msg)
+
+
+def clear_non_writable_export_paths():
+    """Reset session list of non-writable export paths (call at batch start)."""
+    global _non_writable_export_paths
+    _non_writable_export_paths = []
+
+
+def record_non_writable_export_path(path):
+    """Track a non-writable export path for batch summary reporting."""
+    global _non_writable_export_paths
+    _norm = os.path.normpath(path) if path else path
+    if _norm and _norm not in _non_writable_export_paths:
+        _non_writable_export_paths.append(_norm)
+
+
+def get_non_writable_export_paths():
+    """Return copy of non-writable export paths recorded this session."""
+    return list(_non_writable_export_paths)
+
+
+def _fbx_export_sidecar_candidates(finalPath):
+    """Known FBX plugin sidecar paths left after a failed overwrite."""
+    _norm = os.path.normpath(finalPath)
+    _stem, _ext = os.path.splitext(_norm)
+    _candidates = [
+        _norm + '.bak',
+        '{0}.bak'.format(_stem),
+    ]
+    if _ext.lower() != '.fbx':
+        _candidates.append('{0}.fbx.bak'.format(_stem))
+    _seen = set()
+    _out = []
+    for _c in _candidates:
+        if _c not in _seen:
+            _seen.add(_c)
+            _out.append(_c)
+    return _out
+
+
+def cleanup_fbx_export_sidecars(finalPath, _str_func='cleanup_fbx_export_sidecars'):
+    """Remove stale FBX .bak sidecars when they are deletable (best-effort)."""
+    _removed = []
+    for _sidecar in _fbx_export_sidecar_candidates(finalPath):
+        if not os.path.isfile(_sidecar):
+            continue
+        if not os.access(_sidecar, os.W_OK):
+            log.debug("{0} || sidecar not deletable, skipping: {1}".format(_str_func, _sidecar))
+            continue
+        try:
+            os.remove(_sidecar)
+            _removed.append(_sidecar)
+            log.info("{0} || removed stale export sidecar: {1}".format(_str_func, _sidecar))
+        except Exception as err:
+            log.warning("{0} || failed removing sidecar {1} | err={2}".format(_str_func, _sidecar, err))
+    return _removed
+
+
+def check_export_output_writable(finalPath, _str_func='check_export_output_writable'):
+    """
+    Ensure FBX export target is writable before FBXExport runs.
+    Creates parent directory, cleans editable sidecars, raises ExportOutputNotWritableError if not writable.
+    Returns normalized path string with forward slashes.
+    """
+    if not finalPath:
+        raise ExportOutputNotWritableError(finalPath, reason='Export path is empty')
+
+    _norm = os.path.normpath(finalPath)
+    _parent = os.path.dirname(_norm)
+    if _parent and not os.path.isdir(_parent):
+        try:
+            os.makedirs(_parent)
+            log.info("{0} || created export directory: {1}".format(_str_func, _parent))
+        except Exception as err:
+            raise ExportOutputNotWritableError(
+                _norm,
+                reason='Cannot create export directory ({0})'.format(err))
+
+    cleanup_fbx_export_sidecars(_norm, _str_func=_str_func)
+
+    if os.path.exists(_norm):
+        if not os.path.isfile(_norm):
+            raise ExportOutputNotWritableError(_norm, reason='Export path exists but is not a file')
+        if not os.access(_norm, os.W_OK):
+            record_non_writable_export_path(_norm)
+            raise ExportOutputNotWritableError(_norm, reason='Existing export file is read-only')
+    else:
+        if _parent and not os.access(_parent, os.W_OK):
+            record_non_writable_export_path(_norm)
+            raise ExportOutputNotWritableError(
+                _norm,
+                reason='Export directory is not writable')
+
+    return _norm.replace('\\', '/')
+
+

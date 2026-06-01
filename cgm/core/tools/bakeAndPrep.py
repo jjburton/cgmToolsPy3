@@ -80,19 +80,9 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
         _assetShort = asset.split('|')[-1]
         topNodeSN = _assetShort.split(':')[-1]
         if topNodeSN:
-            # gather data
             namespaces = _assetShort.split(':')[:-1]
-    
-            if len(namespaces) > 0:
-                ns = ':'.join(namespaces) + ':'
-            else:
-                ns = "%s_" % _assetShort
-            
-            # bake
-            _bakeSetCandidates = ["%s%s" % (ns, bakeSetName), bakeSetName]
-            _bakeSetMatches = [s for s in _bakeSetCandidates if mc.objExists(s)]
-            if _bakeSetMatches:
-                bakeSet = _bakeSetMatches[0]
+            bakeSet = resolve_td_set_for_asset(bakeSetName, namespaces)
+            if bakeSet:
                 if bakeSet not in bakeSets:
                     bakeSets.append(bakeSet)
                     _stuff = mc.sets(bakeSet, q=True) or []
@@ -104,12 +94,19 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                     else:
                         log.warning("{0} || bakeSet found but empty: {1}".format(_str_func, bakeSet))
             else:
+                _bakeSetCandidates = []
+                if namespaces:
+                    _nsAccum = []
+                    for _part in namespaces:
+                        _nsAccum.append(_part)
+                        _bakeSetCandidates.append('{0}:{1}'.format(':'.join(_nsAccum), bakeSetName))
+                for c in (bakeSetName,):
+                    if c not in _bakeSetCandidates:
+                        _bakeSetCandidates.append(c)
                 for _candidate in _bakeSetCandidates:
                     if _candidate not in missingBakeSets:
                         missingBakeSets.append(_candidate)
                 bakeTransforms.append(asset)
-                #else:
-                #    bakeTransforms.append(asset)
                 log.info("{0} || no bakeSet candidate found. candidates: {1}".format(_str_func, _bakeSetCandidates))
         else:
             if mc.objExists(bakeSetName):
@@ -325,6 +322,40 @@ def resolve_delete_set(deleteSetName, namespace_prefix=None):
     return None
 
 
+def resolve_td_set_for_asset(setName, namespaces=None):
+    """Find bake/export/delete tdSet-style objectSet for a namespaced asset root.
+
+    Tries each namespace prefix outer-to-inner (e.g. ``Ref:``, then ``Ref:Inner:``),
+    then unqualified names. Without *namespaces*, falls back to a global ``*:base`` scan.
+    """
+    base = setName.split(':')[-1]
+    candidates = []
+
+    if namespaces:
+        _nsAccum = []
+        for _part in namespaces:
+            _nsAccum.append(_part)
+            candidates.append('{0}:{1}'.format(':'.join(_nsAccum), base))
+
+    for c in (setName, base):
+        if c not in candidates:
+            candidates.append(c)
+
+    if not namespaces:
+        for s in mc.ls('*:{0}'.format(base), type='objectSet') or []:
+            if s not in candidates:
+                candidates.append(s)
+
+    seen = set()
+    for name in candidates:
+        if name in seen:
+            continue
+        seen.add(name)
+        if mc.objExists(name):
+            return name
+    return None
+
+
 def ProcessDeleteSet(deleteSetName, namespace_prefix=None, resolved_set=None, _str_func='ProcessDeleteSet'):
     """
     Resolve delete set (namespaced or root) and delete members; log survivors.
@@ -444,27 +475,22 @@ def Prep(removeNamespace = False,
     else:
         ns = None
         #ns = "%s_" % topNode.mNode
-    
-    if ns:
-        exportSet = "%s%s" % (ns, exportSetName)
-        deleteSet = "%s%s" % (ns, deleteSetName)
+
+    _ns_hint = namespaces[-1] if namespaces else None
+    resolved_export = resolve_td_set_for_asset(exportSetName, namespaces)
+    if resolved_export:
+        exportSet = resolved_export
+        log.info("{0} || export set resolved: {1}".format(_str_func, exportSet))
+        exportSetObjs = cgmMeta.asMeta(mc.sets(exportSet, q=True) or [])
     else:
-        exportSet = exportSetName
-        deleteSet = deleteSetName
-        
-    exportSetObjs = []
-    
-    log.info("{0} || export set: {1}".format(_str_func,exportSet))
-    
-    
-    if mc.objExists(exportSet):
-        exportSetObjs = cgmMeta.asMeta(mc.sets(exportSet, q=True))
-    else:
+        exportSet = "{0}{1}".format(ns, exportSetName) if ns else exportSetName
+        log.warning("{0} || export set not found, using top node | tried={1}".format(_str_func, exportSet))
         exportSetObjs = [topNode]
 
+    if not exportSetObjs:
+        exportSetObjs = [topNode]
 
-
-
+    log.info("{0} || export set: {1}".format(_str_func, exportSet))
     if exportSetObjs:
         for exportObj in exportSetObjs:
             log.info("{0} || exportObj: {1}".format(_str_func,exportObj.mNode))
@@ -478,17 +504,6 @@ def Prep(removeNamespace = False,
                     mc.setAttr('{0}.rotate'.format(exportObj.mNode), 0, 0, 0, type='float3')
                 
                     
-    if removeNamespace and len(exportSetObjs) > 0:
-        l_deformers = []
-        for mObj in exportSetObjs:
-            l_deformers.extend(mObj.getDeformers(asMeta=1) or [])
-            
-        for obj in cgmMeta.asMeta(mc.listRelatives([x.mNode for x in exportSetObjs], ad=True, fullPath = 1)) + exportSetObjs + l_deformers:
-            if ':' in obj.mNode:
-                mc.rename(obj.mNode, obj.mNode.split(':')[-1])
-
-        #exportSetObjs = [x.split(':')[-1] for x in exportSetObjs]
-
     # export
     newTopNode = '%s%s' % (ns, topNodeSN)
     if not mc.objExists(newTopNode):
@@ -507,12 +522,15 @@ def Prep(removeNamespace = False,
     # revert to previous settings
     mc.currentTime(currentTime)
 
-    if(mc.objExists(exportSet)):
-        mc.select( mc.sets( exportSet, q=True ) ) 
+    if resolved_export and mc.objExists(resolved_export):
+        _setMembers = mc.sets(resolved_export, q=True) or []
+        if _setMembers:
+            mc.select(_setMembers)
+        else:
+            mc.select([x.mNode for x in exportSetObjs])
     else:
-        print(("No export set found ({0}). Selecting top node.".format(exportSet)))
-        mc.select( topNode.mNode )
-        prepped = False
+        log.info("{0} || selecting export fallback objects".format(_str_func))
+        mc.select([x.mNode for x in exportSetObjs])
 
     exportObjs = cgmMeta.asMeta(mc.ls(sl=True))
     for obj in exportObjs:
@@ -525,37 +543,38 @@ def Prep(removeNamespace = False,
         #    print(("%s already a child of 'world'" % obj))
             
             
-    # delete garbage
-    log.info("{0} || delete set (Prep): {1}".format(_str_func, deleteSet))
-    _ns_hint = ns.rstrip(':') if ns else None
-    if mc.objExists(deleteSet):
-        if not ProcessDeleteSet(deleteSetName, resolved_set=deleteSet, _str_func=_str_func):
+    # delete garbage (optional — missing delete set is not a hard failure)
+    log.info("{0} || delete set (Prep) | namespace_prefix={1}".format(_str_func, _ns_hint))
+    resolved_delete = resolve_td_set_for_asset(deleteSetName, namespaces)
+    if resolved_delete:
+        if not ProcessDeleteSet(deleteSetName, resolved_set=resolved_delete, _str_func=_str_func):
             prepped = False
-    elif not ProcessDeleteSet(deleteSetName, namespace_prefix=_ns_hint, _str_func=_str_func):
-        prepped = False
+    else:
+        log.warning("{0} || No delete set found (optional) | deleteSetName={1} | namespace_prefix={2}".format(
+            _str_func, deleteSetName, _ns_hint))
 
-    if removeNamespace:#...attempt to clean name space stuff
-        l_targets = mc.ls("{}:*".format(ns)) or []
-        l_fails = []
-        for o in l_targets:
-            if mc.objExists(o):
-                try:mc.rename(o,o.replace("{}:".format(ns),''))
-                except Exception as err:
-                    #print(err)
-                    l_fails.append(o)            
-            """
+    if removeNamespace and namespaces:
+        _last_ns = namespaces[-1]
+        if mc.namespace(exists=_last_ns):
             try:
-                mObj = cgmMeta.asMeta(o)
-                mObj.rename(mObj.p_nameBase.replace("{}:".format(ns),''))            
+                mc.namespace(removeNamespace=_last_ns, mergeNamespaceWithRoot=True)
+                log.info("{0} || merged namespace: {1}".format(_str_func, _last_ns))
             except Exception as err:
-                #print(err)
-                l_fails.append(o)"""
-        if l_fails:
-            print("removeNamespace fails: ")              
-            pprint.pprint(l_fails)
+                log.warning("{0} || namespace merge failed | ns={1} | err={2}".format(_str_func, _last_ns, err))
+        else:
+            log.info("{0} || namespace already removed | ns={1}".format(_str_func, _last_ns))
 
-
-    mc.select( [x.mNode for x in exportObjs] )
+    l_select = []
+    for mObj in exportSetObjs:
+        _short = mObj.mNode.split('|')[-1].split(':')[-1]
+        _resolved = (mc.ls(_short, l=True) or [None])[0]
+        if _resolved and mc.objExists(_resolved):
+            l_select.append(_resolved)
+        elif mc.objExists(mObj.mNode):
+            l_select.append(mObj.mNode)
+    if not l_select:
+        l_select = [x.mNode for x in exportObjs if mc.objExists(x.mNode)]
+    mc.select(l_select)
 
     mc.refresh()
             

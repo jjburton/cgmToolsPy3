@@ -28,7 +28,15 @@ from cgm.core import cgm_General as cgmGEN
 
 #Data ================================================================================================
 _animatable_content = ['animation','template','rig','textures','poses','weights','geo']
-_fbxVersions = cgmGEN.get_mayaFBXVersionsAvailable()
+_fbxVersions = None
+
+
+def get_fbx_versions():
+    """Lazy FBX version list for project UI (avoid probing before fbxmaya is loaded)."""
+    global _fbxVersions
+    if _fbxVersions is None:
+        _fbxVersions = cgmGEN.get_mayaFBXVersionsAvailable() or []
+    return _fbxVersions
 
 # Optional explicit overrides for irregular subtype folder names.
 # Keep empty unless a project needs exceptions to generic s/es handling.
@@ -318,7 +326,7 @@ _exportOptionSettings = [{'n':'removeNameSpace','t':'bool','dv':False},
 
 
                          {'n':'sampleBy','t':'float','dv':1.0},
-                         {'n':'fbxVersion','t':['default'] + _fbxVersions,'dv':'default'},
+                         {'n':'fbxVersion','t':['default'],'dv':'default'},
                          {'n':'postTangent','t':['none','auto','linear','step'],'dv':'auto'}]
 
 _d_defaultsMap = {'general':_projSettings,

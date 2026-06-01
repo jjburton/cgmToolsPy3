@@ -3334,7 +3334,7 @@ def uiButton_fbxVersion_query(self,uiLabel):
 def uiButton_fbxVersion_set(self,uiOption, uiLabel):
     _v =  uiOption.getValue()
     if _v == 'default':
-        for v in PU._fbxVersions:
+        for v in PU.get_fbx_versions():
             try:
                 mel.eval('FBXExportFileVersion -v {}'.format(v))
                 break

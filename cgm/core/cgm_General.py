@@ -9,7 +9,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 __MAYALOCAL = "cgmGEN"
-__RELEASE = "26.05.18.01"
+__RELEASE = "26.06.01.01"
 __BRANCH = "UnrealWorkflow"
 
 import maya.cmds as mc
@@ -1371,45 +1371,100 @@ def verify_mirrorSideArg(*args, **kws):
     return fncWrap(*args, **kws).go()
 
 
-def get_mayaFBXVersionsAvailable():
-    """
-    Returns a list of available FBX export file versions for Maya by querying the FBX plugin.
-    This function attempts to set and then query the FBXExportFileVersion for a range of years,
-    and returns those that are accepted by Maya.
+def ensure_fbx_plugin(_str_func='ensure_fbx_plugin'):
+    """Load fbxmaya and verify FBXExportFileVersion MEL proc is registered."""
+    _plugin = 'fbxmaya'
 
-    Returns:
-        list: Available FBX version strings (e.g., ['FBX201600', 'FBX201700', ...])
-    """
-    # The best way to get available FBX versions is to query the FBX plugin directly.
-    # However, Maya does not provide a direct command to list all supported FBX versions.
-    # The approach here is to try setting the version for a range of plausible years and
-    # see which ones Maya accepts.
-
-    def is_valid_fbx_version(version):
+    def _fbx_mel_ready():
         try:
-            # Try to set the FBX export version
-            mel.eval('FBXExportFileVersion "{}";'.format(version))
-            # Query the current FBX export version
-            result = mel.eval('FBXExportFileVersion -q;')
-            return result == version
-        except Exception:
+            mel.eval('FBXExportFileVersion -q;')
+            return True
+        except RuntimeError:
             return False
 
-    # Reasonable range of years for FBX versions
-    start_year = 2010
-    end_year = 2050
+    def _load_plugin():
+        try:
+            if not mc.pluginInfo(_plugin, q=True, loaded=True):
+                mc.loadPlugin(_plugin)
+            return mc.pluginInfo(_plugin, q=True, loaded=True)
+        except Exception as err:
+            log.error("{0} || Failed loading {1} | err={2}".format(_str_func, _plugin, err))
+            return False
 
-    available_versions = []
-    for year in range(start_year, end_year + 1):
-        version = "FBX{}00".format(year)
-        if is_valid_fbx_version(version):
-            available_versions.append(version)
+    if _load_plugin() and _fbx_mel_ready():
+        return True
 
-    # Print and return the available versions
-    print("Available FBX versions:")
-    for v in available_versions:
-        print("  ", v)
-    return available_versions
+    log.warning("{0} || FBX MEL procs missing; reloading {1}".format(_str_func, _plugin))
+    try:
+        if mc.pluginInfo(_plugin, q=True, loaded=True):
+            mc.unloadPlugin(_plugin)
+    except Exception:
+        pass
+
+    if not _load_plugin():
+        return False
+
+    if _fbx_mel_ready():
+        return True
+
+    for _mel in ('fbxExport.mel', 'FBXPlugin.mel', 'performFBXExport.mel'):
+        try:
+            mel.eval('source "{0}";'.format(_mel))
+        except Exception:
+            pass
+
+    if not _fbx_mel_ready():
+        log.error("{0} || FBXExportFileVersion unavailable after reload/source".format(_str_func))
+        return False
+    return True
+
+
+def fbx_export_preamble(clear_takes=False):
+    """Common FBX export flags used by Scene export paths."""
+    mel.eval('FBXResetExport;')
+    if clear_takes:
+        mel.eval('FBXExportSplitAnimationIntoTakes -clear;')
+    mel.eval('FBXExportSkins -v true;')
+    mel.eval('FBXExportConstraints -v false;')
+    mel.eval('FBXExportSmoothingGroups -v true;')
+    mel.eval('FBXExportInAscii -v false;')
+
+
+def fbx_export_shot_time_range(start, end):
+    """Limit FBX bake/export to a shot frame range."""
+    _s, _e = int(start), int(end)
+    mel.eval('FBXExportBakeComplexAnimation -v true;')
+    mel.eval('FBXExportBakeComplexStart -v {0};'.format(_s))
+    mel.eval('FBXExportBakeComplexEnd -v {0};'.format(_e))
+    mel.eval('playbackOptions -min {0} -max {1};'.format(_s, _e))
+
+
+def fbx_export_selection(exportPathAbs):
+    """Export current selection to an FBX file path."""
+    from cgm.core.lib import path_utils as PATHUTIL
+    _p = PATHUTIL.check_export_output_writable(exportPathAbs, _str_func='fbx_export_selection')
+    mel.eval('FBXExport -f \"{}\" -s'.format(_p))
+
+
+def get_mayaFBXVersionsAvailable():
+    """
+    Returns FBX export file version strings for the project UI.
+
+    Requires fbxmaya; returns [] when the plugin/MEL procs are unavailable (e.g. mayapy
+    before ensure_fbx_plugin). Does not probe dozens of versions at import time.
+    """
+    if not ensure_fbx_plugin('get_mayaFBXVersionsAvailable'):
+        return []
+
+    _known = [
+        'FBX202000', 'FBX201900', 'FBX201800', 'FBX201600', 'FBX201400',
+        'FBX201300', 'FBX201200', 'FBX201100', 'FBX201000', 'FBX200900', 'FBX200600',
+    ]
+    try:
+        mel.eval('FBXExportFileVersion -q;')
+        return list(_known)
+    except RuntimeError:
+        return []
 
 def get_mayaEnviornmentDict():
     _d = {}

@@ -33,6 +33,7 @@ import cgm.core.tools.lib.project_utils as PU
 import Red9.core.Red9_General as r9General
 import cgm.core.mrs.SceneDat as SCENEDAT
 import cgm.core.lib.string_utils as CORESTRING
+import cgm.core.lib.path_utils as PATHUTIL
 
 import cgm.core.classes.GuiFactory as cgmUI
 import importlib
@@ -64,6 +65,42 @@ log_start = cgmGEN.logString_start
 log_end = cgmGEN.logString_end
 log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
+
+_batch_export_results = []
+
+
+def clear_batch_export_results():
+    """Reset export summary list (call at batch start)."""
+    global _batch_export_results
+    _batch_export_results = []
+
+
+def extend_batch_export_results(entries):
+    """Append per-scene export results for batch rollup."""
+    global _batch_export_results
+    if entries:
+        _batch_export_results.extend(entries)
+
+
+def log_export_results_summary(_str_func, results, title='Export summary', log_scene_up=True):
+    """Log a readable list of exported shots/files and frame ranges."""
+    if not results and not log_scene_up:
+        return
+    log.info(cgmGEN._str_hardBreak)
+    if results:
+        log.info("{0} | {1} | {2} export(s)".format(_str_func, title, len(results)))
+        for i, r in enumerate(results):
+            _name = r.get('name') or os.path.basename(r.get('path', ''))
+            _path = r.get('path', '')
+            _frames = r.get('frames')
+            if _frames is not None:
+                log.info("{0} |   [{1}] {2}  |  frames {3}-{4}  |  {5}".format(
+                    _str_func, i + 1, _name, _frames[0], _frames[1], _path))
+            else:
+                log.info("{0} |   [{1}] {2}  |  {3}".format(_str_func, i + 1, _name, _path))
+    if log_scene_up:
+        log.info("{0} | UP axis: {1}".format(_str_func, mc.upAxis(q=True, axis=True)))
+    log.info(cgmGEN._str_hardBreak)
 
 #>>>======================================================================
 import logging
@@ -6067,6 +6104,9 @@ def BatchExport(dataList = []):
     _str_func = 'BatchExport'
     log.info(log_start(_str_func))
 
+    PATHUTIL.clear_non_writable_export_paths()
+    clear_batch_export_results()
+
     t1 = time.time()
 
     if dataList:
@@ -6121,6 +6161,7 @@ def BatchExport(dataList = []):
             _d['exportShotsToIndividualFiles'] = False if fileDat.get('exportShotsToIndividualFiles',"False") == "False" else True
             _d['breakTextureLinks'] = False if fileDat.get('breakTextureLinks',"True") == "False" else True
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
+            _d['logExportSummary'] = False
 
             log.info(mFile)
             pprint.pprint(_d)
@@ -6169,6 +6210,15 @@ def BatchExport(dataList = []):
         log.warning(cgmGEN._str_hardBreak)
         pprint.pprint(_resFail)
         log.warning(cgmGEN._str_hardBreak)
+    _nonWritable = PATHUTIL.get_non_writable_export_paths()
+    if _nonWritable:
+        log.warning(cgmGEN._str_hardBreak)
+        log.warning("{0} | Non-writable export paths (checkout required):".format(_str_func))
+        for _p in _nonWritable:
+            log.warning("{0} |   - {1}".format(_str_func, _p))
+        log.warning(cgmGEN._str_hardBreak)
+    if _batch_export_results:
+        log_export_results_summary(_str_func, _batch_export_results, title='Batch export summary')
     return
 
 
@@ -6211,6 +6261,7 @@ def ExportScene(mode = -1,
                 reducer = False,
                 simplify = True,
                 breakTextureLinks = True,
+                logExportSummary = True,
                 ):
 
     _str_func = 'ExportScene'
@@ -6235,6 +6286,38 @@ def ExportScene(mode = -1,
             log.warning("{0} | {1} | stage={2} | reason={3}".format(_str_func, i, e.get('stage'), e.get('reason')))
         log.warning(cgmGEN._str_hardBreak)
         return False
+
+    def _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed', **extra):
+        if isinstance(err, PATHUTIL.ExportOutputNotWritableError):
+            PATHUTIL.record_non_writable_export_path(err.path)
+            _ctx = dict(_ctx_base,
+                        stage='fbx_export',
+                        exportFile=exportFile or err.path,
+                        exportPath=err.path,
+                        reason='not_writable',
+                        **extra)
+            log.error("{0} | Export output not writable: {1}".format(_str_func, err.path))
+            return _finalize_failure('fbx_export', 'Export output not writable', _ctx)
+        _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, **extra)
+        log.exception("{0} | {1} | {2}".format(_str_func, failure_label, _export_ctx_to_str(_ctx)))
+        return _finalize_failure('fbx_export', failure_label, _ctx)
+
+    _export_results = []
+
+    def _record_export_result(name, path, frames=None, exportObj=None):
+        _export_results.append({
+            'name': name,
+            'path': os.path.normpath(path) if path else path,
+            'frames': frames,
+            'exportObj': exportObj,
+        })
+
+    def _finish_export_scene_success():
+        if logExportSummary:
+            log_export_results_summary(_str_func, _export_results)
+        extend_batch_export_results(_export_results)
+        return True
+
     #pprint.pprint(vars())
 
     #exec(self.exportCommand)
@@ -6562,7 +6645,11 @@ def ExportScene(mode = -1,
 
 
     try:
-        mc.loadPlugin("fbxmaya")
+        if not cgmGEN.ensure_fbx_plugin(_str_func):
+            _ctx = dict(_ctx_base, stage='fbx_export', plugin='fbxmaya')
+            log.error("{0} | FBX plugin not ready (FBXExportFileVersion missing) | {1}".format(
+                _str_func, _export_ctx_to_str(_ctx)))
+            return _finalize_failure('fbx_export', 'FBX plugin not ready', _ctx)
     except Exception:
         _ctx = dict(_ctx_base, stage='fbx_export', plugin='fbxmaya')
         log.exception("{0} | Failed loading FBX plugin | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
@@ -6574,13 +6661,8 @@ def ExportScene(mode = -1,
         if _dir and not os.path.exists(_dir):
             log.info("making export dir... {0}".format(_dir))
             os.makedirs(_dir)
-        _p = exportPathAbs.replace('\\', '/')
-        mel.eval('FBXResetExport;')
-        mel.eval('FBXExportSkins -v true;')
-        mel.eval('FBXExportConstraints -v false;')
-        mel.eval('FBXExportSmoothingGroups -v true;')
-        mel.eval('FBXExportInAscii -v false;')
-        mel.eval('FBXExport -f \"{}\" -s'.format(_p))
+        cgmGEN.fbx_export_preamble(clear_takes=False)
+        cgmGEN.fbx_export_selection(exportPathAbs)
 
     # Rig + multiple export roots: prepare each root, then one FBX containing all hierarchies.
     # (Iterating per root would overwrite the same rig filename and run destructive cleanup between passes.)
@@ -6693,10 +6775,11 @@ def ExportScene(mode = -1,
             log.info('Export Command: FBXExport -f \"{}\" -s (rig multi, no takes)'.format(exportFile))
             try:
                 _rig_fbx_export_to_path(exportFile)
-            except Exception:
-                _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObjs=exportObjs)
-                log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+            except Exception as err:
+                return _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed',
+                                                  exportObjs=exportObjs)
+            _record_export_result(os.path.basename(exportFile), exportFile,
+                                  exportObj=', '.join(exportObjs))
 
         if len(exportObjs) > 1 and removeNamespace:
             for _cgmObj, exportTransforms in l_cleanup:
@@ -6715,7 +6798,7 @@ def ExportScene(mode = -1,
                     log.exception("{0} | Failed export cleanup delete (transforms) | {1}".format(
                         _str_func, _export_ctx_to_str(_ctx)))
 
-        return True
+        return _finish_export_scene_success()
 
     for obj in exportObjs:			
         log.info( log_sub(_str_func,'On: {0}'.format(obj)) )
@@ -6779,11 +6862,16 @@ def ExportScene(mode = -1,
 
                 log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
                 try:
-                    mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
-                except Exception:
-                    _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
-                    log.exception("{0} | Static FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                    return _finalize_failure('fbx_export', 'Static FBX export failed', _ctx)
+                    cgmGEN.fbx_export_selection(exportFile)
+                except Exception as err:
+                    return _finalize_fbx_export_error(err, exportFile, failure_label='Static FBX export failed',
+                                                      exportObj=obj)
+                if animList and animList.shotList:
+                    for shot in animList.shotList:
+                        _record_export_result(shot[0], exportFile,
+                                              (shot[1][0], shot[1][1]), exportObj=obj)
+                else:
+                    _record_export_result(os.path.basename(exportFile), exportFile, exportObj=obj)
 
         else:
             if cgmObj.isReferenced():
@@ -6873,15 +6961,7 @@ def ExportScene(mode = -1,
                 # Cutscene or single-root anim: per-shot FBXs sit in exportDir only (no extra stem folder).
                 # Multi-root non-cutscene: nest under export stem so shot names cannot collide across assets.
                 if (exportShotsToIndividualFiles or exportAsCutscene) and not exportAsRig:
-                    # global FBX options you probably want once
-                    mel.eval('FBXResetExport;')
-                    mel.eval('FBXExportSplitAnimationIntoTakes -clear;')  # no multi-take
-                    # mel.eval('FBXExportBakeComplexAnimation -v true;')
-                    # mel.eval('FBXExportBakeComplexStep -v 1;')            # key every frame; adjust if needed
-                    mel.eval('FBXExportSkins -v true;')
-                    mel.eval('FBXExportConstraints -v false;')
-                    mel.eval('FBXExportSmoothingGroups -v true;')
-                    mel.eval('FBXExportInAscii -v false;')
+                    cgmGEN.fbx_export_preamble(clear_takes=True)
 
                     exportDir = os.path.split(exportFile)[0]
 
@@ -6910,22 +6990,16 @@ def ExportScene(mode = -1,
                                 outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
 
                             # Set time range for this shot and export
-                            mel.eval('FBXResetExport;')
-                            mel.eval('FBXExportSplitAnimationIntoTakes -clear;')
-                            mel.eval('FBXExportBakeComplexStart -v {0};'.format(int(s)))
-                            mel.eval('FBXExportBakeComplexEnd -v {0};'.format(int(e)))
-                            
-                            # Set Maya timeline to shot range
-                            mel.eval('playbackOptions -min {0} -max {1};'.format(int(s), int(e)))
+                            cgmGEN.fbx_export_preamble(clear_takes=True)
+                            cgmGEN.fbx_export_shot_time_range(s, e)
 
                             log.info('Export Command: FBXExport -f \"{}\" -s'.format(outFile))
                             try:
-                                mel.eval('FBXExport -f \"{}\" -s'.format(outFile))
-                            except Exception:
-                                _ctx = dict(_ctx_base, stage='fbx_export', exportFile=outFile, exportObj=obj, shotName=shotName)
-                                log.exception("{0} | Shot FBX export failed | {1}".format(
-                                    _str_func, _export_ctx_to_str(_ctx)))
-                                return _finalize_failure('fbx_export', 'Shot FBX export failed', _ctx)
+                                cgmGEN.fbx_export_selection(outFile)
+                            except Exception as err:
+                                return _finalize_fbx_export_error(err, outFile, failure_label='Shot FBX export failed',
+                                                                  exportObj=obj, shotName=shotName)
+                            _record_export_result(shotName, outFile, (s, e), exportObj=obj)
 
                 else:
                     exportDir = os.path.split(exportFile)[0]
@@ -6933,10 +7007,10 @@ def ExportScene(mode = -1,
                         log.info('Export Command: FBXExport -f \"{}\" -s (rig, no takes)'.format(exportFile))
                         try:
                             _rig_fbx_export_to_path(exportFile)
-                        except Exception:
-                            _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
-                            log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                            return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+                        except Exception as err:
+                            return _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed',
+                                                              exportObj=obj)
+                        _record_export_result(os.path.basename(exportFile), exportFile, exportObj=obj)
                     else:
                         mel.eval('FBXExportSplitAnimationIntoTakes -c')
 
@@ -6952,11 +7026,16 @@ def ExportScene(mode = -1,
 
                         log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
                         try:
-                            mel.eval('FBXExport -f \"{}\" -s'.format(exportFile.replace('\\', '/')))
-                        except Exception:
-                            _ctx = dict(_ctx_base, stage='fbx_export', exportFile=exportFile, exportObj=obj)
-                            log.exception("{0} | FBX export failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                            return _finalize_failure('fbx_export', 'FBX export failed', _ctx)
+                            cgmGEN.fbx_export_selection(exportFile)
+                        except Exception as err:
+                            return _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed',
+                                                              exportObj=obj)
+                        if animList and animList.shotList and obj not in cameras:
+                            for shot in animList.shotList:
+                                _record_export_result(shot[0], exportFile,
+                                                      (shot[1][0], shot[1][1]), exportObj=obj)
+                        else:
+                            _record_export_result(os.path.basename(exportFile), exportFile, exportObj=obj)
 
                 if len(exportObjs) > 1 and removeNamespace:
                     # Deleting the exported transforms in case another file has duplicate export names
@@ -6966,9 +7045,8 @@ def ExportScene(mode = -1,
                     except Exception:
                         _ctx = dict(_ctx_base, stage='post_cleanup', exportObj=obj, exportFile=exportFile)
                         log.exception("{0} | Failed export cleanup delete | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
-                
-    print("UP axis: {}".format(mc.upAxis(q=True, axis=True)))
-    return True
+
+    return _finish_export_scene_success()
 
 
 
