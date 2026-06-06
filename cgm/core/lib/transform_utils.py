@@ -55,6 +55,7 @@ aim = SNAP.aim
 aim_atPoint = SNAP.aim_atPoint
 aim_atMidPoint = SNAP.aim_atMidPoint
 verify_aimAttrs = SNAP.verify_aimAttrs
+ground_position_get = SNAP.ground_position_get
 
 bbSize_get = POS.get_bb_size
 bbCenter_get = POS.get_bb_center

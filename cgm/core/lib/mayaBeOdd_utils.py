@@ -114,6 +114,54 @@ def kill_outlinerSelectCommands():
             continue
         print((_editor, _sel_cmd))
         mc.outlinerEditor(_editor, edit=True, selectCommand='print "";')
+
+def cascade_mc_windows(start_x=120, start_y=120, step_x=24, step_y=24, skip=None, verbose=True):
+	"""
+	Move visible maya.cmds windows onscreen in a cascade.
+	"""
+	skip = set(skip or []) | {'MayaWindow'}
+
+	moved = []
+	wins = mc.lsUI(windows=True) or []
+
+	x = start_x
+	y = start_y
+
+	for win in wins:
+		if win in skip:
+			continue
+
+		if not mc.window(win, q=True, exists=True):
+			continue
+
+		try:
+			if not mc.window(win, q=True, visible=True):
+				continue
+		except Exception:
+			continue
+
+		try:
+			wh = mc.window(win, q=True, widthHeight=True)
+			if not wh or wh[0] <= 1 or wh[1] <= 1:
+				continue
+		except Exception:
+			continue
+
+		try:
+			# Maya topLeftCorner is [top, left] screen coords.
+			mc.window(win, e=True, topLeftCorner=(y, x))
+			moved.append(win)
+			x += step_x
+			y += step_y
+		except Exception:
+			pass
+
+	if verbose:
+		log.info('Cascaded {0} mc.window UI(s)'.format(len(moved)))
+		for win in moved:
+			log.info('  {0}'.format(win))
+
+	return moved
         
 def mayaScanner_path(path = None):
     #Credit - Theodox - https://discourse.techart.online/t/another-maya-malware-in-the-wild/12970/6

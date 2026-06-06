@@ -11,6 +11,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 from cgm.core import cgm_General as cgmGeneral
 import maya.cmds as mc
+import maya.mel as mel
 from cgm.lib import curves
 
 from cgm.core import cgm_Meta as cgmMeta
@@ -422,9 +423,8 @@ def speedTest_duplicateLocator(*args, **kws):
 			cgmGeneral.report_enviornmentSingleLine()   
 	return fncWrap(*args, **kws).go()
 
-import maya.cmds as mc
-import maya.mel as mel
-import time
+
+
 def speedTest_simpleLocator(iterations = 100):
 	mc.file(new=True,f=True)
 	_loc = mc.spaceLocator()[0]

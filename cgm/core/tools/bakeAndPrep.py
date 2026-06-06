@@ -533,14 +533,15 @@ def Prep(removeNamespace = False,
         mc.select([x.mNode for x in exportSetObjs])
 
     exportObjs = cgmMeta.asMeta(mc.ls(sl=True))
-    for obj in exportObjs:
-        log.info("{0} || parent pass: {1}".format(_str_func,obj))
-        if obj.p_parent:
-            obj.p_parent = False
-        #try:
-        #    mc.parent(obj.mNode, w=True)
-        #except:
-        #    print(("%s already a child of 'world'" % obj))
+    # TEMP: parent pass disabled — unparent export roots to world before delete/ns merge
+    # for obj in exportObjs:
+    #     log.info("{0} || parent pass: {1}".format(_str_func,obj))
+    #     if obj.p_parent:
+    #         obj.p_parent = False
+    #try:
+    #    mc.parent(obj.mNode, w=True)
+    #except:
+    #    print(("%s already a child of 'world'" % obj))
             
             
     # delete garbage (optional — missing delete set is not a hard failure)

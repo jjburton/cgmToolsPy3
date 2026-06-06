@@ -620,3 +620,66 @@ def build_chain(posList = [],
     return [mJnt.mNode for mJnt in ml_joints]
 
 
+def pruneSkeletonToJoints(jointsToKeep=None, delete=True, report=True):
+    """
+    Remove extra joints from a skeleton.
+
+    Keeps every joint in *jointsToKeep* plus each joint's parent chain up to the
+    top joint root. All other joints under that root hierarchy are removed.
+
+    :parameters:
+        jointsToKeep(list): Joints to preserve
+        delete(bool): Delete pruned joints when True; only report candidates when False
+        report(bool): Log kept/deleted joint lists
+
+    :returns:
+        dict: {'kept': list, 'deleted': list, 'roots': list}
+    """
+    _str_func = 'pruneSkeletonToJoints'
+
+    ml_keep = cgmMeta.validateObjListArg(jointsToKeep, mayaType=['joint'], noneValid=False)
+
+    l_keep = set()
+    for mJnt in ml_keep:
+        mCurrent = mJnt
+        while mCurrent:
+            if mCurrent.getMayaType() != 'joint':
+                break
+            l_keep.add(mCurrent.p_nameLong)
+            mParent = mCurrent.getParent(asMeta=True)
+            if not mParent or mParent.getMayaType() != 'joint':
+                break
+            mCurrent = mParent
+
+    if not l_keep:
+        log.warning("|{0}| >> No joints to keep".format(_str_func))
+        return {'kept': [], 'deleted': [], 'roots': []}
+
+    l_roots = []
+    for j in l_keep:
+        l_jointParent = mc.listRelatives(j, parent=True, type='joint', fullPath=True)
+        if not l_jointParent or l_jointParent[0] not in l_keep:
+            l_roots.append(j)
+
+    l_all = set()
+    for root in l_roots:
+        l_all.add(root)
+        l_desc = mc.listRelatives(root, allDescendents=True, type='joint', fullPath=True) or []
+        l_all.update(l_desc)
+
+    l_delete = [j for j in l_all if j not in l_keep]
+    l_delete.sort(key=lambda j: len(mc.listRelatives(j, allParents=True, type='joint') or []), reverse=True)
+
+    if delete and l_delete:
+        for j in l_delete:
+            if mc.objExists(j):
+                mc.delete(j)
+
+    if report:
+        log.info("|{0}| >> roots: {1} | kept: {2} | pruned: {3}".format(
+            _str_func, l_roots, len(l_keep), len(l_delete)))
+        for j in l_delete:
+            log.info("  {0}".format(j))
+
+    return {'kept': sorted(l_keep), 'deleted': l_delete, 'roots': l_roots}
+

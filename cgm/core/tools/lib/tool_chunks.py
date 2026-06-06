@@ -1306,6 +1306,10 @@ def uiSection_dev(parent):
                 l='Clean Unknowns',
                 ann = "Clean unknown nodes and turtle",
                 c=lambda *a: MAYABEODD.cleanFile())
+    mc.menuItem(parent = _mayaOdd,
+                l='Cascade UI Windows',
+                ann = "Move visible maya.cmds windows onscreen in a cascade",
+                c=lambda *a: MAYABEODD.cascade_mc_windows())
     
     mc.menuItem(parent = _mayaOdd,
                 l='Kill maya progress bar',
@@ -1722,9 +1726,9 @@ def uiSection_snap(parent, selection = None ):
                 ann = "Closest point on target")
 
     mc.menuItem(parent=_pointSpecial,
-                l = 'Ground (WIP)',
+                l = 'Ground',
                 c = lambda *a:SNAPCALLS.snap_action(selection,'ground'),
-                ann = "Snaps selected to the ground plane")
+                ann = "Snaps selected to the ground plane (BB bottom on scene up = 0)")
     
     
     for m in ['boundingBox','axisBox','castFar','castNear','castCenter']:

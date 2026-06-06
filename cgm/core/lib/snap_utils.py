@@ -143,15 +143,39 @@ def go(obj = None, target = None,
     mc.xform(_target, rp=infoDict['position'], ws = True, p=True)        
     mc.xform(_target, sp=infoDict['scalePivot'], ws = True, p=True)    
     
-def to_ground(obj=None):
-    _str_func = 'snap_to_ground'    
+def ground_position_get(obj=None, mode='pivot'):
+    """
+    World position on the ground plane for query / snap pivots (groundPos).
+
+    :parameters:
+        obj: transform to query
+        mode: 'pivot' — project rotate pivot onto ground plane (default)
+              'bottom' — bounding-box minimum along scene up
+
+    :returns:
+        list [x, y, z]
+    """
     _obj = VALID.mNodeString(obj)
-    
-    p_bottom = POS.get_bb_pos(_obj,True,'bottom')
+    if mode == 'bottom':
+        return POS.ground_bottom_position_get(_obj)
     p_pivot = POS.get(_obj)
-    
-    p_pivot[1] = p_pivot[1] - p_bottom[1] 
-    POS.set(_obj,p_pivot)
+    return POS.position_project_to_ground_plane(p_pivot)
+
+
+def to_ground(obj=None):
+    """
+    Move object so its shape bounding-box bottom sits on the ground plane (scene up = 0).
+    Preserves pivot offset along scene up relative to BB bottom.
+    """
+    _str_func = 'snap_to_ground'
+    _obj = VALID.mNodeString(obj)
+
+    _idx = POS.ground_plane_up_index()
+    p_bottom = POS.ground_bottom_position_get(_obj)
+    p_pivot = POS.get(_obj)
+
+    p_pivot[_idx] = p_pivot[_idx] - p_bottom[_idx]
+    POS.set(_obj, p_pivot)
     
 def aim_atPoint(obj = None, position = [0,0,0], aimAxis = "z+", upAxis = "y+", mode = 'local',vectorUp = None,ignoreAimAttrs = True):
     """

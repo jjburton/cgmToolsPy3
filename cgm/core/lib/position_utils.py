@@ -37,6 +37,7 @@ from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import list_utils as LISTS
 from cgm.core.lib import euclid as EUCLID
 import cgm.core.lib.name_utils as NAMES
+import cgm.core.lib.mayaSettings_utils as MAYASET
 
 #reload(LISTS)
 #reload(SHARED)
@@ -252,6 +253,43 @@ def set_local(obj = None, pos = None):
     return set(VALID.mNodeString(obj), pos, 'local')
 
 
+def scene_up_axis_get():
+    """Maya scene up axis: 'y' or 'z'."""
+    _axis = MAYASET.sceneUp_get()
+    if _axis in ['z', 'Z']:
+        return 'z'
+    return 'y'
+
+
+def ground_plane_up_index():
+    """World-space index (0=x, 1=y, 2=z) for scene up / ground plane normal."""
+    return 2 if scene_up_axis_get() == 'z' else 1
+
+
+def position_project_to_ground_plane(pos, level=0.0):
+    """
+    Project a world position onto the ground plane (scene up component = level).
+
+    :parameters:
+        pos(list/vector): [x, y, z] world position
+        level(float): value along scene up axis (default 0 = ground)
+
+    :returns:
+        list [x, y, z]
+    """
+    if hasattr(pos, 'x'):
+        _res = [pos.x, pos.y, pos.z]
+    else:
+        _res = [float(pos[0]), float(pos[1]), float(pos[2])]
+    _res[ground_plane_up_index()] = float(level)
+    return _res
+
+
+def ground_bottom_position_get(obj=None):
+    """World position at bounding-box minimum along scene up (bottom on ground plane)."""
+    return get_bb_pos(obj, shapes=True, mode='bottom')
+
+
 def get_bb_center(obj = None, asEuclid =False):
     """
     Get the bb center of a given arg
@@ -298,10 +336,16 @@ def get_bb_pos(arg = None, shapes = False, mode = 'center', mark = False, asEucl
         _res = [((bb_raw[0] + bb_raw[3])/2),((bb_raw[4] + bb_raw[1])/2), ((bb_raw[5] + bb_raw[2])/2)]
     elif _mode in ['bottom','y-']:
         log.debug("|{0}| >> Bottom mode".format(_str_func))
-        _res = [((bb_raw[0] + bb_raw[3])/2), bb_raw[1], ((bb_raw[5] + bb_raw[2])/2)]
+        if ground_plane_up_index() == 1:
+            _res = [((bb_raw[0] + bb_raw[3])/2), bb_raw[1], ((bb_raw[5] + bb_raw[2])/2)]
+        else:
+            _res = [((bb_raw[0] + bb_raw[3])/2), ((bb_raw[4] + bb_raw[1])/2), bb_raw[2]]
     elif _mode in ['top','y+']:
         log.debug("|{0}| >> Top mode".format(_str_func))
-        _res = [((bb_raw[0] + bb_raw[3])/2), bb_raw[4], ((bb_raw[5] + bb_raw[2])/2)]
+        if ground_plane_up_index() == 1:
+            _res = [((bb_raw[0] + bb_raw[3])/2), bb_raw[4], ((bb_raw[5] + bb_raw[2])/2)]
+        else:
+            _res = [((bb_raw[0] + bb_raw[3])/2), ((bb_raw[4] + bb_raw[1])/2), bb_raw[5]]
     elif _mode  in ['front','z+']:
         log.debug("|{0}| >> Front mode".format(_str_func))
         _res = [((bb_raw[0] + bb_raw[3])/2),((bb_raw[4] + bb_raw[1])/2), bb_raw[5]]

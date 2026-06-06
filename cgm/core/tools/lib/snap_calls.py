@@ -644,8 +644,7 @@ def get_special_pos(targets = None,
                 l_res.append(POS.get_bb_pos( t, True, mode))
         elif _arg == 'groundPos':
             for t in targets:
-                pos = TRANS.position_get(t)
-                l_res.append([pos[0],0.0,pos[2]])
+                l_res.append(SNAP.ground_position_get(t))
         elif _arg.startswith('castAll'):
             _type =  _arg.split('castAll')[-1].lower()
             log.debug("|{0}| >> castAll mode: {1} | {2}".format(_str_func,mode,_type))
