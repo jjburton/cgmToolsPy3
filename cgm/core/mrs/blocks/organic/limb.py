@@ -7323,8 +7323,8 @@ def rig_frame(self):
                     mLocAim.p_parent = mIKBallRotationControl.masterGroup
                     
                     mAimTarget = mIKControlBase
-
-                    if self.d_module['direction'].lower() == 'left':
+                    _direction = self.d_module.get('direction', False)
+                    if _direction and _direction.lower() == 'left':
                         v_aim = [0,0,1]
                     else:
                         v_aim = [0,0,-1]
