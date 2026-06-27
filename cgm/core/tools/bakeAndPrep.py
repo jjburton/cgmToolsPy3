@@ -411,6 +411,204 @@ def ProcessDeleteSet(deleteSetName, namespace_prefix=None, resolved_set=None, _s
     return True
 
 
+def export_select_targets_resolve(export_root_hint,
+                                  exportSetName='export_tdSet',
+                                  member_hints=None,
+                                  _str_func='export_select_targets_resolve'):
+    """
+    Return surviving DAG paths for FBX export after delete-set cleanup.
+
+    *export_root_hint* is the export context string (e.g. ``master``, ``Crate:master``);
+    it is used for namespace / tdSet correlation only — the hint node may already be
+    deleted (e.g. ``master`` in ``delete_tdSet``).
+
+    *member_hints* optional list of DAG paths or short names captured before delete;
+    when omitted, members are read from the resolved export set.
+    """
+    _hintShort = (export_root_hint or '').split('|')[-1]
+    namespaces = _hintShort.split(':')[:-1] if ':' in _hintShort else []
+
+    l_memberNodes = []
+    if member_hints:
+        for m in member_hints:
+            if not m:
+                continue
+            if mc.objExists(m):
+                l_memberNodes.append(m)
+            else:
+                _short = m.split('|')[-1].split(':')[-1]
+                _resolved = (mc.ls(_short, l=True) or [None])[0]
+                if _resolved and mc.objExists(_resolved):
+                    l_memberNodes.append(_resolved)
+    else:
+        resolved_export = resolve_td_set_for_asset(exportSetName, namespaces or None)
+        if resolved_export and mc.objExists(resolved_export):
+            _setMembers = mc.sets(resolved_export, q=True) or []
+            if isinstance(_setMembers, str):
+                _setMembers = [_setMembers]
+            for m in _setMembers:
+                if not m:
+                    continue
+                if mc.objExists(m):
+                    l_memberNodes.append(m)
+                else:
+                    _short = m.split('|')[-1].split(':')[-1]
+                    _resolved = (mc.ls(_short, l=True) or [None])[0]
+                    if _resolved and mc.objExists(_resolved):
+                        l_memberNodes.append(_resolved)
+                    else:
+                        log.warning("{0} || export set member missing after delete: {1}".format(_str_func, m))
+        else:
+            log.warning("{0} || export set not found | hint={1} | namespaces={2}".format(
+                _str_func, export_root_hint, namespaces))
+
+    if not l_memberNodes and member_hints:
+        resolved_export_post = resolve_td_set_for_asset(exportSetName, None)
+        if resolved_export_post and mc.objExists(resolved_export_post):
+            _setMembers = mc.sets(resolved_export_post, q=True) or []
+            if isinstance(_setMembers, str):
+                _setMembers = [_setMembers]
+            for m in _setMembers:
+                if not m:
+                    continue
+                if mc.objExists(m):
+                    l_memberNodes.append(m)
+                else:
+                    _short = m.split('|')[-1].split(':')[-1]
+                    _resolved = (mc.ls(_short, l=True) or [None])[0]
+                    if _resolved and mc.objExists(_resolved):
+                        l_memberNodes.append(_resolved)
+                    else:
+                        log.warning("{0} || export set member missing after delete: {1}".format(_str_func, m))
+
+    l_select = []
+    _seen = set()
+    for m in l_memberNodes:
+        _short = m.split('|')[-1].split(':')[-1]
+        _resolved = (mc.ls(_short, l=True) or [None])[0]
+        if _resolved and mc.objExists(_resolved) and _resolved not in _seen:
+            _seen.add(_resolved)
+            l_select.append(_resolved)
+        elif mc.objExists(m) and m not in _seen:
+            _seen.add(m)
+            l_select.append(m)
+
+    if not l_select:
+        for _cand in (export_root_hint,
+                      _hintShort,
+                      _hintShort.split(':')[-1] if _hintShort else ''):
+            if _cand and mc.objExists(_cand) and _cand not in _seen:
+                l_select.append(_cand)
+                break
+
+    if not l_select:
+        log.error("{0} || No export targets resolved | hint={1} | namespaces={2} | member_hints={3}".format(
+            _str_func, export_root_hint, namespaces, member_hints))
+        return None
+
+    log.info("{0} || resolved {1} export target(s) | hint={2}".format(_str_func, len(l_select), export_root_hint))
+    return l_select
+
+
+def export_unparent_members_to_world(member_nodes, _str_func='export_unparent_members_to_world'):
+    """Unparent export set members to world so delete_tdSet roots (e.g. master) do not remove them."""
+    for mNode in member_nodes or []:
+        if not mNode or not mc.objExists(mNode):
+            continue
+        _path = (mc.ls(mNode, l=True) or [mNode])[0]
+        if not _path or not mc.objExists(_path):
+            continue
+        if mc.listRelatives(_path, parent=True):
+            try:
+                mc.parent(_path, world=True)
+                log.info("{0} || unparented to world: {1}".format(_str_func, _path))
+            except Exception as err:
+                log.warning("{0} || unparent failed | node={1} | err={2}".format(_str_func, _path, err))
+
+
+def export_constraints_clear_on_members(member_nodes, zeroRoot=False, _str_func='export_constraints_clear_on_members'):
+    """Remove constraints (and optionally zero rootMotion) on export set members before delete."""
+    for mNode in member_nodes or []:
+        if not mNode or not mc.objExists(mNode):
+            continue
+        _constraints = mc.listRelatives(mNode, ad=True, type='constraint', fullPath=True) or []
+        if _constraints:
+            mc.delete(_constraints)
+        if zeroRoot and mc.objExists('{0}.cgmTypeModifier'.format(mNode)):
+            if mc.getAttr('{0}.cgmTypeModifier'.format(mNode)) == 'rootMotion':
+                log.info("{0} || Zeroing root: {1}".format(_str_func, mNode))
+                mc.cutKey(mNode, at=['translate', 'rotate'], clear=True)
+                mc.setAttr('{0}.translate'.format(mNode), 0, 0, 0, type='float3')
+                mc.setAttr('{0}.rotate'.format(mNode), 0, 0, 0, type='float3')
+
+
+def export_prep_non_referenced(export_root_hint,
+                               deleteSetName='delete_tdSet',
+                               exportSetName='export_tdSet',
+                               removeNamespace=False,
+                               zeroRoot=False,
+                               _str_func='export_prep_non_referenced'):
+    """
+    Non-referenced export prep: constraints on export members, per-rig delete sets,
+    optional namespace merge, then resolve export selection (not the export hint root).
+    Returns list of DAG paths for FBX selection, or None on failure.
+    """
+    _shortObj = export_root_hint.split('|')[-1]
+    namespaces = _shortObj.split(':')[:-1] if ':' in _shortObj else []
+
+    resolved_export = resolve_td_set_for_asset(exportSetName, namespaces or None)
+    l_exportMemberNodes = []
+    if resolved_export and mc.objExists(resolved_export):
+        _setMembers = mc.sets(resolved_export, q=True) or []
+        if isinstance(_setMembers, str):
+            _setMembers = [_setMembers]
+        l_exportMemberNodes = [m for m in _setMembers if m]
+        log.info("{0} || export set resolved: {1} | members: {2}".format(
+            _str_func, resolved_export, len(l_exportMemberNodes)))
+    else:
+        log.warning("{0} || export set not found before delete | hint={1}".format(_str_func, export_root_hint))
+
+    export_constraints_clear_on_members(l_exportMemberNodes, zeroRoot=zeroRoot, _str_func=_str_func)
+    export_unparent_members_to_world(l_exportMemberNodes, _str_func=_str_func)
+
+    resolved_delete_pre = resolve_td_set_for_asset(deleteSetName, namespaces or None) if namespaces else None
+    if resolved_delete_pre:
+        ProcessDeleteSet(deleteSetName,
+                         resolved_set=resolved_delete_pre,
+                         _str_func='{0}|delete_pre_ns'.format(_str_func))
+
+    if removeNamespace and ':' in export_root_hint:
+        _nsParts = _shortObj.split(':')[:-1]
+        _namespaces = []
+        _nsAccum = []
+        for _part in _nsParts:
+            _nsAccum.append(_part)
+            _namespaces.append(':'.join(_nsAccum))
+        for _ns in reversed(_namespaces):
+            if mc.namespace(exists=_ns):
+                try:
+                    mc.namespace(removeNamespace=_ns, mergeNamespaceWithRoot=True)
+                    log.info("{0} || Removed namespace: {1}".format(_str_func, _ns))
+                except Exception as err:
+                    log.error("{0} || namespace merge failed | ns={1} | err={2}".format(_str_func, _ns, err))
+                    return None
+
+    resolved_delete_post = resolve_td_set_for_asset(deleteSetName, None)
+    if resolved_delete_post and resolved_delete_post != resolved_delete_pre:
+        ProcessDeleteSet(deleteSetName,
+                         resolved_set=resolved_delete_post,
+                         _str_func='{0}|delete_post_ns'.format(_str_func))
+    elif resolved_delete_post and not resolved_delete_pre:
+        ProcessDeleteSet(deleteSetName,
+                         resolved_set=resolved_delete_post,
+                         _str_func='{0}|delete_post_ns'.format(_str_func))
+
+    return export_select_targets_resolve(export_root_hint,
+                                         exportSetName=exportSetName,
+                                         member_hints=l_exportMemberNodes,
+                                         _str_func='{0}|select'.format(_str_func))
+
+
 def Prep(removeNamespace = False, 
          deleteSetName = "delete_tdSet",
          exportSetName = "export_tdSet",
@@ -441,6 +639,7 @@ def Prep(removeNamespace = False,
     _topShort = topNode.mNode.split('|')[-1]
     topNodeSN = _topShort.split(':')[-1]
     namespaces = _topShort.split(':')[:-1]
+    _exportRootHint = _topShort
 
     log.info("{0} || mNode: {1}".format(_str_func,topNode.mNode))
     log.info("{0} || topNode: {1} | namespaces: {2}".format(_str_func,topNodeSN,namespaces))
@@ -478,17 +677,26 @@ def Prep(removeNamespace = False,
 
     _ns_hint = namespaces[-1] if namespaces else None
     resolved_export = resolve_td_set_for_asset(exportSetName, namespaces)
+    _exportMemberHintStrings = []
     if resolved_export:
         exportSet = resolved_export
         log.info("{0} || export set resolved: {1}".format(_str_func, exportSet))
-        exportSetObjs = cgmMeta.asMeta(mc.sets(exportSet, q=True) or [])
+        _setMembersRaw = mc.sets(exportSet, q=True) or []
+        if isinstance(_setMembersRaw, str):
+            _setMembersRaw = [_setMembersRaw]
+        _exportMemberHintStrings = [m for m in _setMembersRaw if m]
+        exportSetObjs = cgmMeta.asMeta(_setMembersRaw)
     else:
         exportSet = "{0}{1}".format(ns, exportSetName) if ns else exportSetName
         log.warning("{0} || export set not found, using top node | tried={1}".format(_str_func, exportSet))
         exportSetObjs = [topNode]
+        if topNode.mNode:
+            _exportMemberHintStrings = [topNode.mNode]
 
     if not exportSetObjs:
         exportSetObjs = [topNode]
+        if topNode.mNode and not _exportMemberHintStrings:
+            _exportMemberHintStrings = [topNode.mNode]
 
     log.info("{0} || export set: {1}".format(_str_func, exportSet))
     if exportSetObjs:
@@ -503,7 +711,8 @@ def Prep(removeNamespace = False,
                     mc.setAttr('{0}.translate'.format(exportObj.mNode), 0, 0, 0, type='float3')
                     mc.setAttr('{0}.rotate'.format(exportObj.mNode), 0, 0, 0, type='float3')
                 
-                    
+    export_unparent_members_to_world(_exportMemberHintStrings, _str_func='{0}|unparent'.format(_str_func))
+
     # export
     newTopNode = '%s%s' % (ns, topNodeSN)
     if not mc.objExists(newTopNode):
@@ -533,17 +742,7 @@ def Prep(removeNamespace = False,
         mc.select([x.mNode for x in exportSetObjs])
 
     exportObjs = cgmMeta.asMeta(mc.ls(sl=True))
-    # TEMP: parent pass disabled — unparent export roots to world before delete/ns merge
-    # for obj in exportObjs:
-    #     log.info("{0} || parent pass: {1}".format(_str_func,obj))
-    #     if obj.p_parent:
-    #         obj.p_parent = False
-    #try:
-    #    mc.parent(obj.mNode, w=True)
-    #except:
-    #    print(("%s already a child of 'world'" % obj))
-            
-            
+
     # delete garbage (optional — missing delete set is not a hard failure)
     log.info("{0} || delete set (Prep) | namespace_prefix={1}".format(_str_func, _ns_hint))
     resolved_delete = resolve_td_set_for_asset(deleteSetName, namespaces)
@@ -565,17 +764,18 @@ def Prep(removeNamespace = False,
         else:
             log.info("{0} || namespace already removed | ns={1}".format(_str_func, _last_ns))
 
-    l_select = []
-    for mObj in exportSetObjs:
-        _short = mObj.mNode.split('|')[-1].split(':')[-1]
-        _resolved = (mc.ls(_short, l=True) or [None])[0]
-        if _resolved and mc.objExists(_resolved):
-            l_select.append(_resolved)
-        elif mc.objExists(mObj.mNode):
-            l_select.append(mObj.mNode)
+    _memberHints = list(_exportMemberHintStrings)
+    l_select = export_select_targets_resolve(_exportRootHint,
+                                             exportSetName=exportSetName,
+                                             member_hints=_memberHints,
+                                             _str_func='{0}|select'.format(_str_func))
     if not l_select:
-        l_select = [x.mNode for x in exportObjs if mc.objExists(x.mNode)]
-    mc.select(l_select)
+        l_select = [x.mNode for x in exportObjs if getattr(x, 'mNode', None) and mc.objExists(x.mNode)]
+    if l_select:
+        mc.select(l_select)
+    else:
+        log.error("{0} || No export selection after delete prep".format(_str_func))
+        prepped = False
 
     mc.refresh()
             

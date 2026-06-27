@@ -130,28 +130,45 @@ def _export_ctx_to_str(ctx):
     return ' | '.join(l_msg)
 
 
-def _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj):
+def _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj, fallback_members=None):
     """
     After deleteMesh removes mesh transforms, exportTransforms may still list deleted
-    DAG nodes (from Prep). Return names that still exist, or fall back to export root *obj*.
+    DAG nodes (from Prep). Return names that still exist, or fall back to export set
+    members (*fallback_members*) and finally the export context hint *obj* if it exists.
     Returns None if deleteMesh ran and no valid target could be resolved.
     """
     if not deleteMesh:
         return exportTransforms
     if isinstance(exportTransforms, (list, tuple)):
         _alive = [n for n in exportTransforms if n and mc.objExists(n)]
-        exportTransforms = (_alive[0] if len(_alive) == 1 else _alive) if _alive else None
+        exportTransforms = _alive if _alive else None
     elif exportTransforms and mc.objExists(exportTransforms):
-        pass
+        exportTransforms = [exportTransforms]
     else:
         exportTransforms = None
-    if not exportTransforms or (isinstance(exportTransforms, list) and len(exportTransforms) == 0):
-        _fb = None
-        for _cand in (obj, obj.split('|')[-1] if obj else '', (obj.split('|')[-1].split(':')[-1] if obj else '')):
-            if _cand and mc.objExists(_cand):
-                _fb = _cand
-                break
-        exportTransforms = _fb
+    if not exportTransforms:
+        _resolved = []
+        _seen = set()
+        for m in fallback_members or []:
+            if not m:
+                continue
+            _short = m.split('|')[-1].split(':')[-1]
+            _path = (mc.ls(_short, l=True) or [None])[0]
+            if _path and mc.objExists(_path) and _path not in _seen:
+                _seen.add(_path)
+                _resolved.append(_path)
+            elif mc.objExists(m) and m not in _seen:
+                _seen.add(m)
+                _resolved.append(m)
+        if _resolved:
+            exportTransforms = _resolved
+        else:
+            for _cand in (obj, obj.split('|')[-1] if obj else '', (obj.split('|')[-1].split(':')[-1] if obj else '')):
+                if _cand and mc.objExists(_cand):
+                    exportTransforms = [_cand]
+                    break
+            else:
+                exportTransforms = None
     return exportTransforms
 
 
@@ -6442,7 +6459,7 @@ def ExportScene(mode = -1,
 
                 if _chosen and _chosen not in exportObjs:
                     exportObjs.append(_chosen)
-                    log.info("Set [{0}] chose export root: {1}".format(s, _chosen))
+                    log.info("Set [{0}] chose export context hint: {1} (bake/delete correlation, not post-delete DAG root)".format(s, _chosen))
                 elif not _chosen:
                     log.error("Set [{0}] has no valid export root candidates. Members: {1}".format(s, _setMembers))
                 continue
@@ -6453,13 +6470,13 @@ def ExportScene(mode = -1,
                 log.error("Set [{0}] has no valid export roots after candidate filtering.".format(s))
                 continue
             if _masterCandidates:
-                log.info("Set [{0}] selected non-namespaced master roots: {1}".format(s, _masterCandidates))
+                log.info("Set [{0}] selected non-namespaced master context hints: {1}".format(s, _masterCandidates))
             else:
-                log.warning("Set [{0}] has no 'master' roots, using fallback roots: {1}".format(s, _chosenRoots))
+                log.warning("Set [{0}] has no 'master' hints, using fallback context roots: {1}".format(s, _chosenRoots))
             for _chosen in _chosenRoots:
                 if _chosen not in exportObjs:
                     exportObjs.append(_chosen)
-                    log.info("Set [{0}] chose export root: {1}".format(s, _chosen))
+                    log.info("Set [{0}] chose export context hint: {1} (bake/delete correlation, not post-delete DAG root)".format(s, _chosen))
 
     #...cam check...
     for obj in exportObjs:
@@ -6694,46 +6711,26 @@ def ExportScene(mode = -1,
                     log.error("{0} | Prep stage returned failure | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
                     return _finalize_failure('prep', 'Prep stage returned failure', _ctx)
                 exportTransforms = mc.ls(sl=True)
+                _exportMemberFallback = list(exportTransforms) if exportTransforms else []
             else:
-                _shortObj = obj.split('|')[-1]
-                _ns_prefix = _shortObj.split(':')[0] if ':' in _shortObj else None
-
-                if _ns_prefix:
-                    bakeAndPrep.ProcessDeleteSet(
-                        deleteSetName,
-                        namespace_prefix=_ns_prefix,
-                        _str_func='{0}|delete_pre_ns'.format(_str_func))
-
-                if removeNamespace and ':' in obj:
-                    _nsParts = _shortObj.split(':')[:-1]
-                    _namespaces = []
-                    _nsAccum = []
-                    for _part in _nsParts:
-                        _nsAccum.append(_part)
-                        _namespaces.append(':'.join(_nsAccum))
-
-                    for _ns in reversed(_namespaces):
-                        if mc.namespace(exists=_ns):
-                            try:
-                                mc.namespace(removeNamespace=_ns, mergeNamespaceWithRoot=True)
-                                log.info("{0} | Removed namespace for non-referenced export object: {1}".format(_str_func, _ns))
-                            except Exception:
-                                _ctx = dict(_ctx_base, stage='prep', exportObj=obj, namespace=_ns)
-                                log.exception("{0} | Failed removing namespace in non-referenced export path | {1}".format(
-                                    _str_func, _export_ctx_to_str(_ctx)))
-                                return _finalize_failure('prep', 'Failed removing namespace in non-referenced export path', _ctx)
-
-                bakeAndPrep.ProcessDeleteSet(
-                    deleteSetName,
-                    namespace_prefix=None,
-                    _str_func='{0}|delete_post_ns'.format(_str_func))
-
-                _constraints = cgmObj.getConstraintsTo()
-                if _constraints:
-                    mc.delete(_constraints)
-                mc.select(cl=True)
-                _rootBase = obj.split('|')[-1].split(':')[-1]
-                exportTransforms = _rootBase if mc.objExists(_rootBase) else obj
+                try:
+                    exportTransforms = bakeAndPrep.export_prep_non_referenced(
+                        obj,
+                        deleteSetName=deleteSetName,
+                        exportSetName=exportSetName,
+                        removeNamespace=removeNamespace,
+                        zeroRoot=zeroRoot,
+                        _str_func='{0}|nonref_prep'.format(_str_func))
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.exception("{0} | Non-referenced prep failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Non-referenced prep failed', _ctx)
+                if not exportTransforms:
+                    _ctx = dict(_ctx_base, stage='select', exportObj=obj)
+                    log.error("{0} | No export targets after non-referenced prep | {1}".format(
+                        _str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('select', 'No export targets after non-referenced prep', _ctx)
+                _exportMemberFallback = list(exportTransforms)
 
             mObjs = cgmMeta.asMeta(exportTransforms)
 
@@ -6745,8 +6742,9 @@ def ExportScene(mode = -1,
                             mc.delete(mMeshShape.getTransform())
                         except Exception:
                             log.error("failure: {}".format(mMeshShape.mNode))
-            exportTransforms = _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj)
-            if deleteMesh and exportTransforms is None:
+            exportTransforms = _export_transforms_after_mesh_strip(
+                deleteMesh, exportTransforms, obj, fallback_members=_exportMemberFallback)
+            if deleteMesh and not exportTransforms:
                 _ctx = dict(_ctx_base, stage='select', exportObj=obj)
                 log.error("{0} | No export DAG to select after mesh strip | {1}".format(
                     _str_func, _export_ctx_to_str(_ctx)))
@@ -6890,46 +6888,26 @@ def ExportScene(mode = -1,
                     log.error("{0} | Prep stage returned failure | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
                     return _finalize_failure('prep', 'Prep stage returned failure', _ctx)
                 exportTransforms = mc.ls(sl=True)
+                _exportMemberFallback = list(exportTransforms) if exportTransforms else []
             else:
-                _shortObj = obj.split('|')[-1]
-                _ns_prefix = _shortObj.split(':')[0] if ':' in _shortObj else None
-
-                # Delete-set cleanup only ran inside Prep(); non-referenced exports skipped Prep entirely.
-                if _ns_prefix:
-                    bakeAndPrep.ProcessDeleteSet(
-                        deleteSetName,
-                        namespace_prefix=_ns_prefix,
-                        _str_func='{0}|delete_pre_ns'.format(_str_func))
-
-                if removeNamespace and ':' in obj:
-                    _nsParts = _shortObj.split(':')[:-1]
-                    _namespaces = []
-                    _nsAccum = []
-                    for _part in _nsParts:
-                        _nsAccum.append(_part)
-                        _namespaces.append(':'.join(_nsAccum))
-
-                    for _ns in reversed(_namespaces):
-                        if mc.namespace(exists=_ns):
-                            try:
-                                mc.namespace(removeNamespace=_ns, mergeNamespaceWithRoot=True)
-                                log.info("{0} | Removed namespace for non-referenced export object: {1}".format(_str_func, _ns))
-                            except Exception:
-                                _ctx = dict(_ctx_base, stage='prep', exportObj=obj, namespace=_ns)
-                                log.exception("{0} | Failed removing namespace in non-referenced export path | {1}".format(
-                                    _str_func, _export_ctx_to_str(_ctx)))
-                                return _finalize_failure('prep', 'Failed removing namespace in non-referenced export path', _ctx)
-
-                bakeAndPrep.ProcessDeleteSet(
-                    deleteSetName,
-                    namespace_prefix=None,
-                    _str_func='{0}|delete_post_ns'.format(_str_func))
-
-                _constraints = cgmObj.getConstraintsTo()
-                if _constraints:mc.delete(_constraints)
-                mc.select(cl=True)
-                _rootBase = obj.split('|')[-1].split(':')[-1]
-                exportTransforms = _rootBase if mc.objExists(_rootBase) else obj
+                try:
+                    exportTransforms = bakeAndPrep.export_prep_non_referenced(
+                        obj,
+                        deleteSetName=deleteSetName,
+                        exportSetName=exportSetName,
+                        removeNamespace=removeNamespace,
+                        zeroRoot=zeroRoot,
+                        _str_func='{0}|nonref_prep'.format(_str_func))
+                except Exception:
+                    _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
+                    log.exception("{0} | Non-referenced prep failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('prep', 'Non-referenced prep failed', _ctx)
+                if not exportTransforms:
+                    _ctx = dict(_ctx_base, stage='select', exportObj=obj)
+                    log.error("{0} | No export targets after non-referenced prep | {1}".format(
+                        _str_func, _export_ctx_to_str(_ctx)))
+                    return _finalize_failure('select', 'No export targets after non-referenced prep', _ctx)
+                _exportMemberFallback = list(exportTransforms)
 
             mObjs = cgmMeta.asMeta(exportTransforms)
 
@@ -6941,8 +6919,9 @@ def ExportScene(mode = -1,
                             mc.delete(mMeshShape.getTransform())
                         except:
                             log.error("failure: {}".format(mMeshShape.mNode))
-            exportTransforms = _export_transforms_after_mesh_strip(deleteMesh, exportTransforms, obj)
-            if deleteMesh and exportTransforms is None:
+            exportTransforms = _export_transforms_after_mesh_strip(
+                deleteMesh, exportTransforms, obj, fallback_members=_exportMemberFallback)
+            if deleteMesh and not exportTransforms:
                 _ctx = dict(_ctx_base, stage='select', exportObj=obj)
                 log.error("{0} | No export DAG to select after mesh strip | {1}".format(
                     _str_func, _export_ctx_to_str(_ctx)))
