@@ -23,6 +23,7 @@ __MAYALOCAL = 'GEO'
 
 
 import pprint
+import re
 import maya.cmds as mc
 import maya.mel as mel
 import maya.OpenMaya as OM
@@ -40,7 +41,6 @@ from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import rayCaster as cgmRAYS
 #reload(cgmRAYS)
 from cgm.core.lib import search_utils as SEARCH
-import re
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.math_utils as MATH
 #import cgm.core.lib.locator_utils as LOC
@@ -1619,6 +1619,120 @@ def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',
             'symMap':_d_convert,
             'axisVector':_l_axis,            
             'asymmetrical':[ _d_vtxToID[vtx] for vtx in _l_assym ]}
+
+def _shape_dag_path(shape):
+    from maya.api import OpenMaya as OM2
+    sel = OM2.MSelectionList()
+    sel.add(VALID.mNodeString(shape))
+    dag = sel.getDagPath(0)
+    if dag.apiType() == OM2.MFn.kTransform:
+        dag.extendToShape()
+    return dag
+
+def _mesh_vector_from_normal(n, OM2):
+    if isinstance(n, OM2.MVector):
+        return OM2.MVector(n)
+    if hasattr(n, 'x'):
+        return OM2.MVector(n.x, n.y, n.z)
+    return OM2.MVector(n[0], n[1], n[2])
+
+def _mesh_unlock_normals(shape):
+    try:
+        mc.polyNormalPerVertex(shape, edit=True, unfreezeNormal=True)
+    except Exception:
+        try:
+            mc.polyNormal(shape, normalMode=0, userNormalMode=1, ch=0)
+        except Exception:
+            pass
+
+def _mesh_apply_world_vertex_normals(fn, shape, world_normals, OM2):
+    """Apply captured vertex normals in world space (Maya handles object-space conversion)."""
+    _mesh_unlock_normals(shape)
+    l_vectors = [_mesh_vector_from_normal(n, OM2) for n in world_normals]
+    l_ids = list(range(len(l_vectors)))
+    fn.setVertexNormals(l_vectors, l_ids, OM2.MSpace.kWorld)
+
+def capture_shape_world_data(shape):
+    """
+    Capture world-space geometry data from a shape before shape-parenting.
+
+    :returns
+        dict(type, points/cvs, normals for mesh)
+    """
+    _str_func = 'capture_shape_world_data'
+    shape = VALID.mNodeString(shape)
+    shapeType = VALID.get_mayaType(shape)
+    from maya.api import OpenMaya as OM2
+
+    dag = _shape_dag_path(shape)
+    space = OM2.MSpace.kWorld
+
+    if shapeType == 'mesh':
+        fn = OM2.MFnMesh(dag)
+        points = fn.getPoints(space)
+        vertexNormals = fn.getVertexNormals(False, space)
+        log.debug("|{0}| >> mesh captured | {1} | verts={2}".format(_str_func, shape, len(points)))
+        return {'type': 'mesh', 'points': points, 'vertexNormals': vertexNormals}
+
+    if shapeType == 'nurbsCurve':
+        fn = OM2.MFnNurbsCurve(dag)
+        cvs = fn.cvPositions(space)
+        log.debug("|{0}| >> curve captured | {1} | cvs={2}".format(_str_func, shape, len(cvs)))
+        return {'type': 'nurbsCurve', 'cvs': cvs}
+
+    if shapeType == 'nurbsSurface':
+        fn = OM2.MFnNurbsSurface(dag)
+        nu = fn.numCVsInDirection(0)
+        nv = fn.numCVsInDirection(1)
+        cvs = []
+        for u in range(nu):
+            row = []
+            for v in range(nv):
+                row.append(fn.cvPosition(u, v, space))
+            cvs.append(row)
+        log.debug("|{0}| >> surface captured | {1} | cvs={2}x{3}".format(_str_func, shape, nu, nv))
+        return {'type': 'nurbsSurface', 'cvs': cvs}
+
+    raise ValueError("|{0}| >> Unsupported shape type: {1} | {2}".format(_str_func, shapeType, shape))
+
+def apply_shape_world_data(shape, data):
+    """
+    Restore world-space geometry captured via capture_shape_world_data.
+    """
+    _str_func = 'apply_shape_world_data'
+    shape = VALID.mNodeString(shape)
+    from maya.api import OpenMaya as OM2
+
+    dag = _shape_dag_path(shape)
+    space = OM2.MSpace.kWorld
+    shapeType = data.get('type')
+
+    if shapeType == 'mesh':
+        fn = OM2.MFnMesh(dag)
+        fn.setPoints(data['points'], space)
+        if data.get('vertexNormals'):
+            try:
+                _mesh_apply_world_vertex_normals(fn, shape, data['vertexNormals'], OM2)
+            except Exception as err:
+                log.warning("|{0}| >> vertex normal apply failed: {1}".format(_str_func, err))
+        fn.updateSurface()
+        return True
+
+    if shapeType == 'nurbsCurve':
+        fn = OM2.MFnNurbsCurve(dag)
+        fn.setCVPositions(data['cvs'], space)
+        fn.updateCurve()
+        return True
+
+    if shapeType == 'nurbsSurface':
+        fn = OM2.MFnNurbsSurface(dag)
+        for u, row in enumerate(data['cvs']):
+            for v, p in enumerate(row):
+                fn.setCVPosition(u, v, p, space)
+        fn.updateSurface()
+        return True
+
+    raise ValueError("|{0}| >> Unsupported captured data type: {1}".format(_str_func, shapeType))
 
 #@cgmGEN.Timer
 def normalCheck(mesh,ch=0):

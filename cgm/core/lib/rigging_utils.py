@@ -40,6 +40,7 @@ from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import transform_utils as TRANS
 import cgm.core.lib.list_utils as LISTS
+import cgm.core.lib.geo_Utils as GEO
 
 import cgm.core.lib.name_utils as NAMES
 import cgm.core.lib.position_utils as POS
@@ -318,7 +319,7 @@ def shapeParent_in_placeBAK(obj, shapeSource, keepSource = True, replaceShapes =
     :returns
         success(bool)
     """   
-    _str_func = 'shapeParent_in_place'
+    _str_func = 'shapeParent_in_placeBAK'
     
     l_shapes = VALID.listArg(shapeSource)
     obj = VALID.mNodeString(obj)
@@ -331,96 +332,9 @@ def shapeParent_in_placeBAK(obj, shapeSource, keepSource = True, replaceShapes =
             mc.delete(_l_objShapes)
     
     mc.select (cl=True)
-    #mc.refresh()    
     for c in l_shapes:
         try:
-            _shapeCheck = SEARCH.is_shape(c)
-            if not _shapeCheck and not mc.listRelatives(c, f= True,shapes=True, fullPath = True):
-                raise ValueError("Has no shapes")
-            if coreNames.get_long(obj) == coreNames.get_long(c):
-                raise ValueError("Cannot parentShape self")
-            
-            if VALID.get_mayaType(c) == 'nurbsCurve':
-                mc.ls(['%s.ep[*]'%(c)],flatten=True)
-                #This is for a really weird bug in 2016 where offset curve shapes don't work right unless they're components are queried.
-                
-            if _shapeCheck:
-                _dup_curve = duplicate_shape(c)[0]
-                log.debug("|{0}|  >> shape duplicate".format(_str_func))                                  
-                if snapFirst:
-                    SNAP.go(_dup_curve,obj)
-            else:
-                log.debug("|{0}|  >> regular duplicate".format(_str_func))                  
-                _dup_curve =  mc.duplicate(c)[0]
-                for child in TRANS.children_get(_dup_curve,True):
-                    mc.delete(child)
-                if snapFirst:
-                    SNAP.go(_dup_curve,obj)                
-                
-            _l_parents = SEARCH.get_all_parents(obj)
-            ATTR.set_standardFlags(_dup_curve,lock=False,visible=True,keyable=True)
-            _dup_curve = parent_set(_dup_curve, False)
-     
-            
-            copy_pivot(_dup_curve,obj)
-            #piv_pos = mc.xform(obj, q=True, ws=True, rp = True)
-            #mc.xform(_dup_curve,ws=True, rp = piv_pos)  
-            
-            pos = mc.xform(obj, q=True, os=True, rp = True)
-        
-            curveScale =  mc.xform(_dup_curve,q=True, s=True,r=True)
-            objScale =  mc.xform(obj,q=True, s=True,r=True)
-        
-            #account for freezing
-            #mc.makeIdentity(_dup_curve,apply=True,translate =True, rotate = True, scale=False)
-        
-            # make our zero out group
-            #group = rigging.groupMeObject(obj,False)
-            group = create_at(obj,'null')
-        
-            _dup_curve = mc.parent(_dup_curve,group)[0]
-        
-            # zero out the group 
-            mc.xform(group, ws=True, t = pos)
-            #mc.xform(group,roo = 'xyz', p=True)
-            mc.xform(group, ra=[0,0,0], p = False)
-            mc.xform(group,ro=[0,0,0], p =False)
-            
-            mc.makeIdentity(_dup_curve,apply=True,translate =True, rotate = True, scale=False)
-            
-             
-            #main scale fix 
-            baseMultiplier = [0,0,0]
-            baseMultiplier[0] = ( curveScale[0]/objScale[0] )
-            baseMultiplier[1] = ( curveScale[1]/objScale[1] )
-            baseMultiplier[2] = ( curveScale[2]/objScale[2] )
-            mc.setAttr(_dup_curve+'.sx',baseMultiplier[0])
-            mc.setAttr(_dup_curve+'.sy',baseMultiplier[1])
-            mc.setAttr(_dup_curve+'.sz',baseMultiplier[2])
-            
-            #parent scale fix  
-            if _l_parents:
-                _l_parents.reverse()
-                multiplier = [baseMultiplier[0],baseMultiplier[1],baseMultiplier[2]]
-                for p in _l_parents:
-                    scaleBuffer = mc.xform(p,q=True, s=True,r=True)
-                    multiplier[0] = ( (multiplier[0]/scaleBuffer[0]) )
-                    multiplier[1] = ( (multiplier[1]/scaleBuffer[1]) )
-                    multiplier[2] = ( (multiplier[2]/scaleBuffer[2])  )
-                mc.setAttr(_dup_curve+'.sx',multiplier[0])
-                mc.setAttr(_dup_curve+'.sy',multiplier[1])
-                mc.setAttr(_dup_curve+'.sz',multiplier[2])	
-        
-            _dup_curve = parent_set(_dup_curve, False)
-            
-            mc.delete(group)
-            
-            #freeze for parent shaping 
-            mc.makeIdentity(_dup_curve,apply=True,translate =True, rotate = True, scale=True)
-            
-            shape = mc.listRelatives (_dup_curve, f= True,shapes=True, fullPath = True)
-            mc.parent (shape,obj,add=True,shape=True)
-            mc.delete(_dup_curve)
+            _shapeParent_transform_compensate(obj, c, snapFirst=snapFirst)
             if not keepSource:
                 mc.delete(c)
         except Exception as err:
@@ -498,7 +412,150 @@ def shapeParent_in_place_matrix(obj, shapeSource, keepSource = True, replaceShap
     return True
 
 
-#@cgmGEN.Timer
+def _shapeParent_get_source_shapes(source):
+    """
+    Return list of (shapeNode, mayaType) for a transform or shape input.
+    """
+    source = VALID.mNodeString(source)
+    if SEARCH.is_shape(source):
+        return [(source, VALID.get_mayaType(source))]
+    l_shapes = TRANS.shapes_get(source, True) or []
+    if not l_shapes:
+        raise ValueError("No shapes found on source: {0}".format(source))
+    return [(s, VALID.get_mayaType(s)) for s in l_shapes]
+
+
+def _shapeParent_scale_ratio(numerator, denominator):
+    if abs(denominator) < 1e-8:
+        return numerator
+    return numerator / denominator
+
+
+def _shapeParent_duplicate_source(source, obj, snapFirst=False):
+    """Duplicate a shape or transform source, optionally snapping to obj."""
+    source = VALID.mNodeString(source)
+    if SEARCH.is_shape(source):
+        _dup = duplicate_shape(source)[0]
+        if snapFirst:
+            SNAP.go(_dup, obj)
+    else:
+        _dup = mc.duplicate(source, po=False, rc=True)[0]
+        for child in TRANS.children_get(_dup, True):
+            mc.delete(child)
+        if snapFirst:
+            SNAP.go(_dup, obj)
+    return _dup
+
+
+def _shapeParent_transform_compensate(obj, source, snapFirst=False):
+    """
+    Shape-parent in place via transform compensation (no geometry deformation).
+    Generalized from the original BAK curve path — works for curves, meshes, surfaces.
+    """
+    _str_func = '_shapeParent_transform_compensate'
+    c = VALID.mNodeString(source)
+    obj = VALID.mNodeString(obj)
+
+    if not SEARCH.is_shape(c) and not mc.listRelatives(c, f=True, shapes=True, fullPath=True):
+        raise ValueError("Has no shapes")
+    if coreNames.get_long(obj) == coreNames.get_long(c):
+        raise ValueError("Cannot parentShape self")
+
+    for shape, stype in _shapeParent_get_source_shapes(c):
+        if stype == 'nurbsCurve':
+            mc.ls(['%s.ep[*]' % shape], flatten=True)
+
+    if SEARCH.is_shape(c):
+        _dup_curve = duplicate_shape(c)[0]
+        if snapFirst:
+            SNAP.go(_dup_curve, obj)
+    else:
+        _dup_curve = mc.duplicate(c)[0]
+        for child in TRANS.children_get(_dup_curve, True):
+            mc.delete(child)
+        if snapFirst:
+            SNAP.go(_dup_curve, obj)
+
+    _l_parents = SEARCH.get_all_parents(obj)
+    ATTR.set_standardFlags(_dup_curve, lock=False, visible=True, keyable=True)
+    _dup_curve = parent_set(_dup_curve, False)
+
+    copy_pivot(_dup_curve, obj)
+    pos = mc.xform(obj, q=True, os=True, rp=True)
+    curveScale = mc.xform(_dup_curve, q=True, s=True, r=True)
+    objScale = mc.xform(obj, q=True, s=True, r=True)
+
+    group = create_at(obj, 'null')
+    _dup_curve = mc.parent(_dup_curve, group)[0]
+    mc.xform(group, ws=True, t=pos)
+    mc.xform(group, ra=[0, 0, 0], p=False)
+    mc.xform(group, ro=[0, 0, 0], p=False)
+    mc.makeIdentity(_dup_curve, apply=True, translate=True, rotate=True, scale=False)
+
+    baseMultiplier = [
+        _shapeParent_scale_ratio(curveScale[0], objScale[0]),
+        _shapeParent_scale_ratio(curveScale[1], objScale[1]),
+        _shapeParent_scale_ratio(curveScale[2], objScale[2]),
+    ]
+    mc.setAttr(_dup_curve + '.sx', baseMultiplier[0])
+    mc.setAttr(_dup_curve + '.sy', baseMultiplier[1])
+    mc.setAttr(_dup_curve + '.sz', baseMultiplier[2])
+
+    if _l_parents:
+        _l_parents.reverse()
+        multiplier = list(baseMultiplier)
+        for p in _l_parents:
+            scaleBuffer = mc.xform(p, q=True, s=True, r=True)
+            multiplier[0] = _shapeParent_scale_ratio(multiplier[0], scaleBuffer[0])
+            multiplier[1] = _shapeParent_scale_ratio(multiplier[1], scaleBuffer[1])
+            multiplier[2] = _shapeParent_scale_ratio(multiplier[2], scaleBuffer[2])
+        mc.setAttr(_dup_curve + '.sx', multiplier[0])
+        mc.setAttr(_dup_curve + '.sy', multiplier[1])
+        mc.setAttr(_dup_curve + '.sz', multiplier[2])
+
+    _dup_curve = parent_set(_dup_curve, False)
+    mc.delete(group)
+    mc.makeIdentity(_dup_curve, apply=True, translate=True, rotate=True, scale=True)
+
+    l_shapes = mc.listRelatives(_dup_curve, f=True, shapes=True, fullPath=True)
+    mc.parent(l_shapes, obj, add=True, shape=True)
+    mc.delete(_dup_curve)
+    log.debug("|{0}| >> compensate complete | {1} -> {2}".format(_str_func, c, obj))
+    return True
+
+
+def _shapeParent_world_bake(obj, source, snapFirst=False):
+    """
+    Fallback shape-parent: capture world CVs/normals, parent shape, restore world data.
+    """
+    _str_func = '_shapeParent_world_bake'
+    c = VALID.mNodeString(source)
+    obj = VALID.mNodeString(obj)
+
+    if coreNames.get_long(obj) == coreNames.get_long(c):
+        raise ValueError("Cannot parentShape self")
+
+    _dup = _shapeParent_duplicate_source(c, obj, snapFirst)
+    l_shapes = mc.listRelatives(_dup, f=True, shapes=True, fullPath=True) or []
+    if not l_shapes:
+        mc.delete(_dup)
+        raise ValueError("No shapes on duplicate")
+
+    l_worldData = [GEO.capture_shape_world_data(s) for s in l_shapes]
+    l_newShapes = []
+    for s in list(l_shapes):
+        l_newShapes.extend(mc.parent(s, obj, add=True, shape=True))
+
+    for newShape, data in zip(l_newShapes, l_worldData):
+        GEO.apply_shape_world_data(newShape, data)
+
+    if mc.objExists(_dup):
+        mc.delete(_dup)
+
+    log.debug("|{0}| >> world bake complete | {1} -> {2}".format(_str_func, c, obj))
+    return True
+
+
 def shapeParent_in_place(obj, shapeSource, keepSource = True, replaceShapes = False, snapFirst = False):
     """
     Shape parent a curve in place to a obj transform
@@ -527,68 +584,14 @@ def shapeParent_in_place(obj, shapeSource, keepSource = True, replaceShapes = Fa
             mc.delete(_l_objShapes)
     
     mc.select (cl=True)
-    #mc.refresh()    
     for i,c in enumerate(l_source):
         try:
-            l_nodes = []
-            _shapeCheck = SEARCH.is_shape(c)
-            #if not _shapeCheck and not mc.listRelatives(c, f= True,shapes=True, fullPath = True):
-            #    raise ValueError,"Has no shapes"
-            #if coreNames.get_long(obj) == coreNames.get_long(c):
-                #raise ValueError,"Cannot parentShape self"
-            #l_startShapes = mc.listRelatives (obj, f= True,shapes=True, fullPath = True)
- 
-            if _shapeCheck:
-                _dup_curve = duplicate_shape(c)[0]
-                _dupBase = duplicate_shape(c)[0]
-                
-                log.debug("|{0}|  >> shape duplicate".format(_str_func))                                  
-                if snapFirst:
-                    SNAP.go(_dup_curve,obj)
-                                        
-            else:
-                log.debug("|{0}|  >> regular duplicate".format(_str_func))                  
-                _dup_curve =  mc.duplicate(c,po=False,rc=True)[0]
-                for child in TRANS.children_get(_dup_curve,True):
-                    log.debug("|{0}|  >> Removing child: {1}".format(_str_func,child))
-                    mc.delete(child)
-                if snapFirst:
-                    SNAP.go(_dup_curve,obj)
-                    
-                _dupBase = mc.duplicate(_dup_curve,po=False)
-            
-                #matrix_a = mc.xform( obj,q=True,m=True, ws=True )
-                #mc.xform(_dup_curve, m=matrix_a,ws=True,p=True)
-                #mc.makeIdentity(_dup_curve,apply=True,translate =True, rotate = True, scale=True)
-            l_dupShapes = mc.listRelatives (_dup_curve, f= True,shapes=True, fullPath = True)
-            l_baseShapes = mc.listRelatives (_dupBase, f= True,shapes=True, fullPath = True)
-                
-            for ii,s in enumerate(l_dupShapes):
-                log.debug("|{0}|  >> blendshaping [{1}] | {2} | {3}".format(_str_func,i,ii,s))                                  
-                newShape = mc.parent (s,obj,add=True,shape=True)
-                try:node= mc.blendShape(l_baseShapes[ii],newShape[0], origin ='world')
-                except:
-                    node = None
-                    log.error("|{0}|  >> FAILED to blendshape [{1}] | {2} | {3}".format(_str_func,i,ii,l_baseShapes[ii]))
-                    shapeParent_in_placeBAK(obj,l_baseShapes[ii],False,False)
-                if node:
-                    mc.blendShape(node, edit=True, w=[(0,1.0)])
-                    l_nodes.extend(node)
-                    mc.delete(newShape,ch=True)                    
+            try:
+                _shapeParent_transform_compensate(obj, c, snapFirst=snapFirst)
+            except Exception as errComp:
+                log.warning("|{0}| >> compensate failed ({1}); trying world bake".format(_str_func, errComp))
+                _shapeParent_world_bake(obj, c, snapFirst=snapFirst)
 
-                #mc.delete(l_baseShapes[i])
-                #mc.delete(node)
-
-            mc.delete(_dup_curve,_dupBase)
-            #mc.delete(l_nodes)
-            #mc.delete(obj,ch=True)#...can't do this. Breaks other bits
-            """
-            for n in l_nodes:
-                for plug in ATTR.get_driven(n,'outputGeometry') or []:
-                    log.debug("|{0}|  >> Removing plug: {1}".format(_str_func,child))
-                    ATTR.break_connection(plug)
-                mc.delete(n)"""
-            
             if not keepSource:
                 mc.delete(c)
         except Exception as err:
