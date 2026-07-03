@@ -4158,11 +4158,10 @@ def rig_skeleton(self):
             if not ml_jointHelpers:
                 raise ValueError("No jointHelpers connected")            
             
-            mLever.p_position = ml_jointHelpers[0].p_position
+            # mLever.p_position = ml_jointHelpers[0].p_position
+            ml_prerigHandles = mBlock.msgList_get('prerigHandles',asMeta = True)
+            mLever.doSnapTo(ml_prerigHandles[0].mNode)
             
-            SNAP.aim(mLever.mNode, ml_fkJoints[0].mNode, 'z+','y+','vector',
-                     self.mVec_up)
-            #reload(JOINT)
             JOINT.freezeOrientation(mLever.mNode)
             mRigNull.connectChildNode(mLever,'leverFK','rigNull')
         
