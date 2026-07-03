@@ -179,6 +179,19 @@ __toolname__ ='mrsScene'
 _subLineBGC = [.75,.75,.75]
 _l_directoryMask = ['meta','.mayaSwatches','incrementalSave','cgmDat','mayaSwatches']
 
+
+def reloadSceneStuff():
+    """Reload export pipeline modules without cgm.core._reload()."""
+    import cgm.core.tools.bakeAndPrep as bakeAndPrep
+    import cgm.core.mrs.Shots as SHOTS
+
+    log.info("reloading Scene Stuff...")
+    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, SCENEUTILS]:
+        print(m)
+        cgmGEN._reloadMod(m)
+    log.info(cgmGEN._str_subLine)
+
+
 class ui(cgmUI.cgmGUI):
     '''
 Scene UI class.
@@ -2417,6 +2430,9 @@ example:
                             c='import webbrowser;webbrowser.open("https://http://docs.cgmonks.com/mrs.html");',                        
                             rp = 'N')    
         mUI.MelMenuItemDiv(self.uiMenu_HelpMenu, l="Dev")
+
+        mUI.MelMenuItem(self.uiMenu_HelpMenu, l="Reload SceneStuff",
+                        c=lambda *a: reloadSceneStuff())
 
         mUI.MelMenuItem( self.uiMenu_HelpMenu, l="Refresh",
                          c=lambda *a:self.uiProject_refreshDisplay())
@@ -6681,6 +6697,36 @@ def ExportScene(mode = -1,
         cgmGEN.fbx_export_preamble(clear_takes=False)
         cgmGEN.fbx_export_selection(exportPathAbs)
 
+    def _export_single_anim_fbx(exportFile, exportObj, animList, cameras):
+        """Write one anim FBX at *exportFile*; FBX takes from shotList when present."""
+        exportDir = os.path.split(exportFile)[0]
+        mel.eval('FBXExportSplitAnimationIntoTakes -c')
+
+        if exportObj not in cameras and animList and animList.shotList:
+            for shot in animList.shotList:
+                log.info(log_msg(_str_func, "shot..."))
+                log.info(shot)
+                mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(
+                    shot[0], shot[1][0], shot[1][1]))
+
+        if not os.path.exists(exportDir):
+            log.info("making export dir... {0}".format(exportDir))
+            os.makedirs(exportDir)
+
+        log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
+        try:
+            cgmGEN.fbx_export_selection(exportFile)
+        except Exception as err:
+            return _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed',
+                                              exportObj=exportObj)
+        if animList and animList.shotList and exportObj not in cameras:
+            for shot in animList.shotList:
+                _record_export_result(shot[0], exportFile,
+                                      (shot[1][0], shot[1][1]), exportObj=exportObj)
+        else:
+            _record_export_result(os.path.basename(exportFile), exportFile, exportObj=exportObj)
+        return None
+
     # Rig + multiple export roots: prepare each root, then one FBX containing all hierarchies.
     # (Iterating per root would overwrite the same rig filename and run destructive cleanup between passes.)
     if exportAsRig and len(exportObjs) > 1:
@@ -6940,8 +6986,6 @@ def ExportScene(mode = -1,
                 # Cutscene or single-root anim: per-shot FBXs sit in exportDir only (no extra stem folder).
                 # Multi-root non-cutscene: nest under export stem so shot names cannot collide across assets.
                 if (exportShotsToIndividualFiles or exportAsCutscene) and not exportAsRig:
-                    cgmGEN.fbx_export_preamble(clear_takes=True)
-
                     exportDir = os.path.split(exportFile)[0]
 
                     baseName = os.path.splitext(os.path.basename(exportFile))[0]
@@ -6954,31 +6998,39 @@ def ExportScene(mode = -1,
                         os.makedirs(baseDir)
 
                     if obj not in cameras:
-                        for shot in animList.shotList:
-                            shotName = shot[0]
-                            s, e = shot[1][0], shot[1][1]
-                            log.info(log_msg(_str_func, "shot..."))
-                            log.info((shotName, (s, e)))
-
-                            safe = CORESTRING.stripInvalidChars(shotName)
-                            if exportAsCutscene:
-                                # e.g. AN_CrateHarness_flow_1_resetPadCrane_Crane.fbx (shot_takeNamespace)
-                                _fbxStem = CORESTRING.stripInvalidChars('{0}_{1}'.format(safe, assetName))
-                                outFile = os.path.join(baseDir, "{}.fbx".format(_fbxStem)).replace('\\', '/')
-                            else:
-                                outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
-
-                            # Set time range for this shot and export
+                        if animList.shotList:
                             cgmGEN.fbx_export_preamble(clear_takes=True)
-                            cgmGEN.fbx_export_shot_time_range(s, e)
+                            for shot in animList.shotList:
+                                shotName = shot[0]
+                                s, e = shot[1][0], shot[1][1]
+                                log.info(log_msg(_str_func, "shot..."))
+                                log.info((shotName, (s, e)))
 
-                            log.info('Export Command: FBXExport -f \"{}\" -s'.format(outFile))
-                            try:
-                                cgmGEN.fbx_export_selection(outFile)
-                            except Exception as err:
-                                return _finalize_fbx_export_error(err, outFile, failure_label='Shot FBX export failed',
+                                safe = CORESTRING.stripInvalidChars(shotName)
+                                if exportAsCutscene:
+                                    # e.g. AN_CrateHarness_flow_1_resetPadCrane_Crane.fbx (shot_takeNamespace)
+                                    _fbxStem = CORESTRING.stripInvalidChars('{0}_{1}'.format(safe, assetName))
+                                    outFile = os.path.join(baseDir, "{}.fbx".format(_fbxStem)).replace('\\', '/')
+                                else:
+                                    outFile = os.path.join(baseDir, "{}.fbx".format(safe)).replace('\\', '/')
+
+                                # Set time range for this shot and export
+                                cgmGEN.fbx_export_preamble(clear_takes=True)
+                                cgmGEN.fbx_export_shot_time_range(s, e)
+
+                                log.info('Export Command: FBXExport -f \"{}\" -s'.format(outFile))
+                                try:
+                                    cgmGEN.fbx_export_selection(outFile)
+                                except Exception as err:
+                                    return _finalize_fbx_export_error(err, outFile, failure_label='Shot FBX export failed',
                                                                   exportObj=obj, shotName=shotName)
-                            _record_export_result(shotName, outFile, (s, e), exportObj=obj)
+                                _record_export_result(shotName, outFile, (s, e), exportObj=obj)
+                        else:
+                            log.warning("{0} | No shot list; falling back to single FBX | {1}".format(
+                                _str_func, exportFile))
+                            _fbxErr = _export_single_anim_fbx(exportFile, obj, animList, cameras)
+                            if _fbxErr is not None:
+                                return _fbxErr
 
                 else:
                     exportDir = os.path.split(exportFile)[0]
@@ -6991,30 +7043,9 @@ def ExportScene(mode = -1,
                                                               exportObj=obj)
                         _record_export_result(os.path.basename(exportFile), exportFile, exportObj=obj)
                     else:
-                        mel.eval('FBXExportSplitAnimationIntoTakes -c')
-
-                        if obj not in cameras:#...cameras we don't want in takes
-                            for shot in animList.shotList:
-                                log.info( log_msg(_str_func, "shot..."))
-                                log.info(shot)
-                                mel.eval('FBXExportSplitAnimationIntoTakes -v \"{}\" {} {}'.format(shot[0], shot[1][0], shot[1][1]))
-
-                        if not os.path.exists(exportDir):
-                            log.info("making export dir... {0}".format(exportDir))
-                            os.makedirs(exportDir)
-
-                        log.info('Export Command: FBXExport -f \"{}\" -s'.format(exportFile))
-                        try:
-                            cgmGEN.fbx_export_selection(exportFile)
-                        except Exception as err:
-                            return _finalize_fbx_export_error(err, exportFile, failure_label='FBX export failed',
-                                                              exportObj=obj)
-                        if animList and animList.shotList and obj not in cameras:
-                            for shot in animList.shotList:
-                                _record_export_result(shot[0], exportFile,
-                                                      (shot[1][0], shot[1][1]), exportObj=obj)
-                        else:
-                            _record_export_result(os.path.basename(exportFile), exportFile, exportObj=obj)
+                        _fbxErr = _export_single_anim_fbx(exportFile, obj, animList, cameras)
+                        if _fbxErr is not None:
+                            return _fbxErr
 
                 if len(exportObjs) > 1 and removeNamespace:
                     # Deleting the exported transforms in case another file has duplicate export names
@@ -7024,6 +7055,11 @@ def ExportScene(mode = -1,
                     except Exception:
                         _ctx = dict(_ctx_base, stage='post_cleanup', exportObj=obj, exportFile=exportFile)
                         log.exception("{0} | Failed export cleanup delete | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+
+    if exportFBXFile and not _export_results:
+        _ctx = dict(_ctx_base, stage='fbx_export', exportObjs=exportObjs)
+        log.error("{0} | No FBX files written | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
+        return _finalize_failure('fbx_export', 'No FBX files written', _ctx)
 
     return _finish_export_scene_success()
 
