@@ -9,7 +9,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 __MAYALOCAL = "cgmGEN"
-__RELEASE = "26.06.01.01"
+__RELEASE = "26.07.07.01"
 __BRANCH = "UnrealWorkflow"
 
 import maya.cmds as mc
