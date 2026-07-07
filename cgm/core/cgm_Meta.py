@@ -1289,7 +1289,7 @@ class cgmNode(r9Meta.MetaClass):
             if forceBBCenter:
                 objTrans = POS.get(self.mNode,'bb')
             else:
-                objTrans = mc.xform(self.mNode, q=True, ws=True, sp=True)
+                objTrans = mc.xform(self.mNode, q=True, ws=True, rp=True)
                 
             objRot = mc.xform(self.mNode, q=True, ws=True, ro=True)
             objRotAxis = mc.xform(self.mNode, q=True, os=True, ra=True)
