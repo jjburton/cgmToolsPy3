@@ -651,18 +651,32 @@ def buildFrames(self,parent, changeCommand = ''):
         _d = self.d_tf[k]
         self.d_uiTypes[k] = {}
         
+        _lastSection = None
+        _useSections = any(d.get('section') for d in l)
+        
         for d in l:
             log.debug(cgmGEN.logString_msg(_str_func,d))
             
             _type = d.get('t')
             _dv = d.get('dv')
             _name = d.get('n')
+            _section = d.get('section')
+            _label = d.get('label', CORESTRINGS.capFirst(_name))
+            _ann = d.get('ann', '{0} settings | {1}'.format(_name, d))
 
-            mUI.MelSeparator(_inside,ut='cgmUISubTemplate',h=3)
+            if _useSections and _section and _section != _lastSection:
+                if _lastSection is not None:
+                    cgmUI.add_SectionBreak()
+                mUI.MelLabel(_inside, l=_section, ut='cgmUITemplate', align='center')
+                _lastSection = _section
+            elif not _useSections:
+                mUI.MelSeparator(_inside, ut='cgmUISubTemplate', h=3)
+            else:
+                mUI.MelSeparator(_inside, ut='cgmUISubTemplate', h=2)
             
             _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
             mUI.MelSpacer(_row,w=5)                          
-            mUI.MelLabel(_row,l='{0}: '.format(CORESTRINGS.capFirst(_name)))
+            mUI.MelLabel(_row,l='{0}: '.format(_label))
             
             if cgmValid.isListArg(_type):
                 
@@ -676,21 +690,21 @@ def buildFrames(self,parent, changeCommand = ''):
                 self.d_uiTypes[k][_name] = 'optionMenu'
             elif _type == 'bool':
                 _d[_name] =  mUI.MelCheckBox(_row,
-                                             ann='{0} settings | {1}'.format(_name,d),
+                                             ann=_ann,
                                              cc = changeCommand,
                                               )
                 _d[_name].setValue(_dv)
                 self.d_uiTypes[k][_name] = 'bool'
             elif _type == 'float':
                 _d[_name] =  mUI.MelFloatField(_row,
-                                             ann='{0} settings | {1}'.format(_name,d),
+                                             ann=_ann,
                                              cc = changeCommand,
                                               )
                 _d[_name].setValue(_dv)
                 self.d_uiTypes[k][_name] = 'float'
             elif _type == 'int':
                 _d[_name] =  mUI.MelIntField(_row,
-                                             ann='{0} settings | {1}'.format(_name,d),
+                                             ann=_ann,
                                              cc = changeCommand,
                                               )
                 _d[_name].setValue(_dv)
@@ -714,7 +728,7 @@ def buildFrames(self,parent, changeCommand = ''):
                     self.d_uiTypes[k][_name] = 'stringList'
                     
                 _d[_name] =  mUI.MelTextField(_row,
-                                            ann='{0} settings | {1}'.format(_name,d),
+                                            ann=_ann,
                                             text = _dv)
                 
             _row.setStretchWidget(_d[_name])

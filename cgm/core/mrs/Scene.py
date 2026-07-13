@@ -231,6 +231,7 @@ example:
         self.l_subTypesBase = []
         self._subTypePathWarningsShown = set()
         self.b_subFile = False
+        self.b_varFile = False
         self.var_lastProject       = cgmMeta.cgmOptionVar("cgmVar_projectCurrent", varType = "string")
         self.var_lastAsset     = cgmMeta.cgmOptionVar("cgmVar_sceneUI_last_asset", varType = "string")
         self.var_lastSubtype      = cgmMeta.cgmOptionVar("cgmVar_sceneUI_last_subtype", varType = "string")        
@@ -245,6 +246,7 @@ example:
         self.var_subTypeStore                = cgmMeta.cgmOptionVar("cgmVar_sceneUI_subType", defaultValue = 0)
         self.var_alwaysSendReferenceFiles    = cgmMeta.cgmOptionVar("cgmVar_sceneUI_alwaysSendReferences", varType= 'int', defaultValue = 0)
         self.var_showDirectories        = cgmMeta.cgmOptionVar("cgmVar_sceneUI_show_directories", defaultValue = 0)
+        self.var_showPathWarnings       = cgmMeta.cgmOptionVar("cgmVar_sceneUI_show_path_warnings", defaultValue = 0)
         self.var_displayDetails         = cgmMeta.cgmOptionVar("cgmVar_sceneUI_display_details", defaultValue = 1)
         self.var_displayProject         = cgmMeta.cgmOptionVar("cgmVar_sceneUI_display_project", defaultValue = 1)
 
@@ -301,8 +303,10 @@ example:
         #self.cb_zeroRoot              = None
         self.cb_useMayaPy             = None
         self.cb_showDirectories       = None
+        self.cb_showPathWarnings      = None
 
         self.showDirectories             = self.var_showDirectories.getValue()
+        self.showPathWarnings            = bool(self.var_showPathWarnings.getValue())
         self.displayDetails              = self.var_displayDetails.getValue()
 
         self.showAllFiles                = self.var_showAllFiles.getValue()
@@ -548,7 +552,10 @@ example:
         _set =  self.path_set
         log.debug(_set)
         if _set and os.path.isfile(_set):
-            return _set        
+            return _set
+        _var = self.path_variationDirectory
+        if _var and os.path.isfile(_var):
+            return _var
         """
         _version = self.selectedVersion
         log.info(_version)
@@ -757,11 +764,185 @@ example:
         except:
             return True
 
+    def _dir_children_dirs(self, path):
+        """Immediate child directory names under *path*, filtered by dirMask."""
+        if not path or not os.path.isdir(path):
+            return []
+        _dirs = []
+        for d in CGMOS.get_lsFromPath(path, 'dir') or []:
+            if not d or d[0] in ('_', '.'):
+                continue
+            if d.lower() in self.l_dirMask:
+                continue
+            _dirs.append(d)
+        return _dirs
+
+    def _dir_maya_files(self, path):
+        """Immediate .ma/.mb files under *path* (loose scan for mixed-level UI)."""
+        if not path or not os.path.isdir(path):
+            return []
+        fileExtensions = ['mb', 'ma']
+        _files = []
+        for f in CGMOS.get_lsFromPath(path) or []:
+            if not f or f[0] in ('_', '.'):
+                continue
+            if os.path.isdir(os.path.join(path, f)):
+                continue
+            if self.showAllFiles:
+                if f in ['meta']:
+                    continue
+                if 'MRSbatch' in f:
+                    continue
+                _files.append(f)
+            elif os.path.splitext(f)[-1].lower()[1:] in fileExtensions:
+                _files.append(f)
+        return _files
+
+    def _dir_is_mixed(self, path):
+        return bool(self._dir_children_dirs(path)) and bool(self._dir_maya_files(path))
+
+    def _subtype_level_has_content(self):
+        _path = self.path_subType
+        if not _path or not os.path.isdir(_path):
+            return False
+        return bool(self._dir_children_dirs(_path) or self._dir_maya_files(_path))
+
+    def _level_show_dir_actions(self, path):
+        if path and os.path.isdir(path) and self._dir_children_dirs(path):
+            return True
+        return bool(self.subTypes)
+
+    def _level_show_file_actions(self, path, selected_is_file=False):
+        if selected_is_file:
+            return True
+        if not path or not os.path.isdir(path):
+            return False
+        return bool(self._dir_maya_files(path))
+
+    def _version_column_should_show(self):
+        if self.b_subFile or self.b_varFile:
+            return False
+        if not self.subTypes:
+            return True
+        if not self.subTypeSearchList['scrollList'].getSelectedItem():
+            return False
+        _parent = self._version_files_parent_directory()
+        if _parent and os.path.isdir(_parent):
+            return bool(self._dir_children_dirs(_parent) or self._dir_maya_files(_parent))
+        _fallback = self.path_subType
+        if _fallback and os.path.isdir(_fallback):
+            return bool(self._dir_children_dirs(_fallback) or self._dir_maya_files(_fallback))
+        return False
+
+    def _append_set_dir_buttons(self, row):
+        if self.hasSub:
+            mUI.MelIconButton(row,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="New {0}".format(self._subtypeDisplayLabel()),
+                              image=os.path.join(_path_imageFolder, 'new_set.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.CreateSubAsset())
+            if self.hasVariant == False:
+                mUI.MelIconButton(row,
+                                  ut='cgmUITemplate',
+                                  style='iconOnly',
+                                  l='',
+                                  ann="Add Variation",
+                                  image=os.path.join(_path_imageFolder, 'new_variation.png'),
+                                  w=25, h=25,
+                                  bgc=cgmUI.guiButtonColor,
+                                  c=lambda *a: self.CreateVariation())
+        else:
+            mUI.MelIconButton(row,
+                              ut='cgmUITemplate',
+                              style='iconOnly',
+                              l='',
+                              ann="Add Set",
+                              image=os.path.join(_path_imageFolder, 'new_dir.png'),
+                              w=25, h=25,
+                              bgc=cgmUI.guiButtonColor,
+                              c=lambda *a: self.CreateSubAsset())
+
+    def _append_set_file_buttons(self, row):
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save Maya file",
+                          image=os.path.join(_path_imageFolder, 'new_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.uiPath_mayaSaveTo_sets())
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Export selected objects using Maya's Export Selection",
+                          image=os.path.join(_path_imageFolder, 'export_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.ExportSelection_sets())
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save new version",
+                          image=os.path.join(_path_imageFolder, 'new_version.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.SaveVersion())
+
+    def _append_variation_dir_buttons(self, row):
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="New Variation",
+                          image=os.path.join(_path_imageFolder, 'new_variation.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.CreateVariation())
+
+    def _append_variation_file_buttons(self, row):
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save Maya file",
+                          image=os.path.join(_path_imageFolder, 'new_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.uiPath_mayaSaveTo_variant())
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Export selected objects using Maya's Export Selection",
+                          image=os.path.join(_path_imageFolder, 'export_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.ExportSelection(mode='variant'))
+        mUI.MelIconButton(row,
+                          ut='cgmUITemplate',
+                          style='iconOnly',
+                          l='',
+                          ann="Save new version",
+                          image=os.path.join(_path_imageFolder, 'new_version.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.SaveVersion())
+
     def _warn_subType_path_resolution(self, subType, msg, title='Subtype Directory Warning', assetPath=None):
         key = "{0}|{1}".format(subType, msg)
         if key in self._subTypePathWarningsShown:
             return
         self._subTypePathWarningsShown.add(key)
+        if not self.showPathWarnings:
+            log.debug(msg)
+            return
         log.warning(msg)
         try:
             _buttons = ['OK']
@@ -973,11 +1154,14 @@ example:
         #self.zeroRoot        = bool(self.var_zeroRoot.getValue())
         self.useMayaPy       = bool(self.var_useMayaPy.getValue())
         self.showDirectories = bool(self.var_showDirectories.getValue())
+        self.showPathWarnings = bool(self.var_showPathWarnings.getValue())
         self.displayDetails  = bool(self.var_displayDetails.getValue())
         self.displayProject  = bool(self.var_displayProject.getValue())
 
         if self.cb_showAllFiles:
             self.cb_showAllFiles(e=True, checkBox = self.showAllFiles)
+        if self.cb_showPathWarnings:
+            self.cb_showPathWarnings(e=True, checkBox=self.showPathWarnings)
         #if self.cb_removeNamespace:
         #    self.cb_removeNamespace(e=True, checkBox = self.removeNamespace)
         #if self.cb_zeroRoot:
@@ -1001,12 +1185,14 @@ example:
 
         self.useMayaPy = self.cb_useMayaPy( q=True, checkBox=True ) if self.cb_useMayaPy else False
         self.showDirectories = self.cb_showDirectories( q=True, checkBox=True ) if self.cb_showDirectories else False
+        self.showPathWarnings = self.cb_showPathWarnings(q=True, checkBox=True) if self.cb_showPathWarnings else False
 
         self.var_showAllFiles.setValue(self.showAllFiles)
         #self.var_removeNamespace.setValue(self.removeNamespace)
         #self.var_zeroRoot.setValue(self.zeroRoot)
         self.var_useMayaPy.setValue(self.useMayaPy)
         self.var_showDirectories.setValue(self.showDirectories)
+        self.var_showPathWarnings.setValue(self.showPathWarnings)
         self.var_displayDetails.setValue(self.displayDetails)
         self.var_displayProject.setValue(self.displayProject)
 
@@ -1609,15 +1795,9 @@ example:
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'variation' ))  
         #---------------------------------------------------------------------------------------
 
-        self.variationButton = mUI.MelIconButton(_variationForm,
-                                                 ut='cgmUITemplate',
-                                                 style='iconOnly',
-                                                 l='',
-                                                 ann="New Variation",
-                                                 image=os.path.join(_path_imageFolder, 'new_variation.png'),
-                                                 w=25, h=25,
-                                                 bgc=cgmUI.guiButtonColor,
-                                                 c=lambda *a: self.CreateVariation())
+        mRow_variationButtons = mUI.MelHLayout(_variationForm, padding=2)
+        self.mRow_variationButtons = mRow_variationButtons
+        mRow_variationButtons.layout()
 
         _variationForm( edit=True, 
                         attachForm=[
@@ -1626,12 +1806,12 @@ example:
                                     (_variationBtn, 'right', 0), 
                                             (self.variationList['formLayout'], 'left', 0),
                                     (self.variationList['formLayout'], 'right', 0),
-                                        (self.variationButton, 'bottom', 0), 
-                                        (self.variationButton, 'right', 0), 
-                                        (self.variationButton, 'left', 0)], 
+                                        (mRow_variationButtons, 'bottom', 0), 
+                                        (mRow_variationButtons, 'right', 0), 
+                                        (mRow_variationButtons, 'left', 0)], 
                                 attachControl=[
                                     (self.variationList['formLayout'], 'top', 0, _variationBtn),
-                                    (self.variationList['formLayout'], 'bottom', 0, self.variationButton)] )
+                                    (self.variationList['formLayout'], 'bottom', 0, mRow_variationButtons)] )
 
 
         # Version ======================================================================================
@@ -1987,22 +2167,17 @@ example:
                 mc.formLayout( self._subForms[3], e=True, vis=False)
 
             else:
-                log.debug(log_msg(_str_func,"subTypeSearchList selected"))                
-                if self.b_subFile:
-                    log.debug(log_msg(_str_func,"subfile..."))                
-                    mc.formLayout( self._subForms[3], e=True, vis=False)
+                log.debug(log_msg(_str_func,"subTypeSearchList selected"))
+                mc.formLayout( self._subForms[3], e=True, vis=self._version_column_should_show())
+
+                if not self.hasSubTypes:
+                    log.debug(log_msg(_str_func,"no subtypes 2..."))
+
+                    mc.formLayout( self._subForms[3], e=True, vis=self._version_column_should_show())
+
                 else:
-                    log.debug(log_msg(_str_func,"subdir..."))                                
-                    mc.formLayout( self._subForms[3], e=True, vis=True)#self.hasSub )
-
-                    if not self.hasSubTypes:
-                        log.debug(log_msg(_str_func,"no subtypes 2..."))                                
-
-                        mc.formLayout( self._subForms[3], e=True, vis=self.hasSub )
-
-                    else:
-                        log.debug(log_msg(_str_func,"subtypes 2..."))                                
-                        mc.formLayout( self._subForms[1], e=True, vis=True )
+                    log.debug(log_msg(_str_func,"subtypes 2..."))
+                    mc.formLayout( self._subForms[1], e=True, vis=True )
 
 
         attachForm = []
@@ -2609,6 +2784,10 @@ example:
         self.cb_showDirectories =  mUI.MelMenuItem( self.uiMenu_OptionsMenu, l="Show Directories",
                                                     checkBox=self.showDirectories,
                                                                c = lambda *a:mc.evalDeferred(self.SaveOptions,lp=True))
+        self.cb_showPathWarnings = mUI.MelMenuItem(self.uiMenu_OptionsMenu, l="Show path warnings",
+                                                     ann="Popup warnings for subtype directory mismatches and similar path issues (TD tooling)",
+                                                     checkBox=self.showPathWarnings,
+                                                     c=lambda *a: mc.evalDeferred(self.SaveOptions, lp=True))
         self.cb_alwaysSendReferenceFiles =  mUI.MelMenuItem( self.uiMenu_OptionsMenu, l="Always Send References",
                                                              checkBox= int(self.var_alwaysSendReferenceFiles.getValue()),
                                                                c = lambda *a:mc.evalDeferred(self.var_alwaysSendReferenceFiles.toggle,lp=True))        
@@ -2696,72 +2875,39 @@ example:
         _str_func = 'uiUpdate_setsButtons'
         log.debug(log_start(_str_func))
 
-        if self.hasSub:
-            log.debug(log_msg(_str_func,"hasSub"))
-            self.mRow_setButtons.clear()
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
-                              ann="New {0}".format(self._subtypeDisplayLabel()),
-                              image=os.path.join(_path_imageFolder, 'new_set.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.CreateSubAsset())
-            if self.hasVariant == False:
-                mUI.MelIconButton(self.mRow_setButtons,
-                                  ut='cgmUITemplate',
-                                  style='iconOnly',
-                                  l='',
-                                  ann="Add Variation",
-                                  image=os.path.join(_path_imageFolder, 'new_variation.png'),
-                                  w=25, h=25,
-                                  bgc=cgmUI.guiButtonColor,
-                                  c=lambda *a: self.CreateVariation())
-            #self.subTypeButton(edit=True, label="New {0}".format(self.subType.capitalize()), command=self.CreateSubAsset)
-            self.mRow_setButtons.layout()
-        else:
-            log.debug(log_msg(_str_func,"no sub"))            
-            self.mRow_setButtons.clear()
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
-                              ann="Add Set",
-                              image=os.path.join(_path_imageFolder, 'new_dir.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.CreateSubAsset())
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
-                              ann="Save Maya file",
-                              image=os.path.join(_path_imageFolder, 'new_file.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.uiPath_mayaSaveTo_sets())
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
-                              ann="Export selected objects using Maya's Export Selection",
-                              image=os.path.join(_path_imageFolder, 'export_file.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.ExportSelection_sets())
-            mUI.MelIconButton(self.mRow_setButtons,
-                              ut='cgmUITemplate',
-                              style='iconOnly',
-                              l='',
-                              ann="Save new version",
-                              image=os.path.join(_path_imageFolder, 'new_version.png'),
-                              w=25, h=25,
-                              bgc=cgmUI.guiButtonColor,
-                              c=lambda *a: self.SaveVersion())
-            self.mRow_setButtons.layout()
+        browse_dir = self.path_subType
+        show_dir = self._level_show_dir_actions(browse_dir)
+        show_file = self._level_show_file_actions(browse_dir, selected_is_file=self.b_subFile)
 
-        log.debug(log_msg(_str_func,cgmGEN._str_hardBreak))        
+        log.debug(log_msg(_str_func, "show_dir: {} | show_file: {}".format(show_dir, show_file)))
+
+        self.mRow_setButtons.clear()
+        if show_dir:
+            self._append_set_dir_buttons(self.mRow_setButtons)
+        if show_file:
+            self._append_set_file_buttons(self.mRow_setButtons)
+        self.mRow_setButtons.layout()
+
+        log.debug(log_msg(_str_func,cgmGEN._str_hardBreak))
+
+    def uiUpdate_variationButtons(self):
+        _str_func = 'uiUpdate_variationButtons'
+        log.debug(log_start(_str_func))
+
+        browse_dir = self.path_set
+        show_dir = bool(browse_dir and os.path.isdir(browse_dir))
+        show_file = self._level_show_file_actions(browse_dir, selected_is_file=self.b_varFile)
+
+        log.debug(log_msg(_str_func, "show_dir: {} | show_file: {}".format(show_dir, show_file)))
+
+        self.mRow_variationButtons.clear()
+        if show_dir:
+            self._append_variation_dir_buttons(self.mRow_variationButtons)
+        if show_file:
+            self._append_variation_file_buttons(self.mRow_variationButtons)
+        self.mRow_variationButtons.layout()
+
+        log.debug(log_msg(_str_func,cgmGEN._str_hardBreak))
 
     def uiFunc_subTypeList_select(self):
         _str_func = 'uiFunc_subTypeList_select'
@@ -2780,6 +2926,7 @@ example:
 
         if _path and os.path.isfile(_path):
             self.b_subFile = True
+            self.b_varFile = False
             self.file_subType = _path
             log.debug(log_msg(_str_func,"File passed"))
             self.variationList['scrollList'].clear()
@@ -2797,14 +2944,12 @@ example:
             self.buildDetailsColumn()
             log.debug( self.versionFile )            
             self.buildAssetForm()
-
-            #mc.formLayout( self._subForms[3], e=True, vis=False )
-            #mc.formLayout( self._subForms[2], e=True, vis=False )
+            self.uiUpdate_setsButtons()
 
             return
         else:
             log.debug(log_msg(_str_func,"dir passed"))            
-            self.b_subFile = False            
+            self.b_subFile = False
             #for mUI in self.ml_fileOptions_set:
             #    mUI(edit=True,en=False)
             for mUI in self.ml_dirOptions_set:
@@ -2814,6 +2959,7 @@ example:
 
         if self.hasVariant:
             log.debug(log_msg(_str_func,"hasVariant"))                        
+            self.b_varFile = False
             self.LoadVariationList()
         else:
             log.debug(log_msg(_str_func,"hasVariant == false"))                                    
@@ -2845,23 +2991,10 @@ example:
 
         if not _path:
             return
-        #if _path:
-        #    _path = os.path.normpath(_path)
-        """
-        try: 
-            _path = os.path.normpath(os.path.join( self.path_dir_category,
-                                                   self.assetList['scrollList'].getSelectedItem(),
-                                                   self.subType, 
-                                                   self.subTypeSearchList['scrollList'].getSelectedItem(),
-                                                   self.variationList['scrollList'].getSelectedItem(),                                                   
-                                                   ))
-        except:
-            _path = None"""
 
-        #if _path:
-        #print _path
         if os.path.isfile(_path):
             log.debug(log_msg(_str_func,"file passed"))
+            self.b_varFile = True
             for mUI in self.ml_fileOptions_set:
                 mUI(edit=True,en=True)
 
@@ -2871,8 +3004,11 @@ example:
                 mUI(edit=True,en=False)
 
             self.versionList['scrollList'].clear()
+            self.assetMetaData = self.getMetaDataFromFile()
+            self.buildDetailsColumn()
         elif os.path.isdir(_path):
-            log.debug(log_msg(_str_func,"dir passed"))            
+            log.debug(log_msg(_str_func,"dir passed"))
+            self.b_varFile = False            
             for mUI in self.ml_fileOptions_variant:
                 mUI(edit=True,en=False)            
             for mUI in self.ml_dirOptions_variant:
@@ -2881,6 +3017,8 @@ example:
             self.LoadVersionList()
             self._refreshMetaDataFromSelection()
 
+        self.buildAssetForm()
+        self.uiUpdate_variationButtons()
         self.SaveCurrentSelection()
 
     def uiFunc_versionList_select(self, selectKey= None):
@@ -3694,11 +3832,11 @@ example:
             mc.menuItem(item, e=True, enable= i != self.subTypeIndex)
 
         if not self.hasSub:
-            mc.formLayout( self._subForms[3], e=True, vis=False )            
-        elif not self.hasNested:
+            mc.formLayout( self._subForms[3], e=True, vis=self._subtype_level_has_content())
+        elif not self._subtype_level_has_content():
             mc.formLayout( self._subForms[3], e=True, vis=False )
         else:
-            mc.formLayout( self._subForms[3], e=True, vis=self.hasSub )
+            mc.formLayout( self._subForms[3], e=True, vis=True )
 
         mc.formLayout( self._subForms[2], e=True, vis=self.hasVariant and self.hasSub )
         self.buildAssetForm()
@@ -3816,6 +3954,10 @@ example:
                     #if os.path.isdir(animDir):
                     variationList.append(d)
 
+                for f in self._dir_maya_files(animationDir):
+                    if f not in variationList:
+                        variationList.append(f)
+
             else:
                 log.error(log_msg(_str_func, "path doesn't exist? {}".format(animationDir)))                                    
 
@@ -3824,7 +3966,9 @@ example:
         self.variationList['scrollList'].setItems(variationList)
 
         if variationList:
-            self.variationList['scrollList'].select_last(selCommand=False)        
+            self.variationList['scrollList'].select_last(selCommand=False)
+
+        self.uiUpdate_variationButtons()
 
         #self.variationList['scrollList'].selectByValue(selectedVariation) # if selectedVariation else variationList[0]
 
@@ -5847,6 +5991,8 @@ example:
                       'simplify':self.d_tf['exportOptions']['simplify'].getValue(),
                       'reducer':self.d_tf['exportOptions']['reducer'].getValue(),
                       'exportShotsToIndividualFiles':self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
+                      'noShotListExportName':self.d_tf['exportOptions']['noShotListExportName'].getValue(),
+                      'parentExportToWorld':self.d_tf['exportOptions']['parentExportToWorld'].getValue(),
                       'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                       }
 
@@ -6043,6 +6189,8 @@ example:
             simplify = self.d_tf['exportOptions']['simplify'].getValue()
             exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue()
             breakTextureLinks = self.d_tf['exportOptions']['breakTextureLinks'].getValue()
+            noShotListExportName = self.d_tf['exportOptions']['noShotListExportName'].getValue()
+            parentExportToWorld = self.d_tf['exportOptions']['parentExportToWorld'].getValue()
 
             pprint.pprint(vars())
             pprint.pprint(self.d_tf['exportOptions'])
@@ -6090,6 +6238,8 @@ example:
                     'reducer':reducer,
                     'exportShotsToIndividualFiles':exportShotsToIndividualFiles,
                     'breakTextureLinks':breakTextureLinks,
+                    'noShotListExportName':noShotListExportName,
+                    'parentExportToWorld':parentExportToWorld,
                     'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                 }
                 pprint.pprint(d)
@@ -6122,6 +6272,8 @@ example:
                                  simplify=simplify,
                                  reducer=reducer,
                                  breakTextureLinks=breakTextureLinks,
+                                 noShotListExportName=noShotListExportName,
+                                 parentExportToWorld=parentExportToWorld,
                                  )
             return bool(result)
         except Exception:
@@ -6193,6 +6345,9 @@ def BatchExport(dataList = []):
             _d['simplify'] = False if fileDat.get('simplify',"False") == "False" else True
             _d['exportShotsToIndividualFiles'] = False if fileDat.get('exportShotsToIndividualFiles',"False") == "False" else True
             _d['breakTextureLinks'] = False if fileDat.get('breakTextureLinks',"True") == "False" else True
+            _d['noShotListExportName'] = fileDat.get('noShotListExportName', 'asset')
+            _parentExportToWorld = fileDat.get('parentExportToWorld', "True")
+            _d['parentExportToWorld'] = False if _parentExportToWorld == "False" else True
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
             _d['logExportSummary'] = False
 
@@ -6268,6 +6423,25 @@ def BatchExport(dataList = []):
 #   - export into the base asset directory with
 #   - just the asset name
 
+def _resolve_no_shot_export_name(exportName, noShotListExportName, animList):
+    """When shot list is empty, optionally use scene file stem instead of browser exportName."""
+    if animList and animList.shotList:
+        return exportName
+    if noShotListExportName != 'sceneFile':
+        return exportName
+    _scene = mc.file(q=True, sn=True) or mc.file(q=True, loc=True) or ''
+    if not _scene:
+        log.warning("_resolve_no_shot_export_name | noShotListExportName=sceneFile but no scene path; using exportName")
+        return exportName
+    _stem = os.path.splitext(os.path.basename(_scene))[0]
+    if _stem.endswith('_baked'):
+        _stem = _stem[:-len('_baked')]
+    _safe = CORESTRING.stripInvalidChars(_stem)
+    if not _safe:
+        log.warning("_resolve_no_shot_export_name | empty stem after sanitize; using exportName")
+        return exportName
+    return '{0}.fbx'.format(_safe)
+
 def ExportScene(mode = -1,
                 exportObjs = None,
                 exportName = None,
@@ -6295,6 +6469,8 @@ def ExportScene(mode = -1,
                 simplify = True,
                 breakTextureLinks = True,
                 logExportSummary = True,
+                noShotListExportName = 'asset',
+                parentExportToWorld = True,
                 ):
 
     _str_func = 'ExportScene'
@@ -6633,6 +6809,7 @@ def ExportScene(mode = -1,
         exportSetName = cgmMeta.cgmOptionVar('cgm_export_set', varType="string",defaultValue = 'export_tdSet').getValue()  
 
     animList = SHOTS.AnimList()
+    _effectiveExportName = _resolve_no_shot_export_name(exportName, noShotListExportName, animList)
     #find our minMax
     l_min = []
     l_max = []
@@ -6747,7 +6924,8 @@ def ExportScene(mode = -1,
                                                   deleteSetName=deleteSetName,
                                                   exportSetName=exportSetName,
                                                   zeroRoot=zeroRoot,
-                                                  breakTextures=breakTextureLinks)
+                                                  breakTextures=breakTextureLinks,
+                                                  parentExportToWorld=parentExportToWorld)
                 except Exception:
                     _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
                     log.exception("{0} | Prep stage failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
@@ -6766,6 +6944,7 @@ def ExportScene(mode = -1,
                         exportSetName=exportSetName,
                         removeNamespace=removeNamespace,
                         zeroRoot=zeroRoot,
+                        parentExportToWorld=parentExportToWorld,
                         _str_func='{0}|nonref_prep'.format(_str_func))
                 except Exception:
                     _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
@@ -6853,7 +7032,7 @@ def ExportScene(mode = -1,
         if exportStatic:
             exportFile = os.path.normpath(os.path.join(exportAssetPath, "{}.fbx".format(cgmObj.p_nameBase)) )
         else:
-            exportFile = os.path.normpath(os.path.join(exportAnimPath, exportName) )
+            exportFile = os.path.normpath(os.path.join(exportAnimPath, _effectiveExportName) )
 
         if( addNamespaceSuffix ):
             exportFile = exportFile.replace(".fbx", "_%s.fbx" % assetName )
@@ -6924,7 +7103,8 @@ def ExportScene(mode = -1,
                                                   deleteSetName=deleteSetName,
                                                   exportSetName=exportSetName,
                                                   zeroRoot=zeroRoot,
-                                                  breakTextures=breakTextureLinks)
+                                                  breakTextures=breakTextureLinks,
+                                                  parentExportToWorld=parentExportToWorld)
                 except Exception:
                     _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)
                     log.exception("{0} | Prep stage failed | {1}".format(_str_func, _export_ctx_to_str(_ctx)))
@@ -6943,6 +7123,7 @@ def ExportScene(mode = -1,
                         exportSetName=exportSetName,
                         removeNamespace=removeNamespace,
                         zeroRoot=zeroRoot,
+                        parentExportToWorld=parentExportToWorld,
                         _str_func='{0}|nonref_prep'.format(_str_func))
                 except Exception:
                     _ctx = dict(_ctx_base, stage='prep', exportObj=obj, removeNamespace=removeNamespace, zeroRoot=zeroRoot)

@@ -547,6 +547,7 @@ def export_prep_non_referenced(export_root_hint,
                                exportSetName='export_tdSet',
                                removeNamespace=False,
                                zeroRoot=False,
+                               parentExportToWorld=True,
                                _str_func='export_prep_non_referenced'):
     """
     Non-referenced export prep: constraints on export members, per-rig delete sets,
@@ -569,7 +570,8 @@ def export_prep_non_referenced(export_root_hint,
         log.warning("{0} || export set not found before delete | hint={1}".format(_str_func, export_root_hint))
 
     export_constraints_clear_on_members(l_exportMemberNodes, zeroRoot=zeroRoot, _str_func=_str_func)
-    export_unparent_members_to_world(l_exportMemberNodes, _str_func=_str_func)
+    if parentExportToWorld:
+        export_unparent_members_to_world(l_exportMemberNodes, _str_func=_str_func)
 
     resolved_delete_pre = resolve_td_set_for_asset(deleteSetName, namespaces or None) if namespaces else None
     if resolved_delete_pre:
@@ -613,7 +615,8 @@ def Prep(removeNamespace = False,
          deleteSetName = "delete_tdSet",
          exportSetName = "export_tdSet",
          zeroRoot = False,
-         breakTextures = True):
+         breakTextures = True,
+         parentExportToWorld = True):
     
     _str_func = 'Prep'
     
@@ -711,7 +714,8 @@ def Prep(removeNamespace = False,
                     mc.setAttr('{0}.translate'.format(exportObj.mNode), 0, 0, 0, type='float3')
                     mc.setAttr('{0}.rotate'.format(exportObj.mNode), 0, 0, 0, type='float3')
                 
-    export_unparent_members_to_world(_exportMemberHintStrings, _str_func='{0}|unparent'.format(_str_func))
+    if parentExportToWorld:
+        export_unparent_members_to_world(_exportMemberHintStrings, _str_func='{0}|unparent'.format(_str_func))
 
     # export
     newTopNode = '%s%s' % (ns, topNodeSN)

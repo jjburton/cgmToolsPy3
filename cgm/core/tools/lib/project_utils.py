@@ -316,18 +316,21 @@ _structureSettings = [{'n':'assetTypes','t':'text','dv':['Character','Props','En
                       {'n':'envExport','t':'text','dv':d_dirFramework['environment']['content']}]
                       """
 
-_exportOptionSettings = [{'n':'removeNameSpace','t':'bool','dv':False},
-                         {'n':'zeroRoot','t':'bool','dv':True},
-                         {'n':'postEuler','t':'bool','dv':True},
-                         {'n':'reducer','t':'bool','dv':False},
-                         {'n':'simplify','t':'bool','dv':False},
-                         {'n':'exportShotsToIndividualFiles','t':'bool','dv':False},
-                         {'n':'breakTextureLinks','t':'bool','dv':True},
-
-
-                         {'n':'sampleBy','t':'float','dv':1.0},
-                         {'n':'fbxVersion','t':['default'],'dv':'default'},
-                         {'n':'postTangent','t':['none','auto','linear','step'],'dv':'auto'}]
+_exportOptionSettings = [
+    {'n':'removeNameSpace','t':'bool','dv':False,'label':'Remove namespace','section':'Prep & cleanup'},
+    {'n':'zeroRoot','t':'bool','dv':True,'label':'Zero root motion','section':'Prep & cleanup'},
+    {'n':'parentExportToWorld','t':'bool','dv':True,'label':'Parent export items to world','section':'Prep & cleanup'},
+    {'n':'breakTextureLinks','t':'bool','dv':True,'label':'Break texture links','section':'Prep & cleanup'},
+    {'n':'sampleBy','t':'float','dv':1.0,'label':'Sample by','section':'Bake simulation'},
+    {'n':'postEuler','t':'bool','dv':True,'label':'Post euler filter','section':'Bake simulation'},
+    {'n':'postTangent','t':['none','auto','linear','step'],'dv':'auto','label':'Post tangent type','section':'Bake simulation'},
+    {'n':'reducer','t':'bool','dv':False,'label':'Reducer','section':'Bake simulation'},
+    {'n':'simplify','t':'bool','dv':False,'label':'Simplify','section':'Bake simulation'},
+    {'n':'exportShotsToIndividualFiles','t':'bool','dv':False,'label':'Export shots to individual files','section':'FBX output'},
+    {'n':'noShotListExportName','t':['asset','sceneFile'],'dv':'asset','label':'No shot list naming','section':'FBX output',
+     'ann':'When shot list is empty: asset browser name (asset) or scene file stem (sceneFile)'},
+    {'n':'fbxVersion','t':['default'],'dv':'default','label':'FBX version','section':'FBX output'},
+]
 
 _d_defaultsMap = {'general':_projSettings,
                   'anim':_animSettings,
