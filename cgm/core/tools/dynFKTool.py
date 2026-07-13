@@ -37,6 +37,7 @@ from cgm.lib import lists
 from cgm.core.lib import search_utils as SEARCH
 
 import cgm.core.rig.dynamic_utils as RIGDYN
+import cgm.core.presets.cgmDynFK_presets as dynFKPresets
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
@@ -357,8 +358,75 @@ def buildColumn_main(self,parent, asScroll = False):
 
     return _inside
 
+def uiFunc_is_profile_dict(v):
+    return isinstance(v, dict) and ('n' in v or 'hs' in v)
+
+def uiFunc_profile_list(key=None):
+    """List cgmDynFK_presets names. Reloads presets only (not dynamic_utils/meta)."""
+    if hasattr(RIGDYN, 'profile_list'):
+        try:
+            return RIGDYN.profile_list(key=key)
+        except Exception:
+            pass
+
+    cgmGEN._reloadMod(dynFKPresets)
+    names = set()
+    for k, v in list(dynFKPresets.__dict__.items()):
+        if k.startswith('_') or k == 'd_chain':
+            continue
+        if uiFunc_is_profile_dict(v):
+            names.add(k)
+    d_chain = getattr(dynFKPresets, 'd_chain', None) or {}
+    if isinstance(d_chain, dict):
+        for k, v in list(d_chain.items()):
+            if uiFunc_is_profile_dict(v):
+                names.add(k)
+
+    if not key:
+        return sorted(names)
+
+    filtered = []
+    for name in names:
+        _d = dynFKPresets.__dict__.get(name)
+        if not uiFunc_is_profile_dict(_d):
+            _d = d_chain.get(name)
+        if _d and _d.get(key) is not None:
+            filtered.append(name)
+    return sorted(filtered)
+
+def uiFunc_get_profile_key_for_obj(obj):
+    """Map nucleus/hairSystem targets to cgmDynFK_presets section keys."""
+    try:
+        mObj = cgmMeta.asMeta(obj, noneValid=True)
+        if not mObj:
+            return None
+        return RIGDYN.d_shortHand.get(mObj.getMayaType())
+    except Exception:
+        return None
+
+def uiFunc_rebuild_preset_menu(optionMenu, presetObj):
+    optionMenu.clear()
+    optionMenu.append("Load Preset")
+
+    profileKey = uiFunc_get_profile_key_for_obj(presetObj)
+    l_profiles = uiFunc_profile_list(key=profileKey) if profileKey else []
+    if l_profiles:
+        for a in l_profiles:
+            optionMenu.append(a)
+        optionMenu.append("---")
+
+    for a in mc.nodePreset(list=presetObj) or []:
+        optionMenu.append(a)
+    optionMenu.append("---")
+    optionMenu.append("Save Preset")
+    optionMenu.setValue("Load Preset")
+
 def uiFunc_process_preset_change(obj, optionMenu):
     val = optionMenu.getValue()
+
+    if val in ("Load Preset", "---"):
+        optionMenu.setValue("Load Preset")
+        return
 
     if val == "Save Preset":
         result = mc.promptDialog(
@@ -373,21 +441,25 @@ def uiFunc_process_preset_change(obj, optionMenu):
             text = mc.promptDialog(query=True, text=True)
             if mc.nodePreset(isValidName=text):
                 mc.nodePreset( save=(obj, text) )
-                optionMenu.clear()
-
-                optionMenu.append("Load Preset")
-                for a in mc.nodePreset( list=obj ):
-                    optionMenu.append(a)
-                optionMenu.append("---")
-                optionMenu.append("Save Preset")
-
+                uiFunc_rebuild_preset_menu(optionMenu, obj)
                 optionMenu.setValue(text)
             else:
                 print("Invalid name, try again")
                 optionMenu.setValue("Load Preset")
-    elif mc.nodePreset(isValidName=val):
+        else:
+            optionMenu.setValue("Load Preset")
+        return
+
+    # cgmDynFK_presets python profiles (base, wind, rope, …)
+    if val in uiFunc_profile_list():
+        RIGDYN.profile_load(obj, val)
+        optionMenu.setValue("Load Preset")
+        return
+
+    if mc.nodePreset(isValidName=val):
         if mc.nodePreset(exists=(obj, val)):
             mc.nodePreset( load=(obj, optionMenu.getValue()) )
+        optionMenu.setValue("Load Preset")
 
 def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabel = ">>", buttonCommand=None, buttonInfo="", presetOptions=False, presetObj=None):
     _row = mUI.MelHSingleStretchLayout(parent,ut='cgmUISubTemplate',padding = _padding)        
@@ -408,13 +480,8 @@ def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabe
 
     if presetOptions:
         presetMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
-        presetMenu.append("Load Preset")
-        for a in mc.nodePreset( list=presetObj ):
-            presetMenu.append(a)
-        presetMenu.append("---")
-        presetMenu.append("Save Preset")
+        uiFunc_rebuild_preset_menu(presetMenu, presetObj)
         presetMenu(edit=True,
-            value = "Load Preset",
             cc = cgmGEN.Callback(uiFunc_process_preset_change, presetObj, presetMenu) )
         
     mUI.MelSpacer(_row,w=_padding)

@@ -205,7 +205,7 @@ class cgmDynFK(cgmMeta.cgmObject):
         if not objs and node is None:
             if _sel:objs = _sel
         
-        super(cgmDynFK, self).__init__(node = node,name = baseName,nodeType = 'transform') 
+        super().__init__(node = node,name = baseName,nodeType = 'transform')
         #>>> TO USE Cached instance ---------------------------------------------------------
         if self.cached:
             return
@@ -1008,9 +1008,42 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
     #pprint.pprint(_res)
     return _res
 
+def _is_profile_dict(v):
+    return isinstance(v, dict) and ('n' in v or 'hs' in v)
+
+def profile_list(module = dynFKPresets, key = None):
+    """Return sorted profile names from cgmDynFK_presets (module attrs + d_chain).
+    Optional key ('n'/'hs') filters to profiles that have that section."""
+    cgmGEN._reloadMod(module)
+    names = set()
+    for k, v in list(module.__dict__.items()):
+        if k.startswith('_') or k == 'd_chain':
+            continue
+        if _is_profile_dict(v):
+            names.add(k)
+    d_chain = module.__dict__.get('d_chain') or {}
+    if isinstance(d_chain, dict):
+        for k, v in list(d_chain.items()):
+            if _is_profile_dict(v):
+                names.add(k)
+    if key:
+        filtered = []
+        for name in names:
+            _d = profile_get(name, module)
+            if _d and _d.get(key) is not None:
+                filtered.append(name)
+        return sorted(filtered)
+    return sorted(names)
+
 def profile_get(arg = None, module = dynFKPresets ):
     cgmGEN._reloadMod(module)
-    return module.__dict__.get(arg)
+    _d = module.__dict__.get(arg)
+    if _is_profile_dict(_d):
+        return _d
+    d_chain = module.__dict__.get('d_chain') or {}
+    if isinstance(d_chain, dict):
+        return d_chain.get(arg)
+    return None
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):
     _str_func = 'profile_apply'

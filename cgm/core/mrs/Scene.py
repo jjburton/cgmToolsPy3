@@ -820,19 +820,30 @@ example:
         return bool(self._dir_maya_files(path))
 
     def _version_column_should_show(self):
+        """
+        Show the version column when browsing a directory that holds (or will hold)
+        version files. Hide only when the *selected parent-list item* is itself a
+        Maya file (b_subFile / b_varFile). Empty dirs still show so Save / Save
+        Version can populate them (e.g. character/.../animation/test/cloth).
+        """
         if self.b_subFile or self.b_varFile:
             return False
         if not self.subTypes:
             return True
         if not self.subTypeSearchList['scrollList'].getSelectedItem():
             return False
+        if self.hasVariant:
+            if not self.variationList['scrollList'].getSelectedItem():
+                return False
+            _varPath = self.path_variationDirectory
+            return bool(_varPath and os.path.isdir(_varPath))
         _parent = self._version_files_parent_directory()
         if _parent and os.path.isdir(_parent):
-            return bool(self._dir_children_dirs(_parent) or self._dir_maya_files(_parent))
+            return True
+        if _parent and os.path.isfile(_parent):
+            return False
         _fallback = self.path_subType
-        if _fallback and os.path.isdir(_fallback):
-            return bool(self._dir_children_dirs(_fallback) or self._dir_maya_files(_fallback))
-        return False
+        return bool(_fallback and os.path.isdir(_fallback))
 
     def _append_set_dir_buttons(self, row):
         if self.hasSub:
@@ -3967,6 +3978,11 @@ example:
 
         if variationList:
             self.variationList['scrollList'].select_last(selCommand=False)
+            # Auto-select skips selCommand — keep file/dir flags and version column in sync
+            _autoPath = self.path_variationDirectory
+            self.b_varFile = bool(_autoPath and os.path.isfile(_autoPath))
+            if _autoPath and os.path.isdir(_autoPath):
+                self.LoadVersionList()
 
         self.uiUpdate_variationButtons()
 
