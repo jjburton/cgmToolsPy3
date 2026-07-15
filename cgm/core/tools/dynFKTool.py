@@ -38,12 +38,21 @@ from cgm.core.lib import search_utils as SEARCH
 
 import cgm.core.rig.dynamic_utils as RIGDYN
 import cgm.core.presets.cgmDynFK_presets as dynFKPresets
+import cgm.core.lib.nCloth_utils as NCLOTH
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 __toolname__ ='cgmSimChain'
 
 _padding = 5
+
+def reload_dependencies():
+    """Reload cgmSimChain backend modules via cgmGEN._reloadMod."""
+    import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
+    import cgm.core.lib.node_utils as NODES
+    import cgm.core.presets.cgmNCloth_presets as nClothPresets
+    for _mod in (RIGDYN, RIGCONSTRAINTS, NODES, NCLOTH, dynFKPresets, nClothPresets):
+        cgmGEN._reloadMod(_mod)
 
 class ui(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
@@ -74,9 +83,23 @@ class ui(cgmUI.cgmGUI):
         self.WINDOW_TITLE = self.__class__.WINDOW_TITLE
         self.DEFAULT_SIZE = self.__class__.DEFAULT_SIZE
 
+    def reload(self):
+        reload_dependencies()
+        cgmGEN._reloadMod(__import__(__name__))
+        super(ui, self).reload()
  
     def build_menus(self):
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_first))
+        self.uiMenu_ToolsMenu = mUI.MelMenu(l='Tools', pmc = cgmGEN.Callback(self.buildMenu_tools))
+
+    def buildMenu_tools(self):
+        self.uiMenu_ToolsMenu.clear()
+        mUI.MelMenuItem(
+            self.uiMenu_ToolsMenu,
+            l='Query Settings',
+            ann='Print preset-shaped dict from selected nCloth, nucleus, hair system, or cgmDynFK setup.',
+            c=cgmGEN.Callback(uiFunc_query_settings, self),
+        )
 
     def buildMenu_first(self):
         self.uiMenu_FirstMenu.clear()
@@ -202,6 +225,9 @@ def buildColumn_main(self,parent, asScroll = False):
                                 en=True)
 
     self.uiTF_objLoad = uiTF_objLoad
+    cgmUI.add_Button(_row, 'Init Sim Setup',
+                     cgmGEN.Callback(uiFunc_init_sim_setup, self),
+                     "Create cgmDynFK + nucleus (no dynamic chain). Required before mapping cloth.")
     cgmUI.add_Button(_row,'<<',
                      cgmGEN.Callback(uiFunc_load_selected,self),
                      "Load first selected object.")  
@@ -266,16 +292,50 @@ def buildColumn_main(self,parent, asScroll = False):
     cgmUI.add_LineSubBreak()
 
     _row = mUI.MelHSingleStretchLayout(_create,ut='cgmUISubTemplate',padding = 5)
+    mUI.MelSpacer(_row,w=_padding)
+    mUI.MelLabel(_row, l='Cloth:')
+    self.uiClothStatusLabel = mUI.MelLabel(_row, ut='cgmUIInstructionsTemplate', l='Not linked')
+    _row.setStretchWidget(self.uiClothStatusLabel)
+    mUI.MelSpacer(_row,w=_padding)
+    _row.layout()
+
+    cgmUI.add_LineSubBreak()
+
+    _row = mUI.MelHSingleStretchLayout(_create, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Cloth track:')
+    self.clothSurfaceTrackMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate', ann='Mesh tracker for cloth attach (follicle, rivet, or uvPin).')
+    for _track in ('follicle', 'rivet', 'uvPin'):
+        self.clothSurfaceTrackMenu.append(_track)
+    self.clothSurfaceTrackMenu.setValue('follicle')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+
+    cgmUI.add_LineSubBreak()
+
+    _row = mUI.MelHSingleStretchLayout(_create,ut='cgmUISubTemplate',padding = 5)
 
     mUI.MelSpacer(_row,w=_padding)
 
-    _row.setStretchWidget( cgmUI.add_Button(_row,'Make Dynamic Chain',
+    self.btnMakeDynamicChain = cgmUI.add_Button(_row,'Make Dynamic Chain',
                      cgmGEN.Callback(uiFunc_make_dynamic_chain,self),
-                     "Make Dynamic Chain.") )
+                     "Make dynamic hair/curve chain (makeCurvesDynamic).")
 
     mUI.MelSpacer(_row,w=_padding)
 
-    _row.layout()    
+    self.btnAttachToCloth = cgmUI.add_Button(_row,'Attach to Cloth',
+                     cgmGEN.Callback(uiFunc_attach_to_cloth,self),
+                     "Attach joint chain to mapped nCloth. Locators under follicle/rivet/uvPin drive Connect Targets.")
+    self.btnAttachToCloth(e=True, en=False)
+
+    _row.setStretchWidget( self.btnMakeDynamicChain )
+
+    mUI.MelSpacer(_row,w=_padding)
+
+    _row.layout()
+
+    uiFunc_update_create_panel_state(self)
 
     cgmUI.add_LineSubBreak()
 
@@ -291,8 +351,9 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelLabel(_row,l='Base Name: ')        
 
     self.options_baseName = mUI.MelTextField(_row,
-            ann='Name',
-            text = 'DynamicChain')
+            ann='Base name for this cgmDynFK setup (e.g. DynamicChain).',
+            text = 'DynamicChain',
+            changeCommand=cgmGEN.Callback(uiFunc_set_base_name, self))
 
     _row.setStretchWidget( self.options_baseName )
 
@@ -404,6 +465,217 @@ def uiFunc_get_profile_key_for_obj(obj):
     except Exception:
         return None
 
+def uiFunc_ncloth_profile_list(category=None):
+    return NCLOTH.profile_list(category=category)
+
+
+def uiFunc_rebuild_ncloth_fabric_menu(optionMenu):
+    optionMenu.clear()
+    optionMenu.append('Fabric')
+    for _name in uiFunc_ncloth_profile_list(category='fabric'):
+        optionMenu.append(_name)
+    optionMenu.append('---')
+    for _name in uiFunc_ncloth_profile_list(category='utility'):
+        optionMenu.append(_name)
+    optionMenu.setValue('cotton')
+
+
+def uiFunc_rebuild_ncloth_solver_menu(optionMenu):
+    optionMenu.clear()
+    optionMenu.append('Solver')
+    optionMenu.append('base')
+    for _name in uiFunc_ncloth_profile_list(category='solver'):
+        optionMenu.append(_name)
+    optionMenu.setValue('solver_balanced')
+
+
+def uiFunc_rebuild_ncloth_preset_menu(optionMenu, nClothNode):
+    """Legacy single menu — fabric list only."""
+    optionMenu.clear()
+    optionMenu.append("Load Preset")
+    for a in uiFunc_ncloth_profile_list(category='fabric'):
+        optionMenu.append(a)
+    for a in uiFunc_ncloth_profile_list(category='utility'):
+        optionMenu.append(a)
+    if mc.nodePreset(list=nClothNode) or []:
+        optionMenu.append("---")
+        for a in mc.nodePreset(list=nClothNode) or []:
+            optionMenu.append(a)
+    optionMenu.append("---")
+    optionMenu.append("Save Preset")
+    optionMenu.setValue("Load Preset")
+
+
+def uiFunc_apply_ncloth_profiles(nClothNode, fabricMenu, solverMenu):
+    _fabric = fabricMenu.getValue()
+    _solver = solverMenu.getValue()
+
+    if _fabric in ('Fabric', 'Load Preset', '---'):
+        return
+
+    _solverArg = None
+    if _solver not in ('Solver', 'base', '---', ''):
+        _solverArg = _solver
+
+    if _fabric in uiFunc_ncloth_profile_list(category='utility'):
+        NCLOTH.profile_load(_fabric, targets=nClothNode, applyNucleus=True)
+    else:
+        NCLOTH.profile_load(_fabric, targets=nClothNode, solver=_solverArg, applyNucleus=True)
+
+    fabricMenu.setValue(_fabric)
+    solverMenu.setValue(_solver)
+
+
+def uiFunc_process_ncloth_preset_change(nClothNode, optionMenu):
+    val = optionMenu.getValue()
+
+    if val in ("Load Preset", "---"):
+        optionMenu.setValue("Load Preset")
+        return
+
+    if val == "Save Preset":
+        result = mc.promptDialog(
+                title='Save Preset',
+                message='Preset Name:',
+                button=['OK', 'Cancel'],
+                defaultButton='OK',
+                cancelButton='Cancel',
+                dismissString='Cancel')
+
+        if result == 'OK':
+            text = mc.promptDialog(query=True, text=True)
+            if mc.nodePreset(isValidName=text):
+                mc.nodePreset(save=(nClothNode, text))
+                uiFunc_rebuild_ncloth_preset_menu(optionMenu, nClothNode)
+                optionMenu.setValue(text)
+            else:
+                print("Invalid name, try again")
+                optionMenu.setValue("Load Preset")
+        else:
+            optionMenu.setValue("Load Preset")
+        return
+
+    if val in uiFunc_ncloth_profile_list():
+        NCLOTH.profile_load(val, targets=nClothNode, applyNucleus=True)
+        optionMenu.setValue("Load Preset")
+        return
+
+    if mc.nodePreset(isValidName=val):
+        if mc.nodePreset(exists=(nClothNode, val)):
+            mc.nodePreset(load=(nClothNode, optionMenu.getValue()))
+        optionMenu.setValue("Load Preset")
+
+
+def uiFunc_make_cloth_display_line(parent, dat, selfRef):
+    """Details row: mapped cloth, map (>>), fabric + solver preset menus."""
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=_padding)
+
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Cloth:')
+
+    mCloth = dat.get('mCloth')
+    clothText = mCloth.p_nameBase if mCloth else 'Not mapped'
+    uiTF = mUI.MelLabel(_row, ut='cgmUIInstructionsTemplate', l=clothText, en=True)
+
+    cgmUI.add_Button(_row, '>>',
+                     cgmGEN.Callback(uiFunc_map_cloth, selfRef),
+                     "Map selected nCloth to this setup.")
+
+    _row.setStretchWidget(uiTF)
+
+    if mCloth:
+        _ncShape = NCLOTH.get_nCloth(mCloth.mNode)
+        if _ncShape:
+            fabricMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
+                                           ann='Fabric feel (nCloth attrs only).')
+            uiFunc_rebuild_ncloth_fabric_menu(fabricMenu)
+
+            solverMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
+                                           ann='Solver speed/quality (nucleus subSteps / collision iters).')
+            uiFunc_rebuild_ncloth_solver_menu(solverMenu)
+
+            _applyPresets = cgmGEN.Callback(uiFunc_apply_ncloth_profiles, _ncShape, fabricMenu, solverMenu)
+            fabricMenu(edit=True, cc=_applyPresets)
+            solverMenu(edit=True, cc=_applyPresets)
+
+            selfRef.uiClothFabricMenu = fabricMenu
+            selfRef.uiClothSolverMenu = solverMenu
+
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+    selfRef.uiClothDetailsLabel = uiTF
+    return uiTF
+
+
+def uiFunc_update_create_panel_state(self):
+    if not hasattr(self, 'btnAttachToCloth'):
+        return
+
+    if not self._mDynFK:
+        self.btnAttachToCloth(e=True, en=False)
+        uiFunc_set_cloth_status_labels(self, False)
+        return
+
+    mCloth = RIGDYN.get_mapped_cloth(self._mDynFK)
+    self.btnAttachToCloth(e=True, en=bool(mCloth))
+    uiFunc_set_cloth_status_labels(self, mCloth)
+
+
+def uiFunc_set_cloth_status_labels(self, mCloth=None):
+    """Update Create + Details cloth status text."""
+    _text = 'Not linked'
+    if mCloth:
+        _text = 'Linked: {0}'.format(mCloth.p_nameBase)
+    if hasattr(self, 'uiClothStatusLabel'):
+        self.uiClothStatusLabel(edit=True, l=_text)
+    if hasattr(self, 'uiClothDetailsLabel'):
+        self.uiClothDetailsLabel(edit=True, l=mCloth.p_nameBase if mCloth else 'Not mapped')
+
+
+def uiFunc_init_sim_setup(self):
+    """Create or complete cgmDynFK nucleus setup without Make Dynamic Chain."""
+    _start = mc.playbackOptions(q=True, min=True)
+    if self._mDynFK:
+        self._mDynFK.setup_sim(startFrame=_start, applyPreset=True)
+    else:
+        mDynFK = RIGDYN.setup_sim_dynFK(
+            baseName=self.options_baseName.getValue(),
+            startFrame=_start,
+            applyPreset=True,
+        )
+        uiFunc_load_dyn_chain(self, mDynFK.p_nameBase)
+    uiFunc_update_details(self)
+    uiFunc_update_create_panel_state(self)
+
+
+def uiFunc_map_cloth(self):
+    if not self._mDynFK:
+        return log.warning("Init Sim Setup or load a cgmDynFK setup first")
+    result = RIGDYN.map_cloth_surface(self._mDynFK)
+    if not result:
+        result = RIGDYN.get_mapped_cloth(self._mDynFK)
+    uiFunc_set_cloth_status_labels(self, result)
+    uiFunc_update_details(self)
+    uiFunc_update_create_panel_state(self)
+    if not result:
+        return
+
+
+def uiFunc_attach_to_cloth(self):
+    if not self._mDynFK:
+        return log.warning("Init Sim Setup or load a cgmDynFK setup first")
+    if not RIGDYN.get_mapped_cloth(self._mDynFK):
+        return log.warning("Map cloth surface first (Details → Cloth >>)")
+    RIGDYN.attach_to_cloth_dynFK(
+        self._mDynFK,
+        name=self.options_name.getValue(),
+        objs=self.itemList.getItems(),
+    surfaceTrack=self.clothSurfaceTrackMenu.getValue() if hasattr(self, 'clothSurfaceTrackMenu') else 'follicle',
+    )
+    uiFunc_update_details(self)
+    self.itemList.rebuild()
+
+
 def uiFunc_rebuild_preset_menu(optionMenu, presetObj):
     optionMenu.clear()
     optionMenu.append("Load Preset")
@@ -490,9 +762,6 @@ def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabe
 
     return uiTF
 
-def uiFunc_bake(self, mode):
-    pass
-
 def uiFunc_update_details(self):
     if not self._mDynFK:
         return
@@ -508,7 +777,19 @@ def uiFunc_update_details(self):
     cgmUI.add_LineSubBreak()
 
     # Base Name
-    uiFunc_make_display_line(_details, label='Base Name:', text=self._mDynFK.baseName, button=False)
+    _row = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Base Name:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    _baseName = self._mDynFK.cgmName or self._mDynFK.baseName or ''
+    self.details_baseNameIF = mUI.MelTextField(
+        _row,
+        ann='Base name for this cgmDynFK setup.',
+        text=_baseName,
+        changeCommand=cgmGEN.Callback(uiFunc_set_base_name, self),
+    )
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
 
     # Direction Info
     _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = 5)        
@@ -535,9 +816,19 @@ def uiFunc_update_details(self):
 
 
     # Nucleus
-    uiFunc_make_display_line(_details, label='Nucleus:', text=self._mDynFK.mNucleus[0], button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,self._mDynFK.mNucleus[0]), buttonInfo="Select nucleus transform.", presetOptions=True, presetObj=self._mDynFK.mNucleus[0])
+    mNucleus = dat.get('mNucleus')
+    if mNucleus:
+        uiFunc_make_display_line(_details, label='Nucleus:', text=mNucleus.p_nameBase, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,mNucleus.p_nameBase), buttonInfo="Select nucleus transform.", presetOptions=True, presetObj=mNucleus.mNode)
+    else:
+        uiFunc_make_display_line(_details, label='Nucleus:', text='—', button=False)
 
-    uiFunc_make_display_line(_details, label='Hair System:', text=dat['mHairSysShape'].p_nameBase, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,dat['mHairSysShape'].p_nameBase), buttonInfo="Select hair system transform.", presetOptions=True, presetObj=dat['mHairSysShape'].p_nameBase)
+    uiFunc_make_cloth_display_line(_details, dat, self)
+
+    mHairSysShape = dat.get('mHairSysShape')
+    if mHairSysShape:
+        uiFunc_make_display_line(_details, label='Hair System:', text=mHairSysShape.p_nameBase, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,mHairSysShape.p_nameBase), buttonInfo="Select hair system transform.", presetOptions=True, presetObj=mHairSysShape.p_nameBase)
+    else:
+        uiFunc_make_display_line(_details, label='Hair System:', text='—', button=False)
 
     _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = 5)        
 
@@ -569,7 +860,8 @@ def uiFunc_update_details(self):
 
     _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-    self.startTimeIF = mUI.MelIntField(_row, v=dat['mNucleus'].startFrame )
+    _nStart = dat['mNucleus'].startFrame if dat.get('mNucleus') else mc.playbackOptions(q=True, min=True)
+    self.startTimeIF = mUI.MelIntField(_row, v=_nStart )
     self.startTimeIF(edit=True, changeCommand=cgmGEN.Callback(uiFunc_set_start_time,self, mode='refresh'))
     
     cgmUI.add_Button(_row,'<<',
@@ -620,7 +912,8 @@ def uiFunc_update_details(self):
 
     allChains = []
     for idx in dat['chains']:
-        allChains += dat['chains'][idx]['mObjJointChain']
+        if dat['chains'][idx].get('chainMode') != 'clothAttach':
+            allChains += dat['chains'][idx]['mObjJointChain']
     allTargets = []
     for idx in dat['chains']:
         allTargets += dat['chains'][idx]['mTargets']
@@ -670,7 +963,18 @@ def uiFunc_update_details(self):
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
 
-        uiFunc_make_display_line(_chainColumn, label='Follicle:', text=cgmMeta.asMeta(chain.mFollicle[0]).p_nameBase, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,chain.mFollicle[0]), buttonInfo="Select follicle transform.", presetOptions=True, presetObj = chain.mFollicle[0])
+        _chainMode = getattr(chain, 'chainMode', None) or 'hair'
+
+        if _chainMode == 'clothAttach':
+            mCloth = RIGDYN.get_mapped_cloth(self._mDynFK)
+            clothLabel = mCloth.p_nameBase if mCloth else '—'
+            uiFunc_make_display_line(_chainColumn, label='Driver Cloth:', text=clothLabel, button=bool(mCloth), buttonLabel=">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item, mCloth.p_nameBase) if mCloth else None, buttonInfo="Mapped setup cloth.")
+            _surfaceTrack = getattr(chain, 'surfaceTrack', None) or 'follicle'
+            uiFunc_make_display_line(_chainColumn, label='Surface track:', text=_surfaceTrack, button=False)
+            uiFunc_make_display_line(_chainColumn, label='Mode:', text='clothAttach', button=False)
+        else:
+            if chain.mFollicle:
+                uiFunc_make_display_line(_chainColumn, label='Follicle:', text=cgmMeta.asMeta(chain.mFollicle[0]).p_nameBase, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,chain.mFollicle[0]), buttonInfo="Select follicle transform.", presetOptions=True, presetObj = chain.mFollicle[0])
         
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -680,36 +984,37 @@ def uiFunc_update_details(self):
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
 
-        _row = mUI.MelHSingleStretchLayout(_chainColumn,ut='cgmUISubTemplate',padding = 5)
+        if _chainMode != 'clothAttach':
+            _row = mUI.MelHSingleStretchLayout(_chainColumn,ut='cgmUISubTemplate',padding = 5)
 
-        mUI.MelSpacer(_row,w=_padding)                          
-        mUI.MelLabel(_row,l='Orient Up:')  
+            mUI.MelSpacer(_row,w=_padding)                          
+            mUI.MelLabel(_row,l='Orient Up:')  
 
-        _row.setStretchWidget( mUI.MelSeparator(_row) )
+            _row.setStretchWidget( mUI.MelSeparator(_row) )
 
-        chainDirections = []
-        for dir in ['x+', 'x-', 'y+', 'y-', 'z+', 'z-']:
-            if chain.fwd[0] != dir[0]:
-                chainDirections.append(dir)
-        chainDirections.append('None')
-       
-        upMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
-        for dir in chainDirections:
-            upMenu.append(dir)
+            chainDirections = []
+            for dir in ['x+', 'x-', 'y+', 'y-', 'z+', 'z-']:
+                if chain.fwd[0] != dir[0]:
+                    chainDirections.append(dir)
+            chainDirections.append('None')
+           
+            upMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
+            for dir in chainDirections:
+                upMenu.append(dir)
 
-        upMenu.setValue( chain.up )
+            upMenu.setValue( chain.up )
 
-        upMenu(edit=True, changeCommand=cgmGEN.Callback(uiFunc_set_chain_up,self,i,upMenu))
+            upMenu(edit=True, changeCommand=cgmGEN.Callback(uiFunc_set_chain_up,self,i,upMenu))
 
-        mUI.MelSpacer(_row,w=_padding)
+            mUI.MelSpacer(_row,w=_padding)
 
-        _row.layout()
+            _row.layout()
 
         _row = mUI.MelHLayout(_chainColumn,ut='cgmUISubTemplate',padding = _padding*2)
-        cgmUI.add_Button(_row,'Bake Joints',
-            cgmGEN.Callback(uiFunc_bake,self,'chain', chain.msgList_get('mObjJointChain')),                         
-            #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
-            'Bake All Joints')
+        if _chainMode != 'clothAttach':
+            cgmUI.add_Button(_row,'Bake Joints',
+                cgmGEN.Callback(uiFunc_bake,self,'chain', chain.msgList_get('mObjJointChain')),                         
+                'Bake All Joints')
         cgmUI.add_Button(_row,'Bake Targets',
             cgmGEN.Callback(uiFunc_bake,self,'target', chain.msgList_get('mTargets')),                         
             'Bake All Targets') 
@@ -720,7 +1025,6 @@ def uiFunc_update_details(self):
     
         cgmUI.add_Button(_row,'Connect Targets',
             cgmGEN.Callback(uiFunc_connect_targets, self, i),                         
-            #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
             'Connect All Targets')
         cgmUI.add_Button(_row,'Disconnect Targets',
             cgmGEN.Callback(uiFunc_disconnect_targets, self, i),                         
@@ -731,15 +1035,25 @@ def uiFunc_update_details(self):
         _row = mUI.MelHLayout(_chainColumn,ut='cgmUISubTemplate',padding = _padding*2)
         cgmUI.add_Button(_row,'Delete Chain',
             cgmGEN.Callback(uiFunc_delete_chain,self, i),                         
-            #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
-            'Bake All Joints')
+            'Delete Chain')
         _row.layout()  
 
-        frameDat = [['Targets', 'mTargets'],
-                    ['Locators','mLocs'],
-                    ['Joint Chain', 'mObjJointChain'],
-                    ['Aims', 'mAims'],
-                    ['Parents', 'mParents']]
+        if _chainMode == 'clothAttach':
+            _surfaceTrack = getattr(chain, 'surfaceTrack', None) or 'follicle'
+            frameDat = [['Targets', 'mTargets'],
+                        ['Locators', 'mLocs']]
+            if _surfaceTrack == 'rivet':
+                frameDat.append(['Rivets', 'mRivets'])
+            elif _surfaceTrack == 'uvPin':
+                frameDat.append(['UV Pins', 'mUvPins'])
+            else:
+                frameDat.append(['Mesh Follicles', 'mMeshFollicles'])
+        else:
+            frameDat = [['Targets', 'mTargets'],
+                        ['Locators','mLocs'],
+                        ['Joint Chain', 'mObjJointChain'],
+                        ['Aims', 'mAims'],
+                        ['Parents', 'mParents']]
 
         for dat in frameDat:
             frame = mUI.MelFrameLayout(_chainColumn, label=dat[0], collapsable=True, collapse=True,useTemplate = 'cgmUIHeaderTemplate')
@@ -771,6 +1085,74 @@ def uiFunc_connect_targets(self, idx=None):
 def uiFunc_disconnect_targets(self, idx=None):
     self._mDynFK.targets_disconnect(idx)
 
+def uiFunc_query_settings(self):
+    """Query selected sim nodes and print a preset dict for cgmNCloth_presets / cgmDynFK_presets."""
+    _str_func = 'uiFunc_query_settings'
+
+    _dat = NCLOTH.query_settings_selection()
+    if not _dat and self._mDynFK:
+        mCloth = RIGDYN.get_mapped_cloth(self._mDynFK)
+        if mCloth:
+            _dat = NCLOTH.query_settings(mCloth.mNode)
+            _dat.setdefault('source', {})['cgmDynFK'] = self._mDynFK.mNode
+
+    if not _dat:
+        log.warning("|{0}| >> Select nCloth, nucleus, hair system, or cgmDynFK setup".format(_str_func))
+        return
+
+    log.info(cgmGEN.logString_sub(_str_func, 'Query Settings'))
+    log.info("|{0}| >> sourceType: {1}".format(_str_func, _dat.get('sourceType')))
+    if _dat.get('suggestedPresetName'):
+        log.info("|{0}| >> suggestedPresetName: {1}".format(_str_func, _dat.get('suggestedPresetName')))
+
+    cgmGEN.print_dict(_dat.get('source') or {}, 'source', __name__)
+    cgmGEN.print_dict(_dat.get('profile') or {}, 'profile (diff from base)', __name__)
+
+    for _note in _dat.get('notes') or []:
+        log.info("|{0}| >> note: {1}".format(_str_func, _note))
+
+    print('\n# --- Paste-ready preset block (copy to cgmNCloth_presets.py) ---\n')
+    print(_dat.get('paste') or '')
+    print('\n# --- profile dict (paste to agent / preset work) ---\n')
+    pprint.pprint(_dat.get('profile') or {}, width=120, sort_dicts=True)
+
+
+def uiFunc_set_base_name(self, *args):
+    if not self._mDynFK:
+        return
+
+    _val = None
+    if getattr(self, 'details_baseNameIF', None):
+        try:
+            _val = self.details_baseNameIF.getValue()
+        except Exception:
+            pass
+    if _val is None:
+        _val = self.options_baseName.getValue()
+
+    _val = (_val or '').strip()
+    _current = self._mDynFK.cgmName or self._mDynFK.baseName or ''
+
+    if not _val:
+        self.options_baseName.setValue(_current)
+        if getattr(self, 'details_baseNameIF', None):
+            self.details_baseNameIF.setValue(_current)
+        return
+
+    if _val == _current:
+        return
+
+    self._mDynFK.set_base_name(_val)
+    self.options_baseName.setValue(_val)
+    if getattr(self, 'details_baseNameIF', None):
+        self.details_baseNameIF.setValue(_val)
+
+    _short = self._mDynFK.p_nameBase
+    if len(_short) > 20:
+        _short = _short[:20] + '...'
+    self.uiTF_objLoad(edit=True, l=_short, ann=self._mDynFK.p_nameBase)
+
+
 def uiFunc_set_chain_up(self, idx, upMenu):
     #print "Changing up on %s to %s" % ( chain.p_nameBase, upMenu.getValue() )
     axis = upMenu.getValue()
@@ -782,15 +1164,13 @@ def uiFunc_set_chain_up(self, idx, upMenu):
 
 # mode - 'target', 'chain'
 def uiFunc_bake(self, mode, mObjs):
-    # if mode == 'target':
-    #     pass
-    # elif mode == 'chain':
-    #mObjs = [cgmMeta.asMeta(x) for x in objs]
-    for i in range(self.uiFieldInt_start.getValue(),self.uiFieldInt_end.getValue()):
-        mc.currentTime(i, edit=True)
-        for mObj in mObjs:
-            mObj.doSnapTo(mObj.getMessageAsMeta('cgmMatchTarget'))
-            mc.setKeyframe(mObj.mNode, at=['translate', 'rotate'])
+    if not self._mDynFK:
+        return
+    self._mDynFK.bake_nodes(
+        mObjs,
+        self.uiFieldInt_start.getValue(),
+        self.uiFieldInt_end.getValue(),
+    )
 
 
 def uiFunc_updateTimeRange(self, which='slider', mode='slider'):
@@ -818,12 +1198,20 @@ def uiFunc_create_selection_list(parent, items):
     return itemList
 
 def uiFunc_set_nucleus_enabled(self):
-    mc.setAttr('%s.enable' % self._mDynFK.mNucleus[0], self.nucleusEnabledCB.getValue())
+    mNucleus = self._mDynFK.getMessageAsMeta('mNucleus') if self._mDynFK else None
+    if not mNucleus:
+        return
+    mc.setAttr('%s.enable' % mNucleus.mNode, self.nucleusEnabledCB.getValue())
 
 def uiFunc_set_start_time(self,mode):
+    if not self._mDynFK:
+        return
+    mNucleus = self._mDynFK.get_dat().get('mNucleus')
+    if not mNucleus:
+        return
     if mode == 'beginning':
         self.startTimeIF(e=True, v=mc.playbackOptions(q=True, min=True))
-    self._mDynFK.get_dat()['mNucleus'].startFrame = self.startTimeIF(q=True, v=True)
+    mNucleus.startFrame = self.startTimeIF(q=True, v=True)
 
 def uiFunc_list_function(uiElement, command):
     allItems = uiElement.getItems()
@@ -914,9 +1302,8 @@ def uiFunc_updateTargetDisplay(self):
 
         return
     
-    self.options_baseName.setValue(self._mDynFK.cgmName)
-
-    self.options_baseName(e=True, enable=False)
+    self.options_baseName.setValue(self._mDynFK.cgmName or self._mDynFK.baseName or '')
+    self.options_baseName(e=True, enable=True)
 
     _short = self._mDynFK.p_nameBase
     self.uiTF_objLoad(edit=True, ann=_short)
@@ -928,6 +1315,7 @@ def uiFunc_updateTargetDisplay(self):
     self.uiTF_objLoad(edit=True, en=True)
 
     uiFunc_update_details(self)
+    uiFunc_update_create_panel_state(self)
     
     return
 

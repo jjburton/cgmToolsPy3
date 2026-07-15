@@ -1,18 +1,25 @@
 #=========================================================================
 # cgmNCloth_presets
-# Practical nCloth (+ optional nucleus) profiles for testing / production.
+# nCloth + nucleus profiles — fabric feel is separate from solver speed.
 #
 # Section keys:
-#   'nc'  - nClothShape attributes
-#   'n'   - connected nucleus attributes (optional)
+#   'nc'  - nClothShape (fabric feel, stability helpers)
+#   'n'   - nucleus (solver speed, wind, gravity env)
 #
-# Usage (Maya script editor):
+# Profile kinds (d_profileKind):
+#   fabric  - material feel (nc only)
+#   solver  - subSteps / collision iters / timeScale (n only)
+#   wind    - nucleus wind / air (n only)
+#   utility - one-shot resets (nc + n)
+#
+# Usage:
 #   import cgm.core.lib.nCloth_utils as NCLOTH
-#   NCLOTH.profile_load('silk')          # selection = nCloth / mesh / shape
-#   NCLOTH.profile_list()
+#   NCLOTH.profile_load('cotton')                          # fabric only
+#   NCLOTH.profile_load('cotton', solver='solver_quality') # fabric + solver
+#   NCLOTH.profile_load('denim', solver='solver_preview', wind='wind_calm')
 #=========================================================================
 
-# Clean baseline. Other profiles merge onto this when clean=True.
+# Clean baseline. Merged first when clean=True.
 base = {
     'n': {
         'gravity': 9.8,
@@ -33,7 +40,6 @@ base = {
         'planeStickiness': 0.0,
     },
     'nc': {
-        'isDynamic': True,
         'collide': True,
         'bounce': 0.0,
         'friction': 0.1,
@@ -65,12 +71,37 @@ base = {
     },
 }
 
-# Light flowing fabric (scarves, chiffon, silk shirt hem).
+# Kind registry for menus / profile_load layering.
+d_profileKind = {
+    'base': 'base',
+    # fabric — nc only
+    'silk': 'fabric',
+    'cotton': 'fabric',
+    'denim': 'fabric',
+    'leather': 'fabric',
+    'flag': 'fabric',
+    'stable': 'fabric',
+    'rubber': 'fabric',
+    'inputAttract': 'fabric',
+    # solver — n only (pair with any fabric)
+    'solver_balanced': 'solver',
+    'solver_preview': 'solver',
+    'solver_quality': 'solver',
+    'solver_high': 'solver',
+    # wind — n only
+    'wind_calm': 'wind',
+    'wind_flag': 'wind',
+    # utility
+    'calm': 'utility',
+    # deprecated alias handled in nCloth_utils.profile_resolve
+    'preview': 'solver',
+}
+
+# -------------------------------------------------------------------------
+# Fabric (nc) — material feel only. Pair with a solver profile in the UI.
+# -------------------------------------------------------------------------
+
 silk = {
-    'n': {
-        'subSteps': 8,
-        'maxCollisionIterations': 10,
-    },
     'nc': {
         'pointMass': 0.35,
         'stretchResistance': 60.0,
@@ -85,11 +116,7 @@ silk = {
     },
 }
 
-# General mid-weight cloth (tees, curtains, drapes).
 cotton = {
-    'n': {
-        'subSteps': 6,
-    },
     'nc': {
         'pointMass': 1.0,
         'stretchResistance': 50.0,
@@ -104,12 +131,7 @@ cotton = {
     },
 }
 
-# Heavier / stiffer fabric.
 denim = {
-    'n': {
-        'subSteps': 6,
-        'maxCollisionIterations': 10,
-    },
     'nc': {
         'pointMass': 2.0,
         'stretchResistance': 120.0,
@@ -117,17 +139,13 @@ denim = {
         'bendResistance': 2.5,
         'bendAngleDropoff': 0.3,
         'shearResistance': 80.0,
-        'damp': 0.15,
+        'damp': 0.22,
         'drag': 0.04,
         'friction': 0.4,
     },
 }
 
-# Form-holding, little flutter.
 leather = {
-    'n': {
-        'subSteps': 5,
-    },
     'nc': {
         'pointMass': 2.5,
         'stretchResistance': 180.0,
@@ -142,17 +160,8 @@ leather = {
     },
 }
 
-# Flags / banners — catch air, soft bend.
+# Light cloth for flags/banners — add wind_flag for motion.
 flag = {
-    'n': {
-        'airDensity': 1.5,
-        'subSteps': 8,
-        'maxCollisionIterations': 10,
-        # Tweak wind in the nucleus after load for your shot.
-        'windSpeed': 8.0,
-        'windNoise': 2.0,
-        'windDirection': [1.0, 0.0, 0.0],
-    },
     'nc': {
         'pointMass': 0.5,
         'stretchResistance': 80.0,
@@ -167,13 +176,8 @@ flag = {
     },
 }
 
-# Character-safe / less explosive. Good first pass on apparel.
+# Character apparel — stiff but damped; use solver_quality for collisions.
 stable = {
-    'n': {
-        'subSteps': 8,
-        'maxCollisionIterations': 12,
-        'timeScale': 1.0,
-    },
     'nc': {
         'pointMass': 1.0,
         'stretchResistance': 200.0,
@@ -186,17 +190,12 @@ stable = {
         'friction': 0.2,
         'pushOut': 0.1,
         'pushOutRadius': 5.0,
-        # Mild follow of the animated input (raise if still sliding off).
         'inputMeshAttract': 0.15,
         'inputAttractDamp': 0.6,
     },
 }
 
-# Stretchy / bouncy rubber or latex.
 rubber = {
-    'n': {
-        'subSteps': 8,
-    },
     'nc': {
         'pointMass': 1.2,
         'stretchResistance': 15.0,
@@ -211,22 +210,6 @@ rubber = {
     },
 }
 
-# Faster scrubbing — fewer collide iters, more damp.
-preview = {
-    'n': {
-        'subSteps': 3,
-        'maxCollisionIterations': 4,
-    },
-    'nc': {
-        'stretchResistance': 80.0,
-        'compressionResistance': 40.0,
-        'bendResistance': 1.0,
-        'damp': 0.35,
-        'friction': 0.2,
-    },
-}
-
-# Soft pin / cling to input mesh (hoods, pockets that should track).
 inputAttract = {
     'nc': {
         'inputMeshAttract': 1.0,
@@ -237,7 +220,67 @@ inputAttract = {
     },
 }
 
-# Zero nucleus wind / plane; reset cloth motion helpers.
+# -------------------------------------------------------------------------
+# Solver (n) — speed / quality only. Does not change fabric feel.
+# -------------------------------------------------------------------------
+
+solver_balanced = {
+    'n': {
+        'subSteps': 6,
+        'maxCollisionIterations': 8,
+        'timeScale': 1.0,
+    },
+}
+
+solver_preview = {
+    'n': {
+        'subSteps': 3,
+        'maxCollisionIterations': 4,
+        'timeScale': 1.0,
+    },
+}
+
+solver_quality = {
+    'n': {
+        'subSteps': 8,
+        'maxCollisionIterations': 12,
+        'timeScale': 1.0,
+    },
+}
+
+solver_high = {
+    'n': {
+        'subSteps': 20,
+        'maxCollisionIterations': 50,
+        'timeScale': 1.0,
+    },
+}
+
+# -------------------------------------------------------------------------
+# Wind (n) — environment only.
+# -------------------------------------------------------------------------
+
+wind_calm = {
+    'n': {
+        'windSpeed': 0.0,
+        'windNoise': 0.0,
+        'airDensity': 1.0,
+    },
+}
+
+wind_flag = {
+    'n': {
+        'airDensity': 1.5,
+        'windSpeed': 8.0,
+        'windNoise': 2.0,
+        'windDirection': [1.0, 0.0, 0.0],
+    },
+}
+
+# -------------------------------------------------------------------------
+# Utility — quick reset (wind off + mild nc defaults).
+# -------------------------------------------------------------------------
+
 calm = {
     'n': {
         'windSpeed': 0.0,

@@ -1671,7 +1671,15 @@ def uiSection_riggingUtils(parent, selection = None):
         mc.menuItem(parent=_attach,
                     l = m,
                     c = cgmGEN.Callback(MMCONTEXT.func_process, RIGCONSTRAINTS.attach_toShape, None,'eachToLast',**{'connectBy':m}),                    
-                    ann = "Attach each to last by {0}".format(m))    
+                    ann = "Attach each to last by {0}".format(m))
+
+    mc.menuItem(parent=_attach, divider=True, label='Surface track (mesh)')
+    for _track in ('follicle', 'rivet', 'uvPin'):
+        mc.menuItem(parent=_attach,
+                    l='track:{0}'.format(_track),
+                    c=cgmGEN.Callback(MMCONTEXT.func_process, RIGCONSTRAINTS.attach_toShape, None,'eachToLast',
+                                      **{'connectBy':None, 'surfaceTrack':_track}),
+                    ann="Attach each to last mesh — {0} tracker only (no connectBy)".format(_track))
 
 
 from cgm.core.tools.lib import snap_calls as SNAPCALLS

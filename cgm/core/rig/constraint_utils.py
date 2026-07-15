@@ -157,7 +157,7 @@ def attach_toCurveTrack(mHandle,mCrv, mTrackTarget = None, mShape = None,parentT
             worldUpObject=world_up_loc
         )
 
-def attach_toShape(obj = None, targetShape = None, connectBy = 'parent', driver = None, parentTo = None, floating = False):
+def attach_toShape(obj = None, targetShape = None, connectBy = 'parent', driver = None, parentTo = None, floating = False, surfaceTrack = 'follicle'):
     """
     :parameters:
         obj - transform to attach
@@ -170,10 +170,11 @@ def attach_toShape(obj = None, targetShape = None, connectBy = 'parent', driver 
             conPointOrientGroup - point/orient constrain group
             conParentGroup - parent Constrain group
             None - just the tracker nodes
+        surfaceTrack(str) - mesh/surface tracker type: follicle | rivet | uvPin
     :returns:
         resulting dat
 
-    """   
+    """
     try:
         _str_func = 'attach_toShape'
         mObj = cgmMeta.validateObjArg(obj,'cgmObject')
@@ -191,36 +192,76 @@ def attach_toShape(obj = None, targetShape = None, connectBy = 'parent', driver 
         md_res = {}
         
         if d_closest['type'] in ['mesh','nurbsSurface']:
-            log.debug("|{0}| >> Follicle mode...".format(_str_func))
             _shape = SHAPES.get_nonintermediate(d_closest['shape'] )
             log.debug("_shape: {0}".format(_shape))
 
-            l_follicleInfo = NODES.createFollicleOnMesh( _shape )
+            if surfaceTrack in ('rivet', 'uvPin') and d_closest['type'] != 'mesh':
+                log.warning("|{0}| >> {1} requires mesh — using follicle".format(_str_func, surfaceTrack))
+                surfaceTrack = 'follicle'
 
-            i_follicleTrans = cgmMeta.asMeta(l_follicleInfo[1],'cgmObject',setClass=True)
-            i_follicleShape = cgmMeta.asMeta(l_follicleInfo[0],'cgmNode')
-
-            #> Name...
-            i_follicleTrans.doStore('cgmName',mObj)
-            i_follicleTrans.doStore('cgmTypeModifier','surfaceTrack')            
-            i_follicleTrans.doName()
-
-            #>Set follicle value...
-            if d_closest['type'] == 'mesh':
-                i_follicleShape.parameterU = d_closest['parameterU']
-                i_follicleShape.parameterV = d_closest['parameterV']
+            if surfaceTrack == 'rivet':
+                log.debug("|{0}| >> Rivet mode...".format(_str_func))
+                _rivetXform = NODES.createRivetOnMesh(_shape, targetObj=mObj.mNode, name='{0}_rivet'.format(mObj.p_nameBase))
+                i_follicleTrans = cgmMeta.asMeta(_rivetXform, 'cgmObject', setClass=True)
+                i_follicleTrans.doStore('cgmName', mObj)
+                i_follicleTrans.doStore('cgmTypeModifier', 'surfaceTrack')
+                i_follicleTrans.doName()
+                if parentTo:
+                    i_follicleTrans.p_parent = parentTo
+                _res = [i_follicleTrans.mNode]
+                _trackTransform = i_follicleTrans.mNode
+                md_res['mRivet'] = i_follicleTrans
+                md_res['mTrack'] = i_follicleTrans
+            elif surfaceTrack == 'uvPin':
+                log.debug("|{0}| >> uvPin mode...".format(_str_func))
+                _pinXform = mc.spaceLocator(name='{0}_uvPin'.format(mObj.p_nameBase))[0]
+                _uvPinDat = NODES.create_UVPinOnMesh(
+                    _shape,
+                    u=d_closest['parameterU'],
+                    v=d_closest['parameterV'],
+                    name=mObj.p_nameBase,
+                    pin=_pinXform,
+                )
+                i_trackTrans = cgmMeta.asMeta(_uvPinDat[1], 'cgmObject', setClass=True)
+                i_trackTrans.doStore('cgmName', mObj)
+                i_trackTrans.doStore('cgmTypeModifier', 'surfaceTrack')
+                i_trackTrans.doName()
+                if parentTo:
+                    i_trackTrans.p_parent = parentTo
+                _res = [i_trackTrans.mNode, _uvPinDat[0]]
+                _trackTransform = i_trackTrans.mNode
+                md_res['mUvPin'] = i_trackTrans
+                md_res['mUvPinNode'] = cgmMeta.asMeta(_uvPinDat[0], 'cgmNode')
+                md_res['mTrack'] = i_trackTrans
             else:
-                i_follicleShape.parameterU = d_closest['normalizedU']
-                i_follicleShape.parameterV = d_closest['normalizedV']
+                log.debug("|{0}| >> Follicle mode...".format(_str_func))
+                l_follicleInfo = NODES.createFollicleOnMesh( _shape )
+
+                i_follicleTrans = cgmMeta.asMeta(l_follicleInfo[1],'cgmObject',setClass=True)
+                i_follicleShape = cgmMeta.asMeta(l_follicleInfo[0],'cgmNode')
+
+                #> Name...
+                i_follicleTrans.doStore('cgmName',mObj)
+                i_follicleTrans.doStore('cgmTypeModifier','surfaceTrack')            
+                i_follicleTrans.doName()
+
+                #>Set follicle value...
+                if d_closest['type'] == 'mesh':
+                    i_follicleShape.parameterU = d_closest['parameterU']
+                    i_follicleShape.parameterV = d_closest['parameterV']
+                else:
+                    i_follicleShape.parameterU = d_closest['normalizedU']
+                    i_follicleShape.parameterV = d_closest['normalizedV']
+                    
+                if parentTo:
+                    i_follicleTrans.p_parent = parentTo
+                    
+                _res = [i_follicleTrans.mNode, i_follicleShape.mNode]
+                _trackTransform = i_follicleTrans.mNode
                 
-            if parentTo:
-                i_follicleTrans.p_parent = parentTo
-                
-            _res = [i_follicleTrans.mNode, i_follicleShape.mNode]
-            _trackTransform = i_follicleTrans.mNode
-            
-            md_res['mFollicle'] = i_follicleTrans
-            md_res['mFollicleShape'] = i_follicleShape
+                md_res['mFollicle'] = i_follicleTrans
+                md_res['mFollicleShape'] = i_follicleShape
+                md_res['mTrack'] = i_follicleTrans
         else:
             log.debug("|{0}| >> Curve mode...".format(_str_func))
             #d_returnBuff = distance.returnNearestPointOnCurveInfo(obj,crv)

@@ -19,6 +19,7 @@ log.setLevel(logging.INFO)
 
 # From Maya =============================================================
 import maya.cmds as mc
+import maya.mel as mel
 
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGeneral
@@ -305,6 +306,158 @@ def createFollicleOnMesh(targetSurface, name = 'follicle'):
     ATTR.set_standardFlags(follicleTransform)
     
     return [follicleNode,follicleTransform]
+
+
+def _rivetClosestFaceIndex(shape, targetObj=None, targetPoint=None):
+    """Return closest face index on mesh shape for a world position."""
+    from cgm.core.lib import position_utils as POS
+
+    if targetObj is not None:
+        _point = POS.get(targetObj)
+    elif targetPoint:
+        _point = targetPoint
+    else:
+        raise ValueError("Need targetObj or targetPoint")
+
+    _cpom = mc.createNode('closestPointOnMesh')
+    mc.connectAttr('{0}.worldMesh[0]'.format(shape), '{0}.inMesh'.format(_cpom), f=True)
+    mc.setAttr('{0}.inPosition'.format(_cpom), _point[0], _point[1], _point[2], type='double3')
+    _face = int(mc.getAttr('{0}.closestFaceIndex'.format(_cpom)))
+    mc.delete(_cpom)
+    return _face
+
+
+def _createRivet_mayaConstraint(shape, face_id):
+    """
+    Use Maya's built-in Rivet constraint path (Constraints menu) when available.
+    """
+    _str_func = '_createRivet_mayaConstraint'
+    _priorSel = mc.ls(sl=True, long=True) or []
+    try:
+        mc.select(cl=True)
+        mc.select('{0}.f[{1}]'.format(shape, face_id), r=True)
+        try:
+            import maya.internal.nodes.uvpin.cmd_create as ptguv
+            ptguv.Command().execute(setupMode=0, outputConnect=3, allowCreateWithoutInputs=False)
+        except ImportError:
+            return None
+
+        _rivet = mc.ls(sl=True, type='transform', long=True) or []
+        if _rivet:
+            return _rivet[0]
+        log.debug("|{0}| >> Rivet command ran but no transform selected".format(_str_func))
+        return None
+    except Exception as err:
+        log.debug("|{0}| >> {1}".format(_str_func, err))
+        return None
+    finally:
+        if _priorSel:
+            mc.select(_priorSel, r=True)
+        else:
+            mc.select(cl=True)
+
+
+def _createRivet_classic(shape, face_id, name='rivet'):
+    """Classic polygon rivet node network (curveFromMeshEdge + loft + POSI)."""
+    _str_func = '_createRivet_classic'
+    _edges = mc.polyListComponentConversion('{0}.f[{1}]'.format(shape, face_id),
+                                            fromFace=True, toEdge=True)
+    _edgeList = mc.ls(_edges, flatten=True) or []
+    if len(_edgeList) < 2:
+        raise ValueError("|{0}| >> Need at least two edges on face {1}".format(_str_func, face_id))
+
+    _e1 = int(_edgeList[0].split('[')[-1].rstrip(']'))
+    _e2 = int(_edgeList[1].split('[')[-1].rstrip(']'))
+
+    _cfme1 = mc.createNode('curveFromMeshEdge', n='{0}_rivetCFME1'.format(name))
+    mc.setAttr('{0}.ihi'.format(_cfme1), 1)
+    mc.setAttr('{0}.ei[0]'.format(_cfme1), _e1)
+
+    _cfme2 = mc.createNode('curveFromMeshEdge', n='{0}_rivetCFME2'.format(name))
+    mc.setAttr('{0}.ihi'.format(_cfme2), 1)
+    mc.setAttr('{0}.ei[0]'.format(_cfme2), _e2)
+
+    _loft = mc.createNode('loft', n='{0}_rivetLoft1'.format(name))
+    mc.setAttr('{0}.ic[0].ik'.format(_loft), 1)
+    mc.setAttr('{0}.ic[1].ik'.format(_loft), 1)
+    mc.setAttr('{0}.u'.format(_loft), True)
+
+    _posi = mc.createNode('pointOnSurfaceInfo', n='{0}_rivetPOSI1'.format(name))
+
+    mc.connectAttr('{0}.os'.format(_loft), '{0}.is'.format(_posi), f=True)
+    mc.connectAttr('{0}.oc'.format(_cfme1), '{0}.ic[0]'.format(_loft), f=True)
+    mc.connectAttr('{0}.oc'.format(_cfme2), '{0}.ic[1]'.format(_loft), f=True)
+    mc.connectAttr('{0}.worldMesh[0]'.format(shape), '{0}.im'.format(_cfme1), f=True)
+    mc.connectAttr('{0}.worldMesh[0]'.format(shape), '{0}.im'.format(_cfme2), f=True)
+
+    _rivetXform = mc.createNode('transform', n=name)
+    mc.createNode('locator', n='{0}Shape'.format(_rivetXform), p=_rivetXform)
+
+    _ac = mc.createNode('aimConstraint', p=_rivetXform, n='{0}_rivetAimConstraint1'.format(_rivetXform))
+    mc.setAttr('{0}.tg[0].tw'.format(_ac), 1)
+    mc.setAttr('{0}.a'.format(_ac), 0, 1, 0, type='double3')
+    mc.setAttr('{0}.u'.format(_ac), 0, 0, 1, type='double3')
+    for _attr in ('v', 'tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'):
+        mc.setAttr('{0}.{1}'.format(_ac, _attr), k=False)
+
+    mc.connectAttr('{0}.position'.format(_posi), '{0}.translate'.format(_rivetXform), f=True)
+    mc.connectAttr('{0}.n'.format(_posi), '{0}.tg[0].tt'.format(_ac), f=True)
+    mc.connectAttr('{0}.tv'.format(_posi), '{0}.wu'.format(_ac), f=True)
+    mc.connectAttr('{0}.crx'.format(_ac), '{0}.rx'.format(_rivetXform), f=True)
+    mc.connectAttr('{0}.cry'.format(_ac), '{0}.ry'.format(_rivetXform), f=True)
+    mc.connectAttr('{0}.crz'.format(_ac), '{0}.rz'.format(_rivetXform), f=True)
+
+    return _rivetXform
+
+
+def createRivetOnMesh(targetSurface, targetObj=None, targetPoint=None, name='rivet'):
+    """
+    Create a rivet on the closest face to a target position.
+
+    Tries Maya's Constraints > Rivet API first, then classic edge-loft rivet nodes.
+
+    :param targetSurface: mesh shape or transform
+    :param targetObj: object to sample position from
+    :param targetPoint: [x,y,z] world position (if no targetObj)
+    :param name: base name (rivet transform is renamed via caller meta naming)
+    :returns: rivet transform (str)
+    """
+    _str_func = 'createRivetOnMesh'
+
+    _shape = SEARCH.get_nonintermediateShape(targetSurface)
+    if not _shape or VALID.get_mayaType(_shape) != 'mesh':
+        raise ValueError("|{0}| >> Rivet requires a mesh surface".format(_str_func))
+
+    _face = _rivetClosestFaceIndex(_shape, targetObj=targetObj, targetPoint=targetPoint)
+
+    _rivet = _createRivet_mayaConstraint(_shape, _face)
+    if _rivet:
+        return _rivet
+
+    log.debug("|{0}| >> Falling back to classic rivet network".format(_str_func))
+    return _createRivet_classic(_shape, _face, name=name)
+
+
+def create_UVPinOnMesh(targetSurface, targetObj=None, targetPoint=None, u=None, v=None,
+                       name='uvPin', pin=None, useExisting=True):
+    """
+    Create a uvPin-driven tracker on mesh at closest-point UV (or explicit u/v).
+
+    :returns: [uvPinNode, pinTransform, coordinateIndex]
+    """
+    _str_func = 'create_UVPinOnMesh'
+    from cgm.core.lib import distance_utils as DIST
+
+    _shape = SEARCH.get_nonintermediateShape(targetSurface)
+    if not _shape or VALID.get_mayaType(_shape) != 'mesh':
+        raise ValueError("|{0}| >> uvPin requires a mesh surface".format(_str_func))
+
+    if u is None or v is None:
+        _dat = DIST.get_closest_point_data_from_mesh(_shape, targetObj=targetObj, targetPoint=targetPoint)
+        u = _dat['parameterU']
+        v = _dat['parameterV']
+
+    return create_UVPin(_shape, pin=pin, name=name, u=u, v=v, useExising=useExisting)
 
 
 

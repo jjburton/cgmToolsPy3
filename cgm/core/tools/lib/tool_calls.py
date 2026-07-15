@@ -225,6 +225,7 @@ def animFilter():
 def cgmSimChain():
     try:
         from cgm.core.tools import dynFKTool
+        dynFKTool.reload_dependencies()
         cgmGEN._reloadMod(dynFKTool)
         dynFKTool.ui()
     except Exception as err:

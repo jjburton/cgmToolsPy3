@@ -14,6 +14,7 @@ import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.snap_utils as SNAP
 import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.constraint_utils as CONSTRAINTS
+import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
 
 import pprint
 import copy
@@ -171,7 +172,283 @@ class chain(object):
         
     def delete(self):
         pass
-    
+
+
+def _resolve_ncloth_shape(node):
+    """Return nClothShape from an nCloth shape or transform that owns one."""
+    node = VALID.mNodeString(node)
+    if mc.objectType(node) == 'nCloth':
+        return node
+    shapes = mc.listRelatives(node, shapes=True, type='nCloth', fullPath=True) or []
+    return shapes[0] if shapes else None
+
+
+def _wire_time1_current_time(node):
+    """Connect timeline to sim node currentTime (Maya default for nucleus / nCloth)."""
+    _node = VALID.mNodeString(node)
+    if not mc.attributeQuery('currentTime', node=_node, exists=True):
+        return False
+    _dest = '{0}.currentTime'.format(_node)
+    if mc.isConnected('time1.outTime', _dest):
+        return True
+    if mc.objExists('time1'):
+        mc.connectAttr('time1.outTime', _dest, f=True)
+        return True
+    return False
+
+
+def _nucleus_for_dyn_sim(sim_shape):
+    _sim = VALID.mNodeString(sim_shape)
+    _con = mc.listConnections('{0}.currentState'.format(_sim), type='nucleus') or []
+    return _con[0] if _con else None
+
+
+def _disconnect_dyn_sim_from_nucleus(sim_shape):
+    _sim = VALID.mNodeString(sim_shape)
+    for _plug in ('currentState', 'startState'):
+        for _src in mc.listConnections('{0}.{1}'.format(_sim, _plug), source=True, plugs=True) or []:
+            try:
+                mc.disconnectAttr(_src, '{0}.{1}'.format(_sim, _plug))
+            except Exception:
+                pass
+    for _dst in mc.listConnections('{0}.nextState'.format(_sim), destination=True, plugs=True) or []:
+        try:
+            mc.disconnectAttr('{0}.nextState'.format(_sim), _dst)
+        except Exception:
+            pass
+
+
+def _connect_dyn_sim_to_nucleus(sim_shape, nucleus):
+    """
+    Wire hairSystem / nClothShape to nucleus outputObjects (same pattern as makeCurvesDynamic).
+    """
+    _str_func = '_connect_dyn_sim_to_nucleus'
+    _nuc = VALID.mNodeString(nucleus)
+    _sim = VALID.mNodeString(sim_shape)
+
+    _existing = _nucleus_for_dyn_sim(_sim)
+    if _existing == _nuc:
+        _wire_time1_current_time(_nuc)
+        _wire_time1_current_time(_sim)
+        return True
+
+    if _existing and _existing != _nuc:
+        log.info("|{0}| >> Moving {1} from nucleus {2} to {3}".format(
+            _str_func, _sim, _existing, _nuc))
+        _disconnect_dyn_sim_from_nucleus(_sim)
+
+    _idx = ATTR.get_nextCompoundIndex(_nuc, 'outputObjects')
+    mc.connectAttr('{0}.outputObjects[{1}]'.format(_nuc, _idx), '{0}.nextState'.format(_sim), f=True)
+    mc.connectAttr('{0}.currentState'.format(_sim), '{0}.inputActive[{1}]'.format(_nuc, _idx), f=True)
+    mc.connectAttr('{0}.startState'.format(_sim), '{0}.inputActiveStart[{1}]'.format(_nuc, _idx), f=True)
+
+    _wire_time1_current_time(_nuc)
+    _wire_time1_current_time(_sim)
+
+    if mc.attributeQuery('startFrame', node=_sim, exists=True):
+        _nucStart = '{0}.startFrame'.format(_nuc)
+        _simStart = '{0}.startFrame'.format(_sim)
+        if not mc.isConnected(_nucStart, _simStart):
+            try:
+                mc.connectAttr(_nucStart, _simStart, f=True)
+            except Exception:
+                pass
+
+    log.info("|{0}| >> Wired {1} to nucleus {2} [outputObjects[{3}]]".format(
+        _str_func, _sim, _nuc, _idx))
+    return True
+
+
+def get_mapped_cloth(mOwner):
+    """
+    Read setup ``mCloth`` message.
+
+    Returns the linked nCloth transform meta, or False if unset.
+    """
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
+    mNode = mOwner.mNode if hasattr(mOwner, 'mNode') else str(mOwner)
+    if not mc.objExists(mNode):
+        return False
+    if not mc.attributeQuery('mCloth', node=mNode, exists=True):
+        return False
+
+    # Transform .message links are dropped by ATTR.get_message (shapes=True).
+    sources = mc.listConnections('{0}.mCloth'.format(mNode), source=True, destination=False) or []
+    if not sources:
+        return False
+
+    nc = NCLOTH.get_nCloth(sources[0], noneValid=True)
+    if not nc:
+        return False
+
+    parents = mc.listRelatives(nc, parent=True, fullPath=True) or []
+    dag = parents[0] if parents else sources[0]
+    return cgmMeta.validateObjArg(dag, noneValid=True)
+
+
+def map_cloth_surface(mOwner, node=None):
+    """
+    Link an nCloth shape to setup ``mCloth`` (required for Attach to Cloth).
+
+    Module-level entry — use from UI so cached meta instances pick up new code
+    without relying on instance method resolution on reloaded classes.
+    """
+    _str_func = 'map_cloth_surface'
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
+    if node is None:
+        _sel = mc.ls(sl=True, long=True) or []
+        if not _sel:
+            return log.error("|{0}| >> Nothing selected".format(_str_func))
+        node = _sel[0]
+
+    nc = _resolve_ncloth_shape(node)
+    if not nc:
+        return log.error("|{0}| >> Selection is not an nCloth node".format(_str_func))
+
+    if not NCLOTH.get_out_mesh_shape(nc, noneValid=True):
+        return log.error("|{0}| >> nCloth has no output mesh".format(_str_func))
+
+    xforms = mc.listRelatives(nc, parent=True, fullPath=True) or []
+    if not xforms:
+        return log.error("|{0}| >> nCloth has no transform".format(_str_func))
+
+    # Link transform — shape links use viewName and do not read back via getMessage.
+    mOwner.connectChildNode(xforms[0], 'mCloth')
+    log.info("|{0}| >> Mapped cloth: {1}".format(_str_func, xforms[0]))
+
+    mSetupNucleus = mOwner.getMessageAsMeta('mNucleus')
+    if mSetupNucleus:
+        _connect_dyn_sim_to_nucleus(nc, mSetupNucleus.mNode)
+    else:
+        _clothNucleus = NCLOTH.get_nucleus(nc, noneValid=True)
+        if _clothNucleus:
+            mOwner.connectChildNode(_clothNucleus, 'mNucleus')
+            _wire_time1_current_time(_clothNucleus)
+            _wire_time1_current_time(nc)
+            log.info("|{0}| >> Linked cloth nucleus: {1}".format(_str_func, _clothNucleus))
+
+    return get_mapped_cloth(mOwner)
+
+
+def attach_to_cloth_dynFK(mOwner, objs=None, name=None, surfaceTrack='follicle', **kws):
+    """
+    Attach joint list to mapped nCloth outMesh via RIGCONSTRAINTS.attach_toShape.
+
+    surfaceTrack: follicle | rivet | uvPin (mesh trackers on outMesh).
+    Per target: track node + loc parented under track (mLocs for connect/bake).
+    """
+    _str_func = 'attach_to_cloth_dynFK'
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
+    surfaceTrack = surfaceTrack or 'follicle'
+    if surfaceTrack not in ('follicle', 'rivet', 'uvPin'):
+        log.warning("|{0}| >> Unknown surfaceTrack '{1}' — using follicle".format(_str_func, surfaceTrack))
+        surfaceTrack = 'follicle'
+
+    mCloth = get_mapped_cloth(mOwner)
+    if not mCloth:
+        return log.error("|{0}| >> Map cloth surface first".format(_str_func))
+
+    outMeshShape = NCLOTH.get_out_mesh_shape(mCloth.mNode, noneValid=False)
+    if not outMeshShape:
+        return log.error("|{0}| >> No output mesh on mapped nCloth".format(_str_func))
+
+    if not objs:
+        _sel = mc.ls(sl=1)
+        if _sel:
+            objs = _sel
+
+    ml = cgmMeta.asMeta(objs, noneValid=True)
+    ml_baseTargets = copy.copy(ml)
+
+    if not ml:
+        return log.warning("|{0}| >> No objects passed".format(_str_func))
+
+    if not name:
+        name = ml[-1].p_nameBase
+
+    _idx = mOwner.get_nextIdx()
+
+    mGrp = mOwner.doCreateAt(setClass=1)
+    mGrp.p_parent = mOwner
+    mGrp.rename("chain_{0}_grp".format(name))
+    mGrp.dagLock()
+    mOwner.connectChildNode(mGrp.mNode, 'chain_{0}'.format(_idx), 'owner')
+    mGrp.doStore('chainMode', 'clothAttach')
+    mGrp.doStore('cgmName', name)
+    mGrp.doStore('surfaceTrack', surfaceTrack)
+
+    ml_follicles = []
+    ml_rivets = []
+    ml_uvpins = []
+    ml_locs = []
+
+    for mObj in ml:
+        _res = RIGCONSTRAINTS.attach_toShape(
+            mObj.mNode,
+            outMeshShape,
+            connectBy=None,
+            parentTo=mGrp.mNode,
+            surfaceTrack=surfaceTrack,
+        )
+        if not _res:
+            return log.error("|{0}| >> attach_toShape failed on {1}".format(_str_func, mObj.mNode))
+
+        md_res = {}
+        if isinstance(_res, tuple):
+            _res, md_res = _res
+
+        mTrack = md_res.get('mTrack') or md_res.get('mFollicle') or md_res.get('mRivet') or md_res.get('mUvPin')
+        if not mTrack:
+            return log.error("|{0}| >> No surface track from attach_toShape on {1}".format(_str_func, mObj.mNode))
+
+        mLoc = mObj.doLoc()
+        mLoc.p_parent = mTrack
+
+        if surfaceTrack == 'rivet':
+            ml_rivets.append(mTrack)
+        elif surfaceTrack == 'uvPin':
+            ml_uvpins.append(mTrack)
+        else:
+            ml_follicles.append(mTrack)
+        ml_locs.append(mLoc)
+        SNAP.matchTarget_set(mObj.mNode, mLoc.mNode)
+
+    if ml_follicles:
+        mGrp.msgList_connect('mMeshFollicles', ml_follicles)
+    if ml_rivets:
+        mGrp.msgList_connect('mRivets', ml_rivets)
+    if ml_uvpins:
+        mGrp.msgList_connect('mUvPins', ml_uvpins)
+    mGrp.msgList_connect('mLocs', ml_locs)
+    mGrp.msgList_connect('mTargets', ml)
+    mGrp.msgList_connect('mBaseTargets', ml_baseTargets)
+
+    log.info(cgmGEN.logString_msg(_str_func, 'chain {0} attached ({1} {2} trackers)'.format(
+        _idx, len(ml_locs), surfaceTrack)))
+    return mGrp
+
+
+def setup_sim_dynFK(baseName='DynamicChain', startFrame=None, applyPreset=True, mOwner=None):
+    """
+    Create or extend a cgmDynFK setup with nucleus only (no hair chain).
+
+    Use before mapping cloth when you do not want Make Dynamic Chain first.
+    """
+    _str_func = 'setup_sim_dynFK'
+    if mOwner:
+        mSetup = cgmMeta.validateObjArg(mOwner, noneValid=True)
+        if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+            return log.error("|{0}| >> Owner is not a cgmDynFK setup".format(_str_func))
+    else:
+        mSetup = cgmDynFK(baseName=baseName, objs=None, startFrame=startFrame)
+
+    mSetup.setup_sim(startFrame=startFrame, applyPreset=applyPreset)
+    log.info(cgmGEN.logString_msg(_str_func, mSetup.p_nameBase))
+    return mSetup
+
     
 class cgmDynFK(cgmMeta.cgmObject):
     baseName = None
@@ -223,7 +500,14 @@ class cgmDynFK(cgmMeta.cgmObject):
         self.fwd = fwd
         self.up = up
         self.startFrame = startFrame
-        self.baseName = baseName
+        if node:
+            if self.hasAttr('cgmName') and self.cgmName:
+                self.baseName = self.cgmName
+            else:
+                _short = self.p_nameBase
+                self.baseName = _short[:-6] if _short.endswith('_dynFK') else _short
+        else:
+            self.baseName = baseName
         self.useExistingNucleus = useExistingNucleus
         self.upSetup = upSetup
         self.extendEnd = extendEnd
@@ -239,6 +523,24 @@ class cgmDynFK(cgmMeta.cgmObject):
             self.chain_create(objs, fwd, up, name=name)        
         
         self.report()
+
+    def set_base_name(self, name):
+        """Update setup base name and rename the cgmDynFK transform."""
+        _str_func = 'set_base_name'
+        _name = VALID.stringArg(name, noneValid=True)
+        if not _name:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
+        _name = _name.strip()
+        if not _name:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
+        if _name == self.baseName:
+            return True
+
+        self.baseName = _name
+        self.doStore('cgmName', _name)
+        self.rename("{0}_dynFK".format(_name))
+        log.info(cgmGEN.logString_msg(_str_func, _name))
+        return True
         
         if _sel:
             mc.select(_sel)
@@ -289,9 +591,53 @@ class cgmDynFK(cgmMeta.cgmObject):
         """Try to get the nucleus from the scene to use for other setups"""
         if mNucleus is not None:
            return cgmMeta.validateObjArg(mNucleus,noneValid=True)
-        else:
-            mNucleus = cgmMeta.validateObjArg('cgmDynFK_nucleus',noneValid=True)
+        if self.getMessageAsMeta('mNucleus'):
+            return self.getMessageAsMeta('mNucleus')
+        return cgmMeta.validateObjArg('cgmDynFK_nucleus',noneValid=True)
+
+    def ensure_nucleus(self, mNucleus=None, startFrame=None):
+        """Create or link setup mNucleus without a dynamic hair chain."""
+        _str_func = 'ensure_nucleus'
+
+        mExisting = self.getMessageAsMeta('mNucleus')
+        if mExisting:
+            _wire_time1_current_time(mExisting.mNode)
+            return mExisting
+
+        mNucleus = cgmMeta.validateObjArg(mNucleus, noneValid=True) if mNucleus else self.get_nucleus()
+        if not mNucleus:
+            mNucleus = cgmMeta.asMeta(mc.createNode('nucleus', name='cgmDynFK_nucleus'))
+            mNucleus.p_parent = self
+        elif not mc.objExists('cgmDynFK_nucleus'):
+            mNucleus.rename('cgmDynFK_nucleus')
+
+        self.connectChildNode(mNucleus.mNode, 'mNucleus')
+
+        _start = startFrame if startFrame is not None else self.startFrame
+        if _start is None:
+            _start = mc.playbackOptions(q=True, min=True)
+        mNucleus.startFrame = _start
+
+        _wire_time1_current_time(mNucleus.mNode)
+
+        log.info(cgmGEN.logString_msg(_str_func, mNucleus.p_nameBase))
         return mNucleus
+
+    def setup_sim(self, startFrame=None, applyPreset=True):
+        """Initialize nucleus on this setup (no makeCurvesDynamic / hair chain)."""
+        _str_func = 'setup_sim'
+        mNucleus = self.ensure_nucleus(startFrame=startFrame)
+        if applyPreset:
+            profile_load(mNucleus.mNode, 'base')
+        _wire_time1_current_time(mNucleus.mNode)
+        log.info(cgmGEN.logString_msg(_str_func, self.p_nameBase))
+        return mNucleus
+
+    def map_cloth_surface(self, node=None):
+        return map_cloth_surface(self, node)
+
+    def attach_to_cloth(self, objs=None, name=None, **kws):
+        return attach_to_cloth_dynFK(self, objs=objs, name=name, **kws)
         
     def chain_deleteByIdx(self, idx = None):
         if idx is None:
@@ -349,9 +695,28 @@ class cgmDynFK(cgmMeta.cgmObject):
                      mNucleus=None,
                      upControl = None,
                      aimUpMode = None,
+                     chainMode = None,
+                     **kws):
+        _chainMode = chainMode or kws.pop('chainMode', 'hair')
+        if _chainMode == 'clothAttach':
+            return attach_to_cloth_dynFK(self, objs=objs, name=name, **kws)
+        return self.chain_create_hair(
+            objs=objs, fwd=fwd, up=up, name=name, upSetup=upSetup,
+            extendStart=extendStart, extendEnd=extendEnd, mNucleus=mNucleus,
+            upControl=upControl, aimUpMode=aimUpMode, **kws)
+
+    def chain_create_hair(self, objs = None,
+                     fwd = None, up=None,
+                     name = None,
+                     upSetup = "guess",
+                     extendStart = None,
+                     extendEnd = True,
+                     mNucleus=None,
+                     upControl = None,
+                     aimUpMode = None,
                      **kws):
         
-        _str_func = 'chain_create'
+        _str_func = 'chain_create_hair'
         
         if not objs:
             _sel = mc.ls(sl=1)
@@ -799,6 +1164,7 @@ class cgmDynFK(cgmMeta.cgmObject):
         mGrp.msgList_connect('mBaseTargets',ml_baseTargets)
         mGrp.msgList_connect('mObjJointChain',chain)
         mGrp.doStore('cgmName', name)
+        mGrp.doStore('chainMode', 'hair')
 
         mNucleus.doConnectOut('startFrame',"{0}.startFrame".format(mHairSys.mNode))
         
@@ -811,18 +1177,35 @@ class cgmDynFK(cgmMeta.cgmObject):
         pprint.pprint(self.get_dat())
         
     def get_dat(self):
+        import cgm.core.lib.nCloth_utils as NCLOTH
+
+        mCloth = get_mapped_cloth(self)
+        mClothOutMesh = None
+        if mCloth:
+            _outXform = NCLOTH.get_out_mesh_transform(mCloth.mNode, noneValid=True)
+            if _outXform:
+                mClothOutMesh = cgmMeta.asMeta(_outXform)
+
         _res = {'mNucleus':self.getMessageAsMeta('mNucleus'),
                 'mHairSysDag':self.getMessageAsMeta('mHairSysDag'),
                 'mHairSysShape':self.getMessageAsMeta('mHairSysShape'),
+                'mCloth': mCloth,
+                'mClothOutMesh': mClothOutMesh,
                 'chains':{},
                 }
         
         ml_chains = self.msgList_get('chain')
         for i,mGrp in enumerate(ml_chains):
+            _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
             _d = {'mGrp':mGrp,
+                  'chainMode': _chainMode,
+                  'surfaceTrack': getattr(mGrp, 'surfaceTrack', None) or 'follicle',
                   'mFollicle':mGrp.getMessageAsMeta('mFollicle'),
                   'mInCrv':self.getMessageAsMeta('mInCrv'),
                   'mOutCrv':mGrp.getMessageAsMeta('mOutCrv'),
+                  'mMeshFollicles': mGrp.msgList_get('mMeshFollicles'),
+                  'mRivets': mGrp.msgList_get('mRivets'),
+                  'mUvPins': mGrp.msgList_get('mUvPins'),
                   }
             
             for lnk in 'mLocs','mAims','mParents','mTargets', 'mObjJointChain':
@@ -903,8 +1286,11 @@ class cgmDynFK(cgmMeta.cgmObject):
 
     def targets_connect(self,idx=None):
         for chain in self.get_chains(idx):
-            for i,mObj in enumerate(chain.msgList_get('mTargets')):
-                mc.parentConstraint([chain.msgList_get('mLocs')[i].mNode, mObj.mNode])
+            ml_locs = chain.msgList_get('mLocs')
+            for i, mObj in enumerate(chain.msgList_get('mTargets')):
+                mLoc = ml_locs[i]
+                SNAP.matchTarget_set(mObj.mNode, mLoc.mNode)
+                mc.parentConstraint(mLoc.mNode, mObj.mNode)
     def targets_disconnect(self,idx=None):
         for chain in self.get_chains(idx):
             for i,mObj in enumerate(chain.msgList_get('mTargets')):
@@ -912,6 +1298,29 @@ class cgmDynFK(cgmMeta.cgmObject):
 
                 if _buffer:
                     mc.delete(_buffer)
+
+    def bake_nodes(self, mObjs, startFrame, endFrame):
+        """Bake simulation to keys (same pattern as bakeAndPrep / zoo dynamicChain)."""
+        _str_func = 'bake_nodes'
+        ml = cgmMeta.asMeta(mObjs, noneValid=True)
+        if not ml:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'No objects'))
+
+        _nodes = [mObj.mNode for mObj in ml]
+        cgmGEN.playback_stop()
+
+        log.info(cgmGEN.logString_msg(_str_func, '{0} | frames {1}-{2}'.format(_nodes, startFrame, endFrame)))
+        mc.bakeResults(
+            _nodes,
+            simulation=True,
+            t=(startFrame, endFrame),
+            sampleBy=1,
+            disableImplicitControl=True,
+            preserveOutsideKeys=True,
+            sparseAnimCurveBake=True,
+            minimizeRotation=True,
+        )
+        return True
     
     def targets_select(self,idx=None):
         ml= []
@@ -1047,6 +1456,8 @@ def profile_get(arg = None, module = dynFKPresets ):
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):
     _str_func = 'profile_apply'
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
     mTar = cgmMeta.asMeta(target, noneValid = True)
     if not mTar:
         return log.error(cgmGEN.logString_msg(_str_func, "No valid target"))
@@ -1066,10 +1477,16 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
         return False
     
     if clean:
-        d_use = profile_get('base',module).get(_key)
-        d_use.update(_d_type)
+        d_use = copy.deepcopy(profile_get('base', module).get(_key) or {})
+        d_use.update(copy.deepcopy(_d_type))
     else:
-        d_use = _d_type
+        d_use = copy.deepcopy(_d_type)
+
+    if _key == 'n':
+        NCLOTH._remap_nucleus_scene_axes(d_use)
+        log.info(cgmGEN.logString_msg(
+            _str_func, "Scene up: {0} | gravityDirection: {1}".format(
+                NCLOTH.scene_up_get(), d_use.get('gravityDirection'))))
     
     _node = mTar.mNode
     for a,v in list(d_use.items()):
