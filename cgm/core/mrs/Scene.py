@@ -292,6 +292,9 @@ example:
         self.uiPop_sendToProject_version = None
         self.uiPop_sendToProject_variant = None
         self.uiPop_sendToProject_sub = None
+        self.subTypeListPUM = None
+        self.variationListPUM = None
+        self.versionListPUM = None
         self.displayProject = True
         self.mDat                     = None
         self.assetMetaData               = {}
@@ -1641,80 +1644,15 @@ example:
 
         self.subTypeMenu = mUI.MelPopupMenu(self.subTypeBtn, button=1 )
         self.subTypeSearchList = self.build_searchable_list(_setsForm, sc=self.uiFunc_subTypeList_select,
-                                                            refreshCommand=lambda *a:self.LoadSubTypeList())
+                                                            refreshCommand=lambda *a:self.LoadSubTypeList(),
+                                                            allowMultiSelect=True)
 
-        #JOSH HERE
-        pum = mUI.MelPopupMenu(self.subTypeSearchList['scrollList'],
-                               pmc= lambda *a: self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub))        
-
-        mUI.MelMenuItem( pum, label='        Subtype', en=False )
-        """
-        mUI.MelMenuItem(pum,label="Add Subtype",
-                        command=self.CreateSubType)
-
-
-        mUI.MelMenuItem(pum, label="Rename Subtype", command= partial(self.rename_below,'subtype') )
-
-
-
-        mUI.MelMenuItem(pum,label="Add Sub Dir",
-                        command=self.CreateSubAsset)
-
-        mUI.MelMenuItem(pum,label="Add Variation",
-                        command=self.CreateVariation)
-        """
-        mUI.MelMenuItemDiv( pum, label='Selected' )
-
-        self.ml_dirOptions_set = []
-
-        self.ml_dirOptions_set.append(mUI.MelMenuItem(pum, label="Rename Set", command= partial(self.rename_below,'set') ))
-
-        self.ml_fileOptions_set = []
-
-        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum,label="Reference",
-                                                       ann = _d_ann.get('reference'),
-                                                       command=self.ReferenceFile,en=1 ))
-        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum,label="Import",
-                                                       ann = _d_ann.get('import'),
-                                                       command=self.ImportFile,en=1 ))
-        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum,label="Replace",
-                                                       ann=_d_ann.get('replace','Replace'),
-                                                      command=self.file_replace,en=1 ))
-
-        mUI.MelMenuItem(pum, label="Export Here",
-                        ann="Export selected objects using Maya's Export Selection",
-                        c=lambda *a: self.ExportSelection_sets())
-
-        self.uiPop_sendToProject_sub = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True, en=1)
-        self.ml_fileOptions_set.append(self.uiPop_sendToProject_sub)
-
-        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild,en=1))
-        self.ml_fileOptions_set.append(mUI.MelMenuItem( pum, label="Send Last To Queue", command=self.AddLastToExportQueue ))
-        self.ml_fileOptions_set.append(mUI.MelMenuItem( pum, label="Create SubTypeRef", command= lambda *a:self.CreateSubTypeRef() ))
-
-        _batch = mUI.MelMenuItem(pum, label="To Queue as:", subMenu=True )
-        self.ml_fileOptions_set.append(_batch)
-
-        for t in ['export','rig','cutscene']:
-            mUI.MelMenuItem( _batch, label= t.capitalize(),
-                             command = partial(self.AddToExportQueue,t))        
-
-        mUI.MelMenuItemDiv( pum, label='Directory' )
-        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenSubTypeDirectory )
-
-        mUI.MelMenuItem(pum,
-                        ann = "Open Maya file",
-                        c= lambda *a:self.uiPath_mayaOpen_subType(),
-                        label = 'Open Maya here')
-
-        mUI.MelMenuItem(pum,
-                        ann = "Save Maya file",
-                        c= lambda *a:self.uiPath_mayaSaveTo_sets(),
-                        label = 'Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a:self.LoadSubTypeList() )
-
-        mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'sets' ))        
+        #JOSH HERE — popup rebuilt on selection (Builder pattern); none when multi-select
+        self._wireFileListScrollSelect(
+            self.subTypeSearchList,
+            'subTypeListPUM',
+            self.buildSubTypeListPopup,
+            self.uiFunc_subTypeList_select)
 
 
         """
@@ -1749,61 +1687,16 @@ example:
                                               ann='Select the asset variation', en=False)
 
         self.variationList = self.build_searchable_list(_variationForm, sc=self.uiFunc_variationList_select,
-                                                        refreshCommand=lambda *a:self.LoadVariationList())
+                                                        refreshCommand=lambda *a:self.LoadVariationList(),
+                                                        allowMultiSelect=True)
 
 
 
-        pum = mUI.MelPopupMenu(self.variationList['scrollList'],
-                               pmc= lambda *a: self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant))
-
-
-        #------------------------------------------------------------------------------
-        mUI.MelMenuItem( pum, label='        Variant', en=False )
-        mUI.MelMenuItemDiv( pum, label='Selected' )
-
-        self.ml_dirOptions_variant = []
-
-        self.ml_dirOptions_variant.append(mUI.MelMenuItem(pum, label="Rename Variant", command= partial(self.rename_below,'variant') ))
-
-        self.ml_fileOptions_variant = []
-
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Reference File",
-                                                           ann = _d_ann.get('reference'),
-                                                           command=self.ReferenceFile ))
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum,label="Import",
-                                                           ann = _d_ann.get('import'),
-                                                           command=self.ImportFile))        
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum,label="Replace",
-                                                           ann=_d_ann.get('replace','Replace'),
-                                                           command=self.file_replace))
-
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Export Here",
-                                                           ann="Export selected objects using Maya's Export Selection",
-                                                           command=lambda *a: self.ExportSelection(mode='variant')))
-
-        self.uiPop_sendToProject_variant = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True )
-        self.ml_fileOptions_variant.append(self.uiPop_sendToProject_variant)
-
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild,en=1))
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem( pum, label="Send Last To Queue", command=self.AddLastToExportQueue ))
-
-
-        mUI.MelMenuItemDiv( pum, label='Directory' )
-        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVariationDirectory )
-
-        mUI.MelMenuItem(pum,
-                        ann = "Open Maya file",
-                        c= lambda *a:self.uiPath_mayaOpen_variant(),
-                        label = 'Open Maya here')
-
-        mUI.MelMenuItem(pum,
-                        ann = "Save Maya file",
-                        c= lambda *a:self.uiPath_mayaSaveTo_variant(),
-                        label = 'Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a:self.LoadVariationList() )        
-
-        mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'variation' ))  
+        self._wireFileListScrollSelect(
+            self.variationList,
+            'variationListPUM',
+            self.buildVariationListPopup,
+            self.uiFunc_variationList_select)
         #---------------------------------------------------------------------------------------
 
         mRow_variationButtons = mUI.MelHLayout(_variationForm, padding=2)
@@ -1832,59 +1725,15 @@ example:
                                             ann='Select the asset version', en=False)
 
         self.versionList = self.build_searchable_list(_versionForm, sc=self.uiFunc_versionList_select,
-                                                      refreshCommand=lambda *a:self.LoadVersionList())
+                                                      refreshCommand=lambda *a:self.LoadVersionList(),
+                                                      allowMultiSelect=True)
 
 
-        pum = mUI.MelPopupMenu(self.versionList['scrollList'],
-                               pmc= lambda *a: self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version))
-
-
-
-        #------------------------------------------------------------------------------
-        mUI.MelMenuItem( pum, label='        Version', en=False )
-        mUI.MelMenuItemDiv( pum, label='Selected' )
-
-        mUI.MelMenuItem(pum, label="Reference File",
-                        ann = _d_ann.get('reference'),
-                        command=self.ReferenceFile )
-        mUI.MelMenuItem(pum,label="Import",
-                        ann = _d_ann.get('import'),
-                        command=self.ImportFile)        
-        mUI.MelMenuItem(pum,label="Replace",
-                        ann=_d_ann.get('replace','Replace'),
-                        command=self.file_replace)        
-
-        mUI.MelMenuItem(pum, label="Export Here",
-                        ann="Export selected objects using Maya's Export Selection",
-                        command=lambda *a: self.ExportSelection(mode='version'))
-
-        self.uiPop_sendToProject_version = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True )
-        mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild,en=1)
-
-        #mUI.MelMenuItem( pum, label="Send Last To Queue", command=self.AddLastToExportQueue )
-
-        _batch = mUI.MelMenuItem(pum, label="To Queue as:", subMenu=True )
-        for t in ['export','rig','cutscene']:
-            mUI.MelMenuItem( _batch, label= t.capitalize(),
-                             command = partial(self.AddToExportQueue,t))
-
-
-
-
-
-        mUI.MelMenuItem( pum, label="Create SubTypeRef", command= lambda *a:self.CreateSubTypeRef() )
-
-
-        mUI.MelMenuItemDiv( pum, label='Directory' )
-        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVersionDirectory )
-
-        mUI.MelMenuItem(pum,
-                        ann = "Save Maya file",
-                        c= lambda *a:self.uiPath_mayaSaveTo_version(),
-                        label = 'Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a:self.LoadVersionList() )
-        mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'version' ))  
+        self._wireFileListScrollSelect(
+            self.versionList,
+            'versionListPUM',
+            self.buildVersionListPopup,
+            self.uiFunc_versionList_select)
 
         mRow_versionButtons = mUI.MelHLayout(_versionForm, padding=2)
         self.mRow_versionButtons = mRow_versionButtons
@@ -2000,10 +1849,10 @@ example:
 
         mUI.MelLabel(_row, label="Add to queue as: ", h=self.__itemHeight, align = 'right')
 
-        create_exportButton(_row,'Anim', os.path.join(_path_imageFolder,'anim_2.png'), lambda *a:(self.AddToExportQueue('export')))
-        create_exportButton(_row,'Cutscene', os.path.join(_path_imageFolder,'scene.png'),  lambda *a:(self.AddToExportQueue('cutscene')))
+        create_exportButton(_row,'Anim', os.path.join(_path_imageFolder,'anim_2.png'), lambda *a:(self.AddSelectedToExportQueue('export')))
+        create_exportButton(_row,'Cutscene', os.path.join(_path_imageFolder,'scene.png'),  lambda *a:(self.AddSelectedToExportQueue('cutscene')))
         mUI.MelSeparator(_row,w=5)
-        create_exportButton(_row,'Rig', os.path.join(_path_imageFolder,'rig_export.png'), lambda *a:(self.AddToExportQueue('rig')))
+        create_exportButton(_row,'Rig', os.path.join(_path_imageFolder,'rig_export.png'), lambda *a:(self.AddSelectedToExportQueue('rig')))
 
         #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Rig",  c=lambda *a:(self.AddToExportQueue('rig')), h=self.__itemHeight)
         #mUI.MelButton(_row, ut = 'cgmUITemplate', label="Cutscene",  c=lambda *a:(self.AddToExportQueue('cutscene')), h=self.__itemHeight)
@@ -2973,9 +2822,10 @@ example:
             self.b_varFile = False
             self.LoadVariationList()
         else:
-            log.debug(log_msg(_str_func,"hasVariant == false"))                                    
-            self.variationList['items'] = []
-            self.variationList['scrollList'].clear()            
+            log.debug(log_msg(_str_func,"hasVariant == false"))
+            if self.variationList:
+                self.variationList['items'] = []
+                self.variationList['scrollList'].clear()
 
         #if not self.subTypes:#...if we have 
 
@@ -3677,7 +3527,7 @@ example:
     #####
     ## Searchable Lists
     #####
-    def build_searchable_list(self, parent = None, sc=None, refreshCommand = None):
+    def build_searchable_list(self, parent = None, sc=None, refreshCommand = None, allowMultiSelect=False):
         _margin = 0
 
         if not parent:
@@ -3697,7 +3547,7 @@ example:
                               w=25,h=25)        
 
         tsl = cgmUI.cgmScrollList(form)
-        tsl.allowMultiSelect(False)
+        tsl.allowMultiSelect(allowMultiSelect)
 
         if sc != None:
             #tsl.set_selCallBack(sc)
@@ -5502,7 +5352,163 @@ example:
         mUI.MelMenuItem(self.assetTSLpum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'asset' ))
 
 
-    def UpdateVersionTSLPopup(self, mMenu = None,  *args):	
+    def _fileListMultiSelectActive(self, scrollList):
+        return len(scrollList.getSelectedItems() or []) > 1
+
+    def _clearFileListPopupMenu(self, popupAttr):
+        pum = getattr(self, popupAttr, None)
+        if not pum:
+            return
+        try:
+            pum.clear()
+            pum.delete()
+        except Exception as err:
+            log.debug(log_msg('_clearFileListPopupMenu', err))
+        setattr(self, popupAttr, None)
+
+    def _fileListSelectCommand(self, scrollList, popupAttr, buildPopupFunc, listSelectFunc, *args):
+        """Selection handler — rebuild popup each change; no menu when multi-select (Builder pattern)."""
+        self._clearFileListPopupMenu(popupAttr)
+        if not scrollList.getSelectedItems():
+            return False
+        if self._fileListMultiSelectActive(scrollList):
+            return False
+        buildPopupFunc(scrollList)
+        if len(scrollList.getSelectedIdxs() or []) <= 1:
+            listSelectFunc()
+        return True
+
+    def _wireFileListScrollSelect(self, searchableList, popupAttr, buildPopupFunc, listSelectFunc):
+        scrollList = searchableList['scrollList']
+        scrollList.cmd_select = cgmGEN.Callback(
+            self._fileListSelectCommand,
+            scrollList, popupAttr, buildPopupFunc, listSelectFunc)
+
+        def _selCommand(*a, **kws):
+            if scrollList.cmd_select:
+                return scrollList.cmd_select()
+            return False
+
+        scrollList.selCommand = _selCommand
+        scrollList(e=True, sc=_selCommand)
+
+    def buildSubTypeListPopup(self, scrollList):
+        pum = mUI.MelPopupMenu(scrollList, button=3)
+        self.subTypeListPUM = pum
+
+        mUI.MelMenuItem(pum, label='        Subtype', en=False)
+        mUI.MelMenuItemDiv(pum, label='Selected')
+
+        self.ml_dirOptions_set = []
+        self.ml_dirOptions_set.append(mUI.MelMenuItem(pum, label="Rename Set", command=partial(self.rename_below, 'set')))
+
+        self.ml_fileOptions_set = []
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Reference",
+                                                       ann=_d_ann.get('reference'),
+                                                       command=self.ReferenceFile, en=1))
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Import",
+                                                       ann=_d_ann.get('import'),
+                                                       command=self.ImportFile, en=1))
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Replace",
+                                                       ann=_d_ann.get('replace', 'Replace'),
+                                                       command=self.file_replace, en=1))
+        mUI.MelMenuItem(pum, label="Export Here",
+                        ann="Export selected objects using Maya's Export Selection",
+                        c=lambda *a: self.ExportSelection_sets())
+
+        self.uiPop_sendToProject_sub = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True, en=1)
+        self.ml_fileOptions_set.append(self.uiPop_sendToProject_sub)
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
+        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Create SubTypeRef", command=lambda *a: self.CreateSubTypeRef()))
+
+        _batch = mUI.MelMenuItem(pum, label="To Queue as:", subMenu=True)
+        self.ml_fileOptions_set.append(_batch)
+        for t in ['export', 'rig', 'cutscene']:
+            mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddToExportQueue, t))
+
+        mUI.MelMenuItemDiv(pum, label='Directory')
+        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenSubTypeDirectory)
+        mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_subType(), label='Open Maya here')
+        mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_sets(), label='Save Maya here')
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadSubTypeList())
+        mUI.MelMenuItemDiv(pum)
+        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('sets'))
+        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_sub))
+        self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
+
+    def buildVariationListPopup(self, scrollList):
+        pum = mUI.MelPopupMenu(scrollList, button=3)
+        self.variationListPUM = pum
+
+        mUI.MelMenuItem(pum, label='        Variant', en=False)
+        mUI.MelMenuItemDiv(pum, label='Selected')
+
+        self.ml_dirOptions_variant = []
+        self.ml_dirOptions_variant.append(mUI.MelMenuItem(pum, label="Rename Variant", command=partial(self.rename_below, 'variant')))
+
+        self.ml_fileOptions_variant = []
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Reference File",
+                                                           ann=_d_ann.get('reference'),
+                                                           command=self.ReferenceFile))
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Import",
+                                                           ann=_d_ann.get('import'),
+                                                           command=self.ImportFile))
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Replace",
+                                                           ann=_d_ann.get('replace', 'Replace'),
+                                                           command=self.file_replace))
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Export Here",
+                                                           ann="Export selected objects using Maya's Export Selection",
+                                                           command=lambda *a: self.ExportSelection(mode='variant')))
+
+        self.uiPop_sendToProject_variant = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True)
+        self.ml_fileOptions_variant.append(self.uiPop_sendToProject_variant)
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
+        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
+
+        mUI.MelMenuItemDiv(pum, label='Directory')
+        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVariationDirectory)
+        mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_variant(), label='Open Maya here')
+        mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_variant(), label='Save Maya here')
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVariationList())
+        mUI.MelMenuItemDiv(pum)
+        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('variation'))
+        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_variant))
+        self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
+
+    def buildVersionListPopup(self, scrollList):
+        pum = mUI.MelPopupMenu(scrollList, button=3)
+        self.versionListPUM = pum
+
+        mUI.MelMenuItem(pum, label='        Version', en=False)
+        mUI.MelMenuItemDiv(pum, label='Selected')
+
+        mUI.MelMenuItem(pum, label="Reference File", ann=_d_ann.get('reference'), command=self.ReferenceFile)
+        mUI.MelMenuItem(pum, label="Import", ann=_d_ann.get('import'), command=self.ImportFile)
+        mUI.MelMenuItem(pum, label="Replace", ann=_d_ann.get('replace', 'Replace'), command=self.file_replace)
+        mUI.MelMenuItem(pum, label="Export Here",
+                        ann="Export selected objects using Maya's Export Selection",
+                        command=lambda *a: self.ExportSelection(mode='version'))
+
+        self.uiPop_sendToProject_version = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True)
+        mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1)
+
+        _batch = mUI.MelMenuItem(pum, label="To Queue as:", subMenu=True)
+        for t in ['export', 'rig', 'cutscene']:
+            mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddToExportQueue, t))
+
+        mUI.MelMenuItem(pum, label="Create SubTypeRef", command=lambda *a: self.CreateSubTypeRef())
+
+        mUI.MelMenuItemDiv(pum, label='Directory')
+        mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVersionDirectory)
+        mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_version(), label='Save Maya here')
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVersionList())
+        mUI.MelMenuItemDiv(pum)
+        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('version'))
+        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_version))
+        self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)
+
+    def UpdateVersionTSLPopup(self, mMenu = None,  *args):
         for item in self.d_subPops.get(mMenu,[]):
             mc.deleteUI(item, menuItem=True)
 
@@ -5938,6 +5944,120 @@ example:
         except Exception as err:
             log.warning("ExportQueue_selectEntryInUI: could not navigate to entry - {}".format(err))
 
+    def _exportQueueBaseFields(self, exportMode):
+        return {
+            "category": self.category,
+            'subType': self.subType,
+            'exportMode': exportMode,
+            "asset": self.assetList['scrollList'].getSelectedItem(),
+        }
+
+    def _exportQueueEntryForVersion(self, version_name, exportMode):
+        _str_func = '_exportQueueEntryForVersion'
+        if not version_name:
+            return None
+        entry = self._exportQueueBaseFields(exportMode)
+        parent = self._version_files_parent_directory()
+        path = os.path.normpath(os.path.join(parent, version_name)) if parent else None
+        entry.update({
+            "path": path,
+            "set": self.subTypeSearchList['scrollList'].getSelectedItem(),
+            "variation": self.variationList['scrollList'].getSelectedItem(),
+            "version": version_name,
+        })
+        return entry
+
+    def _exportQueueEntryForSetItem(self, item_name, exportMode):
+        _str_func = '_exportQueueEntryForSetItem'
+        if not item_name:
+            return None
+        try:
+            _subRoot = self.path_subType or self._resolve_subType_container_path(self.path_asset, self.subType)
+            if not _subRoot:
+                return None
+            full_path = os.path.normpath(os.path.join(_subRoot, item_name))
+        except Exception as err:
+            log.debug(log_msg(_str_func, 'Error: {}'.format(err)))
+            return None
+        entry = self._exportQueueBaseFields(exportMode)
+        if os.path.isfile(full_path):
+            entry.update({
+                "path": None,
+                "set": None,
+                "variation": None,
+                "version": item_name,
+            })
+        elif os.path.isdir(full_path):
+            entry.update({
+                "path": None,
+                "set": item_name,
+                "variation": None,
+                "version": None,
+            })
+        else:
+            return None
+        return entry
+
+    def _exportQueueEntryForVariationItem(self, item_name, exportMode):
+        _str_func = '_exportQueueEntryForVariationItem'
+        if not item_name:
+            return None
+        path_set = self.path_set
+        if not path_set:
+            return None
+        full_path = os.path.normpath(os.path.join(path_set, item_name))
+        entry = self._exportQueueBaseFields(exportMode)
+        entry["set"] = self.subTypeSearchList['scrollList'].getSelectedItem()
+        if os.path.isfile(full_path):
+            entry.update({
+                "path": None,
+                "variation": None,
+                "version": item_name,
+            })
+        elif os.path.isdir(full_path):
+            entry.update({
+                "path": None,
+                "variation": item_name,
+                "version": None,
+            })
+        else:
+            return None
+        return entry
+
+    def _exportQueueActiveFileList(self):
+        """Pick which file scroll list drives bulk queue; prefer a multi-selection list."""
+        lists = [
+            ('version', self.versionList['scrollList']),
+            ('variation', self.variationList['scrollList']),
+            ('sets', self.subTypeSearchList['scrollList']),
+        ]
+        for name, scroll in lists:
+            if len(scroll.getSelectedItems() or []) > 1:
+                return name, scroll
+        for name, scroll in lists:
+            if scroll.getSelectedItems():
+                return name, scroll
+        return None, None
+
+    def _collectExportQueueEntries(self, exportMode):
+        _str_func = '_collectExportQueueEntries'
+        active_name, scroll = self._exportQueueActiveFileList()
+        if not scroll:
+            return []
+        entries = []
+        for item in scroll.getSelectedItems():
+            if active_name == 'version':
+                entry = self._exportQueueEntryForVersion(item, exportMode)
+            elif active_name == 'variation':
+                entry = self._exportQueueEntryForVariationItem(item, exportMode)
+            else:
+                entry = self._exportQueueEntryForSetItem(item, exportMode)
+            if entry:
+                entries.append(entry)
+            else:
+                log.debug(log_msg(_str_func, 'skip {} item | {}'.format(active_name, item)))
+        return entries
+
     def AddToExportQueue(self, exportMode = 'export', *args):
         if self.versionList['scrollList'].getSelectedItem() != None:
             self.batchExportItems.append( {"category":self.category,
@@ -5957,7 +6077,18 @@ example:
                                            "set":None,#self.subTypeSearchList['scrollList'].getSelectedItem(),
                                            "variation":None, # self.variationList['scrollList'].getSelectedItem(),
                                            "version":self.subTypeSearchList['scrollList'].getSelectedItem()} )
+        else:
+            return log.warning("AddToExportQueue: no valid selection")
         pprint.pprint(self.batchExportItems[-1])
+        self.RefreshQueueList()
+
+    def AddSelectedToExportQueue(self, exportMode='export', *args):
+        _str_func = 'AddSelectedToExportQueue'
+        entries = self._collectExportQueueEntries(exportMode)
+        if not entries:
+            return log.warning(log_msg(_str_func, 'no valid selection'))
+        self.batchExportItems.extend(entries)
+        log.info(log_msg(_str_func, 'Added {} item(s) to export queue'.format(len(entries))))
         self.RefreshQueueList()
 
     def RemoveFromQueue(self, *args):
