@@ -4598,7 +4598,67 @@ def blockDat_copy(self,sourceBlock=None,ignoreChecks=False,load=False):
     
     if load:
         blockDat_load(self)
-    
+
+def _blockDat_hasBlockModuleFunc(self, funcName):
+    try:
+        mBlockModule = self.p_blockModule
+        return callable(getattr(mBlockModule, funcName, None))
+    except Exception:
+        return False
+
+def blockDat_controlEntry_get(mObj):
+    """Single control pose entry for prerig byKey storage."""
+    _d = {'p': mObj.p_position,
+          'o': mObj.p_orient,
+          's': mObj.scale,
+          'bb': TRANS.bbSize_get(mObj.mNode)}
+    if mObj.getMessage('jointHelper'):
+        _d['jointHelper'] = mObj.jointHelper.translate
+    return _d
+
+def blockDat_controlEntry_apply(mObj, d_entry, l_warnings=None):
+    """Apply one byKey entry onto a live control."""
+    _str_func = 'blockDat_controlEntry_apply'
+    try:
+        if d_entry.get('p') is not None:
+            mObj.p_position = d_entry['p']
+        if d_entry.get('o') is not None and not ATTR.is_locked(mObj.mNode, 'rotate'):
+            mObj.p_orient = d_entry['o']
+        if d_entry.get('jointHelper') and mObj.getMessage('jointHelper'):
+            mObj.jointHelper.translate = d_entry['jointHelper']
+        return True
+    except Exception as err:
+        if l_warnings is not None:
+            l_warnings.append("{0} | {1}".format(mObj.p_nameShort, err))
+        else:
+            log.warning(cgmGEN.logString_msg(_str_func, "{0} | {1}".format(mObj.p_nameShort, err)))
+        return False
+
+def blockDat_matchHandlesByNames(ml_handles, names, _str_func, l_warnings=None):
+    """Map blockDat list indices to live handles by saved name (p_nameBase)."""
+    md_match = {}
+    if not names:
+        return md_match
+    _matched = []
+    for i, name in enumerate(names):
+        _found = None
+        for mHandle in ml_handles:
+            if mHandle in _matched:
+                continue
+            if mHandle.p_nameBase == name or mHandle.p_nameShort == name:
+                _found = mHandle
+                break
+        if _found:
+            md_match[i] = _found
+            _matched.append(_found)
+        else:
+            _msg = cgmGEN.logString_msg(_str_func, "Couldn't find: {0} | {1}".format(i, name))
+            if l_warnings is not None:
+                l_warnings.append(_msg)
+            else:
+                log.warning(_msg)
+    return md_match
+
 def blockDat_getControlDat(self,mode = 'define',report = True):
     _short = self.p_nameShort        
     _str_func = 'blockDat_getControlDat'
@@ -4709,6 +4769,14 @@ def blockDat_getControlDat(self,mode = 'define',report = True):
     
     if _d_subShapers:
         _d['subShapers'] =_d_subShapers
+
+    if _mode_str == 'prerig' and _blockDat_hasBlockModuleFunc(self, 'blockDat_prerigByKey'):
+        try:
+            _byKey = self.atBlockModule('blockDat_prerigByKey', mode='get')
+            if _byKey:
+                _d['byKey'] = _byKey
+        except Exception as err:
+            log.error(cgmGEN.logString_msg(_str_func, "blockDat_prerigByKey get failed: {0}".format(err)))
         
     #if self.getMessage('orientHelper'):
     #    _d['rootOrientHelper'] = self.orientHelper.rotate
@@ -4749,6 +4817,16 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
     if not d_state:
         log.error(cgmGEN.logString_msg(_str_func,"No {0} data found in blockDat".format(state)))
         return False
+
+    if state in ['prerig', 2] and d_state.get('byKey') and _blockDat_hasBlockModuleFunc(self, 'blockDat_prerigByKey'):
+        try:
+            log.debug(cgmGEN.logString_sub(_str_func, 'prerig byKey load'))
+            return self.atBlockModule('blockDat_prerigByKey',
+                                      mode='load',
+                                      d_byKey=d_state['byKey'],
+                                      d_warnings=d_warnings)
+        except Exception as err:
+            log.error(cgmGEN.logString_msg(_str_func, "blockDat_prerigByKey load failed: {0}".format(err)))
     
     ml_handles = controls_get(self,**{state:True})
     
@@ -4775,30 +4853,22 @@ def blockDat_load_state(self,state = None,blockDat = None, d_warnings = None, ov
         if state == 'prerig':
             _jointHelpersPre = d_state.get('jointHelpers')
             
-        md_match = {}
-        for i,mHandle in enumerate(ml_handles):
-            md_match[i] = mHandle
-            
-        if len(ml_handles) > _len_posTempl:
-            msg = "|{0}| >> {3} handle dat doesn't match. Cannot load. self: {1} | blockDat: {2}. Attempting to match".format(_str_func,len( ml_handles),_len_posTempl,state)
-            log.warning(msg)
-            
-            _names = d_state['names']
-            for i,name in enumerate(_names):
-                for mHandle in ml_handles:
-                    if mHandle.p_nameShort == name:
-                        md_match[i] = mHandle
-                if not md_match.get(i):
-                    log.warning(cgmGEN.logString_msg(_str_func, "Couldn't find: {0} | {1}".format(i,name)))
-                    
-                                            
-            
-            """
-            msg = "|{0}| >> {3} handle dat doesn't match. Cannot load. self: {1} | blockDat: {2}".format(_str_func,len( ml_handles),_len_posTempl,state)
-            if d_warnings:
-                _l_warnings.append(msg)
-            else:
-                log.warning(msg)"""
+        _names = d_state.get('names')
+        if _names:
+            if len(ml_handles) != _len_posTempl:
+                msg = "|{0}| >> {3} handle dat doesn't match. self: {1} | blockDat: {2}. Matching by name".format(
+                    _str_func, len(ml_handles), _len_posTempl, state)
+                log.warning(msg)
+                if _l_warnings is not None:
+                    _l_warnings.append(msg)
+            md_match = blockDat_matchHandlesByNames(ml_handles, _names, _str_func, _l_warnings)
+            if not md_match:
+                for i, mHandle in enumerate(ml_handles):
+                    md_match[i] = mHandle
+        else:
+            md_match = {}
+            for i, mHandle in enumerate(ml_handles):
+                md_match[i] = mHandle
             
         #pprint.pprint(md_match)
         

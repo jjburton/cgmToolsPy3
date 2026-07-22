@@ -1257,9 +1257,10 @@ def mirror_get(self,recheck=False):
     int_direction = l_direction.index(self.cgmDirection)
     d = {'cgmName':self.cgmName,'moduleType':self.moduleType,
          'cgmDirection':l_direction[not int_direction]}
-    for plug in 'cgmPosition','cgmPositionModifier','cgmDirectionModifier':
-        if self.hasAttr(plug):
-            d[plug] = getattr(self,plug)
+    _l_tagPlugs = ('cgmPosition','cgmPositionModifier','cgmDirectionModifier')
+    tags_self = self.getCGMNameTags(['cgmDirection'])
+    for plug in _l_tagPlugs:
+        d[plug] = tags_self.get(plug, False)
         
     log.debug("|{0}| >>  looking for: {1}".format(_str_func,d))
 
@@ -1275,9 +1276,14 @@ def mirror_get(self,recheck=False):
     for mChild in ml_children:
         log.debug("|{0}| >> mChild: {1}".format(_str_func,mChild))        
         _match = True
+        tags_child = mChild.getCGMNameTags(['cgmDirection'])
         for a,v in list(d.items()):
-            if not str(mChild.getMayaAttr(a)) == str(v):
-                log.debug("|{0}| >> fail: {1}:{2} | {3}".format(_str_func,a,v,str(mChild.getMayaAttr(a))))
+            if a in _l_tagPlugs:
+                child_v = tags_child.get(a, False)
+            else:
+                child_v = mChild.getMayaAttr(a)
+            if child_v != v:
+                log.debug("|{0}| >> fail: {1}:{2} | {3}".format(_str_func,a,v,child_v))
                 _match = False
                 continue
         if _match:ml_match.append(mChild)

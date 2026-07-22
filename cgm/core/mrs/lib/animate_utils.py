@@ -857,8 +857,8 @@ class dat(object):
             
             ml = []
             for mModule in self.d_context['mModules']:
-                d_mModule = self.module_get(mModule)
-                ml_add = d_mModule['mControls']
+                d_mModule = self.module_get(mModule) or {}
+                ml_add = d_mModule.get('mControls', [])
                 if b_core:
                     ml_core =  d_mModule.get('mCore')
                     if ml_core:
