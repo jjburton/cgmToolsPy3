@@ -469,7 +469,7 @@ def uiFunc_ncloth_profile_list(category=None):
     return NCLOTH.profile_list(category=category)
 
 
-def uiFunc_rebuild_ncloth_fabric_menu(optionMenu):
+def uiFunc_rebuild_ncloth_fabric_menu(optionMenu, select=None):
     optionMenu.clear()
     optionMenu.append('Fabric')
     for _name in uiFunc_ncloth_profile_list(category='fabric'):
@@ -477,16 +477,16 @@ def uiFunc_rebuild_ncloth_fabric_menu(optionMenu):
     optionMenu.append('---')
     for _name in uiFunc_ncloth_profile_list(category='utility'):
         optionMenu.append(_name)
-    optionMenu.setValue('cotton')
+    optionMenu.setValue(select or 'Fabric')
 
 
-def uiFunc_rebuild_ncloth_solver_menu(optionMenu):
+def uiFunc_rebuild_ncloth_solver_menu(optionMenu, select=None):
     optionMenu.clear()
     optionMenu.append('Solver')
     optionMenu.append('base')
     for _name in uiFunc_ncloth_profile_list(category='solver'):
         optionMenu.append(_name)
-    optionMenu.setValue('solver_balanced')
+    optionMenu.setValue(select or 'Solver')
 
 
 def uiFunc_rebuild_ncloth_preset_menu(optionMenu, nClothNode):
@@ -506,7 +506,10 @@ def uiFunc_rebuild_ncloth_preset_menu(optionMenu, nClothNode):
     optionMenu.setValue("Load Preset")
 
 
-def uiFunc_apply_ncloth_profiles(nClothNode, fabricMenu, solverMenu):
+def uiFunc_apply_ncloth_profiles(self, nClothNode, fabricMenu, solverMenu):
+    if getattr(self, '_suppressClothPresetApply', False):
+        return
+
     _fabric = fabricMenu.getValue()
     _solver = solverMenu.getValue()
 
@@ -522,6 +525,8 @@ def uiFunc_apply_ncloth_profiles(nClothNode, fabricMenu, solverMenu):
     else:
         NCLOTH.profile_load(_fabric, targets=nClothNode, solver=_solverArg, applyNucleus=True)
 
+    self._clothFabricMenuValue = _fabric
+    self._clothSolverMenuValue = _solver
     fabricMenu.setValue(_fabric)
     solverMenu.setValue(_solver)
 
@@ -587,16 +592,25 @@ def uiFunc_make_cloth_display_line(parent, dat, selfRef):
         _ncShape = NCLOTH.get_nCloth(mCloth.mNode)
         if _ncShape:
             fabricMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
-                                           ann='Fabric feel (nCloth attrs only).')
-            uiFunc_rebuild_ncloth_fabric_menu(fabricMenu)
+                                           ann='Fabric feel (nCloth attrs only). Select to apply — not auto-applied on attach.')
+            uiFunc_rebuild_ncloth_fabric_menu(
+                fabricMenu,
+                select=getattr(selfRef, '_clothFabricMenuValue', 'Fabric'),
+            )
 
             solverMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
-                                           ann='Solver speed/quality (nucleus subSteps / collision iters).')
-            uiFunc_rebuild_ncloth_solver_menu(solverMenu)
+                                           ann='Solver speed/quality (nucleus). Select to apply — not auto-applied on attach.')
+            uiFunc_rebuild_ncloth_solver_menu(
+                solverMenu,
+                select=getattr(selfRef, '_clothSolverMenuValue', 'Solver'),
+            )
 
-            _applyPresets = cgmGEN.Callback(uiFunc_apply_ncloth_profiles, _ncShape, fabricMenu, solverMenu)
+            _applyPresets = cgmGEN.Callback(
+                uiFunc_apply_ncloth_profiles, selfRef, _ncShape, fabricMenu, solverMenu)
+            selfRef._suppressClothPresetApply = True
             fabricMenu(edit=True, cc=_applyPresets)
             solverMenu(edit=True, cc=_applyPresets)
+            selfRef._suppressClothPresetApply = False
 
             selfRef.uiClothFabricMenu = fabricMenu
             selfRef.uiClothSolverMenu = solverMenu
