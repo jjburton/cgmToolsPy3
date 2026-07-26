@@ -171,7 +171,8 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                 if simplify:
                     _anim = mc.listConnections(obj, type = 'animCurve')
                     if _anim:
-                        mc.simplify(_anim, time=":", float=":", timeTolerance=0.05, valueTolerance=0.00001)
+                        mc.simplify(_anim,time=(':',),
+                        float=(':',), timeTolerance=0.05, valueTolerance=0.00001)
 
                 if reducer:
                     _anim = mc.listConnections(obj, type = 'animCurve')
