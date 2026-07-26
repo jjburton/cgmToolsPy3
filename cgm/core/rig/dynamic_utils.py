@@ -1320,6 +1320,13 @@ class cgmDynFK(cgmMeta.cgmObject):
             sparseAnimCurveBake=True,
             minimizeRotation=True,
         )
+
+        _baked = {mObj.mNode for mObj in ml}
+        for idx, chain in enumerate(self.msgList_get('chain')):
+            ml_targets = chain.msgList_get('mTargets') or []
+            if any(t.mNode in _baked for t in ml_targets):
+                self.targets_disconnect(idx)
+
         return True
     
     def targets_select(self,idx=None):
