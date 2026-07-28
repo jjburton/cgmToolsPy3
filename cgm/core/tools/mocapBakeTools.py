@@ -42,6 +42,7 @@ from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import euclid
+from cgm.core.lib import mocap_align_utils as MOCAPALIGN
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as CGMPATH
 from cgm.lib import lists
@@ -75,7 +76,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = True  #always resets the size of the window when its re-created  
-    DEFAULT_SIZE = 450,350
+    DEFAULT_SIZE = 480,520
     TOOLNAME = '{0}.ui'.format(__toolname__)
     
     parent_source_items = []
@@ -105,6 +106,8 @@ class ui(cgmUI.cgmGUI):
 
         self.create_guiOptionVar('mocap_allow_multiple_targets',defaultValue = 0)
         self.create_guiOptionVar('mocap_set_connection_at_bake',defaultValue = 1)
+        self.create_guiOptionVar('mocap_rig_namespace', defaultValue = '')
+        self.create_guiOptionVar('mocap_skel_roots', defaultValue = '')
 
         self.uiPopUpMenu_target = None
         self.uiPopUpMenu_source = None
@@ -123,6 +126,11 @@ class ui(cgmUI.cgmGUI):
         self.uiMenu_tools.clear()
         mUI.MelMenuItem( self.uiMenu_tools, l="Make Constraints",
                                  c=lambda *a: self.uiFunc_make_constraints(self) )
+        mUI.MelMenuItemDiv( self.uiMenu_tools )
+        mUI.MelMenuItem( self.uiMenu_tools, l="Create Align Debug Locs",
+                                 c=lambda *a: self.uiFunc_create_align_locs())
+        mUI.MelMenuItem( self.uiMenu_tools, l="Delete Align Debug Locs",
+                                 c=lambda *a: self.uiFunc_delete_align_locs())
 
 
     def buildMenu_first(self):
@@ -356,6 +364,52 @@ class ui(cgmUI.cgmGUI):
 
         _row.layout()
 
+        # Align resolution (local-TR path)
+        mc.setParent(_inside)
+        cgmUI.add_Header("Align (local offsets)", overrideUpper = True)
+        cgmUI.add_LineSubBreak()
+
+        _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5,bgc=_subLineBGC)
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Rig NS')
+        self.tf_rig_namespace = mUI.MelTextField(_row,
+                                                 text=self.var_mocap_rig_namespace.value or '',
+                                                 ann='Anim rig namespace (e.g. Hondo:)')
+        _row.setStretchWidget(self.tf_rig_namespace)
+        cgmUI.add_Button(_row,'From Sel',
+                 cgmGEN.Callback(self.uiFunc_rig_ns_from_selection),
+                 _d_annotations.get('rigNsFromSel','Get namespace from selection'), bgc=_buttonBGC)
+        mUI.MelSpacer(_row,w=5)
+        _row.layout()
+
+        _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5,bgc=_subLineBGC)
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Skel Roots')
+        self.tf_skel_roots = mUI.MelTextField(_row,
+                                              text=self.var_mocap_skel_roots.value or '',
+                                              ann='Semicolon-separated skeleton root long paths')
+        _row.setStretchWidget(self.tf_skel_roots)
+        cgmUI.add_Button(_row,'Set',
+                 cgmGEN.Callback(self.uiFunc_skel_roots_from_selection),
+                 _d_annotations.get('skelRootsFromSel','Set skeleton roots from selection'), bgc=_buttonBGC)
+        mUI.MelSpacer(_row,w=5)
+        _row.layout()
+
+        _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5,bgc=_subLineBGC)
+        mUI.MelSpacer(_row,w=5)
+        mUI.MelLabel(_row,l='Local Offsets')
+        _row.setStretchWidget( mUI.MelSeparator(_row) )
+        cgmUI.add_Button(_row,'Capture',
+                 cgmGEN.Callback(self.uiFunc_capture_offsets),
+                 _d_annotations.get('captureOffsets','Capture localTranslate/localRotate at bind pose'), bgc=[.2,.4,.2])
+        cgmUI.add_Button(_row,'Snap All',
+                 cgmGEN.Callback(self.uiFunc_snap_connections, False),
+                 _d_annotations.get('snapAll','Snap all links with local offsets (no keys)'), bgc=_buttonBGC)
+        cgmUI.add_Button(_row,'Snap Sel',
+                 cgmGEN.Callback(self.uiFunc_snap_connections, True),
+                 _d_annotations.get('snapSel','Snap selected target links with local offsets'), bgc=_buttonBGC)
+        mUI.MelSpacer(_row,w=5)
+        _row.layout()
 
         _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5,bgc=_subLineBGC)
         mUI.MelSpacer(_row,w=5)
@@ -368,7 +422,7 @@ class ui(cgmUI.cgmGUI):
                            label="Set On Bake")
         cgmUI.add_Button(_row,'Manual Set',
                  cgmGEN.Callback(self.uiFunc_set_connection_pose,1,self),
-                 _d_annotations.get('setConnectionPose','fix'), bgc = [.5,.2,0.2]) 
+                 _d_annotations.get('setConnectionPose','Set connection offset based off these source/target positions'), bgc = [.5,.2,0.2]) 
         mUI.MelSpacer(_row,w=5)
 
         _row.layout()
@@ -465,8 +519,7 @@ class ui(cgmUI.cgmGUI):
 
         mc.currentTime(bake_range[0])
         
-        if len(self.connection_data) != len(self.parent_links):
-            self.connection_data = self.get_ui_connection_data()
+        self._sync_connection_data_from_ui()
 
         if self.var_mocap_set_connection_at_bake.value:
             self.uiFunc_set_connection_pose()
@@ -648,8 +701,131 @@ class ui(cgmUI.cgmGUI):
         self.print_data()
 
     def uiFunc_set_connection_pose(self, *args):
-        self.connection_data = self.get_ui_connection_data()
-        set_connection_offsets(self.connection_data)
+        """Legacy vector offsets. Does not overwrite links that already have local TR."""
+        self.connection_data = self._sync_connection_data_from_ui()
+        legacy = []
+        skipped = []
+        for conn in self.connection_data:
+            if MOCAPALIGN.has_local_offsets(conn):
+                skipped.append(conn.get('target') or conn.get('source'))
+            else:
+                legacy.append(conn)
+        if legacy:
+            set_connection_offsets(legacy)
+            legacy_by_pair = {(c.get('source'), c.get('target')): c for c in legacy}
+            for i, conn in enumerate(self.connection_data):
+                key = (conn.get('source'), conn.get('target'))
+                if key in legacy_by_pair:
+                    self.connection_data[i] = legacy_by_pair[key]
+        if skipped:
+            log.info("Manual Set skipped {0} link(s) with local offsets (left unchanged)".format(len(skipped)))
+
+    def uiFunc_rig_ns_from_selection(self, *args):
+        sel = mc.ls(sl=True) or []
+        if not sel:
+            log.warning("Select a namespaced rig control")
+            return
+        leaf = sel[0].split('|')[-1]
+        if ':' not in leaf:
+            log.warning("Selection has no namespace: {0}".format(sel[0]))
+            return
+        ns = leaf.rsplit(':', 1)[0] + ':'
+        self.tf_rig_namespace(edit=True, text=ns)
+        self.var_mocap_rig_namespace.setValue(ns)
+
+    def uiFunc_skel_roots_from_selection(self, *args):
+        sel = mc.ls(sl=True, long=True) or []
+        if not sel:
+            log.warning("Select skeleton root transform(s)")
+            return
+        text = ';'.join(sel)
+        self.tf_skel_roots(edit=True, text=text)
+        self.var_mocap_skel_roots.setValue(text)
+        log.info("Skeleton roots set ({0})".format(len(sel)))
+
+    def _get_rig_ns(self):
+        try:
+            text = self.tf_rig_namespace(q=True, text=True) or ''
+        except Exception:
+            text = self.var_mocap_rig_namespace.value or ''
+        self.var_mocap_rig_namespace.setValue(text)
+        return text
+
+    def _get_skel_roots(self):
+        try:
+            text = self.tf_skel_roots(q=True, text=True) or ''
+        except Exception:
+            text = self.var_mocap_skel_roots.value or ''
+        self.var_mocap_skel_roots.setValue(text)
+        return [p.strip() for p in text.replace(',', ';').split(';') if p.strip()]
+
+    def _align_roots_ok_for_capture(self):
+        """Block capture/snap when multiple MH roots and none set."""
+        roots = self._get_skel_roots()
+        if roots:
+            return True
+        n = MOCAPALIGN.count_ambiguous_skel_contexts()
+        if n > 1:
+            log.error("Multiple MetaHuman-style skeletons in scene. Set Skel Roots from selection before Capture/Snap.")
+            print("=== mocap align ===\nMultiple skeleton roots detected ({0}). Set Skel Roots, then retry.\n".format(n))
+            return False
+        return True
+
+    def _sync_connection_data_from_ui(self):
+        """Rebuild connection list from UI links, preserving existing offset keys."""
+        ui_data = self.get_ui_connection_data()
+        old_by_pair = {}
+        for conn in self.connection_data or []:
+            old_by_pair[(conn.get('source'), conn.get('target'))] = conn
+
+        keep_keys = ('localTranslate', 'localRotate', 'positionOffset',
+                     'offsetForward', 'offsetUp', 'sourcePattern', 'targetPattern',
+                     'sourceResolved', 'targetResolved', 'alignLocator')
+        merged = []
+        for data in ui_data:
+            key = (data['source'], data['target'])
+            prev = old_by_pair.get(key)
+            if prev:
+                for k in keep_keys:
+                    if k in prev:
+                        data[k] = prev[k]
+            data['sourceResolved'] = data.get('sourceResolved') or data['source']
+            data['targetResolved'] = data.get('targetResolved') or data['target']
+            merged.append(data)
+        self.connection_data = merged
+        return merged
+
+    def uiFunc_capture_offsets(self, *args):
+        if not self._align_roots_ok_for_capture():
+            return
+        self._sync_connection_data_from_ui()
+        if not self.connection_data:
+            log.warning("No links to capture")
+            return
+        MOCAPALIGN.capture_alignment_offsets(self.connection_data)
+
+    def uiFunc_snap_connections(self, selected_only=False, *args):
+        if not self._align_roots_ok_for_capture():
+            return
+        self._sync_connection_data_from_ui()
+        indices = None
+        if selected_only:
+            idxs = self.parent_target_scroll.getSelectedIdxs()
+            if not idxs:
+                log.warning("Select target list items to snap")
+                return
+            indices = []
+            for li, link in enumerate(self.parent_links):
+                if link[1] in idxs:
+                    indices.append(li)
+        MOCAPALIGN.snap_connections(self.connection_data, indices=indices)
+
+    def uiFunc_create_align_locs(self, *args):
+        self._sync_connection_data_from_ui()
+        MOCAPALIGN.create_debug_locs(self.connection_data)
+
+    def uiFunc_delete_align_locs(self, *args):
+        MOCAPALIGN.delete_debug_locs(self.connection_data)
 
     # helper functions
     def save_options(self, *args):
@@ -737,40 +913,80 @@ class ui(cgmUI.cgmGUI):
     # saves link data
     def uiFunc_save_data(self, *args):
         basicFilter = "*.ccl"
-        file = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2)[0]
+        result = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2)
+        if not result:
+            return
+        file = result[0]
+        self._sync_connection_data_from_ui()
+        stored_data = MOCAPALIGN.connections_to_ccl(
+            self.connection_data,
+            rig_ns=self._get_rig_ns(),
+            source_items=[x.item for x in self.parent_source_items],
+            source_data=[x.data for x in self.parent_source_items],
+            target_items=[x.item for x in self.parent_target_items],
+            target_data=[x.data for x in self.parent_target_items],
+            links=self.parent_links,
+        )
+        MOCAPALIGN.save_ccl(file, stored_data)
 
-        if file:
-            stored_data = [ [x.item for x in self.parent_source_items], [x.data for x in self.parent_source_items], [x.item for x in self.parent_target_items], [x.data for x in self.parent_target_items], self.parent_links, self.connection_data ]
-            f = open(file, 'w')
-            f.write( json.dumps( stored_data ) )
-            f.close()
-
-    # saves link data
+    # loads link data
     def uiFunc_load_data(self, *args):
         basicFilter = "*.ccl"
-        file = mc.fileDialog2(fileFilter=basicFilter, fileMode = 1, dialogStyle=2)[0]
+        result = mc.fileDialog2(fileFilter=basicFilter, fileMode=1, dialogStyle=2)
+        if not result:
+            return
+        file = result[0]
 
-        if file:
-            f = open(file, 'r')
-            loaded_data = json.loads( f.read() )
-            f.close()
+        loaded_data = MOCAPALIGN.load_ccl(file)
+        rig_ns = self._get_rig_ns()
+        skel_roots = self._get_skel_roots()
 
-            for i, item in enumerate(loaded_data[0]):
-                if not item in [x.item for x in self.parent_source_items]:
-                    self.parent_source_items.append( cgmListItem(item, item, loaded_data[1][i]) )
-            
-            self.parent_source_scroll.setItems( [x.alias for x in self.parent_source_items] )
+        if not skel_roots:
+            candidates = MOCAPALIGN.find_candidate_skel_roots()
+            if len(candidates) == 1:
+                skel_roots = candidates
+                text = candidates[0]
+                try:
+                    self.tf_skel_roots(edit=True, text=text)
+                except Exception:
+                    pass
+                self.var_mocap_skel_roots.setValue(text)
+                log.info("Auto-set skeleton root: {0}".format(text))
+            elif len(candidates) > 1:
+                log.warning("Multiple skeleton roots in scene — set Skel Roots before relying on short-name resolve")
 
-            for i, item in enumerate(loaded_data[2]):
-                if not item in [x.item for x in self.parent_target_items]:
-                    self.parent_target_items.append( cgmListItem(item, item, loaded_data[3][i]) )
+        parsed = MOCAPALIGN.ccl_to_connections(loaded_data, rig_ns=rig_ns, skel_roots=skel_roots)
 
-            self.parent_target_scroll.setItems( [x.alias for x in self.parent_target_items] )
+        self.parent_source_items = []
+        self.parent_target_items = []
 
-            self.parent_links = loaded_data[4]
-            self.connection_data = loaded_data[5]
+        src_patterns = parsed['source_items']
+        tgt_patterns = parsed['target_items']
+        src_data = parsed['source_data'] or [{} for _ in src_patterns]
+        tgt_data = parsed['target_data'] or [{} for _ in tgt_patterns]
 
-            self.refresh_aliases()
+        for i, pat in enumerate(src_patterns):
+            resolved = MOCAPALIGN.resolve_skeleton_joint(pat, skel_roots)
+            item = resolved or pat
+            data = src_data[i] if i < len(src_data) else {}
+            self.parent_source_items.append(cgmListItem(item, item, data or {}))
+
+        for i, pat in enumerate(tgt_patterns):
+            resolved = MOCAPALIGN.resolve_rig_control(pat, rig_ns)
+            item = resolved or pat
+            data = tgt_data[i] if i < len(tgt_data) else {"constraintType": "o"}
+            if not data:
+                data = {"constraintType": "o"}
+            if "constraintType" not in data:
+                data = dict(data)
+                data["constraintType"] = "o"
+            self.parent_target_items.append(cgmListItem(item, item, data))
+
+        self.parent_links = parsed['links'] or []
+        self.connection_data = parsed['connections'] or loaded_data[5]
+
+        self.refresh_aliases()
+        self.print_data()
 
     # remove items from scroll lists
     def uiFunc_remove_from_parent_source(self, *args):
@@ -968,41 +1184,63 @@ def set_connection_offsets(connection_data):
 
 
 def bake(connection_data, start, end):
+    """
+    Dual-path bake: local-TR snap for links with localTranslate/localRotate;
+    legacy POS.set + aim_atPoint for the rest (unchanged behavior).
+    """
     cgmGEN.playback_stop()
+
+    local_idxs = []
+    legacy = []
+    for i, conn in enumerate(connection_data or []):
+        if MOCAPALIGN.has_local_offsets(conn):
+            local_idxs.append(i)
+        else:
+            legacy.append(conn)
+
+    if local_idxs:
+        MOCAPALIGN.bake_connections(connection_data, start, end, indices=local_idxs)
+
+    if not legacy:
+        return
 
     bake_range = list(range( int(math.floor(start)), int(math.floor(end+1))))
     if end < start:
         bake_range = list(range(int(math.floor(end)),int(math.floor(start+1))))
         bake_range.reverse()
 
-    for i in bake_range:
-        mc.currentTime(i)
-        for conn in connection_data:
-            source_pos = POS.get(conn['source'])
-            
-            if conn['setPosition']:
-                positionOffset = euclid.Vector3(0,0,0)
-                if 'positionOffset' in conn:
-                    pos = conn['positionOffset']
-                    positionOffset = euclid.Vector3(pos[0], pos[1], pos[2])
-                wanted_position = source_pos + positionOffset
-                POS.set(conn['target'], [wanted_position.x, wanted_position.y, wanted_position.z])
-                mc.setKeyframe('%s.translate' % conn['target'])
-            
-            target_pos = POS.get(conn['target'])
-            if conn['setRotation']:
-                offsetForward = euclid.Vector3(0,0,1)
-                if 'offsetForward' in conn:
-                    fwd = conn['offsetForward']
-                    offsetForward = euclid.Vector3(fwd[0], fwd[1], fwd[2])
-                offsetUp = euclid.Vector3(0,1,0)
-                if 'offsetUp' in conn:
-                    up = conn['offsetUp']
-                    offsetUp = euclid.Vector3(up[0], up[1], up[2])
-                fwd = TRANS.transformDirection(conn['source'], offsetForward)
-                up = TRANS.transformDirection(conn['source'], offsetUp)
-                SNAP.aim_atPoint(conn['target'], target_pos + fwd, vectorUp=up, mode='matrix')
-                mc.setKeyframe('%s.rotate' % conn['target'])
+    mc.undoInfo(openChunk=True)
+    try:
+        for i in bake_range:
+            mc.currentTime(i)
+            for conn in legacy:
+                source_pos = POS.get(conn['source'])
+                
+                if conn['setPosition']:
+                    positionOffset = euclid.Vector3(0,0,0)
+                    if 'positionOffset' in conn:
+                        pos = conn['positionOffset']
+                        positionOffset = euclid.Vector3(pos[0], pos[1], pos[2])
+                    wanted_position = source_pos + positionOffset
+                    POS.set(conn['target'], [wanted_position.x, wanted_position.y, wanted_position.z])
+                    mc.setKeyframe('%s.translate' % conn['target'])
+                
+                target_pos = POS.get(conn['target'])
+                if conn['setRotation']:
+                    offsetForward = euclid.Vector3(0,0,1)
+                    if 'offsetForward' in conn:
+                        fwd = conn['offsetForward']
+                        offsetForward = euclid.Vector3(fwd[0], fwd[1], fwd[2])
+                    offsetUp = euclid.Vector3(0,1,0)
+                    if 'offsetUp' in conn:
+                        up = conn['offsetUp']
+                        offsetUp = euclid.Vector3(up[0], up[1], up[2])
+                    fwd = TRANS.transformDirection(conn['source'], offsetForward)
+                    up = TRANS.transformDirection(conn['source'], offsetUp)
+                    SNAP.aim_atPoint(conn['target'], target_pos + fwd, vectorUp=up, mode='matrix')
+                    mc.setKeyframe('%s.rotate' % conn['target'])
+    finally:
+        mc.undoInfo(closeChunk=True)
 
 
 _d_annotations = {'addSource':'Adds the selected objects to the source list.',
@@ -1016,6 +1254,12 @@ _d_annotations = {'addSource':'Adds the selected objects to the source list.',
                   'setOrient':'Set source/target constraints to orient',
                   'setOrientAll':'Set source/target constraints to orient on all targets',
                   'setConnectionPose':'Set connection offset based off these source/target positions',
+                  'captureOffsets':'Capture localTranslate/localRotate at bind pose (doLoc parented to source)',
+                  'snapAll':'Snap all links that have local offsets; report missing data for the rest',
+                  'snapSel':'Snap selected target links that have local offsets',
+                  'rigNsFromSel':'Set rig namespace from selected control',
+                  'skelRootsFromSel':'Set skeleton roots from selection (semicolon-separated)',
+                  'linkIndex':'Link source and target by list index',
                   'sliderRange':' Push the slider range values to the int fields',
                   'selectedRange': 'Push the selected timeline range (if active)',
                   'sceneRange':'Push scene range values to the int fields',
