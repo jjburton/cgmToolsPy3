@@ -33,33 +33,6 @@ log_sub = cgmGEN.logString_sub
 _DEBUG_LOC_ATTR = 'cgmMocapAlignLoc'
 SKEL_ROOT_SEP = ';'
 
-# Skeleton joints safe to store as leaf-only CCL patterns (resolved via skel roots).
-_ALIGN_CCL_LEAF_SOURCES = frozenset([
-    'foot_r', 'foot_l', 'lowerarm_r', 'lowerarm_l', 'hand_r', 'hand_l',
-])
-for _side in ('r', 'l'):
-    _ALIGN_CCL_LEAF_SOURCES = _ALIGN_CCL_LEAF_SOURCES | frozenset([
-        'thumb_01_{0}'.format(_side),
-        'thumb_02_{0}'.format(_side),
-        'thumb_03_{0}'.format(_side),
-        'index_metacarpal_{0}'.format(_side),
-        'index_01_{0}'.format(_side),
-        'index_02_{0}'.format(_side),
-        'index_03_{0}'.format(_side),
-        'middle_metacarpal_{0}'.format(_side),
-        'middle_01_{0}'.format(_side),
-        'middle_02_{0}'.format(_side),
-        'middle_03_{0}'.format(_side),
-        'ring_metacarpal_{0}'.format(_side),
-        'ring_01_{0}'.format(_side),
-        'ring_02_{0}'.format(_side),
-        'ring_03_{0}'.format(_side),
-        'pinky_metacarpal_{0}'.format(_side),
-        'pinky_01_{0}'.format(_side),
-        'pinky_02_{0}'.format(_side),
-        'pinky_03_{0}'.format(_side),
-    ])
-
 
 # ---------------------------------------------------------------------------
 # CCL IO
@@ -138,38 +111,159 @@ def _conn_target_pattern(conn):
     return (conn.get('targetPattern') or conn.get('target_pattern') or conn.get('target'))
 
 
-def _align_ccl_source_pattern(source_pattern=None, source=None):
-    """
-    Compact skeleton joint pattern for CCL storage.
+def _joints_matching_leaf(joint_list, leaf):
+    """Joints in joint_list whose short name equals leaf."""
+    return [j for j in (joint_list or []) if strip_short_name(j) == leaf]
 
-    Uses Body| / Face| chains for spine/clavicle/head and leaf names for limbs
-    and fingers (resolved at runtime via skeleton roots in the UI).
+
+def _joints_matching_chain_suffix(joint_list, segments):
+    """Joints whose long path ends with the pipe-segment suffix."""
+    if not segments or not joint_list:
+        return []
+    suffix = '|' + '|'.join(segments)
+    matches = []
+    seen = set()
+    for joint in joint_list:
+        if joint in seen:
+            continue
+        if joint.endswith(suffix):
+            seen.add(joint)
+            matches.append(joint)
+        elif len(segments) == 1 and strip_short_name(joint) == segments[0]:
+            seen.add(joint)
+            matches.append(joint)
+    return matches
+
+
+def _pattern_segments_from_long_path(long_path, skel_roots=None):
+    """
+    Segment list for CCL compaction. Prefer Body| / Face| anchor when present.
+    """
+    long_names = mc.ls(long_path, long=True) or []
+    if not long_names:
+        return [strip_short_name(long_path)]
+    long_path = long_names[0]
+
+    for root_tag in ('Face', 'Body'):
+        needle = '|{0}|'.format(root_tag)
+        if needle in long_path:
+            return [p for p in long_path[long_path.index(needle) + 1:].split('|') if p]
+
+    for root in _parse_skel_roots(skel_roots):
+        if long_path == root:
+            return [strip_short_name(long_path)]
+        prefix = root + '|'
+        if long_path.startswith(prefix):
+            rel = long_path[len(prefix):]
+            if rel:
+                return [p for p in rel.split('|') if p]
+
+    return [strip_short_name(p) for p in long_path.split('|') if p]
+
+
+def _minimal_unique_source_pattern(source_long, skel_roots):
+    """
+    Shortest pipe pattern unique under skel roots that resolves to source_long.
+    Raises ValueError when no unique suffix exists.
+    """
+    if not source_long or not mc.objExists(source_long):
+        raise ValueError('Source joint not in scene: {0}'.format(source_long))
+
+    source_long = mc.ls(source_long, long=True)[0]
+    joint_list = _joints_under_roots(skel_roots)
+    if not joint_list:
+        raise ValueError('No joints under skeleton roots')
+
+    segments = _pattern_segments_from_long_path(source_long, skel_roots)
+    if not segments:
+        segments = [strip_short_name(source_long)]
+
+    for length in range(1, len(segments) + 1):
+        candidate_segments = segments[-length:]
+        candidate = '|'.join(candidate_segments)
+        matches = _joints_matching_chain_suffix(joint_list, candidate_segments)
+        if len(matches) == 1 and matches[0] == source_long:
+            return candidate
+
+    raise ValueError(
+        'Cannot build unique source pattern for {0} under skeleton roots'.format(
+            strip_short_name(source_long)))
+
+
+def _align_ccl_source_pattern(source_pattern=None, source=None, skel_roots=None):
+    """
+    Compact skeleton joint pattern for CCL storage (save-only).
+
+    When skel_roots are set and source resolves to a scene joint, emit the
+    shortest unique pattern under those roots (leaf or pipe chain).
+
+    When skel_roots are absent, or input is already a non-scene pattern string,
+    return the pattern unchanged (load / backward compatibility).
     """
     pat = source_pattern or source or ''
     if not pat:
         return ''
 
-    if not str(pat).startswith('|'):
-        if str(pat).startswith('Body|') or str(pat).startswith('Face|'):
-            leaf = str(pat).split('|')[-1]
-            if leaf in _ALIGN_CCL_LEAF_SOURCES:
-                return leaf
-            return pat
-        if mc.objExists(pat):
-            return NAMES.get_base(pat)
-        return _strip_ns(pat)
+    pat = str(pat)
+    roots = _parse_skel_roots(skel_roots)
 
-    long_path = str(pat)
-    leaf = strip_short_name(long_path)
-    if leaf in _ALIGN_CCL_LEAF_SOURCES:
-        return leaf
+    if roots:
+        scene_src = None
+        if source and mc.objExists(source):
+            scene_src = mc.ls(source, long=True)[0]
+        elif mc.objExists(pat):
+            scene_src = mc.ls(pat, long=True)[0]
+        if scene_src:
+            return _minimal_unique_source_pattern(scene_src, skel_roots)
 
-    for root_tag in ('Face', 'Body'):
-        needle = '|{0}|'.format(root_tag)
-        if needle in long_path:
-            return long_path[long_path.index(needle) + 1:]
+    # Pass-through: saved CCL literals and unresolved patterns (load path)
+    if not mc.objExists(pat):
+        return pat
 
-    return leaf
+    # Fallback when compaction not requested (legacy callers)
+    return NAMES.get_base(pat) if mc.objExists(pat) else _strip_ns(pat)
+
+
+def validate_connections_for_save(connections, skel_roots, rig_ns=None, skel_ns=None):
+    """
+    Pre-save validation: roots required; each source compacts to a unique pattern
+    that resolves back to the same joint long path.
+    """
+    result = {'ok': True, 'errors': [], 'warnings': [], 'details': []}
+    roots = _parse_skel_roots(skel_roots)
+    if not roots:
+        result['ok'] = False
+        result['errors'].append('Skeleton roots required to save CCL')
+        return result
+
+    skel_ns = normalize_namespace(skel_ns or ':')
+    for i, conn in enumerate(connections or []):
+        src_long = conn.get('sourceResolved') or conn.get('source')
+        if not src_long or not mc.objExists(src_long):
+            result['ok'] = False
+            result['errors'].append(
+                '[{0}] source not resolved in scene: {1}'.format(i, src_long))
+            continue
+
+        src_long = mc.ls(src_long, long=True)[0]
+        try:
+            pattern = _minimal_unique_source_pattern(src_long, skel_roots)
+        except ValueError as err:
+            result['ok'] = False
+            result['errors'].append('[{0}] {1}'.format(i, err))
+            continue
+
+        resolved = resolve_skeleton_joint(pattern, skel_roots=skel_roots, skel_ns=skel_ns)
+        if resolved != src_long:
+            result['ok'] = False
+            result['errors'].append(
+                '[{0}] pattern "{1}" resolves to {2}, expected {3}'.format(
+                    i, pattern, resolved, src_long))
+        else:
+            result['details'].append('[{0}] {1} -> {2}'.format(
+                i, strip_short_name(src_long), pattern))
+
+    return result
 
 
 def _align_ccl_target_pattern(target_pattern=None, target=None, rig_ns=None):
@@ -479,13 +573,33 @@ def resolve_rig_control(pattern, rig_ns=None):
     return None
 
 
+def _pattern_for_resolve(conn, side='source'):
+    """
+    Pattern string for resolve_* (load / reresolve). Never compacts — preserves CCL literals.
+    """
+    if side == 'source':
+        pat = _conn_source_pattern(conn) or conn.get('source') or ''
+    else:
+        pat = _conn_target_pattern(conn) or conn.get('target') or ''
+    pat = str(pat)
+    if pat and mc.objExists(pat):
+        key = 'sourcePattern' if side == 'source' else 'targetPattern'
+        alt = 'source_pattern' if side == 'source' else 'target_pattern'
+        stored = conn.get(key) or conn.get(alt)
+        if stored and not mc.objExists(str(stored)):
+            return str(stored)
+        return strip_short_name(pat)
+    return pat
+
+
 def resolve_connections(connections, rig_ns=None, skel_roots=None, skel_ns=None):
     """Resolve source/target scene nodes for each connection dict (in place)."""
     rig_ns = normalize_namespace(rig_ns or ':')
     skel_ns = normalize_namespace(skel_ns or ':')
     for conn in connections or []:
-        src_pat = _align_ccl_source_pattern(_conn_source_pattern(conn), conn.get('source'))
-        tgt_pat = _align_ccl_target_pattern(_conn_target_pattern(conn), conn.get('target'), rig_ns=rig_ns)
+        src_pat = _pattern_for_resolve(conn, 'source')
+        tgt_pat = _align_ccl_target_pattern(
+            _conn_target_pattern(conn), conn.get('target'), rig_ns=rig_ns)
         prev_source = conn.get('sourceResolved') or conn.get('source')
         src = resolve_skeleton_joint(src_pat, skel_roots=skel_roots, skel_ns=skel_ns)
         tgt = resolve_rig_control(tgt_pat, rig_ns=rig_ns)
@@ -606,17 +720,20 @@ def ccl_to_connections(data, rig_ns=None, skel_roots=None, skel_ns=None):
     }
 
 
-def connections_to_ccl(connections, rig_ns=None,
+def connections_to_ccl(connections, rig_ns=None, skel_roots=None,
                        source_items=None, source_data=None,
                        target_items=None, target_data=None, links=None):
     """
     Build six-element CCL from connection dicts. Emits short patterns on save.
     Preserves list/link structure when provided; otherwise rebuilds from connections.
+
+    skel_roots: required for source pattern compaction on save (caller validates).
     """
     conn_out = []
     for c in connections or []:
         entry = {
-            'source': _align_ccl_source_pattern(_conn_source_pattern(c), c.get('source')),
+            'source': _align_ccl_source_pattern(
+                _conn_source_pattern(c), c.get('source'), skel_roots=skel_roots),
             'target': _align_ccl_target_pattern(_conn_target_pattern(c), c.get('target'), rig_ns),
             'setPosition': bool(c.get('setPosition', True)),
             'setRotation': bool(c.get('setRotation', True)),
@@ -640,7 +757,8 @@ def connections_to_ccl(connections, rig_ns=None,
             target_data.append({'constraintType': ctype})
         links = [[i, i] for i in range(len(conn_out))]
 
-    src_short = [_align_ccl_source_pattern(x) for x in (source_items or [])]
+    src_short = [
+        _align_ccl_source_pattern(x, skel_roots=skel_roots) for x in (source_items or [])]
     tgt_short = [_align_ccl_target_pattern(x, rig_ns=rig_ns) for x in (target_items or [])]
 
     return [

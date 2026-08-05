@@ -967,10 +967,32 @@ class ui(cgmUI.cgmGUI):
         if not result:
             return
         file = result[0]
-        self._sync_connection_data_from_ui()
+
+        skel_roots = self._get_skel_roots()
+        if not skel_roots:
+            log.error("Set Skel Roots before saving CCL")
+            print("=== mocap align ===\nCannot save CCL without Skel Roots set.\n")
+            return
+
+        self._reresolve_connection_data()
+        validation = MOCAPALIGN.validate_connections_for_save(
+            self.connection_data,
+            skel_roots=skel_roots,
+            rig_ns=self._get_rig_ns(),
+        )
+        if not validation.get('ok'):
+            log.error("CCL save blocked — fix unresolved/ambiguous sources")
+            print("=== mocap align save blocked ===")
+            for err in validation.get('errors') or []:
+                print(err)
+                log.warning(err)
+            print("=== end ===\n")
+            return
+
         stored_data = MOCAPALIGN.connections_to_ccl(
             self.connection_data,
             rig_ns=self._get_rig_ns(),
+            skel_roots=skel_roots,
             source_items=[x.item for x in self.parent_source_items],
             source_data=[x.data for x in self.parent_source_items],
             target_items=[x.item for x in self.parent_target_items],
@@ -978,6 +1000,13 @@ class ui(cgmUI.cgmGUI):
             links=self.parent_links,
         )
         MOCAPALIGN.save_ccl(file, stored_data)
+
+        if validation.get('details'):
+            print("=== mocap align save patterns ===")
+            for line in validation['details']:
+                print(line)
+            print("Saved: {0}".format(file))
+            print("=== end ===\n")
 
     # loads link data
     def uiFunc_load_data(self, *args):
