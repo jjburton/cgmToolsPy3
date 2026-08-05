@@ -187,7 +187,10 @@ class ui(cgmUI.cgmGUI):
         _item_form = mUI.MelFormLayout(_MainForm,ut='cgmUITemplate')
         
         _parent_source = self.buildScrollForm(_item_form, hasHeader=True, buttonArgs = [{'label':'Add Selected', 'command':self.uiFunc_add_to_parent_source, 'annotation':_d_annotations.get('addSource','fix')}, {'label':'Remove Item', 'command':self.uiFunc_remove_from_parent_source, 'annotation':_d_annotations.get('removeSource','fix')}], headerText = 'source', allowMultiSelection=False, selectCommand=self.uiFunc_on_select_parent_source_item, doubleClickCommand=self.uiFunc_toggle_link_parent_targets)
-        _parent_target = self.buildScrollForm(_item_form, hasHeader=True, buttonArgs = [{'label':'Add Selected', 'command':self.uiFunc_add_to_parent_target, 'annotation':_d_annotations.get('addTarget','fix')}, {'label':'Remove Item', 'command':self.uiFunc_remove_from_parent_target, 'annotation':_d_annotations.get('removeTarget','fix')}], headerText = 'target', allowMultiSelection=True, selectCommand=self.uiFunc_select_parent_target_link, doubleClickCommand=self.uiFunc_toggle_link_parent_targets)
+        _parent_target = self.buildScrollForm(_item_form, hasHeader=True, buttonArgs = [
+            {'label':'Add Selected', 'command':self.uiFunc_add_to_parent_target, 'annotation':_d_annotations.get('addTarget','fix')},
+            {'label':'Remove Item', 'command':self.uiFunc_remove_from_parent_target, 'annotation':_d_annotations.get('removeTarget','fix')},
+        ], headerText = 'target', allowMultiSelection=True, selectCommand=self.uiFunc_select_parent_target_link, doubleClickCommand=self.uiFunc_toggle_link_parent_targets)
         
         self.parent_source_scroll = _parent_source[1]
         self.parent_target_scroll = _parent_target[1]
@@ -226,7 +229,28 @@ class ui(cgmUI.cgmGUI):
             ann = 'Clear List',
             c = cgmGEN.Callback( self.uiFunc_clear_list, 1),
             label = "Clear List")
-        mUI.MelMenuItem(self.uiPopUpMenu_source,
+        mUI.MelMenuItemDiv(self.uiPopUpMenu_target)
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
+            ann = _d_annotations.get('moveTargetUp', 'Move selected targets up'),
+            c = cgmGEN.Callback( self.uiFunc_reorder_parent_target, 0),
+            label = "Move Up")
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
+            ann = _d_annotations.get('moveTargetDn', 'Move selected targets down'),
+            c = cgmGEN.Callback( self.uiFunc_reorder_parent_target, 1),
+            label = "Move Dn")
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
+            ann = _d_annotations.get('moveTargetTop', 'Move selected targets to top of list'),
+            c = cgmGEN.Callback( self.uiFunc_reorder_parent_target_to_top),
+            label = "Move to Top")
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
+            ann = _d_annotations.get('moveTargetBottom', 'Move selected targets to bottom of list'),
+            c = cgmGEN.Callback( self.uiFunc_reorder_parent_target_to_bottom),
+            label = "Move to Bottom")
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
+            ann = _d_annotations.get('moveTargetSetIndex', 'Move selected targets to a list index'),
+            c = cgmGEN.Callback( self.uiFunc_reorder_parent_target_set_index),
+            label = "Set Index...")
+        mUI.MelMenuItem(self.uiPopUpMenu_target,
             ann = 'Select All',
             c = cgmGEN.Callback( self.uiFunc_select_all_in_list, 1),
             label = "Select All")
@@ -926,21 +950,32 @@ class ui(cgmUI.cgmGUI):
 
         return '/'.join(split_name)
 
+    def _format_target_list_alias(self, index, item_path):
+        """
+        Target scroll list display. MelObjectScrollList.itemAsStr keeps only the
+        segment after the last ':' (short names are 'ns:base'), so put the index
+        on that final segment or it is stripped when show short names is on.
+        """
+        name = self.parse_alias(item_path)
+        if not name:
+            return '[%i]' % index
+        if ':' in name:
+            ns, base = name.rsplit(':', 1)
+            return '%s:[%i] %s' % (ns, index, base)
+        return '[%i] %s' % (index, name)
+
     def refresh_aliases(self, *args):
         # refresh parent aliases
         for i, item in enumerate(self.parent_source_items):
-            link_items = []
-            for link in self.parent_links:
-                if link[0] == i:
-                  link_items.append( self.parse_alias(self.parent_target_items[link[1]].item) )
-            
-            if link_items:
-                self.parent_source_items[i].alias = "%s -> %s" % ( self.parse_alias(self.parent_source_items[i].item), ','.join(link_items))
+            target_idxs = sorted([link[1] for link in self.parent_links if link[0] == i])
+            base = self.parse_alias(self.parent_source_items[i].item)
+            if target_idxs:
+                idx_str = ','.join('[%i]' % x for x in target_idxs)
+                self.parent_source_items[i].alias = '%s -> %s' % (base, idx_str)
             else:
-                self.parent_source_items[i].alias = self.parse_alias(self.parent_source_items[i].item)
-            self.parent_source_items[i].alias = self.parent_source_items[i].alias
+                self.parent_source_items[i].alias = base
         for i, item in enumerate(self.parent_target_items):
-            self.parent_target_items[i].alias = self.parse_alias(self.parent_target_items[i].item)
+            self.parent_target_items[i].alias = self._format_target_list_alias(i, self.parent_target_items[i].item)
 
             for link in self.parent_links:
                 if link[1] == i:
@@ -1118,6 +1153,106 @@ class ui(cgmUI.cgmGUI):
         self.print_data()
 
         self.refresh_aliases()
+
+    def _get_parent_target_selected_idxs(self):
+        idxs = self.parent_target_scroll.getSelectedIdxs()
+        if not idxs:
+            log.warning("Select target list items to reorder")
+            return None
+        if not self.parent_target_items:
+            return None
+        return idxs
+
+    def _apply_parent_target_list_order(self, new_items, selected_old_idxs):
+        """Replace target list, remap link indices, refresh UI selection."""
+        old_items = [x.item for x in self.parent_target_items]
+        self.parent_target_items = list(new_items)
+
+        new_item_names = [x.item for x in self.parent_target_items]
+        idx_map = {old_i: new_item_names.index(old_items[old_i]) for old_i in range(len(old_items))}
+        for link in self.parent_links:
+            link[1] = idx_map[link[1]]
+
+        self.refresh_aliases()
+
+        new_sel = sorted([idx_map[i] for i in selected_old_idxs])
+        self.parent_target_scroll.clearSelection()
+        for idx in new_sel:
+            self.parent_target_scroll.selectByIdx(idx)
+
+        self.print_data()
+        return True
+
+    def uiFunc_reorder_parent_target(self, direction=0, *args):
+        """
+        Reorder selected target list items. direction 0 = up, 1 = down (lists.reorderListInPlace).
+        """
+        idxs = self._get_parent_target_selected_idxs()
+        if idxs is None:
+            return False
+
+        to_move = [self.parent_target_items[i] for i in idxs]
+        new_items = list(self.parent_target_items)
+
+        lists.reorderListInPlace(new_items, to_move, direction)
+        return self._apply_parent_target_list_order(new_items, idxs)
+
+    def uiFunc_reorder_parent_target_to_top(self, *args):
+        idxs = self._get_parent_target_selected_idxs()
+        if idxs is None:
+            return False
+
+        idxs = sorted(idxs)
+        to_move = [self.parent_target_items[i] for i in idxs]
+        remaining = [self.parent_target_items[i] for i in range(len(self.parent_target_items)) if i not in idxs]
+        return self._apply_parent_target_list_order(to_move + remaining, idxs)
+
+    def uiFunc_reorder_parent_target_to_bottom(self, *args):
+        idxs = self._get_parent_target_selected_idxs()
+        if idxs is None:
+            return False
+
+        idxs = sorted(idxs)
+        to_move = [self.parent_target_items[i] for i in idxs]
+        remaining = [self.parent_target_items[i] for i in range(len(self.parent_target_items)) if i not in idxs]
+        return self._apply_parent_target_list_order(remaining + to_move, idxs)
+
+    def uiFunc_reorder_parent_target_set_index(self, *args):
+        idxs = self._get_parent_target_selected_idxs()
+        if idxs is None:
+            return False
+
+        count = len(self.parent_target_items)
+        max_idx = max(0, count - len(idxs))
+        default = str(min(sorted(idxs)[0], max_idx))
+
+        result = mc.promptDialog(
+            title='Target list index',
+            message='Move selected to index (0 = top, max {0}):'.format(max_idx),
+            button=['OK', 'Cancel'],
+            defaultButton='OK',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+            text=default,
+        )
+        if result != 'OK':
+            return False
+
+        try:
+            target_idx = int(mc.promptDialog(query=True, text=True))
+        except (TypeError, ValueError):
+            log.warning("Target index must be an integer")
+            return False
+
+        if target_idx < 0 or target_idx > max_idx:
+            log.warning("Target index must be between 0 and {0}".format(max_idx))
+            return False
+
+        idxs = sorted(idxs)
+        to_move = [self.parent_target_items[i] for i in idxs]
+        remaining = [self.parent_target_items[i] for i in range(len(self.parent_target_items)) if i not in idxs]
+        new_items = remaining[:target_idx] + to_move + remaining[target_idx:]
+        return self._apply_parent_target_list_order(new_items, idxs)
 
     # establish links upon double click
     def uiFunc_toggle_link_parent_targets(self, *args):
@@ -1334,6 +1469,11 @@ _d_annotations = {'addSource':'Adds the selected objects to the source list.',
                   'removeSource':'Removed the selected object from the source list.',
                   'addTarget':'Adds the selected object to the target list.',
                   'removeTarget':'Removed the selected object from the target list.',
+                  'moveTargetUp':'Move selected target list items up (order is saved in CCL)',
+                  'moveTargetDn':'Move selected target list items down (order is saved in CCL)',
+                  'moveTargetTop':'Move selected target list items to top of list',
+                  'moveTargetBottom':'Move selected target list items to bottom of list',
+                  'moveTargetSetIndex':'Prompt for list index and move selected targets there (0 = top)',
                   'linkName':'Link source and target by closest name between target and source.',
                   'linkDistance':'Link source and target by shortest distance between target and source.',
                   'setPointOrient':'Set source/target constraints to point/orient',
