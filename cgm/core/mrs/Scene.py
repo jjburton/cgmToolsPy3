@@ -6962,8 +6962,8 @@ def ExportScene(mode = -1,
     l_max = []
 
     for shot in animList.shotList:
-        l_min.append(min(shot[1]))
-        l_max.append(max(shot[1]))
+        l_min.append(shot[1][0])
+        l_max.append(shot[1][1])
 
     if l_min:
         _start = min(l_min)
