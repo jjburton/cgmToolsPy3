@@ -42,7 +42,7 @@ from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import euclid
-from cgm.core.lib import mocap_align_utils as MOCAPALIGN
+import cgm.core.lib.mocap_align_utils as MOCAPALIGN
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as CGMPATH
 from cgm.lib import lists
@@ -54,6 +54,16 @@ __toolname__ ='mocapBakeTool'
 
 _subLineBGC = [.75,.75,.75]
 _buttonBGC = [.3,.3,.3]
+
+
+def reload_dependencies():
+    """Reload mocap align backend modules (tool open / Reload menu)."""
+    import cgm.core.lib.mocap_align_utils as _mocap_align_utils
+    cgmGEN._reloadMod(_mocap_align_utils)
+    global MOCAPALIGN
+    MOCAPALIGN = _mocap_align_utils
+    return MOCAPALIGN
+
 
 class cgmListItem(object):
     item = None
@@ -106,11 +116,17 @@ class ui(cgmUI.cgmGUI):
 
         self.create_guiOptionVar('mocap_allow_multiple_targets',defaultValue = 0)
         self.create_guiOptionVar('mocap_set_connection_at_bake',defaultValue = 1)
+        self.create_guiOptionVar('mocap_show_short_names', defaultValue = 0)
         self.create_guiOptionVar('mocap_rig_namespace', defaultValue = '')
         self.create_guiOptionVar('mocap_skel_roots', defaultValue = '')
 
         self.uiPopUpMenu_target = None
         self.uiPopUpMenu_source = None
+
+    def reload(self):
+        reload_dependencies()
+        cgmGEN._reloadMod(__import__(__name__))
+        super(ui, self).reload()
  
     def build_menus(self):
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc = cgmGEN.Callback(self.buildMenu_first))
@@ -142,6 +158,9 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelMenuItem( self.uiMenu_FirstMenu, checkBox=self.var_mocap_allow_multiple_targets.value, l="Allow multiple targets",
                  c=lambda *a: self.uiFunc_toggle_multiple_targets(self) )#not mc.optionVar(q='cgm_mocap_allow_multiple_targets')))
+
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, checkBox=self.var_mocap_show_short_names.value, l="Show short names",
+                 c=lambda *a: self.uiFunc_toggle_show_short_names(self) )
 
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu )
 
@@ -499,6 +518,10 @@ class ui(cgmUI.cgmGUI):
         self.var_mocap_allow_multiple_targets.toggle()
         self.parent_target_scroll(e=True, allowMultiSelection=self.var_mocap_allow_multiple_targets.value)
 
+    def uiFunc_toggle_show_short_names(self, *args):
+        self.var_mocap_show_short_names.toggle()
+        self.refresh_aliases()
+
     def uiFunc_updateTimeRange(self,mode = 'slider'):
         _range = SEARCH.get_time(mode)
         if _range:
@@ -519,7 +542,7 @@ class ui(cgmUI.cgmGUI):
 
         mc.currentTime(bake_range[0])
         
-        self._sync_connection_data_from_ui()
+        self._reresolve_connection_data()
 
         if self.var_mocap_set_connection_at_bake.value:
             self.uiFunc_set_connection_pose()
@@ -687,8 +710,7 @@ class ui(cgmUI.cgmGUI):
             if not item in [x.item for x in self.parent_source_items]:
                 self.parent_source_items.append( cgmListItem(item, item) )
         
-        self.parent_source_scroll.setItems( [x.alias for x in self.parent_source_items] )
-
+        self.refresh_aliases()
         self.print_data()
 
     def uiFunc_add_to_parent_target(self, *args):
@@ -696,8 +718,7 @@ class ui(cgmUI.cgmGUI):
             if not item in [x.item for x in self.parent_target_items]:
                 self.parent_target_items.append( cgmListItem(item, item, {"constraintType":"o"}) )
 
-        self.parent_target_scroll.setItems( [x.alias for x in self.parent_target_items] )
-
+        self.refresh_aliases()
         self.print_data()
 
     def uiFunc_set_connection_pose(self, *args):
@@ -760,45 +781,64 @@ class ui(cgmUI.cgmGUI):
         return [p.strip() for p in text.replace(',', ';').split(';') if p.strip()]
 
     def _align_roots_ok_for_capture(self):
-        """Block capture/snap when multiple MH roots and none set."""
+        """Block capture/snap when patterns need skeleton roots and none are set."""
         roots = self._get_skel_roots()
         if roots:
             return True
-        n = MOCAPALIGN.count_ambiguous_skel_contexts()
-        if n > 1:
-            log.error("Multiple MetaHuman-style skeletons in scene. Set Skel Roots from selection before Capture/Snap.")
-            print("=== mocap align ===\nMultiple skeleton roots detected ({0}). Set Skel Roots, then retry.\n".format(n))
-            return False
+        if MOCAPALIGN.count_ambiguous_skel_contexts() <= 1:
+            return True
+        self._sync_connection_data_from_ui()
+        for conn in self.connection_data or []:
+            pat = (conn.get('sourcePattern') or conn.get('source_pattern') or conn.get('source'))
+            if MOCAPALIGN.source_pattern_needs_skel_roots(pat):
+                log.error("Multiple MetaHuman-style skeletons in scene. Set Skel Roots from selection before Capture/Snap.")
+                print("=== mocap align ===\nMultiple skeleton roots detected — set Skel Roots, then retry.\n")
+                return False
         return True
 
     def _sync_connection_data_from_ui(self):
         """Rebuild connection list from UI links, preserving existing offset keys."""
         ui_data = self.get_ui_connection_data()
-        old_by_pair = {}
-        for conn in self.connection_data or []:
-            old_by_pair[(conn.get('source'), conn.get('target'))] = conn
+        old_list = list(self.connection_data or [])
+        old_by_pattern = {}
+        for conn in old_list:
+            key = (
+                conn.get('sourcePattern') or conn.get('source_pattern') or conn.get('source'),
+                conn.get('targetPattern') or conn.get('target_pattern') or conn.get('target'),
+            )
+            old_by_pattern[key] = conn
 
         keep_keys = ('localTranslate', 'localRotate', 'positionOffset',
                      'offsetForward', 'offsetUp', 'sourcePattern', 'targetPattern',
+                     'source_pattern', 'target_pattern',
                      'sourceResolved', 'targetResolved', 'alignLocator')
         merged = []
-        for data in ui_data:
-            key = (data['source'], data['target'])
-            prev = old_by_pair.get(key)
+        for li, data in enumerate(ui_data):
+            prev = old_list[li] if li < len(old_list) else None
+            if not prev:
+                prev = old_by_pattern.get((data.get('sourcePattern'), data.get('targetPattern')))
             if prev:
                 for k in keep_keys:
                     if k in prev:
                         data[k] = prev[k]
-            data['sourceResolved'] = data.get('sourceResolved') or data['source']
-            data['targetResolved'] = data.get('targetResolved') or data['target']
             merged.append(data)
         self.connection_data = merged
         return merged
 
+    def _reresolve_connection_data(self):
+        """Sync UI links then resolve patterns to scene nodes."""
+        self._sync_connection_data_from_ui()
+        MOCAPALIGN.resolve_connections(
+            self.connection_data,
+            rig_ns=self._get_rig_ns(),
+            skel_roots=self._get_skel_roots(),
+        )
+        return self.connection_data
+
     def uiFunc_capture_offsets(self, *args):
         if not self._align_roots_ok_for_capture():
             return
-        self._sync_connection_data_from_ui()
+        self._reresolve_connection_data()
         if not self.connection_data:
             log.warning("No links to capture")
             return
@@ -807,7 +847,7 @@ class ui(cgmUI.cgmGUI):
     def uiFunc_snap_connections(self, selected_only=False, *args):
         if not self._align_roots_ok_for_capture():
             return
-        self._sync_connection_data_from_ui()
+        self._reresolve_connection_data()
         indices = None
         if selected_only:
             idxs = self.parent_target_scroll.getSelectedIdxs()
@@ -821,7 +861,7 @@ class ui(cgmUI.cgmGUI):
         MOCAPALIGN.snap_connections(self.connection_data, indices=indices)
 
     def uiFunc_create_align_locs(self, *args):
-        self._sync_connection_data_from_ui()
+        self._reresolve_connection_data()
         MOCAPALIGN.create_debug_locs(self.connection_data)
 
     def uiFunc_delete_align_locs(self, *args):
@@ -869,12 +909,22 @@ class ui(cgmUI.cgmGUI):
         self.parent_target_scroll.setItems( [x.alias for x in self.parent_target_items] )
 
     def parse_alias(self, name):
-      split_name = name.split('|')
-      for i, new_name in enumerate(split_name):
-        if ':' in new_name:
-          split_name[i] = '(' + new_name.replace(':', ')')
+        if not name:
+            return name
+        if self.var_mocap_show_short_names.value:
+            if mc.objExists(name):
+                try:
+                    return cgmMeta.cgmObject(name).p_nameShort
+                except Exception:
+                    pass
+            return str(name).split('|')[-1].split(':')[-1]
 
-      return '/'.join(split_name)
+        split_name = str(name).split('|')
+        for i, new_name in enumerate(split_name):
+            if ':' in new_name:
+                split_name[i] = '(' + new_name.replace(':', ')')
+
+        return '/'.join(split_name)
 
     def refresh_aliases(self, *args):
         # refresh parent aliases
@@ -1154,11 +1204,19 @@ class ui(cgmUI.cgmGUI):
     def get_ui_connection_data(self, *args):
         connection_data = []
         for link in self.parent_links:
-            connection_data.append( {   'source':self.parent_source_items[link[0]].item, 
-                                        'target':self.parent_target_items[link[1]].item, 
-                                        'setPosition':'p' in self.parent_target_items[link[1]].data["constraintType"],
-                                        'setRotation':True
-                                        } )
+            src_item = self.parent_source_items[link[0]].item
+            tgt_item = self.parent_target_items[link[1]].item
+            ctype = self.parent_target_items[link[1]].data.get("constraintType", "o")
+            connection_data.append({
+                'source': src_item,
+                'target': tgt_item,
+                'sourcePattern': src_item,
+                'targetPattern': tgt_item,
+                'source_pattern': src_item,
+                'target_pattern': tgt_item,
+                'setPosition': 'p' in str(ctype),
+                'setRotation': True,
+            })
 
         return connection_data
 

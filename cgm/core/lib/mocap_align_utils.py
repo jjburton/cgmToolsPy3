@@ -31,6 +31,34 @@ log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
 
 _DEBUG_LOC_ATTR = 'cgmMocapAlignLoc'
+SKEL_ROOT_SEP = ';'
+
+# Skeleton joints safe to store as leaf-only CCL patterns (resolved via skel roots).
+_ALIGN_CCL_LEAF_SOURCES = frozenset([
+    'foot_r', 'foot_l', 'lowerarm_r', 'lowerarm_l', 'hand_r', 'hand_l',
+])
+for _side in ('r', 'l'):
+    _ALIGN_CCL_LEAF_SOURCES = _ALIGN_CCL_LEAF_SOURCES | frozenset([
+        'thumb_01_{0}'.format(_side),
+        'thumb_02_{0}'.format(_side),
+        'thumb_03_{0}'.format(_side),
+        'index_metacarpal_{0}'.format(_side),
+        'index_01_{0}'.format(_side),
+        'index_02_{0}'.format(_side),
+        'index_03_{0}'.format(_side),
+        'middle_metacarpal_{0}'.format(_side),
+        'middle_01_{0}'.format(_side),
+        'middle_02_{0}'.format(_side),
+        'middle_03_{0}'.format(_side),
+        'ring_metacarpal_{0}'.format(_side),
+        'ring_01_{0}'.format(_side),
+        'ring_02_{0}'.format(_side),
+        'ring_03_{0}'.format(_side),
+        'pinky_metacarpal_{0}'.format(_side),
+        'pinky_01_{0}'.format(_side),
+        'pinky_02_{0}'.format(_side),
+        'pinky_03_{0}'.format(_side),
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -67,10 +95,25 @@ def save_ccl(path, data):
 # ---------------------------------------------------------------------------
 # Pattern helpers
 # ---------------------------------------------------------------------------
+def strip_short_name(node):
+    """Return short DAG name without namespace or path."""
+    return str(node).split('|')[-1].split(':')[-1]
+
+
 def _strip_ns(name):
-    if not name:
-        return name
-    return str(name).split('|')[-1].split(':')[-1]
+    return strip_short_name(name)
+
+
+def normalize_namespace(namespace):
+    """Normalize namespace to trailing-colon form or ':' for root."""
+    if not namespace:
+        return ':'
+    ns = str(namespace).strip()
+    if not ns or ns == ':':
+        return ':'
+    if not ns.endswith(':'):
+        ns += ':'
+    return ns
 
 
 def _ensure_ns(name, rig_ns):
@@ -80,41 +123,77 @@ def _ensure_ns(name, rig_ns):
     name = str(name)
     if not rig_ns:
         return name
-    ns = rig_ns if rig_ns.endswith(':') else (rig_ns + ':')
+    ns = normalize_namespace(rig_ns)
     leaf = name.split('|')[-1]
     if ':' in leaf:
         return leaf
     return ns + leaf
 
 
-def _align_ccl_source_pattern(node_or_pattern):
-    """Prefer short / portable joint pattern for CCL save."""
-    if not node_or_pattern:
-        return node_or_pattern
-    s = str(node_or_pattern)
-    if '|' in s and not mc.objExists(s):
-        # already a chain pattern like Body|spine_04
-        return s
-    if mc.objExists(s):
-        return NAMES.get_base(s)
-    return _strip_ns(s)
+def _conn_source_pattern(conn):
+    return (conn.get('sourcePattern') or conn.get('source_pattern') or conn.get('source'))
 
 
-def _align_ccl_target_pattern(node_or_pattern, rig_ns=None):
-    """Namespaced short control name for CCL save."""
-    if not node_or_pattern:
-        return node_or_pattern
-    s = str(node_or_pattern)
-    if mc.objExists(s):
-        short = NAMES.get_short(s)
+def _conn_target_pattern(conn):
+    return (conn.get('targetPattern') or conn.get('target_pattern') or conn.get('target'))
+
+
+def _align_ccl_source_pattern(source_pattern=None, source=None):
+    """
+    Compact skeleton joint pattern for CCL storage.
+
+    Uses Body| / Face| chains for spine/clavicle/head and leaf names for limbs
+    and fingers (resolved at runtime via skeleton roots in the UI).
+    """
+    pat = source_pattern or source or ''
+    if not pat:
+        return ''
+
+    if not str(pat).startswith('|'):
+        if str(pat).startswith('Body|') or str(pat).startswith('Face|'):
+            leaf = str(pat).split('|')[-1]
+            if leaf in _ALIGN_CCL_LEAF_SOURCES:
+                return leaf
+            return pat
+        if mc.objExists(pat):
+            return NAMES.get_base(pat)
+        return _strip_ns(pat)
+
+    long_path = str(pat)
+    leaf = strip_short_name(long_path)
+    if leaf in _ALIGN_CCL_LEAF_SOURCES:
+        return leaf
+
+    for root_tag in ('Face', 'Body'):
+        needle = '|{0}|'.format(root_tag)
+        if needle in long_path:
+            return long_path[long_path.index(needle) + 1:]
+
+    return leaf
+
+
+def _align_ccl_target_pattern(target_pattern=None, target=None, rig_ns=None):
+    """Compact rig control pattern: namespaced short name (no DAG path)."""
+    pat = target_pattern or target or ''
+    if not pat:
+        return ''
+
+    last = str(pat).split('|')[-1]
+    if not str(pat).startswith('|') and ':' in last:
+        return last
+
+    if mc.objExists(pat):
+        short = NAMES.get_short(pat)
         leaf = short.split('|')[-1]
         if ':' in leaf:
             return leaf
-        return _ensure_ns(NAMES.get_base(s), rig_ns)
-    leaf = s.split('|')[-1]
-    if ':' in leaf:
-        return leaf
-    return _ensure_ns(_strip_ns(s), rig_ns)
+        return _ensure_ns(NAMES.get_base(pat), rig_ns)
+
+    ns = normalize_namespace(rig_ns)
+    short = strip_short_name(pat)
+    if ':' in last:
+        return last
+    return '{0}{1}'.format(ns, short)
 
 
 def has_local_offsets(conn):
@@ -154,112 +233,276 @@ def connection_missing_local_offset_reasons(conn):
 # ---------------------------------------------------------------------------
 # Resolution
 # ---------------------------------------------------------------------------
-def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
-    """
-    Resolve a joint pattern under optional skeleton roots.
-
-    Patterns: long DAG path, leaf name (foot_l), or chain token (Body|spine_04)
-    where the last `|` segment is the leaf to match under roots.
-    """
-    _str_func = 'resolve_skeleton_joint'
+def _split_pattern_segments(pattern):
+    """Return pipe-separated path segments from a CCL source pattern."""
     if not pattern:
-        return None
-
-    pattern = str(pattern)
-    if mc.objExists(pattern):
-        hits = mc.ls(pattern, long=True) or []
-        if len(hits) == 1:
-            return hits[0]
-
-    leaf = pattern.split('|')[-1]
-    leaf = leaf.split(':')[-1]
-    if skel_ns:
-        ns = skel_ns if skel_ns.endswith(':') else (skel_ns + ':')
-        candidate = ns + leaf
-        if mc.objExists(candidate):
-            return mc.ls(candidate, long=True)[0]
-
-    roots = _normalize_root_list(skel_roots)
-    search_nodes = []
-    if roots:
-        for root in roots:
-            if not mc.objExists(root):
-                log.warning(log_msg(_str_func, "Missing skeleton root: {0}".format(root)))
-                continue
-            root_long = mc.ls(root, long=True)[0]
-            search_nodes.append(root_long)
-            search_nodes.extend(mc.listRelatives(root_long, allDescendents=True, type='joint', fullPath=True) or [])
-            search_nodes.extend(mc.listRelatives(root_long, allDescendents=True, type='transform', fullPath=True) or [])
-    else:
-        search_nodes = (mc.ls(type='joint', long=True) or []) + (mc.ls(type='transform', long=True) or [])
-
-    matches = []
-    seen = set()
-    for node in search_nodes:
-        if node in seen:
-            continue
-        seen.add(node)
-        if NAMES.get_base(node) == leaf:
-            # Optional chain hint: earlier segments should appear in the long path
-            chain_parts = [p for p in pattern.split('|')[:-1] if p]
-            if chain_parts:
-                path_l = node.lower()
-                if not all(p.lower() in path_l for p in chain_parts):
-                    continue
-            matches.append(node)
-
-    if len(matches) == 1:
-        return matches[0]
-    if len(matches) > 1:
-        log.warning(log_msg(_str_func,
-                            "Ambiguous '{0}' ({1} hits). Set skeleton roots. First: {2}".format(
-                                pattern, len(matches), matches[0])))
-        return None
-    return None
-
-
-def resolve_rig_control(pattern, rig_ns=None):
-    """Resolve anim control by short / namespaced pattern."""
-    _str_func = 'resolve_rig_control'
-    if not pattern:
-        return None
-    pattern = str(pattern)
-    if mc.objExists(pattern):
-        hits = mc.ls(pattern, long=True) or []
-        if len(hits) == 1:
-            return hits[0]
-        if hits:
-            log.warning(log_msg(_str_func, "Ambiguous control '{0}': {1}".format(pattern, hits)))
-            return None
-
-    candidate = _ensure_ns(pattern, rig_ns)
-    if mc.objExists(candidate):
-        hits = mc.ls(candidate, long=True) or []
-        if len(hits) == 1:
-            return hits[0]
-        if len(hits) > 1:
-            log.warning(log_msg(_str_func, "Ambiguous control '{0}': {1}".format(candidate, hits)))
-            return None
-
-    leaf = _strip_ns(pattern)
-    hits = mc.ls('*:' + leaf, long=True) or []
-    if rig_ns:
-        ns = rig_ns.rstrip(':')
-        hits = [h for h in hits if h.split('|')[-1].startswith(ns + ':')]
-    if len(hits) == 1:
-        return hits[0]
-    if len(hits) > 1:
-        log.warning(log_msg(_str_func, "Ambiguous leaf '{0}': {1}".format(leaf, hits)))
-    return None
+        return []
+    if '|' in str(pattern):
+        return [p for p in str(pattern).split('|') if p]
+    short = str(pattern).split(':')[-1]
+    return [short] if short else []
 
 
 def _normalize_root_list(skel_roots):
     if not skel_roots:
         return []
     if isinstance(skel_roots, str):
-        parts = [p.strip() for p in skel_roots.replace(',', ';').split(';') if p.strip()]
+        parts = [p.strip() for p in skel_roots.replace(',', SKEL_ROOT_SEP).split(SKEL_ROOT_SEP) if p.strip()]
         return parts
     return [str(r).strip() for r in skel_roots if r]
+
+
+def _parse_skel_roots(skel_roots):
+    """Parse skeleton root field into long DAG paths."""
+    if not skel_roots:
+        return []
+    if isinstance(skel_roots, (list, tuple)):
+        roots = []
+        for part in skel_roots:
+            if not part or not mc.objExists(part):
+                continue
+            long_name = (mc.ls(part, long=True) or [part])[0]
+            if long_name not in roots:
+                roots.append(long_name)
+        return roots
+
+    raw = str(skel_roots).strip()
+    if not raw:
+        return []
+    if SKEL_ROOT_SEP in raw:
+        parts = [p.strip() for p in raw.split(SKEL_ROOT_SEP) if p.strip()]
+    else:
+        parts = [p.strip() for p in raw.split(',') if p.strip()]
+    roots = []
+    for part in parts:
+        if not mc.objExists(part):
+            continue
+        long_name = (mc.ls(part, long=True) or [part])[0]
+        if long_name not in roots:
+            roots.append(long_name)
+    return roots
+
+
+def _joints_under_roots(skel_roots):
+    """Collect joint long names under the given root transforms (scoped search)."""
+    roots = _parse_skel_roots(skel_roots)
+    joints = []
+    seen = set()
+
+    def _add_joint(node):
+        long_names = mc.ls(node, long=True) or []
+        if not long_names:
+            return
+        long_name = long_names[0]
+        if long_name not in seen:
+            seen.add(long_name)
+            joints.append(long_name)
+
+    if not roots:
+        for joint in mc.ls(type='joint', long=True) or []:
+            _add_joint(joint)
+        return joints
+
+    for long_root in roots:
+        if not mc.objExists(long_root):
+            continue
+        if mc.nodeType(long_root) == 'joint':
+            _add_joint(long_root)
+        for desc in mc.listRelatives(
+                long_root, allDescendents=True, type='joint', fullPath=True) or []:
+            _add_joint(desc)
+    return joints
+
+
+def _ls_by_short_name(short):
+    """Return long DAG paths for nodes whose leaf short name matches."""
+    if not short:
+        return []
+    matches = []
+    seen = set()
+    for node in (mc.ls('*:{0}'.format(short), long=True) or []):
+        if strip_short_name(node) == short and node not in seen:
+            seen.add(node)
+            matches.append(node)
+    for node in (mc.ls(short, long=True) or []):
+        if strip_short_name(node) == short and node not in seen:
+            seen.add(node)
+            matches.append(node)
+    return matches
+
+
+def _resolve_node_by_name(pattern, skel_ns=':'):
+    """
+    Resolve by exact path or unique short-name match.
+
+    Returns (long_name, ambiguous_matches).
+    """
+    if not pattern:
+        return None, []
+
+    if mc.objExists(pattern):
+        return (mc.ls(pattern, long=True) or [pattern])[0], []
+
+    skel_ns = normalize_namespace(skel_ns)
+    segments = _split_pattern_segments(pattern)
+    if not segments:
+        return None, []
+
+    leaf = segments[-1]
+    leaf_short = strip_short_name(leaf)
+
+    for candidate in (pattern, leaf, '{0}{1}'.format(skel_ns, leaf_short)):
+        if candidate and mc.objExists(candidate):
+            return (mc.ls(candidate, long=True) or [candidate])[0], []
+
+    matches = _ls_by_short_name(leaf_short)
+    if len(matches) == 1:
+        return matches[0], []
+    return None, matches
+
+
+def _is_skeleton_hierarchy_pattern(pattern):
+    """True when pattern uses Body| / Face| pipe chains (MH skeleton paths)."""
+    if not pattern or '|' not in str(pattern) or str(pattern).startswith('|'):
+        return False
+    if str(pattern).startswith('Body|') or str(pattern).startswith('Face|'):
+        return True
+    return len(_split_pattern_segments(pattern)) > 1
+
+
+def _resolve_hierarchy_pattern(pattern, joint_list, skel_ns=':'):
+    """Best joint match for a pipe-segment skeleton pattern within joint_list."""
+    segments = _split_pattern_segments(pattern)
+    if not segments or not joint_list:
+        return None
+
+    suffix = '|' + '|'.join(segments)
+    leaf = segments[-1]
+    leaf_short = strip_short_name(leaf)
+    leaf_suffix = '|' + leaf
+    ranked = []
+
+    for joint in joint_list:
+        if joint.endswith(suffix):
+            ranked.append((0, -len(joint), joint))
+        elif joint.endswith(leaf_suffix):
+            ranked.append((1, -len(joint), joint))
+        elif strip_short_name(joint) == leaf_short:
+            ranked.append((2, -len(joint), joint))
+
+    skel_ns = normalize_namespace(skel_ns)
+    if skel_ns != ':':
+        for joint in joint_list:
+            if strip_short_name(joint) == leaf_short:
+                if joint.endswith(suffix) or joint.endswith(leaf_suffix):
+                    continue
+                ranked.append((3, -len(joint), joint))
+
+    if not ranked:
+        return None
+    ranked.sort()
+    return ranked[0][2]
+
+
+def source_pattern_needs_skel_roots(pattern, skel_ns=None):
+    """True when pattern needs skeleton-root scoping to disambiguate."""
+    if not pattern:
+        return False
+    direct, ambiguous = _resolve_node_by_name(pattern, skel_ns=skel_ns or ':')
+    if direct:
+        return False
+    if len(ambiguous) > 1:
+        return True
+    if _is_skeleton_hierarchy_pattern(pattern):
+        leaf_short = strip_short_name(_split_pattern_segments(pattern)[-1])
+        return len(_ls_by_short_name(leaf_short)) > 1
+    return False
+
+
+def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
+    """
+    Resolve a CCL source pattern to a scene joint long name.
+
+    Direct paths and unique short-name matches resolve immediately. Skeleton
+    hierarchy scoping via skel roots is used when multiple nodes share a name.
+    """
+    if not pattern:
+        return None
+
+    skel_ns = normalize_namespace(skel_ns or ':')
+    direct, short_matches = _resolve_node_by_name(pattern, skel_ns=skel_ns)
+    if direct:
+        return direct
+
+    root_longs = _parse_skel_roots(skel_roots)
+    joint_list = _joints_under_roots(skel_roots) if root_longs else _joints_under_roots(None)
+
+    if _is_skeleton_hierarchy_pattern(pattern):
+        hierarchy_hit = _resolve_hierarchy_pattern(pattern, joint_list, skel_ns=skel_ns)
+        if hierarchy_hit:
+            return hierarchy_hit
+
+    if len(short_matches) == 1:
+        return short_matches[0]
+
+    if len(short_matches) > 1:
+        if root_longs:
+            scoped = set(joint_list)
+            in_scope = [m for m in short_matches if m in scoped]
+            if len(in_scope) == 1:
+                return in_scope[0]
+        log.warning(log_msg('resolve_skeleton_joint',
+                            "Ambiguous '{0}' ({1} hits). Set skeleton roots.".format(
+                                pattern, len(short_matches))))
+        return None
+
+    return None
+
+
+def resolve_rig_control(pattern, rig_ns=None):
+    """Resolve a CCL rig control pattern to a namespaced scene transform."""
+    if not pattern:
+        return None
+
+    pattern = str(pattern)
+    if mc.objExists(pattern):
+        return (mc.ls(pattern, long=True) or [pattern])[0]
+
+    rig_ns = normalize_namespace(rig_ns)
+    short = pattern.split('|')[-1]
+    if ':' in short:
+        short = short.split(':', 1)[1]
+
+    namespaced = '{0}{1}'.format(rig_ns, short)
+    if mc.objExists(namespaced):
+        return (mc.ls(namespaced, long=True) or [namespaced])[0]
+    return None
+
+
+def resolve_connections(connections, rig_ns=None, skel_roots=None, skel_ns=None):
+    """Resolve source/target scene nodes for each connection dict (in place)."""
+    rig_ns = normalize_namespace(rig_ns or ':')
+    skel_ns = normalize_namespace(skel_ns or ':')
+    for conn in connections or []:
+        src_pat = _align_ccl_source_pattern(_conn_source_pattern(conn), conn.get('source'))
+        tgt_pat = _align_ccl_target_pattern(_conn_target_pattern(conn), conn.get('target'), rig_ns=rig_ns)
+        prev_source = conn.get('sourceResolved') or conn.get('source')
+        src = resolve_skeleton_joint(src_pat, skel_roots=skel_roots, skel_ns=skel_ns)
+        tgt = resolve_rig_control(tgt_pat, rig_ns=rig_ns)
+        conn['sourcePattern'] = src_pat
+        conn['source_pattern'] = src_pat
+        conn['targetPattern'] = tgt_pat
+        conn['target_pattern'] = tgt_pat
+        conn['sourceResolved'] = src
+        conn['targetResolved'] = tgt
+        conn['source'] = src or src_pat
+        conn['target'] = tgt or tgt_pat
+        conn['resolved'] = bool(
+            src and tgt and mc.objExists(src) and mc.objExists(tgt)
+        )
+        if prev_source and src and prev_source != src:
+            _clear_locator_ref(conn)
+    return connections
 
 
 def find_candidate_skel_roots():
@@ -303,30 +546,14 @@ def ccl_to_connections(data, rig_ns=None, skel_roots=None, skel_ns=None):
     raw_conn = list(data[5]) if data[5] else []
 
     connections = []
-    unresolved = []
 
-    # Prefer explicit connection_data; else build from links
     if raw_conn:
-        for i, conn in enumerate(raw_conn):
+        for conn in raw_conn:
             c = copy.deepcopy(conn) if isinstance(conn, dict) else {}
-            src_pat = c.get('source')
-            tgt_pat = c.get('target')
-            src_res = resolve_skeleton_joint(src_pat, skel_roots, skel_ns)
-            tgt_res = resolve_rig_control(tgt_pat, rig_ns)
-            c['sourcePattern'] = src_pat
-            c['targetPattern'] = tgt_pat
-            c['sourceResolved'] = src_res
-            c['targetResolved'] = tgt_res
-            if src_res:
-                c['source'] = src_res
-            if tgt_res:
-                c['target'] = tgt_res
-            if not src_res or not tgt_res:
-                unresolved.append(
-                    "[{0}] source='{1}' ({2}) target='{3}' ({4})".format(
-                        i, src_pat, 'OK' if src_res else 'MISSING',
-                        tgt_pat, 'OK' if tgt_res else 'MISSING'))
-            # Normalize follow flags
+            c['sourcePattern'] = c.get('source')
+            c['targetPattern'] = c.get('target')
+            c['source_pattern'] = c['sourcePattern']
+            c['target_pattern'] = c['targetPattern']
             if 'setPosition' not in c:
                 c['setPosition'] = True
             if 'setRotation' not in c:
@@ -342,26 +569,26 @@ def ccl_to_connections(data, rig_ns=None, skel_roots=None, skel_ns=None):
             tgt_pat = target_items[ti] if ti < len(target_items) else None
             tdata = target_data[ti] if ti < len(target_data) else {}
             ctype = (tdata or {}).get('constraintType', 'po')
-            c = {
+            connections.append({
                 'source': src_pat,
                 'target': tgt_pat,
                 'sourcePattern': src_pat,
                 'targetPattern': tgt_pat,
+                'source_pattern': src_pat,
+                'target_pattern': tgt_pat,
                 'setPosition': 'p' in str(ctype),
                 'setRotation': True,
-            }
-            src_res = resolve_skeleton_joint(src_pat, skel_roots, skel_ns)
-            tgt_res = resolve_rig_control(tgt_pat, rig_ns)
-            c['sourceResolved'] = src_res
-            c['targetResolved'] = tgt_res
-            if src_res:
-                c['source'] = src_res
-            if tgt_res:
-                c['target'] = tgt_res
-            if not src_res or not tgt_res:
-                unresolved.append(
-                    "link {0}->{1} source='{2}' target='{3}'".format(si, ti, src_pat, tgt_pat))
-            connections.append(c)
+            })
+
+    resolve_connections(connections, rig_ns=rig_ns, skel_roots=skel_roots, skel_ns=skel_ns)
+    _strip_locator_refs(connections)
+
+    unresolved = []
+    for i, c in enumerate(connections):
+        if not c.get('resolved'):
+            unresolved.append(
+                "[{0}] source='{1}' target='{2}'".format(
+                    i, _conn_source_pattern(c), _conn_target_pattern(c)))
 
     if unresolved:
         log.warning(log_sub(_str_func, "Unresolved ({0})".format(len(unresolved))))
@@ -389,8 +616,8 @@ def connections_to_ccl(connections, rig_ns=None,
     conn_out = []
     for c in connections or []:
         entry = {
-            'source': _align_ccl_source_pattern(c.get('sourcePattern') or c.get('source')),
-            'target': _align_ccl_target_pattern(c.get('targetPattern') or c.get('target'), rig_ns),
+            'source': _align_ccl_source_pattern(_conn_source_pattern(c), c.get('source')),
+            'target': _align_ccl_target_pattern(_conn_target_pattern(c), c.get('target'), rig_ns),
             'setPosition': bool(c.get('setPosition', True)),
             'setRotation': bool(c.get('setRotation', True)),
         }
@@ -413,9 +640,8 @@ def connections_to_ccl(connections, rig_ns=None,
             target_data.append({'constraintType': ctype})
         links = [[i, i] for i in range(len(conn_out))]
 
-    # Shorten list items if they are live DAG paths
     src_short = [_align_ccl_source_pattern(x) for x in (source_items or [])]
-    tgt_short = [_align_ccl_target_pattern(x, rig_ns) for x in (target_items or [])]
+    tgt_short = [_align_ccl_target_pattern(x, rig_ns=rig_ns) for x in (target_items or [])]
 
     return [
         src_short,
@@ -425,6 +651,12 @@ def connections_to_ccl(connections, rig_ns=None,
         [list(x) for x in (links or [])],
         conn_out,
     ]
+
+
+def _strip_locator_refs(connections):
+    """Drop scene locator refs from connections (e.g. after loading a CCL file)."""
+    for conn in connections or []:
+        _clear_locator_ref(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -444,19 +676,113 @@ def _resolved_pair(conn):
     return src, tgt
 
 
-def _create_offset_locator(source, local_translate, local_rotate, name=None):
-    """Parent a locator under source with given local TR. Returns long name."""
-    loc = mc.spaceLocator(name=name or 'mocapAlign_offset_loc')[0]
-    loc = TRANS.parent_set(loc, source)
-    if not loc:
-        return None
-    mc.setAttr(loc + '.translate', *list(local_translate)[:3])
-    mc.setAttr(loc + '.rotate', *list(local_rotate)[:3])
+def _align_cgm_object(node):
+    """Wrap a scene node as cgmObject (no setClass on production controls)."""
+    long_name = (mc.ls(node, long=True) or [node])[0]
+    if not mc.objExists(long_name):
+        raise ValueError('Node not found: {0}'.format(node))
+    return cgmMeta.cgmObject(long_name)
+
+
+def _as_float3(value):
+    """Normalize meta translate/rotate to three floats."""
     try:
-        mc.addAttr(loc, ln=_DEBUG_LOC_ATTR, at='bool', dv=True)
+        return [float(value.x), float(value.y), float(value.z)]
+    except AttributeError:
+        if isinstance(value, (list, tuple)) and len(value) == 1:
+            value = value[0]
+        return [float(v) for v in value[:3]]
+
+
+def _local_tr_get(m_loc):
+    """Read local TR from locator meta translate/rotate properties."""
+    return _as_float3(m_loc.translate), _as_float3(m_loc.rotate)
+
+
+def _local_tr_set(m_loc, local_t, local_r):
+    """Apply saved local TR via locator meta translate/rotate properties."""
+    m_loc.translate = [float(v) for v in local_t]
+    m_loc.rotate = [float(v) for v in local_r]
+
+
+def _clear_locator_ref(conn):
+    conn.pop('alignLocator', None)
+
+
+def _sync_locator_to_conn(m_loc, m_source, conn):
+    """Reparent to source joint and apply saved local offset TR."""
+    m_loc.doParent(m_source)
+    _local_tr_set(m_loc, conn['localTranslate'], conn['localRotate'])
+
+
+def _ensure_loc_parent(m_loc, m_source):
+    """Parent locator to source joint if it is not already (preserves local TR)."""
+    parent = m_loc.getParent()
+    source_long = m_source.p_nameLong
+    if parent != source_long:
+        m_loc.doParent(m_source)
+
+
+def _build_parented_offset_locator(conn, source, target, name=None, visible=False):
+    """
+    Build a doLoc-matched locator parented to source with saved local offsets.
+
+    Must use doLoc so rotateOrder / rotateAxis match capture-time locator shape.
+    """
+    if not has_local_offsets(conn):
+        raise ValueError('missing local offset — run Capture Offsets')
+
+    m_target = _align_cgm_object(target)
+    m_source = _align_cgm_object(source)
+    m_loc = m_target.doLoc()
+    if not m_loc:
+        raise RuntimeError('doLoc failed on {0}'.format(target))
+    if name:
+        renamed = mc.rename(m_loc.p_nameLong, name)
+        m_loc = _align_cgm_object(renamed)
+    mc.setAttr('{0}.v'.format(m_loc.p_nameLong), 1 if visible else 0)
+    m_loc.doParent(m_source)
+    _local_tr_set(m_loc, conn['localTranslate'], conn['localRotate'])
+    try:
+        mc.addAttr(m_loc.mNode, ln=_DEBUG_LOC_ATTR, at='bool', dv=True)
     except Exception:
         pass
-    return mc.ls(loc, long=True)[0]
+    return m_loc
+
+
+def _get_or_build_snap_locator(conn, source, target, index=None, visible=None, refresh_offset=True):
+    """
+    Return a parented offset locator for snapping.
+
+    Reuses conn['alignLocator'] when it exists; otherwise builds a temporary locator.
+    Returns (m_loc, keep_loc).
+    """
+    if not has_local_offsets(conn):
+        raise ValueError('missing local offset — run Capture Offsets')
+
+    m_source = _align_cgm_object(source)
+    existing = conn.get('alignLocator')
+    if existing and mc.objExists(existing):
+        m_loc = _align_cgm_object(existing)
+        if refresh_offset:
+            _sync_locator_to_conn(m_loc, m_source, conn)
+        else:
+            _ensure_loc_parent(m_loc, m_source)
+        if visible is not None:
+            mc.setAttr('{0}.v'.format(m_loc.p_nameLong), 1 if visible else 0)
+        return m_loc, True
+
+    if existing:
+        _clear_locator_ref(conn)
+
+    loc_name = 'mocapAlign_{0}_loc'.format(NAMES.get_base(source))
+    if index is not None:
+        loc_name = 'mocapAlign_{0:03d}_{1}_loc'.format(
+            index, strip_short_name(_conn_target_pattern(conn) or target))
+    m_loc = _build_parented_offset_locator(
+        conn, source, target, name=loc_name,
+        visible=bool(visible) if visible is not None else False)
+    return m_loc, False
 
 
 def capture_alignment_offsets(connections, indices=None, keep_locs=False):
@@ -482,32 +808,31 @@ def capture_alignment_offsets(connections, indices=None, keep_locs=False):
             log.warning(log_msg(_str_func, msg))
             continue
         try:
-            m_tgt = cgmMeta.cgmObject(tgt)
+            m_tgt = _align_cgm_object(tgt)
+            m_source = _align_cgm_object(src)
             m_loc = m_tgt.doLoc()
             if not m_loc:
                 raise RuntimeError("doLoc failed on {0}".format(tgt))
-            loc = m_loc.mNode
-            loc = TRANS.parent_set(loc, src)
-            lt = list(mc.getAttr(loc + '.translate')[0])
-            lr = list(mc.getAttr(loc + '.rotate')[0])
+            m_loc.doParent(m_source)
+            lt, lr = _local_tr_get(m_loc)
             conn['localTranslate'] = lt
             conn['localRotate'] = lr
             conn['sourceResolved'] = src
             conn['targetResolved'] = tgt
             conn['source'] = src
             conn['target'] = tgt
-            # Drop legacy vectors so bake prefers local path
+            conn['resolved'] = True
             for k in ('positionOffset', 'offsetForward', 'offsetUp', 'offsetPosition'):
                 if k in conn:
                     del conn[k]
             if keep_locs:
-                conn['alignLocator'] = mc.ls(loc, long=True)[0]
+                conn['alignLocator'] = m_loc.p_nameLong
                 try:
-                    mc.addAttr(loc, ln=_DEBUG_LOC_ATTR, at='bool', dv=True)
+                    mc.addAttr(m_loc.mNode, ln=_DEBUG_LOC_ATTR, at='bool', dv=True)
                 except Exception:
                     pass
             else:
-                mc.delete(loc)
+                mc.delete(m_loc.p_nameLong)
             result['captured'].append(i)
             result['details'].append("[{0}] {1} -> {2}  lt={3} lr={4}".format(
                 i, NAMES.get_base(src), NAMES.get_base(tgt), lt, lr))
@@ -521,7 +846,7 @@ def capture_alignment_offsets(connections, indices=None, keep_locs=False):
     return result
 
 
-def _snap_connection_pair(conn, loc=None, delete_loc=True):
+def _snap_connection_pair(conn, index=None, delete_loc=True):
     """
     Single-pair snap using local TR. Returns (ok, detail_string).
     """
@@ -533,27 +858,30 @@ def _snap_connection_pair(conn, loc=None, delete_loc=True):
     if not src or not tgt:
         return False, "skip unresolved: source={0} target={1}".format(src, tgt)
 
-    owned = False
-    if not loc or not mc.objExists(loc):
-        loc = _create_offset_locator(src, conn['localTranslate'], conn['localRotate'],
-                                     name='mocapAlign_{0}_loc'.format(NAMES.get_base(src)))
-        owned = True
-        if not loc:
-            return False, "failed to build offset loc for {0}".format(src)
-
+    m_loc = None
+    keep_loc = False
     try:
+        has_persistent_loc = bool(
+            conn.get('alignLocator') and mc.objExists(conn['alignLocator']))
+        m_loc, keep_loc = _get_or_build_snap_locator(
+            conn, src, tgt, index=index,
+            refresh_offset=not has_persistent_loc,
+        )
+        if keep_loc:
+            conn['alignLocator'] = m_loc.p_nameLong
+
         if conn.get('setPosition', True):
-            POSITION.movePointSnap(tgt, loc)
+            POSITION.movePointSnap(tgt, m_loc.p_nameLong)
         if conn.get('setRotation', True):
-            POSITION.moveOrientSnap(tgt, loc)
+            POSITION.moveOrientSnap(tgt, m_loc.p_nameLong)
         detail = "ok {0} -> {1}".format(NAMES.get_base(src), NAMES.get_base(tgt))
         ok = True
     except Exception as err:
         detail = "fail {0} -> {1}: {2}".format(src, tgt, err)
         ok = False
     finally:
-        if owned and delete_loc and loc and mc.objExists(loc):
-            mc.delete(loc)
+        if m_loc and not keep_loc and delete_loc and mc.objExists(m_loc.p_nameLong):
+            mc.delete(m_loc.p_nameLong)
     return ok, detail
 
 
@@ -578,6 +906,15 @@ def snap_connections(connections, indices=None, keep_locs=False):
             continue
         conn = connections[i]
         src, tgt = _resolved_pair(conn)
+
+        if not src or not tgt:
+            line = "[{0}] SKIP  unresolved  source={1}  target={2}".format(
+                i, _conn_source_pattern(conn), _conn_target_pattern(conn))
+            result['skipped'].append(i)
+            result['missing_report'].append(line)
+            result['details'].append(line)
+            continue
+
         if not has_local_offsets(conn):
             reasons = connection_missing_local_offset_reasons(conn)
             line = "[{0}] SKIP  source={1}  target={2}  missing=[{3}]".format(
@@ -587,8 +924,7 @@ def snap_connections(connections, indices=None, keep_locs=False):
             result['details'].append(line)
             continue
 
-        ok, detail = _snap_connection_pair(conn, loc=conn.get('alignLocator'),
-                                           delete_loc=not keep_locs)
+        ok, detail = _snap_connection_pair(conn, index=i, delete_loc=not keep_locs)
         line = "[{0}] {1}".format(i, detail)
         result['details'].append(line)
         if ok:
@@ -596,7 +932,6 @@ def snap_connections(connections, indices=None, keep_locs=False):
         else:
             result['failed'].append(i)
 
-    # Full missing-data report
     log.warning(log_sub(_str_func, "Snap report"))
     print("\n=== mocap align snap report ===")
     print("snapped: {0}  skipped: {1}  failed: {2}".format(
@@ -624,15 +959,14 @@ def create_debug_locs(connections, indices=None):
         if not has_local_offsets(conn):
             continue
         src, tgt = _resolved_pair(conn)
-        if not src:
+        if not src or not tgt:
             continue
         if conn.get('alignLocator') and mc.objExists(conn['alignLocator']):
             mc.delete(conn['alignLocator'])
-        loc = _create_offset_locator(
-            src, conn['localTranslate'], conn['localRotate'],
-            name='mocapAlign_{0}_{1}_loc'.format(NAMES.get_base(src), NAMES.get_base(tgt or 'tgt')))
-        conn['alignLocator'] = loc
-        created.append(loc)
+        m_loc, _ = _get_or_build_snap_locator(
+            conn, src, tgt, index=i, visible=True, refresh_offset=True)
+        conn['alignLocator'] = m_loc.p_nameLong
+        created.append(m_loc.p_nameLong)
     log.info(log_msg(_str_func, "Created {0} locators".format(len(created))))
     return created
 
@@ -648,7 +982,6 @@ def delete_debug_locs(connections=None):
                 deleted.append(loc)
             if 'alignLocator' in conn:
                 del conn['alignLocator']
-    # Also purge tagged leftovers
     for node in mc.ls('*.' + _DEBUG_LOC_ATTR, objectsOnly=True, long=True) or []:
         if mc.objExists(node):
             mc.delete(node)
@@ -685,16 +1018,16 @@ def bake_connections(connections, start, end, indices=None):
         log.warning(log_msg(_str_func, "No local-offset links to bake"))
         return {'baked': [], 'skipped': list(idxs)}
 
-    # Build locators once
     loc_map = {}
+    preexisting = {}
     for i, conn, src, tgt in active:
-        existing = conn.get('alignLocator')
-        if existing and mc.objExists(existing):
-            loc_map[i] = existing
-        else:
-            loc_map[i] = _create_offset_locator(
-                src, conn['localTranslate'], conn['localRotate'],
-                name='mocapBake_{0}_loc'.format(NAMES.get_base(src)))
+        had_loc = bool(conn.get('alignLocator') and mc.objExists(conn['alignLocator']))
+        preexisting[i] = conn.get('alignLocator') if had_loc else None
+        m_loc, _ = _get_or_build_snap_locator(
+            conn, src, tgt, index=i, refresh_offset=not had_loc)
+        loc_map[i] = m_loc.p_nameLong
+        if had_loc:
+            conn['alignLocator'] = m_loc.p_nameLong
 
     bake_range = list(range(int(math.floor(start)), int(math.floor(end + 1))))
     if end < start:
@@ -717,11 +1050,9 @@ def bake_connections(connections, start, end, indices=None):
                     mc.setKeyframe(tgt + '.rotate')
     finally:
         mc.undoInfo(closeChunk=True)
-        # Cleanup temp locs that were not pre-existing debug locs
         for i, conn, src, tgt in active:
             loc = loc_map.get(i)
-            preexisting = conn.get('alignLocator')
-            if loc and mc.objExists(loc) and loc != preexisting:
+            if loc and mc.objExists(loc) and loc != preexisting.get(i):
                 mc.delete(loc)
 
     log.info(log_msg(_str_func, "Baked {0} links  frames {1}-{2}".format(

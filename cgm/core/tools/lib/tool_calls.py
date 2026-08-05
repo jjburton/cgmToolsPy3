@@ -81,8 +81,11 @@ def cgmSnapTools():
         
 def mocapBakeTool():
     try:
+        import cgm.core.lib.mocap_align_utils as MOCAPALIGN
+        cgmGEN._reloadMod(MOCAPALIGN)
         import cgm.core.tools.mocapBakeTools as MOCAPBAKE
         cgmGEN._reloadMod(MOCAPBAKE)
+        MOCAPBAKE.reload_dependencies()
         MOCAPBAKE.ui()
     except Exception as err:
         cgmGEN.cgmExceptCB(Exception,err)
