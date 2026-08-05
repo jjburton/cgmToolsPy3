@@ -221,7 +221,25 @@ def animFilter():
         mel.eval('python "import cgm.core.tools.animFilterTool as ANIMFILTER;cgmAnimFilterUI = ANIMFILTER.ui()"')
     except Exception as err:
         cgmGEN.cgmException(Exception,err)
-        
+
+
+def fixRotationKey(*a):
+    try:
+        import cgm.core.lib.anim_utils as COREANIM
+        cgmGEN._reloadMod(COREANIM)
+        COREANIM.fix_selected_rotation_key()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
+
+
+def fixRotationAnimation(*a):
+    try:
+        import cgm.core.lib.anim_utils as COREANIM
+        cgmGEN._reloadMod(COREANIM)
+        COREANIM.fix_selected_rotation_animation()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
+
 
     #except Exception,err:
     #    log.warning("[mrsScene] failed to load. | {0}".format(err))

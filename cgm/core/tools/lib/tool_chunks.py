@@ -849,6 +849,18 @@ def uiSection_animUtils(parent):
                 ann = "Mocap Bake Tool - A tool for retargeting and baking control transforms from an animated source",
                 c=lambda *a:TOOLCALLS.mocapBakeTool())    
     """
+    mUI.MelMenuItemDiv(parent, label='cgm')
+
+    mc.menuItem(parent=parent,
+                l='Fix Rotation Key (Current Frame)',
+                ann='Re-key selected transforms at the current frame using the Euler solution closest to zero.',
+                c=lambda *a: TOOLCALLS.fixRotationKey())
+
+    mc.menuItem(parent=parent,
+                l='Fix Rotation Animation',
+                ann='Re-key all rotation keys on selected transforms with continuous Euler solutions (first frame toward zero, then each frame toward the previous).',
+                c=lambda *a: TOOLCALLS.fixRotationAnimation())
+
     mc.menuItem(parent = parent,
                 l='mlBreakdown',
                 ann = "mlBreakdown by Morgan Loomis",

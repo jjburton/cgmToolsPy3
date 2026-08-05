@@ -1083,6 +1083,40 @@ def buildSection_animOptions(self,parent):
 
     _row1.layout()         
 
+def buildSection_animUtils(self,parent):
+    try:self.var_animUtilsFrameCollapse
+    except:self.create_guiOptionVar('animUtilsFrameCollapse',defaultValue = 0)
+
+    _frame = mUI.MelFrameLayout(parent,label = 'Anim Utils',vis=True,
+                                collapse=self.var_animUtilsFrameCollapse.value,
+                                collapsable=True,
+                                enable=True,
+                                useTemplate = 'cgmUIHeaderTemplate',
+                                expandCommand = lambda:self.var_animUtilsFrameCollapse.setValue(0),
+                                collapseCommand = lambda:self.var_animUtilsFrameCollapse.setValue(1)
+                                )
+    _inside = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate')
+
+    _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+    mUI.MelSpacer(_row,w=5)
+    mUI.MelLabel(_row,l='Fix Rotation:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+
+    mc.button(parent=_row,
+              l='Current',
+              ut='cgmUITemplate',
+              ann='Re-key selected transforms at the current frame using the Euler solution closest to zero.',
+              c=lambda *a: LOADTOOL.fixRotationKey())
+
+    mc.button(parent=_row,
+              l='Animation',
+              ut='cgmUITemplate',
+              ann='Re-key all rotation keys on selected transforms with continuous Euler solutions (first frame toward zero, then each frame toward the previous).',
+              c=lambda *a: LOADTOOL.fixRotationAnimation())
+
+    mUI.MelSpacer(_row,w=5)
+    _row.layout()
+
 def buildSection_transform(self,parent):
     try:self.var_transformFrameCollapse
     except:self.create_guiOptionVar('transformFrameCollapse',defaultValue = 0)
@@ -1447,6 +1481,8 @@ def buildTab_anim(self,parent):
     SNAPTOOLS.buildSection_snap(self,_column)
     SNAPTOOLS.buildSection_aim(self,_column)
     SNAPTOOLS.buildSection_advancedSnap(self,_column)
+
+    buildSection_animUtils(self,_column)
 
     mc.button(parent = _column,
               ut = 'cgmUITemplate',                                                                                                
