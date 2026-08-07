@@ -295,6 +295,11 @@ example:
         self.subTypeListPUM = None
         self.variationListPUM = None
         self.versionListPUM = None
+        self._d_fileListPopupPmc = {}
+        self.ml_dirOptions_set = []
+        self.ml_fileOptions_set = []
+        self.ml_dirOptions_variant = []
+        self.ml_fileOptions_variant = []
         self.displayProject = True
         self.mDat                     = None
         self.assetMetaData               = {}
@@ -818,9 +823,33 @@ example:
     def _level_show_file_actions(self, path, selected_is_file=False):
         if selected_is_file:
             return True
-        if not path or not os.path.isdir(path):
+        if not path:
             return False
-        return bool(self._dir_maya_files(path))
+        if os.path.isfile(path):
+            return True
+        if os.path.isdir(path):
+            if self._dir_maya_files(path):
+                return True
+            # Empty leaf dir (e.g. rig/ with no sets yet) — still allow Save / Export / Save Version
+            if not self._dir_children_dirs(path):
+                return True
+            return False
+        # Intended save root not created yet — offer file actions when asset parent exists
+        _parent = os.path.dirname(os.path.normpath(path))
+        return bool(_parent and os.path.isdir(_parent) and self.subTypes)
+
+    def _sets_buttons_browse_directory(self):
+        """Directory whose immediate children drive sets-row button visibility."""
+        if self.b_subFile and self.file_subType:
+            try:
+                return os.path.dirname(os.path.normpath(self.file_subType))
+            except Exception:
+                pass
+        if self.hasSub:
+            _set = self.path_set
+            if _set and os.path.isdir(_set):
+                return _set
+        return self.path_subType
 
     def _version_column_should_show(self):
         """
@@ -1652,7 +1681,8 @@ example:
             self.subTypeSearchList,
             'subTypeListPUM',
             self.buildSubTypeListPopup,
-            self.uiFunc_subTypeList_select)
+            self.uiFunc_subTypeList_select,
+            sendToProjectAttr='uiPop_sendToProject_sub')
 
 
         """
@@ -1696,7 +1726,8 @@ example:
             self.variationList,
             'variationListPUM',
             self.buildVariationListPopup,
-            self.uiFunc_variationList_select)
+            self.uiFunc_variationList_select,
+            sendToProjectAttr='uiPop_sendToProject_variant')
         #---------------------------------------------------------------------------------------
 
         mRow_variationButtons = mUI.MelHLayout(_variationForm, padding=2)
@@ -1733,7 +1764,8 @@ example:
             self.versionList,
             'versionListPUM',
             self.buildVersionListPopup,
-            self.uiFunc_versionList_select)
+            self.uiFunc_versionList_select,
+            sendToProjectAttr='uiPop_sendToProject_version')
 
         mRow_versionButtons = mUI.MelHLayout(_versionForm, padding=2)
         self.mRow_versionButtons = mRow_versionButtons
@@ -2735,11 +2767,12 @@ example:
         _str_func = 'uiUpdate_setsButtons'
         log.debug(log_start(_str_func))
 
-        browse_dir = self.path_subType
+        browse_dir = self._sets_buttons_browse_directory()
         show_dir = self._level_show_dir_actions(browse_dir)
         show_file = self._level_show_file_actions(browse_dir, selected_is_file=self.b_subFile)
 
-        log.debug(log_msg(_str_func, "show_dir: {} | show_file: {}".format(show_dir, show_file)))
+        log.debug(log_msg(_str_func, "browse_dir: {} | show_dir: {} | show_file: {}".format(
+            browse_dir, show_dir, show_file)))
 
         self.mRow_setButtons.clear()
         if show_dir:
@@ -3701,6 +3734,7 @@ example:
 
         mc.formLayout( self._subForms[2], e=True, vis=self.hasVariant and self.hasSub )
         self.buildAssetForm()
+        self.uiUpdate_setsButtons()
 
         #self.LoadPreviousSelection(skip=['asset'])
 
@@ -3722,6 +3756,7 @@ example:
         if self.path_dir_category and self.assetList['scrollList'].getSelectedItem():
             if not self.hasSub:
                 self.LoadVersionList()
+                self.uiUpdate_setsButtons()
                 return
 
             charDir = self.path_subType
@@ -3761,6 +3796,8 @@ example:
 
         self.versionList['items'] = []
         self.versionList['scrollList'].clear()
+
+        self.uiUpdate_setsButtons()
 
         #self.SaveCurrentSelection()
 
@@ -5352,6 +5389,18 @@ example:
         mUI.MelMenuItem(self.assetTSLpum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'asset' ))
 
 
+    def _getFileListPopup(self, scrollList, popupAttr):
+        """Return the persistent file-list popup, creating it if wiring did not run yet."""
+        pum = getattr(self, popupAttr, None)
+        if pum is not None:
+            return pum
+        _pmc = self._d_fileListPopupPmc.get(popupAttr)
+        _kw = {'button': 3}
+        if _pmc:
+            _kw['pmc'] = cgmGEN.Callback(_pmc)
+        setattr(self, popupAttr, mUI.MelPopupMenu(scrollList, **_kw))
+        return getattr(self, popupAttr)
+
     def _fileListMultiSelectActive(self, scrollList):
         return len(scrollList.getSelectedItems() or []) > 1
 
@@ -5361,10 +5410,19 @@ example:
             return
         try:
             pum.clear()
-            pum.delete()
         except Exception as err:
             log.debug(log_msg('_clearFileListPopupMenu', err))
-        setattr(self, popupAttr, None)
+
+    def _ensureFileListPopup(self, scrollList, popupAttr, buildPopupFunc):
+        """Build popup on demand — e.g. single-item list auto-selected with selCommand=False."""
+        pum = getattr(self, popupAttr, None)
+        if pum and len(pum) > 0:
+            return
+        if not scrollList.getSelectedItems():
+            return
+        if self._fileListMultiSelectActive(scrollList):
+            return
+        buildPopupFunc(scrollList)
 
     def _fileListSelectCommand(self, scrollList, popupAttr, buildPopupFunc, listSelectFunc, *args):
         """Selection handler — rebuild popup each change; no menu when multi-select (Builder pattern)."""
@@ -5378,8 +5436,21 @@ example:
             listSelectFunc()
         return True
 
-    def _wireFileListScrollSelect(self, searchableList, popupAttr, buildPopupFunc, listSelectFunc):
+    def _wireFileListScrollSelect(self, searchableList, popupAttr, buildPopupFunc, listSelectFunc,
+                                  sendToProjectAttr=None):
         scrollList = searchableList['scrollList']
+
+        def _popupPmc(*a):
+            self._ensureFileListPopup(scrollList, popupAttr, buildPopupFunc)
+            if sendToProjectAttr:
+                _sendMenu = getattr(self, sendToProjectAttr, None)
+                if _sendMenu:
+                    self.UpdateVersionTSLPopup(_sendMenu)
+
+        self._d_fileListPopupPmc[popupAttr] = _popupPmc
+        setattr(self, popupAttr, mUI.MelPopupMenu(
+            scrollList, button=3, pmc=cgmGEN.Callback(_popupPmc)))
+
         scrollList.cmd_select = cgmGEN.Callback(
             self._fileListSelectCommand,
             scrollList, popupAttr, buildPopupFunc, listSelectFunc)
@@ -5393,8 +5464,8 @@ example:
         scrollList(e=True, sc=_selCommand)
 
     def buildSubTypeListPopup(self, scrollList):
-        pum = mUI.MelPopupMenu(scrollList, button=3)
-        self.subTypeListPUM = pum
+        pum = self._getFileListPopup(scrollList, 'subTypeListPUM')
+        pum.clear()
 
         mUI.MelMenuItem(pum, label='        Subtype', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5434,12 +5505,11 @@ example:
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadSubTypeList())
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('sets'))
-        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_sub))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
 
     def buildVariationListPopup(self, scrollList):
-        pum = mUI.MelPopupMenu(scrollList, button=3)
-        self.variationListPUM = pum
+        pum = self._getFileListPopup(scrollList, 'variationListPUM')
+        pum.clear()
 
         mUI.MelMenuItem(pum, label='        Variant', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5473,12 +5543,11 @@ example:
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVariationList())
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('variation'))
-        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_variant))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
 
     def buildVersionListPopup(self, scrollList):
-        pum = mUI.MelPopupMenu(scrollList, button=3)
-        self.versionListPUM = pum
+        pum = self._getFileListPopup(scrollList, 'versionListPUM')
+        pum.clear()
 
         mUI.MelMenuItem(pum, label='        Version', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5505,7 +5574,6 @@ example:
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVersionList())
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('version'))
-        pum(e=True, pmc=cgmGEN.Callback(self.UpdateVersionTSLPopup, self.uiPop_sendToProject_version))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)
 
     def UpdateVersionTSLPopup(self, mMenu = None,  *args):
