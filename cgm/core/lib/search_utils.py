@@ -361,6 +361,48 @@ def get_all_parents(node = None, shortNames = True):
         return [NAME.get_short(o) for o in _l_parents]
     return _l_parents 
 
+def sort_by_hierarchy(objs, fullPath=True):
+    """
+    Return objs in depth-first DAG order (parent before child, Maya sibling order).
+    
+    :parameters:
+        objs(list): Nodes to sort
+        fullPath(bool): Use full DAG paths for relative queries
+        
+    :returns
+        ordered(list)
+    """
+    if not objs:
+        return objs
+    
+    obj_set = set(objs)
+    roots = []
+    for o in objs:
+        parent = mc.listRelatives(o, parent=True, fullPath=fullPath) or []
+        if not parent or parent[0] not in obj_set:
+            if o not in roots:
+                roots.append(o)
+    
+    ordered = []
+    seen = set()
+    
+    def walk(node):
+        if node not in obj_set or node in seen:
+            return
+        seen.add(node)
+        ordered.append(node)
+        for child in mc.listRelatives(node, children=True, fullPath=fullPath) or []:
+            walk(child)
+    
+    for root in roots:
+        walk(root)
+    
+    for o in objs:
+        if o not in seen:
+            ordered.append(o)
+    
+    return ordered
+
 def get_time(mode = 'current'):
     """
     Get time line frame data

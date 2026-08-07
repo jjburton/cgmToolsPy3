@@ -135,6 +135,9 @@ def get_list(context = 'selection', mType = None, getTransform = False):
             _trans = SEARCH.get_transform(o)
             if _trans:
                 _l_context[i] = _trans
+    
+    if _l_context:
+        _l_context = SEARCH.sort_by_hierarchy(_l_context)
     return _l_context
 
     
