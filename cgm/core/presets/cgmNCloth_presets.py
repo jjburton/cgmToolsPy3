@@ -1,25 +1,30 @@
 #=========================================================================
 # cgmNCloth_presets
-# nCloth + nucleus profiles — fabric feel is separate from solver speed.
+# nCloth + nucleus profiles — cloth feel vs simulation layers.
 #
 # Section keys:
-#   'nc'  - nClothShape (fabric feel, stability helpers)
+#   'nc'  - nClothShape (cloth / fabric feel)
 #   'n'   - nucleus (solver speed, wind, gravity env)
 #
-# Profile kinds (d_profileKind):
-#   fabric  - material feel (nc only)
-#   solver  - subSteps / collision iters / timeScale (n only)
-#   wind    - nucleus wind / air (n only)
-#   utility - one-shot resets (nc + n)
+# Profile groups / kinds (d_profileKind):
+#   Cloth:
+#     fabric  - material feel (nc only) — cotton, leather, …
+#   Simulation:
+#     solver  - subSteps / collision iters / timeScale (n only)
+#     wind    - nucleus wind / air (n only)
+#     utility - sim reset helpers (nc + n) — calm; not a fabric peer
+#   Reset:
+#     base    - full nc + n baseline (query diff catalog + explicit reset)
 #
 # Usage:
 #   import cgm.core.lib.nCloth_utils as NCLOTH
 #   NCLOTH.profile_load('cotton')                          # fabric only
 #   NCLOTH.profile_load('cotton', solver='solver_quality') # fabric + solver
-#   NCLOTH.profile_load('denim', solver='solver_preview', wind='wind_calm')
+#   NCLOTH.profile_load('solver_high')                     # nucleus only
+#   NCLOTH.profile_load('flag', solver='solver_balanced', wind='wind_flag')
 #=========================================================================
 
-# Clean baseline. Merged first when clean=True.
+# Clean baseline. Fabric clean seeds base.nc; base.n is query + explicit base/utility.
 base = {
     'n': {
         'gravity': 9.8,
@@ -40,7 +45,6 @@ base = {
         'planeStickiness': 0.0,
     },
     'nc': {
-        'collide': True,
         'bounce': 0.0,
         'friction': 0.1,
         'stickiness': 0.0,
@@ -65,16 +69,13 @@ base = {
         'restLengthScale': 1.0,
         'pressure': 0.0,
         'pressureDamping': 0.0,
-        'ignoreSolverGravity': False,
-        'ignoreSolverWind': False,
-        'localSpaceOutput': False,
     },
 }
 
 # Kind registry for menus / profile_load layering.
 d_profileKind = {
     'base': 'base',
-    # fabric — nc only
+    # fabric — cloth (nc only)
     'silk': 'fabric',
     'cotton': 'fabric',
     'denim': 'fabric',
@@ -83,22 +84,22 @@ d_profileKind = {
     'stable': 'fabric',
     'rubber': 'fabric',
     'inputAttract': 'fabric',
-    # solver — n only (pair with any fabric)
+    # solver — simulation (n only)
     'solver_balanced': 'solver',
     'solver_preview': 'solver',
     'solver_quality': 'solver',
     'solver_high': 'solver',
-    # wind — n only
+    # wind — simulation (n only)
     'wind_calm': 'wind',
     'wind_flag': 'wind',
-    # utility
+    # utility — simulation reset (not a fabric)
     'calm': 'utility',
     # deprecated alias handled in nCloth_utils.profile_resolve
     'preview': 'solver',
 }
 
 # -------------------------------------------------------------------------
-# Fabric (nc) — material feel only. Pair with a solver profile in the UI.
+# Cloth / fabric (nc) — material feel only. Pair with a solver in the UI.
 # -------------------------------------------------------------------------
 
 silk = {
@@ -221,7 +222,7 @@ inputAttract = {
 }
 
 # -------------------------------------------------------------------------
-# Solver (n) — speed / quality only. Does not change fabric feel.
+# Simulation / solver (n) — speed / quality only. Does not change fabric feel.
 # -------------------------------------------------------------------------
 
 solver_balanced = {
@@ -257,7 +258,7 @@ solver_high = {
 }
 
 # -------------------------------------------------------------------------
-# Wind (n) — environment only.
+# Simulation / wind (n) — environment only.
 # -------------------------------------------------------------------------
 
 wind_calm = {
@@ -278,7 +279,7 @@ wind_flag = {
 }
 
 # -------------------------------------------------------------------------
-# Utility — quick reset (wind off + mild nc defaults).
+# Simulation / utility — quick reset (not a fabric preset).
 # -------------------------------------------------------------------------
 
 calm = {
@@ -292,7 +293,5 @@ calm = {
         'pressure': 0.0,
         'lift': 0.05,
         'drag': 0.05,
-        'ignoreSolverWind': False,
-        'ignoreSolverGravity': False,
     },
 }

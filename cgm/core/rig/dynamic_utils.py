@@ -332,6 +332,112 @@ def map_cloth_surface(mOwner, node=None):
     return get_mapped_cloth(mOwner)
 
 
+def _resolve_nucleus_node(node):
+    """Resolve a nucleus node from a nucleus or its transform."""
+    if not node or not mc.objExists(node):
+        return None
+    node = VALID.mNodeString(node)
+    if mc.objectType(node) == 'nucleus':
+        return node
+    shapes = mc.listRelatives(node, shapes=True, type='nucleus', fullPath=True) or []
+    return shapes[0] if shapes else None
+
+
+def _resolve_hair_system_shape(node):
+    """Resolve a hairSystem shape from a shape or its transform."""
+    if not node or not mc.objExists(node):
+        return None
+    node = VALID.mNodeString(node)
+    if mc.objectType(node) == 'hairSystem':
+        return node
+    shapes = mc.listRelatives(node, shapes=True, type='hairSystem', fullPath=True) or []
+    if shapes:
+        return shapes[0]
+    # Follicle / curve → connected hairSystem
+    for n in (mc.listHistory(node, future=True) or []) + (mc.listHistory(node, future=False) or []):
+        if mc.objectType(n) == 'hairSystem':
+            return n
+    con = mc.listConnections(node, type='hairSystem', shapes=True) or []
+    return con[0] if con else None
+
+
+def map_nucleus(mOwner, node=None):
+    """
+    Link a nucleus to setup ``mNucleus`` (from selection or arg).
+
+    Rewires mapped cloth / hair sim to the linked nucleus when present.
+    """
+    _str_func = 'map_nucleus'
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
+    if node is None:
+        _sel = mc.ls(sl=True, long=True) or []
+        if not _sel:
+            return log.error("|{0}| >> Nothing selected".format(_str_func))
+        node = _sel[0]
+
+    nucleus = _resolve_nucleus_node(node)
+    if not nucleus:
+        return log.error("|{0}| >> Selection is not a nucleus".format(_str_func))
+
+    mOwner.connectChildNode(nucleus, 'mNucleus')
+    _wire_time1_current_time(nucleus)
+    log.info("|{0}| >> Mapped nucleus: {1}".format(_str_func, nucleus))
+
+    mCloth = get_mapped_cloth(mOwner)
+    if mCloth:
+        nc = NCLOTH.get_nCloth(mCloth.mNode, noneValid=True)
+        if nc:
+            _connect_dyn_sim_to_nucleus(nc, nucleus)
+
+    mHair = mOwner.getMessageAsMeta('mHairSysShape')
+    if mHair:
+        _connect_dyn_sim_to_nucleus(mHair.mNode, nucleus)
+
+    return mOwner.getMessageAsMeta('mNucleus')
+
+
+def map_hair_system(mOwner, node=None):
+    """
+    Link a hairSystem to setup ``mHairSysShape`` / ``mHairSysDag``.
+
+    Rewires hair to setup nucleus when one is mapped.
+    """
+    _str_func = 'map_hair_system'
+
+    if node is None:
+        _sel = mc.ls(sl=True, long=True) or []
+        if not _sel:
+            return log.error("|{0}| >> Nothing selected".format(_str_func))
+        node = _sel[0]
+
+    hs = _resolve_hair_system_shape(node)
+    if not hs:
+        return log.error("|{0}| >> Selection is not a hairSystem".format(_str_func))
+
+    parents = mc.listRelatives(hs, parent=True, fullPath=True) or []
+    if not parents:
+        return log.error("|{0}| >> hairSystem has no transform".format(_str_func))
+    dag = parents[0]
+
+    mOwner.connectChildNode(dag, 'mHairSysDag', 'owner')
+    mOwner.connectChildNode(hs, 'mHairSysShape', 'owner')
+    try:
+        mDag = cgmMeta.asMeta(dag)
+        if mDag.getParent(asMeta=True) != mOwner:
+            mDag.p_parent = mOwner
+    except Exception as err:
+        log.debug("|{0}| >> Parent hair dag skipped: {1}".format(_str_func, err))
+
+    log.info("|{0}| >> Mapped hairSystem: {1}".format(_str_func, hs))
+
+    mNucleus = mOwner.getMessageAsMeta('mNucleus')
+    if mNucleus:
+        _connect_dyn_sim_to_nucleus(hs, mNucleus.mNode)
+
+    return mOwner.getMessageAsMeta('mHairSysShape')
+
+
 def attach_to_cloth_dynFK(mOwner, objs=None, name=None, surfaceTrack='follicle', **kws):
     """
     Attach joint list to mapped nCloth outMesh via RIGCONSTRAINTS.attach_toShape.
@@ -1427,13 +1533,39 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
 def _is_profile_dict(v):
     return isinstance(v, dict) and ('n' in v or 'hs' in v)
 
-def profile_list(module = dynFKPresets, key = None):
+
+def profile_kind(name, module=dynFKPresets):
+    """Return profile kind: hair | wind | solver | base | None."""
+    if not name:
+        return None
+    cgmGEN._reloadMod(module)
+    kind = module.__dict__.get('d_profileKind', {}).get(name)
+    if kind:
+        return kind
+    _d = profile_get(name, module)
+    if not _d:
+        return None
+    if _d.get('hs') and not _d.get('n'):
+        return 'hair'
+    if name.startswith('wind') or ( _d.get('n') and _d.get('hs') and name == 'wind'):
+        return 'wind'
+    if name == 'base':
+        return 'base'
+    if _d.get('n') and not _d.get('hs'):
+        return 'solver'
+    return 'hair' if _d.get('hs') else 'solver'
+
+
+def profile_list(module=dynFKPresets, key=None, category=None):
     """Return sorted profile names from cgmDynFK_presets (module attrs + d_chain).
-    Optional key ('n'/'hs') filters to profiles that have that section."""
+
+    :param key: Optional 'n'/'hs' — profile must define that section.
+    :param category: Optional kind filter: hair | wind | solver | base
+    """
     cgmGEN._reloadMod(module)
     names = set()
     for k, v in list(module.__dict__.items()):
-        if k.startswith('_') or k == 'd_chain':
+        if k.startswith('_') or k in ('d_chain', 'd_profileKind'):
             continue
         if _is_profile_dict(v):
             names.add(k)
@@ -1442,14 +1574,17 @@ def profile_list(module = dynFKPresets, key = None):
         for k, v in list(d_chain.items()):
             if _is_profile_dict(v):
                 names.add(k)
-    if key:
-        filtered = []
-        for name in names:
-            _d = profile_get(name, module)
-            if _d and _d.get(key) is not None:
-                filtered.append(name)
-        return sorted(filtered)
-    return sorted(names)
+    filtered = []
+    for name in names:
+        _d = profile_get(name, module)
+        if not _d:
+            continue
+        if key is not None and _d.get(key) is None:
+            continue
+        if category and profile_kind(name, module) != category:
+            continue
+        filtered.append(name)
+    return sorted(filtered)
 
 def profile_get(arg = None, module = dynFKPresets ):
     cgmGEN._reloadMod(module)
@@ -1462,6 +1597,13 @@ def profile_get(arg = None, module = dynFKPresets ):
     return None
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):
+    """
+    Apply a dynFK profile section to a nucleus or hairSystem target.
+
+    Hair feel (kind=hair): seeds base.hs when clean, writes hs only.
+    Wind / solver on nucleus: does not dump full base.n (layer keys only)
+    unless kind is base.
+    """
     _str_func = 'profile_apply'
     import cgm.core.lib.nCloth_utils as NCLOTH
 
@@ -1482,10 +1624,16 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
     if not _d_type:
         log.warning("No {0}  dat".format(_type))
         return False
+
+    _kind = profile_kind(arg, module)
     
     if clean:
-        d_use = copy.deepcopy(profile_get('base', module).get(_key) or {})
-        d_use.update(copy.deepcopy(_d_type))
+        # Hair feel: seed base.hs. Base reset: full section. Sim layers: no full base.n dump.
+        if _kind == 'base' or (_kind == 'hair' and _key == 'hs'):
+            d_use = copy.deepcopy(profile_get('base', module).get(_key) or {})
+            d_use.update(copy.deepcopy(_d_type))
+        else:
+            d_use = copy.deepcopy(_d_type)
     else:
         d_use = copy.deepcopy(_d_type)
 

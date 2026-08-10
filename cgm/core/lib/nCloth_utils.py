@@ -43,7 +43,7 @@ d_attrAlias = {
     'mass': 'pointMass',
 }
 
-# Never applied from presets — leave scene collision setup as-is.
+# Never applied from presets — leave scene collision / structural setup as-is.
 l_skipPresetAttrs = frozenset([
     'isDynamic',
     'selfCollide',
@@ -51,6 +51,10 @@ l_skipPresetAttrs = frozenset([
     'selfCollisionFlag',
     'thickness',
     'selfCollideWidthScale',
+    'localSpaceOutput',
+    'collide',
+    'ignoreSolverGravity',
+    'ignoreSolverWind',
 ])
 
 # Runtime / structural — omit from query → preset capture.
@@ -307,34 +311,59 @@ def profile_list(module=nClothPresets, key=None, category=None):
     return sorted(names)
 
 
-def _merge_profile_dicts(module=nClothPresets, fabric=None, solver=None, wind=None, clean=True):
-    """Layer base + fabric + optional wind + optional solver into nc/n dicts."""
-    _base = profile_get('base', module) or {}
-    _d_nc = copy.deepcopy(_base.get('nc') or {})
-    _d_n = copy.deepcopy(_base.get('n') or {})
+def _merge_profile_dicts(module=nClothPresets, fabric=None, solver=None, wind=None,
+                         clean=True, apply_base=False):
+    """
+    Layer profiles into nc/n dicts with section isolation.
 
-    def _apply_layer(name):
-        _p = profile_get(profile_resolve(name, module), module)
-        if not _p:
-            return
-        _d_nc.update(copy.deepcopy(_p.get('nc') or {}))
-        _d_n.update(copy.deepcopy(_p.get('n') or {}))
+    - fabric: seeds base.nc when clean, never writes n unless solver/wind also passed
+    - solver / wind: write n only (never seed full base.n)
+    - utility: seeds both sections when clean, then overlays
+    - apply_base: full base.nc + base.n reset
+    """
+    _base = profile_get('base', module) or {}
+    _d_nc = {}
+    _d_n = {}
 
     _fabric = profile_resolve(fabric, module) if fabric else None
     _solver = profile_resolve(solver, module) if solver else None
     _wind = profile_resolve(wind, module) if wind else None
+    _utility = None
 
     if _fabric:
         _kind = profile_kind(_fabric, module)
         if _kind == 'utility':
-            _apply_layer(_fabric)
-        elif _kind == 'fabric':
-            _p = profile_get(_fabric, module) or {}
-            _d_nc.update(copy.deepcopy(_p.get('nc') or {}))
+            _utility = _fabric
+            _fabric = None
         elif _kind == 'solver':
             _solver = _solver or _fabric
+            _fabric = None
         elif _kind == 'wind':
             _wind = _wind or _fabric
+            _fabric = None
+        elif _kind == 'base':
+            apply_base = True
+            _fabric = None
+
+    if apply_base:
+        _d_nc = copy.deepcopy(_base.get('nc') or {})
+        _d_n = copy.deepcopy(_base.get('n') or {})
+        return _d_nc, _d_n
+
+    if _utility:
+        if clean:
+            _d_nc = copy.deepcopy(_base.get('nc') or {})
+            _d_n = copy.deepcopy(_base.get('n') or {})
+        _p = profile_get(_utility, module) or {}
+        _d_nc.update(copy.deepcopy(_p.get('nc') or {}))
+        _d_n.update(copy.deepcopy(_p.get('n') or {}))
+        return _d_nc, _d_n
+
+    if _fabric:
+        if clean:
+            _d_nc = copy.deepcopy(_base.get('nc') or {})
+        _p = profile_get(_fabric, module) or {}
+        _d_nc.update(copy.deepcopy(_p.get('nc') or {}))
 
     if _wind:
         _p = profile_get(_wind, module) or {}
@@ -345,6 +374,31 @@ def _merge_profile_dicts(module=nClothPresets, fabric=None, solver=None, wind=No
         _d_n.update(copy.deepcopy(_p.get('n') or {}))
 
     return _d_nc, _d_n
+
+
+def _resolve_nuclei(targets=None):
+    """Resolve nucleus nodes from targets or selection (no nCloth required)."""
+    if targets is None:
+        nodes = mc.ls(sl=True, long=True) or []
+    else:
+        nodes = VALID.listArg(targets)
+
+    found = []
+    for n in nodes:
+        if not n or not mc.objExists(n):
+            continue
+        node = VALID.mNodeString(n)
+        if mc.objectType(node) == 'nucleus':
+            if node not in found:
+                found.append(node)
+            continue
+        # nCloth → connected nucleus
+        nc = get_nCloth(node, noneValid=True)
+        if nc:
+            nucleus = get_nucleus(nc, noneValid=True)
+            if nucleus and nucleus not in found:
+                found.append(nucleus)
+    return found
 
 
 def profile_get(arg=None, module=nClothPresets):
@@ -423,11 +477,15 @@ def profile_load(arg='cotton',
     """
     Apply layered nCloth profiles to targets (or selection).
 
-    :param arg: Fabric profile (default), or solver/wind/utility if no solver/wind args.
+    Cloth (fabric) writes ``nc`` only. Simulation layers (solver / wind) write ``n``
+    only. Utility / base may write both. ``clean`` seeds fabric from ``base.nc``
+    (or both sections for utility); solver/wind never dump full ``base.n``.
+
+    :param arg: Fabric profile (default), or solver/wind/utility/base.
     :param solver: Optional solver profile (solver_preview, solver_quality, …).
     :param wind: Optional wind profile (wind_calm, wind_flag, …).
-    :param clean: Merge onto ``base`` first.
-    :param applyNucleus: Apply merged ``n`` section to connected nucleus.
+    :param clean: Seed from ``base`` for fabric/utility paths (see merge contract).
+    :param applyNucleus: Apply merged ``n`` section to connected (or target) nucleus.
     """
     _str_func = 'profile_load'
 
@@ -437,6 +495,7 @@ def profile_load(arg='cotton',
     _fabric = arg
     _solver = solver
     _wind = wind
+    _apply_base = False
 
     if _kind == 'solver' and not _solver:
         _solver = arg
@@ -449,14 +508,16 @@ def profile_load(arg='cotton',
         _solver = None
         _wind = None
     elif _kind == 'base':
-        _fabric = 'base'
+        _fabric = None
         _solver = None
         _wind = None
+        _apply_base = True
 
     if _fabric == 'base':
         _fabric = None
+        _apply_base = True
 
-    if _fabric and not profile_get(_fabric, module) and not (_solver or _wind):
+    if _fabric and not profile_get(_fabric, module) and not (_solver or _wind or _apply_base):
         return log.error(cgmGEN.logString_msg(
             _str_func, "Invalid profile: {0} | have: {1}".format(
                 arg, profile_list(module))))
@@ -469,13 +530,9 @@ def profile_load(arg='cotton',
         return log.error(cgmGEN.logString_msg(
             _str_func, "Invalid wind profile: {0}".format(_wind)))
 
-    ml = get_nCloths(targets, noneValid=True)
-    if not ml:
-        return log.error(cgmGEN.logString_msg(
-            _str_func, "Select an nCloth, its transform, or a meshed cloth object"))
-
     _d_nc, _d_n = _merge_profile_dicts(
-        module=module, fabric=_fabric, solver=_solver, wind=_wind, clean=clean)
+        module=module, fabric=_fabric, solver=_solver, wind=_wind,
+        clean=clean, apply_base=_apply_base)
 
     _label = _fabric or arg or 'base'
     if _solver:
@@ -490,11 +547,31 @@ def profile_load(arg='cotton',
                 scene_up_get(), _d_n.get('gravityDirection'))))
 
     _d_nc = _filter_preset_dict(_d_nc)
+    _d_n = _filter_preset_dict(_d_n) if _d_n else _d_n
+
+    ml = get_nCloths(targets, noneValid=True)
+
+    # Simulation-only (solver/wind): allow nucleus targets without nCloth.
+    if not ml and not _d_nc and _d_n and applyNucleus:
+        nuclei = _resolve_nuclei(targets)
+        if not nuclei:
+            return log.error(cgmGEN.logString_msg(
+                _str_func, "Select an nCloth or nucleus for simulation preset: {0}".format(_label)))
+        for nucleus in nuclei:
+            log.info(cgmGEN.logString_msg(
+                _str_func, "nucleus: {0} | profile: {1}".format(nucleus, _label)))
+            _apply_attr_dict(nucleus, _d_n)
+        return nuclei
+
+    if not ml:
+        return log.error(cgmGEN.logString_msg(
+            _str_func, "Select an nCloth, its transform, or a meshed cloth object"))
 
     _nucleus_done = set()
     for nc in ml:
         log.info(cgmGEN.logString_msg(_str_func, "nCloth: {0} | profile: {1}".format(nc, _label)))
-        _apply_attr_dict(nc, _d_nc)
+        if _d_nc:
+            _apply_attr_dict(nc, _d_nc)
 
         if applyNucleus and _d_n:
             nucleus = get_nucleus(nc, noneValid=True)
@@ -644,7 +721,8 @@ def query_settings(nCloth=None, differential=True, module=nClothPresets):
         'notes': [
             'profile contains only attrs that differ from cgmNCloth_presets.base',
             'gravityDirection is remapped to scene up when presets are applied',
-            'isDynamic and collision attrs (selfCollide, collisionFlag, …) are excluded from presets',
+            'cloth vs simulation: fabric writes nc; solver/wind write n; base.n env is query + explicit base/utility reset',
+            'excluded from presets: isDynamic, collision attrs, localSpaceOutput, collide, ignoreSolverGravity/Wind',
         ],
     }
 

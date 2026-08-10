@@ -514,3 +514,28 @@ d_chain = {'base':
             'hs':{'intensity':1.0,
                   'frequency':5.0,
                   'speed':.2}}}
+
+# Kind registry — hair feel vs simulation (mirrors cgmNCloth cloth vs sim split).
+#   hair    - hairSystem feel (hs only) — rope, ponytail, …
+#   wind    - simulation env (n and optional hs wind attrs)
+#   solver  - nucleus quality/speed helpers (n + light hs), e.g. d_chain default
+#   base    - full baseline reset
+d_profileKind = {
+    'base': 'base',
+    'wind': 'wind',
+    'default': 'solver',
+    # hair feel (hs)
+    'tree': 'hair',
+    'chain': 'hair',
+    'rope': 'hair',
+    'tentacle': 'hair',
+    'limb': 'hair',
+    'feather': 'hair',
+    'tail': 'hair',
+    'dinoTail': 'hair',
+    'prop': 'hair',
+    'cloth': 'hair',
+    'spine': 'hair',
+    'ponytail': 'hair',
+    'ponytail2': 'hair',
+}
