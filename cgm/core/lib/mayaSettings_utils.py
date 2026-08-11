@@ -35,7 +35,7 @@ log.setLevel(logging.INFO)
 
 # From Maya =============================================================
 import maya.cmds as mc
-#import maya.mel as mel
+import maya.mel as mel
 
 # From Red9 =============================================================
 
@@ -144,6 +144,80 @@ def sceneUp_set(arg):
     log.debug(cgmGEN.logString_msg(_str_func,"| arg: {0} | validated: {1}".format(arg,_arg)))
 
     mc.upAxis(ax = _arg, rv = 1)
+
+_DEFAULT_CAMERA_HOME = {
+    'persp': 'viewSet -p %camera',
+    'top': 'viewSet -t %camera',
+    'front': 'viewSet -f %camera',
+    'side': 'viewSet -s %camera',
+}
+
+def _model_panel_for_viewport():
+    _focused = mc.getPanel(withFocus=True)
+    if _focused and mc.getPanel(typeOf=_focused) == 'modelPanel':
+        return _focused
+    for _p in (mc.getPanel(vis=True) or []):
+        if mc.getPanel(typeOf=_p) == 'modelPanel':
+            return _p
+    _panels = mc.getPanel(type='modelPanel') or []
+    return _panels[0] if _panels else None
+
+def _restore_default_camera_home_commands():
+    """Restore factory homeCommand strings on Maya default cameras."""
+    _str_func = '_restore_default_camera_home_commands'
+    for _cam, _cmd in _DEFAULT_CAMERA_HOME.items():
+        if not mc.objExists(_cam):
+            continue
+        try:
+            if not mc.attributeQuery('homeCommand', node=_cam, exists=True):
+                continue
+            _attr = '{0}.homeCommand'.format(_cam)
+            if mc.getAttr(_attr) != _cmd:
+                mc.setAttr(_attr, _cmd, type='string')
+                log.debug(cgmGEN.logString_msg(_str_func, 'Restored {0}'.format(_cam)))
+        except Exception as err:
+            log.debug(cgmGEN.logString_msg(_str_func, '{0} | {1}'.format(_cam, err)))
+
+def _reset_viewcube_home_state():
+    """Reset ViewCube stored home/front to Maya defaults after up-axis change."""
+    _str_func = '_reset_viewcube_home_state'
+    try:
+        mc.viewManip(resetHome=True, resetFront=True)
+    except Exception as err:
+        log.debug(cgmGEN.logString_msg(_str_func, err))
+
+def _viewport_go_default_view():
+    """Match Maya GoToDefaultView / ViewCube home for a model panel (not menu focus)."""
+    _str_func = '_viewport_go_default_view'
+    _panel = _model_panel_for_viewport()
+    if not _panel:
+        log.debug(cgmGEN.logString_msg(_str_func, 'No modelPanel found'))
+        return
+
+    _cam = mel.eval('hotkeyCurrentCamera("{0}")'.format(_panel))
+    if not _cam:
+        log.debug(cgmGEN.logString_msg(_str_func, 'No camera on panel {0}'.format(_panel)))
+        return
+
+    _animate = mc.optionVar(q='animateRoll') if mc.optionVar(exists='animateRoll') else False
+    mc.viewSet(_cam, home=True, animate=_animate)
+
+def sceneUp_switch():
+    _str_func = 'sceneUp_switch'
+    _current = sceneUp_get()
+    if _current == 'y':
+        _target = 'z'
+    elif _current == 'z':
+        _target = 'y'
+    else:
+        log.warning(cgmGEN.logString_msg(_str_func, "Unsupported up axis '{0}' — only y/z toggle".format(_current)))
+        return None
+    log.info(cgmGEN.logString_msg(_str_func, "Scene up: {0} -> {1}".format(_current, _target)))
+    sceneUp_set(_target)
+    _restore_default_camera_home_commands()
+    _reset_viewcube_home_state()
+    mc.evalDeferred(_viewport_go_default_view, lp=True)
+    return _target
 
 def defaultTangents_get():
     _str_func = 'defaultTangents_get'

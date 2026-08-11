@@ -133,6 +133,10 @@ def buildMenu_utils(self, mMenu):
             pass
         _buildTangentSubmenuContent(self, _sub, a)        
 
+    mUI.MelMenuItem(mMenu, l="Switch Up",
+                    ann="Toggle scene Y-up / Z-up (does not change project worldUp default)",
+                    c=lambda *a: MAYASET.sceneUp_switch())
+
     mUI.MelMenuItemDiv( mMenu, label='Global Settings..' )
     mUI.MelMenuItem( mMenu, l="World Match",
                      c = lambda *a:fncMayaSett_do(self,True,False,False))

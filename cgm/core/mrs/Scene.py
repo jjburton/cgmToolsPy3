@@ -184,9 +184,10 @@ def reloadSceneStuff():
     """Reload export pipeline modules without cgm.core._reload()."""
     import cgm.core.tools.bakeAndPrep as bakeAndPrep
     import cgm.core.mrs.Shots as SHOTS
+    import cgm.core.lib.mayaSettings_utils as MAYASET
 
     log.info("reloading Scene Stuff...")
-    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, SCENEUTILS]:
+    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS]:
         print(m)
         cgmGEN._reloadMod(m)
     log.info(cgmGEN._str_subLine)
