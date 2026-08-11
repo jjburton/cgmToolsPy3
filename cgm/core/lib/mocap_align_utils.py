@@ -204,7 +204,6 @@ def _align_ccl_source_pattern(source_pattern=None, source=None, skel_roots=None)
     if not pat:
         return ''
 
-    pat = str(pat)
     roots = _parse_skel_roots(skel_roots)
 
     if roots:
@@ -408,6 +407,57 @@ def _joints_under_roots(skel_roots):
     return joints
 
 
+def _nodes_under_roots(skel_roots, node_types=('joint', 'transform')):
+    """Collect joint + transform long names under skeleton roots (scoped driver search)."""
+    roots = _parse_skel_roots(skel_roots)
+    nodes = []
+    seen = set()
+
+    def _add_node(node):
+        long_names = mc.ls(node, long=True) or []
+        if not long_names:
+            return
+        long_name = long_names[0]
+        if long_name not in seen:
+            seen.add(long_name)
+            nodes.append(long_name)
+
+    if not roots:
+        for ntype in node_types:
+            for node in mc.ls(type=ntype, long=True) or []:
+                _add_node(node)
+        return nodes
+
+    for long_root in roots:
+        if not mc.objExists(long_root):
+            continue
+        root_type = mc.nodeType(long_root)
+        if root_type in node_types:
+            _add_node(long_root)
+        for ntype in node_types:
+            for desc in mc.listRelatives(
+                    long_root, allDescendents=True, type=ntype, fullPath=True) or []:
+                _add_node(desc)
+    return nodes
+
+
+def _pattern_leaf_key(pattern):
+    """Normalized short leaf for connection merge / lookup keys."""
+    if not pattern:
+        return ''
+    pat = str(pattern)
+    if '|' in pat and not pat.startswith('|'):
+        return strip_short_name(pat.split('|')[-1])
+    return strip_short_name(pat)
+
+
+def connection_pattern_key(conn):
+    """Stable (source, target) key for merging UI links with stored connection data."""
+    src = _conn_source_pattern(conn)
+    tgt = _conn_target_pattern(conn)
+    return (_pattern_leaf_key(src), _pattern_leaf_key(tgt))
+
+
 def _ls_by_short_name(short):
     """Return long DAG paths for nodes whose leaf short name matches."""
     if not short:
@@ -515,10 +565,12 @@ def source_pattern_needs_skel_roots(pattern, skel_ns=None):
 
 def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
     """
-    Resolve a CCL source pattern to a scene joint long name.
+    Resolve a CCL source pattern to a scene driver long name (joint or transform).
 
     Direct paths and unique short-name matches resolve immediately. Skeleton
     hierarchy scoping via skel roots is used when multiple nodes share a name.
+    Mocap driver controls (e.g. ArtSpine) under skel roots resolve via scoped
+    transform search when they are not joints.
     """
     if not pattern:
         return None
@@ -530,9 +582,13 @@ def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
 
     root_longs = _parse_skel_roots(skel_roots)
     joint_list = _joints_under_roots(skel_roots) if root_longs else _joints_under_roots(None)
+    node_list = _nodes_under_roots(skel_roots) if root_longs else _nodes_under_roots(None)
 
     if _is_skeleton_hierarchy_pattern(pattern):
         hierarchy_hit = _resolve_hierarchy_pattern(pattern, joint_list, skel_ns=skel_ns)
+        if hierarchy_hit:
+            return hierarchy_hit
+        hierarchy_hit = _resolve_hierarchy_pattern(pattern, node_list, skel_ns=skel_ns)
         if hierarchy_hit:
             return hierarchy_hit
 
@@ -541,7 +597,7 @@ def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
 
     if len(short_matches) > 1:
         if root_longs:
-            scoped = set(joint_list)
+            scoped = set(node_list)
             in_scope = [m for m in short_matches if m in scoped]
             if len(in_scope) == 1:
                 return in_scope[0]
@@ -549,6 +605,18 @@ def resolve_skeleton_joint(pattern, skel_roots=None, skel_ns=None):
                             "Ambiguous '{0}' ({1} hits). Set skeleton roots.".format(
                                 pattern, len(short_matches))))
         return None
+
+    if root_longs:
+        segments = _split_pattern_segments(pattern)
+        leaf_short = strip_short_name(segments[-1]) if segments else strip_short_name(pattern)
+        scoped_matches = [n for n in node_list if strip_short_name(n) == leaf_short]
+        if len(scoped_matches) == 1:
+            return scoped_matches[0]
+        if len(scoped_matches) > 1:
+            log.warning(log_msg('resolve_skeleton_joint',
+                                "Ambiguous '{0}' ({1} hits under skel roots).".format(
+                                    pattern, len(scoped_matches))))
+            return None
 
     return None
 
@@ -578,18 +646,14 @@ def _pattern_for_resolve(conn, side='source'):
     Pattern string for resolve_* (load / reresolve). Never compacts — preserves CCL literals.
     """
     if side == 'source':
-        pat = _conn_source_pattern(conn) or conn.get('source') or ''
-    else:
-        pat = _conn_target_pattern(conn) or conn.get('target') or ''
-    pat = str(pat)
-    if pat and mc.objExists(pat):
-        key = 'sourcePattern' if side == 'source' else 'targetPattern'
-        alt = 'source_pattern' if side == 'source' else 'target_pattern'
-        stored = conn.get(key) or conn.get(alt)
-        if stored and not mc.objExists(str(stored)):
+        stored = conn.get('sourcePattern') or conn.get('source_pattern')
+        if stored:
             return str(stored)
-        return strip_short_name(pat)
-    return pat
+        return str(_conn_source_pattern(conn) or conn.get('source') or '')
+    stored = conn.get('targetPattern') or conn.get('target_pattern')
+    if stored:
+        return str(stored)
+    return str(_conn_target_pattern(conn) or conn.get('target') or '')
 
 
 def resolve_connections(connections, rig_ns=None, skel_roots=None, skel_ns=None):
@@ -617,6 +681,118 @@ def resolve_connections(connections, rig_ns=None, skel_roots=None, skel_ns=None)
         if prev_source and src and prev_source != src:
             _clear_locator_ref(conn)
     return connections
+
+
+def connection_resolve_diagnostics(conn, rig_ns=None, skel_roots=None, skel_ns=None):
+    """
+    Structured resolve status for one connection (mapping report / debug).
+
+    Returns dict: source_pattern, target_pattern, source_resolved, target_resolved,
+    resolved, source_reason, target_reason, has_local_offsets.
+    """
+    rig_ns = normalize_namespace(rig_ns or ':')
+    skel_ns = normalize_namespace(skel_ns or ':')
+    src_pat = _pattern_for_resolve(conn, 'source')
+    tgt_pat = _align_ccl_target_pattern(
+        _conn_target_pattern(conn), conn.get('target'), rig_ns=rig_ns)
+    src = resolve_skeleton_joint(src_pat, skel_roots=skel_roots, skel_ns=skel_ns)
+    tgt = resolve_rig_control(tgt_pat, rig_ns=rig_ns)
+
+    def _source_reason():
+        if src:
+            return ''
+        if not src_pat:
+            return 'empty source pattern'
+        if mc.objExists(src_pat):
+            return 'exists but resolve returned None'
+        _direct, short_matches = _resolve_node_by_name(src_pat, skel_ns=skel_ns)
+        if _direct:
+            return ''
+        root_longs = _parse_skel_roots(skel_roots)
+        if root_longs:
+            node_list = _nodes_under_roots(skel_roots)
+            segments = _split_pattern_segments(src_pat)
+            leaf_short = strip_short_name(segments[-1]) if segments else strip_short_name(src_pat)
+            scoped = [n for n in node_list if strip_short_name(n) == leaf_short]
+            if not scoped:
+                if len(short_matches) > 1:
+                    return '{0} ambiguous globally — set Skel Roots'.format(len(short_matches))
+                return '0 hits globally, 0 under skel root'
+            if len(scoped) > 1:
+                return '0 hits globally, {0} ambiguous under skel root'.format(len(scoped))
+        elif len(short_matches) > 1:
+            return '{0} ambiguous globally — set Skel Roots'.format(len(short_matches))
+        return '0 hits globally, 0 under skel root'
+
+    def _target_reason():
+        if tgt:
+            return ''
+        if not tgt_pat:
+            return 'empty target pattern'
+        if mc.objExists(tgt_pat):
+            return 'exists but resolve returned None'
+        rig_ns_norm = normalize_namespace(rig_ns)
+        short = tgt_pat.split('|')[-1]
+        if ':' in short:
+            short = short.split(':', 1)[1]
+        namespaced = '{0}{1}'.format(rig_ns_norm, short)
+        return 'not found (tried {0}, {1})'.format(tgt_pat, namespaced)
+
+    return {
+        'source_pattern': src_pat,
+        'target_pattern': tgt_pat,
+        'source_resolved': src,
+        'target_resolved': tgt,
+        'resolved': bool(src and tgt and mc.objExists(src) and mc.objExists(tgt)),
+        'source_reason': _source_reason(),
+        'target_reason': _target_reason(),
+        'has_local_offsets': has_local_offsets(conn),
+    }
+
+
+def format_mapping_line(conn, index):
+    """Single-line summary for mapping report rows."""
+    tgt_pat = _conn_target_pattern(conn) or '?'
+    src_pat = _conn_source_pattern(conn) or '?'
+    tgt_short = strip_short_name(tgt_pat)
+    if '|' in str(src_pat) and not str(src_pat).startswith('|'):
+        src_short = str(src_pat).split('|')[-1]
+    else:
+        src_short = strip_short_name(src_pat)
+    follow = 'po' if conn.get('setPosition', True) else 'o'
+    status = 'OK' if conn.get('resolved') else 'MISSING'
+    loc_ref = conn.get('alignLocator')
+    if loc_ref and mc.objExists(loc_ref):
+        loc_note = ' LOC'
+    elif loc_ref:
+        loc_note = ' loc?'
+    else:
+        loc_note = ''
+    offset_note = ' TR' if has_local_offsets(conn) else ''
+    return '{0:3d}  {1}  <-  {2}  [{3}]  {4}{5}{6}'.format(
+        index, tgt_short, src_short, follow, status, loc_note, offset_note)
+
+
+def format_mapping_report(connections, rig_ns=None, skel_roots=None, skel_ns=None):
+    """Build full text mapping report with resolve diagnostics."""
+    lines = ['Mocap Align Mapping ({0} pairs)'.format(len(connections or [])), '']
+    resolved = sum(1 for c in (connections or []) if c.get('resolved'))
+    lines.append('Resolved: {0}/{1}'.format(resolved, len(connections or [])))
+    with_offsets = sum(1 for c in (connections or []) if has_local_offsets(c))
+    lines.append('Local offsets: {0}/{1}'.format(with_offsets, len(connections or [])))
+    lines.append('')
+    for i, conn in enumerate(connections or []):
+        lines.append(format_mapping_line(conn, i))
+        if not conn.get('resolved'):
+            diag = connection_resolve_diagnostics(
+                conn, rig_ns=rig_ns, skel_roots=skel_roots, skel_ns=skel_ns)
+            if not diag['source_resolved']:
+                lines.append('      source: {0}  ({1})'.format(
+                    diag['source_pattern'], diag['source_reason'] or 'unresolved'))
+            if not diag['target_resolved']:
+                lines.append('      target: {0}  ({1})'.format(
+                    diag['target_pattern'], diag['target_reason'] or 'unresolved'))
+    return '\n'.join(lines)
 
 
 def find_candidate_skel_roots():
@@ -664,6 +840,8 @@ def ccl_to_connections(data, rig_ns=None, skel_roots=None, skel_ns=None):
     if raw_conn:
         for conn in raw_conn:
             c = copy.deepcopy(conn) if isinstance(conn, dict) else {}
+            c['source'] = c.get('source')
+            c['target'] = c.get('target')
             c['sourcePattern'] = c.get('source')
             c['targetPattern'] = c.get('target')
             c['source_pattern'] = c['sourcePattern']
@@ -964,20 +1142,35 @@ def capture_alignment_offsets(connections, indices=None, keep_locs=False):
     return result
 
 
+def _world_position(node):
+    """World-space rotate-pivot position (matches movePointSnap query)."""
+    return mc.xform(node, query=True, ws=True, rp=True)
+
+
+def _world_rotation(node):
+    """World-space rotation as a 3-float list."""
+    return mc.xform(node, query=True, ws=True, ro=True)
+
+
+def _vector_distance(a, b):
+    return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5
+
+
 def _snap_connection_pair(conn, index=None, delete_loc=True):
     """
-    Single-pair snap using local TR. Returns (ok, detail_string).
+    Single-pair snap using local TR. Returns (ok, detail_string, unchanged_bool).
     """
     src, tgt = _resolved_pair(conn)
     missing = connection_missing_local_offset_reasons(conn)
     if missing and not has_local_offsets(conn):
         return False, "skip {0} -> {1}: missing {2}".format(
-            src or conn.get('source'), tgt or conn.get('target'), ', '.join(missing))
+            src or conn.get('source'), tgt or conn.get('target'), ', '.join(missing)), False
     if not src or not tgt:
-        return False, "skip unresolved: source={0} target={1}".format(src, tgt)
+        return False, "skip unresolved: source={0} target={1}".format(src, tgt), False
 
     m_loc = None
     keep_loc = False
+    unchanged = False
     try:
         has_persistent_loc = bool(
             conn.get('alignLocator') and mc.objExists(conn['alignLocator']))
@@ -988,11 +1181,25 @@ def _snap_connection_pair(conn, index=None, delete_loc=True):
         if keep_loc:
             conn['alignLocator'] = m_loc.p_nameLong
 
+        before_pos = _world_position(tgt)
+        before_rot = _world_rotation(tgt)
+
         if conn.get('setPosition', True):
             POSITION.movePointSnap(tgt, m_loc.p_nameLong)
         if conn.get('setRotation', True):
             POSITION.moveOrientSnap(tgt, m_loc.p_nameLong)
-        detail = "ok {0} -> {1}".format(NAMES.get_base(src), NAMES.get_base(tgt))
+
+        after_pos = _world_position(tgt)
+        after_rot = _world_rotation(tgt)
+        pos_delta = _vector_distance(before_pos, after_pos)
+        rot_delta = _vector_distance(before_rot, after_rot)
+        unchanged = pos_delta < 0.001 and rot_delta < 0.01
+
+        if unchanged:
+            detail = "unchanged {0} -> {1} (pos d={2:.4f}, rot d={3:.4f})".format(
+                NAMES.get_base(src), NAMES.get_base(tgt), pos_delta, rot_delta)
+        else:
+            detail = "ok {0} -> {1}".format(NAMES.get_base(src), NAMES.get_base(tgt))
         ok = True
     except Exception as err:
         detail = "fail {0} -> {1}: {2}".format(src, tgt, err)
@@ -1000,10 +1207,10 @@ def _snap_connection_pair(conn, index=None, delete_loc=True):
     finally:
         if m_loc and not keep_loc and delete_loc and mc.objExists(m_loc.p_nameLong):
             mc.delete(m_loc.p_nameLong)
-    return ok, detail
+    return ok, detail, unchanged
 
 
-def snap_connections(connections, indices=None, keep_locs=False):
+def snap_connections(connections, indices=None, keep_locs=False, rig_ns=None, skel_roots=None):
     """
     Single-frame snap for links with local offsets.
     Skips missing local TR and prints a full Script Editor report.
@@ -1014,8 +1221,10 @@ def snap_connections(connections, indices=None, keep_locs=False):
         'snapped': [],
         'skipped': [],
         'failed': [],
+        'unchanged': [],
         'details': [],
         'missing_report': [],
+        'unchanged_details': [],
     }
 
     idxs = indices if indices is not None else list(range(len(connections)))
@@ -1026,8 +1235,18 @@ def snap_connections(connections, indices=None, keep_locs=False):
         src, tgt = _resolved_pair(conn)
 
         if not src or not tgt:
-            line = "[{0}] SKIP  unresolved  source={1}  target={2}".format(
-                i, _conn_source_pattern(conn), _conn_target_pattern(conn))
+            src_pat = _conn_source_pattern(conn)
+            tgt_pat = _conn_target_pattern(conn)
+            diag = connection_resolve_diagnostics(
+                conn, rig_ns=rig_ns, skel_roots=skel_roots)
+            reason_bits = []
+            if not src:
+                reason_bits.append('source: {0}'.format(diag.get('source_reason') or 'unresolved'))
+            if not tgt:
+                reason_bits.append('target: {0}'.format(diag.get('target_reason') or 'unresolved'))
+            reason_str = '; '.join(reason_bits)
+            line = "[{0}] SKIP  unresolved  source={1}  target={2}  ({3})".format(
+                i, src_pat, tgt_pat, reason_str)
             result['skipped'].append(i)
             result['missing_report'].append(line)
             result['details'].append(line)
@@ -1042,25 +1261,35 @@ def snap_connections(connections, indices=None, keep_locs=False):
             result['details'].append(line)
             continue
 
-        ok, detail = _snap_connection_pair(conn, index=i, delete_loc=not keep_locs)
+        ok, detail, unchanged = _snap_connection_pair(conn, index=i, delete_loc=not keep_locs)
         line = "[{0}] {1}".format(i, detail)
         result['details'].append(line)
         if ok:
-            result['snapped'].append(i)
+            if unchanged:
+                result['unchanged'].append(i)
+                result['unchanged_details'].append(line)
+            else:
+                result['snapped'].append(i)
         else:
             result['failed'].append(i)
 
     log.warning(log_sub(_str_func, "Snap report"))
     print("\n=== mocap align snap report ===")
-    print("snapped: {0}  skipped: {1}  failed: {2}".format(
-        len(result['snapped']), len(result['skipped']), len(result['failed'])))
+    print("snapped: {0}  unchanged: {1}  skipped: {2}  failed: {3}".format(
+        len(result['snapped']), len(result['unchanged']),
+        len(result['skipped']), len(result['failed'])))
     if result['missing_report']:
-        print("--- missing local offset data ---")
+        print("--- missing / unresolved ---")
         for line in result['missing_report']:
             print(line)
             log.warning(line)
+    if result['unchanged_details']:
+        print("--- unchanged (constraints / reference locks?) ---")
+        for line in result['unchanged_details']:
+            print(line)
+            log.warning(line)
     for line in result['details']:
-        if line not in result['missing_report']:
+        if line not in result['missing_report'] and line not in result['unchanged_details']:
             print(line)
             log.info(line)
     print("=== end snap report ===\n")

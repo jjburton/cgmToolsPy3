@@ -66,6 +66,7 @@ def reload_dependencies():
 
 
 class cgmListItem(object):
+    """Parallel list row: .item = canonical CCL pattern or DAG string; .alias = display-only."""
     item = None
     alias = None
     data = None
@@ -147,6 +148,9 @@ class ui(cgmUI.cgmGUI):
                                  c=lambda *a: self.uiFunc_create_align_locs())
         mUI.MelMenuItem( self.uiMenu_tools, l="Delete Align Debug Locs",
                                  c=lambda *a: self.uiFunc_delete_align_locs())
+        mUI.MelMenuItemDiv( self.uiMenu_tools )
+        mUI.MelMenuItem( self.uiMenu_tools, l="Mapping Report...",
+                                 c=lambda *a: self.uiFunc_show_mapping_report())
 
 
     def buildMenu_first(self):
@@ -194,6 +198,7 @@ class ui(cgmUI.cgmGUI):
         
         self.parent_source_scroll = _parent_source[1]
         self.parent_target_scroll = _parent_target[1]
+        self._patch_target_scroll_item_as_str()
 
 
         self.uiPopUpMenu_source = mUI.MelPopupMenu(self.parent_source_scroll,button = 3)
@@ -820,17 +825,34 @@ class ui(cgmUI.cgmGUI):
                 return False
         return True
 
+    def _patch_target_scroll_item_as_str(self):
+        """
+        MelObjectScrollList.itemAsStr strips to the segment after the last ':'.
+        Preserve leading [n] index labels for target rows (display-only; never saved to CCL).
+        """
+        scroll = self.parent_target_scroll
+
+        def _target_item_as_str(item):
+            item_str = str(item)
+            prefix = ''
+            if item_str.startswith('['):
+                m = re.match(r'^(\[\d+\]\s*)', item_str)
+                if m:
+                    prefix = m.group(1)
+                    item_str = item_str[len(prefix):]
+            if not scroll.DISPLAY_NAMESPACES:
+                item_str = item_str.split(':')[-1].split('|')[-1]
+            return prefix + item_str
+
+        scroll.itemAsStr = _target_item_as_str
+
     def _sync_connection_data_from_ui(self):
         """Rebuild connection list from UI links, preserving existing offset keys."""
         ui_data = self.get_ui_connection_data()
         old_list = list(self.connection_data or [])
         old_by_pattern = {}
         for conn in old_list:
-            key = (
-                conn.get('sourcePattern') or conn.get('source_pattern') or conn.get('source'),
-                conn.get('targetPattern') or conn.get('target_pattern') or conn.get('target'),
-            )
-            old_by_pattern[key] = conn
+            old_by_pattern[MOCAPALIGN.connection_pattern_key(conn)] = conn
 
         keep_keys = ('localTranslate', 'localRotate', 'positionOffset',
                      'offsetForward', 'offsetUp', 'sourcePattern', 'targetPattern',
@@ -838,9 +860,10 @@ class ui(cgmUI.cgmGUI):
                      'sourceResolved', 'targetResolved', 'alignLocator')
         merged = []
         for li, data in enumerate(ui_data):
-            prev = old_list[li] if li < len(old_list) else None
-            if not prev:
-                prev = old_by_pattern.get((data.get('sourcePattern'), data.get('targetPattern')))
+            key = MOCAPALIGN.connection_pattern_key(data)
+            prev = old_by_pattern.get(key)
+            if not prev and li < len(old_list):
+                prev = old_list[li]
             if prev:
                 for k in keep_keys:
                     if k in prev:
@@ -882,7 +905,30 @@ class ui(cgmUI.cgmGUI):
             for li, link in enumerate(self.parent_links):
                 if link[1] in idxs:
                     indices.append(li)
-        MOCAPALIGN.snap_connections(self.connection_data, indices=indices)
+        MOCAPALIGN.snap_connections(
+            self.connection_data,
+            indices=indices,
+            rig_ns=self._get_rig_ns(),
+            skel_roots=self._get_skel_roots(),
+        )
+
+    def uiFunc_show_mapping_report(self, *args):
+        """Open scrollable mapping resolution report (Tools menu)."""
+        win_name = '{0}_mappingReportWin'.format(self.__class__.WINDOW_NAME)
+        self._reresolve_connection_data()
+        text = MOCAPALIGN.format_mapping_report(
+            self.connection_data,
+            rig_ns=self._get_rig_ns(),
+            skel_roots=self._get_skel_roots(),
+        )
+        if mc.window(win_name, exists=True):
+            mc.deleteUI(win_name)
+        mc.window(win_name, title='Mocap Align Mapping Report', sizeable=True, widthHeight=(720, 520))
+        mc.columnLayout(adjustableColumn=True, rowSpacing=4, columnAttach=('both', 6))
+        mc.scrollField(editable=False, wordWrap=False, font='smallFixedWidthFont', text=text, height=460)
+        mc.button(label='Close', command=lambda *_a: mc.deleteUI(win_name))
+        mc.showWindow(win_name)
+        print("\n=== mocap align mapping report ===\n{0}\n=== end mapping report ===\n".format(text))
 
     def uiFunc_create_align_locs(self, *args):
         self._reresolve_connection_data()
@@ -952,9 +998,8 @@ class ui(cgmUI.cgmGUI):
 
     def _format_target_list_alias(self, index, item_path):
         """
-        Target scroll list display. MelObjectScrollList.itemAsStr keeps only the
-        segment after the last ':' (short names are 'ns:base'), so put the index
-        on that final segment or it is stripped when show short names is on.
+        Target scroll list display. Index prefix is display-only; preserved by
+        _patch_target_scroll_item_as_str (not written to CCL pattern strings).
         """
         name = self.parse_alias(item_path)
         if not name:
@@ -1080,21 +1125,19 @@ class ui(cgmUI.cgmGUI):
         tgt_data = parsed['target_data'] or [{} for _ in tgt_patterns]
 
         for i, pat in enumerate(src_patterns):
-            resolved = MOCAPALIGN.resolve_skeleton_joint(pat, skel_roots)
-            item = resolved or pat
-            data = src_data[i] if i < len(src_data) else {}
-            self.parent_source_items.append(cgmListItem(item, item, data or {}))
+            data = dict(src_data[i] if i < len(src_data) else {})
+            self.parent_source_items.append(cgmListItem(pat, pat, data))
 
         for i, pat in enumerate(tgt_patterns):
-            resolved = MOCAPALIGN.resolve_rig_control(pat, rig_ns)
-            item = resolved or pat
             data = tgt_data[i] if i < len(tgt_data) else {"constraintType": "o"}
             if not data:
                 data = {"constraintType": "o"}
             if "constraintType" not in data:
                 data = dict(data)
                 data["constraintType"] = "o"
-            self.parent_target_items.append(cgmListItem(item, item, data))
+            else:
+                data = dict(data)
+            self.parent_target_items.append(cgmListItem(pat, pat, data))
 
         self.parent_links = parsed['links'] or []
         self.connection_data = parsed['connections'] or loaded_data[5]
@@ -1368,16 +1411,16 @@ class ui(cgmUI.cgmGUI):
     def get_ui_connection_data(self, *args):
         connection_data = []
         for link in self.parent_links:
-            src_item = self.parent_source_items[link[0]].item
-            tgt_item = self.parent_target_items[link[1]].item
+            src_pat = self.parent_source_items[link[0]].item
+            tgt_pat = self.parent_target_items[link[1]].item
             ctype = self.parent_target_items[link[1]].data.get("constraintType", "o")
             connection_data.append({
-                'source': src_item,
-                'target': tgt_item,
-                'sourcePattern': src_item,
-                'targetPattern': tgt_item,
-                'source_pattern': src_item,
-                'target_pattern': tgt_item,
+                'source': src_pat,
+                'target': tgt_pat,
+                'sourcePattern': src_pat,
+                'targetPattern': tgt_pat,
+                'source_pattern': src_pat,
+                'target_pattern': tgt_pat,
                 'setPosition': 'p' in str(ctype),
                 'setRotation': True,
             })
