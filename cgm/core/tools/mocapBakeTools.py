@@ -11,7 +11,6 @@ mocapBakeTools
 """
 # From Python =============================================================
 import copy
-import re
 import time
 import pprint
 import os
@@ -41,6 +40,7 @@ from cgm.core.lib import string_utils as STRING
 from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib import distance_utils as DIST
+from cgm.core.lib import name_utils as NAMES
 from cgm.core.lib import euclid
 import cgm.core.lib.mocap_align_utils as MOCAPALIGN
 from cgm.core.cgmPy import validateArgs as VALID
@@ -827,24 +827,16 @@ class ui(cgmUI.cgmGUI):
 
     def _patch_target_scroll_item_as_str(self):
         """
-        MelObjectScrollList.itemAsStr strips to the segment after the last ':'.
-        Preserve leading [n] index labels for target rows (display-only; never saved to CCL).
+        Target scroll shows cgmListItem.alias strings only (Feature_CgmToolUI).
+        Default MelObjectScrollList.itemAsStr strips after the last ':' which
+        removes [n] indices when link suffixes or Hondo:[n] base rows are present.
         """
-        scroll = self.parent_target_scroll
+        self.parent_target_scroll.itemAsStr = lambda item: str(item)
 
-        def _target_item_as_str(item):
-            item_str = str(item)
-            prefix = ''
-            if item_str.startswith('['):
-                m = re.match(r'^(\[\d+\]\s*)', item_str)
-                if m:
-                    prefix = m.group(1)
-                    item_str = item_str[len(prefix):]
-            if not scroll.DISPLAY_NAMESPACES:
-                item_str = item_str.split(':')[-1].split('|')[-1]
-            return prefix + item_str
-
-        scroll.itemAsStr = _target_item_as_str
+    def refresh_parent_scrolls(self, *args):
+        self._patch_target_scroll_item_as_str()
+        self.parent_source_scroll.setItems( [x.alias for x in self.parent_source_items] )
+        self.parent_target_scroll.setItems( [x.alias for x in self.parent_target_items] )
 
     def _sync_connection_data_from_ui(self):
         """Rebuild connection list from UI links, preserving existing offset keys."""
@@ -974,20 +966,29 @@ class ui(cgmUI.cgmGUI):
             log.debug("link[%i] >> [%i]%s -> [%i]%s" % (i, link[0], self.parent_source_items[link[0]].item, link[1], self.parent_target_items[link[1]].item)) 
 
     # refresh UI displays
-    def refresh_parent_scrolls(self, *args):
-        self.parent_source_scroll.setItems( [x.alias for x in self.parent_source_items] )
-        self.parent_target_scroll.setItems( [x.alias for x in self.parent_target_items] )
+    def _short_name_display(self, name):
+        """Short name for list display — rig namespace kept, reference namespace stripped."""
+        if not name:
+            return name
+        if not mc.objExists(name):
+            return str(name).split('|')[-1].split(':')[-1]
+        long_name = mc.ls(name, long=True)[0]
+        short = NAMES.get_short(long_name)
+        try:
+            if mc.referenceQuery(long_name, isNodeReferenced=True):
+                ref_ns = mc.referenceQuery(long_name, namespace=True)
+                ref_token = str(ref_ns).strip(':')
+                if ref_token and short.startswith(ref_token + ':'):
+                    short = short[len(ref_token) + 1:]
+        except Exception:
+            pass
+        return short
 
     def parse_alias(self, name):
         if not name:
             return name
         if self.var_mocap_show_short_names.value:
-            if mc.objExists(name):
-                try:
-                    return cgmMeta.cgmObject(name).p_nameShort
-                except Exception:
-                    pass
-            return str(name).split('|')[-1].split(':')[-1]
+            return self._short_name_display(name)
 
         split_name = str(name).split('|')
         for i, new_name in enumerate(split_name):
@@ -998,15 +999,12 @@ class ui(cgmUI.cgmGUI):
 
     def _format_target_list_alias(self, index, item_path):
         """
-        Target scroll list display. Index prefix is display-only; preserved by
-        _patch_target_scroll_item_as_str (not written to CCL pattern strings).
+        Target scroll list display. Index prefix is display-only (never in .item / CCL).
+        Always leading [n] — namespace lives in the name segment after the index.
         """
         name = self.parse_alias(item_path)
         if not name:
             return '[%i]' % index
-        if ':' in name:
-            ns, base = name.rsplit(':', 1)
-            return '%s:[%i] %s' % (ns, index, base)
         return '[%i] %s' % (index, name)
 
     def refresh_aliases(self, *args):

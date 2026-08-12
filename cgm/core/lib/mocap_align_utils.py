@@ -116,22 +116,22 @@ def _joints_matching_leaf(joint_list, leaf):
     return [j for j in (joint_list or []) if strip_short_name(j) == leaf]
 
 
-def _joints_matching_chain_suffix(joint_list, segments):
-    """Joints whose long path ends with the pipe-segment suffix."""
-    if not segments or not joint_list:
+def _nodes_matching_chain_suffix(node_list, segments):
+    """Driver nodes whose long path ends with the pipe-segment suffix."""
+    if not segments or not node_list:
         return []
     suffix = '|' + '|'.join(segments)
     matches = []
     seen = set()
-    for joint in joint_list:
-        if joint in seen:
+    for node in node_list:
+        if node in seen:
             continue
-        if joint.endswith(suffix):
-            seen.add(joint)
-            matches.append(joint)
-        elif len(segments) == 1 and strip_short_name(joint) == segments[0]:
-            seen.add(joint)
-            matches.append(joint)
+        if node.endswith(suffix):
+            seen.add(node)
+            matches.append(node)
+        elif len(segments) == 1 and strip_short_name(node) == segments[0]:
+            seen.add(node)
+            matches.append(node)
     return matches
 
 
@@ -163,16 +163,16 @@ def _pattern_segments_from_long_path(long_path, skel_roots=None):
 
 def _minimal_unique_source_pattern(source_long, skel_roots):
     """
-    Shortest pipe pattern unique under skel roots that resolves to source_long.
-    Raises ValueError when no unique suffix exists.
+    Shortest pipe pattern unique under skel roots that resolves to source_long
+    (joint or transform driver). Raises ValueError when no unique suffix exists.
     """
     if not source_long or not mc.objExists(source_long):
-        raise ValueError('Source joint not in scene: {0}'.format(source_long))
+        raise ValueError('Source driver not in scene: {0}'.format(source_long))
 
     source_long = mc.ls(source_long, long=True)[0]
-    joint_list = _joints_under_roots(skel_roots)
-    if not joint_list:
-        raise ValueError('No joints under skeleton roots')
+    node_list = _nodes_under_roots(skel_roots)
+    if not node_list:
+        raise ValueError('No nodes under skeleton roots')
 
     segments = _pattern_segments_from_long_path(source_long, skel_roots)
     if not segments:
@@ -181,7 +181,7 @@ def _minimal_unique_source_pattern(source_long, skel_roots):
     for length in range(1, len(segments) + 1):
         candidate_segments = segments[-length:]
         candidate = '|'.join(candidate_segments)
-        matches = _joints_matching_chain_suffix(joint_list, candidate_segments)
+        matches = _nodes_matching_chain_suffix(node_list, candidate_segments)
         if len(matches) == 1 and matches[0] == source_long:
             return candidate
 
@@ -190,28 +190,34 @@ def _minimal_unique_source_pattern(source_long, skel_roots):
             strip_short_name(source_long)))
 
 
-def _align_ccl_source_pattern(source_pattern=None, source=None, skel_roots=None):
+def _align_ccl_source_pattern(source_pattern=None, source=None, skel_roots=None, skel_ns=None):
     """
-    Compact skeleton joint pattern for CCL storage (save-only).
+    Compact skeleton driver pattern for CCL storage (save-only).
 
-    When skel_roots are set and source resolves to a scene joint, emit the
-    shortest unique pattern under those roots (leaf or pipe chain).
-
-    When skel_roots are absent, or input is already a non-scene pattern string,
-    return the pattern unchanged (load / backward compatibility).
+    Short patterns that already resolve under Skel Roots are kept as-is (same
+    contract as Mapping Report). Full DAG paths are compacted to the shortest
+    unique suffix under roots.
     """
     pat = source_pattern or source or ''
     if not pat:
         return ''
 
     roots = _parse_skel_roots(skel_roots)
+    skel_ns = normalize_namespace(skel_ns or ':')
+
+    # List / CCL short pattern — keep when resolve round-trips (mapping parity)
+    if roots and not str(pat).startswith('|'):
+        if resolve_skeleton_joint(pat, skel_roots=skel_roots, skel_ns=skel_ns):
+            return pat
 
     if roots:
         scene_src = None
         if source and mc.objExists(source):
             scene_src = mc.ls(source, long=True)[0]
         elif mc.objExists(pat):
-            scene_src = mc.ls(pat, long=True)[0]
+            long_candidate = mc.ls(pat, long=True)[0]
+            if str(pat).startswith('|') or '|' in long_candidate:
+                scene_src = long_candidate
         if scene_src:
             return _minimal_unique_source_pattern(scene_src, skel_roots)
 
@@ -225,42 +231,37 @@ def _align_ccl_source_pattern(source_pattern=None, source=None, skel_roots=None)
 
 def validate_connections_for_save(connections, skel_roots, rig_ns=None, skel_ns=None):
     """
-    Pre-save validation: roots required; each source compacts to a unique pattern
-    that resolves back to the same joint long path.
+    Pre-save validation — same resolve gate as Mapping Report: conn.resolved
+    after resolve_connections, else connection_resolve_diagnostics on failures.
     """
     result = {'ok': True, 'errors': [], 'warnings': [], 'details': []}
-    roots = _parse_skel_roots(skel_roots)
-    if not roots:
+    if not _parse_skel_roots(skel_roots):
         result['ok'] = False
         result['errors'].append('Skeleton roots required to save CCL')
         return result
 
+    rig_ns = normalize_namespace(rig_ns or ':')
     skel_ns = normalize_namespace(skel_ns or ':')
+
     for i, conn in enumerate(connections or []):
-        src_long = conn.get('sourceResolved') or conn.get('source')
-        if not src_long or not mc.objExists(src_long):
-            result['ok'] = False
-            result['errors'].append(
-                '[{0}] source not resolved in scene: {1}'.format(i, src_long))
-            continue
-
-        src_long = mc.ls(src_long, long=True)[0]
-        try:
-            pattern = _minimal_unique_source_pattern(src_long, skel_roots)
-        except ValueError as err:
-            result['ok'] = False
-            result['errors'].append('[{0}] {1}'.format(i, err))
-            continue
-
-        resolved = resolve_skeleton_joint(pattern, skel_roots=skel_roots, skel_ns=skel_ns)
-        if resolved != src_long:
-            result['ok'] = False
-            result['errors'].append(
-                '[{0}] pattern "{1}" resolves to {2}, expected {3}'.format(
-                    i, pattern, resolved, src_long))
-        else:
+        if conn.get('resolved'):
+            pattern = _align_ccl_source_pattern(
+                _conn_source_pattern(conn), conn.get('source'),
+                skel_roots=skel_roots, skel_ns=skel_ns)
+            src_long = conn.get('sourceResolved') or conn.get('source') or '?'
             result['details'].append('[{0}] {1} -> {2}'.format(
                 i, strip_short_name(src_long), pattern))
+            continue
+
+        diag = connection_resolve_diagnostics(
+            conn, rig_ns=rig_ns, skel_roots=skel_roots, skel_ns=skel_ns)
+        result['ok'] = False
+        if not diag['source_resolved']:
+            result['errors'].append('[{0}] source: {1} ({2})'.format(
+                i, diag['source_pattern'], diag['source_reason'] or 'unresolved'))
+        if not diag['target_resolved']:
+            result['errors'].append('[{0}] target: {1} ({2})'.format(
+                i, diag['target_pattern'], diag['target_reason'] or 'unresolved'))
 
     return result
 
