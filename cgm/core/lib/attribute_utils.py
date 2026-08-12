@@ -1386,6 +1386,19 @@ def connect(fromAttr,toAttr,transferConnection=False,lock = False, pushToChildre
 
     if transferConnection: raise Exception("Look at why you're transferring connection")
 
+    def _connect_attr(_from, _to):
+        try:
+            mc.connectAttr(_from, _to, **kws)
+        except RuntimeError as err:
+            _err_msg = str(err)
+            if "cannot be found" in _err_msg or "No object matches name" in _err_msg:
+                raise RuntimeError(
+                    "connectAttr failed: source '{0}' -> dest '{1}'. {2}".format(
+                        _from, _to, _err_msg
+                    )
+                ) from err
+            raise
+
     _wasLocked = False
     _connection = False
     
@@ -1406,7 +1419,7 @@ def connect(fromAttr,toAttr,transferConnection=False,lock = False, pushToChildre
                     #bufferConnection = get_driver(toAttr)
                     _connection = break_connection(_d_tmp)
                     #doBreakConnection(attrBuffer[0],attrBuffer[1])
-                    mc.connectAttr(_combined,_combined_to_tmp,**kws)     
+                    _connect_attr(_combined, _combined_to_tmp)
             
                 if _wasLocked or lock:
                     mc.setAttr(_combined_to_tmp,lock=True)
@@ -1421,7 +1434,7 @@ def connect(fromAttr,toAttr,transferConnection=False,lock = False, pushToChildre
         #bufferConnection = get_driver(toAttr)
         _connection = break_connection(_d_to)
         #doBreakConnection(attrBuffer[0],attrBuffer[1])
-        mc.connectAttr(_combined,_combined_to,**kws)     
+        _connect_attr(_combined, _combined_to)
 
     if transferConnection:
         if _connection and not is_connected(_d):

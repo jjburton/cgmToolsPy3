@@ -587,7 +587,13 @@ def doStartMayaProgressBar(stepMaxValue = 100, statusMessage = 'Calculating....'
     mayaMainProgressBar(string)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     """
-    mayaMainProgressBar = mel.eval('$tmp = $gMainProgressBar');
+    mayaMainProgressBar = None
+    try:
+        mayaMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
+    except Exception:
+        return
+    if not mayaMainProgressBar:
+        return
     mc.progressBar( mayaMainProgressBar,
                     edit=True,
                     beginProgress=True,

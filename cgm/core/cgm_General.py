@@ -1967,6 +1967,53 @@ def doEndMayaProgressBar(mayaMainProgressBar):
 from functools import wraps
 
 
+_last_logged_exc_id = None
+
+
+def _mark_exception_logged(exc):
+    """Mark an exception instance as fully reported (wrappers should not re-print)."""
+    global _last_logged_exc_id
+    if exc is not None:
+        _last_logged_exc_id = id(exc)
+
+
+def exception_already_logged(exc):
+    """True if this exception instance was already reported via cgmException/log_tb."""
+    global _last_logged_exc_id
+    if exc is None or _last_logged_exc_id is None:
+        return False
+    return id(exc) == _last_logged_exc_id
+
+
+def _format_maya_error_hint(value):
+    """Return an actionable hint for common Maya/MRS failure strings, or None."""
+    try:
+        _msg = str(value)
+    except Exception:
+        return None
+
+    _settings_hint = (
+        "Hint: Puppet masterControl.controlSettings is missing expected attrs "
+        "(skeleton, proxy, proxyLock). The node may be incomplete "
+        "(e.g. procedural settingsControl2 from rebuildMasterShapes). "
+        "Run verify_masterControl on the puppet or restore prerig controlSettings helpers."
+    )
+
+    if "proxyLock" in _msg and "cannot be found" in _msg:
+        return _settings_hint
+    if "proxyVis" in _msg and "cannot be found" in _msg:
+        return _settings_hint
+    if "object instance has no attribute : skeleton" in _msg:
+        return _settings_hint
+    if "controlSettings" in _msg and "cannot be found" in _msg:
+        return _settings_hint
+    if "connectAttr failed:" in _msg and (
+        "proxyLock" in _msg or "proxyVis" in _msg or "skeleton" in _msg
+    ):
+        return _settings_hint
+    return None
+
+
 def Func(func):
     """ """
 
@@ -1980,6 +2027,13 @@ def Func(func):
             err = error
         finally:
             if err:
+                if exception_already_logged(err):
+                    print(
+                        "{0} Re-raising already-reported exception from @Func-wrapped {1}".format(
+                            _str_headerDiv, func.__name__ if hasattr(func, "__name__") else func
+                        )
+                    )
+                    raise err
                 try:
                     _fn = func.__name__
                 except Exception:
@@ -2032,6 +2086,17 @@ def Wrap_exception(func):
 
         except Exception as error:
             _etype, _value, _tb = sys.exc_info()
+            if exception_already_logged(error):
+                try:
+                    _fname = func.__name__
+                except Exception:
+                    _fname = str(func)
+                print(
+                    "{0} Re-raising already-reported exception from @Timer-wrapped call {1}".format(
+                        _str_headerDiv, _fname
+                    )
+                )
+                raise
             print(_str_hardBreak + _str_hardBreak)
             try:
                 _fname = func.__name__
@@ -2168,9 +2233,6 @@ def testTimer(sleep=0.5):
     print("Sleep time: {0}".format(sleep))
     time.sleep(float(sleep))  # delays for 5 seconds. You can Also Use Float Value.
     return True
-
-
-_last_logged_exc_id = None
 
 
 def _normalize_exc_info(etype=None, value=None, tb=None):
@@ -2413,9 +2475,19 @@ def cgmException(etype=None, value=None, tb=None, msg=None, **kws):
 
     etype, value, tb = _normalize_exc_info(etype, value, tb)
 
+    if value is not None and exception_already_logged(value):
+        raise value
+
+    stage = kws.pop("stage", None)
+
     print(
         "{0} cgmException | {1}: {2}".format(_str_headerDiv, etype.__name__, value)
     )
+    if stage:
+        print("{0} Stage: {1}".format(_str_headerDiv, stage))
+    _hint = _format_maya_error_hint(value)
+    if _hint:
+        print("{0} {1}".format(_str_headerDiv, _hint))
     try:
         if tb and tb.tb_frame:
             co = tb.tb_frame.f_code
@@ -2432,6 +2504,7 @@ def cgmException(etype=None, value=None, tb=None, msg=None, **kws):
         pass
 
     log_tb(tb, etype, value)
+    _mark_exception_logged(value)
 
     if msg:
         print(msg)

@@ -414,6 +414,18 @@ d_dat = {'qss':{'ann':"Setup expected qss sets", 'label':'Add Qss Sets'},
          
          }
 
+
+def _run_batch_post_stage(_str_func, stage_name, stage_call):
+    """Run a batch post-process stage; on failure log stage banner and re-raise."""
+    try:
+        return stage_call()
+    except Exception as err:
+        log.error(cgmGEN.logString_sub(_str_func, 'FAILED during: {0}'.format(stage_name)))
+        if not cgmGEN.exception_already_logged(err):
+            cgmGEN.cgmException(Exception, err, stage=stage_name)
+        raise
+
+
 @cgmGEN.Timer
 def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _str_func = 'process_blocks_rig'
@@ -631,8 +643,12 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
 
                         log.info('proxyMesh...')
-                        t1 = time.time()                        
-                        mPuppet.atUtils('proxyMesh_verify',1)
+                        t1 = time.time()
+                        _run_batch_post_stage(
+                            _str_func,
+                            'proxyMesh',
+                            lambda: mPuppet.atUtils('proxyMesh_verify', 1),
+                        )
                         t2 = time.time()
                         l_timeReports.append(['proxyMesh', get_time(t2-t1)])
                         
@@ -640,8 +656,15 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
                         print((cgmGEN._str_hardBreak))                                                
                         
                         log.info('puppetMesh...')
-                        t1 = time.time()                                                
-                        mPuppet.atUtils('puppetMesh_create', **{'unified':True,'skin':True, 'proxy':True})
+                        t1 = time.time()
+                        _run_batch_post_stage(
+                            _str_func,
+                            'puppetMesh',
+                            lambda: mPuppet.atUtils(
+                                'puppetMesh_create',
+                                **{'unified': True, 'skin': True, 'proxy': True},
+                            ),
+                        )
                         t2 = time.time()
                         l_timeReports.append(['puppetMesh', get_time(t2-t1)])
 
@@ -680,8 +703,10 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
         #cgmGEN.logString_msg(_str_func,'File Save...')
         newFile = mc.file(rename = _newPath)
         mc.file(save = 1)
-        log.info(newFile)        
-        cgmGEN.cgmException(Exception, err)
+        log.info(newFile)
+        if not cgmGEN.exception_already_logged(err):
+            cgmGEN.cgmException(Exception, err, stage='process_blocks_rig')
+        raise
     #    log.error(err)
     
     T2 = time.time()

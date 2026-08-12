@@ -1377,7 +1377,7 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
     """
     Connect/disconnect the whole puppet
     """
-    _str_func = ' rig_connectAll'.format(self)
+    _str_func = 'proxyMesh_verify'
     log.debug("|{0}| >> ... [{1}]".format(_str_func,self)+ '-'*80)
     
     ml_modules = modules_get(self)
@@ -1402,7 +1402,8 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
         try:
             mRigBlock.verify_proxyMesh(forceNew=forceNew,puppetMeshMode=puppetMeshMode)
         except Exception as err:
-            log.error("{0} | {1}".format(mRigBlock,err))
+            log.error("{0} | {1}".format(mRigBlock, err))
+            raise
     
     if progressBar and progressEnd:
         cgmUI.progressBar_end(progressBar)
@@ -2184,6 +2185,49 @@ def controller_purge(self,progressBar = None,progressEnd=True):
         
     return
 
+def _validate_puppet_settings_control(mPuppet, _str_func, require_proxy=False):
+    """
+    Ensure masterControl.controlSettings has attrs expected for puppet/proxy mesh wiring.
+    Raises RuntimeError with an actionable message when incomplete.
+    """
+    mMasterControl = mPuppet.getMessageAsMeta('masterControl')
+    if not mMasterControl:
+        raise RuntimeError(
+            "|{0}| >> Puppet has no masterControl.".format(_str_func)
+        )
+
+    mSettings = mMasterControl.getMessageAsMeta('controlSettings')
+    if not mSettings:
+        raise RuntimeError(
+            "|{0}| >> masterControl has no controlSettings message. "
+            "Run verify_masterControl on the puppet.".format(_str_func)
+        )
+
+    _l_required = ['skeleton', 'geo', 'proxy', 'proxyVis', 'proxyLock']
+    if not require_proxy:
+        _l_required = ['skeleton']
+
+    _missing = []
+    for attr in _l_required:
+        try:
+            if not mc.objExists(mSettings.mNode) or not mc.attributeQuery(
+                attr, node=mSettings.mNode, exists=True
+            ):
+                _missing.append(attr)
+        except Exception:
+            _missing.append(attr)
+
+    if _missing:
+        raise RuntimeError(
+            "|{0}| >> Puppet settings control '{1}' is missing attrs: {2}. "
+            "The control may be incomplete (e.g. procedural settingsControl2 from "
+            "rebuildMasterShapes). Run verify_masterControl on the puppet.".format(
+                _str_func, mSettings.p_nameShort, _missing
+            )
+        )
+
+    return mSettings
+
 @cgmGEN.Timer
 def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True):
     _str_func = 'puppetMesh_create'
@@ -2224,9 +2268,13 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     
     
     if proxy:
-        if not mPuppet.masterControl.controlSettings.skeleton:
-            log.warning("|{0}| >> Skeleton was off. proxy mesh in puppetMeshMode needs a visible skeleton to see. Feel free to turn it back off if you like.".format(_str_func, self.mNode))            
-            mPuppet.masterControl.controlSettings.skeleton = 1        
+        mSettings = _validate_puppet_settings_control(mPuppet, _str_func)
+        if not mSettings.skeleton:
+            log.warning(
+                "|{0}| >> Skeleton was off. proxy mesh in puppetMeshMode needs a visible skeleton to see. "
+                "Feel free to turn it back off if you like.".format(_str_func)
+            )
+            mSettings.skeleton = 1
     
     
     #Check for existance of mesh ========================================================================
