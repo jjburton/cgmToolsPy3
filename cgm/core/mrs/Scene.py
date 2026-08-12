@@ -4909,21 +4909,6 @@ example:
 
         log.debug( "+"*100)
         log.debug(self.d_tf['exportOptions']['removeNameSpace'].getValue())
-        self.var_mayaFilePref.setValue( self.mDat.d_project.get('mayaFilePref','mb') )
-
-        if self.mDat.d_exportOptions:
-            self.var_postEuler.setValue( self.mDat.d_exportOptions.get('postEuler',True) )
-            self.var_postTangent.setValue( self.mDat.d_exportOptions.get('postTangent',True) )
-
-
-            if self.mDat.d_exportOptions.get('removeNameSpace'):
-                self.var_removeNamespace.setValue( self.mDat.d_exportOptions.get('removeNameSpace',False) )
-                self.removeNamespace = self.mDat.d_exportOptions.get('removeNameSpace',False)
-
-            self.var_zeroRoot.setValue( self.mDat.d_exportOptions.get('zeroRoot',False) )
-
-
-
 
         return True
 
@@ -6196,19 +6181,21 @@ example:
 
 
             l_dat = []
-            d_base = {'removeNamespace' : self.d_tf['exportOptions']['removeNameSpace'].getValue(),
+            d_base = {'removeNamespace' : PU.exportOption_getValue(self, 'removeNameSpace'),
                       'bakeSetName':bakeSetName,
                       'exportSetName':exportSetName,
                       'deleteSetName':deleteSetName,
-                      'zeroRoot' : self.d_tf['exportOptions']['zeroRoot'].getValue(),
-                      'euler':self.d_tf['exportOptions']['postEuler'].getValue(),
-                      'tangent':self.d_tf['exportOptions']['postTangent'].getValue(),
-                      'sampleBy':self.d_tf['exportOptions']['sampleBy'].getValue(),
-                      'simplify':self.d_tf['exportOptions']['simplify'].getValue(),
-                      'reducer':self.d_tf['exportOptions']['reducer'].getValue(),
-                      'exportShotsToIndividualFiles':self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
-                      'noShotListExportName':self.d_tf['exportOptions']['noShotListExportName'].getValue(),
-                      'parentExportToWorld':self.d_tf['exportOptions']['parentExportToWorld'].getValue(),
+                      'zeroRoot' : PU.exportOption_getValue(self, 'zeroRoot'),
+                      'euler':PU.exportOption_getValue(self, 'postEuler'),
+                      'fixRotation':PU.exportOption_getValue(self, 'fixRotation'),
+                      'tangent':PU.exportOption_getValue(self, 'postTangent'),
+                      'sampleBy':PU.exportOption_getValue(self, 'sampleBy'),
+                      'simplify':PU.exportOption_getValue(self, 'simplify'),
+                      'reducer':PU.exportOption_getValue(self, 'reducer'),
+                      'exportShotsToIndividualFiles':PU.exportOption_getValue(self, 'exportShotsToIndividualFiles'),
+                      'noShotListExportName':PU.exportOption_getValue(self, 'noShotListExportName'),
+                      'parentExportToWorld':PU.exportOption_getValue(self, 'parentExportToWorld'),
+                      'deleteMesh':PU.exportOption_getValue(self, 'deleteMesh'),
                       'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                       }
 
@@ -6398,15 +6385,17 @@ example:
 
             d_userPaths = self.mDat.userPaths_get()
 
-            postEuler = self.d_tf['exportOptions']['postEuler'].getValue()
-            postTangent = self.d_tf['exportOptions']['postTangent'].getValue()
-            sampleBy = self.d_tf['exportOptions']['sampleBy'].getValue()
-            reducer = self.d_tf['exportOptions']['reducer'].getValue()
-            simplify = self.d_tf['exportOptions']['simplify'].getValue()
-            exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue()
-            breakTextureLinks = self.d_tf['exportOptions']['breakTextureLinks'].getValue()
-            noShotListExportName = self.d_tf['exportOptions']['noShotListExportName'].getValue()
-            parentExportToWorld = self.d_tf['exportOptions']['parentExportToWorld'].getValue()
+            postEuler = PU.exportOption_getValue(self, 'postEuler')
+            fixRotation = PU.exportOption_getValue(self, 'fixRotation')
+            postTangent = PU.exportOption_getValue(self, 'postTangent')
+            sampleBy = PU.exportOption_getValue(self, 'sampleBy')
+            reducer = PU.exportOption_getValue(self, 'reducer')
+            simplify = PU.exportOption_getValue(self, 'simplify')
+            exportShotsToIndividualFiles = PU.exportOption_getValue(self, 'exportShotsToIndividualFiles')
+            breakTextureLinks = PU.exportOption_getValue(self, 'breakTextureLinks')
+            noShotListExportName = PU.exportOption_getValue(self, 'noShotListExportName')
+            parentExportToWorld = PU.exportOption_getValue(self, 'parentExportToWorld')
+            deleteMesh = PU.exportOption_getValue(self, 'deleteMesh')
 
             pprint.pprint(vars())
             pprint.pprint(self.d_tf['exportOptions'])
@@ -6440,8 +6429,8 @@ example:
                     'subType' : self.subType,
                     'subSet' : self.selectedSet,
                     'exportAnimPath' : PATHS.Path(exportAnimPath).split(),
-                    'removeNamespace' : self.d_tf['exportOptions']['removeNameSpace'].getValue(),
-                    'zeroRoot' : self.d_tf['exportOptions']['zeroRoot'].getValue(),
+                    'removeNamespace' : PU.exportOption_getValue(self, 'removeNameSpace'),
+                    'zeroRoot' : PU.exportOption_getValue(self, 'zeroRoot'),
                     'bakeSetName':bakeSetName,
                     'exportSetName':exportSetName,
                     'deleteSetName':deleteSetName,
@@ -6449,6 +6438,7 @@ example:
                     'sampleBy':sampleBy,
                     'tangent':postTangent,
                     'euler':postEuler,
+                    'fixRotation':fixRotation,
                     'workspace':d_userPaths['content'],
                     'simplify':simplify,
                     'reducer':reducer,
@@ -6456,6 +6446,7 @@ example:
                     'breakTextureLinks':breakTextureLinks,
                     'noShotListExportName':noShotListExportName,
                     'parentExportToWorld':parentExportToWorld,
+                    'deleteMesh':deleteMesh,
                     'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                 }
                 pprint.pprint(d)
@@ -6477,12 +6468,13 @@ example:
                                  subSet= self.selectedSet,
                                  categoryExportPath = categoryExportPath,
                                  exportAnimPath = exportAnimPath,
-                                 removeNamespace = self.d_tf['exportOptions']['removeNameSpace'].getValue(),
-                                 zeroRoot = self.d_tf['exportOptions']['zeroRoot'].getValue(),
+                                 removeNamespace = PU.exportOption_getValue(self, 'removeNameSpace'),
+                                 zeroRoot = PU.exportOption_getValue(self, 'zeroRoot'),
                                  animationName=_animationFolderName,
-                                 exportShotsToIndividualFiles = self.d_tf['exportOptions']['exportShotsToIndividualFiles'].getValue(),
+                                 exportShotsToIndividualFiles = exportShotsToIndividualFiles,
                                  tangent=postTangent,
                                  euler=postEuler,
+                                 fixRotation=fixRotation,
                                  sampleBy=sampleBy,
                                  workspace=d_userPaths['content'],
                                  simplify=simplify,
@@ -6490,6 +6482,7 @@ example:
                                  breakTextureLinks=breakTextureLinks,
                                  noShotListExportName=noShotListExportName,
                                  parentExportToWorld=parentExportToWorld,
+                                 deleteMesh=deleteMesh,
                                  )
             return bool(result)
         except Exception:
@@ -6554,6 +6547,8 @@ def BatchExport(dataList = []):
 
             _euler =  fileDat.get('euler', "0")        
             _d['euler'] = False if _euler == '0' else True
+            _fixRotation = fileDat.get('fixRotation', "False")
+            _d['fixRotation'] = False if _fixRotation == "False" else True
             _d['tangent'] = fileDat.get('tangent')
 
             _d['reducer'] = False if fileDat.get('reducer',"False") == "False" else True
@@ -6564,6 +6559,8 @@ def BatchExport(dataList = []):
             _d['noShotListExportName'] = fileDat.get('noShotListExportName', 'asset')
             _parentExportToWorld = fileDat.get('parentExportToWorld', "True")
             _d['parentExportToWorld'] = False if _parentExportToWorld == "False" else True
+            _deleteMesh = fileDat.get('deleteMesh', "False")
+            _d['deleteMesh'] = False if _deleteMesh == "False" else True
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
             _d['logExportSummary'] = False
 
@@ -6678,6 +6675,7 @@ def ExportScene(mode = -1,
                 exportShotsToIndividualFiles = True,
                 updateRigs = False,
                 euler = False,
+                fixRotation = False,
                 sampleBy = 1.0,
                 tangent = False,
                 deleteMesh = False,
@@ -6945,14 +6943,16 @@ def ExportScene(mode = -1,
         log.info("mode 2 | Anim...")        
         addNamespaceSuffix = True
         exportAsCutscene = True
-        deleteMesh = True
     if mode == 3:
         log.info("mode 3 | Rig...")                
         exportAsRig = True
 
     if mode == 4:
         log.info("mode 4 | Static..")                
-        exportStatic = True        
+        exportStatic = True
+
+    if mode not in (1, 2):
+        deleteMesh = False
 
     # make the relevant directories if they dont exist
     #categoryExportPath = os.path.normpath(os.path.join( self.exportDirectory, self.category))
@@ -7055,7 +7055,8 @@ def ExportScene(mode = -1,
     if not exportStatic:
         try:
             bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
-                             euler=euler,tangent=tangent, reducer=reducer, simplify=simplify)
+                             euler=euler, fixRotation=fixRotation, tangent=tangent,
+                             reducer=reducer, simplify=simplify)
         except Exception:
             _ctx = dict(_ctx_base,
                         stage='bake',
@@ -7176,13 +7177,11 @@ def ExportScene(mode = -1,
             mObjs = cgmMeta.asMeta(exportTransforms)
 
             if deleteMesh:
-                for mObj in mObjs:
-                    for mMeshShape in mObj.getAllChildren(type='mesh', asMeta=1):
-                        log.info("Deleting: {}".format(mMeshShape))
-                        try:
-                            mc.delete(mMeshShape.getTransform())
-                        except Exception:
-                            log.error("failure: {}".format(mMeshShape.mNode))
+                _exportMemberProtect = bakeAndPrep.export_set_member_paths_set(exportSetName)
+                bakeAndPrep.delete_mesh_under_transforms(
+                    mObjs,
+                    protected_paths=_exportMemberProtect,
+                    _str_func='{0}|rig_multi_deleteMesh'.format(_str_func))
             exportTransforms = _export_transforms_after_mesh_strip(
                 deleteMesh, exportTransforms, obj, fallback_members=_exportMemberFallback)
             if deleteMesh and not exportTransforms:
@@ -7355,13 +7354,11 @@ def ExportScene(mode = -1,
             mObjs = cgmMeta.asMeta(exportTransforms)
 
             if deleteMesh:
-                for mObj in mObjs:
-                    for mMeshShape in mObj.getAllChildren(type='mesh',asMeta=1):
-                        log.info("Deleting: {}".format(mMeshShape))
-                        try:
-                            mc.delete(mMeshShape.getTransform())
-                        except:
-                            log.error("failure: {}".format(mMeshShape.mNode))
+                _exportMemberProtect = bakeAndPrep.export_set_member_paths_set(exportSetName)
+                bakeAndPrep.delete_mesh_under_transforms(
+                    mObjs,
+                    protected_paths=_exportMemberProtect,
+                    _str_func='{0}|deleteMesh'.format(_str_func))
             exportTransforms = _export_transforms_after_mesh_strip(
                 deleteMesh, exportTransforms, obj, fallback_members=_exportMemberFallback)
             if deleteMesh and not exportTransforms:

@@ -7,6 +7,8 @@ import logging
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGEN
 
+import cgm.core.lib.anim_utils as COREANIM
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -18,11 +20,14 @@ def BakeAndPrep(bakeSetName = 'bake_tdSet',
                 endFrame = None,
                 sampleBy=1.0,                
                 euler = True,
+                fixRotation = False,
                 tangent = 'auto',
                 simplify = False,
                 reducer = True):
     
-    baked = Bake(bakeSetName,startFrame = startFrame,endFrame=endFrame, sampleBy=sampleBy,euler=euler, tangent=tangent, simplify=simplify, reducer=reducer)
+    baked = Bake(bakeSetName,startFrame = startFrame,endFrame=endFrame, sampleBy=sampleBy,
+                 euler=euler, fixRotation=fixRotation, tangent=tangent,
+                 simplify=simplify, reducer=reducer)
     if baked:
         prepped = Prep(deleteSetName,
                        exportSetName)
@@ -39,6 +44,7 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
          endFrame = None,
          sampleBy=1.0,
          euler = True,
+         fixRotation = False,
          tangent = 'auto',
          simplify = False,
          reducer = True):
@@ -151,7 +157,7 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
         #Simplify
         
         #Filter euler
-        if euler or tangent or reducer or simplify:
+        if euler or fixRotation or tangent or reducer or simplify:
             for obj in bakeTransforms:
                 if euler:
                     for a in ['rotateX','rotateY','rotateZ']:
@@ -159,7 +165,16 @@ def Bake(assets, bakeSetName = 'bake_tdSet',
                             try:mc.filterCurve( obj + '_' + a )
                             except Exception as err:
                                 print(("{0} | {1} | {2}".format(obj,a,err)))
-                            
+
+                if fixRotation:
+                    if mc.objExists(obj) and mc.nodeType(obj) == 'transform':
+                        COREANIM.fix_rotation_animation(
+                            [obj],
+                            undo=False,
+                            refresh=False,
+                            verbose=False
+                        )
+
                 if tangent:
                     _anim = mc.listConnections(obj, type = 'animCurve')
                     if _anim:
@@ -355,6 +370,53 @@ def resolve_td_set_for_asset(setName, namespaces=None):
         if mc.objExists(name):
             return name
     return None
+
+
+def export_set_member_paths_set(exportSetName):
+    """Long DAG paths of direct members across matching export_tdSet objectSets."""
+    _protected = set()
+    base = exportSetName.split(':')[-1]
+    _setCandidates = []
+    if exportSetName:
+        _setCandidates.append(exportSetName)
+    if base not in _setCandidates:
+        _setCandidates.append(base)
+    for s in mc.ls('*:{0}'.format(base), type='objectSet') or []:
+        if s not in _setCandidates:
+            _setCandidates.append(s)
+
+    _seenSets = set()
+    for s in _setCandidates:
+        if s in _seenSets or not mc.objExists(s):
+            continue
+        _seenSets.add(s)
+        for m in mc.sets(s, q=True) or []:
+            if not m or not mc.objExists(m):
+                continue
+            _long = (mc.ls(m, l=True) or [m])[0]
+            _protected.add(_long)
+            if mc.nodeType(m) == 'mesh':
+                _xform = (mc.listRelatives(m, p=True, f=True) or [None])[0]
+                if _xform:
+                    _protected.add(_xform)
+    return _protected
+
+
+def delete_mesh_under_transforms(mObjs, protected_paths=None, _str_func='delete_mesh_under_transforms'):
+    """Delete mesh transform descendants under *mObjs*, skipping *protected_paths*."""
+    _protected = protected_paths or set()
+    for mObj in mObjs:
+        for mMeshShape in mObj.getAllChildren(type='mesh', asMeta=1):
+            _xform = mMeshShape.getTransform()
+            _xformLong = (mc.ls(_xform, l=True) or [_xform])[0]
+            if _xformLong in _protected:
+                log.info("{0} || Skipping export set member: {1}".format(_str_func, _xformLong))
+                continue
+            log.info("{0} || Deleting: {1}".format(_str_func, mMeshShape))
+            try:
+                mc.delete(_xform)
+            except Exception:
+                log.error("{0} || failure: {1}".format(_str_func, mMeshShape.mNode))
 
 
 def ProcessDeleteSet(deleteSetName, namespace_prefix=None, resolved_set=None, _str_func='ProcessDeleteSet'):

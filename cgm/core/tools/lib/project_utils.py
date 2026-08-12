@@ -323,14 +323,52 @@ _exportOptionSettings = [
     {'n':'breakTextureLinks','t':'bool','dv':True,'label':'Break texture links','section':'Prep & cleanup'},
     {'n':'sampleBy','t':'float','dv':1.0,'label':'Sample by','section':'Bake simulation'},
     {'n':'postEuler','t':'bool','dv':True,'label':'Post euler filter','section':'Bake simulation'},
+    {'n':'fixRotation','t':'bool','dv':False,'label':'Fix rotation','section':'Bake simulation',
+     'ann':'After euler filter: re-key baked rotate curves using closest Euler solution (frame-to-frame continuity).'},
     {'n':'postTangent','t':['none','auto','linear','step'],'dv':'auto','label':'Post tangent type','section':'Bake simulation'},
     {'n':'reducer','t':'bool','dv':False,'label':'Reducer','section':'Bake simulation'},
     {'n':'simplify','t':'bool','dv':False,'label':'Simplify','section':'Bake simulation'},
+    {'n':'deleteMesh','t':'bool','dv':False,'label':'Delete mesh','section':'FBX output',
+     'ann':'Strip mesh geometry before anim and cutscene FBX export. Rig and static exports never strip mesh except via delete set.'},
     {'n':'exportShotsToIndividualFiles','t':'bool','dv':False,'label':'Export shots to individual files','section':'FBX output'},
     {'n':'noShotListExportName','t':['asset','sceneFile'],'dv':'asset','label':'No shot list naming','section':'FBX output',
      'ann':'When shot list is empty: asset browser name (asset) or scene file stem (sceneFile)'},
     {'n':'fbxVersion','t':['default'],'dv':'default','label':'FBX version','section':'FBX output'},
 ]
+
+_d_exportOptionDefaultsByName = {d['n']: d.get('dv') for d in _exportOptionSettings}
+
+
+def exportOption_default(name):
+    """Schema default for a project export option key."""
+    if name not in _d_exportOptionDefaultsByName:
+        raise KeyError('Unknown export option: {0}'.format(name))
+    return _d_exportOptionDefaultsByName[name]
+
+
+def exportOption_getValue(uiRoot, name):
+    """
+    Read a project export option: Project tab widget if present,
+    else mDat.d_exportOptions, else schema default.
+
+    Supports stale Scene UI after new exportOptions schema keys ship
+    (widget missing until Scene is reopened or project tab rebuilt).
+    """
+    _widgets = getattr(uiRoot, 'd_tf', {}).get('exportOptions') or {}
+    _ui = _widgets.get(name)
+    if _ui is not None:
+        try:
+            return _ui.getValue()
+        except Exception:
+            pass
+
+    _mDat = getattr(uiRoot, 'mDat', None)
+    if _mDat:
+        _stored = getattr(_mDat, 'd_exportOptions', None) or {}
+        if name in _stored and _stored[name] is not None:
+            return _stored[name]
+
+    return exportOption_default(name)
 
 _d_defaultsMap = {'general':_projSettings,
                   'anim':_animSettings,

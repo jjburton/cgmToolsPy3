@@ -306,26 +306,27 @@ def fix_selected_rotation_key(reference=(0.0, 0.0, 0.0)):
     return results
 
 
-def fix_selected_rotation_animation():
+def fix_rotation_animation(nodes,
+                           undo=True,
+                           refresh=True,
+                           verbose=True):
     """
-    Fixes all existing rotation keyframes on selected transforms.
+    Fixes all existing rotation keyframes on the given transforms.
 
     The first keyed frame is solved toward zero. Each subsequent frame is
     solved toward the previous corrected rotation for continuity.
     """
-    nodes = mc.ls(
-        selection=True,
-        long=True,
-        type='transform'
-    ) or []
+    nodes = mc.ls(nodes, long=True, type='transform') or []
 
     if not nodes:
-        mc.warning('Select one or more animated transforms.')
+        if verbose:
+            mc.warning('No transforms provided for rotation fix.')
         return []
 
     processed = []
 
-    mc.undoInfo(openChunk=True)
+    if undo:
+        mc.undoInfo(openChunk=True)
 
     try:
         for node in nodes:
@@ -344,9 +345,10 @@ def fix_selected_rotation_animation():
             key_times = sorted(key_times)
 
             if not key_times:
-                mc.warning(
-                    'No rotation keys found on: {}'.format(node)
-                )
+                if verbose:
+                    mc.warning(
+                        'No rotation keys found on: {}'.format(node)
+                    )
                 continue
 
             rotate_order = _ROTATE_ORDERS[
@@ -394,11 +396,12 @@ def fix_selected_rotation_animation():
                     plug = '{}.{}'.format(node, attribute)
 
                     if not mc.getAttr(plug, settable=True):
-                        mc.warning(
-                            'Cannot set locked or connected attribute: {}'.format(
-                                plug
+                        if verbose:
+                            mc.warning(
+                                'Cannot set locked or connected attribute: {}'.format(
+                                    plug
+                                )
                             )
-                        )
                         continue
 
                     mc.setKeyframe(
@@ -410,16 +413,39 @@ def fix_selected_rotation_animation():
 
             processed.append(node)
 
-            print(
-                'Fixed {} rotation keys on {}'.format(
-                    len(key_times),
-                    node
+            if verbose:
+                print(
+                    'Fixed {} rotation keys on {}'.format(
+                        len(key_times),
+                        node
+                    )
                 )
-            )
 
     finally:
-        mc.undoInfo(closeChunk=True)
+        if undo:
+            mc.undoInfo(closeChunk=True)
 
-    mc.refresh(force=True)
+    if refresh:
+        mc.refresh(force=True)
 
     return processed
+
+
+def fix_selected_rotation_animation():
+    """
+    Fixes all existing rotation keyframes on selected transforms.
+
+    The first keyed frame is solved toward zero. Each subsequent frame is
+    solved toward the previous corrected rotation for continuity.
+    """
+    nodes = mc.ls(
+        selection=True,
+        long=True,
+        type='transform'
+    ) or []
+
+    if not nodes:
+        mc.warning('Select one or more animated transforms.')
+        return []
+
+    return fix_rotation_animation(nodes)
