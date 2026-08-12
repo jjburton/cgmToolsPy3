@@ -15,6 +15,7 @@ import time
 import pprint
 import os
 import sys
+from functools import partial
 import math
 import json
 
@@ -120,9 +121,43 @@ class ui(cgmUI.cgmGUI):
         self.create_guiOptionVar('mocap_show_short_names', defaultValue = 0)
         self.create_guiOptionVar('mocap_rig_namespace', defaultValue = '')
         self.create_guiOptionVar('mocap_skel_roots', defaultValue = '')
+        self.create_guiOptionVar('mocap_last_ccl', defaultValue = '')
+        self.var_mocap_last_ccl.setType('string')
+
+        self.mPathList_recent = cgmMeta.pathList('{}_CCLRecent'.format(__toolname__))
+        self._loaded_ccl = ''
 
         self.uiPopUpMenu_target = None
         self.uiPopUpMenu_source = None
+
+    def post_init(self, *args, **kws):
+        _path = self.var_mocap_last_ccl.value
+        if _path and os.path.exists(_path):
+            self.uiFunc_load_data(filepath=_path)
+
+    def uiStatus_refresh(self, string=None):
+        if not string:
+            if self._loaded_ccl:
+                string = STRING.short(self._loaded_ccl, max=40, start=10)
+            else:
+                string = 'No CCL loaded'
+        if self._loaded_ccl:
+            self.uiStatus_top(edit=True,
+                              bgc=SHARED._d_gui_state_colors.get('connected'),
+                              label=string)
+        else:
+            self.uiStatus_top(edit=True,
+                              bgc=SHARED._d_gui_state_colors.get('help'),
+                              label=string)
+
+    def uiStatus_fileExplorer(self):
+        if self._loaded_ccl and os.path.exists(self._loaded_ccl):
+            os.startfile(CGMPATH.Path(self._loaded_ccl).up().asFriendly())
+
+    def uiStatus_fileClear(self):
+        self._loaded_ccl = ''
+        self.var_mocap_last_ccl.setValue('')
+        self.uiStatus_refresh()
 
     def reload(self):
         reload_dependencies()
@@ -168,12 +203,24 @@ class ui(cgmUI.cgmGUI):
 
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu )
 
+        self.mPathList_recent.verify()
+        _recent = mUI.MelMenuItem(self.uiMenu_FirstMenu, l="Recent",
+                                  ann='Open a recent CCL file', subMenu=True)
+        for p in self.mPathList_recent.l_paths:
+            if '.' in p:
+                _split = p.split('.')
+                _l = STRING.short(str(_split[0]), 20)
+            else:
+                _l = STRING.short(str(p), 20)
+            mUI.MelMenuItem(_recent, l=_l,
+                            c=cgmGEN.Callback(self.uiFunc_load_data, filepath=p))
+
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Save Data",
-                 c=lambda *a: self.uiFunc_save_data(self) )
+                 c=lambda *a: self.uiFunc_save_data() )
 
 
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Load Data",
-                 c=lambda *a: self.uiFunc_load_data(self) )
+                 c=lambda *a: self.uiFunc_load_data() )
 
         mUI.MelMenuItemDiv( self.uiMenu_FirstMenu )
 
@@ -187,6 +234,29 @@ class ui(cgmUI.cgmGUI):
         _str_func = 'build_layoutWrapper'
 
         _MainForm = mUI.MelFormLayout(self,ut='cgmUITemplate')
+
+        _status_row = mUI.MelHSingleStretchLayout(_MainForm, ut='cgmUITemplate')
+        mUI.MelSpacer(_status_row, w=5)
+        self.uiStatus_top = mUI.MelLabel(_status_row,
+                                         vis=True,
+                                         bgc=SHARED._d_gui_state_colors.get('help'),
+                                         label='No CCL loaded',
+                                         h=20)
+        mUI.MelIconButton(_status_row,
+                          ann='Clear the loaded CCL link',
+                          image=os.path.join(cgmUI._path_imageFolder, 'clear.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=partial(self.uiStatus_fileClear))
+        mUI.MelIconButton(_status_row,
+                          ann='Open CCL folder',
+                          image=os.path.join(cgmUI._path_imageFolder, 'find_file.png'),
+                          w=25, h=25,
+                          bgc=cgmUI.guiButtonColor,
+                          c=lambda *a: self.uiStatus_fileExplorer())
+        _status_row.setStretchWidget(self.uiStatus_top)
+        mUI.MelSpacer(_status_row, w=5)
+        _status_row.layout()
 
         _item_form = mUI.MelFormLayout(_MainForm,ut='cgmUITemplate')
         
@@ -268,14 +338,17 @@ class ui(cgmUI.cgmGUI):
         _footer = cgmUI.add_cgmFooter(_options_column)        
 
         _MainForm(edit = True,
-                  af = [(_item_form,"top",0),
-                        (_item_form,"left",0),
+                  af = [(_status_row, "top", 0),
+                        (_status_row, "left", 0),
+                        (_status_row, "right", 0),
+                        (_item_form, "left", 0),
                         (_item_form, "right", 0),
-                        (_options_column,"left",0),
-                        (_options_column,"right",0),                       
-                        (_options_column,"bottom",0)],
-                  ac = [(_item_form,"bottom",2,_options_column)],
-                  attachNone = [(_options_column,"top")])
+                        (_options_column, "left", 0),
+                        (_options_column, "right", 0),
+                        (_options_column, "bottom", 0)],
+                  ac = [(_item_form, "top", 2, _status_row),
+                        (_item_form, "bottom", 2, _options_column)],
+                  attachNone = [(_options_column, "top")])
     
     def buildScrollForm(self, parent, hasHeader = False, buttonArgs = [], headerText = 'Header', allowMultiSelection=True, buttonCommand=None, doubleClickCommand=None, selectCommand=None):
         main_form = mUI.MelFormLayout(parent,ut='cgmUITemplate')
@@ -1086,13 +1159,24 @@ class ui(cgmUI.cgmGUI):
             print("Saved: {0}".format(file))
             print("=== end ===\n")
 
+        self._loaded_ccl = file
+        self.var_mocap_last_ccl.setValue(file)
+        self.mPathList_recent.append_recent(file)
+        self.uiStatus_refresh()
+
     # loads link data
-    def uiFunc_load_data(self, *args):
-        basicFilter = "*.ccl"
-        result = mc.fileDialog2(fileFilter=basicFilter, fileMode=1, dialogStyle=2)
-        if not result:
-            return
-        file = result[0]
+    def uiFunc_load_data(self, filepath=None, *args):
+        if filepath:
+            if not os.path.exists(filepath):
+                log.warning("CCL not found: {0}".format(filepath))
+                return
+            file = filepath
+        else:
+            basicFilter = "*.ccl"
+            result = mc.fileDialog2(fileFilter=basicFilter, fileMode=1, dialogStyle=2)
+            if not result:
+                return
+            file = result[0]
 
         loaded_data = MOCAPALIGN.load_ccl(file)
         rig_ns = self._get_rig_ns()
@@ -1142,6 +1226,11 @@ class ui(cgmUI.cgmGUI):
 
         self.refresh_aliases()
         self.print_data()
+
+        self._loaded_ccl = file
+        self.var_mocap_last_ccl.setValue(file)
+        self.mPathList_recent.append_recent(file)
+        self.uiStatus_refresh()
 
     # remove items from scroll lists
     def uiFunc_remove_from_parent_source(self, *args):
