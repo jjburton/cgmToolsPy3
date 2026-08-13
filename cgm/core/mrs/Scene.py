@@ -2690,6 +2690,8 @@ example:
 
     def uiFunc_showAllFiles(self):
         self.SaveOptions()
+        self.LoadSubTypeList()
+        self.LoadVariationList()
         self.LoadVersionList()
 
     def uiFunc_assetList_select(self):
@@ -2706,14 +2708,9 @@ example:
             return
 
 
-        self.subTypeSearchList['items'] = []
-        self.subTypeSearchList['scrollList'].clear()
-
-        self.variationList['items'] = []
-        self.variationList['scrollList'].clear()
-
-        self.versionList['items'] = []
-        self.versionList['scrollList'].clear()        
+        self._clear_searchable_list(self.subTypeSearchList)
+        self._clear_searchable_list(self.variationList)
+        self._clear_searchable_list(self.versionList)
 
 
 
@@ -2859,8 +2856,7 @@ example:
         else:
             log.debug(log_msg(_str_func,"hasVariant == false"))
             if self.variationList:
-                self.variationList['items'] = []
-                self.variationList['scrollList'].clear()
+                self._clear_searchable_list(self.variationList)
 
         #if not self.subTypes:#...if we have 
 
@@ -3604,37 +3600,65 @@ example:
 
         form( edit=True, attachForm=[(rcl, 'top', _margin), (rcl, 'left', _margin), (rcl, 'right', _margin), (tsl, 'bottom', _margin), (tsl, 'right', _margin), (tsl, 'left', _margin)], attachControl=[(tsl, 'top', _margin, rcl)] )
 
-        searchableList = {'formLayout':form, 'scrollList':tsl, 'searchField':tx, 'searchButton':b, 'items':[], 'selectCommand':sc}
+        searchableList = {'formLayout':form, 'scrollList':tsl, 'searchField':tx, 'searchButton':b, 'items':[], 'rows':[], 'selectCommand':sc}
 
         tx(edit=True, tcc=partial(self.process_search_filter, searchableList))
         b(edit=True, command=partial(self.clear_search_filter, searchableList))
 
         return searchableList
 
-    def process_search_filter(self, searchableList, *args):
-        #print "processing search for %s with search term %s" % (searchableList['scrollList'], searchableList['searchField'].getValue())
-        if not searchableList['searchField'].getValue():
-            searchableList['scrollList'].setItems(searchableList['items'])
+    def _refresh_searchable_display(self, searchableList):
+        """BlockScrollList-style refresh: ra, append label, itc per display index."""
+        _source = searchableList.get('rows') or []
+        _search = ''
+        try:
+            _search = searchableList['searchField'].getValue() or ''
+        except Exception:
+            pass
+        if _search.strip():
+            _displayRows = SCENEUTILS.scene_list_filter_rows(
+                _source, _search.lower().strip().split(' '))
         else:
-            searchTerms = searchableList['searchField'].getValue().lower().strip().split(' ')  #set(searchableList['searchField'].getValue().replace(' ', '').lower())
-            listItems = []
-            for item in searchableList['items']:
-                hasAllTerms = True
-                for term in searchTerms:
-                    if not term in item.lower():
-                        hasAllTerms = False
-                if hasAllTerms:
-                    listItems.append(item)
-            searchableList['scrollList'].setItems(listItems)
+            _displayRows = list(_source)
 
+        sl = searchableList['scrollList']
+        sl(e=True, ra=True)
+        sl._items = []
+        sl._ml_rows = []
+
+        for i, row in enumerate(_displayRows):
+            _label = row.alias if row.alias is not None else row.item
+            sl.append(_label)
+            sl._ml_rows.append(row)
+            try:
+                _itc = row.itc or SCENEUTILS.SCENE_LIST_ITC_FILE
+                sl(e=True, itc=[(i + 1, _itc[0], _itc[1], _itc[2])])
+            except Exception:
+                pass
+
+        sl._items = [r.item for r in sl._ml_rows]
+        searchableList['items'] = list(sl._items)
+
+    def _push_searchable_rows(self, searchableList, rows, store=True):
+        """Store SceneListRow source list and refresh scroll display."""
+        if store:
+            searchableList['rows'] = list(rows or [])
+        self._refresh_searchable_display(searchableList)
+
+    def _clear_searchable_list(self, searchableList):
+        self._push_searchable_rows(searchableList, [])
+
+    def process_search_filter(self, searchableList, *args):
+        self._refresh_searchable_display(searchableList)
         searchableList['selectCommand']
 
     def clear_search_filter(self, searchableList, *args):
         log.debug( "Clearing search filter for %s with search term %s" % (searchableList['scrollList'], searchableList['searchField'].getValue()) )
         searchableList['searchField'].setValue("")
         selected = searchableList['scrollList'].getSelectedItem()
-        searchableList['scrollList'].setItems(searchableList['items'])
-        searchableList['scrollList'].selectByValue(selected)
+        self._refresh_searchable_display(searchableList)
+        if selected:
+            searchableList['scrollList'].selectByValue(selected)
 
     def SetCategory(self, index, *args):
         self.categoryIndex = index
@@ -3697,14 +3721,9 @@ example:
 
         self.UpdateAssetList(assetList)
 
-        self.subTypeSearchList['items'] = []
-        self.subTypeSearchList['scrollList'].clear()
-
-        self.variationList['items'] = []
-        self.variationList['scrollList'].clear()
-
-        self.versionList['items'] = []
-        self.versionList['scrollList'].clear()
+        self._clear_searchable_list(self.subTypeSearchList)
+        self._clear_searchable_list(self.variationList)
+        self._clear_searchable_list(self.versionList)
 
         #self.SaveCurrentSelection()
 
@@ -3753,7 +3772,7 @@ example:
 
         #self._referenceSubTypePUM(e=True, en=False)
 
-        subList = []
+        subEntries = []
 
         if self.path_dir_category and self.assetList['scrollList'].getSelectedItem():
             if not self.hasSub:
@@ -3765,39 +3784,29 @@ example:
 
             if os.path.exists(charDir):
                 for d in os.listdir(charDir):
-                    #for ext in fileExtensions:
-                    #	if os.path.splitext(f)[-1].lower() == ".%s" % ext :
-
-                    #if d[0] == '_' or d[0] == '.':
-                    #    continue
                     animDir = os.path.normpath(os.path.join(charDir, d))
                     if self.showAllFiles:
                         if d.lower() in self.l_dirMask:
                             continue
+                        _break = False
                         for chk in ['MRSbatch']:
-                            _break = False
                             if chk in d:
                                 _break = True
-                                continue
+                                break
                         if _break:
                             continue
 
                     if os.path.isdir(animDir):
-                        subList.append(d)
+                        subEntries.append((d, 'dir'))
                     else:
-                        subList.append(d)
+                        subEntries.append((d, 'file'))
 
+        _rows = SCENEUTILS.scene_list_sort_rows(
+            SCENEUTILS.scene_list_rows_from_entries(subEntries))
+        self._push_searchable_rows(self.subTypeSearchList, _rows)
 
-        self.subTypeSearchList['items'] = subList
-        self.subTypeSearchList['scrollList'].clear()
-        self.subTypeSearchList['scrollList'].setItems(subList)
-
-
-        self.variationList['items'] = []
-        self.variationList['scrollList'].clear()
-
-        self.versionList['items'] = []
-        self.versionList['scrollList'].clear()
+        self._clear_searchable_list(self.variationList)
+        self._clear_searchable_list(self.versionList)
 
         self.uiUpdate_setsButtons()
 
@@ -3825,12 +3834,11 @@ example:
             self.buildAssetForm()
 
 
-        variationList = []
+        variationEntries = []
 
         selectedVariation = self.variationList['scrollList'].getSelectedItem()
 
-        self.variationList['items'] = []
-        self.variationList['scrollList'].clear()
+        self._clear_searchable_list(self.variationList)
 
         if self.path_set:#self.path_dir_category and self.assetList['scrollList'].getSelectedItem() and self.subTypeSearchList['scrollList'].getSelectedItem():
             animationDir = self.path_set
@@ -3841,31 +3849,22 @@ example:
 
 
             if os.path.exists(animationDir):
-                for d in CGMOS.get_lsFromPath(animationDir,'dir'):#os.listdir(animationDir):
-                    #for ext in fileExtensions:
-                    #	if os.path.splitext(f)[-1].lower() == ".%s" % ext :
-                    if d[0] == '_' or d[0] == '.':
-                        continue
-                    if d.lower() in self.l_dirMask:
-                        continue
+                for d in self._dir_children_dirs(animationDir):
+                    variationEntries.append((d, 'dir'))
 
-
-                    #animDir = os.path.normpath(os.path.join(animationDir, d))
-                    #if os.path.isdir(animDir):
-                    variationList.append(d)
-
+                _dirNames = {e[0] for e in variationEntries}
                 for f in self._dir_maya_files(animationDir):
-                    if f not in variationList:
-                        variationList.append(f)
+                    if f not in _dirNames:
+                        variationEntries.append((f, 'file'))
 
             else:
                 log.error(log_msg(_str_func, "path doesn't exist? {}".format(animationDir)))                                    
 
-        #pprint.pprint(variationList)
-        self.variationList['items'] = variationList
-        self.variationList['scrollList'].setItems(variationList)
+        _rows = SCENEUTILS.scene_list_sort_rows(
+            SCENEUTILS.scene_list_rows_from_entries(variationEntries))
+        self._push_searchable_rows(self.variationList, _rows)
 
-        if variationList:
+        if _rows:
             self.variationList['scrollList'].select_last(selCommand=False)
             # Auto-select skips selCommand — keep file/dir flags and version column in sync
             _autoPath = self.path_variationDirectory
@@ -3918,11 +3917,9 @@ example:
 
 
         if not searchDir:
-            searchList['items'] = []
-            searchList['scrollList'].clear()            
+            self._clear_searchable_list(searchList)
             return
 
-        versionList = []
         anims = []
 
         # populate animation info list
@@ -3968,9 +3965,9 @@ example:
                     else:
                         if '{0}_{1}_'.format(self.selectedAsset, self.subType) in f:
                             anims.append(f)
-        searchList['items'] = anims
-        searchList['scrollList'].clear()
-        searchList['scrollList'].setItems(anims)
+        _rows = SCENEUTILS.scene_list_sort_rows(
+            SCENEUTILS.scene_list_rows_from_entries([(f, 'file') for f in anims]))
+        self._push_searchable_rows(searchList, _rows)
         if anims:
             if selectValue:
                 searchList['scrollList'].selectByValue(selectValue, selCommand=False)
@@ -4217,8 +4214,9 @@ example:
             return []
 
     def UpdateAssetList(self, assetList):
-        self.assetList['items'] = assetList
-        self.assetList['scrollList'].setItems(assetList)
+        _rows = SCENEUTILS.scene_list_sort_rows(
+            SCENEUTILS.scene_list_rows_from_entries([(n, 'dir') for n in assetList]))
+        self._push_searchable_rows(self.assetList, _rows)
 
     # def GetPreviousDirectory(self, *args):
     # 	if self.optionVarLastDirStore.getValue():

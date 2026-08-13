@@ -88,6 +88,59 @@ d_annotations = {
 log_start = cgmGEN.logString_start
 log_sub = cgmGEN.logString_sub
 log_msg = cgmGEN.logString_msg
+
+# Scene browser scroll list — canonical item vs display alias (Feature_CgmToolUI)
+SCENE_LIST_ITC_DIR = [0.82, 0.86, 1.0]
+SCENE_LIST_ITC_FILE = [1.0, 1.0, 1.0]
+
+
+class SceneListRow(object):
+    """Parallel list row for Scene browser columns: .item canonical, .alias display-only."""
+    item = None
+    alias = None
+    kind = None
+    itc = None
+
+    def __init__(self, name, kind='file'):
+        self.item = name
+        self.kind = kind
+        if kind == 'dir':
+            self.alias = '{0}/'.format(name)
+            self.itc = list(SCENE_LIST_ITC_DIR)
+        else:
+            self.alias = name
+            self.itc = list(SCENE_LIST_ITC_FILE)
+
+
+def scene_list_row(name, kind='file'):
+    return SceneListRow(name, kind=kind)
+
+
+def scene_list_rows_from_entries(entries):
+    """Build rows from (name, kind) pairs."""
+    return [scene_list_row(name, kind=kind) for name, kind in entries]
+
+
+def scene_list_sort_rows(rows):
+    """Folders first, then files; case-insensitive name within each group."""
+    return sorted(rows, key=lambda r: (0 if r.kind == 'dir' else 1, (r.item or '').upper()))
+
+
+def scene_list_filter_rows(rows, search_terms):
+    """Filter rows when every term matches item or alias (case-insensitive)."""
+    if not search_terms:
+        return list(rows)
+    _terms = [t for t in search_terms if t]
+    if not _terms:
+        return list(rows)
+    _out = []
+    for row in rows:
+        _hay = '{0} {1}'.format(row.item or '', row.alias or '').lower()
+        if all(term in _hay for term in _terms):
+            _out.append(row)
+    return _out
+
+
 #=============================================================================================================
 #>> Queries
 #=============================================================================================================

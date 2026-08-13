@@ -2338,6 +2338,7 @@ class cgmScrollList(mUI.BaseMelWidget):
         #mUI.BaseMelWidget.__init__( self, parent, *a, **kw )
         self._appendCB = None
         self._items = []
+        self._ml_rows = []
         # self._ml_scene = []
         # self._ml_loaded = []
         self._l_strings = []
@@ -2353,20 +2354,55 @@ class cgmScrollList(mUI.BaseMelWidget):
         return self.getItems()[ idx ]
 
     def setItems( self, items ):
-        self.clear()
+        self._ml_rows = []
+        self( e=True, ra=True )
+        self._items = []
         for i in items:
             self.append( i )
+
+    def setRows(self, rows):
+        """Display SceneListRow aliases; canonical .item via getSelectedItem (Builder append+itc pattern)."""
+        _rows = list(rows or [])
+        self(e=True, ra=True)
+        self._items = []
+        self._ml_rows = []
+        for i, row in enumerate(_rows):
+            _label = row.alias if row.alias is not None else row.item
+            self.append(_label)
+            self._ml_rows.append(row)
+            try:
+                _itc = row.itc or [1.0, 1.0, 1.0]
+                self(e=True, itc=[(i + 1, _itc[0], _itc[1], _itc[2])])
+            except Exception:
+                pass
+        self._items = [r.item for r in self._ml_rows]
+
     def getItems( self ):
         return self._items
 
     def getSelectedItem( self ):
-        items = self.getSelectedItems()
+        idxs = self.getSelectedIdxs()
+        if idxs and self._ml_rows:
+            try:
+                return self._ml_rows[idxs[0]].item
+            except Exception:
+                pass
+        items = self( q=True, si=True ) or []
         if items:
             return items[0]
-        else:
-            return None
+        return None
 
     def getSelectedItems( self ):
+        idxs = self.getSelectedIdxs()
+        if idxs and self._ml_rows:
+            _out = []
+            for i in idxs:
+                try:
+                    _out.append(self._ml_rows[i].item)
+                except Exception:
+                    pass
+            if _out:
+                return _out
         return self( q=True, si=True ) or []
     
     def getSelectedIdx( self ):
@@ -2400,9 +2436,15 @@ class cgmScrollList(mUI.BaseMelWidget):
         
         
     def selectByValue( self, value, preclear=True, selCommand=True ):
-        if preclear:self.clearSelection()        
+        if preclear:self.clearSelection()
+        _select = value
+        if self._ml_rows:
+            for row in self._ml_rows:
+                if row.item == value:
+                    _select = row.alias
+                    break
         try:
-            self( e=True, selectItem=value )
+            self( e=True, selectItem=_select )
             if selCommand and self.selCommand:
                 self.selCommand()            
         except Exception as err:
@@ -2526,7 +2568,7 @@ class cgmScrollList(mUI.BaseMelWidget):
         log.debug(cgmGEN.logString_start('clear'))                
         self( e=True, ra=True )
         self._l_str_loaded = []
-        self._items = []
+        # Match Builder BlockScrollList — widget only; caller repopulates _items / _ml_rows
         # self._ml_loaded = []
         
     def clearSelection( self,):
