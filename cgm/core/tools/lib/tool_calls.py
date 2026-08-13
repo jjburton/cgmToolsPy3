@@ -251,6 +251,17 @@ def cgmSimChain():
         dynFKTool.ui()
     except Exception as err:
         cgmGEN.cgmException(Exception,err)
+
+
+def cgmP4Tool():
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        cgmGEN._reloadMod(P4UTIL)
+        import cgm.core.tools.p4Tool as P4TOOL
+        cgmGEN._reloadMod(P4TOOL)
+        P4TOOL.ui()
+    except Exception as err:
+        cgmGEN.cgmException(Exception, err)
         
 
 def cgmProject():

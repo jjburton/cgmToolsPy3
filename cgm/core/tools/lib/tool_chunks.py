@@ -136,6 +136,11 @@ def uiSection_help(parent):
                 c=lambda *a: mc.evalDeferred(TOOLCALLS.cgmUpdateTool,lp=True))
 
     mUI.MelMenuItemDiv(parent,label = 'Other')    
+
+    mc.menuItem(parent=parent,
+                l='cgmP4',
+                ann='Perforce connection — user/client prefs and status',
+                c=lambda *a: mc.evalDeferred(TOOLCALLS.cgmP4Tool, lp=True))
     
     mc.menuItem(parent = parent,
                 l='Report issue',
