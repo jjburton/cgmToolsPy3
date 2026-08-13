@@ -2368,13 +2368,12 @@ class cgmScrollList(mUI.BaseMelWidget):
         self._ml_rows = []
         for i, row in enumerate(_rows):
             _label = row.alias if row.alias is not None else row.item
-            self.append(_label)
+            self.appendDisplayRow(
+                _label,
+                itc=row.itc or [1.0, 1.0, 1.0],
+                displayIndex=i + 1,
+            )
             self._ml_rows.append(row)
-            try:
-                _itc = row.itc or [1.0, 1.0, 1.0]
-                self(e=True, itc=[(i + 1, _itc[0], _itc[1], _itc[2])])
-            except Exception:
-                pass
         self._items = [r.item for r in self._ml_rows]
 
     def getItems( self ):
@@ -2430,6 +2429,7 @@ class cgmScrollList(mUI.BaseMelWidget):
         if preclear:self.clearSelection()        
         try:
             self( e=True, selectIndexedItem=idx+1 )#indices are 1-based in mel land - fuuuuuuu alias!!!
+            self._syncHLCFromSelection()
             if selCommand and self.selCommand:
                 self.selCommand()
         except Exception as err:log.error(err)
@@ -2445,6 +2445,7 @@ class cgmScrollList(mUI.BaseMelWidget):
                     break
         try:
             self( e=True, selectItem=_select )
+            self._syncHLCFromSelection()
             if selCommand and self.selCommand:
                 self.selCommand()            
         except Exception as err:
@@ -2454,7 +2455,15 @@ class cgmScrollList(mUI.BaseMelWidget):
     def append( self, item ):
         self( e=True, append=item )
         self._items.append(item)
-        
+
+    def appendDisplayRow(self, label, itc=None, displayIndex=None):
+        """Append one scroll row — Builder append + itc (text only; see Feature_CgmToolUI)."""
+        self(e=True, append=label)
+        if itc and displayIndex:
+            try:
+                self(e=True, itc=[(displayIndex, itc[0], itc[1], itc[2])])
+            except Exception:
+                pass
     def appendItems( self, items ):
         for i in items: self.append( i )
         
@@ -2482,18 +2491,30 @@ class cgmScrollList(mUI.BaseMelWidget):
     def setHLC(self,mBlock=None, color = [1,1,1]):
         log.debug(cgmGEN.logString_start('setHLC'))        
         try:
-            _color = [v*.7 for v in color]
-            self(e =1, hlc = _color)
+            self(e =1, hlc = list(color))
             return
         except Exception as err:
             log.error(err)
             
         try:self(e =1, hlc = [.5,.5,.5])
         except:pass
+
+    def _syncHLCFromSelection(self, dim=0.7):
+        """Builder BlockScrollList — hlc = dimmed row itc (readable on inverted select row)."""
+        try:
+            l_indices = self.getSelectedIdxs()
+            if l_indices and self._ml_rows:
+                _row = self._ml_rows[l_indices[0]]
+                _itc = _row.itc or [1, 1, 1]
+                _hlc = [v * dim for v in _itc]
+                self.setHLC(color=_hlc)
+        except Exception:
+            pass
             
     def selCommand(self):
         log.debug(cgmGEN.logString_start('selCommand'))
         l_indices = self.getSelectedIdxs()
+        self._syncHLCFromSelection()
         if self.b_selCommandOn and self.cmd_select:
             if len(l_indices)<=1:
                 return self.cmd_select()

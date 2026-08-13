@@ -3579,6 +3579,10 @@ example:
 
         tsl = cgmUI.cgmScrollList(form)
         tsl.allowMultiSelect(allowMultiSelect)
+        try:
+            tsl(edit=True, hlc=[.5, .5, .5])
+        except Exception:
+            pass
 
         if sc != None:
             #tsl.set_selCallBack(sc)
@@ -3628,16 +3632,16 @@ example:
 
         for i, row in enumerate(_displayRows):
             _label = row.alias if row.alias is not None else row.item
-            sl.append(_label)
+            sl.appendDisplayRow(
+                _label,
+                itc=row.itc or SCENEUTILS.SCENE_LIST_ITC_FILE,
+                displayIndex=i + 1,
+            )
             sl._ml_rows.append(row)
-            try:
-                _itc = row.itc or SCENEUTILS.SCENE_LIST_ITC_FILE
-                sl(e=True, itc=[(i + 1, _itc[0], _itc[1], _itc[2])])
-            except Exception:
-                pass
 
         sl._items = [r.item for r in sl._ml_rows]
         searchableList['items'] = list(sl._items)
+        sl._syncHLCFromSelection(dim=SCENEUTILS.SCENE_LIST_HLC_DIM)
 
     def _push_searchable_rows(self, searchableList, rows, store=True):
         """Store SceneListRow source list and refresh scroll display."""

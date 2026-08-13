@@ -90,8 +90,19 @@ log_sub = cgmGEN.logString_sub
 log_msg = cgmGEN.logString_msg
 
 # Scene browser scroll list — canonical item vs display alias (Feature_CgmToolUI)
-SCENE_LIST_ITC_DIR = [0.82, 0.86, 1.0]
-SCENE_LIST_ITC_FILE = [1.0, 1.0, 1.0]
+# itc = unselected text. Selected hlc = itc × SCENE_LIST_HLC_DIM (Builder BlockScrollList).
+# Avoid pastel/white itc — Maya inverts the selection row and light colors wash out.
+SCENE_LIST_HLC_DIM = 0.7
+SCENE_LIST_ITC_DIR = [0.5, 0.55, 1.0]
+SCENE_LIST_ITC_FILE = [0.85, 0.85, 0.85]
+SCENE_LIST_DIR_ALIAS_PREFIX = '+ '
+
+
+def scene_list_row_alias(name, kind='file'):
+    """Display-only scroll label. iconTextScrollList row icons are not supported in Maya cmds."""
+    if kind == 'dir':
+        return '{0}{1}/'.format(SCENE_LIST_DIR_ALIAS_PREFIX, name)
+    return name
 
 
 class SceneListRow(object):
@@ -104,11 +115,10 @@ class SceneListRow(object):
     def __init__(self, name, kind='file'):
         self.item = name
         self.kind = kind
+        self.alias = scene_list_row_alias(name, kind=kind)
         if kind == 'dir':
-            self.alias = '{0}/'.format(name)
             self.itc = list(SCENE_LIST_ITC_DIR)
         else:
-            self.alias = name
             self.itc = list(SCENE_LIST_ITC_FILE)
 
 
