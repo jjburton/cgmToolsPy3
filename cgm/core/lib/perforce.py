@@ -792,6 +792,184 @@ def query_file_status(disk_path, p4_user=None, p4_client=None, force=False):
     return _out
 
 
+def _new_file_status_out(disk_path):
+    """Base dict for query_file_status / query_files_status."""
+    _norm = _normalize_disk_path(disk_path) if disk_path else disk_path
+    return {
+        'path': _norm,
+        'inClient': None,
+        'onDepot': False,
+        'notInClient': False,
+        'notOnDepot': False,
+        'checkedOut': False,
+        'outOfDate': False,
+        'synced': None,
+        'lockedByOther': False,
+        'openAction': None,
+        'change': None,
+        'headRev': None,
+        'haveRev': None,
+        'otherOpen': None,
+        'otherLock': None,
+        'ourLock': None,
+        'headAction': None,
+        'depotFile': None,
+        'clientFile': None,
+        'fileType': None,
+        'statusLabels': [],
+        'statusSummary': '',
+    }
+
+
+def _file_status_from_fstat_tag(disk_path, tag):
+    """Build full status dict from one fstat ztag record."""
+    _out = _new_file_status_out(disk_path)
+    if not tag:
+        return _out
+    _out['onDepot'] = True
+    if tag.get('headAction') == 'delete':
+        _out['onDepot'] = False
+        _out['notOnDepot'] = True
+    return _derive_file_status(_out, tag)
+
+
+def _path_lookup_key(disk_path):
+    """Case-insensitive normpath key for batch fstat result matching."""
+    _norm = _normalize_disk_path(disk_path)
+    if not _norm:
+        return None
+    return os.path.normcase(_norm)
+
+
+def _fstat_missing_path_status(disk_path, res):
+    """Classify a path absent from batch fstat tagRecords (per-path error lines)."""
+    _norm = _normalize_disk_path(disk_path)
+    _err_text = ' '.join((res.get('lines') or []) + [res.get('stderr') or '']).lower()
+    _path_bits = [_norm.lower() if _norm else '']
+    if _norm:
+        _path_bits.append(os.path.basename(_norm).lower())
+    _matched = False
+    for _raw in res.get('lines') or []:
+        _line = _strip_info_prefix(_raw).lower()
+        if not any(_b and _b in _line for _b in _path_bits if _b):
+            continue
+        _matched = True
+        if 'not in client view' in _line or 'not under' in _line:
+            _out = _new_file_status_out(disk_path)
+            _out['notInClient'] = True
+            return _derive_file_status(_out)
+        if 'no such file' in _line or 'not on depot' in _line or 'not in depot' in _line:
+            _out = _new_file_status_out(disk_path)
+            _out['notOnDepot'] = True
+            return _derive_file_status(_out)
+    if _matched or not res.get('ok'):
+        _out = _new_file_status_out(disk_path)
+        if not res.get('ok') and not _matched:
+            _out['error'] = res.get('stderr') or 'p4 fstat failed'
+        else:
+            _out['notOnDepot'] = True
+        return _derive_file_status(_out)
+    _out = _new_file_status_out(disk_path)
+    _out['notOnDepot'] = True
+    return _derive_file_status(_out)
+
+
+def classify_file_status_ui(file_dat):
+    """
+    Map query_file_status dict to Scene browser UI color key, or None for default file tint.
+
+    Returns: 'locked_by_other' | 'checked_out' | 'marked_for_add' | 'out_of_sync' | 'unknown' | None
+    """
+    if not file_dat:
+        return None
+    if file_dat.get('error') and not file_dat.get('notInClient') and not file_dat.get('notOnDepot'):
+        return None
+    if file_dat.get('notInClient'):
+        return None
+    if file_dat.get('lockedByOther'):
+        return 'locked_by_other'
+    if file_dat.get('checkedOut'):
+        if str(file_dat.get('openAction') or '').lower() == 'add':
+            return 'marked_for_add'
+        return 'checked_out'
+    if file_dat.get('outOfDate'):
+        return 'out_of_sync'
+    if file_dat.get('notOnDepot') and file_dat.get('inClient'):
+        return 'unknown'
+    return None
+
+
+def file_status_ui_suffix(file_dat, status_key):
+    """Display-only parenthetical for Scene scroll alias, e.g. '(locked-by-other)'."""
+    if not status_key:
+        return None
+    if status_key == 'locked_by_other':
+        if file_dat and file_dat.get('otherLock'):
+            return '(locked-by-other)'
+        if file_dat and file_dat.get('otherOpen'):
+            return '(open-elsewhere)'
+        return '(locked-by-other)'
+    _d = {
+        'checked_out': '(checked-out)',
+        'marked_for_add': '(marked-for-add)',
+        'out_of_sync': '(out-of-sync)',
+        'unknown': '(unknown)',
+    }
+    return _d.get(status_key)
+
+
+def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False):
+    """
+    Batch workspace / depot status for disk paths (single p4 -u -c -ztag fstat call).
+
+    Returns dict normpath -> status dict (same shape as query_file_status).
+    """
+    _paths = []
+    _seen = set()
+    for _p in disk_paths or []:
+        _norm = _normalize_disk_path(_p)
+        if not _norm:
+            continue
+        _key = _path_lookup_key(_norm)
+        if _key in _seen:
+            continue
+        _seen.add(_key)
+        _paths.append(_norm)
+
+    if not _paths:
+        return {}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {_norm: dict(_new_file_status_out(_norm), error=_err) for _norm in _paths}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {
+            _norm: dict(_new_file_status_out(_norm), error='p4 info failed')
+            for _norm in _paths
+        }
+
+    _res = _p4run('fstat', *_paths, p4_user=_user, p4_client=_client, ztag=True)
+    _by_key = {}
+    for _rec in _res.get('tagRecords') or []:
+        _client_file = _rec.get('clientFile')
+        _lookup = _path_lookup_key(_client_file) if _client_file else None
+        if not _lookup:
+            continue
+        _by_key[_lookup] = _file_status_from_fstat_tag(_client_file, _rec)
+
+    _out = {}
+    for _norm in _paths:
+        _lookup = _path_lookup_key(_norm)
+        if _lookup in _by_key:
+            _dat = dict(_by_key[_lookup])
+            _dat['path'] = _norm
+            _out[_norm] = _dat
+        else:
+            _out[_norm] = _fstat_missing_path_status(_norm, _res)
+    return _out
+
+
 def is_under_client(disk_path, p4_user=None, p4_client=None, force=False):
     """True when disk_path is mapped in the current p4 client workspace."""
     _dat = query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)

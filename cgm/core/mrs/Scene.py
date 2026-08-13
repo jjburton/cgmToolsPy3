@@ -3643,6 +3643,17 @@ example:
         searchableList['items'] = list(sl._items)
         sl._syncHLCFromSelection(dim=SCENEUTILS.SCENE_LIST_HLC_DIM)
 
+    def _apply_p4_file_row_colors(self, rows, search_dir):
+        """P4 file-row itc when versionControl=perforce and connected."""
+        if not rows or not search_dir:
+            return rows
+        SCENEUTILS.scene_list_apply_p4_file_itc(
+            rows,
+            path_by_item=lambda r: os.path.join(search_dir, r.item),
+            mDat=self.mDat,
+        )
+        return rows
+
     def _push_searchable_rows(self, searchableList, rows, store=True):
         """Store SceneListRow source list and refresh scroll display."""
         if store:
@@ -3777,6 +3788,7 @@ example:
         #self._referenceSubTypePUM(e=True, en=False)
 
         subEntries = []
+        charDir = None
 
         if self.path_dir_category and self.assetList['scrollList'].getSelectedItem():
             if not self.hasSub:
@@ -3807,6 +3819,7 @@ example:
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(subEntries))
+        self._apply_p4_file_row_colors(_rows, charDir)
         self._push_searchable_rows(self.subTypeSearchList, _rows)
 
         self._clear_searchable_list(self.variationList)
@@ -3839,6 +3852,7 @@ example:
 
 
         variationEntries = []
+        animationDir = None
 
         selectedVariation = self.variationList['scrollList'].getSelectedItem()
 
@@ -3866,6 +3880,7 @@ example:
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(variationEntries))
+        self._apply_p4_file_row_colors(_rows, animationDir)
         self._push_searchable_rows(self.variationList, _rows)
 
         if _rows:
@@ -3971,6 +3986,7 @@ example:
                             anims.append(f)
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries([(f, 'file') for f in anims]))
+        self._apply_p4_file_row_colors(_rows, searchDir)
         self._push_searchable_rows(searchList, _rows)
         if anims:
             if selectValue:

@@ -97,6 +97,21 @@ SCENE_LIST_ITC_DIR = [0.5, 0.55, 1.0]
 SCENE_LIST_ITC_FILE = [0.85, 0.85, 0.85]
 SCENE_LIST_DIR_ALIAS_PREFIX = '+ '
 
+# P4 file-row tints (versionControl + connected only) — shared_data / Builder saturated RGB
+SCENE_LIST_ITC_P4_CHECKED_OUT = [0.31, 0.81, 1.0]
+SCENE_LIST_ITC_P4_MARKED_ADD = [0.17, 0.50, 0.02]
+SCENE_LIST_ITC_P4_OUT_OF_SYNC = [0.84, 0.40, 0.02]
+SCENE_LIST_ITC_P4_UNKNOWN = [1.0, 0.88, 0.0]
+SCENE_LIST_ITC_P4_LOCKED = [1.0, 0.3, 0.3]
+
+SCENE_LIST_ITC_P4_BY_STATUS = {
+    'locked_by_other': SCENE_LIST_ITC_P4_LOCKED,
+    'checked_out': SCENE_LIST_ITC_P4_CHECKED_OUT,
+    'marked_for_add': SCENE_LIST_ITC_P4_MARKED_ADD,
+    'out_of_sync': SCENE_LIST_ITC_P4_OUT_OF_SYNC,
+    'unknown': SCENE_LIST_ITC_P4_UNKNOWN,
+}
+
 
 def scene_list_row_alias(name, kind='file'):
     """Display-only scroll label. iconTextScrollList row icons are not supported in Maya cmds."""
@@ -111,11 +126,13 @@ class SceneListRow(object):
     alias = None
     kind = None
     itc = None
+    data = None
 
     def __init__(self, name, kind='file'):
         self.item = name
         self.kind = kind
         self.alias = scene_list_row_alias(name, kind=kind)
+        self.data = None
         if kind == 'dir':
             self.itc = list(SCENE_LIST_ITC_DIR)
         else:
@@ -134,6 +151,98 @@ def scene_list_rows_from_entries(entries):
 def scene_list_sort_rows(rows):
     """Folders first, then files; case-insensitive name within each group."""
     return sorted(rows, key=lambda r: (0 if r.kind == 'dir' else 1, (r.item or '').upper()))
+
+
+def scene_list_p4_enabled(mDat=None):
+    """True when project uses Perforce and P4 connection is available."""
+    if not mDat:
+        return False
+    try:
+        import cgm.core.tools.lib.project_utils as PROJECTUTIL
+        if not PROJECTUTIL.project_uses_perforce(mDat):
+            return False
+    except Exception:
+        return False
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        return bool(P4UTIL.query_project_p4_status().get('connected'))
+    except Exception:
+        return False
+
+
+def scene_list_file_alias(name, p4_status_key=None, file_dat=None):
+    """File scroll label; optional P4 status suffix is display-only."""
+    _base = scene_list_row_alias(name, kind='file')
+    if not p4_status_key:
+        return _base
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _suffix = P4UTIL.file_status_ui_suffix(file_dat, p4_status_key)
+    except Exception:
+        _suffix = None
+    if _suffix:
+        return '{0} {1}'.format(_base, _suffix)
+    return _base
+
+
+def scene_list_apply_p4_file_itc(rows, path_by_item, status_by_path=None, mDat=None):
+    """
+    Override itc + alias suffix on kind=='file' rows when versionControl=perforce and P4 connected.
+
+    path_by_item: callable(row) -> absolute disk path for that row.
+    status_by_path: optional pre-fetched dict from query_files_status (testing).
+    """
+    if not rows or not path_by_item:
+        return rows
+    if not scene_list_p4_enabled(mDat):
+        return rows
+
+    _file_rows = [r for r in rows if r.kind == 'file']
+    if not _file_rows:
+        return rows
+
+    _path_map = {}
+    for row in _file_rows:
+        try:
+            _path = os.path.normpath(path_by_item(row))
+        except Exception:
+            continue
+        if _path:
+            _path_map[_path] = row
+
+    if not _path_map:
+        return rows
+
+    if status_by_path is None:
+        try:
+            import cgm.core.lib.perforce as P4UTIL
+            status_by_path = P4UTIL.query_files_status(list(_path_map.keys()))
+        except Exception as err:
+            log.debug('scene_list_apply_p4_file_itc | {0}'.format(err))
+            return rows
+
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+    except Exception as err:
+        log.debug('scene_list_apply_p4_file_itc | {0}'.format(err))
+        return rows
+
+    for _path, row in _path_map.items():
+        _dat = status_by_path.get(_path)
+        if not _dat:
+            continue
+        _key = P4UTIL.classify_file_status_ui(_dat)
+        if not _key:
+            row.data = None
+            row.itc = list(SCENE_LIST_ITC_FILE)
+            row.alias = scene_list_row_alias(row.item, kind='file')
+            continue
+        _itc = SCENE_LIST_ITC_P4_BY_STATUS.get(_key)
+        if _itc:
+            row.itc = list(_itc)
+            row.data = {'p4Status': _key}
+            row.alias = scene_list_file_alias(row.item, p4_status_key=_key, file_dat=_dat)
+    return rows
 
 
 def scene_list_filter_rows(rows, search_terms):
