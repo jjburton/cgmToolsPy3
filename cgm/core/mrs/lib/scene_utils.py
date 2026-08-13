@@ -93,7 +93,7 @@ log_msg = cgmGEN.logString_msg
 # itc = unselected text. Selected hlc = itc × SCENE_LIST_HLC_DIM (Builder BlockScrollList).
 # Avoid pastel/white itc — Maya inverts the selection row and light colors wash out.
 SCENE_LIST_HLC_DIM = 0.7
-SCENE_LIST_ITC_DIR = [0.5, 0.55, 1.0]
+SCENE_LIST_ITC_DIR = [0.55, 0.55, 0.55]
 SCENE_LIST_ITC_FILE = [0.85, 0.85, 0.85]
 SCENE_LIST_DIR_ALIAS_PREFIX = '+ '
 

@@ -1203,6 +1203,32 @@ def revert_change(change, p4_user=None, p4_client=None, force=False):
     }
 
 
+def sync_file(disk_path, force=False, p4_user=None, p4_client=None):
+    """p4 sync — update one disk path to head revision."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return {'ok': False, 'action': 'sync', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'sync', 'path': _path, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'sync', 'path': _path, 'stderr': 'p4 info failed', 'lines': []}
+
+    if force:
+        _res = _p4run('sync', '-f', _path, p4_user=_user, p4_client=_client, ztag=False)
+    else:
+        _res = _p4run('sync', _path, p4_user=_user, p4_client=_client, ztag=False)
+
+    if _res.get('ok'):
+        _clear_cache()
+
+    _out = _write_result('sync', _path, _res)
+    _out['path'] = _path
+    return _out
+
+
 def sync_workspace(force=False, p4_user=None, p4_client=None):
     """p4 sync — update entire client workspace to head."""
     _user, _client, _err = _require_connection(p4_user, p4_client)

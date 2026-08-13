@@ -301,6 +301,10 @@ example:
         self.ml_fileOptions_set = []
         self.ml_dirOptions_variant = []
         self.ml_fileOptions_variant = []
+        self.ml_p4_options_set = []
+        self.ml_p4_options_variant = []
+        self.ml_p4_options_version = []
+        self.ml_p4_options_multi = []
         self.displayProject = True
         self.mDat                     = None
         self.assetMetaData               = {}
@@ -1677,12 +1681,13 @@ example:
                                                             refreshCommand=lambda *a:self.LoadSubTypeList(),
                                                             allowMultiSelect=True)
 
-        #JOSH HERE — popup rebuilt on selection (Builder pattern); none when multi-select
+        # File-list popup rebuilt on selection (Builder pattern); reduced menu when multi-select
         self._wireFileListScrollSelect(
             self.subTypeSearchList,
             'subTypeListPUM',
             self.buildSubTypeListPopup,
             self.uiFunc_subTypeList_select,
+            list_key='sets',
             sendToProjectAttr='uiPop_sendToProject_sub')
 
 
@@ -1728,6 +1733,7 @@ example:
             'variationListPUM',
             self.buildVariationListPopup,
             self.uiFunc_variationList_select,
+            list_key='variation',
             sendToProjectAttr='uiPop_sendToProject_variant')
         #---------------------------------------------------------------------------------------
 
@@ -1766,6 +1772,7 @@ example:
             'versionListPUM',
             self.buildVersionListPopup,
             self.uiFunc_versionList_select,
+            list_key='version',
             sendToProjectAttr='uiPop_sendToProject_version')
 
         mRow_versionButtons = mUI.MelHLayout(_versionForm, padding=2)
@@ -2830,6 +2837,7 @@ example:
             for mUI in self.ml_dirOptions_set:
                 mUI(edit=True,en=False)
 
+            self._refresh_p4_menu_items([self.ml_p4_options_set], True)
 
             log.debug(log_msg(_str_func,'is versionList'))            
             self.assetMetaData = self.getMetaDataFromFile()
@@ -2847,7 +2855,7 @@ example:
             for mUI in self.ml_dirOptions_set:
                 mUI(edit=True,en=True)
 
-
+            self._refresh_p4_menu_items([self.ml_p4_options_set], False)
 
         if self.hasVariant:
             log.debug(log_msg(_str_func,"hasVariant"))                        
@@ -2895,6 +2903,8 @@ example:
             for mUI in self.ml_dirOptions_variant:
                 mUI(edit=True,en=False)
 
+            self._refresh_p4_menu_items([self.ml_p4_options_variant], True)
+
             self.versionList['scrollList'].clear()
             self.assetMetaData = self.getMetaDataFromFile()
             self.buildDetailsColumn()
@@ -2904,7 +2914,9 @@ example:
             for mUI in self.ml_fileOptions_variant:
                 mUI(edit=True,en=False)            
             for mUI in self.ml_dirOptions_variant:
-                mUI(edit=True,en=True)                 
+                mUI(edit=True,en=True)
+
+            self._refresh_p4_menu_items([self.ml_p4_options_variant], False)
 
             self.LoadVersionList()
             self._refreshMetaDataFromSelection()
@@ -2924,6 +2936,9 @@ example:
         self.assetMetaData = self.getMetaDataFromFile()
         self.buildDetailsColumn()
         self.SaveCurrentSelection()
+        self._refresh_p4_menu_items(
+            [self.ml_p4_options_version],
+            bool(self._scene_p4_selected_file_path()))
         log.info( self.versionFile )
 
 
@@ -3594,7 +3609,7 @@ example:
                               ann='Recheck the target directory for new data',
                               image=os.path.join(_path_imageFolder,'refresh.png') ,
                               w=25,h=25,
-                              c=refreshCommand)
+                              c=lambda *a: self._defer_ui(refreshCommand))
             '''
             mUI.MelButton(rcl, label='Refresh', ut='cgmUISubTemplate',
                           ann='Recheck the target directory for new data',
@@ -3611,6 +3626,10 @@ example:
 
         return searchableList
 
+    def _defer_ui(self, callableObj, *args, **kwargs):
+        """Next-idle UI work — avoids Maya/Qt crash when mutating scroll lists from popup menus."""
+        mc.evalDeferred(cgmGEN.Callback(callableObj, *args, **kwargs), lp=True)
+
     def _refresh_searchable_display(self, searchableList):
         """BlockScrollList-style refresh: ra, append label, itc per display index."""
         _source = searchableList.get('rows') or []
@@ -3626,22 +3645,31 @@ example:
             _displayRows = list(_source)
 
         sl = searchableList['scrollList']
-        sl(e=True, ra=True)
-        sl._items = []
-        sl._ml_rows = []
+        _selOn = sl.b_selCommandOn
+        sl.b_selCommandOn = False
+        try:
+            try:
+                sl(e=True, deselectAll=True)
+            except Exception:
+                pass
+            sl(e=True, ra=True)
+            sl._items = []
+            sl._ml_rows = []
 
-        for i, row in enumerate(_displayRows):
-            _label = row.alias if row.alias is not None else row.item
-            sl.appendDisplayRow(
-                _label,
-                itc=row.itc or SCENEUTILS.SCENE_LIST_ITC_FILE,
-                displayIndex=i + 1,
-            )
-            sl._ml_rows.append(row)
+            for i, row in enumerate(_displayRows):
+                _label = row.alias if row.alias is not None else row.item
+                sl.appendDisplayRow(
+                    _label,
+                    itc=row.itc or SCENEUTILS.SCENE_LIST_ITC_FILE,
+                    displayIndex=i + 1,
+                )
+                sl._ml_rows.append(row)
 
-        sl._items = [r.item for r in sl._ml_rows]
-        searchableList['items'] = list(sl._items)
-        sl._syncHLCFromSelection(dim=SCENEUTILS.SCENE_LIST_HLC_DIM)
+            sl._items = [r.item for r in sl._ml_rows]
+            searchableList['items'] = list(sl._items)
+            sl._syncHLCFromSelection(dim=SCENEUTILS.SCENE_LIST_HLC_DIM)
+        finally:
+            sl.b_selCommandOn = _selOn
 
     def _apply_p4_file_row_colors(self, rows, search_dir):
         """P4 file-row itc when versionControl=perforce and connected."""
@@ -5091,9 +5119,79 @@ example:
             return
         log.warning("Unknown path: {0}".format(path))
 
+    def _fileListScrollForMode(self, mode):
+        if mode == 'sets':
+            return self.subTypeSearchList['scrollList']
+        if mode == 'variation':
+            return self.variationList['scrollList']
+        if mode == 'version':
+            return self.versionList['scrollList']
+        return None
+
+    def _resolveFileListDeletePath(self, list_key, item_name):
+        if not item_name:
+            return None
+        try:
+            if list_key == 'sets':
+                _subRoot = self.path_subType or self._resolve_subType_container_path(self.path_asset, self.subType)
+                if not _subRoot:
+                    return None
+                return os.path.normpath(os.path.join(_subRoot, item_name))
+            if list_key == 'variation':
+                _path_set = self.path_set
+                if not _path_set:
+                    return None
+                return os.path.normpath(os.path.join(_path_set, item_name))
+            if list_key == 'version':
+                _parent = self._version_files_parent_directory()
+                if not _parent:
+                    return None
+                return os.path.normpath(os.path.join(_parent, item_name))
+        except Exception as err:
+            log.debug(log_msg('_resolveFileListDeletePath', err))
+        return None
+
     def uiFunc_deleteSelectedInList(self,mode = None):
         _str_func = 'uiFunc_deleteSelectedInList'
         log.debug("|{}| >>...{}".format(_str_func,mode))
+
+        _scroll = self._fileListScrollForMode(mode)
+        _items = _scroll.getSelectedItems() if _scroll else []
+        if len(_items) > 1:
+            _paths = []
+            for _item in _items:
+                _path = self._resolveFileListDeletePath(mode, _item)
+                if _path and (os.path.isfile(_path) or os.path.isdir(_path)):
+                    _paths.append(_path)
+            if not _paths:
+                return log.warning(log_msg(_str_func, 'no valid paths for bulk delete'))
+            _result = mc.confirmDialog(
+                title='Remove Selected',
+                message='Delete {0} selected item(s)?'.format(len(_paths)),
+                button=['OK', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+            if _result != 'OK':
+                return
+            for _path in _paths:
+                try:
+                    if os.path.isfile(_path):
+                        os.remove(_path)
+                    elif os.path.isdir(_path):
+                        import shutil
+                        shutil.rmtree(_path)
+                    log.warning("deleted: {0}".format(_path))
+                except Exception as err:
+                    log.error(log_msg(_str_func, 'delete failed | {0} | {1}'.format(_path, err)))
+            if mode == 'sets':
+                self.LoadSubTypeList()
+            elif mode == 'variation':
+                self.LoadVariationList()
+            elif mode == 'version':
+                self.LoadVersionList()
+            return
 
         if mode == 'asset':
             _path =  self.path_asset
@@ -5388,77 +5486,536 @@ example:
             referenceMB(e=True, en=False)
 
 
-        self.refreshAssetListMB = mUI.MelMenuItem(self.assetTSLpum, label="Refresh", command=self.LoadCategoryList )
+        self.refreshAssetListMB = mUI.MelMenuItem(self.assetTSLpum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadCategoryList))
 
         mUI.MelMenuItemDiv(self.assetTSLpum)
         mUI.MelMenuItem(self.assetTSLpum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'asset' ))
 
 
-    def _getFileListPopup(self, scrollList, popupAttr):
-        """Return the persistent file-list popup, creating it if wiring did not run yet."""
-        pum = getattr(self, popupAttr, None)
-        if pum is not None:
-            return pum
-        _pmc = self._d_fileListPopupPmc.get(popupAttr)
-        _kw = {'button': 3}
-        if _pmc:
-            _kw['pmc'] = cgmGEN.Callback(_pmc)
-        setattr(self, popupAttr, mUI.MelPopupMenu(scrollList, **_kw))
-        return getattr(self, popupAttr)
+    def _scene_p4_menu_active(self):
+        try:
+            return bool(PU.project_uses_perforce(self.mDat))
+        except Exception:
+            return False
 
-    def _fileListMultiSelectActive(self, scrollList):
-        return len(scrollList.getSelectedItems() or []) > 1
+    def _scene_p4_connected(self):
+        try:
+            import cgm.core.lib.perforce as P4UTIL
+            return bool(P4UTIL.query_project_p4_status().get('connected'))
+        except Exception:
+            return False
 
-    def _clearFileListPopupMenu(self, popupAttr):
+    def _scene_p4_connection(self):
+        import cgm.core.lib.perforce as P4UTIL
+        return P4UTIL.resolve_connection()
+
+    def _scene_p4_selected_file_path(self):
+        try:
+            _path = self.versionFile
+            if _path and os.path.isfile(_path):
+                return os.path.normpath(_path)
+        except Exception:
+            pass
+        return None
+
+    def _scene_p4_file_paths_for_list(self, list_key):
+        scroll = self._fileListScrollForMode(list_key)
+        if not scroll:
+            return []
+        paths = []
+        for item in scroll.getSelectedItems() or []:
+            path = self._resolveFileListDeletePath(list_key, item)
+            if path and os.path.isfile(path):
+                paths.append(os.path.normpath(path))
+        return paths
+
+    def _scene_p4_action_paths(self, list_key=None):
+        if list_key:
+            return self._scene_p4_file_paths_for_list(list_key)
+        _path = self._scene_p4_selected_file_path()
+        return [_path] if _path else []
+
+    def _refresh_p4_menu_items(self, item_lists, file_selected):
+        _en = bool(file_selected and self._scene_p4_connected())
+        for _lst in item_lists or []:
+            for _item in _lst or []:
+                try:
+                    _item(edit=True, en=_en)
+                except Exception:
+                    pass
+
+    def _scene_p4_reload_lists(self):
+        if self.b_subFile:
+            self.LoadSubTypeList()
+        elif self.b_varFile:
+            self.LoadVariationList()
+        else:
+            self.LoadVersionList()
+
+    def _scene_p4_after_write(self):
+        try:
+            import cgm.core.lib.perforce as P4UTIL
+            P4UTIL.flush_status_cache()
+        except Exception:
+            pass
+        self._defer_ui(self._scene_p4_reload_lists)
+
+    def _append_p4_file_menu(self, pum, track_list, list_key=None):
+        track_list[:] = []
+        if not self._scene_p4_menu_active():
+            return
+        mUI.MelMenuItemDiv(pum, label='Perforce')
+        _paths = self._scene_p4_action_paths(list_key) if list_key else None
+        _en = bool(self._scene_p4_connected())
+        if list_key is not None:
+            _en = _en and bool(_paths)
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Checkout',
+            ann='p4 edit — open depot file(s) for edit',
+            c=cgmGEN.Callback(self.uiFunc_p4_checkout_file, list_key),
+            en=_en))
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Add',
+            ann='p4 add — mark local file(s) for add to depot',
+            c=cgmGEN.Callback(self.uiFunc_p4_add_file, list_key),
+            en=_en))
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Revert',
+            ann='p4 revert — discard local open on selected file(s)',
+            c=cgmGEN.Callback(self.uiFunc_p4_revert_file, list_key),
+            en=_en))
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Sync',
+            ann='p4 sync — update selected file(s) to head revision',
+            c=cgmGEN.Callback(self.uiFunc_p4_sync_file, list_key),
+            en=_en))
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Submit',
+            ann='p4 submit — submit changelist for selected file(s)',
+            c=cgmGEN.Callback(self.uiFunc_p4_submit_file, list_key),
+            en=_en))
+
+    def uiFunc_p4_checkout_file(self, list_key=None, *args):
+        _paths = self._scene_p4_action_paths(list_key)
+        if not _paths:
+            return log.warning('P4 Checkout: no file selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Checkout: set user/client in cgmP4')
+        import cgm.core.lib.perforce as P4UTIL
+        if len(_paths) == 1:
+            _path = _paths[0]
+            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+            if _stat.get('checkedOut'):
+                return log.warning('P4 Checkout: file already opened — {0}'.format(_path))
+            if _stat.get('notInClient'):
+                return log.warning('P4 Checkout: file not in client view — {0}'.format(_path))
+            if not _stat.get('onDepot'):
+                return log.warning('P4 Checkout: file not on depot — use Add — {0}'.format(_path))
+            if _stat.get('outOfDate'):
+                return log.warning('P4 Checkout: file out of date — sync first — {0}'.format(_path))
+            if _stat.get('lockedByOther'):
+                return log.error('P4 Checkout: locked or open elsewhere — {0}'.format(_path))
+            _result = mc.confirmDialog(
+                title='Checkout file',
+                message='Checkout file for edit?\n\n{0}'.format(_path),
+                button=['Checkout', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+            if _result != 'Checkout':
+                return
+            P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+            _res = P4UTIL.edit(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                log.info('P4 checkout: {0}'.format(_path))
+                self._scene_p4_after_write()
+            else:
+                log.error('P4 checkout failed: {0}'.format(_res.get('stderr') or 'unknown'))
+            return
+        _result = mc.confirmDialog(
+            title='Checkout files',
+            message='Checkout {0} files for edit?'.format(len(_paths)),
+            button=['Checkout', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != 'Checkout':
+            return
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _ok = 0
+        for _path in _paths:
+            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+            if _stat.get('checkedOut'):
+                log.warning('P4 Checkout: skip — already opened — {0}'.format(_path))
+                continue
+            if _stat.get('notInClient'):
+                log.warning('P4 Checkout: skip — not in client view — {0}'.format(_path))
+                continue
+            if not _stat.get('onDepot'):
+                log.warning('P4 Checkout: skip — not on depot — {0}'.format(_path))
+                continue
+            if _stat.get('outOfDate'):
+                log.warning('P4 Checkout: skip — out of date — {0}'.format(_path))
+                continue
+            if _stat.get('lockedByOther'):
+                log.error('P4 Checkout: skip — locked elsewhere — {0}'.format(_path))
+                continue
+            _res = P4UTIL.edit(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                _ok += 1
+                log.info('P4 checkout: {0}'.format(_path))
+            else:
+                log.error('P4 checkout failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        if _ok:
+            self._scene_p4_after_write()
+        log.info('P4 checkout complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
+
+    def uiFunc_p4_add_file(self, list_key=None, *args):
+        _paths = self._scene_p4_action_paths(list_key)
+        if not _paths:
+            return log.warning('P4 Add: no file selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Add: set user/client in cgmP4')
+        import cgm.core.lib.perforce as P4UTIL
+        if len(_paths) == 1:
+            _path = _paths[0]
+            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+            if _stat.get('checkedOut'):
+                return log.warning('P4 Add: file already opened — {0}'.format(_path))
+            if _stat.get('notInClient'):
+                return log.warning('P4 Add: file not in client view — {0}'.format(_path))
+            if _stat.get('onDepot') and not _stat.get('notOnDepot'):
+                return log.warning('P4 Add: file already on depot — use Checkout — {0}'.format(_path))
+            if _stat.get('lockedByOther'):
+                return log.error('P4 Add: locked or open elsewhere — {0}'.format(_path))
+            _result = mc.confirmDialog(
+                title='Add file',
+                message='Mark file for add to depot?\n\n{0}'.format(_path),
+                button=['Add', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+            if _result != 'Add':
+                return
+            P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+            _res = P4UTIL.add(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                log.info('P4 add: {0}'.format(_path))
+                self._scene_p4_after_write()
+            else:
+                log.error('P4 add failed: {0}'.format(_res.get('stderr') or 'unknown'))
+            return
+        _result = mc.confirmDialog(
+            title='Add files',
+            message='Mark {0} files for add to depot?'.format(len(_paths)),
+            button=['Add', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != 'Add':
+            return
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _ok = 0
+        for _path in _paths:
+            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+            if _stat.get('checkedOut'):
+                log.warning('P4 Add: skip — already opened — {0}'.format(_path))
+                continue
+            if _stat.get('notInClient'):
+                log.warning('P4 Add: skip — not in client view — {0}'.format(_path))
+                continue
+            if _stat.get('onDepot') and not _stat.get('notOnDepot'):
+                log.warning('P4 Add: skip — already on depot — {0}'.format(_path))
+                continue
+            if _stat.get('lockedByOther'):
+                log.error('P4 Add: skip — locked elsewhere — {0}'.format(_path))
+                continue
+            _res = P4UTIL.add(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                _ok += 1
+                log.info('P4 add: {0}'.format(_path))
+            else:
+                log.error('P4 add failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        if _ok:
+            self._scene_p4_after_write()
+        log.info('P4 add complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
+
+    def uiFunc_p4_revert_file(self, list_key=None, *args):
+        _paths = self._scene_p4_action_paths(list_key)
+        if not _paths:
+            return log.warning('P4 Revert: no file selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Revert: set user/client in cgmP4')
+        if len(_paths) == 1:
+            _path = _paths[0]
+            _result = mc.confirmDialog(
+                title='Revert file',
+                message='Revert opened file?\n\n{0}'.format(_path),
+                button=['Revert', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+        else:
+            _result = mc.confirmDialog(
+                title='Revert files',
+                message='Revert {0} file(s)?'.format(len(_paths)),
+                button=['Revert', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+        if _result != 'Revert':
+            return
+        import cgm.core.lib.perforce as P4UTIL
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _ok = 0
+        for _path in _paths:
+            _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                _ok += 1
+                log.info('P4 reverted: {0}'.format(_path))
+            else:
+                log.error('P4 revert failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        if _ok:
+            self._scene_p4_after_write()
+        if len(_paths) > 1:
+            log.info('P4 revert complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
+
+    def uiFunc_p4_sync_file(self, list_key=None, *args):
+        _paths = self._scene_p4_action_paths(list_key)
+        if not _paths:
+            return log.warning('P4 Sync: no file selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Sync: set user/client in cgmP4')
+        if len(_paths) == 1:
+            _path = _paths[0]
+            _result = mc.confirmDialog(
+                title='Sync file',
+                message='Sync file to head revision?\n\n{0}'.format(_path),
+                button=['Sync', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+        else:
+            _result = mc.confirmDialog(
+                title='Sync files',
+                message='Sync {0} file(s) to head revision?'.format(len(_paths)),
+                button=['Sync', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+        if _result != 'Sync':
+            return
+        import cgm.core.lib.perforce as P4UTIL
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _ok = 0
+        for _path in _paths:
+            _res = P4UTIL.sync_file(_path, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                _ok += 1
+                log.info('P4 synced: {0}'.format(_path))
+            else:
+                log.error('P4 sync failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        if _ok:
+            self._scene_p4_after_write()
+        if len(_paths) > 1:
+            log.info('P4 sync complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
+
+    def uiFunc_p4_submit_file(self, list_key=None, *args):
+        _paths = self._scene_p4_action_paths(list_key)
+        if not _paths:
+            return log.warning('P4 Submit: no file selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Submit: set user/client in cgmP4')
+        import cgm.core.lib.perforce as P4UTIL
+        _opened = []
+        for _path in _paths:
+            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+            if _stat.get('checkedOut'):
+                _opened.append((_path, _stat.get('change') or 'default'))
+        if not _opened:
+            return log.warning('P4 Submit: no opened files in selection')
+        if len(_opened) == 1:
+            _path = _opened[0][0]
+            _change = _opened[0][1]
+            _change_key = str(_change).lower()
+            _count = 1
+            try:
+                _opened_all = P4UTIL.query_opened(p4_user=_user, p4_client=_client)
+                _count = sum(
+                    1 for _rec in (P4UTIL.flatten_opened_entries(_opened_all) or [])
+                    if str(_rec.get('change', 'default')).lower() == _change_key
+                ) or 1
+            except Exception:
+                _count = 1
+            _msg = 'Submit changelist {0} for file:\n\n{1}'.format(_change, _path)
+            if _count > 1:
+                _msg = (
+                    'Submit changelist {0}?\n\nThis changelist has {1} opened file(s), '
+                    'not just this one:\n\n{2}'.format(_change, _count, _path)
+                )
+            if _change_key == 'default':
+                _msg = (
+                    'Submit default changelist?\n\nThis submits ALL files in the default '
+                    'changelist ({0} file(s)).\n\nTriggered from:\n{1}'.format(_count, _path)
+                )
+            _result = mc.confirmDialog(
+                title='Submit changelist',
+                message=_msg,
+                button=['Submit', 'Cancel'],
+                defaultButton='Cancel',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+            if _result != 'Submit':
+                return
+            P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+            _res = P4UTIL.submit_paths([_path], change=_change, p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                log.info('P4 submitted: {0}'.format(_path))
+                self._scene_p4_after_write()
+            else:
+                log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+            return
+        _by_change = {}
+        for _path, _change in _opened:
+            _key = str(_change).lower()
+            if _key not in _by_change:
+                _by_change[_key] = {'change': _change, 'paths': []}
+            _by_change[_key]['paths'].append(_path)
+        _result = mc.confirmDialog(
+            title='Submit changelists',
+            message='Submit {0} opened file(s) across {1} changelist(s)?'.format(
+                len(_opened), len(_by_change)),
+            button=['Submit', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != 'Submit':
+            return
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _ok = 0
+        for _grp in _by_change.values():
+            _res = P4UTIL.submit_paths(
+                _grp['paths'], change=_grp['change'], p4_user=_user, p4_client=_client)
+            if _res.get('ok'):
+                _ok += len(_grp['paths'])
+                for _path in _grp['paths']:
+                    log.info('P4 submitted: {0}'.format(_path))
+            else:
+                log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        if _ok:
+            self._scene_p4_after_write()
+        log.info('P4 submit complete: {0}/{1} file(s)'.format(_ok, len(_opened)))
+
+    def _fileListPopupDelete(self, popupAttr, sendToProjectAttr=None):
+        if sendToProjectAttr:
+            _sendMenu = getattr(self, sendToProjectAttr, None)
+            if _sendMenu is not None:
+                self.d_subPops.pop(_sendMenu, None)
+            setattr(self, sendToProjectAttr, None)
         pum = getattr(self, popupAttr, None)
         if not pum:
             return
         try:
             pum.clear()
+            pum.delete()
         except Exception as err:
-            log.debug(log_msg('_clearFileListPopupMenu', err))
+            log.debug(log_msg('_fileListPopupDelete', err))
+        setattr(self, popupAttr, None)
 
-    def _ensureFileListPopup(self, scrollList, popupAttr, buildPopupFunc):
-        """Build popup on demand — e.g. single-item list auto-selected with selCommand=False."""
-        pum = getattr(self, popupAttr, None)
-        if pum and len(pum) > 0:
-            return
-        if not scrollList.getSelectedItems():
-            return
-        if self._fileListMultiSelectActive(scrollList):
-            return
-        buildPopupFunc(scrollList)
+    def _buildFileListPopupMulti(self, pum, list_key, scrollList):
+        """Reduced RMB menu when multiple file rows are selected (Builder block-list pattern)."""
+        _labels = {'sets': 'Set', 'variation': 'Variant', 'version': 'Version'}
+        _count = len(scrollList.getSelectedItems() or [])
+        mUI.MelMenuItem(
+            pum,
+            label='        {0} ({1} selected)'.format(_labels.get(list_key, 'File'), _count),
+            en=False)
+        mUI.MelMenuItemDiv(pum, label='Selected')
 
-    def _fileListSelectCommand(self, scrollList, popupAttr, buildPopupFunc, listSelectFunc, *args):
-        """Selection handler — rebuild popup each change; no menu when multi-select (Builder pattern)."""
-        self._clearFileListPopupMenu(popupAttr)
-        if not scrollList.getSelectedItems():
+        _batch = mUI.MelMenuItem(pum, label='To Queue as:', subMenu=True)
+        for t in ['export', 'rig', 'cutscene']:
+            mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddSelectedToExportQueue, t))
+
+        mUI.MelMenuItem(pum, label='Delete', command=partial(self.uiFunc_deleteSelectedInList, list_key))
+
+        self.ml_p4_options_multi = []
+        self._append_p4_file_menu(pum, self.ml_p4_options_multi, list_key=list_key)
+
+        mUI.MelMenuItemDiv(pum, label='List')
+        _refresh = {
+            'sets': self.LoadSubTypeList,
+            'variation': self.LoadVariationList,
+            'version': self.LoadVersionList,
+        }
+        _refreshFn = _refresh.get(list_key)
+        if _refreshFn:
+            mUI.MelMenuItem(pum, label='Refresh', command=lambda *a: _refreshFn())
+
+    def _rebuildFileListPopup(self, scrollList, popupAttr, buildSingleFunc, list_key, sendToProjectAttr=None):
+        """Delete and recreate file-list popup from current selection (Builder pattern)."""
+        self._fileListPopupDelete(popupAttr, sendToProjectAttr=sendToProjectAttr)
+        _items = scrollList.getSelectedItems()
+        if not _items:
+            return None
+        _pmc = self._d_fileListPopupPmc.get(popupAttr)
+        _kw = {'button': 3}
+        if _pmc:
+            _kw['pmc'] = cgmGEN.Callback(_pmc)
+        pum = mUI.MelPopupMenu(scrollList, **_kw)
+        setattr(self, popupAttr, pum)
+        if len(_items) > 1:
+            self._buildFileListPopupMulti(pum, list_key, scrollList)
+        else:
+            buildSingleFunc(scrollList, pum)
+        return pum
+
+    def _fileListSelectCommand(self, scrollList, popupAttr, buildPopupFunc, listSelectFunc, list_key,
+                               sendToProjectAttr=None, *args):
+        """Selection handler — rebuild popup each change; multi-select gets reduced menu."""
+        self._rebuildFileListPopup(scrollList, popupAttr, buildPopupFunc, list_key,
+                                   sendToProjectAttr=sendToProjectAttr)
+        _items = scrollList.getSelectedItems() or []
+        if not _items:
             return False
-        if self._fileListMultiSelectActive(scrollList):
-            return False
-        buildPopupFunc(scrollList)
-        if len(scrollList.getSelectedIdxs() or []) <= 1:
+        if len(_items) <= 1:
             listSelectFunc()
         return True
 
     def _wireFileListScrollSelect(self, searchableList, popupAttr, buildPopupFunc, listSelectFunc,
-                                  sendToProjectAttr=None):
+                                  list_key=None, sendToProjectAttr=None):
         scrollList = searchableList['scrollList']
+        setattr(self, popupAttr, None)
 
         def _popupPmc(*a):
-            self._ensureFileListPopup(scrollList, popupAttr, buildPopupFunc)
-            if sendToProjectAttr:
+            pum = getattr(self, popupAttr, None)
+            if not pum or len(pum) == 0:
+                self._rebuildFileListPopup(scrollList, popupAttr, buildPopupFunc, list_key,
+                                           sendToProjectAttr=sendToProjectAttr)
+            if sendToProjectAttr and len(scrollList.getSelectedItems() or []) <= 1:
                 _sendMenu = getattr(self, sendToProjectAttr, None)
-                if _sendMenu:
+                if _sendMenu and mc.objExists(_sendMenu):
                     self.UpdateVersionTSLPopup(_sendMenu)
 
         self._d_fileListPopupPmc[popupAttr] = _popupPmc
-        setattr(self, popupAttr, mUI.MelPopupMenu(
-            scrollList, button=3, pmc=cgmGEN.Callback(_popupPmc)))
 
         scrollList.cmd_select = cgmGEN.Callback(
             self._fileListSelectCommand,
-            scrollList, popupAttr, buildPopupFunc, listSelectFunc)
+            scrollList, popupAttr, buildPopupFunc, listSelectFunc, list_key, sendToProjectAttr)
 
         def _selCommand(*a, **kws):
             if scrollList.cmd_select:
@@ -5468,9 +6025,12 @@ example:
         scrollList.selCommand = _selCommand
         scrollList(e=True, sc=_selCommand)
 
-    def buildSubTypeListPopup(self, scrollList):
-        pum = self._getFileListPopup(scrollList, 'subTypeListPUM')
-        pum.clear()
+    def buildSubTypeListPopup(self, scrollList, pum=None):
+        if pum is None:
+            pum = mUI.MelPopupMenu(scrollList, button=3)
+            setattr(self, 'subTypeListPUM', pum)
+        else:
+            setattr(self, 'subTypeListPUM', pum)
 
         mUI.MelMenuItem(pum, label='        Subtype', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5503,18 +6063,23 @@ example:
         for t in ['export', 'rig', 'cutscene']:
             mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddToExportQueue, t))
 
+        self._append_p4_file_menu(pum, self.ml_p4_options_set)
+
         mUI.MelMenuItemDiv(pum, label='Directory')
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenSubTypeDirectory)
         mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_subType(), label='Open Maya here')
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_sets(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadSubTypeList())
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadSubTypeList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('sets'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
 
-    def buildVariationListPopup(self, scrollList):
-        pum = self._getFileListPopup(scrollList, 'variationListPUM')
-        pum.clear()
+    def buildVariationListPopup(self, scrollList, pum=None):
+        if pum is None:
+            pum = mUI.MelPopupMenu(scrollList, button=3)
+            setattr(self, 'variationListPUM', pum)
+        else:
+            setattr(self, 'variationListPUM', pum)
 
         mUI.MelMenuItem(pum, label='        Variant', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5541,18 +6106,23 @@ example:
         self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
         self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
 
+        self._append_p4_file_menu(pum, self.ml_p4_options_variant)
+
         mUI.MelMenuItemDiv(pum, label='Directory')
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVariationDirectory)
         mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_variant(), label='Open Maya here')
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_variant(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVariationList())
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadVariationList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('variation'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
 
-    def buildVersionListPopup(self, scrollList):
-        pum = self._getFileListPopup(scrollList, 'versionListPUM')
-        pum.clear()
+    def buildVersionListPopup(self, scrollList, pum=None):
+        if pum is None:
+            pum = mUI.MelPopupMenu(scrollList, button=3)
+            setattr(self, 'versionListPUM', pum)
+        else:
+            setattr(self, 'versionListPUM', pum)
 
         mUI.MelMenuItem(pum, label='        Version', en=False)
         mUI.MelMenuItemDiv(pum, label='Selected')
@@ -5573,17 +6143,27 @@ example:
 
         mUI.MelMenuItem(pum, label="Create SubTypeRef", command=lambda *a: self.CreateSubTypeRef())
 
+        self._append_p4_file_menu(pum, self.ml_p4_options_version)
+
         mUI.MelMenuItemDiv(pum, label='Directory')
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVersionDirectory)
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_version(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self.LoadVersionList())
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadVersionList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('version'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)
 
     def UpdateVersionTSLPopup(self, mMenu = None,  *args):
-        for item in self.d_subPops.get(mMenu,[]):
-            mc.deleteUI(item, menuItem=True)
+        if not mMenu or not mc.objExists(mMenu):
+            if mMenu is not None:
+                self.d_subPops.pop(mMenu, None)
+            return
+        for item in self.d_subPops.get(mMenu, []):
+            try:
+                if mc.objExists(item):
+                    mc.deleteUI(item, menuItem=True)
+            except Exception as err:
+                log.debug(log_msg('UpdateVersionTSLPopup', err))
 
         self.d_subPops[mMenu] = []
 
