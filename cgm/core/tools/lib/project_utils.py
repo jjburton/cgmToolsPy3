@@ -245,7 +245,8 @@ _dataConfigToStored = {'general':'d_project',
                        'world':'d_world'}
 
 l_projectPathModes = ['art','content','root']
-l_projectDat = ['name','type','nameStyle','mayaVersion','mayaVersionCheck','usePluralSubDirs','mayaFilePref','dirMask','lock']
+l_versionControl = ['none', 'perforce']
+l_projectDat = ['name','type','versionControl','nameStyle','mayaVersion','mayaVersionCheck','usePluralSubDirs','mayaFilePref','dirMask','lock']
 l_nameConventions = ['none','lower','capital','upper','camelCase','capFirst']
 l_mayaVersions = ['2016','2017','2018','2019','2020','2022','2023','2024','2025','2026','2027','2028']
 l_userMode = ['general','master']
@@ -266,6 +267,7 @@ _fpsStrings = ['2fps', '3fps', '4fps', '5fps', '6fps', '8fps', '10fps', '12fps',
 #Settings/Options ... ---------------------------------------------------------------------------
 _projSettings = [{'n':'name','t':'text','dv':'Name me'},
                  {'n':'type','t':l_projectTypes,'dv':'unity'},
+                 {'n':'versionControl','t':l_versionControl,'dv':'none'},
                  {'n':'lock','t':'bool','dv':'false'},
                  {'n':'mayaVersion','t':l_mayaVersions,'dv':'2018'},
                  {'n':'mayaVersionCheck','t':'bool','dv':'false'},                 
@@ -369,6 +371,15 @@ def exportOption_getValue(uiRoot, name):
             return _stored[name]
 
     return exportOption_default(name)
+
+
+def project_uses_perforce(mDat):
+    """True when project general settings declare Perforce version control."""
+    if mDat is None:
+        return False
+    _d = getattr(mDat, 'd_project', None) or {}
+    return str(_d.get('versionControl', 'none')).lower() == 'perforce'
+
 
 _d_defaultsMap = {'general':_projSettings,
                   'anim':_animSettings,

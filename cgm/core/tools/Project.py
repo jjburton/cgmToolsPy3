@@ -62,6 +62,7 @@ mUI = cgmUI.mUI
 __version__ = cgmGEN.__RELEASESTRING
 _colorGood = CORESHARE._d_colors_to_RGB['greenWhite']
 _colorBad = CORESHARE._d_colors_to_RGB['redWhite']
+_colorWarn = CORESHARE._d_colors_to_RGB['orange']
         
 #RangeSlider|MainPlaybackRangeLayout|formLayout9|formLayout13|optionMenuGrp1
 #timeField -e -v `playbackOptions -q -ast` RangeSlider|MainPlaybackRangeLayout|formLayout9|timeField2; timeField -e -v `playbackOptions -q -aet` RangeSlider|MainPlaybackRangeLayout|formLayout9|timeField5;
@@ -539,6 +540,80 @@ def buildFrame_paths(self,parent,changeCommand = ''):
         _row.layout()
     
         
+def uiProject_build_p4_status_row(self, parent):
+    self.uiSep_p4Status = mUI.MelSeparator(parent, ut='cgmUISubTemplate', h=3)
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5, vis=False)
+    self.uiRow_p4Status = _row
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Perforce: ')
+    self.uiLabel_p4Status = mUI.MelLabel(
+        _row,
+        l='',
+        ut='cgmUITemplate',
+        align='center',
+        ann='Perforce connection status for this project',
+    )
+    _row.setStretchWidget(self.uiLabel_p4Status)
+    mUI.MelButton(
+        _row,
+        l='cgmP4',
+        ut='cgmUITemplate',
+        bgc=cgmUI.guiButtonColor,
+        ann='Open cgmP4 tool (user/client, opened files, path query)',
+        c=cgmGEN.Callback(uiProject_open_p4_tool),
+    )
+    mUI.MelButton(
+        _row,
+        l='Refresh',
+        ut='cgmUITemplate',
+        bgc=cgmUI.guiButtonColor,
+        ann='Query p4 connection using cgmP4 user/client',
+        c=cgmGEN.Callback(uiProject_refresh_p4_status, self, True),
+    )
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
+def uiProject_open_p4_tool(*args):
+    import cgm.core.tools.lib.tool_calls as TOOLCALLS
+    TOOLCALLS.cgmP4Tool()
+
+
+def uiProject_refresh_p4_status(self, force=False):
+    _sep = getattr(self, 'uiSep_p4Status', None)
+    _row = getattr(self, 'uiRow_p4Status', None)
+    _label = getattr(self, 'uiLabel_p4Status', None)
+    if _row is None or _label is None:
+        return
+
+    _version_control = 'none'
+    try:
+        _version_control = self.d_tf['general']['versionControl'].getValue()
+    except Exception:
+        pass
+
+    if str(_version_control).lower() != 'perforce':
+        if _sep is not None:
+            _sep(edit=True, vis=False)
+        _row(edit=True, vis=False)
+        return
+
+    if _sep is not None:
+        _sep(edit=True, vis=True)
+    _row(edit=True, vis=True)
+    import cgm.core.lib.perforce as P4UTIL
+    _dat = P4UTIL.query_project_p4_status(force=force)
+    _connected = bool(_dat.get('connected'))
+    _bgc = _colorGood if _connected else _colorWarn
+    _text = 'Connected' if _connected else 'Not connected'
+    _detail = _dat.get('label') or ''
+    _label(edit=True, l=_text, ann=_detail, bgc=_bgc)
+
+
+def uiProject_versionControl_changed(self, *args):
+    uiProject_refresh_p4_status(self)
+
+
 def buildFrame_baseDat(self,parent,changeCommand = ''):
     try:self.var_projectBaseDatCollapse
     except:self.create_guiOptionVar('projectBaseDatCollapse',defaultValue = 0)
@@ -571,22 +646,35 @@ def buildFrame_baseDat(self,parent,changeCommand = ''):
             _d[key] = mUI.MelOptionMenu(_row,ut = 'cgmUITemplate',cc = changeCommand)
             for t in PU.l_projectTypes:
                 _d[key].append(t)
-    
+            self.d_uiTypes['general'][key] = 'optionMenu'
+
             #_d[key].selectByIdx(self.setMode,False)                
+        elif key == 'versionControl':
+            _d[key] = mUI.MelOptionMenu(
+                _row,
+                ut='cgmUITemplate',
+                cc=cgmGEN.Callback(uiProject_versionControl_changed, self),
+            )
+            for t in PU.l_versionControl:
+                _d[key].append(t)
+            self.d_uiTypes['general'][key] = 'optionMenu'
         elif key == 'nameStyle':
             _d[key] = mUI.MelOptionMenu(_row,ut = 'cgmUITemplate',cc = changeCommand)
             for t in PU.l_nameConventions:
                 _d[key].append(t)
+            self.d_uiTypes['general'][key] = 'optionMenu'
                 
         elif key == 'mayaVersion':
             _d[key] = mUI.MelOptionMenu(_row,ut = 'cgmUITemplate',cc = changeCommand)
             for t in PU.l_mayaVersions:
                 _d[key].append(t)
+            self.d_uiTypes['general'][key] = 'optionMenu'
         
         elif key == 'mayaFilePref':
             _d[key] = mUI.MelOptionMenu(_row,ut = 'cgmUITemplate',cc = changeCommand)
             for t in PU.l_mayaFileType:
-                _d[key].append(t)                
+                _d[key].append(t)
+            self.d_uiTypes['general'][key] = 'optionMenu'
                 
         elif key == 'projectPathMode':
             _d[key] = mUI.MelOptionMenu(_row,ut = 'cgmUITemplate')
@@ -612,6 +700,9 @@ def buildFrame_baseDat(self,parent,changeCommand = ''):
         _row.setStretchWidget(_d[key])
         mUI.MelSpacer(_row,w=5)
         _row.layout()
+
+        if key == 'versionControl':
+            uiProject_build_p4_status_row(self, _inside)
         
     #bgc = self.v_bgc
     self.uiLabel_file = mUI.MelLabel(_inside,ut='cgmUITemplate',en=False, label='')
@@ -1666,7 +1757,7 @@ def uiProject_fill(self,fillDir = True):
                     
                 else:
                     if v is not None:
-                        if k in ['lock','mayaVersion','mayaFilePref']:
+                        if k in ['lock','mayaVersion','mayaFilePref','versionControl']:
                             self.d_tf[dType][k].setValue(str(v),executeChangeCB=False)
                         elif k in ['mayaVersionCheck','usePluralSubDirs']:
                             if isinstance(v, str):
@@ -1689,6 +1780,8 @@ def uiProject_fill(self,fillDir = True):
                 
                 
     self.uiImage_ProjectRow(edit=True, bgc = self.mDat.d_colors.get('project',[1,1,1]))
+
+    uiProject_refresh_p4_status(self)
 
     
     #User paths...
@@ -1871,10 +1964,13 @@ def uiProject_save(self, path = None, updateFile = True, duplicateMode = False):
         self.mDat.d_paths[k] = ui.getValue()
         """
     #self.mDat.log_self()
-    self.mDat.write( path,False)
+    if not self.mDat.write(path, False):
+        log.error('Project save failed')
+        return False
     self.mPathList.append(self.mDat.str_filepath)
     
-    return log.warning("Saved complete!")
+    log.warning("Saved complete!")
+    return True
     
 def uiProject_saveAs(self):
     _str_func = 'uiProject_saveAs'
@@ -2353,7 +2449,19 @@ class data(object):
             log.warning('Invalid path: {0}'.format(filepath))
             
             return False
-        log.warning('Write to: {0}'.format(filepath))
+
+        _write_path = filepath.asFriendly() if hasattr(filepath, 'asFriendly') else str(filepath)
+        try:
+            _write_path = COREPATHS.prepare_output_for_write(
+                _write_path,
+                mDat=self,
+                _str_func=_str_func,
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return False
+
+        log.warning('Write to: {0}'.format(_write_path))
             
         ConfigObj = configobj.ConfigObj(indent_type='\t')
         ConfigObj['configType']= 'cgmProject'
@@ -2370,11 +2478,11 @@ class data(object):
         ConfigObj['assetDat'] = self.assetDat
         
         log.debug('....')
-        ConfigObj.filename = filepath
+        ConfigObj.filename = _write_path
         ConfigObj.write()
         
         #if update:
-        self.str_filepath = filepath
+        self.str_filepath = _write_path
         log.warning('Complete')
         return True
         

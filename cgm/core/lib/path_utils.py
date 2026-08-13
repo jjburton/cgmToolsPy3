@@ -216,9 +216,160 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
     return _d_dir, _d_levels, _l_keys
 
 
-#>>> Export output path helpers
+#>>> Global output prepare for write
 #===================================================================
 _non_writable_export_paths = []
+
+
+class PathWritePrepareError(Exception):
+    """Raised when a disk path cannot be prepared for write (P4 or local permissions)."""
+
+    def __init__(self, path, reason=None):
+        self.path = os.path.normpath(path) if path else path
+        self.reason = reason or 'Path is not writable'
+        _msg = '{0}: {1} — check out in Perforce (p4 edit) or clear read-only'.format(
+            self.reason, self.path)
+        super(PathWritePrepareError, self).__init__(_msg)
+
+
+def _resolve_use_p4_for_write(mDat=None, use_p4=None):
+    """Resolve P4 opt-in: explicit use_p4, else project versionControl when mDat provided."""
+    if use_p4 is not None:
+        return bool(use_p4)
+    if mDat is None:
+        return False
+    try:
+        import cgm.core.tools.lib.project_utils as PU
+        return PU.project_uses_perforce(mDat)
+    except Exception:
+        return False
+
+
+def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, _str_func='prepare_output_for_write'):
+    """
+    Query fstat, block out-of-date depot files, confirm before edit/add.
+    Raises PathWritePrepareError on failure or user cancel.
+    """
+    import cgm.core.lib.perforce as P4UTIL
+
+    _stat = P4UTIL.query_file_status(path, p4_user=p4_user, p4_client=p4_client)
+    if _stat.get('error') and not _stat.get('notInClient') and not _stat.get('notOnDepot'):
+        raise PathWritePrepareError(path, reason=_stat.get('error'))
+
+    if _stat.get('notInClient'):
+        raise PathWritePrepareError(path, reason='Path not in Perforce client view')
+
+    if _stat.get('lockedByOther'):
+        _detail = _stat.get('otherLock') or _stat.get('otherOpen') or 'another user'
+        raise PathWritePrepareError(
+            path, reason='File locked or open elsewhere ({0})'.format(_detail))
+
+    if _stat.get('onDepot') and _stat.get('outOfDate'):
+        _have = _stat.get('haveRev')
+        _head = _stat.get('headRev')
+        _rev_msg = 'have {0}, head {1}'.format(_have, _head) if _have is not None else 'not at head'
+        if confirm:
+            mc.confirmDialog(
+                title='Perforce — file out of date',
+                message=(
+                    'Cannot save: workspace file is not at the latest depot revision.\n\n'
+                    '{0}\n\n{1}\n\nSync the file in Perforce, then save again.'
+                ).format(path, _rev_msg),
+                button=['OK'],
+                defaultButton='OK',
+            )
+        raise PathWritePrepareError(
+            path, reason='File out of date ({0}) — sync before save'.format(_rev_msg))
+
+    if _stat.get('checkedOut'):
+        return
+
+    _needs_add = bool(_stat.get('notOnDepot') and _stat.get('inClient'))
+    _needs_edit = bool(_stat.get('onDepot') and not _stat.get('checkedOut'))
+
+    if not _needs_add and not _needs_edit:
+        return
+
+    if confirm:
+        _summary = P4UTIL.format_file_status(_stat)
+        if _needs_add:
+            _title = 'Perforce add'
+            _btn = 'Add'
+            _msg = 'Add this file to Perforce before saving?\n\n{0}\n\n{1}'.format(path, _summary)
+        else:
+            _title = 'Perforce checkout'
+            _btn = 'Checkout'
+            _msg = 'Check out this file for edit before saving?\n\n{0}\n\n{1}'.format(path, _summary)
+        _result = mc.confirmDialog(
+            title=_title,
+            message=_msg,
+            button=[_btn, 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != _btn:
+            raise PathWritePrepareError(path, reason='Save cancelled')
+
+    _res = P4UTIL.edit_or_add(path, p4_user=p4_user, p4_client=p4_client)
+    if not _res.get('ok'):
+        raise PathWritePrepareError(
+            path, reason=_res.get('stderr') or 'Perforce checkout failed')
+    log.info('{0} || P4 {1}: {2}'.format(
+        _str_func, _res.get('action') or 'edit_or_add', path))
+
+
+def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_client=None,
+                             confirm_p4=True, _str_func='prepare_output_for_write'):
+    """
+    Global prepare before writing a cgm output file (project .cfg, BaseDat, export targets).
+
+    When use_p4 is None and mDat is provided, uses project versionControl (perforce gate).
+    When P4 is connected: fstat first (block if out of date), confirm before edit/add.
+    When P4 is unavailable, skips P4 silently (optional layer — no behavior change).
+    Returns normalized path string.
+    """
+    if not path:
+        raise PathWritePrepareError(path, reason='Path is empty')
+
+    _norm = os.path.normpath(path)
+    _parent = os.path.dirname(_norm)
+    if _parent and not os.path.isdir(_parent):
+        try:
+            os.makedirs(_parent)
+            log.info('{0} || created directory: {1}'.format(_str_func, _parent))
+        except Exception as err:
+            raise PathWritePrepareError(
+                _norm, reason='Cannot create directory ({0})'.format(err))
+
+    if _resolve_use_p4_for_write(mDat, use_p4):
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection(p4_user, p4_client)
+        if _user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client):
+            _prepare_p4_for_write(
+                _norm, _user, _client, confirm=confirm_p4, _str_func=_str_func)
+        else:
+            log.debug('{0} || P4 skipped (not connected) — writability check only'.format(_str_func))
+
+    if os.path.exists(_norm):
+        if not os.path.isfile(_norm):
+            raise PathWritePrepareError(_norm, reason='Path exists but is not a file')
+        if not os.access(_norm, os.W_OK):
+            raise PathWritePrepareError(_norm, reason='File is not writable')
+    elif _parent and not os.access(_parent, os.W_OK):
+        raise PathWritePrepareError(_norm, reason='Directory is not writable')
+
+    return _norm
+
+
+def prepare_path_for_write(path, use_p4=False, p4_user=None, p4_client=None, _str_func='prepare_path_for_write'):
+    """Prepare path for write with explicit use_p4 flag. Prefer prepare_output_for_write(mDat=)."""
+    return prepare_output_for_write(
+        path, use_p4=use_p4, p4_user=p4_user, p4_client=p4_client, _str_func=_str_func)
+
+
+#>>> Export output path helpers (FBX export)
+#===================================================================
 
 
 class ExportOutputNotWritableError(Exception):
@@ -324,5 +475,4 @@ def check_export_output_writable(finalPath, _str_func='check_export_output_writa
                 reason='Export directory is not writable')
 
     return _norm.replace('\\', '/')
-
 

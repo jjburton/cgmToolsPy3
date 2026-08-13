@@ -27,14 +27,10 @@ if sys.platform == 'win32':
 
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
+import cgm.core.lib.perforce_session as P4SESSION
 
-# Session cache ===========================================================
-_cache = {
-    'p4_user': None,
-    'p4_client': None,
-    'available': None,
-    'info': None,
-}
+# Session cache lives in perforce_session (survives perforce.py reload).
+_cache = P4SESSION._CACHE
 
 _INFO_PREFIX_RE = re.compile(r'^info\d*:\s*', re.IGNORECASE)
 
@@ -59,12 +55,13 @@ def resolve_connection(p4_user=None, p4_client=None):
     Resolve Perforce user and client workspace.
 
     Priority: explicit args, cgm optionVars, CGM_P4* env, P4* env.
+    Empty strings are treated as unset (fall through to optionVars / env).
     """
-    if p4_user is None or p4_client is None:
+    if not p4_user or not p4_client:
         _ov_user, _ov_client = get_connection_prefs()
-        if p4_user is None:
+        if not p4_user:
             p4_user = _ov_user
-        if p4_client is None:
+        if not p4_client:
             p4_client = _ov_client
 
     _user = p4_user or os.environ.get('CGM_P4USER') or os.environ.get('P4USER')
@@ -98,8 +95,112 @@ def save_connection_prefs(p4_user=None, p4_client=None):
 
 
 def _clear_cache():
-    _cache['available'] = None
-    _cache['info'] = None
+    P4SESSION.clear()
+
+
+def flush_status_cache():
+    """Clear all session P4 status/query caches (writes, Refresh — in-place, no module reload)."""
+    P4SESSION.clear()
+
+
+def reload_session_cache():
+    """Reload perforce_session to flush buffer. Uses cgmGEN._reloadMod (py2/py3)."""
+    cgmGEN._reloadMod(P4SESSION)
+    global _cache
+    _cache = P4SESSION._CACHE
+
+
+def _connection_report_cache_key(p4_user, p4_client, scene_path):
+    return (p4_user or '', p4_client or '', scene_path or '')
+
+
+def _get_cached_connection_report(key):
+    if _cache.get('connection_report_key') == key and _cache.get('connection_report') is not None:
+        return dict(_cache['connection_report'])
+    return None
+
+
+def _set_cached_connection_report(key, report):
+    _cache['connection_report_key'] = key
+    _cache['connection_report'] = report
+
+
+def _project_status_from_report(report):
+    """Build Project UI status dict from a cached query_connection report."""
+    _report = report or {}
+    _conn = _report.get('connection') or {}
+    _user = _report.get('p4User')
+    _client = _report.get('p4Client')
+
+    if not _user or not _client:
+        return {
+            'connected': False,
+            'label': 'P4: not connected — set user/client in cgmP4',
+            'reason': _report.get('reason') or 'missing credentials',
+        }
+
+    if not _report.get('connected'):
+        _reason = _report.get('reason') or _conn.get('reason') or 'unknown'
+        return {
+            'connected': False,
+            'label': 'P4: not connected — {0}'.format(_reason),
+            'reason': _reason,
+        }
+
+    _uname = _conn.get('userName') or _user
+    _cname = _conn.get('clientName') or _client
+    return {
+        'connected': True,
+        'label': 'P4: {0} @ {1}'.format(_uname, _cname),
+        'connection': _conn,
+    }
+
+
+def _info_cache_matches(p4_user, p4_client):
+    return (
+        _cache.get('p4_user') == p4_user
+        and _cache.get('p4_client') == p4_client
+        and _cache.get('available') is not None
+    )
+
+
+def _project_status_from_info_cache(p4_user, p4_client):
+    """Build Project UI status from warm is_available / connection_info session cache."""
+    if not _info_cache_matches(p4_user, p4_client):
+        return None
+    if not _cache.get('available'):
+        return {
+            'connected': False,
+            'label': 'P4: not connected — p4 info failed',
+            'reason': 'p4 info failed',
+        }
+    _info = connection_info(force=False, p4_user=p4_user, p4_client=p4_client)
+    if not _info.get('connected'):
+        _reason = _info.get('reason') or 'unknown'
+        return {
+            'connected': False,
+            'label': 'P4: not connected — {0}'.format(_reason),
+            'reason': _reason,
+        }
+    _uname = _info.get('userName') or p4_user
+    _cname = _info.get('clientName') or p4_client
+    return {
+        'connected': True,
+        'label': 'P4: {0} @ {1}'.format(_uname, _cname),
+        'connection': _info,
+    }
+
+
+def _cached_project_p4_status(p4_user, p4_client):
+    """Return Project status dict from session cache, or None if a p4 query is needed."""
+    _cached_key = _cache.get('connection_report_key')
+    _cached = _cache.get('connection_report')
+    if _cached and _cached_key:
+        if _cached_key[0] == p4_user and _cached_key[1] == p4_client:
+            return _project_status_from_report(_cached)
+        if _cached.get('p4User') == p4_user and _cached.get('p4Client') == p4_client:
+            return _project_status_from_report(_cached)
+    return _project_status_from_info_cache(p4_user, p4_client)
 
 
 def _parse_tag_block(lines):
@@ -114,9 +215,17 @@ def _parse_tag_block(lines):
             continue
         _sp = _rest.split(None, 1)
         if len(_sp) == 1:
-            _out[_sp[0]] = True
+            _key, _val = _sp[0], True
         else:
-            _out[_sp[0]] = _sp[1]
+            _key, _val = _sp[0], _sp[1]
+        if _key in _out:
+            _existing = _out[_key]
+            if isinstance(_existing, list):
+                _existing.append(_val)
+            else:
+                _out[_key] = [_existing, _val]
+        else:
+            _out[_key] = _val
     return _out
 
 
@@ -168,6 +277,123 @@ def _normalize_error(msg):
     if _m.lower().startswith('error:'):
         return _m[6:].strip()
     return _m
+
+
+def _coerce_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _tag_values(tag, key):
+    _val = (tag or {}).get(key)
+    if _val is None:
+        return []
+    if isinstance(_val, list):
+        return _val
+    return [_val]
+
+
+def _derive_file_status(out, tag=None):
+    """Add inClient / checkout / sync / lock flags and human-readable summary."""
+    tag = tag or {}
+
+    if out.get('notInClient'):
+        out['inClient'] = False
+        out['checkedOut'] = False
+        out['outOfDate'] = False
+        out['synced'] = False
+        out['lockedByOther'] = False
+        out['statusLabels'] = ['not in client view']
+        out['statusSummary'] = 'not in client view'
+        return out
+
+    out['inClient'] = True
+
+    if out.get('notOnDepot') and not tag:
+        out['checkedOut'] = False
+        out['outOfDate'] = False
+        out['synced'] = False
+        out['lockedByOther'] = False
+        out['statusLabels'] = ['in client view', 'not on depot']
+        out['statusSummary'] = 'in client view, not on depot'
+        return out
+
+    _head_rev = _coerce_int(tag.get('headRev'))
+    _have_rev = _coerce_int(tag.get('haveRev'))
+    out['headRev'] = _head_rev
+    out['haveRev'] = _have_rev
+    out['depotFile'] = tag.get('depotFile')
+    out['clientFile'] = tag.get('clientFile')
+    out['headAction'] = tag.get('headAction')
+    out['fileType'] = tag.get('type')
+
+    _action = tag.get('action')
+    out['openAction'] = _action
+    out['change'] = tag.get('change')
+    out['checkedOut'] = bool(_action)
+
+    _other_opens = _tag_values(tag, 'otherOpen')
+    _other_locks = _tag_values(tag, 'otherLock')
+    out['otherOpen'] = _other_opens or None
+    out['otherLock'] = _other_locks or None
+    out['ourLock'] = tag.get('ourLock')
+    out['lockedByOther'] = bool(_other_locks or _other_opens)
+
+    if _head_rev is not None and _have_rev is not None:
+        out['synced'] = _head_rev == _have_rev
+        out['outOfDate'] = _have_rev < _head_rev
+    else:
+        out['synced'] = None
+        out['outOfDate'] = None
+
+    if out.get('checkedOut'):
+        out['synced'] = True
+
+    _labels = ['in client view']
+    if out.get('onDepot'):
+        _labels.append('on depot')
+    else:
+        _labels.append('not on depot')
+
+    if out.get('checkedOut'):
+        _labels.append('checked out ({0})'.format(_action))
+        if out.get('change') and str(out['change']).lower() != 'default':
+            _labels.append('change {0}'.format(out['change']))
+    elif out.get('outOfDate'):
+        _labels.append('out of date (have {0}, head {1})'.format(_have_rev, _head_rev))
+    elif out.get('synced'):
+        _labels.append('synced')
+    else:
+        _labels.append('not opened')
+
+    if _other_locks:
+        _labels.append('locked by {0}'.format(', '.join(_other_locks)))
+    elif _other_opens:
+        _labels.append('open elsewhere ({0})'.format(', '.join(_other_opens)))
+
+    out['statusLabels'] = _labels
+    out['statusSummary'] = ', '.join(_labels)
+    return out
+
+
+def format_file_status(file_dat):
+    """One-line summary for UI / logs."""
+    if not file_dat:
+        return '(none)'
+    _path = file_dat.get('path', '?')
+    if file_dat.get('error'):
+        return '{0} — error: {1}'.format(_path, file_dat['error'])
+    if file_dat.get('statusSummary'):
+        return '{0} — {1}'.format(_path, file_dat['statusSummary'])
+    if file_dat.get('notInClient'):
+        return '{0} — not in client view'.format(_path)
+    if file_dat.get('notOnDepot'):
+        return '{0} — not on depot'.format(_path)
+    return _path
 
 
 def _p4run(*args, **kwargs):
@@ -305,6 +531,52 @@ def is_available(force=False, p4_user=None, p4_client=None):
     return _cache['available']
 
 
+def query_project_p4_status(p4_user=None, p4_client=None, force=False):
+    """
+    Lightweight Perforce status for Project UI (no logging).
+
+    Returns dict: connected (bool), label (str), reason (optional).
+    """
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err or not _user or not _client:
+        return {
+            'connected': False,
+            'label': 'P4: not connected — set user/client in cgmP4',
+            'reason': _err or 'missing credentials',
+        }
+
+    if not force:
+        _cached_status = _cached_project_p4_status(_user, _client)
+        if _cached_status is not None:
+            log.info('Using cached Perforce status (project)')
+            return _cached_status
+
+    log.info('Getting Perforce status (project)...')
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {
+            'connected': False,
+            'label': 'P4: not connected — p4 info failed',
+            'reason': 'p4 info failed',
+        }
+
+    _info = connection_info(force=force, p4_user=_user, p4_client=_client)
+    if not _info.get('connected'):
+        _reason = _info.get('reason') or 'unknown'
+        return {
+            'connected': False,
+            'label': 'P4: not connected — {0}'.format(_reason),
+            'reason': _reason,
+        }
+
+    _uname = _info.get('userName') or _user
+    _cname = _info.get('clientName') or _client
+    return {
+        'connected': True,
+        'label': 'P4: {0} @ {1}'.format(_uname, _cname),
+        'connection': _info,
+    }
+
+
 def connection_info(force=False, p4_user=None, p4_client=None):
     """Parsed p4 info for explicit user/client (-u / -c / -ztag info)."""
     if force:
@@ -332,6 +604,33 @@ def connection_info(force=False, p4_user=None, p4_client=None):
     _info['connected'] = True
     _info['p4User'] = _user
     _info['p4Client'] = _client
+    return _normalize_connection_info(_info, p4_user=_user, p4_client=_client)
+
+
+def _info_get_str(tag, *keys):
+    for _key in keys:
+        _val = (tag or {}).get(_key)
+        if _val is None or _val is True:
+            continue
+        _s = str(_val).strip()
+        if _s:
+            return _s
+    return None
+
+
+def _normalize_connection_info(info, p4_user=None, p4_client=None):
+    """Resolve clientRoot/stream with ztag key fallbacks and p4 client -o if needed."""
+    _info = dict(info or {})
+    _root = _info_get_str(_info, 'clientRoot', 'ClientRoot', 'root', 'Root')
+    _stream = _info_get_str(_info, 'clientStream', 'stream', 'Stream', 'clientStream')
+
+    if not _root and p4_user and p4_client:
+        _res = _p4run('client', '-o', p4_client, p4_user=p4_user, p4_client=p4_client, ztag=True)
+        _root = _info_get_str(_res.get('tag') or {}, 'Root', 'root')
+
+    _info['clientRoot'] = _root or ''
+    if _stream:
+        _info['clientStream'] = _stream
     return _info
 
 
@@ -424,21 +723,37 @@ def query_pending_changes(p4_user=None, p4_client=None, force=False):
 
 
 def query_file_status(disk_path, p4_user=None, p4_client=None, force=False):
-    """Depot status for a disk path (p4 -u -c -ztag fstat)."""
+    """
+    Workspace membership and depot status for a disk path (p4 -u -c -ztag fstat).
+
+    Returns dict including:
+      inClient, onDepot, checkedOut, outOfDate, synced, lockedByOther,
+      statusLabels, statusSummary, headRev, haveRev, openAction, otherOpen, ...
+    """
     _norm = os.path.normpath(disk_path) if disk_path else disk_path
     _out = {
         'path': _norm,
+        'inClient': None,
         'onDepot': False,
         'notInClient': False,
         'notOnDepot': False,
+        'checkedOut': False,
+        'outOfDate': False,
+        'synced': None,
+        'lockedByOther': False,
         'openAction': None,
         'change': None,
         'headRev': None,
         'haveRev': None,
         'otherOpen': None,
+        'otherLock': None,
+        'ourLock': None,
         'headAction': None,
         'depotFile': None,
         'clientFile': None,
+        'fileType': None,
+        'statusLabels': [],
+        'statusSummary': '',
     }
 
     if not _norm:
@@ -459,30 +774,355 @@ def query_file_status(disk_path, p4_user=None, p4_client=None, force=False):
 
     if _tag:
         _out['onDepot'] = True
-        _out['depotFile'] = _tag.get('depotFile')
-        _out['clientFile'] = _tag.get('clientFile')
-        _out['headRev'] = _tag.get('headRev')
-        _out['haveRev'] = _tag.get('haveRev')
-        _out['headAction'] = _tag.get('headAction')
-        _out['openAction'] = _tag.get('action')
-        _out['change'] = _tag.get('change')
-        _out['otherOpen'] = _tag.get('otherOpen')
         if _tag.get('headAction') == 'delete':
             _out['onDepot'] = False
             _out['notOnDepot'] = True
-        return _out
+        return _derive_file_status(_out, _tag)
 
     _err_text = ' '.join(_res['lines'] + [_res.get('stderr') or '']).lower()
     if 'not in client view' in _err_text or 'not under' in _err_text:
         _out['notInClient'] = True
-        return _out
+        return _derive_file_status(_out)
     if 'no such file' in _err_text or 'not on depot' in _err_text or 'not in depot' in _err_text:
         _out['notOnDepot'] = True
-        return _out
+        return _derive_file_status(_out)
 
     if not _res['ok']:
         _out['error'] = _res.get('stderr') or 'p4 fstat failed'
     return _out
+
+
+def is_under_client(disk_path, p4_user=None, p4_client=None, force=False):
+    """True when disk_path is mapped in the current p4 client workspace."""
+    _dat = query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
+    if _dat.get('error') and not _dat.get('notInClient'):
+        return False
+    return bool(_dat.get('inClient'))
+
+
+def query_path(disk_path, p4_user=None, p4_client=None, force=False):
+    """Alias for query_file_status — workspace check + file status in one call."""
+    return query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
+
+
+def query_path_report(disk_path, p4_user=None, p4_client=None, force=False):
+    """Log path workspace/status summary; returns structured dict."""
+    _str_func = 'query_path_report'
+    _dat = query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
+    log.info(cgmGEN.logString_sub(_str_func, 'Path status'))
+    log.info(format_file_status(_dat))
+    if _dat.get('depotFile'):
+        log.info('depotFile: {0}'.format(_dat.get('depotFile')))
+    if _dat.get('clientFile'):
+        log.info('clientFile: {0}'.format(_dat.get('clientFile')))
+    if _dat.get('headRev') is not None:
+        log.info('headRev: {0} | haveRev: {1}'.format(_dat.get('headRev'), _dat.get('haveRev')))
+    if _dat.get('checkedOut'):
+        log.info('open: {0} change {1}'.format(_dat.get('openAction'), _dat.get('change')))
+    if _dat.get('lockedByOther'):
+        if _dat.get('otherLock'):
+            log.info('otherLock: {0}'.format(_dat.get('otherLock')))
+        if _dat.get('otherOpen'):
+            log.info('otherOpen: {0}'.format(_dat.get('otherOpen')))
+    return _dat
+
+
+#>>> Public API — write actions (UI / export prep)
+#===================================================================
+def _write_result(action, path, res):
+    return {
+        'ok': bool(res.get('ok')),
+        'action': action,
+        'path': path,
+        'stderr': res.get('stderr') or '',
+        'lines': res.get('lines') or [],
+    }
+
+
+def _normalize_disk_path(disk_path):
+    if not disk_path:
+        return None
+    return os.path.normpath(str(disk_path))
+
+
+def _change_sort_key(change_id):
+    try:
+        return (0, int(change_id))
+    except (TypeError, ValueError):
+        return (1, str(change_id))
+
+
+def iter_opened_changelist_groups(opened_dat):
+    """
+    Display-order changelist groups from query_opened dict.
+
+    Returns list of dicts: change, label, entries.
+    """
+    if not opened_dat or opened_dat.get('error'):
+        return []
+
+    _groups = []
+    _default = opened_dat.get('default') or []
+    if _default:
+        _entries = [dict(_rec) for _rec in _default]
+        _groups.append({
+            'change': 'default',
+            'label': 'Default ({0})'.format(len(_entries)),
+            'entries': _entries,
+        })
+
+    for _cl in sorted((opened_dat.get('changes') or {}).keys(), key=_change_sort_key):
+        _entries = [dict(_rec) for _rec in opened_dat['changes'][_cl]]
+        _groups.append({
+            'change': _cl,
+            'label': 'Change {0} ({1})'.format(_cl, len(_entries)),
+            'entries': _entries,
+        })
+    return _groups
+
+
+def flatten_opened_entries(opened_dat):
+    """Flatten query_opened dict into a single list of file entry dicts."""
+    _entries = []
+    for _grp in iter_opened_changelist_groups(opened_dat):
+        _entries.extend(_grp['entries'])
+    return _entries
+
+
+def count_opened_in_change(opened_dat, change):
+    """Count opened files sharing a changelist id (includes default)."""
+    _target = str(change).lower()
+    return sum(
+        1 for _e in flatten_opened_entries(opened_dat)
+        if str(_e.get('change', 'default')).lower() == _target
+    )
+
+
+def edit(disk_path, p4_user=None, p4_client=None, changelist=None, force=False):
+    """p4 edit — open depot file for edit."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return {'ok': False, 'action': 'edit', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'edit', 'path': _path, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'edit', 'path': _path, 'stderr': 'p4 info failed', 'lines': []}
+
+    _args = ['edit']
+    if changelist is not None:
+        _args.extend(['-c', str(changelist)])
+    _args.append(_path)
+
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+    return _write_result('edit', _path, _res)
+
+
+def add(disk_path, p4_user=None, p4_client=None, file_type=None, changelist=None, force=False):
+    """p4 add — add new local file to depot."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return {'ok': False, 'action': 'add', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'add', 'path': _path, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'add', 'path': _path, 'stderr': 'p4 info failed', 'lines': []}
+
+    _args = ['add']
+    if file_type:
+        _args.extend(['-t', str(file_type)])
+    elif _path.lower().endswith('.fbx'):
+        _args.extend(['-t', 'binary'])
+    if changelist is not None:
+        _args.extend(['-c', str(changelist)])
+    _args.append(_path)
+
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+    return _write_result('add', _path, _res)
+
+
+def edit_or_add(disk_path, p4_user=None, p4_client=None, file_type=None, changelist=None, force=False):
+    """p4 edit if on depot, else p4 add for in-client local files."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return {'ok': False, 'action': 'edit_or_add', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=force)
+    if _stat.get('error') and not _stat.get('notInClient') and not _stat.get('notOnDepot'):
+        return {'ok': False, 'action': 'edit_or_add', 'path': _path, 'stderr': _stat.get('error'), 'lines': []}
+    if _stat.get('notInClient'):
+        return {
+            'ok': False, 'action': 'edit_or_add', 'path': _path,
+            'stderr': 'path not in client view', 'lines': [],
+        }
+    if _stat.get('lockedByOther'):
+        return {
+            'ok': False, 'action': 'edit_or_add', 'path': _path,
+            'stderr': 'file locked or open elsewhere: {0}'.format(
+                _stat.get('otherLock') or _stat.get('otherOpen')),
+            'lines': [],
+        }
+    if _stat.get('checkedOut'):
+        return {'ok': True, 'action': _stat.get('openAction') or 'edit', 'path': _path, 'stderr': '', 'lines': []}
+
+    if _stat.get('onDepot'):
+        return edit(_path, p4_user=p4_user, p4_client=p4_client, changelist=changelist, force=force)
+    return add(
+        _path, p4_user=p4_user, p4_client=p4_client, file_type=file_type,
+        changelist=changelist, force=force,
+    )
+
+
+def revert(disk_path, p4_user=None, p4_client=None, force=False):
+    """p4 revert — discard local open on file."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return {'ok': False, 'action': 'revert', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'revert', 'path': _path, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'revert', 'path': _path, 'stderr': 'p4 info failed', 'lines': []}
+
+    _res = _p4run('revert', _path, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+    return _write_result('revert', _path, _res)
+
+
+def revert_change(change, p4_user=None, p4_client=None, force=False):
+    """p4 revert -c — revert all opened files in a changelist."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'revert', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'revert', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _change_str = str(change).lower() if change is not None else 'default'
+    _cl_arg = 'default' if _change_str in ('default', '') else str(change)
+
+    _res = _p4run('revert', '-c', _cl_arg, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'revert',
+        'change': change,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def sync_workspace(force=False, p4_user=None, p4_client=None):
+    """p4 sync — update entire client workspace to head."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'sync', 'stderr': _err, 'lines': []}
+
+    if not is_available(force=True, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'sync', 'stderr': 'p4 info failed', 'lines': []}
+
+    _info = connection_info(force=False, p4_user=_user, p4_client=_client)
+    _root = _info.get('clientRoot')
+    if _root:
+        _target = os.path.normpath(_root)
+        if not _target.endswith('...'):
+            _target = os.path.join(_target, '...')
+    else:
+        _target = '...'
+
+    if force:
+        _res = _p4run('sync', '-f', _target, p4_user=_user, p4_client=_client, ztag=False)
+    else:
+        _res = _p4run('sync', _target, p4_user=_user, p4_client=_client, ztag=False)
+
+    if _res.get('ok'):
+        _clear_cache()
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'sync',
+        'target': _target,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def submit_change(change, description=None, p4_user=None, p4_client=None, force=False):
+    """p4 submit — submit pending changelist (or default when change is 'default')."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'submit', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _change_str = str(change).lower() if change is not None else 'default'
+    if _change_str in ('default', ''):
+        _args = ['submit']
+    else:
+        _args = ['submit', '-c', str(change)]
+
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'submit',
+        'change': change,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
+    """p4 submit — submit specific opened files (optionally scoped to a changelist)."""
+    _paths = []
+    for _raw in paths or []:
+        _path = _normalize_disk_path(_raw) or str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'no paths', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'submit', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _change_str = str(change).lower() if change is not None else 'default'
+    if _change_str in ('default', ''):
+        _args = ['submit'] + _paths
+    else:
+        _args = ['submit', '-c', str(change)] + _paths
+
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _clear_cache()
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'submit',
+        'change': change,
+        'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
 
 
 def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None, expected_user=None):
@@ -490,12 +1130,22 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
     Compose connectivity, opened files, pending changelists, and scene fstat.
 
     expected_user: deprecated alias for p4_user when p4_user omitted.
+    Session cache keyed by (user, client, scene_path) unless force=True.
     """
     if p4_user is None and expected_user:
         p4_user = expected_user
 
     _scene = _scene_path_get(scene_path)
     _user, _client, _err = _require_connection(p4_user, p4_client)
+    _key = _connection_report_cache_key(_user, _client, _scene)
+
+    if not force:
+        _cached = _get_cached_connection_report(_key)
+        if _cached is not None:
+            log.info('Using cached Perforce status')
+            return _cached
+
+    log.info('Getting Perforce status...')
     _info = connection_info(force=force, p4_user=_user, p4_client=_client)
 
     _report = {
@@ -510,11 +1160,13 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
 
     if _err:
         _report['reason'] = _err
-        return _report
+        _set_cached_connection_report(_key, _report)
+        return dict(_report)
 
     if not _report['connected']:
         _report['reason'] = _info.get('reason')
-        return _report
+        _set_cached_connection_report(_key, _report)
+        return dict(_report)
 
     _report['opened'] = query_opened(p4_user=_user, p4_client=_client, force=force)
     _report['pendingChanges'] = query_pending_changes(p4_user=_user, p4_client=_client, force=force)
@@ -524,7 +1176,8 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
     else:
         _report['scene'] = {'skipped': True, 'reason': 'scene not saved'}
 
-    return _report
+    _set_cached_connection_report(_key, _report)
+    return dict(_report)
 
 
 def _format_scene_status(scene_dat):
@@ -532,56 +1185,17 @@ def _format_scene_status(scene_dat):
         return 'scene: (none)'
     if scene_dat.get('skipped'):
         return 'scene: {0}'.format(scene_dat.get('reason', 'skipped'))
-    if scene_dat.get('error'):
-        return '{0} | error: {1}'.format(scene_dat.get('path'), scene_dat['error'])
-    if scene_dat.get('notInClient'):
-        return '{0} | not in client view'.format(scene_dat.get('path'))
-    if scene_dat.get('notOnDepot'):
-        return '{0} | not on depot'.format(scene_dat.get('path'))
-
-    _parts = [scene_dat.get('path', '?')]
-    if scene_dat.get('onDepot'):
-        _parts.append('onDepot')
-    if scene_dat.get('headRev') is not None:
-        _parts.append('headRev {0}'.format(scene_dat.get('headRev')))
-    if scene_dat.get('haveRev') is not None:
-        _parts.append('haveRev {0}'.format(scene_dat.get('haveRev')))
-    if scene_dat.get('openAction'):
-        _parts.append('open {0} change {1}'.format(scene_dat.get('openAction'), scene_dat.get('change')))
-    else:
-        _parts.append('not opened')
-    if scene_dat.get('otherOpen'):
-        _parts.append('otherOpen {0}'.format(scene_dat.get('otherOpen')))
-    return ' | '.join(_parts)
+    return 'scene: {0}'.format(format_file_status(scene_dat))
 
 
-def query_status_report(
-    p4_user=None,
-    p4_client=None,
-    scene_path=None,
-    force=False,
-    expected_user=None,
-):
+def log_status_report(dat):
     """
-    Log a human-readable P4 connectivity report and return the structured dict.
+    Log a human-readable P4 report from a structured dict (no p4 queries).
 
-    Script Editor:
-        import cgm.core.lib.perforce as P4UTIL
-        P4UTIL.query_status_report(
-            p4_user='josh.burton',
-            p4_client='josh.burton_WX-MXL6062Q6F_5734_SourceArt-DDE',
-        )
+    Use after query_connection() or from a UI buffer populated by Refresh.
     """
     _str_func = 'query_status_report'
-    if p4_user is None and expected_user:
-        p4_user = expected_user
-
-    _dat = query_connection(
-        scene_path=scene_path,
-        force=force,
-        p4_user=p4_user,
-        p4_client=p4_client,
-    )
+    _dat = dat or {}
     _conn = _dat.get('connection') or {}
 
     log.info(cgmGEN.logString_sub(_str_func, 'P4 Connection'))
@@ -634,4 +1248,34 @@ def query_status_report(
     log.info(cgmGEN.logString_sub(_str_func, 'Scene file'))
     log.info(_format_scene_status(_dat.get('scene')))
 
+    return _dat
+
+
+def query_status_report(
+    p4_user=None,
+    p4_client=None,
+    scene_path=None,
+    force=False,
+    expected_user=None,
+):
+    """
+    Log a human-readable P4 connectivity report and return the structured dict.
+
+    Script Editor:
+        import cgm.core.lib.perforce as P4UTIL
+        P4UTIL.query_status_report(
+            p4_user='josh.burton',
+            p4_client='josh.burton_WX-MXL6062Q6F_5734_SourceArt-DDE',
+        )
+    """
+    if p4_user is None and expected_user:
+        p4_user = expected_user
+
+    _dat = query_connection(
+        scene_path=scene_path,
+        force=force,
+        p4_user=p4_user,
+        p4_client=p4_client,
+    )
+    log_status_report(_dat)
     return _dat

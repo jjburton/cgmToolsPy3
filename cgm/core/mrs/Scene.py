@@ -187,7 +187,7 @@ def reloadSceneStuff():
     import cgm.core.lib.mayaSettings_utils as MAYASET
 
     log.info("reloading Scene Stuff...")
-    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS]:
+    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS, PU]:
         print(m)
         cgmGEN._reloadMod(m)
     log.info(cgmGEN._str_subLine)
@@ -2124,7 +2124,8 @@ example:
 
     def uiProject_saveAndRefresh(self):
         self.SaveOptions()
-        PROJECT.uiProject_save(self)
+        if not PROJECT.uiProject_save(self):
+            return
         self.uiProject_refreshDisplay()
         self.uiFunc_projectDirtyState(False)
 

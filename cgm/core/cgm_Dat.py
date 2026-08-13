@@ -321,8 +321,20 @@ class data(object):
         if not filepath:
             log.warning('Invalid path: {0}'.format(filepath))
             return False
-        
-        log.warning('Write to: {0}'.format(filepath))
+
+        _path_str = filepath.asFriendly() if hasattr(filepath, 'asFriendly') else str(filepath)
+        try:
+            _mDat = self if getattr(self, 'd_project', None) is not None else None
+            _path_str = COREPATHS.prepare_output_for_write(
+                _path_str,
+                mDat=_mDat,
+                _str_func=str_func,
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return False
+
+        log.warning('Write to: {0}'.format(_path_str))
             
             
         # =========================
@@ -341,7 +353,7 @@ class data(object):
             if self.hikDict:
                 ConfigObj['hikDict'] = self.hikDict"""
             
-            ConfigObj.filename = filepath
+            ConfigObj.filename = _path_str
             ConfigObj.write()
             self._dataformat_resolved = 'config'
             
@@ -351,7 +363,7 @@ class data(object):
         elif self.dataformat == 'json':
             data = {}
             self.fillDatHolder(data)
-            with open(filepath, 'w') as f:
+            with open(_path_str, 'w') as f:
                 f.write(json.dumps(data, sort_keys=True, indent=4))
                 f.close()
             self._dataformat_resolved = 'json'        
@@ -360,8 +372,8 @@ class data(object):
             raise ValueError("Unknown mode: {}".format(self.mode))
         
         #if update:
-        self.str_filepath = filepath
-        log.warning('Completed: {} | {}'.format(self._dataformat_resolved,filepath))
+        self.str_filepath = _path_str
+        log.warning('Completed: {} | {}'.format(self._dataformat_resolved,_path_str))
         return True
         
     def read(self, filepath = None, decode = True, report = False, startDirMode= None):
