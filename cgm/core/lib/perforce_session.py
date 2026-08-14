@@ -23,10 +23,16 @@ _CACHE = {
     'info': None,
     'connection_report': None,
     'connection_report_key': None,
+    'fstat_by_path': {},
 }
 
 
 def clear():
     """Flush all session P4 status/query caches."""
-    for _key in _CACHE:
-        _CACHE[_key] = None
+    _CACHE['p4_user'] = None
+    _CACHE['p4_client'] = None
+    _CACHE['available'] = None
+    _CACHE['info'] = None
+    _CACHE['connection_report'] = None
+    _CACHE['connection_report_key'] = None
+    _CACHE['fstat_by_path'] = {}

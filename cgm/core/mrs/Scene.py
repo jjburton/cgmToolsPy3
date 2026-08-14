@@ -179,6 +179,20 @@ __toolname__ ='mrsScene'
 _subLineBGC = [.75,.75,.75]
 _l_directoryMask = ['meta','.mayaSwatches','incrementalSave','cgmDat','mayaSwatches']
 
+# Dependencies — reloaded on Scene open via reload_dependencies()
+l_dependencies = (
+    'cgm.core.tools.lib.project_utils',
+)
+
+
+def reload_dependencies():
+    """Reload Scene backend modules (tool open / Reload menu / Reload SceneStuff)."""
+    global PU
+    import cgm.core.tools.lib.project_utils as _project_utils
+    cgmGEN._reloadMod(_project_utils)
+    PU = _project_utils
+    return PU
+
 
 def reloadSceneStuff():
     """Reload export pipeline modules without cgm.core._reload()."""
@@ -187,7 +201,8 @@ def reloadSceneStuff():
     import cgm.core.lib.mayaSettings_utils as MAYASET
 
     log.info("reloading Scene Stuff...")
-    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS, PU]:
+    reload_dependencies()
+    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS]:
         print(m)
         cgmGEN._reloadMod(m)
     log.info(cgmGEN._str_subLine)
@@ -219,7 +234,14 @@ example:
 
     TOOLNAME = 'cgmScene'
     WINDOW_TITLE = '%s - %s'%(TOOLNAME,__version__)    
+    reload_dependencies()
     cgmGEN._reloadMod(SCENEUTILS)
+
+    def reload(self):
+        reload_dependencies()
+        cgmGEN._reloadMod(SCENEUTILS)
+        cgmGEN._reloadMod(__import__(__name__))
+        super(ui, self).reload()
 
     def insert_init(self,*args,**kws):
         self.b_loadState = False
@@ -305,6 +327,11 @@ example:
         self.ml_p4_options_variant = []
         self.ml_p4_options_version = []
         self.ml_p4_options_multi = []
+        self.ml_p4_options_dir_set = []
+        self.ml_p4_options_dir_variant = []
+        self.ml_p4_options_dir_version = []
+        self.ml_p4_options_dir_asset = []
+        self._version_list_refreshed = False
         self.displayProject = True
         self.mDat                     = None
         self.assetMetaData               = {}
@@ -440,6 +467,15 @@ example:
         log.debug("Subtype: {0}".format(self.path_subType))
         log.debug("Variation: {0}".format(self.path_variationDirectory))
         log.debug("Version: {0}".format(self.path_versionDirectory))
+
+    def _log_picked_file_to_script_editor(self):
+        """Echo resolved file path to Script Editor when user picks a file row."""
+        try:
+            _path = self.versionFile
+            if _path and os.path.isfile(_path):
+                log.info(_path)
+        except Exception:
+            pass
 
     def report_lastSelection(self):
         _str_func = 'report_lastSelection'
@@ -764,10 +800,6 @@ example:
             return True"""
 
     def HasSub(self, category, subType):
-        _str_func = 'HasSub ||||||||| laksj;flaksjdfkl;'
-        log.warning(log_start(_str_func))
-        log.warning(log_msg(_str_func, self.category))
-
         try:
             hasSub = True
             for sub in self.mDat.assetType_get(category)['content']:
@@ -1678,7 +1710,7 @@ example:
 
         self.subTypeMenu = mUI.MelPopupMenu(self.subTypeBtn, button=1 )
         self.subTypeSearchList = self.build_searchable_list(_setsForm, sc=self.uiFunc_subTypeList_select,
-                                                            refreshCommand=lambda *a:self.LoadSubTypeList(),
+                                                            refreshCommand=self._refreshSubTypeList,
                                                             allowMultiSelect=True)
 
         # File-list popup rebuilt on selection (Builder pattern); reduced menu when multi-select
@@ -1723,7 +1755,7 @@ example:
                                               ann='Select the asset variation', en=False)
 
         self.variationList = self.build_searchable_list(_variationForm, sc=self.uiFunc_variationList_select,
-                                                        refreshCommand=lambda *a:self.LoadVariationList(),
+                                                        refreshCommand=self._refreshVariationList,
                                                         allowMultiSelect=True)
 
 
@@ -1763,7 +1795,7 @@ example:
                                             ann='Select the asset version', en=False)
 
         self.versionList = self.build_searchable_list(_versionForm, sc=self.uiFunc_versionList_select,
-                                                      refreshCommand=lambda *a:self.LoadVersionList(),
+                                                      refreshCommand=self._refreshVersionList,
                                                       allowMultiSelect=True)
 
 
@@ -2838,11 +2870,12 @@ example:
                 mUI(edit=True,en=False)
 
             self._refresh_p4_menu_items([self.ml_p4_options_set], True)
+            self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_set], False)
 
             log.debug(log_msg(_str_func,'is versionList'))            
             self.assetMetaData = self.getMetaDataFromFile()
             self.buildDetailsColumn()
-            log.debug( self.versionFile )            
+            self._log_picked_file_to_script_editor()
             self.buildAssetForm()
             self.uiUpdate_setsButtons()
 
@@ -2856,6 +2889,9 @@ example:
                 mUI(edit=True,en=True)
 
             self._refresh_p4_menu_items([self.ml_p4_options_set], False)
+            self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_set], True)
+
+        self._version_list_refreshed = False
 
         if self.hasVariant:
             log.debug(log_msg(_str_func,"hasVariant"))                        
@@ -2866,9 +2902,8 @@ example:
             if self.variationList:
                 self._clear_searchable_list(self.variationList)
 
-        #if not self.subTypes:#...if we have 
-
-        self.LoadVersionList()
+        if not self._version_list_refreshed:
+            self.LoadVersionList()
         self._refreshMetaDataFromSelection()
 
         #else:
@@ -2904,10 +2939,12 @@ example:
                 mUI(edit=True,en=False)
 
             self._refresh_p4_menu_items([self.ml_p4_options_variant], True)
+            self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_variant], False)
 
             self.versionList['scrollList'].clear()
             self.assetMetaData = self.getMetaDataFromFile()
             self.buildDetailsColumn()
+            self._log_picked_file_to_script_editor()
         elif os.path.isdir(_path):
             log.debug(log_msg(_str_func,"dir passed"))
             self.b_varFile = False            
@@ -2917,8 +2954,12 @@ example:
                 mUI(edit=True,en=True)
 
             self._refresh_p4_menu_items([self.ml_p4_options_variant], False)
+            self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_variant], True)
 
-            self.LoadVersionList()
+            if not self._version_list_refreshed:
+                self.LoadVersionList()
+            else:
+                self._version_list_refreshed = False
             self._refreshMetaDataFromSelection()
 
         self.buildAssetForm()
@@ -2939,7 +2980,7 @@ example:
         self._refresh_p4_menu_items(
             [self.ml_p4_options_version],
             bool(self._scene_p4_selected_file_path()))
-        log.info( self.versionFile )
+        self._log_picked_file_to_script_editor()
 
 
 
@@ -3630,7 +3671,7 @@ example:
         """Next-idle UI work — avoids Maya/Qt crash when mutating scroll lists from popup menus."""
         mc.evalDeferred(cgmGEN.Callback(callableObj, *args, **kwargs), lp=True)
 
-    def _refresh_searchable_display(self, searchableList):
+    def _refresh_searchable_display(self, searchableList, progress_bar=None, progress_label=None):
         """BlockScrollList-style refresh: ra, append label, itc per display index."""
         _source = searchableList.get('rows') or []
         _search = ''
@@ -3647,6 +3688,7 @@ example:
         sl = searchableList['scrollList']
         _selOn = sl.b_selCommandOn
         sl.b_selCommandOn = False
+        _total = len(_displayRows)
         try:
             try:
                 sl(e=True, deselectAll=True)
@@ -3657,6 +3699,15 @@ example:
             sl._ml_rows = []
 
             for i, row in enumerate(_displayRows):
+                if progress_bar:
+                    if i == 0 or (i + 1) % 25 == 0 or i + 1 == _total:
+                        if self._scene_list_progress_update(
+                                progress_bar,
+                                status='{0} | Building list ({1}/{2})'.format(
+                                    progress_label or 'Scene', i + 1, _total),
+                                progress=i + 1,
+                                max_value=_total):
+                            break
                 _label = row.alias if row.alias is not None else row.item
                 sl.appendDisplayRow(
                     _label,
@@ -3671,7 +3722,158 @@ example:
         finally:
             sl.b_selCommandOn = _selOn
 
-    def _apply_p4_file_row_colors(self, rows, search_dir):
+    def _scene_list_progress_begin(self, status, max_steps=100):
+        try:
+            return cgmUI.doStartMayaProgressBar(
+                stepMaxValue=max(int(max_steps), 1),
+                statusMessage=status,
+                interruptableState=True)
+        except Exception:
+            return None
+
+    def _scene_list_progress_update(self, progress_bar, status=None, progress=None, max_value=None):
+        if not progress_bar:
+            return False
+        try:
+            if mc.progressBar(progress_bar, query=True, isCancelled=True):
+                return True
+            _kw = {}
+            if status is not None:
+                _kw['status'] = status
+            if progress is not None:
+                _kw['progress'] = progress
+            if max_value is not None:
+                _kw['maxValue'] = max(int(max_value), 1)
+            cgmUI.progressBar_set(progress_bar, **_kw)
+        except Exception:
+            pass
+        return False
+
+    def _scene_list_progress_end(self, progress_bar):
+        if not progress_bar:
+            return
+        try:
+            cgmUI.progressBar_end(progress_bar)
+        except Exception:
+            try:
+                cgmUI.doEndMayaProgressBar(progress_bar)
+            except Exception:
+                pass
+
+    def _scene_p4_multi_file_progress_begin(self, action_label, total):
+        """Maya progress bar for multi-file P4 actions (2+ files)."""
+        _total = int(total or 0)
+        if _total <= 1:
+            return None
+        return self._scene_list_progress_begin(
+            'P4 {0} | 0/{1}'.format(action_label, _total),
+            max_steps=_total)
+
+    def _scene_p4_multi_file_progress_tick(self, progress_bar, action_label, index, total, path):
+        if not progress_bar:
+            return False
+        _name = os.path.basename(path) if path else ''
+        _short = _name if len(_name) <= 48 else '...{0}'.format(_name[-45:])
+        _idx = int(index or 0)
+        _total = max(int(total or 0), 1)
+        if _idx == 1 or _idx % 10 == 0 or _idx == _total:
+            try:
+                mc.refresh()
+            except Exception:
+                pass
+        return self._scene_list_progress_update(
+            progress_bar,
+            status='P4 {0} | {1}/{2} | {3}'.format(action_label, _idx, _total, _short),
+            progress=_idx,
+            max_value=_total)
+
+    def _scene_list_file_row_count(self, rows):
+        return sum(1 for r in (rows or []) if getattr(r, 'kind', None) == 'file')
+
+    def _scene_list_file_paths(self, rows, search_dir):
+        if not search_dir:
+            return []
+        _paths = []
+        for row in rows or []:
+            if getattr(row, 'kind', None) != 'file':
+                continue
+            try:
+                _paths.append(os.path.normpath(os.path.join(search_dir, row.item)))
+            except Exception:
+                continue
+        return _paths
+
+    def _scene_list_slow_publish_work(self, rows, search_dir):
+        """
+        True when list publish is worth a progress bar (uncached P4 fstat or large non-P4 UI).
+
+        Returns (needs_progress, file_count, p4_fstat_misses).
+        """
+        _file_count = self._scene_list_file_row_count(rows)
+        if _file_count < SCENEUTILS.SCENE_LIST_PROGRESS_FILE_THRESHOLD:
+            return False, _file_count, 0
+
+        if SCENEUTILS.scene_list_p4_enabled(self.mDat):
+            try:
+                import cgm.core.lib.perforce as P4UTIL
+                _misses = P4UTIL.count_fstat_cache_misses(
+                    self._scene_list_file_paths(rows, search_dir))
+            except Exception:
+                _misses = _file_count
+            if _misses > 0:
+                return True, _file_count, _misses
+            return False, _file_count, 0
+
+        return True, _file_count, 0
+
+    def _publish_searchable_list_rows(self, searchableList, rows, search_dir, progress_label='Scene'):
+        """Apply P4 row colors and refresh scroll display; progress bar only on slow work."""
+        _needs_progress, _file_count, _p4_misses = self._scene_list_slow_publish_work(rows, search_dir)
+        _progress_bar = None
+        _max_steps = 100
+        if _needs_progress:
+            try:
+                import cgm.core.lib.perforce as P4UTIL
+                _p4_chunks = max(
+                    1,
+                    (_p4_misses + P4UTIL.FSTAT_QUERY_CHUNK - 1) // P4UTIL.FSTAT_QUERY_CHUNK,
+                ) if _p4_misses else 0
+            except Exception:
+                _p4_chunks = 0
+            _max_steps = max(_p4_chunks + _file_count, _file_count, 2)
+            _progress_bar = self._scene_list_progress_begin(
+                '{0} | {1} files'.format(progress_label, _file_count),
+                max_steps=_max_steps)
+
+        def _p4_progress_cb(step, total, status):
+            return self._scene_list_progress_update(
+                _progress_bar,
+                status='{0} | {1} ({2}/{3})'.format(progress_label, status, step, total),
+                progress=step,
+                max_value=total)
+
+        try:
+            if _progress_bar and _p4_misses:
+                self._scene_list_progress_update(
+                    _progress_bar,
+                    status='{0} | Perforce'.format(progress_label),
+                    progress=0,
+                    max_value=_max_steps)
+            self._apply_p4_file_row_colors(
+                rows,
+                search_dir,
+                progress_cb=_p4_progress_cb if _progress_bar and _p4_misses else None)
+            if _progress_bar and mc.progressBar(_progress_bar, query=True, isCancelled=True):
+                return
+            self._push_searchable_rows(
+                searchableList,
+                rows,
+                progress_bar=_progress_bar,
+                progress_label=progress_label)
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+
+    def _apply_p4_file_row_colors(self, rows, search_dir, progress_cb=None):
         """P4 file-row itc when versionControl=perforce and connected."""
         if not rows or not search_dir:
             return rows
@@ -3679,14 +3881,16 @@ example:
             rows,
             path_by_item=lambda r: os.path.join(search_dir, r.item),
             mDat=self.mDat,
+            progress_cb=progress_cb,
         )
         return rows
 
-    def _push_searchable_rows(self, searchableList, rows, store=True):
+    def _push_searchable_rows(self, searchableList, rows, store=True, progress_bar=None, progress_label=None):
         """Store SceneListRow source list and refresh scroll display."""
         if store:
             searchableList['rows'] = list(rows or [])
-        self._refresh_searchable_display(searchableList)
+        self._refresh_searchable_display(
+            searchableList, progress_bar=progress_bar, progress_label=progress_label)
 
     def _clear_searchable_list(self, searchableList):
         self._push_searchable_rows(searchableList, [])
@@ -3847,8 +4051,7 @@ example:
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(subEntries))
-        self._apply_p4_file_row_colors(_rows, charDir)
-        self._push_searchable_rows(self.subTypeSearchList, _rows)
+        self._publish_searchable_list_rows(self.subTypeSearchList, _rows, charDir, progress_label='Sets')
 
         self._clear_searchable_list(self.variationList)
         self._clear_searchable_list(self.versionList)
@@ -3860,6 +4063,7 @@ example:
     def LoadVariationList(self, *args):
         _str_func = 'LoadVariationList'
         log.debug(log_start(_str_func))
+        self._version_list_refreshed = False
         """
         if not self.hasSub and self.hasNested:
             self.LoadVersionList()            
@@ -3868,6 +4072,7 @@ example:
 
         if not self.hasVariant:
             log.debug(log_msg(_str_func, "not hasVariant"))
+            self._version_list_refreshed = True
             self.LoadVersionList()
             #self.buildAssetForm()
             mc.formLayout( self._subForms[2], e=True, vis=False )
@@ -3908,15 +4113,21 @@ example:
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(variationEntries))
-        self._apply_p4_file_row_colors(_rows, animationDir)
-        self._push_searchable_rows(self.variationList, _rows)
+        self._publish_searchable_list_rows(self.variationList, _rows, animationDir, progress_label='Variation')
 
         if _rows:
-            self.variationList['scrollList'].select_last(selCommand=False)
+            _vsl = self.variationList['scrollList']
+            _selOn = _vsl.b_selCommandOn
+            _vsl.b_selCommandOn = False
+            try:
+                _vsl.select_last(selCommand=False)
+            finally:
+                _vsl.b_selCommandOn = _selOn
             # Auto-select skips selCommand — keep file/dir flags and version column in sync
             _autoPath = self.path_variationDirectory
             self.b_varFile = bool(_autoPath and os.path.isfile(_autoPath))
             if _autoPath and os.path.isdir(_autoPath):
+                self._version_list_refreshed = True
                 self.LoadVersionList()
 
         self.uiUpdate_variationButtons()
@@ -4014,17 +4225,22 @@ example:
                             anims.append(f)
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries([(f, 'file') for f in anims]))
-        self._apply_p4_file_row_colors(_rows, searchDir)
-        self._push_searchable_rows(searchList, _rows)
+        self._publish_searchable_list_rows(searchList, _rows, searchDir, progress_label='Version')
         if anims:
-            if selectValue:
-                searchList['scrollList'].selectByValue(selectValue, selCommand=False)
-            else:
-                _lastVersion = self.var_lastVersion.getValue()
-                if _lastVersion and _lastVersion in searchList['scrollList']._items:
-                    searchList['scrollList'].selectByValue(_lastVersion,selCommand=False)
+            _vsl = searchList['scrollList']
+            _selOn = _vsl.b_selCommandOn
+            _vsl.b_selCommandOn = False
+            try:
+                if selectValue:
+                    _vsl.selectByValue(selectValue, selCommand=False)
                 else:
-                    searchList['scrollList'].select_last(selCommand=False)
+                    _lastVersion = self.var_lastVersion.getValue()
+                    if _lastVersion and _lastVersion in _vsl._items:
+                        _vsl.selectByValue(_lastVersion, selCommand=False)
+                    else:
+                        _vsl.select_last(selCommand=False)
+            finally:
+                _vsl.b_selCommandOn = _selOn
 
         #if anims:
             #searchList['scrollList'].selectByValue(anims[-1])
@@ -5488,6 +5704,16 @@ example:
 
         self.refreshAssetListMB = mUI.MelMenuItem(self.assetTSLpum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadCategoryList))
 
+        self.ml_p4_options_dir_asset = []
+        if self._scene_p4_menu_active():
+            mUI.MelMenuItemDiv(self.assetTSLpum, label='Perforce')
+            self.ml_p4_options_dir_asset.append(mUI.MelMenuItem(
+                self.assetTSLpum,
+                label='Get Latest Revision',
+                ann='p4 sync — update asset directory and all files below to head revision',
+                c=cgmGEN.Callback(self._defer_ui, self.uiFunc_p4_sync_asset_directory),
+                en=self._scene_p4_connected()))
+
         mUI.MelMenuItemDiv(self.assetTSLpum)
         mUI.MelMenuItem(self.assetTSLpum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'asset' ))
 
@@ -5535,6 +5761,48 @@ example:
         _path = self._scene_p4_selected_file_path()
         return [_path] if _path else []
 
+    def _scene_p4_selected_dir_path(self, list_key):
+        scroll = self._fileListScrollForMode(list_key)
+        if not scroll:
+            return None
+        item = scroll.getSelectedItem()
+        if not item:
+            return None
+        path = self._resolveFileListDeletePath(list_key, item)
+        if path and os.path.isdir(path):
+            return os.path.normpath(path)
+        return None
+
+    def _scene_p4_project_root_path(self):
+        try:
+            _path = self.directory
+        except Exception:
+            _path = None
+        if not _path:
+            try:
+                _path = (self.d_userPaths or {}).get('content')
+            except Exception:
+                _path = None
+        if _path:
+            _path = os.path.normpath(_path)
+            if os.path.isdir(_path):
+                return _path
+        return None
+
+    def _scene_p4_project_root_in_client(self):
+        _path = self._scene_p4_project_root_path()
+        if not _path or not self._scene_p4_connected():
+            return False
+        try:
+            import cgm.core.lib.perforce as P4UTIL
+            _user, _client = self._scene_p4_connection()
+            return bool(P4UTIL.is_under_client(_path, p4_user=_user, p4_client=_client))
+        except Exception:
+            return False
+
+    def _scene_p4_project_root_sync_enabled(self):
+        return bool(self._scene_p4_project_root_in_client())
+
     def _refresh_p4_menu_items(self, item_lists, file_selected):
         _en = bool(file_selected and self._scene_p4_connected())
         for _lst in item_lists or []:
@@ -5544,6 +5812,59 @@ example:
                 except Exception:
                     pass
 
+    def _refresh_p4_dir_menu_items(self, item_lists, dir_selected):
+        _en = bool(dir_selected and self._scene_p4_connected())
+        for _lst in item_lists or []:
+            for _item in _lst or []:
+                try:
+                    _item(edit=True, en=_en)
+                except Exception:
+                    pass
+
+    def _resolve_p4_search_dir_for_column(self, list_key):
+        if list_key == 'sets':
+            if self.path_dir_category and self.assetList['scrollList'].getSelectedItem():
+                if not self.hasSub:
+                    return self._version_files_parent_directory()
+                return self.path_subType
+            return None
+        if list_key == 'variation':
+            _path = self.path_set
+            if not _path or os.path.isfile(_path):
+                return None
+            return _path
+        if list_key == 'version':
+            return self._version_files_parent_directory()
+        return None
+
+    def _invalidate_p4_directory_for_column(self, list_key):
+        try:
+            import cgm.core.lib.perforce as P4UTIL
+            _dir = self._resolve_p4_search_dir_for_column(list_key)
+            if _dir:
+                P4UTIL.invalidate_fstat_directory(_dir)
+        except Exception as err:
+            log.debug(log_msg('_invalidate_p4_directory_for_column', err))
+
+    def _refreshSubTypeList(self, *args):
+        self._invalidate_p4_directory_for_column('sets')
+        self.LoadSubTypeList()
+
+    def _refreshVariationList(self, *args):
+        self._invalidate_p4_directory_for_column('variation')
+        self.LoadVariationList()
+
+    def _refreshVersionList(self, *args):
+        self._invalidate_p4_directory_for_column('version')
+        self.LoadVersionList()
+
+    def _scene_p4_active_list_key(self):
+        if self.b_subFile:
+            return 'sets'
+        if self.b_varFile:
+            return 'variation'
+        return 'version'
+
     def _scene_p4_reload_lists(self):
         if self.b_subFile:
             self.LoadSubTypeList()
@@ -5552,23 +5873,69 @@ example:
         else:
             self.LoadVersionList()
 
-    def _scene_p4_after_write(self):
-        try:
-            import cgm.core.lib.perforce as P4UTIL
-            P4UTIL.flush_status_cache()
-        except Exception:
-            pass
-        self._defer_ui(self._scene_p4_reload_lists)
+    def _scene_p4_after_write(self, list_key=None):
+        if list_key is None:
+            list_key = self._scene_p4_active_list_key()
+        _reload = {
+            'sets': self.LoadSubTypeList,
+            'variation': self.LoadVariationList,
+            'version': self.LoadVersionList,
+        }
+        _fn = _reload.get(list_key)
+        if _fn:
+            self._defer_ui(_fn)
+        else:
+            self._defer_ui(self._scene_p4_reload_lists)
+
+    def _scene_p4_after_sync_directory(self, sync_path=None, list_key=None):
+        """Refresh dir scroll lists and file-list columns after p4 directory sync."""
+        def _reload():
+            if getattr(self, 'uiScrollList_dirContent', None) and self.directory:
+                try:
+                    self.uiScrollList_dirContent.rebuild(self.directory)
+                except Exception as err:
+                    log.debug(log_msg('_scene_p4_after_sync_directory', 'dirContent | {0}'.format(err)))
+            if getattr(self, 'uiScrollList_dirExport', None) and getattr(self, 'exportDirectory', None):
+                try:
+                    self.uiScrollList_dirExport.rebuild(self.exportDirectory)
+                except Exception as err:
+                    log.debug(log_msg('_scene_p4_after_sync_directory', 'dirExport | {0}'.format(err)))
+
+            if list_key in ('project', 'content'):
+                log.info(
+                    'P4 Get Latest: content sync complete — use column Refresh for P4 file colors')
+                return
+
+            if not self.assetList['scrollList'].getSelectedItem():
+                return
+
+            if list_key == 'version':
+                self._refreshVersionList()
+                return
+
+            if list_key == 'variation':
+                self._refreshVariationList()
+                return
+
+            self._refreshSubTypeList()
+            if self.subTypeSearchList['scrollList'].getSelectedItem() and not self.b_subFile:
+                self.uiFunc_subTypeList_select()
+
+        self._defer_ui(_reload)
 
     def _append_p4_file_menu(self, pum, track_list, list_key=None):
         track_list[:] = []
         if not self._scene_p4_menu_active():
             return
         mUI.MelMenuItemDiv(pum, label='Perforce')
-        _paths = self._scene_p4_action_paths(list_key) if list_key else None
-        _en = bool(self._scene_p4_connected())
-        if list_key is not None:
-            _en = _en and bool(_paths)
+        _paths = self._scene_p4_action_paths(list_key)
+        _en = bool(self._scene_p4_connected() and _paths)
+        track_list.append(mUI.MelMenuItem(
+            pum,
+            label='Get',
+            ann='p4 sync — get latest revision for selected file(s)',
+            c=cgmGEN.Callback(self.uiFunc_p4_sync_file, list_key),
+            en=_en))
         track_list.append(mUI.MelMenuItem(
             pum, label='Checkout',
             ann='p4 edit — open depot file(s) for edit',
@@ -5585,15 +5952,116 @@ example:
             c=cgmGEN.Callback(self.uiFunc_p4_revert_file, list_key),
             en=_en))
         track_list.append(mUI.MelMenuItem(
-            pum, label='Sync',
-            ann='p4 sync — update selected file(s) to head revision',
-            c=cgmGEN.Callback(self.uiFunc_p4_sync_file, list_key),
-            en=_en))
-        track_list.append(mUI.MelMenuItem(
             pum, label='Submit',
             ann='p4 submit — submit changelist for selected file(s)',
             c=cgmGEN.Callback(self.uiFunc_p4_submit_file, list_key),
             en=_en))
+
+    def _append_p4_get_latest_dir_item(self, pum, track_list, callback, enabled=False):
+        track_list[:] = []
+        if not self._scene_p4_menu_active():
+            return
+        track_list.append(mUI.MelMenuItem(
+            pum,
+            label='Get Latest Revision',
+            ann='p4 sync — update directory and all files below to head revision',
+            c=cgmGEN.Callback(self._defer_ui, callback),
+            en=bool(enabled and self._scene_p4_connected())))
+
+    def _p4_sync_progress_tick(self, progress_bar, count, line):
+        _short = line if len(line) <= 72 else '...{0}'.format(line[-69:])
+        if count == 1 or count % 100 == 0:
+            try:
+                mc.refresh()
+            except Exception:
+                pass
+        return self._scene_list_progress_update(
+            progress_bar,
+            status='P4 Get Latest | {0} file(s) | {1}'.format(count, _short),
+            progress=count,
+            max_value=max(100, count + 1))
+
+    def _uiFunc_p4_sync_directory_path(self, path, list_key=None):
+        _path = os.path.normpath(path) if path else None
+        if not _path or not os.path.isdir(_path):
+            return log.warning('P4 Get Latest: no directory selected')
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Get Latest: set user/client in cgmP4')
+        log.info('P4 Get Latest: {0}'.format(_path))
+        _msg = 'Sync directory and all files below to head revision?\n\n{0}'.format(_path)
+        if list_key in ('project', 'content'):
+            _msg += (
+                '\n\nLarge trees can take several minutes. '
+                'Progress updates in the status bar; use column Refresh for P4 colors after.')
+        _result = mc.confirmDialog(
+            title='Get Latest Revision',
+            message=_msg,
+            button=['Sync', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != 'Sync':
+            return
+        self._defer_ui(self._uiFunc_p4_sync_directory_run, _path, list_key)
+
+    def _uiFunc_p4_sync_directory_run(self, path, list_key=None):
+        _path = os.path.normpath(path) if path else None
+        if not _path or not os.path.isdir(_path):
+            return
+        _user, _client = self._scene_p4_connection()
+        if not _user or not _client:
+            return log.warning('P4 Get Latest: set user/client in cgmP4')
+        import cgm.core.lib.perforce as P4UTIL
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+        _progress_bar = self._scene_list_progress_begin(
+            'P4 Get Latest | starting...', max_steps=100)
+        try:
+            mc.refresh()
+        except Exception:
+            pass
+
+        def _progress_cb(count, line):
+            return self._p4_sync_progress_tick(_progress_bar, count, line)
+
+        def _cancel_cb():
+            if not _progress_bar:
+                return False
+            try:
+                return mc.progressBar(_progress_bar, query=True, isCancelled=True)
+            except Exception:
+                return False
+
+        _large_tree = list_key in ('project', 'content')
+        log.info('P4 Get Latest: syncing {0}...'.format(_path))
+        try:
+            _res = P4UTIL.sync_directory(
+                _path,
+                p4_user=_user,
+                p4_client=_client,
+                progress_cb=_progress_cb,
+                cancel_cb=_cancel_cb,
+                progress_every=50 if _large_tree else 25,
+                fstat_cache_flush='all' if _large_tree else 'directory',
+            )
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+
+        if _res.get('cancelled'):
+            return log.warning('P4 Get Latest: cancelled — {0}'.format(_path))
+        if _res.get('ok'):
+            _count = _res.get('fileCount') or len(_res.get('lines') or [])
+            _lines = _res.get('lines') or []
+            if any('no file' in l.lower() for l in _lines):
+                log.info('P4 Get Latest: no files updated — {0}'.format(_path))
+            else:
+                log.info('P4 synced directory: {0} ({1} file(s))'.format(_path, _count))
+            self._scene_p4_after_sync_directory(_path, list_key=list_key)
+        else:
+            log.error('P4 sync directory failed: {0} | {1}'.format(
+                _path, _res.get('stderr') or 'unknown'))
 
     def uiFunc_p4_checkout_file(self, list_key=None, *args):
         _paths = self._scene_p4_action_paths(list_key)
@@ -5630,7 +6098,7 @@ example:
             _res = P4UTIL.edit(_path, p4_user=_user, p4_client=_client)
             if _res.get('ok'):
                 log.info('P4 checkout: {0}'.format(_path))
-                self._scene_p4_after_write()
+                self._scene_p4_after_write(list_key=list_key)
             else:
                 log.error('P4 checkout failed: {0}'.format(_res.get('stderr') or 'unknown'))
             return
@@ -5646,31 +6114,42 @@ example:
             return
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
         _ok = 0
-        for _path in _paths:
-            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
-            if _stat.get('checkedOut'):
-                log.warning('P4 Checkout: skip — already opened — {0}'.format(_path))
-                continue
-            if _stat.get('notInClient'):
-                log.warning('P4 Checkout: skip — not in client view — {0}'.format(_path))
-                continue
-            if not _stat.get('onDepot'):
-                log.warning('P4 Checkout: skip — not on depot — {0}'.format(_path))
-                continue
-            if _stat.get('outOfDate'):
-                log.warning('P4 Checkout: skip — out of date — {0}'.format(_path))
-                continue
-            if _stat.get('lockedByOther'):
-                log.error('P4 Checkout: skip — locked elsewhere — {0}'.format(_path))
-                continue
-            _res = P4UTIL.edit(_path, p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                _ok += 1
-                log.info('P4 checkout: {0}'.format(_path))
-            else:
-                log.error('P4 checkout failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        _cancelled = False
+        _progress_bar = self._scene_p4_multi_file_progress_begin('Checkout', len(_paths))
+        try:
+            for _idx, _path in enumerate(_paths, 1):
+                if self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, 'Checkout', _idx, len(_paths), _path):
+                    _cancelled = True
+                    break
+                _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+                if _stat.get('checkedOut'):
+                    log.warning('P4 Checkout: skip — already opened — {0}'.format(_path))
+                    continue
+                if _stat.get('notInClient'):
+                    log.warning('P4 Checkout: skip — not in client view — {0}'.format(_path))
+                    continue
+                if not _stat.get('onDepot'):
+                    log.warning('P4 Checkout: skip — not on depot — {0}'.format(_path))
+                    continue
+                if _stat.get('outOfDate'):
+                    log.warning('P4 Checkout: skip — out of date — {0}'.format(_path))
+                    continue
+                if _stat.get('lockedByOther'):
+                    log.error('P4 Checkout: skip — locked elsewhere — {0}'.format(_path))
+                    continue
+                _res = P4UTIL.edit(_path, p4_user=_user, p4_client=_client)
+                if _res.get('ok'):
+                    _ok += 1
+                    log.info('P4 checkout: {0}'.format(_path))
+                else:
+                    log.error('P4 checkout failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+        if _cancelled:
+            log.warning('P4 Checkout: cancelled — {0}/{1} file(s) done'.format(_ok, len(_paths)))
         if _ok:
-            self._scene_p4_after_write()
+            self._scene_p4_after_write(list_key=list_key)
         log.info('P4 checkout complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
 
     def uiFunc_p4_add_file(self, list_key=None, *args):
@@ -5706,7 +6185,7 @@ example:
             _res = P4UTIL.add(_path, p4_user=_user, p4_client=_client)
             if _res.get('ok'):
                 log.info('P4 add: {0}'.format(_path))
-                self._scene_p4_after_write()
+                self._scene_p4_after_write(list_key=list_key)
             else:
                 log.error('P4 add failed: {0}'.format(_res.get('stderr') or 'unknown'))
             return
@@ -5722,28 +6201,39 @@ example:
             return
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
         _ok = 0
-        for _path in _paths:
-            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
-            if _stat.get('checkedOut'):
-                log.warning('P4 Add: skip — already opened — {0}'.format(_path))
-                continue
-            if _stat.get('notInClient'):
-                log.warning('P4 Add: skip — not in client view — {0}'.format(_path))
-                continue
-            if _stat.get('onDepot') and not _stat.get('notOnDepot'):
-                log.warning('P4 Add: skip — already on depot — {0}'.format(_path))
-                continue
-            if _stat.get('lockedByOther'):
-                log.error('P4 Add: skip — locked elsewhere — {0}'.format(_path))
-                continue
-            _res = P4UTIL.add(_path, p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                _ok += 1
-                log.info('P4 add: {0}'.format(_path))
-            else:
-                log.error('P4 add failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        _cancelled = False
+        _progress_bar = self._scene_p4_multi_file_progress_begin('Add', len(_paths))
+        try:
+            for _idx, _path in enumerate(_paths, 1):
+                if self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, 'Add', _idx, len(_paths), _path):
+                    _cancelled = True
+                    break
+                _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
+                if _stat.get('checkedOut'):
+                    log.warning('P4 Add: skip — already opened — {0}'.format(_path))
+                    continue
+                if _stat.get('notInClient'):
+                    log.warning('P4 Add: skip — not in client view — {0}'.format(_path))
+                    continue
+                if _stat.get('onDepot') and not _stat.get('notOnDepot'):
+                    log.warning('P4 Add: skip — already on depot — {0}'.format(_path))
+                    continue
+                if _stat.get('lockedByOther'):
+                    log.error('P4 Add: skip — locked elsewhere — {0}'.format(_path))
+                    continue
+                _res = P4UTIL.add(_path, p4_user=_user, p4_client=_client)
+                if _res.get('ok'):
+                    _ok += 1
+                    log.info('P4 add: {0}'.format(_path))
+                else:
+                    log.error('P4 add failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+        if _cancelled:
+            log.warning('P4 Add: cancelled — {0}/{1} file(s) done'.format(_ok, len(_paths)))
         if _ok:
-            self._scene_p4_after_write()
+            self._scene_p4_after_write(list_key=list_key)
         log.info('P4 add complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
 
     def uiFunc_p4_revert_file(self, list_key=None, *args):
@@ -5777,15 +6267,26 @@ example:
         import cgm.core.lib.perforce as P4UTIL
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
         _ok = 0
-        for _path in _paths:
-            _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                _ok += 1
-                log.info('P4 reverted: {0}'.format(_path))
-            else:
-                log.error('P4 revert failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        _cancelled = False
+        _progress_bar = self._scene_p4_multi_file_progress_begin('Revert', len(_paths))
+        try:
+            for _idx, _path in enumerate(_paths, 1):
+                if self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, 'Revert', _idx, len(_paths), _path):
+                    _cancelled = True
+                    break
+                _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
+                if _res.get('ok'):
+                    _ok += 1
+                    log.info('P4 reverted: {0}'.format(_path))
+                else:
+                    log.error('P4 revert failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+        if _cancelled:
+            log.warning('P4 Revert: cancelled — {0}/{1} file(s) done'.format(_ok, len(_paths)))
         if _ok:
-            self._scene_p4_after_write()
+            self._scene_p4_after_write(list_key=list_key)
         if len(_paths) > 1:
             log.info('P4 revert complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
 
@@ -5820,17 +6321,54 @@ example:
         import cgm.core.lib.perforce as P4UTIL
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
         _ok = 0
-        for _path in _paths:
-            _res = P4UTIL.sync_file(_path, p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                _ok += 1
-                log.info('P4 synced: {0}'.format(_path))
-            else:
-                log.error('P4 sync failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        _cancelled = False
+        _progress_bar = self._scene_p4_multi_file_progress_begin('Sync', len(_paths))
+        try:
+            for _idx, _path in enumerate(_paths, 1):
+                if self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, 'Sync', _idx, len(_paths), _path):
+                    _cancelled = True
+                    break
+                _res = P4UTIL.sync_file(_path, p4_user=_user, p4_client=_client)
+                if _res.get('ok'):
+                    _ok += 1
+                    log.info('P4 synced: {0}'.format(_path))
+                else:
+                    log.error('P4 sync failed: {0} | {1}'.format(_path, _res.get('stderr') or 'unknown'))
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+        if _cancelled:
+            log.warning('P4 Sync: cancelled — {0}/{1} file(s) done'.format(_ok, len(_paths)))
         if _ok:
-            self._scene_p4_after_write()
+            self._scene_p4_after_write(list_key=list_key)
         if len(_paths) > 1:
             log.info('P4 sync complete: {0}/{1} file(s)'.format(_ok, len(_paths)))
+
+    def uiFunc_p4_sync_directory(self, list_key=None, *args):
+        if not list_key:
+            return log.warning('P4 Get Latest: no list context')
+        _path = self._scene_p4_selected_dir_path(list_key)
+        self._uiFunc_p4_sync_directory_path(_path, list_key=list_key)
+
+    def uiFunc_p4_sync_version_directory(self, *args):
+        self._uiFunc_p4_sync_directory_path(
+            self._version_files_parent_directory(),
+            list_key='version')
+
+    def uiFunc_p4_sync_asset_directory(self, *args):
+        if not self.selectedAsset or not self.path_dir_category:
+            return log.warning('P4 Get Latest: no asset selected')
+        _path = os.path.normpath(os.path.join(self.path_dir_category, self.selectedAsset))
+        self._uiFunc_p4_sync_directory_path(_path, list_key='asset')
+
+    def uiFunc_p4_sync_project_root(self, *args):
+        _path = self._scene_p4_project_root_path()
+        if not _path:
+            return log.warning('P4 Get: no project content path')
+        if not self._scene_p4_project_root_in_client():
+            return log.warning(
+                'P4 Get: project path not in Perforce client view — {0}'.format(_path))
+        self._uiFunc_p4_sync_directory_path(_path, list_key='project')
 
     def uiFunc_p4_submit_file(self, list_key=None, *args):
         _paths = self._scene_p4_action_paths(list_key)
@@ -5885,7 +6423,7 @@ example:
             _res = P4UTIL.submit_paths([_path], change=_change, p4_user=_user, p4_client=_client)
             if _res.get('ok'):
                 log.info('P4 submitted: {0}'.format(_path))
-                self._scene_p4_after_write()
+                self._scene_p4_after_write(list_key=list_key)
             else:
                 log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
             return
@@ -5908,17 +6446,30 @@ example:
             return
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
         _ok = 0
-        for _grp in _by_change.values():
-            _res = P4UTIL.submit_paths(
-                _grp['paths'], change=_grp['change'], p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                _ok += len(_grp['paths'])
-                for _path in _grp['paths']:
-                    log.info('P4 submitted: {0}'.format(_path))
-            else:
-                log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        _cancelled = False
+        _groups = list(_by_change.values())
+        _progress_bar = self._scene_p4_multi_file_progress_begin('Submit', len(_groups))
+        try:
+            for _idx, _grp in enumerate(_groups, 1):
+                _paths = _grp['paths']
+                if self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, 'Submit', _idx, len(_groups), _paths[0]):
+                    _cancelled = True
+                    break
+                _res = P4UTIL.submit_paths(
+                    _paths, change=_grp['change'], p4_user=_user, p4_client=_client)
+                if _res.get('ok'):
+                    _ok += len(_paths)
+                    for _path in _paths:
+                        log.info('P4 submitted: {0}'.format(_path))
+                else:
+                    log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        finally:
+            self._scene_list_progress_end(_progress_bar)
+        if _cancelled:
+            log.warning('P4 Submit: cancelled — {0}/{1} file(s) done'.format(_ok, len(_opened)))
         if _ok:
-            self._scene_p4_after_write()
+            self._scene_p4_after_write(list_key=list_key)
         log.info('P4 submit complete: {0}/{1} file(s)'.format(_ok, len(_opened)))
 
     def _fileListPopupDelete(self, popupAttr, sendToProjectAttr=None):
@@ -5958,13 +6509,13 @@ example:
 
         mUI.MelMenuItemDiv(pum, label='List')
         _refresh = {
-            'sets': self.LoadSubTypeList,
-            'variation': self.LoadVariationList,
-            'version': self.LoadVersionList,
+            'sets': self._refreshSubTypeList,
+            'variation': self._refreshVariationList,
+            'version': self._refreshVersionList,
         }
         _refreshFn = _refresh.get(list_key)
         if _refreshFn:
-            mUI.MelMenuItem(pum, label='Refresh', command=lambda *a: _refreshFn())
+            mUI.MelMenuItem(pum, label='Refresh', command=lambda *a: self._defer_ui(_refreshFn))
 
     def _rebuildFileListPopup(self, scrollList, popupAttr, buildSingleFunc, list_key, sendToProjectAttr=None):
         """Delete and recreate file-list popup from current selection (Builder pattern)."""
@@ -6063,13 +6614,15 @@ example:
         for t in ['export', 'rig', 'cutscene']:
             mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddToExportQueue, t))
 
-        self._append_p4_file_menu(pum, self.ml_p4_options_set)
+        self._append_p4_file_menu(pum, self.ml_p4_options_set, list_key='sets')
 
         mUI.MelMenuItemDiv(pum, label='Directory')
+        self._append_p4_get_latest_dir_item(
+            pum, self.ml_p4_options_dir_set, partial(self.uiFunc_p4_sync_directory, 'sets'))
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenSubTypeDirectory)
         mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_subType(), label='Open Maya here')
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_sets(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadSubTypeList))
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshSubTypeList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('sets'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
@@ -6106,13 +6659,15 @@ example:
         self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
         self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
 
-        self._append_p4_file_menu(pum, self.ml_p4_options_variant)
+        self._append_p4_file_menu(pum, self.ml_p4_options_variant, list_key='variation')
 
         mUI.MelMenuItemDiv(pum, label='Directory')
+        self._append_p4_get_latest_dir_item(
+            pum, self.ml_p4_options_dir_variant, partial(self.uiFunc_p4_sync_directory, 'variation'))
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVariationDirectory)
         mUI.MelMenuItem(pum, ann="Open Maya file", c=lambda *a: self.uiPath_mayaOpen_variant(), label='Open Maya here')
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_variant(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadVariationList))
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshVariationList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('variation'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
@@ -6143,12 +6698,15 @@ example:
 
         mUI.MelMenuItem(pum, label="Create SubTypeRef", command=lambda *a: self.CreateSubTypeRef())
 
-        self._append_p4_file_menu(pum, self.ml_p4_options_version)
+        self._append_p4_file_menu(pum, self.ml_p4_options_version, list_key='version')
 
         mUI.MelMenuItemDiv(pum, label='Directory')
+        self._append_p4_get_latest_dir_item(
+            pum, self.ml_p4_options_dir_version, self.uiFunc_p4_sync_version_directory,
+            enabled=True)
         mUI.MelMenuItem(pum, label="Explorer", command=self.OpenVersionDirectory)
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_version(), label='Save Maya here')
-        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self.LoadVersionList))
+        mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshVersionList))
         mUI.MelMenuItemDiv(pum)
         mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('version'))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)

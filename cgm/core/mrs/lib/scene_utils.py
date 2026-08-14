@@ -93,6 +93,7 @@ log_msg = cgmGEN.logString_msg
 # itc = unselected text. Selected hlc = itc × SCENE_LIST_HLC_DIM (Builder BlockScrollList).
 # Avoid pastel/white itc — Maya inverts the selection row and light colors wash out.
 SCENE_LIST_HLC_DIM = 0.7
+SCENE_LIST_PROGRESS_FILE_THRESHOLD = 25
 SCENE_LIST_ITC_DIR = [0.55, 0.55, 0.55]
 SCENE_LIST_ITC_FILE = [0.85, 0.85, 0.85]
 SCENE_LIST_DIR_ALIAS_PREFIX = '+ '
@@ -185,7 +186,7 @@ def scene_list_file_alias(name, p4_status_key=None, file_dat=None):
     return _base
 
 
-def scene_list_apply_p4_file_itc(rows, path_by_item, status_by_path=None, mDat=None):
+def scene_list_apply_p4_file_itc(rows, path_by_item, status_by_path=None, mDat=None, progress_cb=None):
     """
     Override itc + alias suffix on kind=='file' rows when versionControl=perforce and P4 connected.
 
@@ -216,7 +217,8 @@ def scene_list_apply_p4_file_itc(rows, path_by_item, status_by_path=None, mDat=N
     if status_by_path is None:
         try:
             import cgm.core.lib.perforce as P4UTIL
-            status_by_path = P4UTIL.query_files_status(list(_path_map.keys()))
+            status_by_path = P4UTIL.query_files_status(
+                list(_path_map.keys()), progress_cb=progress_cb)
         except Exception as err:
             log.debug('scene_list_apply_p4_file_itc | {0}'.format(err))
             return rows

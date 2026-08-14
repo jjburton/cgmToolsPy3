@@ -38,7 +38,7 @@ class ui(cgmUI.cgmGUI):
     RETAIN = True
     MIN_BUTTON = True
     MAX_BUTTON = False
-    FORCE_DEFAULT_SIZE = True
+    FORCE_DEFAULT_SIZE = False
     DEFAULT_SIZE = 600, 520
     TOOLNAME = '{0}.ui'.format(__toolname__)
 
@@ -63,10 +63,27 @@ class ui(cgmUI.cgmGUI):
 
     def reload(self):
         import cgm.core.lib.perforce_session as P4SESSION
+        _win = self.WINDOW_NAME
+        _size = None
+        try:
+            if mc.window(_win, exists=True):
+                _size = (
+                    mc.window(_win, q=True, width=True),
+                    mc.window(_win, q=True, height=True),
+                )
+        except Exception:
+            pass
+
         cgmGEN._reloadMod(P4SESSION)
         cgmGEN._reloadMod(P4UTIL)
         cgmGEN._reloadMod(__import__(__name__))
         super(ui, self).reload()
+
+        try:
+            if _size and mc.window(_win, exists=True):
+                mc.window(_win, edit=True, width=_size[0], height=_size[1])
+        except Exception:
+            pass
 
     def _build_collapse_frame(
             self, parent, label, option_name, default_collapsed=0,
@@ -225,11 +242,13 @@ class ui(cgmUI.cgmGUI):
     def showUI(cls):
         """Show existing window or create once. Avoids rebuild on repeated cgmP4 opens."""
         if cls.Exists():
-            cls.Get().show()
-            return cls.Get()
+            _ui = cls.Get()
+            _ui.show(forceDefaultSize=False)
+            return _ui
         return cls()
 
     def post_init(self, *args, **kws):
+        uiFunc_clear_path_query(self)
         uiFunc_refresh(self)
 
 
@@ -238,6 +257,18 @@ def uiFunc_get_connection(self):
         (self.tf_p4_user.getValue() or '').strip(),
         (self.tf_p4_client.getValue() or '').strip(),
     )
+
+
+def uiFunc_clear_path_query(self):
+    """Reset Path Query field and result label."""
+    try:
+        self.tf_query_path(edit=True, text='')
+    except Exception:
+        pass
+    try:
+        self.uiLabel_path(edit=True, l='')
+    except Exception:
+        pass
 
 
 def uiFunc_save(self):

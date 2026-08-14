@@ -137,11 +137,6 @@ def uiSection_help(parent):
 
     mUI.MelMenuItemDiv(parent,label = 'Other')    
 
-    mc.menuItem(parent=parent,
-                l='cgmP4',
-                ann='Perforce connection — user/client prefs and status',
-                c=lambda *a: mc.evalDeferred(TOOLCALLS.cgmP4Tool, lp=True))
-    
     mc.menuItem(parent = parent,
                 l='Report issue',
                 ann = "Load a browser page to report a bug",
@@ -1119,6 +1114,10 @@ def uiSection_mrsManage(parent):
                 l='Scene',
                 ann = "Scene Management Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsScene())
+    mc.menuItem(parent = parent,
+                l='cgmP4',
+                ann='Perforce connection — user/client prefs and status',
+                c=lambda *a: mc.evalDeferred(TOOLCALLS.cgmP4Tool, lp=True))
         
     mUI.MelMenuItemDiv(parent,label='Utils')
     

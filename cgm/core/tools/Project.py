@@ -562,6 +562,24 @@ def uiProject_build_p4_status_row(self, parent):
         ann='Open cgmP4 tool (user/client, opened files, path query)',
         c=cgmGEN.Callback(uiProject_open_p4_tool),
     )
+    self.uiBtn_p4Get = mUI.MelButton(
+        _row,
+        l='Get',
+        ut='cgmUITemplate',
+        bgc=cgmUI.guiButtonColor,
+        ann='p4 sync — get latest on project content root and below',
+        en=False,
+        c=cgmGEN.Callback(uiProject_p4_sync_project_root, self),
+    )
+    self.uiBtn_p4Cache = mUI.MelButton(
+        _row,
+        l='Cache',
+        ut='cgmUITemplate',
+        bgc=cgmUI.guiButtonColor,
+        ann='Warm P4 fstat session cache for all files under project content path',
+        en=False,
+        c=cgmGEN.Callback(uiProject_p4_cache_project_root, self),
+    )
     mUI.MelButton(
         _row,
         l='Refresh',
@@ -577,6 +595,422 @@ def uiProject_build_p4_status_row(self, parent):
 def uiProject_open_p4_tool(*args):
     import cgm.core.tools.lib.tool_calls as TOOLCALLS
     TOOLCALLS.cgmP4Tool()
+
+
+def uiProject_p4_project_content_path(self):
+    try:
+        _path = self.d_tf['paths']['content'].getValue()
+    except Exception:
+        _path = None
+    if not _path:
+        try:
+            _path = (getattr(self, 'd_userPaths', None) or {}).get('content')
+        except Exception:
+            _path = None
+    if _path:
+        _path = os.path.normpath(_path)
+        if os.path.isdir(_path):
+            return _path
+    return None
+
+
+def uiProject_p4_project_root_in_client(self):
+    _path = uiProject_p4_project_content_path(self)
+    if not _path:
+        return False
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        if not P4UTIL.query_project_p4_status().get('connected'):
+            return False
+        _user, _client = P4UTIL.resolve_connection()
+        return bool(P4UTIL.is_under_client(_path, p4_user=_user, p4_client=_client))
+    except Exception:
+        return False
+
+
+_l_p4_cache_dir_mask = ['meta', '.mayaSwatches', 'incrementalSave', 'cgmDat', 'mayaSwatches']
+
+
+def uiProject_p4_cache_dir_mask(self):
+    try:
+        _mask = getattr(self, 'l_dirMask', None)
+        if _mask:
+            return _mask
+    except Exception:
+        pass
+    return list(_l_p4_cache_dir_mask)
+
+
+def uiProject_refresh_p4_get_button(self):
+    _en = bool(uiProject_p4_project_root_in_client(self))
+    for _attr in ('uiBtn_p4Get', 'uiBtn_p4Cache'):
+        _btn = getattr(self, _attr, None)
+        if _btn is None:
+            continue
+        try:
+            _btn(edit=True, en=_en)
+        except Exception:
+            pass
+
+
+def _uiProject_p4_cache_progress_update(
+        progress_bar,
+        files_cached,
+        files_total,
+        current_path,
+        dirs_done=0,
+        dir_total=0,
+        current_dir=None,
+        phase='store'):
+    """Update Maya progress bar for P4 cache fetch/store phases."""
+    _show = current_dir or current_path
+    _short = CORESTRINGS.short(_show, 48, 16) if _show else ''
+    try:
+        if mc.progressBar(progress_bar, query=True, isCancelled=True):
+            return True
+
+        if phase == 'fetch' or files_total <= 0:
+            if files_cached > 0:
+                _headroom = max(500, int(files_cached * 0.35) + 50)
+                _max = files_cached + _headroom
+                _progress = files_cached
+                _status = 'P4 Cache | fetching {0} from P4 | {1}'.format(files_cached, _short)
+            else:
+                _status = 'P4 Cache | fetching from P4...'
+                _progress = 0
+                _max = 100
+        else:
+            _status = 'P4 Cache | {0}/{1} files'.format(files_cached, files_total)
+            if dir_total and dirs_done:
+                _status += ' | dir {0}/{1}'.format(dirs_done, dir_total)
+            _status += ' | {0}'.format(_short)
+            _progress = files_cached
+            _max = files_total
+
+        cgmUI.progressBar_set(
+            progress_bar,
+            status=_status,
+            progress=min(_progress, _max),
+            maxValue=max(_max, 1),
+        )
+        try:
+            mc.refresh()
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return False
+
+
+def _uiProject_p4_cache_store_deferred(
+        self,
+        records,
+        idx,
+        progress_bar,
+        p4_user,
+        p4_client,
+        dir_index,
+        dir_total,
+        path,
+        batch_size=40):
+    """Store fstat records across Maya idle frames so the progress bar can repaint."""
+    import cgm.core.lib.perforce as P4UTIL
+
+    _total = len(records)
+    _end = min(idx + batch_size, _total)
+    _cancelled = False
+
+    try:
+        if mc.progressBar(progress_bar, query=True, isCancelled=True):
+            _cancelled = True
+    except Exception:
+        pass
+
+    if not _cancelled and _end > idx:
+        P4UTIL.store_fstat_cache_records(
+            records, p4_user=p4_user, p4_client=p4_client, start=idx, end=_end)
+
+        _last = records[_end - 1]
+        _norm = _last.get('norm')
+        _parent = os.path.normpath(os.path.dirname(_norm)) if _norm else None
+        _dirs_done = 0
+        if _parent is not None:
+            _dir_idx = dir_index.get(_parent)
+            if _dir_idx is not None:
+                _dirs_done = _dir_idx + 1
+
+        if _uiProject_p4_cache_progress_update(
+                progress_bar,
+                _end,
+                _total,
+                _norm,
+                _dirs_done,
+                dir_total,
+                _parent,
+                phase='store'):
+            _cancelled = True
+
+    if _cancelled:
+        try:
+            cgmUI.progressBar_end(progress_bar)
+        except Exception:
+            pass
+        return log.warning(
+            'P4 Cache: cancelled — {0} file(s) cached'.format(_end if _end > idx else idx))
+
+    if _end < _total:
+        mc.evalDeferred(
+            lambda: _uiProject_p4_cache_store_deferred(
+                self,
+                records,
+                _end,
+                progress_bar,
+                p4_user,
+                p4_client,
+                dir_index,
+                dir_total,
+                path,
+                batch_size=batch_size,
+            ),
+            lp=True,
+        )
+        return None
+
+    try:
+        cgmUI.progressBar_end(progress_bar)
+    except Exception:
+        pass
+    log.info('P4 Cache: warmed {0} file(s) under {1}'.format(_total, path))
+    return None
+
+
+def uiProject_p4_cache_project_root(self, *args):
+    _path = uiProject_p4_project_content_path(self)
+    if not _path:
+        return log.warning('P4 Cache: no project content path')
+    if not uiProject_p4_project_root_in_client(self):
+        return log.warning(
+            'P4 Cache: project path not in Perforce client view — {0}'.format(_path))
+    try:
+        if not self.mDat or not PU.project_uses_perforce(self.mDat):
+            return log.warning('P4 Cache: project is not in Perforce mode')
+    except Exception:
+        return log.warning('P4 Cache: project is not in Perforce mode')
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection()
+    except Exception:
+        return log.warning('P4 Cache: set user/client in cgmP4')
+    if not _user or not _client:
+        return log.warning('P4 Cache: set user/client in cgmP4')
+
+    log.info('P4 Cache: warming fstat cache under {0}'.format(_path))
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+    _progress_bar = cgmUI.doStartMayaProgressBar(
+        stepMaxValue=100, statusMessage='P4 Cache | fetching from P4...', interruptableState=True)
+
+    def _fetch_progress_cb(files_cached, files_total, current_path, dirs_done=0, dir_total=0, current_dir=None):
+        return _uiProject_p4_cache_progress_update(
+            _progress_bar,
+            files_cached,
+            files_total,
+            current_path,
+            dirs_done,
+            dir_total,
+            current_dir,
+            phase='fetch',
+        )
+
+    def _cancel_cb():
+        try:
+            return mc.progressBar(_progress_bar, query=True, isCancelled=True)
+        except Exception:
+            return False
+
+    _fetch = P4UTIL.fetch_fstat_tree_records(
+        _path,
+        p4_user=_user,
+        p4_client=_client,
+        dir_mask=uiProject_p4_cache_dir_mask(self),
+        progress_cb=_fetch_progress_cb,
+        cancel_cb=_cancel_cb,
+    )
+
+    if _fetch.get('cancelled'):
+        try:
+            cgmUI.progressBar_end(_progress_bar)
+        except Exception:
+            pass
+        return log.warning(
+            'P4 Cache: cancelled — {0} file(s) fetched'.format(_fetch.get('fileCount', 0)))
+    if _fetch.get('error'):
+        try:
+            cgmUI.progressBar_end(_progress_bar)
+        except Exception:
+            pass
+        return log.error('P4 Cache failed: {0} | {1}'.format(_path, _fetch.get('error')))
+
+    _records = _fetch.get('records') or []
+    if not _records:
+        try:
+            cgmUI.progressBar_end(_progress_bar)
+        except Exception:
+            pass
+        return log.info('P4 Cache: no files to cache under {0}'.format(_path))
+
+    _dir_list = _fetch.get('dirList') or []
+    _dir_index = {d: i for i, d in enumerate(_dir_list)}
+    _dir_total = _fetch.get('dirTotal', len(_dir_list))
+
+    _uiProject_p4_cache_store_deferred(
+        self,
+        _records,
+        0,
+        _progress_bar,
+        _user,
+        _client,
+        _dir_index,
+        _dir_total,
+        _path,
+    )
+
+
+def uiProject_p4_sync_directory_path(self, path, list_key='content'):
+    """p4 sync — directory and all files below (Scene UI when available, else Project fallback)."""
+    _scene = self if hasattr(self, '_uiFunc_p4_sync_directory_path') else getattr(self, 'mScene', None)
+    if _scene and hasattr(_scene, '_uiFunc_p4_sync_directory_path'):
+        _scene._uiFunc_p4_sync_directory_path(path, list_key=list_key)
+        return
+
+    _path = os.path.normpath(path) if path else None
+    if not _path or not os.path.isdir(_path):
+        return log.warning('P4 Get Latest: invalid directory')
+    try:
+        if not self.mDat or not PU.project_uses_perforce(self.mDat):
+            return log.warning('P4 Get Latest: project is not in Perforce mode')
+    except Exception:
+        return log.warning('P4 Get Latest: project is not in Perforce mode')
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection()
+    except Exception:
+        return log.warning('P4 Get Latest: set user/client in cgmP4')
+    if not _user or not _client:
+        return log.warning('P4 Get Latest: set user/client in cgmP4')
+    log.info('P4 Get Latest: {0}'.format(_path))
+    _msg = 'Sync directory and all files below to head revision?\n\n{0}'.format(_path)
+    if list_key in ('project', 'content'):
+        _msg += (
+            '\n\nLarge trees can take several minutes. '
+            'Progress updates in the status bar; use column Refresh for P4 colors after.')
+    _result = mc.confirmDialog(
+        title='Get Latest Revision',
+        message=_msg,
+        button=['Sync', 'Cancel'],
+        defaultButton='Cancel',
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result != 'Sync':
+        return
+    mc.evalDeferred(cgmGEN.Callback(
+        uiProject_p4_sync_directory_run, self, _path, list_key))
+
+
+def uiProject_p4_sync_directory_run(self, path, list_key='content'):
+    """Deferred p4 sync run (Project fallback when Scene sync UI is unavailable)."""
+    _path = os.path.normpath(path) if path else None
+    if not _path or not os.path.isdir(_path):
+        return
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection()
+    except Exception:
+        return log.warning('P4 Get Latest: set user/client in cgmP4')
+    if not _user or not _client:
+        return log.warning('P4 Get Latest: set user/client in cgmP4')
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+    _large_tree = list_key in ('project', 'content')
+    _progress_bar = cgmUI.doStartMayaProgressBar(
+        stepMaxValue=100, statusMessage='P4 Get Latest | starting...', interruptableState=True)
+
+    def _progress_cb(count, line):
+        _short = line if len(line) <= 72 else '...{0}'.format(line[-69:])
+        try:
+            if mc.progressBar(_progress_bar, query=True, isCancelled=True):
+                return True
+            if count == 1 or count % 100 == 0:
+                try:
+                    mc.refresh()
+                except Exception:
+                    pass
+            cgmUI.progressBar_set(
+                _progress_bar,
+                status='P4 Get Latest | {0} file(s) | {1}'.format(count, _short),
+                progress=count,
+                maxValue=max(100, count + 1),
+            )
+        except Exception:
+            pass
+        return False
+
+    def _cancel_cb():
+        try:
+            return mc.progressBar(_progress_bar, query=True, isCancelled=True)
+        except Exception:
+            return False
+
+    log.info('P4 Get Latest: syncing {0}...'.format(_path))
+    try:
+        _res = P4UTIL.sync_directory(
+            _path,
+            p4_user=_user,
+            p4_client=_client,
+            progress_cb=_progress_cb,
+            cancel_cb=_cancel_cb,
+            progress_every=50 if _large_tree else 25,
+            fstat_cache_flush='all' if _large_tree else 'directory',
+        )
+    finally:
+        try:
+            cgmUI.progressBar_end(_progress_bar)
+        except Exception:
+            pass
+
+    if _res.get('cancelled'):
+        return log.warning('P4 Get Latest: cancelled — {0}'.format(_path))
+    if _res.get('ok'):
+        _count = _res.get('fileCount') or len(_res.get('lines') or [])
+        log.info('P4 synced directory: {0} ({1} file(s))'.format(_path, _count))
+        if _large_tree:
+            log.info(
+                'P4 Get Latest: content sync complete — use column Refresh for P4 file colors')
+            return
+        if getattr(self, 'uiScrollList_dirContent', None):
+            try:
+                self.uiScrollList_dirContent.rebuild(_path)
+            except Exception as err:
+                log.debug('uiProject_p4_sync_directory_run | dirContent rebuild | {0}'.format(err))
+        if hasattr(self, 'rebuild'):
+            try:
+                self.rebuild()
+            except Exception:
+                pass
+    else:
+        log.error('P4 sync directory failed: {0} | {1}'.format(
+            _path, _res.get('stderr') or 'unknown'))
+
+
+def uiProject_p4_sync_project_root(self, *args):
+    _path = uiProject_p4_project_content_path(self)
+    if not _path:
+        return log.warning('P4 Get: no project content path')
+    if not uiProject_p4_project_root_in_client(self):
+        return log.warning(
+            'P4 Get: project path not in Perforce client view — {0}'.format(_path))
+    uiProject_p4_sync_directory_path(self, _path, list_key='project')
 
 
 def uiProject_refresh_p4_status(self, force=False):
@@ -608,6 +1042,7 @@ def uiProject_refresh_p4_status(self, force=False):
     _text = 'Connected' if _connected else 'Not connected'
     _detail = _dat.get('label') or ''
     _label(edit=True, l=_text, ann=_detail, bgc=_bgc)
+    uiProject_refresh_p4_get_button(self)
 
 
 def uiProject_versionControl_changed(self, *args):
@@ -1838,7 +2273,8 @@ def uiProject_fill(self,fillDir = True):
     
     self.uiScrollList_dirContent.mDat = self.mDat
     self.uiScrollList_dirExport.mDat = self.mDat
-    
+
+    uiProject_refresh_p4_get_button(self)
         
     uiProject_lock(self)
     
@@ -2935,6 +3371,10 @@ class cgmProjectDirList(mUI.BaseMelWidget):
             log.warning("cgmProjectDirList.uiPath_addAsset | No mDat connected")
             
                 
+    def uiPath_p4_sync_directory(self, path=None):
+        """p4 sync — selected directory and all files below (Perforce projects only)."""
+        uiProject_p4_sync_directory_path(self, path, list_key='content')
+
     def uiPath_removeDir(self, path = None):
         '''
         Insert a new SubFolder to the path, makes the dir and sets
@@ -3144,7 +3584,27 @@ class cgmProjectDirList(mUI.BaseMelWidget):
                         ann = "Save Maya file to: {0}".format(_path),
                         c= cgmGEN.Callback(self.uiPath_MayaSaveTo,_path),
                         label = 'Save Maya here')
-        
+
+        _p4_active = False
+        _p4_connected = False
+        try:
+            if self.mDat and PU.project_uses_perforce(self.mDat):
+                _p4_active = True
+                import cgm.core.lib.perforce as P4UTIL
+                _p4_connected = bool(P4UTIL.query_project_p4_status().get('connected'))
+        except Exception:
+            pass
+        if _p4_active:
+            mUI.MelMenuItemDiv(_popUp, label='Perforce')
+            mUI.MelMenuItem(
+                _popUp,
+                label='Get Latest Revision',
+                ann='p4 sync — update directory and all files below to head revision',
+                c=cgmGEN.Callback(
+                    lambda *a: mc.evalDeferred(
+                        cgmGEN.Callback(self.uiPath_p4_sync_directory, _path), lp=True)),
+                en=_p4_connected)
+
         mUI.MelMenuItem(_popUp,
                         ann = "Add sub dir to: {0}".format(_path),
                         c= cgmGEN.Callback(self.uiPath_addDir,_path),
@@ -3439,6 +3899,8 @@ def uiCC_checkPath(self, key, mode='local'):
         mField(edit=True,bgc = _colorGood)
         log.warning("Path {0}| {1} changed to: {2}".format(mode, key, _value))
         uiProject_save(self)
+        if key == 'content':
+            uiProject_refresh_p4_get_button(self)
         
 
 
@@ -3502,6 +3964,7 @@ def uiButton_setPathToTextField(self,key,mode='project'):
                 self.rebuild_scriptUI()
         elif key == 'content':
             self.uiScrollList_dirContent.clear()
+            uiProject_refresh_p4_get_button(self)
             #self.uiScrollList_dirContent.rebuild( self.d_tf['paths']['content'].getValue())
         elif key == 'export':
             self.uiScrollList_dirExport.clear()

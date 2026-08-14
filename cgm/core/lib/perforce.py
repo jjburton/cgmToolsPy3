@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 # Windows: p4.exe is a console app — hide subprocess windows in Maya
-_P4_SUBPROCESS_KW = {}
+_P4_SUBPROCESS_KW = {'bufsize': 1}
 if sys.platform == 'win32':
     _P4_SUBPROCESS_KW['creationflags'] = subprocess.CREATE_NO_WINDOW
 
@@ -108,6 +108,9 @@ def reload_session_cache():
     cgmGEN._reloadMod(P4SESSION)
     global _cache
     _cache = P4SESSION._CACHE
+
+
+FSTAT_QUERY_CHUNK = 96
 
 
 def _connection_report_cache_key(p4_user, p4_client, scene_path):
@@ -297,6 +300,188 @@ def _tag_values(tag, key):
     return [_val]
 
 
+def _collect_fstat_indexed_values(tag, prefix):
+    """Collect prefixN ztag fields (e.g. otherOpen0) into index order."""
+    _indexed = []
+    _plen = len(prefix)
+    for _key, _val in (tag or {}).items():
+        if not isinstance(_key, str) or not _key.startswith(prefix):
+            continue
+        _suffix = _key[len(_plen):]
+        if _suffix.isdigit():
+            _indexed.append((int(_suffix), _val))
+    if not _indexed:
+        return []
+    _indexed.sort(key=lambda item: item[0])
+    return [v for _, v in _indexed]
+
+
+def _fstat_other_count(tag, prefix):
+    """Numeric otherOpen/otherLock count field from fstat (0 when absent)."""
+    _max = 0
+    for _val in _tag_values(tag, prefix):
+        _n = _coerce_int(_val)
+        if _n is not None and _n > _max:
+            _max = _n
+    return _max
+
+
+def _fstat_other_user_values(tag, prefix):
+    """
+    User/workspace strings for otherOpen/otherLock.
+
+    p4 -ztag fstat emits indexed keys (otherOpen0, otherLock0) plus optional
+    count fields (otherOpen, otherLock). Match zooPy-style parsing.
+    """
+    _indexed = _collect_fstat_indexed_values(tag, prefix)
+    if _indexed:
+        return _indexed
+
+    _users = []
+    for _val in _tag_values(tag, prefix):
+        if _val is None or _val is True:
+            continue
+        _s = str(_val).strip()
+        if not _s or _s.isdigit():
+            continue
+        _users.append(_val)
+    return _users
+
+
+def _opened_entry_user_client(rec):
+    """user@client string from a p4 opened ztag record."""
+    _user = rec.get('user')
+    _client = rec.get('client')
+    if _user and _client:
+        return '{0}@{1}'.format(_user, _client)
+    return _user or _client
+
+
+def _query_depot_opened_all(depot_files, p4_user=None, p4_client=None):
+    """
+    p4 opened -a on depot path(s) — all users/workspaces with the file open.
+
+    Returns dict depotFile -> [opened ztag records].
+    """
+    _files = []
+    _seen = set()
+    for _f in depot_files or []:
+        if not _f:
+            continue
+        _s = str(_f).strip()
+        if not _s or _s in _seen:
+            continue
+        _seen.add(_s)
+        _files.append(_s)
+    if not _files:
+        return {}
+
+    _res = _p4run('opened', '-a', *_files, p4_user=p4_user, p4_client=p4_client, ztag=True)
+    if not _res.get('ok'):
+        return {}
+
+    _by_depot = {}
+    for _rec in _res.get('tagRecords') or []:
+        _depot = _rec.get('depotFile')
+        if not _depot:
+            continue
+        _by_depot.setdefault(_depot, []).append(_rec)
+    return _by_depot
+
+
+def _merge_depot_opens_into_status(file_dat, opened_recs, p4_user, p4_client):
+    """Fill otherOpen / lockedByOther from p4 opened -a when fstat omitted them."""
+    if not file_dat or not opened_recs:
+        return file_dat
+
+    _others = []
+    _other_actions = []
+    for _rec in opened_recs:
+        _ou = _rec.get('user')
+        _oc = _rec.get('client')
+        if _ou == p4_user and _oc == p4_client:
+            continue
+        _uc = _opened_entry_user_client(_rec)
+        if _uc:
+            _others.append(_uc)
+        _act = _rec.get('action')
+        if _act:
+            _other_actions.append(_act)
+
+    if not _others:
+        return file_dat
+
+    _existing = file_dat.get('otherOpen') or []
+    if isinstance(_existing, str):
+        _existing = [_existing]
+    _merged = []
+    _seen = set()
+    for _v in list(_existing) + _others:
+        _s = str(_v)
+        if _s in _seen:
+            continue
+        _seen.add(_s)
+        _merged.append(_v)
+
+    file_dat['otherOpen'] = _merged
+    file_dat['otherOpenActions'] = _other_actions or None
+    file_dat['lockedByOther'] = True
+    _apply_other_open_to_status_labels(file_dat)
+    return file_dat
+
+
+def _apply_other_open_to_status_labels(file_dat):
+    """Refresh statusLabels / statusSummary after otherOpen is set."""
+    if not file_dat.get('lockedByOther'):
+        return
+    _labels = [
+        _l for _l in (file_dat.get('statusLabels') or [])
+        if not str(_l).startswith('open elsewhere')
+        and not str(_l).startswith('locked by')]
+    _locks = file_dat.get('otherLock') or []
+    _opens = file_dat.get('otherOpen') or []
+    if _locks:
+        _labels.append('locked by {0}'.format(', '.join(str(x) for x in _locks)))
+    elif _opens:
+        _labels.append('open elsewhere ({0})'.format(', '.join(str(x) for x in _opens)))
+    else:
+        _labels.append('open elsewhere')
+    file_dat['statusLabels'] = _labels
+    file_dat['statusSummary'] = ', '.join(_labels)
+
+
+def _enrich_status_with_depot_opens(status_by_path, p4_user, p4_client):
+    """One p4 opened -a batch per fstat chunk — matches P4V Checked Out By."""
+    if not status_by_path:
+        return status_by_path
+
+    _depot_files = []
+    _depot_for_path = {}
+    for _path, _dat in status_by_path.items():
+        if not _dat or _dat.get('notInClient') or not _dat.get('onDepot'):
+            continue
+        if _dat.get('lockedByOther') and _dat.get('otherOpen'):
+            continue
+        _depot = _dat.get('depotFile')
+        if not _depot:
+            continue
+        _depot_files.append(_depot)
+        _depot_for_path[_path] = _depot
+
+    if not _depot_files:
+        return status_by_path
+
+    _opened_by_depot = _query_depot_opened_all(_depot_files, p4_user=p4_user, p4_client=p4_client)
+    if not _opened_by_depot:
+        return status_by_path
+
+    for _path, _depot in _depot_for_path.items():
+        _recs = _opened_by_depot.get(_depot)
+        if _recs:
+            _merge_depot_opens_into_status(status_by_path[_path], _recs, p4_user, p4_client)
+    return status_by_path
+
+
 def _derive_file_status(out, tag=None):
     """Add inClient / checkout / sync / lock flags and human-readable summary."""
     tag = tag or {}
@@ -336,12 +521,17 @@ def _derive_file_status(out, tag=None):
     out['change'] = tag.get('change')
     out['checkedOut'] = bool(_action)
 
-    _other_opens = _tag_values(tag, 'otherOpen')
-    _other_locks = _tag_values(tag, 'otherLock')
+    _other_opens = _fstat_other_user_values(tag, 'otherOpen')
+    _other_locks = _fstat_other_user_values(tag, 'otherLock')
     out['otherOpen'] = _other_opens or None
     out['otherLock'] = _other_locks or None
     out['ourLock'] = tag.get('ourLock')
-    out['lockedByOther'] = bool(_other_locks or _other_opens)
+    out['lockedByOther'] = bool(
+        _other_locks
+        or _other_opens
+        or _fstat_other_count(tag, 'otherOpen') > 0
+        or _fstat_other_count(tag, 'otherLock') > 0
+        or _collect_fstat_indexed_values(tag, 'otherAction'))
 
     if _head_rev is not None and _have_rev is not None:
         out['synced'] = _head_rev == _have_rev
@@ -483,6 +673,315 @@ def _p4run(*args, **kwargs):
     }
 
 
+def _sync_target_head(dir_path):
+    """Client path for recursive sync to head, e.g. D:/proj/Char/Hondo/...#head"""
+    _dir = _normalize_disk_path(dir_path)
+    if not _dir:
+        return None
+    if _dir.endswith('...#head'):
+        return _dir
+    if _dir.endswith('...'):
+        return _dir + '#head'
+    return os.path.join(_dir, '...#head')
+
+
+def _fstat_target_recursive(dir_path):
+    """Client path for recursive fstat, e.g. D:/proj/content/..."""
+    _dir = _normalize_disk_path(dir_path)
+    if not _dir:
+        return None
+    if _dir.endswith('...'):
+        return _dir
+    return os.path.join(_dir, '...')
+
+
+def _p4run_sync(target, force=False, p4_user=None, p4_client=None, progress_cb=None, cancel_cb=None,
+                progress_every=25):
+    """
+    Run p4 sync with streamed stdout so callers can update UI during long syncs.
+
+    progress_cb(count, line) -> True to cancel.
+    cancel_cb() -> True to cancel.
+    progress_every: UI callback interval in sync output lines (reduces Maya overhead).
+    """
+    _cmd = ['p4', '-s']
+    if p4_user:
+        _cmd.extend(['-u', str(p4_user)])
+    if p4_client:
+        _cmd.extend(['-c', str(p4_client)])
+    if force:
+        _cmd.extend(['sync', '-f', target])
+    else:
+        _cmd.extend(['sync', target])
+
+    try:
+        _proc = subprocess.Popen(
+            _cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell=False,
+            **_P4_SUBPROCESS_KW,
+        )
+    except FileNotFoundError as err:
+        return {
+            'ok': False,
+            'lines': [],
+            'stderr': 'p4 executable not found',
+            'exitCode': -1,
+            'cancelled': False,
+            'error': str(err),
+        }
+    except OSError as err:
+        return {
+            'ok': False,
+            'lines': [],
+            'stderr': str(err),
+            'exitCode': -1,
+            'cancelled': False,
+            'error': str(err),
+        }
+
+    _lines = []
+    _cancelled = False
+    log.debug('p4 sync | {0}'.format(' '.join(_cmd)))
+
+    def _cancelled_out():
+        nonlocal _cancelled
+        _cancelled = True
+        try:
+            _proc.kill()
+        except Exception:
+            pass
+        try:
+            _proc.wait(timeout=5)
+        except Exception:
+            pass
+        return {
+            'ok': False,
+            'lines': _lines,
+            'stderr': 'cancelled',
+            'exitCode': -1,
+            'cancelled': True,
+        }
+
+    try:
+        while True:
+            if cancel_cb and cancel_cb():
+                return _cancelled_out()
+            _raw = _proc.stdout.readline()
+            if not _raw:
+                if _proc.poll() is not None:
+                    break
+                continue
+            try:
+                _text = _raw.decode('utf-8', errors='replace')
+            except AttributeError:
+                _text = str(_raw)
+            _line = _strip_info_prefix(_text.rstrip('\r\n'))
+            if not _line:
+                continue
+            _lines.append(_line)
+            _count = len(_lines)
+            if progress_cb and (
+                    _count == 1
+                    or progress_every <= 1
+                    or _count % max(int(progress_every), 1) == 0):
+                if progress_cb(_count, _line):
+                    return _cancelled_out()
+    except Exception as err:
+        try:
+            _proc.kill()
+        except Exception:
+            pass
+        return {
+            'ok': False,
+            'lines': _lines,
+            'stderr': str(err),
+            'exitCode': -1,
+            'cancelled': _cancelled,
+            'error': str(err),
+        }
+
+    try:
+        _proc.wait(timeout=5)
+    except Exception:
+        pass
+
+    _exit = _proc.returncode
+    _err_lines = [l for l in _lines if l.lower().startswith('error:')]
+    if _err_lines:
+        _err = _err_lines[0]
+    else:
+        _err = ''
+    _errors = list(_err_lines)
+    _ok = _exit == 0 and not _errors and not _cancelled
+
+    if progress_cb and _lines and _ok and not _cancelled:
+        try:
+            progress_cb(len(_lines), _lines[-1])
+        except Exception:
+            pass
+
+    return {
+        'ok': _ok,
+        'lines': _lines,
+        'stderr': _normalize_error(_err),
+        'exitCode': _exit,
+        'cancelled': _cancelled,
+    }
+
+
+def _p4run_fstat_recursive(target, p4_user=None, p4_client=None, progress_cb=None, record_cb=None, cancel_cb=None):
+    """
+    Run p4 fstat on a recursive client target (path/...) with streamed stdout.
+
+    progress_cb(record_count, client_file) -> True to cancel (legacy, if record_cb omitted).
+    record_cb(tag_dict) -> True to cancel — preferred; one call per parsed fstat record.
+    cancel_cb() -> True to cancel.
+    """
+    _cmd = ['p4']
+    if p4_user:
+        _cmd.extend(['-u', str(p4_user)])
+    if p4_client:
+        _cmd.extend(['-c', str(p4_client)])
+    _cmd.extend(['-ztag', 'fstat', target])
+
+    try:
+        _proc = subprocess.Popen(
+            _cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell=False,
+            **_P4_SUBPROCESS_KW,
+        )
+    except FileNotFoundError as err:
+        return {
+            'ok': False,
+            'stderr': 'p4 executable not found',
+            'exitCode': -1,
+            'cancelled': False,
+            'tagRecords': [],
+            'fileCount': 0,
+            'error': str(err),
+        }
+    except OSError as err:
+        return {
+            'ok': False,
+            'stderr': str(err),
+            'exitCode': -1,
+            'cancelled': False,
+            'tagRecords': [],
+            'fileCount': 0,
+            'error': str(err),
+        }
+
+    _records = []
+    _block = []
+    _count = 0
+    _cancelled = False
+    _err_lines = []
+    log.debug('p4 fstat | {0}'.format(' '.join(_cmd)))
+
+    def _cancelled_out():
+        nonlocal _cancelled
+        _cancelled = True
+        try:
+            _proc.kill()
+        except Exception:
+            pass
+        try:
+            _proc.wait(timeout=5)
+        except Exception:
+            pass
+        return {
+            'ok': False,
+            'stderr': 'cancelled',
+            'exitCode': -1,
+            'cancelled': True,
+            'tagRecords': _records,
+            'fileCount': _count,
+        }
+
+    def _flush_block():
+        nonlocal _count
+        if not _block:
+            return False
+        _rec = _parse_tag_block(_block)
+        _block[:] = []
+        if not _rec:
+            return False
+        _records.append(_rec)
+        _count += 1
+        if record_cb:
+            if record_cb(_rec):
+                return True
+        elif progress_cb and progress_cb(_count, _rec.get('clientFile') or ''):
+            return True
+        return False
+
+    try:
+        while True:
+            if cancel_cb and cancel_cb():
+                return _cancelled_out()
+            _raw = _proc.stdout.readline()
+            if not _raw:
+                if _proc.poll() is not None:
+                    break
+                continue
+            try:
+                _text = _raw.decode('utf-8', errors='replace')
+            except AttributeError:
+                _text = str(_raw)
+            _line = _strip_info_prefix(_text.rstrip('\r\n'))
+            if not _line.strip() or _line.strip().startswith('exit:'):
+                if _flush_block():
+                    return _cancelled_out()
+                continue
+            if _line.strip().lower().startswith('error:'):
+                _err_lines.append(_line.strip())
+                continue
+            if not _line.startswith('...'):
+                if _flush_block():
+                    return _cancelled_out()
+                continue
+            _block.append(_line)
+    except Exception as err:
+        try:
+            _proc.kill()
+        except Exception:
+            pass
+        return {
+            'ok': False,
+            'stderr': str(err),
+            'exitCode': -1,
+            'cancelled': _cancelled,
+            'tagRecords': _records,
+            'fileCount': _count,
+            'error': str(err),
+        }
+
+    if _flush_block():
+        return _cancelled_out()
+
+    try:
+        _proc.wait(timeout=5)
+    except Exception:
+        pass
+
+    _exit = _proc.returncode
+    _err = _err_lines[0] if _err_lines else ''
+    _ok = _exit == 0 and not _err_lines and not _cancelled
+
+    return {
+        'ok': _ok,
+        'stderr': _normalize_error(_err),
+        'exitCode': _exit,
+        'cancelled': _cancelled,
+        'tagRecords': _records,
+        'fileCount': _count,
+    }
+
+
 def _require_connection(p4_user=None, p4_client=None):
     _user, _client = resolve_connection(p4_user, p4_client)
     if not _user or not _client:
@@ -548,10 +1047,10 @@ def query_project_p4_status(p4_user=None, p4_client=None, force=False):
     if not force:
         _cached_status = _cached_project_p4_status(_user, _client)
         if _cached_status is not None:
-            log.info('Using cached Perforce status (project)')
+            log.debug('Using cached Perforce status (project)')
             return _cached_status
 
-    log.info('Getting Perforce status (project)...')
+    log.debug('Getting Perforce status (project)...')
     if not is_available(force=force, p4_user=_user, p4_client=_client):
         return {
             'connected': False,
@@ -730,66 +1229,12 @@ def query_file_status(disk_path, p4_user=None, p4_client=None, force=False):
       inClient, onDepot, checkedOut, outOfDate, synced, lockedByOther,
       statusLabels, statusSummary, headRev, haveRev, openAction, otherOpen, ...
     """
-    _norm = os.path.normpath(disk_path) if disk_path else disk_path
-    _out = {
-        'path': _norm,
-        'inClient': None,
-        'onDepot': False,
-        'notInClient': False,
-        'notOnDepot': False,
-        'checkedOut': False,
-        'outOfDate': False,
-        'synced': None,
-        'lockedByOther': False,
-        'openAction': None,
-        'change': None,
-        'headRev': None,
-        'haveRev': None,
-        'otherOpen': None,
-        'otherLock': None,
-        'ourLock': None,
-        'headAction': None,
-        'depotFile': None,
-        'clientFile': None,
-        'fileType': None,
-        'statusLabels': [],
-        'statusSummary': '',
-    }
-
+    _norm = _normalize_disk_path(disk_path)
     if not _norm:
-        _out['error'] = 'path is empty'
-        return _out
-
-    _user, _client, _err = _require_connection(p4_user, p4_client)
-    if _err:
-        _out['error'] = _err
-        return _out
-
-    if not is_available(force=force, p4_user=_user, p4_client=_client):
-        _out['error'] = 'p4 info failed'
-        return _out
-
-    _res = _p4run('fstat', _norm, p4_user=_user, p4_client=_client, ztag=True)
-    _tag = _res.get('tag') or {}
-
-    if _tag:
-        _out['onDepot'] = True
-        if _tag.get('headAction') == 'delete':
-            _out['onDepot'] = False
-            _out['notOnDepot'] = True
-        return _derive_file_status(_out, _tag)
-
-    _err_text = ' '.join(_res['lines'] + [_res.get('stderr') or '']).lower()
-    if 'not in client view' in _err_text or 'not under' in _err_text:
-        _out['notInClient'] = True
-        return _derive_file_status(_out)
-    if 'no such file' in _err_text or 'not on depot' in _err_text or 'not in depot' in _err_text:
-        _out['notOnDepot'] = True
-        return _derive_file_status(_out)
-
-    if not _res['ok']:
-        _out['error'] = _res.get('stderr') or 'p4 fstat failed'
-    return _out
+        return dict(_new_file_status_out(disk_path), error='path is empty')
+    _result = query_files_status(
+        [_norm], p4_user=p4_user, p4_client=p4_client, force=force)
+    return _result.get(_norm) or dict(_new_file_status_out(_norm), error='p4 fstat failed')
 
 
 def _new_file_status_out(disk_path):
@@ -918,11 +1363,154 @@ def file_status_ui_suffix(file_dat, status_key):
     return _d.get(status_key)
 
 
-def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False):
+def _fstat_cache_store():
+    _store = _cache.get('fstat_by_path')
+    if _store is None:
+        _store = {}
+        _cache['fstat_by_path'] = _store
+    return _store
+
+
+def _fstat_cache_key(p4_user, p4_client, normpath):
+    return (p4_user or '', p4_client or '', _path_lookup_key(normpath))
+
+
+def invalidate_fstat_paths(disk_paths, p4_user=None, p4_client=None):
+    """Drop cached fstat entries for specific disk paths (current user/client when omitted)."""
+    _store = _fstat_cache_store()
+    if not _store:
+        return
+    for _raw in disk_paths or []:
+        _norm = _normalize_disk_path(_raw)
+        if not _norm:
+            continue
+        _lookup = _path_lookup_key(_norm)
+        _drop = []
+        for _key in _store:
+            if len(_key) < 3 or _key[2] != _lookup:
+                continue
+            if p4_user is not None and _key[0] != (p4_user or ''):
+                continue
+            if p4_client is not None and _key[1] != (p4_client or ''):
+                continue
+            _drop.append(_key)
+        for _key in _drop:
+            del _store[_key]
+
+
+def flush_fstat_cache(p4_user=None, p4_client=None):
+    """Clear session fstat cache (all entries, or scoped to user/client)."""
+    _store = _fstat_cache_store()
+    if not _store:
+        return
+    if p4_user is None and p4_client is None:
+        _store.clear()
+        return
+    _drop = []
+    for _key in _store:
+        if p4_user is not None and _key[0] != (p4_user or ''):
+            continue
+        if p4_client is not None and _key[1] != (p4_client or ''):
+            continue
+        _drop.append(_key)
+    for _key in _drop:
+        del _store[_key]
+
+
+def invalidate_fstat_directory(dir_path, p4_user=None, p4_client=None):
+    """Drop cached fstat entries for all files under a directory (column Refresh)."""
+    _dir = _normalize_disk_path(dir_path)
+    if not _dir:
+        return
+    _store = _fstat_cache_store()
+    if not _store:
+        return
+    _dir_key = _path_lookup_key(_dir)
+    _prefix = _dir_key + os.sep
+    _drop = []
+    for _key in _store:
+        if len(_key) < 3:
+            continue
+        _path_key = _key[2]
+        if _path_key != _dir_key and not _path_key.startswith(_prefix):
+            continue
+        if p4_user is not None and _key[0] != (p4_user or ''):
+            continue
+        if p4_client is not None and _key[1] != (p4_client or ''):
+            continue
+        _drop.append(_key)
+    for _key in _drop:
+        del _store[_key]
+
+
+def _query_files_status_batch(paths, p4_user, p4_client):
+    """Uncached batch fstat for one chunk of paths."""
+    if not paths:
+        return {}
+    _res = _p4run('fstat', *paths, p4_user=p4_user, p4_client=p4_client, ztag=True)
+    _by_key = {}
+    for _rec in _res.get('tagRecords') or []:
+        _client_file = _rec.get('clientFile')
+        _lookup = _path_lookup_key(_client_file) if _client_file else None
+        if not _lookup:
+            continue
+        _by_key[_lookup] = _file_status_from_fstat_tag(_client_file, _rec)
+
+    _out = {}
+    for _norm in paths:
+        _lookup = _path_lookup_key(_norm)
+        if _lookup in _by_key:
+            _dat = dict(_by_key[_lookup])
+            _dat['path'] = _norm
+            _out[_norm] = _dat
+        else:
+            _out[_norm] = _fstat_missing_path_status(_norm, _res)
+    _enrich_status_with_depot_opens(_out, p4_user, p4_client)
+    return _out
+
+
+def count_fstat_cache_misses(disk_paths, p4_user=None, p4_client=None, force=False):
     """
-    Batch workspace / depot status for disk paths (single p4 -u -c -ztag fstat call).
+    Count disk paths not in session fstat cache (0 = fully cached, no p4 fstat needed).
+
+    Same path normalization and cache keys as query_files_status.
+    """
+    _paths = []
+    _seen = set()
+    for _p in disk_paths or []:
+        _norm = _normalize_disk_path(_p)
+        if not _norm:
+            continue
+        _key = _path_lookup_key(_norm)
+        if _key in _seen:
+            continue
+        _seen.add(_key)
+        _paths.append(_norm)
+
+    if not _paths:
+        return 0
+
+    if force:
+        return len(_paths)
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err or not is_available(force=False, p4_user=_user, p4_client=_client):
+        return 0
+
+    _store = _fstat_cache_store()
+    _miss = 0
+    for _norm in _paths:
+        if _store.get(_fstat_cache_key(_user, _client, _norm)) is None:
+            _miss += 1
+    return _miss
+
+
+def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False, progress_cb=None):
+    """
+    Batch workspace / depot status for disk paths (chunked p4 -u -c -ztag fstat).
 
     Returns dict normpath -> status dict (same shape as query_file_status).
+    Session-cached per (user, client, path) unless force=True or path invalidated.
     """
     _paths = []
     _seen = set()
@@ -939,35 +1527,299 @@ def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False):
     if not _paths:
         return {}
 
+    if force:
+        invalidate_fstat_paths(_paths, p4_user=p4_user, p4_client=p4_client)
+
     _user, _client, _err = _require_connection(p4_user, p4_client)
     if _err:
         return {_norm: dict(_new_file_status_out(_norm), error=_err) for _norm in _paths}
 
-    if not is_available(force=force, p4_user=_user, p4_client=_client):
+    if not is_available(force=False, p4_user=_user, p4_client=_client):
         return {
             _norm: dict(_new_file_status_out(_norm), error='p4 info failed')
             for _norm in _paths
         }
 
-    _res = _p4run('fstat', *_paths, p4_user=_user, p4_client=_client, ztag=True)
-    _by_key = {}
-    for _rec in _res.get('tagRecords') or []:
-        _client_file = _rec.get('clientFile')
-        _lookup = _path_lookup_key(_client_file) if _client_file else None
-        if not _lookup:
-            continue
-        _by_key[_lookup] = _file_status_from_fstat_tag(_client_file, _rec)
-
+    _store = _fstat_cache_store()
     _out = {}
+    _miss = []
     for _norm in _paths:
-        _lookup = _path_lookup_key(_norm)
-        if _lookup in _by_key:
-            _dat = dict(_by_key[_lookup])
-            _dat['path'] = _norm
-            _out[_norm] = _dat
+        _cache_key = _fstat_cache_key(_user, _client, _norm)
+        _cached = _store.get(_cache_key)
+        if _cached is not None:
+            _out[_norm] = dict(_cached)
         else:
-            _out[_norm] = _fstat_missing_path_status(_norm, _res)
+            _miss.append(_norm)
+
+    _num_chunks = max(1, (len(_miss) + FSTAT_QUERY_CHUNK - 1) // FSTAT_QUERY_CHUNK) if _miss else 0
+    _chunk_idx = 0
+    for _i in range(0, len(_miss), FSTAT_QUERY_CHUNK):
+        if progress_cb:
+            _chunk_idx += 1
+            if progress_cb(_chunk_idx, _num_chunks, 'Perforce file status'):
+                break
+        _chunk = _miss[_i:_i + FSTAT_QUERY_CHUNK]
+        _fresh = _query_files_status_batch(_chunk, _user, _client)
+        for _norm, _dat in _fresh.items():
+            _out[_norm] = _dat
+            _store[_fstat_cache_key(_user, _client, _norm)] = dict(_dat)
     return _out
+
+
+def _fstat_dir_mask_skip(name, dir_mask):
+    if not name or not dir_mask:
+        return False
+    _lower = name.lower()
+    for _m in dir_mask:
+        if _m and _lower == str(_m).lower():
+            return True
+    return False
+
+
+def _path_has_masked_dir_component(path, root, dir_mask):
+    if not path or not root or not dir_mask:
+        return False
+    try:
+        _rel = os.path.relpath(path, root)
+    except Exception:
+        return False
+    if _rel in ('.', ''):
+        return False
+    for _part in _rel.replace('/', os.sep).split(os.sep):
+        if _fstat_dir_mask_skip(_part, dir_mask):
+            return True
+    return False
+
+
+def _collect_fstat_cache_dirs(root, dir_mask=None):
+    """Fast local walk — directory list for cache progress (no p4 calls)."""
+    _root = _normalize_disk_path(root)
+    if not _root or not os.path.isdir(_root):
+        return []
+    _mask = [m for m in (dir_mask or []) if m]
+    _dirs = []
+    try:
+        for _walk_root, _dirnames, _filenames in os.walk(_root):
+            _dirnames[:] = [d for d in _dirnames if not _fstat_dir_mask_skip(d, _mask)]
+            _dirs.append(os.path.normpath(_walk_root))
+    except Exception:
+        return [_root]
+    return _dirs
+
+
+def fetch_fstat_tree_records(
+        root_path,
+        p4_user=None,
+        p4_client=None,
+        dir_mask=None,
+        progress_cb=None,
+        cancel_cb=None):
+    """
+    Run recursive p4 fstat and return storable cache records (no session write).
+
+    progress_cb(record_count, files_total, current_path, dirs_done=0, dir_total=0, current_dir=None)
+        files_total is always 0 while fetching. Return True to cancel.
+    cancel_cb() -> True to cancel.
+
+    Returns dict: ok, cancelled, path, records [{norm, dat}], fileCount, fileTotal, dirTotal, error.
+    """
+    _root = _normalize_disk_path(root_path)
+    _result = {
+        'ok': False,
+        'cancelled': False,
+        'path': _root,
+        'records': [],
+        'fileCount': 0,
+        'fileTotal': 0,
+        'dirTotal': 0,
+        'error': None,
+    }
+    if not _root or not os.path.isdir(_root):
+        _result['error'] = 'not a directory'
+        return _result
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        _result['error'] = _err
+        return _result
+
+    if not is_available(force=False, p4_user=_user, p4_client=_client):
+        _result['error'] = 'p4 info failed'
+        return _result
+
+    _target = _fstat_target_recursive(_root)
+    if not _target:
+        _result['error'] = 'path is empty'
+        return _result
+
+    _mask = [m for m in (dir_mask or []) if m]
+    _dir_list = _collect_fstat_cache_dirs(_root, _mask)
+    _dir_total = len(_dir_list)
+    _dir_index = {d: i for i, d in enumerate(_dir_list)}
+    _result['dirTotal'] = _dir_total
+    _result['dirList'] = _dir_list
+    _records = []
+    _files_fetched = 0
+    _last_path = _root
+    _dirs_done = 0
+    _last_dir = None
+    _ui_tick = 0
+
+    if progress_cb:
+        progress_cb(0, 0, _root, 0, _dir_total, _root)
+
+    def _ui_every():
+        if _files_fetched < 50:
+            return 1
+        if _files_fetched < 500:
+            return 5
+        return 20
+
+    def _on_fstat_record(rec):
+        nonlocal _files_fetched, _last_path, _dirs_done, _last_dir, _ui_tick, _result
+        if cancel_cb and cancel_cb():
+            _result['cancelled'] = True
+            return True
+        _client_file = rec.get('clientFile')
+        if not _client_file:
+            return False
+        _norm = _normalize_disk_path(_client_file)
+        if not _norm:
+            return False
+        if _mask and _path_has_masked_dir_component(_norm, _root, _mask):
+            return False
+        _dat = _file_status_from_fstat_tag(_client_file, rec)
+        _dat['path'] = _norm
+        _records.append({'norm': _norm, 'dat': dict(_dat)})
+        _files_fetched += 1
+        _last_path = _norm
+        _parent = os.path.normpath(os.path.dirname(_norm))
+        if _parent != _last_dir:
+            _last_dir = _parent
+            _idx = _dir_index.get(_parent)
+            if _idx is not None:
+                _dirs_done = _idx + 1
+        _ui_tick += 1
+        if progress_cb and (
+                _files_fetched == 1
+                or _ui_tick % _ui_every() == 0):
+            if progress_cb(
+                    _files_fetched, 0, _norm, _dirs_done, _dir_total, _parent):
+                _result['cancelled'] = True
+                return True
+        return False
+
+    log.info('P4 fstat fetch | {0}'.format(_target))
+    _res = _p4run_fstat_recursive(
+        _target,
+        p4_user=_user,
+        p4_client=_client,
+        record_cb=_on_fstat_record,
+        cancel_cb=cancel_cb,
+    )
+
+    if _res.get('cancelled'):
+        _result['cancelled'] = True
+
+    if not _res.get('ok') and not _result.get('cancelled'):
+        _result['error'] = _res.get('stderr') or 'p4 fstat failed'
+        return _result
+
+    _result['records'] = _records
+    _result['fileCount'] = _files_fetched
+    _result['fileTotal'] = _files_fetched
+    _result['ok'] = not _result['cancelled']
+    return _result
+
+
+def store_fstat_cache_records(records, p4_user=None, p4_client=None, start=0, end=None):
+    """
+    Write pre-built fstat entries into the session cache.
+
+    Each item in records: {norm, dat} as returned by fetch_fstat_tree_records.
+    Optional start/end slice for batched UI updates.
+    """
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'error': _err, 'fileCount': 0}
+    _store = _fstat_cache_store()
+    _count = 0
+    _slice = records[start:end] if end is not None else records
+    for _rec in _slice or []:
+        _norm = _rec.get('norm')
+        _dat = _rec.get('dat')
+        if not _norm or not _dat:
+            continue
+        _store[_fstat_cache_key(_user, _client, _norm)] = dict(_dat)
+        _count += 1
+    return {'ok': True, 'fileCount': _count, 'endIndex': (start or 0) + _count}
+
+
+def store_fstat_cache_record(record, p4_user=None, p4_client=None):
+    """Store one fstat cache entry {norm, dat}."""
+    return store_fstat_cache_records([record], p4_user=p4_user, p4_client=p4_client)
+
+
+def warm_fstat_cache_tree(
+        root_path,
+        p4_user=None,
+        p4_client=None,
+        dir_mask=None,
+        progress_cb=None,
+        cancel_cb=None):
+    """
+    Warm session fstat cache under root_path using one recursive p4 fstat (path/...).
+
+    progress_cb(files_cached, files_total, current_path, dirs_done=0, dir_total=0, current_dir=None)
+        files_total=0 while streaming (bar uses headroom max). files_total>0 on final tick only.
+        Return True to cancel.
+    cancel_cb() -> True to cancel.
+
+    Returns dict: ok, cancelled, path, fileCount, fileTotal, dirTotal, error.
+    """
+    _fetch = fetch_fstat_tree_records(
+        root_path,
+        p4_user=p4_user,
+        p4_client=p4_client,
+        dir_mask=dir_mask,
+        progress_cb=progress_cb,
+        cancel_cb=cancel_cb,
+    )
+    _result = {
+        'ok': False,
+        'cancelled': _fetch.get('cancelled', False),
+        'path': _fetch.get('path'),
+        'fileCount': 0,
+        'fileTotal': 0,
+        'dirTotal': _fetch.get('dirTotal', 0),
+        'error': _fetch.get('error'),
+    }
+    if _fetch.get('error') or _fetch.get('cancelled'):
+        _result['fileCount'] = _fetch.get('fileCount', 0)
+        _result['fileTotal'] = _fetch.get('fileCount', 0)
+        _result['ok'] = False
+        return _result
+
+    _records = _fetch.get('records') or []
+    _store_res = store_fstat_cache_records(_records, p4_user=p4_user, p4_client=p4_client)
+    if not _store_res.get('ok'):
+        _result['error'] = _store_res.get('error') or 'cache store failed'
+        return _result
+
+    _count = _store_res.get('fileCount', 0)
+    _result['fileCount'] = _count
+    _result['fileTotal'] = _count
+    _result['ok'] = True
+    if progress_cb and _records:
+        _last = _records[-1]['norm']
+        _parent = os.path.normpath(os.path.dirname(_last))
+        if progress_cb(
+                _count, max(_count, 1), _last,
+                _fetch.get('dirTotal', 0), _fetch.get('dirTotal', 0),
+                _parent):
+            _result['cancelled'] = True
+            _result['ok'] = False
+    return _result
 
 
 def is_under_client(disk_path, p4_user=None, p4_client=None, force=False):
@@ -983,7 +1835,7 @@ def query_path(disk_path, p4_user=None, p4_client=None, force=False):
     return query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
 
 
-def query_path_report(disk_path, p4_user=None, p4_client=None, force=False):
+def query_path_report(disk_path, p4_user=None, p4_client=None, force=True):
     """Log path workspace/status summary; returns structured dict."""
     _str_func = 'query_path_report'
     _dat = query_file_status(disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
@@ -1002,6 +1854,8 @@ def query_path_report(disk_path, p4_user=None, p4_client=None, force=False):
             log.info('otherLock: {0}'.format(_dat.get('otherLock')))
         if _dat.get('otherOpen'):
             log.info('otherOpen: {0}'.format(_dat.get('otherOpen')))
+        if _dat.get('otherOpenActions'):
+            log.info('otherAction: {0}'.format(_dat.get('otherOpenActions')))
     return _dat
 
 
@@ -1096,7 +1950,7 @@ def edit(disk_path, p4_user=None, p4_client=None, changelist=None, force=False):
 
     _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
     return _write_result('edit', _path, _res)
 
 
@@ -1124,7 +1978,7 @@ def add(disk_path, p4_user=None, p4_client=None, file_type=None, changelist=None
 
     _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
     return _write_result('add', _path, _res)
 
 
@@ -1175,7 +2029,7 @@ def revert(disk_path, p4_user=None, p4_client=None, force=False):
 
     _res = _p4run('revert', _path, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
     return _write_result('revert', _path, _res)
 
 
@@ -1193,7 +2047,7 @@ def revert_change(change, p4_user=None, p4_client=None, force=False):
 
     _res = _p4run('revert', '-c', _cl_arg, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        _fstat_cache_store().clear()
     return {
         'ok': bool(_res.get('ok')),
         'action': 'revert',
@@ -1222,10 +2076,67 @@ def sync_file(disk_path, force=False, p4_user=None, p4_client=None):
         _res = _p4run('sync', _path, p4_user=_user, p4_client=_client, ztag=False)
 
     if _res.get('ok'):
-        _clear_cache()
+        invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
 
     _out = _write_result('sync', _path, _res)
     _out['path'] = _path
+    return _out
+
+
+def sync_directory(
+        dir_path,
+        force=False,
+        p4_user=None,
+        p4_client=None,
+        progress_cb=None,
+        cancel_cb=None,
+        progress_every=25,
+        fstat_cache_flush='directory'):
+    """
+    p4 sync — update a directory and all files beneath to head revision.
+
+    fstat_cache_flush: 'directory' (default), 'all' (O(1) full cache clear), or 'none'.
+    progress_every: throttle progress_cb to every N sync output lines.
+    """
+    _dir = _normalize_disk_path(dir_path)
+    if not _dir:
+        return {'ok': False, 'action': 'sync', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+
+    if not os.path.isdir(_dir):
+        return {'ok': False, 'action': 'sync', 'path': _dir, 'stderr': 'not a directory', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'sync', 'path': _dir, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'sync', 'path': _dir, 'stderr': 'p4 info failed', 'lines': []}
+
+    _target = _sync_target_head(_dir)
+    if not _target:
+        return {'ok': False, 'action': 'sync', 'path': _dir, 'stderr': 'path is empty', 'lines': []}
+
+    _res = _p4run_sync(
+        _target,
+        force=force,
+        p4_user=_user,
+        p4_client=_client,
+        progress_cb=progress_cb,
+        cancel_cb=cancel_cb,
+        progress_every=progress_every,
+    )
+
+    if _res.get('ok') and fstat_cache_flush != 'none':
+        if fstat_cache_flush == 'all':
+            flush_fstat_cache(p4_user=_user, p4_client=_client)
+        else:
+            invalidate_fstat_directory(_dir, p4_user=_user, p4_client=_client)
+
+    _out = _write_result('sync', _dir, _res)
+    _out['path'] = _dir
+    _out['target'] = _target
+    _out['cancelled'] = bool(_res.get('cancelled'))
+    _out['fileCount'] = len(_res.get('lines') or [])
     return _out
 
 
@@ -1253,7 +2164,7 @@ def sync_workspace(force=False, p4_user=None, p4_client=None):
         _res = _p4run('sync', _target, p4_user=_user, p4_client=_client, ztag=False)
 
     if _res.get('ok'):
-        _clear_cache()
+        _fstat_cache_store().clear()
 
     return {
         'ok': bool(_res.get('ok')),
@@ -1281,7 +2192,7 @@ def submit_change(change, description=None, p4_user=None, p4_client=None, force=
 
     _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        _fstat_cache_store().clear()
 
     return {
         'ok': bool(_res.get('ok')),
@@ -1317,7 +2228,7 @@ def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
 
     _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
-        _clear_cache()
+        invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
 
     return {
         'ok': bool(_res.get('ok')),
@@ -1346,10 +2257,10 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
     if not force:
         _cached = _get_cached_connection_report(_key)
         if _cached is not None:
-            log.info('Using cached Perforce status')
+            log.debug('Using cached Perforce status')
             return _cached
 
-    log.info('Getting Perforce status...')
+    log.debug('Getting Perforce status...')
     _info = connection_info(force=force, p4_user=_user, p4_client=_client)
 
     _report = {
