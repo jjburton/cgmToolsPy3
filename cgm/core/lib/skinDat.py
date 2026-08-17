@@ -295,6 +295,20 @@ class data(object):
         Write the Data ConfigObj to file
         '''
         filepath = self.validateFilepath(filepath)
+
+        import cgm.core.lib.path_utils as COREPATHS
+        _path_str = str(filepath)
+        try:
+            _path_str = COREPATHS.prepare_paths_for_write(
+                [_path_str],
+                mDat=COREPATHS.get_project_mDat(),
+                confirm_p4=True,
+                _str_func='skinDat.data.write',
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return False
+
         self.updateSourceSkinData()
             
         ConfigObj = configobj.ConfigObj(indent_type='\t')
@@ -304,7 +318,7 @@ class data(object):
         ConfigObj['skin']=self.d_sourceSkin
         ConfigObj['influences']=self.d_sourceInfluences        
         ConfigObj['weights']=self.d_weights
-        ConfigObj.filename = filepath
+        ConfigObj.filename = _path_str
         ConfigObj.write()
         return True
     

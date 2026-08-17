@@ -4176,6 +4176,10 @@ class ui_toStandAlone(cgmUI.cgmGUI):
                     os.remove(mTar)
                     
                 log.warning("Writing file: {0}".format(_batchPath))
+
+                if MRSBATCH._batch_prepare_write_path(_batchPath, _str_func=_str_func) is None:
+                    log.warning("Not writable: {0}".format(_batchPath))
+                    continue
      
                 with open( _batchPath, 'a' ) as TMP:
                     for l in l_pre + [_l] + l_post:

@@ -218,6 +218,11 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
 
 #>>> Global output prepare for write
 #===================================================================
+# Save flow contract (paths first):
+#   Once the output path is known, call prepare_* BEFORE expensive work
+#   (scene queries, pose capture, skin gather, CCL build, etc.) so P4
+#   checkout / writability dialogs appear immediately. Low-level writers
+#   may accept skip_prepare=True when the caller already prepared.
 _non_writable_export_paths = []
 
 
@@ -243,6 +248,206 @@ def _resolve_use_p4_for_write(mDat=None, use_p4=None):
         return PU.project_uses_perforce(mDat)
     except Exception:
         return False
+
+
+def get_project_mDat():
+    """Loaded cgm Project dat from cgmVar_projectCurrent (None if no project cfg open)."""
+    try:
+        import cgm.core.cgm_Meta as cgmMeta
+        _path = cgmMeta.cgmOptionVar('cgmVar_projectCurrent', defaultValue='').getValue()
+        if not _path or not os.path.exists(_path):
+            return None
+        import cgm.core.tools.Project as PROJECT
+        return PROJECT.data(filepath=_path)
+    except Exception:
+        return None
+
+
+def path_under_root(path, root):
+    """True when path is under root (Windows-safe commonpath)."""
+    if not path or not root:
+        return False
+    try:
+        _norm = os.path.normpath(path)
+        _root = os.path.normpath(root)
+        return os.path.commonpath([_norm, _root]) == _root
+    except ValueError:
+        return False
+
+
+def path_in_p4_scope(path, mDat, extra_roots=()):
+    """
+    True when path should get P4 prepare within a perforce-enabled project.
+    Call only after project_uses_perforce(mDat) is confirmed.
+    """
+    if not path:
+        return False
+
+    for _root in extra_roots or ():
+        if path_under_root(path, _root):
+            return True
+
+    if mDat:
+        try:
+            _paths = mDat.userPaths_get() or {}
+            for _key in ('content', 'root'):
+                if path_under_root(path, _paths.get(_key)):
+                    return True
+        except Exception:
+            pass
+
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection()
+        if _user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client):
+            return P4UTIL.is_under_client(path, p4_user=_user, p4_client=_client)
+    except Exception:
+        pass
+
+    return False
+
+
+def _path_looks_depot_related(path, mDat=None):
+    """Heuristic for non-P4-mode read-only hint (fstat only, no checkout)."""
+    if not path:
+        return False
+
+    if mDat:
+        try:
+            _paths = mDat.userPaths_get() or {}
+            for _key in ('content', 'root'):
+                if path_under_root(path, _paths.get(_key)):
+                    return True
+        except Exception:
+            pass
+
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        if not P4UTIL.is_available():
+            return False
+        _user, _client = P4UTIL.resolve_connection()
+        if _user and _client:
+            return P4UTIL.is_under_client(path, p4_user=_user, p4_client=_client)
+    except Exception:
+        pass
+
+    return False
+
+
+def _maybe_warn_p4_writability_hint(path, mDat=None, reason=None, p4_mode=False, p4_disconnected=False):
+    """
+    One-button warning when save failed on read-only file that may be Perforce-related.
+    Never runs checkout — hint only.
+    """
+    if not path or not os.path.exists(path):
+        return
+    if os.access(path, os.W_OK):
+        return
+    if not _path_looks_depot_related(path, mDat=mDat):
+        return
+
+    if p4_mode and p4_disconnected:
+        _body = (
+            'File is not writable:\n\n{0}\n\n'
+            'Project versionControl is Perforce but cgmP4 is not connected.\n'
+            'Connect in cgmP4, check out the file manually, or clear read-only.'
+        ).format(path)
+    elif p4_mode:
+        _body = (
+            'File is not writable:\n\n{0}\n\n'
+            'Check out in cgmP4 or P4V (p4 edit), or clear read-only.'
+        ).format(path)
+    else:
+        _body = (
+            'File is not writable:\n\n{0}\n\n'
+            'It may be read-only from Perforce. Check out in P4V / cgmP4, or set '
+            'Project General → versionControl to Perforce for checkout prompts on save.'
+        ).format(path)
+
+    if reason:
+        _body = '{0}\n\n({1})'.format(_body, reason)
+
+    mc.confirmDialog(
+        title='Cannot save — file not writable',
+        message=_body,
+        button=['OK'],
+        defaultButton='OK',
+    )
+
+
+def _resolve_use_p4_for_path(path, mDat=None, extra_roots=(), assume_in_scope=False):
+    """Explicit use_p4 for a path: True only when project P4 mode and path in scope."""
+    if not mDat:
+        return False
+    try:
+        import cgm.core.tools.lib.project_utils as PU
+        if not PU.project_uses_perforce(mDat):
+            return False
+    except Exception:
+        return False
+    if assume_in_scope:
+        return True
+    return path_in_p4_scope(path, mDat, extra_roots=extra_roots)
+
+
+def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, extra_roots=(),
+                            assume_in_scope=False, _str_func='prepare_paths_for_write'):
+    """
+    Prepare one or more output paths; P4 only when project perforce mode and path in scope.
+
+    Call as soon as the path(s) are known — before heavy save work — so checkout /
+    writability prompts are not delayed by scene queries or data gathering.
+    """
+    _out = []
+    for _p in paths or []:
+        if not _p:
+            continue
+        _use_p4 = _resolve_use_p4_for_path(
+            _p, mDat, extra_roots=extra_roots, assume_in_scope=assume_in_scope)
+        _out.append(prepare_output_for_write(
+            _p,
+            mDat=mDat,
+            use_p4=_use_p4,
+            confirm_p4=confirm_p4,
+            _str_func=_str_func,
+        ))
+    if not _out and paths:
+        raise PathWritePrepareError(paths[0] if paths else None, reason='Path is empty')
+    return _out[0] if len(_out) == 1 else _out
+
+
+def prepare_pose_files_for_write(path, store_thumbnail=False, mDat=None, extra_roots=(),
+                                 assume_in_scope=False, confirm_p4=True,
+                                 _str_func='prepare_pose_files_for_write'):
+    """Prepare .pose path and optional .bmp thumbnail before Red9 write."""
+    if not path:
+        raise PathWritePrepareError(path, reason='Path is empty')
+    if mDat is None:
+        mDat = get_project_mDat()
+    _paths = [path]
+    if store_thumbnail:
+        _paths.append('{0}.bmp'.format(os.path.splitext(path)[0]))
+    return prepare_paths_for_write(
+        _paths,
+        mDat=mDat,
+        confirm_p4=confirm_p4,
+        extra_roots=extra_roots,
+        assume_in_scope=assume_in_scope,
+        _str_func=_str_func,
+    )
+
+
+def prepare_maya_scene_for_save(path, mDat=None, confirm_p4=True, extra_roots=(),
+                                assume_in_scope=False, _str_func='prepare_maya_scene_for_save'):
+    """Prepare Maya scene path before mc.file(rename=…) + save."""
+    return prepare_output_for_write(
+        path,
+        mDat=mDat,
+        use_p4=_resolve_use_p4_for_path(
+            path, mDat, extra_roots=extra_roots, assume_in_scope=assume_in_scope),
+        confirm_p4=confirm_p4,
+        _str_func=_str_func,
+    )
 
 
 def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, _str_func='prepare_output_for_write'):
@@ -328,6 +533,8 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
     When P4 is connected: fstat first (block if out of date), confirm before edit/add.
     When P4 is unavailable, skips P4 silently (optional layer — no behavior change).
     Returns normalized path string.
+
+    Callers should invoke this (or prepare_paths_for_write) before expensive save work.
     """
     if not path:
         raise PathWritePrepareError(path, reason='Path is empty')
@@ -342,21 +549,35 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
             raise PathWritePrepareError(
                 _norm, reason='Cannot create directory ({0})'.format(err))
 
-    if _resolve_use_p4_for_write(mDat, use_p4):
+    _p4_mode = _resolve_use_p4_for_write(mDat, use_p4)
+    _p4_ran = False
+    _p4_disconnected = False
+
+    if _p4_mode:
         import cgm.core.lib.perforce as P4UTIL
         _user, _client = P4UTIL.resolve_connection(p4_user, p4_client)
         if _user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client):
             _prepare_p4_for_write(
                 _norm, _user, _client, confirm=confirm_p4, _str_func=_str_func)
+            _p4_ran = True
         else:
+            _p4_disconnected = True
             log.debug('{0} || P4 skipped (not connected) — writability check only'.format(_str_func))
 
     if os.path.exists(_norm):
         if not os.path.isfile(_norm):
             raise PathWritePrepareError(_norm, reason='Path exists but is not a file')
         if not os.access(_norm, os.W_OK):
+            if not _p4_ran:
+                _maybe_warn_p4_writability_hint(
+                    _norm, mDat=mDat, reason='File is not writable',
+                    p4_mode=_p4_mode, p4_disconnected=_p4_disconnected)
             raise PathWritePrepareError(_norm, reason='File is not writable')
     elif _parent and not os.access(_parent, os.W_OK):
+        if not _p4_ran:
+            _maybe_warn_p4_writability_hint(
+                _norm, mDat=mDat, reason='Directory is not writable',
+                p4_mode=_p4_mode, p4_disconnected=_p4_disconnected)
         raise PathWritePrepareError(_norm, reason='Directory is not writable')
 
     return _norm

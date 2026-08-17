@@ -56,6 +56,7 @@ from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
 from cgm.lib import lists
 import cgm.core.lib.shared_data as CORESHARE
+import cgm.core.lib.path_utils as COREPATHS
 
 from cgm.core.lib import string_utils as CORESTRING
 
@@ -1213,9 +1214,30 @@ class ui(cgmUI.cgmGUI):
             newName = self._uiCB_savePosePath(self.getPoseSelected())
         except ValueError as error:
             raise ValueError(error)
+        if not newName:
+            return log.warning('Rename cancelled')
+        _new_bmp = '{0}.bmp'.format(newName.split('.pose')[0])
+        try:
+            COREPATHS.prepare_pose_files_for_write(
+                newName,
+                store_thumbnail=False,
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='Animate._uiPoseRename',
+            )
+            COREPATHS.prepare_paths_for_write(
+                [_new_bmp],
+                mDat=COREPATHS.get_project_mDat(),
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='Animate._uiPoseRename',
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         try:
             os.rename(self.getPosePath(), newName)
-            os.rename(self.getIconPath(), '%s.bmp' % newName.split('.pose')[0])
+            os.rename(self.getIconPath(), _new_bmp)
         except:
             log.info('Failed to Rename Pose')
         self._uiCB_fillPoses(rebuildFileList=True)
@@ -1260,6 +1282,11 @@ class ui(cgmUI.cgmGUI):
                 os.remove(thumbPath)
             except:
                 log.error('Unable to delete the Pose Icon file')
+        try:
+            self._pose_prepare_paths_for_write(thumbPath, store_thumbnail=False)
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         r9General.thumbNailScreen(thumbPath, 128, 128)
         if sel:
             mc.select(sel)
@@ -1351,8 +1378,24 @@ class ui(cgmUI.cgmGUI):
 
         log.info('Copying Local Pose: %s >> %s' % (self.poseSelected, projectPath))
         try:
-            shutil.copy2(self.getPosePath(), projectPath)
-            shutil.copy2(self.getIconPath(), projectPath)
+            _dest_pose = os.path.join(projectPath, os.path.basename(self.getPosePath()))
+            _dest_bmp = os.path.join(projectPath, os.path.basename(self.getIconPath()))
+            COREPATHS.prepare_pose_files_for_write(
+                _dest_pose,
+                store_thumbnail=False,
+                extra_roots=(projectPath,),
+                assume_in_scope=True,
+                _str_func='Animate._uiPoseCopyToProject',
+            )
+            COREPATHS.prepare_paths_for_write(
+                [_dest_bmp],
+                mDat=COREPATHS.get_project_mDat(),
+                extra_roots=(projectPath,),
+                assume_in_scope=True,
+                _str_func='Animate._uiPoseCopyToProject',
+            )
+            shutil.copy2(self.getPosePath(), _dest_pose)
+            shutil.copy2(self.getIconPath(), _dest_bmp)
         except Exception as err:
             print(('Unable to copy pose : %s > to Project dirctory' % self.poseSelected))
             
@@ -1557,6 +1600,24 @@ class ui(cgmUI.cgmGUI):
             mc.undoInfo(closeChunk=True)
     
         #self._uiCache_storeUIElements()
+
+    def _pose_extra_roots(self):
+        _extra = []
+        if getattr(self, 'posePathProject', None):
+            _extra.append(self.posePathProject)
+        return tuple(_extra)
+
+    def _pose_prepare_paths_for_write(self, path, store_thumbnail=False):
+        if not path:
+            return None
+        COREPATHS.prepare_pose_files_for_write(
+            path,
+            store_thumbnail=store_thumbnail,
+            extra_roots=self._pose_extra_roots(),
+            assume_in_scope=(getattr(self, 'posePathMode', None) == 'projectPoseMode'),
+            _str_func='Animate._pose_prepare_paths_for_write',
+        )
+        return path
         
     def __PoseSave(self, path=None, storeThumbnail=True):
         '''
@@ -1572,6 +1633,15 @@ class ui(cgmUI.cgmGUI):
                     path = self._uiCB_savePosePath()
                 except Exception as error:
                     raise Exception(error)
+
+            if not path:
+                return log.info('Pose save cancelled')
+
+            try:
+                self._pose_prepare_paths_for_write(path, store_thumbnail=storeThumbnail)
+            except COREPATHS.PathWritePrepareError as err:
+                log.error(str(err))
+                return
     
             poseHierarchy = False#mc.checkBox(self.cgmUIcbPoseHierarchy, q=True, v=True)
     

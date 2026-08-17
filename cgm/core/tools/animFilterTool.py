@@ -57,6 +57,7 @@ __toolname__ ='AnimFilter'
 _padding = 0
 
 import cgm.core.lib.shared_data as CORESHARE
+import cgm.core.lib.path_utils as COREPATHS
 
 
 d_colorsAction = {'spring':[1,.3,.3],
@@ -672,12 +673,23 @@ def uiFunc_save_actions(self):
     log.info("|{0}| >>...".format(_str_func)) 
 
     if os.path.exists(self._loadedFile):
+        try:
+            COREPATHS.prepare_paths_for_write(
+                [self._loadedFile],
+                mDat=COREPATHS.get_project_mDat(),
+                confirm_p4=True,
+                _str_func=_str_func,
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         uiFunc_updateActionDicts(self)
         f = open(self._loadedFile, 'w')
         f.write(json.dumps( [copy.copy(action._optionDict) for action in self._actionList] ))
         f.close()
     else:
         uiFunc_save_as_actions(self)
+        return
         
     self.var_LastLoaded.setValue(f)
     log.info(cgmGEN.logString_msg(_str_func,"Written: {}".format(f)))
@@ -688,10 +700,23 @@ def uiFunc_save_as_actions(self):
     _str_func = 'uiFunc_save_actions[{0}]'.format(self.__class__.TOOLNAME)            
     log.info("|{0}| >>...".format(_str_func)) 
 
-    uiFunc_updateActionDicts(self)
-
     basicFilter = "*.afs"
     filename = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2, fileMode=0)
+    if not filename:
+        return
+
+    try:
+        COREPATHS.prepare_paths_for_write(
+            [filename[0]],
+            mDat=COREPATHS.get_project_mDat(),
+            confirm_p4=True,
+            _str_func=_str_func,
+        )
+    except COREPATHS.PathWritePrepareError as err:
+        log.error(str(err))
+        return
+
+    uiFunc_updateActionDicts(self)
 
     f = open(filename[0], 'w')
     f.write(json.dumps( [copy.copy(action._optionDict) for action in self._actionList] ))

@@ -46,6 +46,7 @@ import cgm.core.mrs.lib.builder_utils as BUILDERUTILS
 import cgm.core.mrs.lib.post_utils as MRSPOST
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
+import cgm.core.lib.path_utils as COREPATHS
 
 #=============================================================================================================
 #>> Block Settings
@@ -56,12 +57,30 @@ __version__ = 'alpha.1.10212019'
 #MRSBATCH.process_blocks_rig('D:/Dropbox/cgmMRS/maya/batch/master_template_v01.mb')
 
 
+def _batch_prepare_write_path(path, mDat=None, _str_func='batch_utils'):
+    """P4 prepare for batch script / rig output writes (no confirm dialogs)."""
+    if not path:
+        return None
+    if mDat is None:
+        mDat = COREPATHS.get_project_mDat()
+    try:
+        return COREPATHS.prepare_paths_for_write(
+            [path],
+            mDat=mDat,
+            confirm_p4=False,
+            _str_func=_str_func,
+        )
+    except COREPATHS.PathWritePrepareError as err:
+        log.error(str(err))
+        return None
+
 
 def create_Scene_batchFile(dat = [], batchFile = None, process = True,
                            postProcesses = True, deleteAfterProcess = False):
     
     _str_func = 'create_Scene_batchFile'
     cgmGEN.log_start(_str_func)
+    mProject = None
     
     if batchFile is None:
         var_project = cgmMeta.cgmOptionVar('cgmVar_projectCurrent',defaultValue = '')
@@ -162,6 +181,10 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
             
         log.warning("Writing file: {0}".format(_batchPath))
 
+        if _batch_prepare_write_path(_batchPath, mDat=mProject, _str_func=_str_func) is None:
+            log.warning("Not writable: {0}".format(_batchPath))
+            return
+
         with open( _batchPath, 'a' ) as TMP:
             for l in l_pre + _dat + [_l] + l_post:
                 TMP.write( '{0}\n'.format(l) )
@@ -212,6 +235,10 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
                 os.remove(mTar)
                 
             log.warning("Writing file: {0}".format(_batchPath))
+
+            if _batch_prepare_write_path(_batchPath, _str_func=_str_func) is None:
+                log.warning("Not writable: {0}".format(_batchPath))
+                continue
  
             with open( _batchPath, 'a' ) as TMP:
                 for l in l_pre + [_l] + l_post:
@@ -304,6 +331,10 @@ def create_MRS_batchFile(f=None, blocks = [None], process = False,
                 os.remove(mTar)
                 
             log.warning("Writing file: {0}".format(_batchPath))
+
+            if _batch_prepare_write_path(_batchPath, _str_func=_str_func) is None:
+                log.warning("Not writable: {0}".format(_batchPath))
+                continue
  
             with open( _batchPath, 'a' ) as TMP:
                 for l in l_pre + [_l] + l_post:
@@ -701,9 +732,17 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
         
     
         #cgmGEN.logString_msg(_str_func,'File Save...')
-        newFile = mc.file(rename = _newPath)
-        mc.file(save = 1)
-        log.info(newFile)
+        try:
+            _save_path = COREPATHS.prepare_maya_scene_for_save(
+                _newPath, confirm_p4=False, _str_func=_str_func)
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            if not cgmGEN.exception_already_logged(err):
+                cgmGEN.cgmException(Exception, err, stage='process_blocks_rig')
+            raise
+        mc.file(rename=_save_path)
+        mc.file(save=1)
+        log.info(_save_path)
         if not cgmGEN.exception_already_logged(err):
             cgmGEN.cgmException(Exception, err, stage='process_blocks_rig')
         raise
@@ -714,7 +753,13 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     
 
     #cgmGEN.logString_msg(_str_func,'File Save...')
-    newFile = mc.file(rename = _newPath)
-    mc.file(save = 1)
-    log.info(newFile)
+    try:
+        _save_path = COREPATHS.prepare_maya_scene_for_save(
+            _newPath, confirm_p4=False, _str_func=_str_func)
+    except COREPATHS.PathWritePrepareError as err:
+        log.error(str(err))
+        return
+    mc.file(rename=_save_path)
+    mc.file(save=1)
+    log.info(_save_path)
       

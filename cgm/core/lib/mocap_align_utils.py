@@ -49,8 +49,13 @@ def load_ccl(path):
     return list(data)
 
 
-def save_ccl(path, data):
-    """Write six-element CCL JSON."""
+def save_ccl(path, data, skip_prepare=False):
+    """
+    Write six-element CCL JSON.
+
+    When the caller already ran prepare_paths_for_write (e.g. mocapBakeTool UI),
+    pass skip_prepare=True to avoid duplicate P4 prompts.
+    """
     _str_func = 'save_ccl'
     if not path:
         raise ValueError(log_msg(_str_func, "No path"))
@@ -59,6 +64,14 @@ def save_ccl(path, data):
     folder = os.path.dirname(path)
     if folder and not os.path.isdir(folder):
         os.makedirs(folder)
+    if not skip_prepare:
+        import cgm.core.lib.path_utils as COREPATHS
+        COREPATHS.prepare_paths_for_write(
+            [path],
+            mDat=COREPATHS.get_project_mDat(),
+            confirm_p4=True,
+            _str_func=_str_func,
+        )
     with open(path, 'w') as f:
         json.dump(list(data), f, indent=2)
     log.info(log_msg(_str_func, "Saved: {0}".format(path)))

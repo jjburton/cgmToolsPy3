@@ -44,6 +44,7 @@ from cgm.core.lib import distance_utils as DIST
 from cgm.core.lib import name_utils as NAMES
 from cgm.core.lib import euclid
 import cgm.core.lib.mocap_align_utils as MOCAPALIGN
+import cgm.core.lib.path_utils as COREPATHS
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as CGMPATH
 from cgm.lib import lists
@@ -215,8 +216,10 @@ class ui(cgmUI.cgmGUI):
             mUI.MelMenuItem(_recent, l=_l,
                             c=cgmGEN.Callback(self.uiFunc_load_data, filepath=p))
 
-        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Save Data",
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Save",
                  c=lambda *a: self.uiFunc_save_data() )
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Save As...",
+                 c=lambda *a: self.uiFunc_save_as_data() )
 
 
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Load Data",
@@ -1111,19 +1114,28 @@ class ui(cgmUI.cgmGUI):
             if conn['setRotation']:
                 mc.orientConstraint( conn['source'], conn['target'], mo=True )
 
-    # saves link data
-    def uiFunc_save_data(self, *args):
-        basicFilter = "*.ccl"
-        result = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2)
-        if not result:
-            return
-        file = result[0]
-
+    def _uiFunc_write_ccl(self, file):
+        """Validate, build CCL payload, and write to disk. Returns True on success."""
         skel_roots = self._get_skel_roots()
         if not skel_roots:
             log.error("Set Skel Roots before saving CCL")
             print("=== mocap align ===\nCannot save CCL without Skel Roots set.\n")
-            return
+            return False
+
+        try:
+            COREPATHS.prepare_paths_for_write(
+                [file],
+                mDat=COREPATHS.get_project_mDat(),
+                confirm_p4=True,
+                _str_func='mocapBakeTools._uiFunc_write_ccl',
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            if getattr(err, 'reason', None) == 'Save cancelled':
+                log.info('CCL save cancelled')
+            else:
+                log.error(str(err))
+                print("=== mocap align ===\n{0}\n".format(err))
+            return False
 
         self._reresolve_connection_data()
         validation = MOCAPALIGN.validate_connections_for_save(
@@ -1138,7 +1150,7 @@ class ui(cgmUI.cgmGUI):
                 print(err)
                 log.warning(err)
             print("=== end ===\n")
-            return
+            return False
 
         stored_data = MOCAPALIGN.connections_to_ccl(
             self.connection_data,
@@ -1150,7 +1162,7 @@ class ui(cgmUI.cgmGUI):
             target_data=[x.data for x in self.parent_target_items],
             links=self.parent_links,
         )
-        MOCAPALIGN.save_ccl(file, stored_data)
+        MOCAPALIGN.save_ccl(file, stored_data, skip_prepare=True)
 
         if validation.get('details'):
             print("=== mocap align save patterns ===")
@@ -1163,6 +1175,22 @@ class ui(cgmUI.cgmGUI):
         self.var_mocap_last_ccl.setValue(file)
         self.mPathList_recent.append_recent(file)
         self.uiStatus_refresh()
+        return True
+
+    # saves link data to current CCL path (or Save As when none loaded)
+    def uiFunc_save_data(self, *args):
+        _path = self._loaded_ccl or self.var_mocap_last_ccl.value
+        if _path and os.path.exists(_path):
+            self._uiFunc_write_ccl(_path)
+        else:
+            self.uiFunc_save_as_data()
+
+    def uiFunc_save_as_data(self, *args):
+        basicFilter = "*.ccl"
+        result = mc.fileDialog2(fileFilter=basicFilter, dialogStyle=2, fileMode=0)
+        if not result:
+            return
+        self._uiFunc_write_ccl(result[0])
 
     # loads link data
     def uiFunc_load_data(self, filepath=None, *args):

@@ -3459,6 +3459,11 @@ example:
                 os.mkdir( os.path.join(path, 'meta') )
 
             metaFile = os.path.join(path, 'meta', '{0}.dat'.format(basefile))
+            try:
+                PATHUTIL.prepare_paths_for_write([metaFile], mDat=self.mDat)
+            except PATHUTIL.PathWritePrepareError as err:
+                log.error(str(err))
+                return
             f = open(metaFile, 'w')
             f.write( json.dumps(self.assetMetaData) )
             f.close()
@@ -4762,6 +4767,11 @@ example:
         mc.playbackOptions(animationStartTime=0, animationEndTime=10)
         
         log.info( "Saving file: %s" % saveFile )
+        try:
+            saveFile = PATHUTIL.prepare_maya_scene_for_save(saveFile, mDat=self.mDat)
+        except PATHUTIL.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         mc.file( rename=saveFile )
         mc.file( save=True )
 
@@ -4998,6 +5008,11 @@ example:
 
         saveFile = os.path.normpath(os.path.join(saveLocation, wantedName) ) 
         log.info( "Saving file: %s" % saveFile )
+        try:
+            saveFile = PATHUTIL.prepare_maya_scene_for_save(saveFile, mDat=self.mDat)
+        except PATHUTIL.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         mc.file( rename=saveFile )
         mc.file( save=True, typ = _saveType)
 
@@ -5460,8 +5475,13 @@ example:
         _res = mc.fileDialog2(**_fdKw)
         if _res:
             log.warning("Saving: {0}".format(_res[0]))
-            newFile = mc.file(rename = _res[0])
-            mc.file(save = 1)        
+            try:
+                _save_path = PATHUTIL.prepare_maya_scene_for_save(_res[0], mDat=self.mDat)
+            except PATHUTIL.PathWritePrepareError as err:
+                log.error(str(err))
+                return
+            mc.file(rename=_save_path)
+            mc.file(save=1)        
 
     def uiPath_mayaOpen_subType(self):
         _path = self.path_subType or os.path.normpath(os.path.join(self.path_asset, self.subType))
@@ -8071,8 +8091,16 @@ def ExportScene(mode = -1,
             log.info(item)
             rig = ASSET.Asset(item)
             if rig.UpdateToLatest():
-                log.info(log_sub(_str_func,'Rig update: {}'.format(item)))                
-                mc.file(save = 1)    
+                log.info(log_sub(_str_func,'Rig update: {}'.format(item)))
+                _scene_path = mc.file(q=True, loc=True)
+                if _scene_path:
+                    try:
+                        PATHUTIL.prepare_maya_scene_for_save(
+                            _scene_path, mDat=PATHUTIL.get_project_mDat())
+                    except PATHUTIL.PathWritePrepareError as err:
+                        log.error(str(err))
+                        continue
+                mc.file(save=1)    
             else:
                 log.info(log_sub(_str_func,'Rig up to date: {}'.format(item)))                
 

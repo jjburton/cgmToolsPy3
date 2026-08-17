@@ -3325,8 +3325,13 @@ class cgmProjectDirList(mUI.BaseMelWidget):
         if _res:
             
             log.warning("Saving: {0}".format(_res[0]))
-            newFile = mc.file(rename = _res[0])
-            mc.file(save = 1)        
+            try:
+                _save_path = COREPATHS.prepare_maya_scene_for_save(_res[0], mDat=self.mDat)
+            except COREPATHS.PathWritePrepareError as err:
+                log.error(str(err))
+                return
+            mc.file(rename=_save_path)
+            mc.file(save=1)        
             
     def uiPath_addDir(self, path = None):
         '''

@@ -46,6 +46,7 @@ import cgm.core.lib.shared_data as SHARED
 import cgm.core.lib.string_utils as CORESTRINGS
 import cgm.images.icons as cgmIcons
 import cgm.core.mrs.lib.animate_utils as MRSANIMUTILS
+import cgm.core.lib.path_utils as COREPATHS
 mUI = cgmUI.mUI
 _selfUI = None
 
@@ -1093,6 +1094,26 @@ class manager(mUI.MelColumn):
         
         #uiCB_setPosePath(self)
         #return self
+
+    def _pose_extra_roots(self):
+        _extra = []
+        if self.posePathProject:
+            _extra.append(self.posePathProject)
+        return tuple(_extra)
+
+    def _pose_prepare_paths_for_write(self, path, store_thumbnail=False):
+        """Global save prepare — P4 checkout/add confirm before Red9 write."""
+        if not path:
+            return None
+
+        COREPATHS.prepare_pose_files_for_write(
+            path,
+            store_thumbnail=store_thumbnail,
+            extra_roots=self._pose_extra_roots(),
+            assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+            _str_func='PoseManager._pose_prepare_paths_for_write',
+        )
+        return path
         
     def uiPose_save(self, path=None, storeThumbnail=True):
         '''
@@ -1108,6 +1129,15 @@ class manager(mUI.MelColumn):
                     path = self.uiPose_getSavePath()
                 except Exception as error:
                     raise Exception(error)
+
+            if not path:
+                return log.info('Pose save cancelled')
+
+            try:
+                self._pose_prepare_paths_for_write(path, store_thumbnail=storeThumbnail)
+            except COREPATHS.PathWritePrepareError as err:
+                log.error(str(err))
+                return
     
             poseHierarchy = False
             
@@ -1859,11 +1889,31 @@ class manager(mUI.MelColumn):
         
         if not newName:
             return log.warning('Rename cancelled')
+
+        _new_bmp = '{0}.bmp'.format(newName.split('.pose')[0])
+        try:
+            COREPATHS.prepare_pose_files_for_write(
+                newName,
+                store_thumbnail=False,
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='PoseManager.uiPose_rename',
+            )
+            COREPATHS.prepare_paths_for_write(
+                [_new_bmp],
+                mDat=COREPATHS.get_project_mDat(),
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='PoseManager.uiPose_rename',
+            )
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         
         try:
             _path = self.uiPose_getPath()
             os.rename(self.uiPose_getPath(), newName)
-            os.rename(self.uiPose_getIconPath(), '%s.bmp' % newName.split('.pose')[0])
+            os.rename(self.uiPose_getIconPath(), _new_bmp)
         except Exception as err:
             log.info('Failed to Rename Pose | {0}'.format(err))
             
@@ -1888,13 +1938,27 @@ class manager(mUI.MelColumn):
             raise ValueError(error)        
         
         _newName = newName.split('.pose')[0]
-        
+        _dest_pose = os.path.join(self.posePath, '{0}.pose'.format(_newName))
+        _dest_bmp = os.path.join(self.posePath, '{0}.bmp'.format(_newName))
+
         log.info('Duplicating as: {0}'.format(_newName))
         try:
-            shutil.copy2(self.uiPose_getPath(),
-                         os.path.join(self.posePath, '%s.pose' % _newName))
-            shutil.copy2(self.uiPose_getIconPath(),
-                         os.path.join(self.posePath, '%s.bmp' % _newName))
+            COREPATHS.prepare_pose_files_for_write(
+                _dest_pose,
+                store_thumbnail=False,
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='PoseManager.uiPose_duplicate',
+            )
+            COREPATHS.prepare_paths_for_write(
+                [_dest_bmp],
+                mDat=COREPATHS.get_project_mDat(),
+                extra_roots=self._pose_extra_roots(),
+                assume_in_scope=(self.posePathMode == 'projectPoseMode'),
+                _str_func='PoseManager.uiPose_duplicate',
+            )
+            shutil.copy2(self.uiPose_getPath(), _dest_pose)
+            shutil.copy2(self.uiPose_getIconPath(), _dest_bmp)
         except Exception as err:
             log.error(err)
             cgmGEN.cgmExceptCB(Exception,err,msg=vars())            
@@ -1946,6 +2010,11 @@ class manager(mUI.MelColumn):
                 os.remove(thumbPath)
             except:
                 log.error('Unable to delete the Pose Icon file')
+        try:
+            self._pose_prepare_paths_for_write(thumbPath, store_thumbnail=False)
+        except COREPATHS.PathWritePrepareError as err:
+            log.error(str(err))
+            return
         r9General.thumbNailScreen(thumbPath, 128, 128)
         if sel:
             mc.select(sel)
@@ -2043,8 +2112,24 @@ class manager(mUI.MelColumn):
     
         log.info('Copying Local Pose: %s >> %s' % (self.poseSelected, projectPath))
         try:
-            shutil.copy2(self.getPosePath(), projectPath)
-            shutil.copy2(self.getIconPath(), projectPath)
+            _dest_pose = os.path.join(projectPath, os.path.basename(self.getPosePath()))
+            _dest_bmp = os.path.join(projectPath, os.path.basename(self.getIconPath()))
+            COREPATHS.prepare_pose_files_for_write(
+                _dest_pose,
+                store_thumbnail=False,
+                extra_roots=(projectPath,),
+                assume_in_scope=True,
+                _str_func='PoseManager._uiPoseCopyToProject',
+            )
+            COREPATHS.prepare_paths_for_write(
+                [_dest_bmp],
+                mDat=COREPATHS.get_project_mDat(),
+                extra_roots=(projectPath,),
+                assume_in_scope=True,
+                _str_func='PoseManager._uiPoseCopyToProject',
+            )
+            shutil.copy2(self.getPosePath(), _dest_pose)
+            shutil.copy2(self.getIconPath(), _dest_bmp)
         except Exception as err:
             print(('Unable to copy pose : %s > to Project dirctory' % self.poseSelected))
             
