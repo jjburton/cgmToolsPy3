@@ -437,6 +437,27 @@ def prepare_pose_files_for_write(path, store_thumbnail=False, mDat=None, extra_r
     )
 
 
+def prepare_meta_files_for_write(meta_dat_path, store_thumbnail=False,
+                                 include_existing_thumbnail=False,
+                                 mDat=None, confirm_p4=True,
+                                 _str_func='prepare_meta_files_for_write'):
+    """Prepare Scene version meta `.dat` and optional sibling `.bmp` in meta/."""
+    if not meta_dat_path:
+        raise PathWritePrepareError(meta_dat_path, reason='Path is empty')
+    if mDat is None:
+        mDat = get_project_mDat()
+    _thumb = '{0}.bmp'.format(os.path.splitext(meta_dat_path)[0])
+    _paths = [meta_dat_path]
+    if store_thumbnail or (include_existing_thumbnail and os.path.exists(_thumb)):
+        _paths.append(_thumb)
+    return prepare_paths_for_write(
+        _paths,
+        mDat=mDat,
+        confirm_p4=confirm_p4,
+        _str_func=_str_func,
+    )
+
+
 def prepare_maya_scene_for_save(path, mDat=None, confirm_p4=True, extra_roots=(),
                                 assume_in_scope=False, _str_func='prepare_maya_scene_for_save'):
     """Prepare Maya scene path before mc.file(rename=…) + save."""
@@ -696,4 +717,53 @@ def check_export_output_writable(finalPath, _str_func='check_export_output_writa
                 reason='Export directory is not writable')
 
     return _norm.replace('\\', '/')
+
+
+def prepare_export_output_for_write(path, mDat=None, confirm_p4=True, _str_func='prepare_export_output_for_write'):
+    """
+    FBX export prepare — sidecar cleanup + global prepare (writability + optional P4).
+
+    P4 subprocess/dialogs only when project versionControl=perforce, path in scope, and connected.
+    """
+    if not path:
+        raise ExportOutputNotWritableError(path, reason='Export path is empty')
+    cleanup_fbx_export_sidecars(path, _str_func=_str_func)
+    try:
+        _norm = prepare_output_for_write(
+            path,
+            mDat=mDat,
+            confirm_p4=confirm_p4,
+            _str_func=_str_func,
+        )
+    except PathWritePrepareError as err:
+        if getattr(err, 'reason', None) == 'Save cancelled':
+            raise
+        record_non_writable_export_path(getattr(err, 'path', None) or path)
+        raise ExportOutputNotWritableError(
+            getattr(err, 'path', None) or path,
+            reason=getattr(err, 'reason', None) or str(err))
+    return _norm.replace('\\', '/')
+
+
+def preflight_export_output_paths(paths, mDat=None, confirm_p4=True, _str_func='preflight_export_output_paths'):
+    """Prepare each unique FBX export path before bake/prep; first failure aborts."""
+    _unique = []
+    _seen = set()
+    for _p in paths or []:
+        if not _p:
+            continue
+        _key = os.path.normcase(os.path.normpath(_p))
+        if _key in _seen:
+            continue
+        _seen.add(_key)
+        _unique.append(_p)
+    _out = []
+    for _p in _unique:
+        _out.append(prepare_export_output_for_write(
+            _p,
+            mDat=mDat,
+            confirm_p4=confirm_p4,
+            _str_func=_str_func,
+        ))
+    return _out[0] if len(_out) == 1 else _out
 

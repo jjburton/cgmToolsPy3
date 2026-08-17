@@ -826,15 +826,188 @@ def _depot_path_key(depot_path):
     return str(depot_path).split('#')[0].strip().lower()
 
 
+def _build_opened_path_indexes(opened_dat):
+    """Index p4 opened records by clientFile and depotFile lookup keys."""
+    _by_client = {}
+    _by_depot = {}
+    _all = list(flatten_opened_entries(opened_dat or {}))
+    for _entry in _all:
+        _cf = _entry.get('clientFile')
+        if _cf:
+            _ck = _path_lookup_key(_cf)
+            if _ck:
+                _by_client[_ck] = _entry
+        _dk = _depot_path_key(_entry.get('depotFile'))
+        if _dk:
+            _by_depot[_dk] = _entry
+    return _by_client, _by_depot, _all
+
+
+def _lookup_opened_entry(path, opened_by_client, opened_by_depot, all_entries=None):
+    """Match a disk or depot path to an opened-file record."""
+    _path_str = str(path).strip() if path else ''
+    if not _path_str:
+        return None
+    if _path_str.startswith('//'):
+        _hit = opened_by_depot.get(_depot_path_key(_path_str))
+        if _hit:
+            return _hit
+    else:
+        _ck = _path_lookup_key(_path_str)
+        if _ck and _ck in opened_by_client:
+            return opened_by_client[_ck]
+
+    if not all_entries:
+        return None
+
+    _pk = _path_lookup_key(_path_str)
+    if _pk:
+        for _entry in all_entries:
+            _cf = _entry.get('clientFile')
+            if not _cf:
+                continue
+            _ck = _path_lookup_key(_cf)
+            if not _ck:
+                continue
+            if _ck == _pk or _ck.endswith(_pk) or _pk.endswith(_ck):
+                return _entry
+
+    _base = os.path.basename(_path_str).lower()
+    if _base:
+        _matches = [
+            _e for _e in all_entries
+            if os.path.basename(_e.get('clientFile') or _e.get('depotFile') or '').lower() == _base
+        ]
+        if len(_matches) == 1:
+            return _matches[0]
+    return None
+
+
+def _where_depot_path(disk_path, p4_user=None, p4_client=None):
+    """Map a workspace disk path to //depot/path via p4 where."""
+    _path = _normalize_disk_path(disk_path)
+    if not _path:
+        return None
+    _res = _p4run('where', _path, p4_user=p4_user, p4_client=p4_client, ztag=True)
+    for _rec in _res.get('tagRecords') or []:
+        _depot = _rec.get('depotFile')
+        if _depot:
+            return str(_depot).split('#')[0]
+    for _line in _res.get('lines') or []:
+        _stripped = _strip_info_prefix(_line).strip()
+        if not _stripped or _stripped.lower().startswith('error:'):
+            continue
+        _parts = _stripped.split()
+        if _parts and str(_parts[0]).startswith('//'):
+            return str(_parts[0]).split('#')[0]
+    return None
+
+
+def _depot_file_line_from_opened_entry(entry):
+    """Build //depot/path#action from a p4 opened record."""
+    if not entry:
+        return None
+    _depot = entry.get('depotFile')
+    if not _depot:
+        return None
+    _action = (entry.get('action') or 'edit').lower()
+    return '{0}#{1}'.format(str(_depot).split('#')[0], _action)
+
+
+def _depot_file_lines_for_opened_entries(entries, p4_user=None, p4_client=None, force=False):
+    """Build //depot/path#action lines from p4 opened entry dicts."""
+    _lines = []
+    for _entry in entries or []:
+        _line = _depot_file_line_from_opened_entry(_entry)
+        if _line:
+            _lines.append(_line)
+            continue
+        _cf = _entry.get('clientFile')
+        if _cf:
+            _line, _err = _resolve_depot_submit_line(
+                _cf, p4_user=p4_user, p4_client=p4_client, force=force)
+            if _err:
+                return None, _err
+            _lines.append(_line)
+            continue
+        return None, 'opened entry missing depot and client path'
+    if not _lines:
+        return None, 'no depot paths resolved'
+    return _lines, None
+
+
+def _resolve_depot_submit_line(path, p4_user=None, p4_client=None, force=False,
+                               opened_by_client=None, opened_by_depot=None,
+                               all_opened_entries=None):
+    """
+    Resolve //depot/path#action for submit/shelve forms.
+
+    Prefer p4 opened records (reliable for UNC client paths where fstat args fail),
+    then fstat on disk path, then depot-path fstat.
+    Returns (line, error) — line like '//depot/foo.mb#edit'.
+    """
+    _path_str = str(path).strip() if path else ''
+    if not _path_str:
+        return None, 'path is empty'
+
+    if opened_by_client is None or opened_by_depot is None:
+        _opened = query_opened(p4_user=p4_user, p4_client=p4_client, force=force)
+        opened_by_client, opened_by_depot, _all_opened = _build_opened_path_indexes(_opened)
+    elif all_opened_entries is None:
+        _all_opened = list(opened_by_client.values())
+    else:
+        _all_opened = all_opened_entries
+
+    _opened_entry = _lookup_opened_entry(
+        _path_str, opened_by_client, opened_by_depot, all_entries=_all_opened)
+    if _opened_entry and _opened_entry.get('depotFile'):
+        _depot = str(_opened_entry['depotFile']).split('#')[0]
+        _action = (_opened_entry.get('action') or 'edit').lower()
+        return '{0}#{1}'.format(_depot, _action), None
+
+    if _path_str.startswith('//'):
+        _depot = _path_str.split('#')[0]
+        _res = _p4run(
+            'fstat', _depot, p4_user=p4_user, p4_client=p4_client, ztag=True)
+        _rec = (_res.get('tagRecords') or [None])[0] or {}
+        _action = (_rec.get('action') or 'edit').lower()
+        return '{0}#{1}'.format(_depot, _action), None
+
+    _stat = query_file_status(
+        _path_str, p4_user=p4_user, p4_client=p4_client, force=force)
+    _depot = _stat.get('depotFile')
+    if _depot:
+        _action = (_stat.get('openAction') or 'edit').lower()
+        return '{0}#{1}'.format(_depot.split('#')[0], _action), None
+
+    _where_depot = _where_depot_path(_path_str, p4_user=p4_user, p4_client=p4_client)
+    if _where_depot:
+        _opened_entry = _lookup_opened_entry(
+            _where_depot, opened_by_client, opened_by_depot, all_entries=_all_opened)
+        _action = (_opened_entry.get('action') if _opened_entry else None) or 'edit'
+        return '{0}#{1}'.format(_where_depot, str(_action).lower()), None
+
+    return None, 'no depot path for {0}'.format(_path_str)
+
+
 def _depot_keys_for_submit(paths, p4_user=None, p4_client=None, force=False):
     """Map disk paths to lowercase depot keys for changelist spec filtering."""
     _keys = set()
+    _opened = query_opened(p4_user=p4_user, p4_client=p4_client, force=force)
+    _by_client, _by_depot, _all_opened = _build_opened_path_indexes(_opened)
     for _path in paths or []:
-        _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=force)
-        _depot = _stat.get('depotFile')
-        if not _depot:
-            return None, 'no depot path for {0}'.format(_path)
-        _key = _depot_path_key(_depot)
+        _line, _err = _resolve_depot_submit_line(
+            _path,
+            p4_user=p4_user,
+            p4_client=p4_client,
+            force=force,
+            opened_by_client=_by_client,
+            opened_by_depot=_by_depot,
+            all_opened_entries=_all_opened,
+        )
+        if _err:
+            return None, _err
+        _key = _depot_path_key(_line.split('#')[0])
         if _key:
             _keys.add(_key)
     if not _keys:
@@ -845,13 +1018,21 @@ def _depot_keys_for_submit(paths, p4_user=None, p4_client=None, force=False):
 def _depot_file_lines_for_paths(paths, p4_user=None, p4_client=None, force=False):
     """Build //depot/path#action lines for a shelve/change form from disk paths."""
     _lines = []
+    _opened = query_opened(p4_user=p4_user, p4_client=p4_client, force=force)
+    _by_client, _by_depot, _all_opened = _build_opened_path_indexes(_opened)
     for _path in paths or []:
-        _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=force)
-        _depot = _stat.get('depotFile')
-        if not _depot:
-            return None, 'no depot path for {0}'.format(_path)
-        _action = (_stat.get('openAction') or 'edit').lower()
-        _lines.append('{0}#{1}'.format(_depot.split('#')[0], _action))
+        _line, _err = _resolve_depot_submit_line(
+            _path,
+            p4_user=p4_user,
+            p4_client=p4_client,
+            force=force,
+            opened_by_client=_by_client,
+            opened_by_depot=_by_depot,
+            all_opened_entries=_all_opened,
+        )
+        if _err:
+            return None, _err
+        _lines.append(_line)
     if not _lines:
         return None, 'no depot paths resolved'
     return _lines, None
@@ -880,6 +1061,22 @@ def _build_new_change_form_spec(p4_client, depot_file_lines, description):
     """Build a Change: new form for p4 shelve -i (default changelist cannot be shelved via -i)."""
     _out = [
         'Change: new',
+        'Client: {0}'.format(p4_client),
+        '',
+    ]
+    _out.extend(_format_change_spec_description_lines(description))
+    if depot_file_lines:
+        _out.append('')
+        _out.append('Files:')
+        for _line in depot_file_lines:
+            _out.append('\t' + _line)
+    return '\n'.join(_out) + '\n'
+
+
+def _build_default_change_submit_spec(p4_client, depot_file_lines, description):
+    """Build Change: default form — NOT valid for p4 submit -i (P4: Default change unknown). Kept for reference."""
+    _out = [
+        'Change: default',
         'Client: {0}'.format(p4_client),
         '',
     ]
@@ -2714,7 +2911,8 @@ def sync_workspace(force=False, p4_user=None, p4_client=None):
     }
 
 
-def submit_change(change, description=None, p4_user=None, p4_client=None, force=False):
+def submit_change(change, description=None, p4_user=None, p4_client=None, force=False,
+                  progress_cb=None):
     """p4 submit — submit pending changelist (or default when change is 'default')."""
     _user, _client, _err = _require_connection(p4_user, p4_client)
     if _err:
@@ -2725,6 +2923,9 @@ def submit_change(change, description=None, p4_user=None, p4_client=None, force=
 
     _change_str = str(change).lower() if change is not None else 'default'
     _desc = (description or '').strip()
+    _cl_label = 'default changelist' if _change_str in ('default', '') else 'changelist {0}'.format(change)
+    if _submit_progress_tick(progress_cb, 1, 1, 'P4 Submit | submitting {0}'.format(_cl_label)):
+        return _submit_progress_cancelled(change)
 
     if _change_str in ('default', ''):
         _args = ['submit']
@@ -2788,14 +2989,165 @@ def _depot_keys_for_submit_from_spec(spec_text):
     return _keys, None
 
 
-def submit_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False):
+def _client_paths_from_opened_entries(entries):
+    """Prefer clientFile for p4 reopen/submit CLI (depot fallback)."""
+    _paths = []
+    for _entry in entries or []:
+        _path = _entry.get('clientFile') or _entry.get('depotFile')
+        if _path:
+            _paths.append(str(_path).strip())
+    return _paths
+
+
+def _submit_progress_cancelled(change, paths=None):
+    return {
+        'ok': False,
+        'action': 'submit',
+        'change': change,
+        'paths': paths or [],
+        'cancelled': True,
+        'stderr': 'cancelled',
+        'lines': [],
+    }
+
+
+def _submit_progress_tick(progress_cb, step, total, status):
+    if progress_cb and progress_cb(int(step), int(total), status):
+        return True
+    return False
+
+
+def _submit_status_basename(path):
+    _name = os.path.basename(str(path or ''))
+    if len(_name) <= 48:
+        return _name
+    return '...{0}'.format(_name[-45:])
+
+
+def reopen_paths(paths, change, p4_user=None, p4_client=None, force=False):
+    """p4 reopen -c changelist — move opened files to another pending changelist."""
+    _paths = []
+    for _raw in paths or []:
+        _path = str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {'ok': False, 'action': 'reopen', 'change': change, 'stderr': 'no paths', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'reopen', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'reopen', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _args = ['reopen', '-c', _change_spec_arg(change)] + _paths
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'reopen',
+        'change': change,
+        'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def _submit_default_partial(client_paths, description, p4_user=None, p4_client=None, force=False,
+                            progress_cb=None):
+    """
+    Submit a subset of files from the default changelist.
+
+    P4 rejects submit -i with Change: default. Single file: p4 submit -d DESC path.
+    Multiple files: create numbered CL, reopen files, p4 submit -c CL.
+    """
+    _paths = [str(_p).strip() for _p in (client_paths or []) if str(_p).strip()]
+    if not _paths:
+        return {'ok': False, 'action': 'submit', 'change': 'default', 'stderr': 'no paths', 'lines': []}
+
+    _desc = (description or '').strip()
+    if not _desc:
+        return {
+            'ok': False, 'action': 'submit', 'change': 'default',
+            'stderr': 'submit description is required', 'lines': [],
+        }
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'submit', 'change': 'default', 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'submit', 'change': 'default', 'stderr': 'p4 info failed', 'lines': []}
+
+    if len(_paths) == 1:
+        if _submit_progress_tick(
+                progress_cb, 1, 1,
+                'P4 Submit | {0}'.format(_submit_status_basename(_paths[0]))):
+            return _submit_progress_cancelled('default', _paths)
+        _res = _p4run(
+            'submit', '-d', _desc, _paths[0],
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
+        if _res.get('ok'):
+            invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
+        return {
+            'ok': bool(_res.get('ok')),
+            'action': 'submit',
+            'change': 'default',
+            'paths': _paths,
+            'stderr': _res.get('stderr') or '',
+            'lines': _res.get('lines') or [],
+        }
+
+    if _submit_progress_tick(progress_cb, 1, 3, 'P4 Submit | creating changelist'):
+        return _submit_progress_cancelled('default', _paths)
+
+    _create = create_pending_change(_desc, p4_user=_user, p4_client=_client, force=force)
+    if not _create.get('ok'):
+        return {
+            'ok': False, 'action': 'submit', 'change': 'default', 'paths': _paths,
+            'stderr': _create.get('stderr') or 'create changelist failed',
+            'lines': _create.get('lines') or [],
+        }
+
+    _new_cl = _create.get('change')
+    if _submit_progress_tick(
+            progress_cb, 2, 3,
+            'P4 Submit | moving {0} file(s) to changelist {1}'.format(len(_paths), _new_cl)):
+        return _submit_progress_cancelled(_new_cl, _paths)
+
+    _reopen = reopen_paths(_paths, _new_cl, p4_user=_user, p4_client=_client, force=force)
+    if not _reopen.get('ok'):
+        return {
+            'ok': False, 'action': 'submit', 'change': _new_cl, 'paths': _paths,
+            'stderr': _reopen.get('stderr') or 'reopen to new changelist failed',
+            'lines': _reopen.get('lines') or [],
+        }
+
+    if _submit_progress_tick(
+            progress_cb, 3, 3,
+            'P4 Submit | submitting changelist {0}'.format(_new_cl)):
+        return _submit_progress_cancelled(_new_cl, _paths)
+
+    _submit = submit_change(_new_cl, p4_user=_user, p4_client=_client, force=force)
+    _submit['paths'] = _paths
+    _submit['source_change'] = 'default'
+    return _submit
+
+
+def submit_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False,
+                 opened_entries=None, progress_cb=None):
     """p4 submit — submit specific opened files (optionally scoped to a changelist)."""
     _paths = []
     for _raw in paths or []:
         _path = _normalize_disk_path(_raw) or str(_raw).strip()
         if _path:
             _paths.append(_path)
-    if not _paths:
+
+    if not opened_entries and not _paths:
         return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'no paths', 'lines': []}
 
     _desc = (description or '').strip()
@@ -2814,28 +3166,51 @@ def submit_paths(paths, change=None, description=None, p4_user=None, p4_client=N
 
     _change_str = str(change).lower() if change is not None else 'default'
     if _change_str in ('default', ''):
-        _args = ['submit', '-d', _desc] + _paths
-        _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+        _client_paths = _client_paths_from_opened_entries(opened_entries) if opened_entries else _paths
+        if not _client_paths and opened_entries:
+            return {
+                'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
+                'stderr': 'opened entries missing client/depot paths', 'lines': [],
+            }
+        return _submit_default_partial(
+            _client_paths, _desc, p4_user=_user, p4_client=_client, force=force,
+            progress_cb=progress_cb)
+
+    if opened_entries:
+        _depot_lines, _depot_err = _depot_file_lines_for_opened_entries(
+            opened_entries, p4_user=_user, p4_client=_client, force=force)
     else:
-        _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
-        if _spec_err or not _spec:
-            return {
-                'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
-                'stderr': _spec_err or 'p4 change -o failed', 'lines': [],
-            }
-        _depot_keys, _depot_err = _depot_keys_for_submit(
-            _paths, p4_user=_user, p4_client=_client, force=force,
-        )
-        if _depot_err:
-            return {
-                'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
-                'stderr': _depot_err, 'lines': [],
-            }
-        _submit_spec = _build_changelist_form_spec(_spec, _depot_keys, _desc)
-        _res = _p4run_input(
-            'submit', '-i', input_text=_submit_spec,
-            p4_user=_user, p4_client=_client, ztag=False,
-        )
+        _depot_lines, _depot_err = _depot_file_lines_for_paths(
+            _paths, p4_user=_user, p4_client=_client, force=force)
+
+    if _depot_err:
+        return {
+            'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
+            'stderr': _depot_err, 'lines': [],
+        }
+
+    _file_count = len(_depot_lines)
+    if _submit_progress_tick(
+            progress_cb, 1, 1,
+            'P4 Submit | {0} file(s) in changelist {1}'.format(_file_count, change)):
+        return _submit_progress_cancelled(change, _paths)
+
+    _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
+    if _spec_err or not _spec:
+        return {
+            'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
+            'stderr': _spec_err or 'p4 change -o failed', 'lines': [],
+        }
+    _depot_keys = set()
+    for _line in _depot_lines:
+        _key = _depot_path_key(_line.split('#')[0])
+        if _key:
+            _depot_keys.add(_key)
+    _submit_spec = _build_changelist_form_spec(_spec, _depot_keys, _desc)
+    _res = _p4run_input(
+        'submit', '-i', input_text=_submit_spec,
+        p4_user=_user, p4_client=_client, ztag=False,
+    )
 
     if _res.get('ok'):
         invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
@@ -3257,14 +3632,22 @@ def shelve_change(change, description=None, p4_user=None, p4_client=None, force=
     }
 
 
-def shelve_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False):
+def shelve_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False,
+                 opened_entries=None):
     """p4 shelve -Af — shelf specific opened files in a changelist."""
     _paths = []
     for _raw in paths or []:
         _path = _normalize_disk_path(_raw) or str(_raw).strip()
         if _path:
             _paths.append(_path)
-    if not _paths:
+
+    if opened_entries and not _paths:
+        for _entry in opened_entries:
+            _path = _entry.get('clientFile') or _entry.get('depotFile')
+            if _path:
+                _paths.append(_path)
+
+    if not opened_entries and not _paths:
         return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': 'no paths', 'lines': []}
 
     _desc = (description or '').strip()
@@ -3281,13 +3664,15 @@ def shelve_paths(paths, change=None, description=None, p4_user=None, p4_client=N
     if not is_available(force=force, p4_user=_user, p4_client=_client):
         return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
 
+    if opened_entries:
+        _depot_lines, _depot_err = _depot_file_lines_for_opened_entries(
+            opened_entries, p4_user=_user, p4_client=_client, force=True)
+    else:
+        _depot_lines, _depot_err = _depot_file_lines_for_paths(
+            _paths, p4_user=_user, p4_client=_client, force=True)
+
     _change_str = str(change).lower() if change is not None else 'default'
     if _change_str in ('default', ''):
-        # Default changelist has no real change number — shelve via Change: new form,
-        # not p4 change -o default filtered spec (P4: "Default change unknown").
-        _depot_lines, _depot_err = _depot_file_lines_for_paths(
-            _paths, p4_user=_user, p4_client=_client, force=True,
-        )
         if _depot_err:
             return {
                 'ok': False, 'action': 'shelve', 'change': change, 'paths': _paths,

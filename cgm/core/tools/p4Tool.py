@@ -383,11 +383,15 @@ def uiFunc_toggle_cl_checks(self, change_key, *args):
         _cb.setValue(_val)
 
 
+def _opened_entry_label_path(entry):
+    return entry.get('clientFile') or entry.get('depotFile') or '?'
+
+
 def uiFunc_get_cl_selection(self, change_key):
     _ui = self._d_opened_cl_ui.get(_opened_change_key(change_key))
     if not _ui:
         return None, []
-    _selected_paths = []
+    _selected_entries = []
     for _cb, _idx in zip(_ui['file_cbs'], _ui['indices']):
         if not _cb.getValue():
             continue
@@ -395,10 +399,115 @@ def uiFunc_get_cl_selection(self, change_key):
             _entry = self._l_opened_entries[_idx]
         except IndexError:
             continue
-        _path = _entry.get('clientFile') or _entry.get('depotFile')
-        if _path:
-            _selected_paths.append(_path)
-    return _ui, _selected_paths
+        _selected_entries.append(_entry)
+    return _ui, _selected_entries
+
+
+def _format_cl_entry_preview(entries, max_lines=8):
+    return _format_cl_path_preview(
+        [_opened_entry_label_path(_e) for _e in (entries or [])],
+        max_lines=max_lines,
+    )
+
+
+def uiFunc_p4_progress_begin(status, max_steps=1):
+    try:
+        return cgmUI.doStartMayaProgressBar(
+            stepMaxValue=max(int(max_steps), 1),
+            statusMessage=status,
+            interruptableState=True,
+        )
+    except Exception:
+        return None
+
+
+def uiFunc_p4_progress_update(progress_bar, status=None, progress=None, max_value=None):
+    if not progress_bar:
+        return False
+    try:
+        if mc.progressBar(progress_bar, query=True, isCancelled=True):
+            return True
+        _kw = {}
+        if status is not None:
+            _kw['status'] = status
+        if progress is not None:
+            _kw['progress'] = progress
+        if max_value is not None:
+            _kw['maxValue'] = max(int(max_value), 1)
+        cgmUI.progressBar_set(progress_bar, **_kw)
+        if progress in (1, max_value) or (progress and int(progress) % 5 == 0):
+            try:
+                mc.refresh()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
+
+
+def uiFunc_p4_progress_end(progress_bar):
+    if not progress_bar:
+        return
+    try:
+        cgmUI.progressBar_end(progress_bar)
+    except Exception:
+        try:
+            cgmUI.doEndMayaProgressBar(progress_bar)
+        except Exception:
+            pass
+
+
+def uiFunc_p4_submit_progress_cb(progress_bar):
+    def _cb(step, total, status):
+        return uiFunc_p4_progress_update(
+            progress_bar, status=status, progress=step, max_value=total)
+    return _cb
+
+
+def uiFunc_submit_progress_max_steps(change, opened_entries=None, file_count=None):
+    """Progress steps for Maya bar — default partial multi-file uses create/reopen/submit."""
+    _change_str = str(change).lower() if change is not None else 'default'
+    _count = len(opened_entries or [])
+    if not _count and file_count:
+        _count = int(file_count)
+    if _change_str in ('default', '') and _count > 1:
+        return 3
+    return 1
+
+
+def uiFunc_run_submit_paths(change, description, opened_entries, user, client):
+    _max_steps = uiFunc_submit_progress_max_steps(change, opened_entries=opened_entries)
+    _progress = uiFunc_p4_progress_begin('P4 Submit | starting...', _max_steps)
+    _cb = uiFunc_p4_submit_progress_cb(_progress) if _progress else None
+    try:
+        return P4UTIL.submit_paths(
+            None, change=change, description=description,
+            opened_entries=opened_entries,
+            p4_user=user, p4_client=client, progress_cb=_cb)
+    finally:
+        uiFunc_p4_progress_end(_progress)
+
+
+def uiFunc_run_submit_change(change, description, user, client, file_count=None):
+    _max_steps = uiFunc_submit_progress_max_steps(change, file_count=file_count)
+    _progress = uiFunc_p4_progress_begin('P4 Submit | starting...', _max_steps)
+    _cb = uiFunc_p4_submit_progress_cb(_progress) if _progress else None
+    try:
+        return P4UTIL.submit_change(
+            change, description=description,
+            p4_user=user, p4_client=client, progress_cb=_cb)
+    finally:
+        uiFunc_p4_progress_end(_progress)
+
+
+def uiFunc_log_submit_result(res, success_msg, fail_prefix='Submit failed'):
+    if res.get('cancelled'):
+        log.warning('Submit cancelled')
+        return
+    if res.get('ok'):
+        log.info(success_msg)
+    else:
+        log.error('{0}: {1}'.format(fail_prefix, res.get('stderr') or 'unknown'))
 
 
 def _format_cl_path_preview(paths, max_lines=8):
@@ -706,21 +815,22 @@ def uiFunc_changelist_revert(self, change_key):
     if not _user or not _client:
         return
 
-    _ui, _selected_paths = uiFunc_get_cl_selection(self, change_key)
+    _ui, _selected_entries = uiFunc_get_cl_selection(self, change_key)
     if not _ui:
         return
 
     _change = _ui['change']
     _total = len(_ui['indices'])
+    _selected_paths = [_opened_entry_label_path(_e) for _e in _selected_entries]
 
-    if _selected_paths and len(_selected_paths) < _total:
+    if _selected_entries and len(_selected_entries) < _total:
         _msg = (
             'Revert {0} selected file(s) in changelist {1}?\n\n{2}'.format(
-                len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+                len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
         )
-    elif _selected_paths:
+    elif _selected_entries:
         _msg = 'Revert all {0} file(s) in changelist {1}?\n\n{2}'.format(
-            len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+            len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
     else:
         _msg = (
             'No files checked in changelist {0}.\n\n'
@@ -740,9 +850,10 @@ def uiFunc_changelist_revert(self, change_key):
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
 
-    if _selected_paths and len(_selected_paths) < _total:
+    if _selected_entries and len(_selected_entries) < _total:
         _failures = []
-        for _path in _selected_paths:
+        for _entry in _selected_entries:
+            _path = _opened_entry_label_path(_entry)
             _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
             if _res.get('ok'):
                 log.info('Reverted: {0}'.format(_path))
@@ -765,29 +876,29 @@ def uiFunc_changelist_submit(self, change_key):
     if not _user or not _client:
         return
 
-    _ui, _selected_paths = uiFunc_get_cl_selection(self, change_key)
+    _ui, _selected_entries = uiFunc_get_cl_selection(self, change_key)
     if not _ui:
         return
 
     _change = _ui['change']
     _total = len(_ui['indices'])
 
-    if _selected_paths and len(_selected_paths) < _total:
+    if _selected_entries and len(_selected_entries) < _total:
         _msg = (
             'Submit {0} selected file(s) in changelist {1}?\n\n{2}'.format(
-                len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+                len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
         )
-    elif _selected_paths:
+    elif _selected_entries:
         _msg = 'Submit all {0} file(s) in changelist {1}?\n\n{2}'.format(
-            len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+            len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
     else:
         _msg = (
             'No files checked in changelist {0}.\n\n'
             'Submit ALL {1} opened file(s) in this changelist?'.format(_change, _total)
         )
 
-    if str(_change).lower() == 'default' and (not _selected_paths or len(_selected_paths) == _total):
-        _count = len(_selected_paths) if _selected_paths else _total
+    if str(_change).lower() == 'default' and (not _selected_entries or len(_selected_entries) == _total):
+        _count = len(_selected_entries) if _selected_entries else _total
         _msg = (
             'Submit default changelist?\n\n'
             'This submits ALL files in the default changelist ({0} file(s)).'.format(_count)
@@ -812,22 +923,24 @@ def uiFunc_changelist_submit(self, change_key):
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
 
-    if _selected_paths and len(_selected_paths) < _total:
-        _res = P4UTIL.submit_paths(
-            _selected_paths, change=_change, description=_desc,
-            p4_user=_user, p4_client=_client)
-        if _res.get('ok'):
-            log.info('Submitted {0} file(s) from changelist {1}'.format(
-                len(_selected_paths), _change))
-        else:
-            log.error('Submit selected failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    if _selected_entries and len(_selected_entries) < _total:
+        _res = uiFunc_run_submit_paths(
+            _change, _desc, _selected_entries, _user, _client)
+        uiFunc_log_submit_result(
+            _res,
+            'Submitted {0} file(s) from changelist {1}'.format(
+                len(_selected_entries), _change),
+            fail_prefix='Submit selected failed',
+        )
     else:
-        _res = P4UTIL.submit_change(
-            _change, description=_desc, p4_user=_user, p4_client=_client)
-        if _res.get('ok'):
-            log.info('Submitted changelist: {0}'.format(_change))
-        else:
-            log.error('Submit changelist failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        _submit_count = len(_selected_entries) if _selected_entries else _total
+        _res = uiFunc_run_submit_change(
+            _change, _desc, _user, _client, file_count=_submit_count)
+        uiFunc_log_submit_result(
+            _res,
+            'Submitted changelist: {0}'.format(_change),
+            fail_prefix='Submit changelist failed',
+        )
 
     uiFunc_refresh(self, force=True)
 
@@ -837,21 +950,21 @@ def uiFunc_changelist_shelve(self, change_key):
     if not _user or not _client:
         return
 
-    _ui, _selected_paths = uiFunc_get_cl_selection(self, change_key)
+    _ui, _selected_entries = uiFunc_get_cl_selection(self, change_key)
     if not _ui:
         return
 
     _change = _ui['change']
     _total = len(_ui['indices'])
 
-    if _selected_paths and len(_selected_paths) < _total:
+    if _selected_entries and len(_selected_entries) < _total:
         _msg = (
             'Shelve {0} selected file(s) in changelist {1}?\n\n{2}'.format(
-                len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+                len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
         )
-    elif _selected_paths:
+    elif _selected_entries:
         _msg = 'Shelve all {0} file(s) in changelist {1}?\n\n{2}'.format(
-            len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+            len(_selected_entries), _change, _format_cl_entry_preview(_selected_entries))
     else:
         _msg = (
             'No files checked in changelist {0}.\n\n'
@@ -876,13 +989,14 @@ def uiFunc_changelist_shelve(self, change_key):
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
 
-    if _selected_paths and len(_selected_paths) < _total:
+    if _selected_entries and len(_selected_entries) < _total:
         _res = P4UTIL.shelve_paths(
-            _selected_paths, change=_change, description=_desc,
+            None, change=_change, description=_desc,
+            opened_entries=_selected_entries,
             p4_user=_user, p4_client=_client)
         if _res.get('ok'):
             log.info('Shelved {0} file(s) from changelist {1}'.format(
-                len(_selected_paths), _change))
+                len(_selected_entries), _change))
         else:
             log.error('Shelve selected failed: {0}'.format(_res.get('stderr') or 'unknown'))
     else:
@@ -1000,7 +1114,7 @@ def uiFunc_row_revert(self, idx):
     except (IndexError, TypeError):
         return
 
-    _path = _entry.get('clientFile') or _entry.get('depotFile')
+    _path = _entry.get('depotFile') or _entry.get('clientFile')
     if not _path:
         return
 
@@ -1035,7 +1149,7 @@ def uiFunc_row_submit(self, idx):
         return
 
     _change = _entry.get('change', 'default')
-    _path = _entry.get('clientFile') or _entry.get('depotFile')
+    _path = _entry.get('depotFile') or _entry.get('clientFile')
     if not _path:
         return
 
@@ -1057,12 +1171,8 @@ def uiFunc_row_submit(self, idx):
         return
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
-    _res = P4UTIL.submit_paths(
-        [_path], change=_change, description=_desc, p4_user=_user, p4_client=_client)
-    if _res.get('ok'):
-        log.info('Submitted: {0}'.format(_path))
-    else:
-        log.error('Submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    _res = uiFunc_run_submit_paths(_change, _desc, [_entry], _user, _client)
+    uiFunc_log_submit_result(_res, 'Submitted: {0}'.format(_path))
     uiFunc_refresh(self, force=True)
 
 
@@ -1077,7 +1187,7 @@ def uiFunc_row_shelve(self, idx):
         return
 
     _change = _entry.get('change', 'default')
-    _path = _entry.get('clientFile') or _entry.get('depotFile')
+    _path = _entry.get('depotFile') or _entry.get('clientFile')
     if not _path:
         return
 
@@ -1100,7 +1210,9 @@ def uiFunc_row_shelve(self, idx):
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
     _res = P4UTIL.shelve_paths(
-        [_path], change=_change, description=_desc, p4_user=_user, p4_client=_client)
+        None, change=_change, description=_desc,
+        opened_entries=[_entry],
+        p4_user=_user, p4_client=_client)
     if _res.get('ok'):
         log.info('Shelved: {0}'.format(_path))
     else:

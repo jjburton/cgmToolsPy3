@@ -23,6 +23,7 @@ from cgm.core.mrs.lib import batch_utils as BATCH
 from cgm.core import cgm_General as cgmGEN
 from cgm.core.lib import math_utils as MATH
 from cgm.core.mrs.lib import scene_utils as SCENEUTILS
+from cgm.core.mrs.lib import scene_export_utils as SCENEEXPORTUTIL
 #reload(SCENEUTILS)
 from cgm.core.lib import skinDat as SKINDAT
 import cgm.core.mrs.Builder as BUILDER
@@ -3095,9 +3096,9 @@ example:
             self.uiImage_Thumb.setImage(thumb)
 
         pum = mUI.MelPopupMenu(self.uiImage_Thumb)
-        mUI.MelMenuItem(pum, label="Remake Thumbnail", command=cgmGEN.Callback(self.makeThumbnail) )		
+        mUI.MelMenuItem(pum, label="Update Thumb", command=cgmGEN.Callback(self.updateMetaThumbnail))
 
-        self.uiButton_MakeThumb = mUI.MelButton(self._detailsColumn, ut = 'cgmUITemplate', h=150, label="Make Thumbnail", c=cgmGEN.Callback(self.makeThumbnail), vis=(thumb == None))
+        self.uiButton_MakeThumb = mUI.MelButton(self._detailsColumn, ut = 'cgmUITemplate', h=150, label="Make Thumbnail", c=cgmGEN.Callback(self.updateMetaThumbnail), vis=(thumb == None))
 
         mc.setParent(self._detailsColumn)
         cgmUI.add_LineSubBreak()
@@ -3106,10 +3107,10 @@ example:
 
         mUI.MelButton(_row, ut = 'cgmUITemplate', h=15, label="Refresh Data",
                       c=cgmGEN.Callback(self.refreshMetaData) )
+        mUI.MelButton(_row, ut = 'cgmUITemplate', h=15, label="Update Thumb",
+                      c=cgmGEN.Callback(self.updateMetaThumbnail) )
         mUI.MelButton(_row, ut = 'cgmUITemplate', h=15, label="Report Data",
                       c=cgmGEN.Callback(self.metaData_print) )
-        mUI.MelButton(_row, ut = 'cgmUITemplate', h=15, label="Copy ShotList",
-                      c=cgmGEN.Callback(self.metaData_copyShotList) )                
         _row.layout()
 
 
@@ -3227,6 +3228,12 @@ example:
                 mUI.MelSpacer(_row,w=_spacer)
                 _row.layout()
 
+            _row = mUI.MelHLayout(self._detailsColumn)
+            mUI.MelButton(_row, ut='cgmUITemplate', h=15, label="Copy ShotList",
+                          c=cgmGEN.Callback(self.metaData_copyShotList))
+            _row.layout()
+            mc.setParent(self._detailsColumn)
+            cgmUI.add_LineSubBreak()
 
         mUI.MelLabel(self._detailsColumn,l='File', w=50)
         for k in ['size','dateModified','dateAccess','file']:
@@ -3246,20 +3253,98 @@ example:
         data['file']
         """
 
+    def _meta_paths_from_version(self):
+        """Return (meta_dat_path, thumb_bmp_path, meta_dir) for the selected version file."""
+        if not self.versionFile:
+            return None
+        path, filename = os.path.split(self.versionFile)
+        basefile = os.path.splitext(filename)[0]
+        meta_dir = os.path.join(path, 'meta')
+        meta_file = os.path.join(meta_dir, '{0}.dat'.format(basefile))
+        thumb_file = os.path.join(meta_dir, '{0}.bmp'.format(basefile))
+        return meta_file, thumb_file, meta_dir
+
+    def _meta_prepare_paths_for_write(self, store_thumbnail=False):
+        """P4/writability prepare for meta sidecar `.dat` and optional `.bmp` (PoseManager pattern)."""
+        _paths = self._meta_paths_from_version()
+        if not _paths:
+            return None
+        meta_file, thumb_file, meta_dir = _paths
+        if meta_dir and not os.path.isdir(meta_dir):
+            os.mkdir(meta_dir)
+        PATHUTIL.prepare_meta_files_for_write(
+            meta_file,
+            store_thumbnail=store_thumbnail,
+            include_existing_thumbnail=True,
+            mDat=self.mDat,
+            _str_func='Scene._meta_prepare_paths_for_write',
+        )
+        return meta_file
+
+    def _meta_open_file_matches_selection(self):
+        """True when the open scene matches the selected version file."""
+        if not self.versionFile:
+            log.warning("No version file")
+            return False
+        current_file = mc.file(q=True, loc=True)
+        if not current_file or not os.path.exists(current_file):
+            log.warning("Can't refresh unsaved files")
+            return False
+        if os.path.normpath(self.versionFile) != os.path.normpath(current_file):
+            mc.confirmDialog(
+                title="No. Just no.",
+                message=(
+                    "The open file doesn't match the selected file. "
+                    "I refuse to refresh this metaData with the wrong file. "
+                    "It just wouldn't feel right."
+                ),
+                button=["Cancel", "Sorry"],
+            )
+            return False
+        return True
+
     def makeThumbnail(self):
-        if self.versionFile:
-            path, filename = os.path.split(self.versionFile)
-            basefile = os.path.splitext(filename)[0]
+        """Legacy alias — use updateMetaThumbnail."""
+        self.updateMetaThumbnail()
 
-            metaDir = os.path.join(path, 'meta')
-            if not os.path.exists(metaDir):
-                os.mkdir( os.path.join(path, 'meta') )
-
-            thumbFile = os.path.join(path, 'meta', '{0}.bmp'.format(basefile))
-            r9General.thumbNailScreen(thumbFile, 256, 256)		
+    def updateMetaThumbnail(self, *args):
+        """Capture viewport thumb to meta sidecar `.bmp` (PoseManager Update thumb pattern)."""
+        if not self._meta_open_file_matches_selection():
+            return
+        _paths = self._meta_paths_from_version()
+        if not _paths:
+            return
+        meta_file, thumb_file, meta_dir = _paths
+        if meta_dir and not os.path.isdir(meta_dir):
+            os.mkdir(meta_dir)
+        sel = mc.ls(sl=True, l=True)
+        mc.select(cl=True)
+        if os.path.exists(thumb_file):
+            try:
+                os.remove(thumb_file)
+            except Exception:
+                log.error('Unable to delete meta thumbnail: {0}'.format(thumb_file))
+        try:
+            PATHUTIL.prepare_meta_files_for_write(
+                meta_file,
+                store_thumbnail=True,
+                mDat=self.mDat,
+                _str_func='Scene.updateMetaThumbnail',
+            )
+        except PATHUTIL.PathWritePrepareError as err:
+            log.error(str(err))
+            if sel:
+                mc.select(sel)
+            return
+        r9General.thumbNailScreen(thumb_file, 256, 256)
+        if sel:
+            mc.select(sel)
+        if getattr(self, 'uiButton_MakeThumb', None):
             self.uiButton_MakeThumb(e=True, vis=False)
-            self.uiImage_Thumb.setImage(thumbFile)
+        if getattr(self, 'uiImage_Thumb', None):
+            self.uiImage_Thumb.setImage(thumb_file)
             self.uiImage_Thumb(e=True, vis=True)
+        log.info('wrote meta thumbnail: {0}'.format(thumb_file))
 
     def getThumbnail(self):
         thumbFile = None
@@ -3426,17 +3511,22 @@ example:
             log.debug("{0} | No version file found".format(_func_str))
         return data
 
-    def refreshMetaData(self):
-        currentFile = mc.file(q=True, loc=True)
-        if not os.path.exists(currentFile):
-            log.warning("Can't refresh unsaved files")
+    def refreshMetaData(self, store_thumbnail=None):
+        if not self._meta_open_file_matches_selection():
             return False
-        if not self.versionFile:
-            log.warning("No version file")            
-            return
-        if os.path.normpath(self.versionFile) != os.path.normpath(currentFile):
-            mc.confirmDialog(title="No. Just no.", message="The open file doesn't match the selected file. I refuse to refresh this metaData with the wrong file. It just wouldn't feel right.", button=["Cancel", "Sorry"])
-            return
+
+        if store_thumbnail is None:
+            result = mc.confirmDialog(
+                title='Refresh Metadata',
+                message='Update sidecar metadata from the open scene?',
+                button=['Data', 'Data + Thumb', 'Cancel'],
+                defaultButton='Data',
+                cancelButton='Cancel',
+                dismissString='Cancel',
+            )
+            if result == 'Cancel':
+                return False
+            store_thumbnail = (result == 'Data + Thumb')
 
         notes = self.assetMetaData.get('notes', "")
         self.assetMetaData = self.getMetaDataFromCurrent()
@@ -3444,31 +3534,30 @@ example:
 
         self.buildDetailsColumn()
         self.saveMetaData()
+        if store_thumbnail:
+            self.updateMetaThumbnail()
 
     def saveMetaNote(self, field):
         self.assetMetaData['notes'] = field.getValue()
         self.saveMetaData()
 
     def saveMetaData(self):
-        if self.versionFile:
-            path, filename = os.path.split(self.versionFile)
-            basefile = os.path.splitext(filename)[0]
-
-            metaDir = os.path.join(path, 'meta')
-            if not os.path.exists(metaDir):
-                os.mkdir( os.path.join(path, 'meta') )
-
-            metaFile = os.path.join(path, 'meta', '{0}.dat'.format(basefile))
-            try:
-                PATHUTIL.prepare_paths_for_write([metaFile], mDat=self.mDat)
-            except PATHUTIL.PathWritePrepareError as err:
-                log.error(str(err))
-                return
-            f = open(metaFile, 'w')
-            f.write( json.dumps(self.assetMetaData) )
-            f.close()
-
-            log.info('wrote file: {0}'.format(metaFile))
+        if not self.versionFile:
+            return
+        _paths = self._meta_paths_from_version()
+        if not _paths:
+            return
+        meta_file, thumb_file, meta_dir = _paths
+        if meta_dir and not os.path.isdir(meta_dir):
+            os.mkdir(meta_dir)
+        try:
+            self._meta_prepare_paths_for_write(store_thumbnail=False)
+        except PATHUTIL.PathWritePrepareError as err:
+            log.error(str(err))
+            return
+        with open(meta_file, 'w') as f:
+            f.write(json.dumps(self.assetMetaData))
+        log.info('wrote file: {0}'.format(meta_file))
 
     def uiFunc_showDirectories(self, val):
         self._uiRow_dir(e=True, vis=val)
@@ -7963,22 +8052,12 @@ def BatchExport(dataList = []):
 
 def _resolve_no_shot_export_name(exportName, noShotListExportName, animList):
     """When shot list is empty, optionally use scene file stem instead of browser exportName."""
-    if animList and animList.shotList:
-        return exportName
-    if noShotListExportName != 'sceneFile':
-        return exportName
-    _scene = mc.file(q=True, sn=True) or mc.file(q=True, loc=True) or ''
-    if not _scene:
-        log.warning("_resolve_no_shot_export_name | noShotListExportName=sceneFile but no scene path; using exportName")
-        return exportName
-    _stem = os.path.splitext(os.path.basename(_scene))[0]
-    if _stem.endswith('_baked'):
-        _stem = _stem[:-len('_baked')]
-    _safe = CORESTRING.stripInvalidChars(_stem)
-    if not _safe:
-        log.warning("_resolve_no_shot_export_name | empty stem after sanitize; using exportName")
-        return exportName
-    return '{0}.fbx'.format(_safe)
+    _shot_list = animList.shotList if animList else None
+    return SCENEEXPORTUTIL.resolve_no_shot_export_name(
+        exportName,
+        no_shot_list_export_name=noShotListExportName,
+        shot_list=_shot_list,
+    )
 
 def ExportScene(mode = -1,
                 exportObjs = None,
@@ -8339,6 +8418,53 @@ def ExportScene(mode = -1,
     if not exportStatic and not exportAsRig and exportAnimPath:
         CGMOS.mkdir_recursive(PATHS.get_dir(exportAnimPath))
 
+    animList = SHOTS.AnimList()
+    _effectiveExportName = _resolve_no_shot_export_name(exportName, noShotListExportName, animList)
+
+    if exportFBXFile:
+        _planned = SCENEEXPORTUTIL.resolve_export_fbx_paths(
+            export_objs=exportObjs,
+            export_fbx_file=exportFBXFile,
+            export_as_rig=exportAsRig,
+            export_as_cutscene=exportAsCutscene,
+            export_static=exportStatic,
+            add_namespace_suffix=addNamespaceSuffix,
+            export_name=exportName,
+            effective_export_name=_effectiveExportName,
+            export_asset_path=exportAssetPath,
+            export_anim_path=exportAnimPath,
+            export_shots_to_individual_files=exportShotsToIndividualFiles,
+            shot_list=animList.shotList if animList else None,
+            cameras=cameras,
+        )
+        if _planned:
+            log.info("{0} | export preflight | {1} path(s)".format(_str_func, len(_planned)))
+            for _entry in _planned:
+                log.info("{0} |   {1}".format(_str_func, _entry.get('path')))
+            _preflight_ctx = dict(_ctx_base,
+                                  stage='export_preflight',
+                                  paths=[_entry['path'] for _entry in _planned])
+            try:
+                PATHUTIL.preflight_export_output_paths(
+                    [_entry['path'] for _entry in _planned],
+                    mDat=PATHUTIL.get_project_mDat(),
+                    confirm_p4=bool(logExportSummary),
+                    _str_func='{0}|export_preflight'.format(_str_func),
+                )
+            except PATHUTIL.PathWritePrepareError as err:
+                if getattr(err, 'reason', None) == 'Save cancelled':
+                    log.info('{0} | export preflight cancelled'.format(_str_func))
+                    return _finalize_failure('export_preflight', 'Export preflight cancelled', _preflight_ctx)
+                log.error(str(err))
+                _preflight_ctx['reason'] = getattr(err, 'reason', None) or str(err)
+                return _finalize_failure('export_preflight', 'Export preflight failed', _preflight_ctx)
+            except PATHUTIL.ExportOutputNotWritableError as err:
+                PATHUTIL.record_non_writable_export_path(err.path)
+                _preflight_ctx['exportPath'] = err.path
+                _preflight_ctx['reason'] = getattr(err, 'reason', None) or 'not_writable'
+                log.error("{0} | Export output not writable: {1}".format(_str_func, err.path))
+                return _finalize_failure('export_preflight', 'Export output not writable', _preflight_ctx)
+
     exportFiles = []
 
     log.info("bake prep...")
@@ -8357,8 +8483,6 @@ def ExportScene(mode = -1,
     if not exportSetName:
         exportSetName = cgmMeta.cgmOptionVar('cgm_export_set', varType="string",defaultValue = 'export_tdSet').getValue()  
 
-    animList = SHOTS.AnimList()
-    _effectiveExportName = _resolve_no_shot_export_name(exportName, noShotListExportName, animList)
     #find our minMax
     l_min = []
     l_max = []
