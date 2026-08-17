@@ -28,6 +28,14 @@ _edge_padding = 5
 _ROW_BGC_EVEN = [.75, .75, .75]
 _ROW_BGC_ODD = [.65, .65, .65]
 _OPENED_CL_HEADER_BGC = cgmUI.guiHeaderColor
+_SHELVED_CL_HEADER_BGC = [.62, .68, .78]
+
+
+def reload_dependencies():
+    """Reload P4 session cache + perforce lib (Setup → Reload)."""
+    import cgm.core.lib.perforce_session as P4SESSION
+    cgmGEN._reloadMod(P4SESSION)
+    cgmGEN._reloadMod(P4UTIL)
 
 
 class ui(cgmUI.cgmGUI):
@@ -39,7 +47,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = False
-    DEFAULT_SIZE = 600, 520
+    DEFAULT_SIZE = 600, 580
     TOOLNAME = '{0}.ui'.format(__toolname__)
 
     def insert_init(self, *args, **kws):
@@ -48,42 +56,41 @@ class ui(cgmUI.cgmGUI):
         self._l_opened_entries = []
         self._p4_status_dat = None
         self._d_opened_cl_ui = {}
+        self._l_shelved_entries = []
+        self._d_shelved_cl_ui = {}
 
     def build_menus(self):
         self.uiMenu_FirstMenu = mUI.MelMenu(l='Setup', pmc=cgmGEN.Callback(self.buildMenu_first))
 
     def buildMenu_first(self):
         self.uiMenu_FirstMenu.clear()
+        mUI.MelMenuItemDiv(self.uiMenu_FirstMenu)
         mUI.MelMenuItem(
             self.uiMenu_FirstMenu,
             l='Reload',
             ann='Reload p4Tool and perforce lib',
-            c=cgmGEN.Callback(self.reload),
+            c=lambda *a: mc.evalDeferred(self.reload, lp=True),
+        )
+        mUI.MelMenuItem(
+            self.uiMenu_FirstMenu,
+            l='Reset',
+            ann='Reload p4Tool and perforce lib',
+            c=lambda *a: mc.evalDeferred(self.reload, lp=True),
         )
 
     def reload(self):
-        import cgm.core.lib.perforce_session as P4SESSION
-        _win = self.WINDOW_NAME
-        _size = None
-        try:
-            if mc.window(_win, exists=True):
-                _size = (
-                    mc.window(_win, q=True, width=True),
-                    mc.window(_win, q=True, height=True),
-                )
-        except Exception:
-            pass
-
-        cgmGEN._reloadMod(P4SESSION)
-        cgmGEN._reloadMod(P4UTIL)
+        reload_dependencies()
         cgmGEN._reloadMod(__import__(__name__))
         super(ui, self).reload()
 
-        try:
-            if _size and mc.window(_win, exists=True):
-                mc.window(_win, edit=True, width=_size[0], height=_size[1])
-        except Exception:
-            pass
+    @classmethod
+    def showUI(cls):
+        """Reuse existing cgmP4 window when still open."""
+        if cls.Exists():
+            _ui = cls.Get()
+            _ui.show(forceDefaultSize=False)
+            return _ui
+        return cls()
 
     def _build_collapse_frame(
             self, parent, label, option_name, default_collapsed=0,
@@ -192,9 +199,49 @@ class ui(cgmUI.cgmGUI):
 
         # --- Opened Files ---
         _frame_opened, _inside_opened = self._build_collapse_frame(
-            _scroll, 'Opened Files', 'openedFrameCollapse', 0)
+            _scroll, 'Opened Files', 'openedFrameCollapse', 0,
+            leading_spacer=False, column_adj=True, row_spacing=0, margin_height=2)
+
+        _row_opened_empty = mUI.MelHSingleStretchLayout(
+            _inside_opened, ut='cgmUISubTemplate', padding=0, expand=False)
+        mUI.MelSpacer(_row_opened_empty, w=1, h=1)
+        self.uiLabel_opened_empty = mUI.MelLabel(
+            _row_opened_empty,
+            l='',
+            ut='cgmUIInstructionsTemplate',
+            align='center',
+            h=15,
+        )
+        _row_opened_empty.setStretchWidget(self.uiLabel_opened_empty)
+        _row_opened_empty.layout()
+        self.uiRow_opened_empty = _row_opened_empty
+        self.uiRow_opened_empty.hide()
+
         self.uiFrame_opened = mUI.MelColumn(_inside_opened, useTemplate='cgmUISubTemplate')
         mUI.MelSpacer(_inside_opened, h=_padding)
+
+        # --- Shelved Files ---
+        _frame_shelved, _inside_shelved = self._build_collapse_frame(
+            _scroll, 'Shelved Files', 'shelvedFrameCollapse', 0,
+            leading_spacer=False, column_adj=True, row_spacing=0, margin_height=2)
+
+        _row_shelved_empty = mUI.MelHSingleStretchLayout(
+            _inside_shelved, ut='cgmUISubTemplate', padding=0, expand=False)
+        mUI.MelSpacer(_row_shelved_empty, w=1, h=1)
+        self.uiLabel_shelved_empty = mUI.MelLabel(
+            _row_shelved_empty,
+            l='',
+            ut='cgmUIInstructionsTemplate',
+            align='center',
+            h=15,
+        )
+        _row_shelved_empty.setStretchWidget(self.uiLabel_shelved_empty)
+        _row_shelved_empty.layout()
+        self.uiRow_shelved_empty = _row_shelved_empty
+        self.uiRow_shelved_empty.hide()
+
+        self.uiFrame_shelved = mUI.MelColumn(_inside_shelved, useTemplate='cgmUISubTemplate')
+        mUI.MelSpacer(_inside_shelved, h=_padding)
 
         # --- Path Query ---
         _frame_path, _inside_path = self._build_collapse_frame(
@@ -238,15 +285,6 @@ class ui(cgmUI.cgmGUI):
                ac=[(_scroll, 'bottom', 2, _row_footer)],
                attachNone=[(_row_footer, 'top')])
 
-    @classmethod
-    def showUI(cls):
-        """Show existing window or create once. Avoids rebuild on repeated cgmP4 opens."""
-        if cls.Exists():
-            _ui = cls.Get()
-            _ui.show(forceDefaultSize=False)
-            return _ui
-        return cls()
-
     def post_init(self, *args, **kws):
         uiFunc_clear_path_query(self)
         uiFunc_refresh(self)
@@ -282,6 +320,53 @@ def uiFunc_set_status_panel(self, lines):
     _text = '\n'.join(_parts) if _parts else ''
     _line_count = max(1, len(_parts))
     self.uiLabel_status(edit=True, l=_text, h=(13 * _line_count) + 2)
+
+
+def _shelved_change_key(change):
+    return str(change)
+
+
+def _shelf_entry_path(entry):
+    return entry.get('depotFile') or entry.get('clientFile') or '?'
+
+
+def _uiFunc_set_section_empty_state(self, frame_attr, empty_row_attr, label_attr, message):
+    """Show a full-width centered empty message (Status panel pattern)."""
+    getattr(self, frame_attr).hide()
+    getattr(self, label_attr)(edit=True, l=message)
+    getattr(self, empty_row_attr).show()
+
+
+def _uiFunc_set_section_content_state(self, frame_attr, empty_row_attr):
+    getattr(self, empty_row_attr).hide()
+    getattr(self, frame_attr).show()
+
+
+def uiFunc_toggle_shelf_cl_checks(self, change_key, *args):
+    _ui = self._d_shelved_cl_ui.get(_shelved_change_key(change_key))
+    if not _ui:
+        return
+    _val = _ui['master_cb'].getValue()
+    for _cb in _ui['file_cbs']:
+        _cb.setValue(_val)
+
+
+def uiFunc_get_shelf_cl_selection(self, change_key):
+    _ui = self._d_shelved_cl_ui.get(_shelved_change_key(change_key))
+    if not _ui:
+        return None, []
+    _selected_paths = []
+    for _cb, _idx in zip(_ui['file_cbs'], _ui['indices']):
+        if not _cb.getValue():
+            continue
+        try:
+            _entry = self._l_shelved_entries[_idx]
+        except IndexError:
+            continue
+        _path = _shelf_entry_path(_entry)
+        if _path and _path != '?':
+            _selected_paths.append(_path)
+    return _ui, _selected_paths
 
 
 def _opened_change_key(change):
@@ -323,6 +408,23 @@ def _format_cl_path_preview(paths, max_lines=8):
     return _preview
 
 
+def uiFunc_prompt_change_description(title, message, change, user, client):
+    _default = P4UTIL.query_change_description(change, p4_user=user, p4_client=client) or None
+    _desc = cgmUI.uiPrompt_getValue(
+        title=title,
+        message=message,
+        text=_default,
+        style='text',
+    )
+    if _desc is None:
+        return None
+    _desc = _desc.strip()
+    if not _desc:
+        log.warning('{0}: description required'.format(title))
+        return None
+    return _desc
+
+
 def uiFunc_build_opened_file_row(parent, self, entry, idx, file_cbs):
     _bgc = _ROW_BGC_EVEN if MATH.is_even(idx) else _ROW_BGC_ODD
     _row = mUI.MelHSingleStretchLayout(parent, h=30, bgc=_bgc, padding=2)
@@ -348,8 +450,13 @@ def uiFunc_build_opened_file_row(parent, self, entry, idx, file_cbs):
     )
     mUI.MelButton(
         _row, l='Submit', bgc=cgmUI.guiButtonColor,
-        ann='p4 submit changelist {0}'.format(_change),
+        ann='p4 submit {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_row_submit, self, idx),
+    )
+    mUI.MelButton(
+        _row, l='Shelve', bgc=cgmUI.guiButtonColor,
+        ann='p4 shelve {0}'.format(_path),
+        c=cgmGEN.Callback(uiFunc_row_shelve, self, idx),
     )
     mUI.MelSpacer(_row, w=5)
     _row.layout()
@@ -366,7 +473,7 @@ def uiFunc_build_opened_changelist_section(self, parent, grp, start_idx):
     _master_cb = mUI.MelCheckBox(
         _row,
         value=1,
-        ann='Select all files in this changelist for R / S',
+        ann='Select all files in this changelist for R / S / Sh',
         changeCommand=cgmGEN.Callback(uiFunc_toggle_cl_checks, self, _change_key),
     )
     mUI.MelSpacer(_row, w=5)
@@ -408,6 +515,14 @@ def uiFunc_build_opened_changelist_section(self, parent, grp, start_idx):
         ann='Submit changelist — checked files only, or all if none checked',
         c=cgmGEN.Callback(uiFunc_changelist_submit, self, _change_key),
     )
+    mUI.MelButton(
+        _row,
+        l='Sh',
+        w=22,
+        bgc=cgmUI.guiButtonColor,
+        ann='Shelve changelist — checked files only, or all if none checked',
+        c=cgmGEN.Callback(uiFunc_changelist_shelve, self, _change_key),
+    )
     mUI.MelSpacer(_row, w=5)
 
     _row.setStretchWidget(_sub_column)
@@ -428,29 +543,162 @@ def uiFunc_build_opened_rows(self, opened_dat):
     self._d_opened_cl_ui = {}
 
     if not opened_dat:
-        mUI.MelLabel(
-            self.uiFrame_opened, l='(not loaded)', ut='cgmUIInstructionsTemplate', align='left')
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_opened', 'uiRow_opened_empty', 'uiLabel_opened_empty', '(not loaded)')
         return
 
     if opened_dat.get('error'):
-        mUI.MelLabel(
-            self.uiFrame_opened,
-            l=opened_dat['error'],
-            ut='cgmUIInstructionsTemplate',
-            align='left',
-        )
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_opened', 'uiRow_opened_empty', 'uiLabel_opened_empty',
+            opened_dat['error'])
         return
 
     _groups = P4UTIL.iter_opened_changelist_groups(opened_dat)
     if not _groups:
-        mUI.MelLabel(
-            self.uiFrame_opened, l='(no opened files)', ut='cgmUIInstructionsTemplate', align='left')
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_opened', 'uiRow_opened_empty', 'uiLabel_opened_empty',
+            '(no opened files)')
         return
+
+    _uiFunc_set_section_content_state(self, 'uiFrame_opened', 'uiRow_opened_empty')
 
     _idx = 0
     for _grp in _groups:
         _idx = uiFunc_build_opened_changelist_section(self, self.uiFrame_opened, _grp, _idx)
         mUI.MelSeparator(self.uiFrame_opened, h=3)
+
+
+def uiFunc_build_shelved_file_row(parent, self, entry, idx, file_cbs):
+    _bgc = _ROW_BGC_EVEN if MATH.is_even(idx) else _ROW_BGC_ODD
+    _row = mUI.MelHSingleStretchLayout(parent, h=30, bgc=_bgc, padding=2)
+    mUI.MelSpacer(_row, w=5)
+
+    _cb = mUI.MelCheckBox(_row, value=1)
+    file_cbs.append(_cb)
+
+    _action = entry.get('action', '?')
+    _rev = entry.get('rev')
+    _path = _shelf_entry_path(entry)
+    _base = os.path.basename(_path)
+    _rev_s = '#{0}'.format(_rev) if _rev is not None else ''
+    _label = '{0} {1}{2}'.format(_base, _action, _rev_s)
+
+    mUI.MelLabel(_row, l=_label, ann=_path)
+    _row.setStretchWidget(mUI.MelLabel(_row, l=''))
+
+    mUI.MelButton(
+        _row, l='Delete', bgc=cgmUI.guiButtonColor,
+        ann='p4 shelve -d {0}'.format(_path),
+        c=cgmGEN.Callback(uiFunc_shelf_row_delete, self, idx),
+    )
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+    mUI.MelSeparator(parent, h=1)
+
+
+def uiFunc_build_shelved_changelist_section(self, parent, grp, start_idx):
+    _change_key = _shelved_change_key(grp['change'])
+    _header = _SHELVED_CL_HEADER_BGC
+    _file_cbs = []
+    _indices = []
+
+    _row = mUI.MelHSingleStretchLayout(parent, bgc=_header, padding=2)
+    _master_cb = mUI.MelCheckBox(
+        _row,
+        value=1,
+        ann='Select all shelved files in this changelist for D / Mv / Sub',
+        changeCommand=cgmGEN.Callback(uiFunc_toggle_shelf_cl_checks, self, _change_key),
+    )
+    mUI.MelSpacer(_row, w=5)
+
+    _sub_column = mUI.MelColumnLayout(_row, bgc=_header)
+    _frame = mUI.MelFrameLayout(
+        _sub_column,
+        label=grp['label'],
+        vis=True,
+        collapse=False,
+        collapsable=True,
+        enable=True,
+        marginWidth=5,
+        marginHeight=2,
+        bgc=_header,
+    )
+    _inside = mUI.MelColumnLayout(_frame, bgc=_header, adj=True, rowSpacing=0)
+
+    _idx = start_idx
+    for _entry in grp['entries']:
+        self._l_shelved_entries.append(_entry)
+        _indices.append(_idx)
+        uiFunc_build_shelved_file_row(_inside, self, _entry, _idx, _file_cbs)
+        _idx += 1
+
+    mUI.MelButton(
+        _row,
+        l='D',
+        w=22,
+        bgc=cgmUI.guiButtonColor,
+        ann='Delete shelf — checked files only, or all shelved if none checked',
+        c=cgmGEN.Callback(uiFunc_shelf_changelist_delete, self, _change_key),
+    )
+    mUI.MelButton(
+        _row,
+        l='Mv',
+        w=26,
+        bgc=cgmUI.guiButtonColor,
+        ann='Move to changelist — unshelve checked files into target CL, then delete from source shelf',
+        c=cgmGEN.Callback(uiFunc_shelf_changelist_move, self, _change_key),
+    )
+    mUI.MelButton(
+        _row,
+        l='Sub',
+        w=28,
+        bgc=cgmUI.guiButtonColor,
+        ann='Submit shelved changelist (p4 submit -e)',
+        c=cgmGEN.Callback(uiFunc_shelf_changelist_submit, self, _change_key),
+    )
+    mUI.MelSpacer(_row, w=5)
+
+    _row.setStretchWidget(_sub_column)
+    _row.layout()
+
+    self._d_shelved_cl_ui[_change_key] = {
+        'change': grp['change'],
+        'master_cb': _master_cb,
+        'file_cbs': _file_cbs,
+        'indices': _indices,
+    }
+    return _idx
+
+
+def uiFunc_build_shelved_rows(self, shelved_dat):
+    self.uiFrame_shelved.clear()
+    self._l_shelved_entries = []
+    self._d_shelved_cl_ui = {}
+
+    if not shelved_dat:
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_shelved', 'uiRow_shelved_empty', 'uiLabel_shelved_empty', '(not loaded)')
+        return
+
+    if shelved_dat.get('error'):
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_shelved', 'uiRow_shelved_empty', 'uiLabel_shelved_empty',
+            shelved_dat['error'])
+        return
+
+    _groups = P4UTIL.iter_shelved_changelist_groups(shelved_dat)
+    if not _groups:
+        _uiFunc_set_section_empty_state(
+            self, 'uiFrame_shelved', 'uiRow_shelved_empty', 'uiLabel_shelved_empty',
+            '(no shelved changelists)')
+        return
+
+    _uiFunc_set_section_content_state(self, 'uiFrame_shelved', 'uiRow_shelved_empty')
+
+    _idx = 0
+    for _grp in _groups:
+        _idx = uiFunc_build_shelved_changelist_section(self, self.uiFrame_shelved, _grp, _idx)
+        mUI.MelSeparator(self.uiFrame_shelved, h=3)
 
 
 def uiFunc_changelist_revert(self, change_key):
@@ -556,22 +804,94 @@ def uiFunc_changelist_submit(self, change_key):
     if _result != 'Submit':
         return
 
+    _desc_msg = _msg
+    _desc = uiFunc_prompt_change_description(
+        'Submit to Perforce', _desc_msg, _change, _user, _client)
+    if not _desc:
+        return
+
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
 
     if _selected_paths and len(_selected_paths) < _total:
         _res = P4UTIL.submit_paths(
-            _selected_paths, change=_change, p4_user=_user, p4_client=_client)
+            _selected_paths, change=_change, description=_desc,
+            p4_user=_user, p4_client=_client)
         if _res.get('ok'):
             log.info('Submitted {0} file(s) from changelist {1}'.format(
                 len(_selected_paths), _change))
         else:
             log.error('Submit selected failed: {0}'.format(_res.get('stderr') or 'unknown'))
     else:
-        _res = P4UTIL.submit_change(_change, p4_user=_user, p4_client=_client)
+        _res = P4UTIL.submit_change(
+            _change, description=_desc, p4_user=_user, p4_client=_client)
         if _res.get('ok'):
             log.info('Submitted changelist: {0}'.format(_change))
         else:
             log.error('Submit changelist failed: {0}'.format(_res.get('stderr') or 'unknown'))
+
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_changelist_shelve(self, change_key):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    _ui, _selected_paths = uiFunc_get_cl_selection(self, change_key)
+    if not _ui:
+        return
+
+    _change = _ui['change']
+    _total = len(_ui['indices'])
+
+    if _selected_paths and len(_selected_paths) < _total:
+        _msg = (
+            'Shelve {0} selected file(s) in changelist {1}?\n\n{2}'.format(
+                len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+        )
+    elif _selected_paths:
+        _msg = 'Shelve all {0} file(s) in changelist {1}?\n\n{2}'.format(
+            len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+    else:
+        _msg = (
+            'No files checked in changelist {0}.\n\n'
+            'Shelve ALL {1} opened file(s) in this changelist?'.format(_change, _total)
+        )
+
+    _result = mc.confirmDialog(
+        title='Shelve changelist',
+        message=_msg,
+        button=['Shelve', 'Cancel'],
+        defaultButton='Cancel',
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result != 'Shelve':
+        return
+
+    _desc = uiFunc_prompt_change_description(
+        'Shelve to Perforce', _msg, _change, _user, _client)
+    if not _desc:
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+    if _selected_paths and len(_selected_paths) < _total:
+        _res = P4UTIL.shelve_paths(
+            _selected_paths, change=_change, description=_desc,
+            p4_user=_user, p4_client=_client)
+        if _res.get('ok'):
+            log.info('Shelved {0} file(s) from changelist {1}'.format(
+                len(_selected_paths), _change))
+        else:
+            log.error('Shelve selected failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    else:
+        _res = P4UTIL.shelve_change(
+            _change, description=_desc, p4_user=_user, p4_client=_client)
+        if _res.get('ok'):
+            log.info('Shelved changelist: {0}'.format(_change))
+        else:
+            log.error('Shelve changelist failed: {0}'.format(_res.get('stderr') or 'unknown'))
 
     uiFunc_refresh(self, force=True)
 
@@ -613,6 +933,7 @@ def uiFunc_refresh(self, force=False):
         self._p4_status_dat = None
         uiFunc_set_status_panel(self, ['Set User and Client, then Refresh.'])
         uiFunc_build_opened_rows(self, None)
+        uiFunc_build_shelved_rows(self, None)
         return
 
     if not _dat.get('connected'):
@@ -621,6 +942,7 @@ def uiFunc_refresh(self, force=False):
             _dat.get('reason') or _conn.get('reason') or 'unknown',
         ])
         uiFunc_build_opened_rows(self, None)
+        uiFunc_build_shelved_rows(self, None)
         return
 
     _root = _conn.get('clientRoot') or '(not reported)'
@@ -632,6 +954,7 @@ def uiFunc_refresh(self, force=False):
     ])
 
     uiFunc_build_opened_rows(self, _dat.get('opened'))
+    uiFunc_build_shelved_rows(self, _dat.get('shelved'))
 
     if force:
         _path = (self.tf_query_path.getValue() or '').strip()
@@ -712,28 +1035,302 @@ def uiFunc_row_submit(self, idx):
         return
 
     _change = _entry.get('change', 'default')
-    _path = _entry.get('clientFile') or _entry.get('depotFile') or '?'
+    _path = _entry.get('clientFile') or _entry.get('depotFile')
+    if not _path:
+        return
+
     _change_key = str(_change).lower()
     _count = sum(
         1 for _e in self._l_opened_entries
         if str(_e.get('change', 'default')).lower() == _change_key
     )
-    _msg = 'Submit changelist {0} for file:\n\n{1}'.format(_change, _path)
+    _msg = 'Submit this file only:\n\n{0}'.format(os.path.basename(_path))
     if _count > 1:
         _msg = (
-            'Submit changelist {0}?\n\nThis changelist has {1} opened file(s), '
-            'not just this one:\n\n{2}'.format(_change, _count, _path)
+            'Submit this file only.\n\n{0} other opened file(s) in changelist {1} '
+            'will remain pending.\n\n{2}'.format(_count - 1, _change, os.path.basename(_path))
         )
 
-    if str(_change).lower() == 'default':
+    _desc = uiFunc_prompt_change_description(
+        'Submit to Perforce', _msg, _change, _user, _client)
+    if not _desc:
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+    _res = P4UTIL.submit_paths(
+        [_path], change=_change, description=_desc, p4_user=_user, p4_client=_client)
+    if _res.get('ok'):
+        log.info('Submitted: {0}'.format(_path))
+    else:
+        log.error('Submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_row_shelve(self, idx):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    try:
+        _entry = self._l_opened_entries[idx]
+    except (IndexError, TypeError):
+        return
+
+    _change = _entry.get('change', 'default')
+    _path = _entry.get('clientFile') or _entry.get('depotFile')
+    if not _path:
+        return
+
+    _change_key = str(_change).lower()
+    _count = sum(
+        1 for _e in self._l_opened_entries
+        if str(_e.get('change', 'default')).lower() == _change_key
+    )
+    _msg = 'Shelve this file only:\n\n{0}'.format(os.path.basename(_path))
+    if _count > 1:
         _msg = (
-            'Submit default changelist?\n\nThis submits ALL files in the default '
-            'changelist ({0} file(s) shown in list).\n\nTriggered from:\n{1}'.format(
-                _count, _path)
+            'Shelve this file only.\n\n{0} other opened file(s) in changelist {1} '
+            'will remain pending.\n\n{2}'.format(_count - 1, _change, os.path.basename(_path))
+        )
+
+    _desc = uiFunc_prompt_change_description(
+        'Shelve to Perforce', _msg, _change, _user, _client)
+    if not _desc:
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+    _res = P4UTIL.shelve_paths(
+        [_path], change=_change, description=_desc, p4_user=_user, p4_client=_client)
+    if _res.get('ok'):
+        log.info('Shelved: {0}'.format(_path))
+    else:
+        log.error('Shelve failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_shelf_get_action_paths(self, change_key):
+    """Return (ui_dict, paths, mode) for shelved CL actions. mode is partial or all."""
+    _ui, _selected_paths = uiFunc_get_shelf_cl_selection(self, change_key)
+    if not _ui:
+        return None, None, None
+    _total = len(_ui['indices'])
+    if not _selected_paths:
+        _all_paths = []
+        for _idx in _ui['indices']:
+            try:
+                _path = _shelf_entry_path(self._l_shelved_entries[_idx])
+            except IndexError:
+                continue
+            if _path and _path != '?':
+                _all_paths.append(_path)
+        return _ui, _all_paths, 'all'
+    if len(_selected_paths) < _total:
+        return _ui, _selected_paths, 'partial'
+    return _ui, _selected_paths, 'all'
+
+
+def uiFunc_prompt_shelf_target_changelist(self, source_change, user, client):
+    """Prompt for target changelist number, default, or new."""
+    _pending = []
+    _dat = getattr(self, '_p4_status_dat', None) or {}
+    _pending_dat = _dat.get('pendingChanges') or {}
+    for _ch in _pending_dat.get('changes') or []:
+        _cl = _ch.get('change')
+        if _cl is not None and str(_cl) != str(source_change):
+            _pending.append(str(_cl))
+    _msg = 'Enter target changelist: number, default, or new'
+    if _pending:
+        _msg += '\n\nPending changelists: {0}'.format(', '.join(_pending[:24]))
+    _raw = cgmUI.uiPrompt_getValue(
+        title='Move to changelist',
+        message=_msg,
+        style='text',
+    )
+    if _raw is None:
+        return None
+    _raw = _raw.strip()
+    if not _raw:
+        log.warning('Move to changelist: target required')
+        return None
+    _lower = _raw.lower()
+    if _lower in ('default', 'new'):
+        return _lower
+    try:
+        _target = int(_raw)
+    except (TypeError, ValueError):
+        log.error('Move to changelist: invalid target "{0}"'.format(_raw))
+        return None
+    if str(_target) == str(source_change):
+        log.error('Move to changelist: target cannot be the same as source ({0})'.format(_target))
+        return None
+    return _target
+
+
+def uiFunc_shelf_changelist_move(self, change_key):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    _ui, _paths, _mode = uiFunc_shelf_get_action_paths(self, change_key)
+    if not _ui or not _paths:
+        return log.warning('Move to changelist: no shelved files selected')
+
+    _change = _ui['change']
+    _total = len(_ui['indices'])
+
+    if _mode == 'partial':
+        _msg = (
+            'Move {0} selected shelved file(s) from changelist {1} to another changelist?\n\n'
+            'Files will be unshelved (opened) on the target CL and removed from this shelf.\n\n{2}'.format(
+                len(_paths), _change, _format_cl_path_preview(_paths))
+        )
+    else:
+        _msg = (
+            'Move all {0} shelved file(s) from changelist {1} to another changelist?\n\n'
+            'Files will be unshelved (opened) on the target CL and removed from this shelf.\n\n{2}'.format(
+                len(_paths), _change, _format_cl_path_preview(_paths))
         )
 
     _result = mc.confirmDialog(
-        title='Submit changelist',
+        title='Move to changelist',
+        message=_msg,
+        button=['Move', 'Cancel'],
+        defaultButton='Cancel',
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result != 'Move':
+        return
+
+    _target = uiFunc_prompt_shelf_target_changelist(self, _change, _user, _client)
+    if _target is None:
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+    if _target == 'new':
+        _desc = cgmUI.uiPrompt_getValue(
+            title='New changelist',
+            message='Description for the new target changelist:',
+            style='text',
+        )
+        if _desc is None:
+            return
+        _desc = _desc.strip()
+        if not _desc:
+            log.warning('Move to changelist: description required for new changelist')
+            return
+        _create = P4UTIL.create_pending_change(
+            _desc, p4_user=_user, p4_client=_client)
+        if not _create.get('ok'):
+            log.error('Move to changelist: create changelist failed: {0}'.format(
+                _create.get('stderr') or 'unknown'))
+            return
+        _target = _create.get('change')
+        log.info('Created changelist {0} for move target'.format(_target))
+
+    if _mode == 'partial':
+        _res = P4UTIL.move_shelf_paths(
+            _paths, source_change=_change, target_change=_target,
+            p4_user=_user, p4_client=_client)
+    else:
+        if len(_paths) < _total:
+            _res = P4UTIL.move_shelf_paths(
+                _paths, source_change=_change, target_change=_target,
+                p4_user=_user, p4_client=_client)
+        else:
+            _res = P4UTIL.move_shelf_change(
+                _change, target_change=_target, p4_user=_user, p4_client=_client)
+
+    if _res.get('ok'):
+        log.info('Moved {0} shelved file(s) from changelist {1} to {2}'.format(
+            len(_paths), _change, _target))
+    else:
+        log.error('Move to changelist failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        if _res.get('unshelved'):
+            log.warning(
+                'Files were unshelved to {0} but source shelf delete failed — review in P4V'.format(
+                    _target))
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_shelf_changelist_delete(self, change_key):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    _ui, _selected_paths = uiFunc_get_shelf_cl_selection(self, change_key)
+    if not _ui:
+        return
+
+    _change = _ui['change']
+    _total = len(_ui['indices'])
+
+    if _selected_paths and len(_selected_paths) < _total:
+        _msg = (
+            'Delete shelf for {0} selected file(s) in changelist {1}?\n\n{2}'.format(
+                len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+        )
+    elif _selected_paths:
+        _msg = 'Delete entire shelf ({0} file(s)) in changelist {1}?\n\n{2}'.format(
+            len(_selected_paths), _change, _format_cl_path_preview(_selected_paths))
+    else:
+        _msg = (
+            'No files checked in changelist {0}.\n\n'
+            'Delete ALL {1} shelved file(s) in this changelist?'.format(_change, _total)
+        )
+
+    _result = mc.confirmDialog(
+        title='Delete shelf',
+        message=_msg,
+        button=['Delete', 'Cancel'],
+        defaultButton='Cancel',
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result != 'Delete':
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+
+    if _selected_paths and len(_selected_paths) < _total:
+        _res = P4UTIL.delete_shelf_paths(
+            _selected_paths, change=_change, p4_user=_user, p4_client=_client)
+        if _res.get('ok'):
+            log.info('Deleted shelf for {0} file(s) in changelist {1}'.format(
+                len(_selected_paths), _change))
+        else:
+            log.error('Delete shelf failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    else:
+        _res = P4UTIL.delete_shelf_change(_change, p4_user=_user, p4_client=_client)
+        if _res.get('ok'):
+            log.info('Deleted shelf for changelist: {0}'.format(_change))
+        else:
+            log.error('Delete shelf failed: {0}'.format(_res.get('stderr') or 'unknown'))
+
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_shelf_changelist_submit(self, change_key):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    _ui, _selected_paths = uiFunc_get_shelf_cl_selection(self, change_key)
+    if not _ui:
+        return
+
+    _change = _ui['change']
+    _total = len(_ui['indices'])
+
+    if _selected_paths and len(_selected_paths) < _total:
+        log.warning('Submit shelved: partial file submit not supported — submit whole changelist {0}'.format(
+            _change))
+        return
+
+    _msg = 'Submit shelved changelist {0} ({1} file(s)) to depot?'.format(_change, _total)
+    _result = mc.confirmDialog(
+        title='Submit shelved',
         message=_msg,
         button=['Submit', 'Cancel'],
         defaultButton='Cancel',
@@ -743,12 +1340,55 @@ def uiFunc_row_submit(self, idx):
     if _result != 'Submit':
         return
 
+    _desc = uiFunc_prompt_change_description(
+        'Submit Shelved to Perforce', _msg, _change, _user, _client)
+    if not _desc:
+        return
+
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
-    _res = P4UTIL.submit_change(_change, p4_user=_user, p4_client=_client)
+    _res = P4UTIL.submit_shelved_change(
+        _change, description=_desc, p4_user=_user, p4_client=_client)
     if _res.get('ok'):
-        log.info('Submitted changelist: {0}'.format(_change))
+        log.info('Submitted shelved changelist: {0}'.format(_change))
     else:
-        log.error('Submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        log.error('Submit shelved failed: {0}'.format(_res.get('stderr') or 'unknown'))
+    uiFunc_refresh(self, force=True)
+
+
+def uiFunc_shelf_row_delete(self, idx):
+    _user, _client = uiFunc_get_connection(self)
+    if not _user or not _client:
+        return
+
+    try:
+        _entry = self._l_shelved_entries[idx]
+    except (IndexError, TypeError):
+        return
+
+    _change = _entry.get('change')
+    _path = _shelf_entry_path(_entry)
+    if not _path or _path == '?':
+        return
+
+    _result = mc.confirmDialog(
+        title='Delete from shelf',
+        message='Delete shelved file from changelist {0}?\n\n{1}'.format(
+            _change, os.path.basename(_path)),
+        button=['Delete', 'Cancel'],
+        defaultButton='Cancel',
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result != 'Delete':
+        return
+
+    P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+    _res = P4UTIL.delete_shelf_paths(
+        [_path], change=_change, p4_user=_user, p4_client=_client)
+    if _res.get('ok'):
+        log.info('Deleted from shelf: {0}'.format(_path))
+    else:
+        log.error('Delete from shelf failed: {0}'.format(_res.get('stderr') or 'unknown'))
     uiFunc_refresh(self, force=True)
 
 

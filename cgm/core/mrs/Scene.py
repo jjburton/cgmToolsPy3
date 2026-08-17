@@ -3671,6 +3671,26 @@ example:
         """Next-idle UI work — avoids Maya/Qt crash when mutating scroll lists from popup menus."""
         mc.evalDeferred(cgmGEN.Callback(callableObj, *args, **kwargs), lp=True)
 
+    def _reload_lists_after_asset_delete(self, *args):
+        """Post-delete asset column refresh — must run deferred from popup menus."""
+        self.buildAssetForm()
+        self.LoadCategoryList()
+        self.assetList['scrollList'].selectByIdx(0)
+        self.uiFunc_assetList_select()
+        self.LoadPreviousSelection()
+
+    def _defer_list_reload_after_delete(self, mode):
+        """Defer scroll-list rebuild after delete — avoids Qt crash during QMenu::exec."""
+        _reload = {
+            'asset': self._reload_lists_after_asset_delete,
+            'sets': self.LoadSubTypeList,
+            'variation': self.LoadVariationList,
+            'version': self.LoadVersionList,
+        }
+        _fn = _reload.get(mode)
+        if _fn:
+            self._defer_ui(_fn)
+
     def _refresh_searchable_display(self, searchableList, progress_bar=None, progress_label=None):
         """BlockScrollList-style refresh: ra, append label, itc per display index."""
         _source = searchableList.get('rows') or []
@@ -5401,12 +5421,7 @@ example:
                     log.warning("deleted: {0}".format(_path))
                 except Exception as err:
                     log.error(log_msg(_str_func, 'delete failed | {0} | {1}'.format(_path, err)))
-            if mode == 'sets':
-                self.LoadSubTypeList()
-            elif mode == 'variation':
-                self.LoadVariationList()
-            elif mode == 'version':
-                self.LoadVersionList()
+            self._defer_list_reload_after_delete(mode)
             return
 
         if mode == 'asset':
@@ -5428,22 +5443,7 @@ example:
 
         #reload(cgmUI)
         if cgmUI.uiPrompt_removeDir(_path):
-
-            self.buildAssetForm()
-
-            if mode == 'asset':
-                self.LoadCategoryList()
-                self.assetList['scrollList'].selectByIdx(0)
-                #mUI.MelTextScrollList(parent).selectByIdx
-                self.uiFunc_assetList_select()
-                self.LoadPreviousSelection()
-
-            elif mode == 'sets':
-                self.LoadSubTypeList()
-            elif mode == 'variation':
-                self.LoadVariationList()
-            elif mode == 'version':
-                self.LoadVariationList()
+            self._defer_list_reload_after_delete(mode)
 
 
 
@@ -5715,7 +5715,8 @@ example:
                 en=self._scene_p4_connected()))
 
         mUI.MelMenuItemDiv(self.assetTSLpum)
-        mUI.MelMenuItem(self.assetTSLpum, label="Delete", command=lambda *a:self.uiFunc_deleteSelectedInList( 'asset' ))
+        mUI.MelMenuItem(self.assetTSLpum, label="Delete",
+                         command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'asset')))
 
 
     def _scene_p4_menu_active(self):
@@ -5953,8 +5954,13 @@ example:
             en=_en))
         track_list.append(mUI.MelMenuItem(
             pum, label='Submit',
-            ann='p4 submit — submit changelist for selected file(s)',
+            ann='p4 submit — add/checkout if needed, then submit selected file(s)',
             c=cgmGEN.Callback(self.uiFunc_p4_submit_file, list_key),
+            en=_en))
+        track_list.append(mUI.MelMenuItem(
+            pum, label='Shelve',
+            ann='p4 shelve — add/checkout if needed, then shelf selected file(s)',
+            c=cgmGEN.Callback(self.uiFunc_p4_shelve_file, list_key),
             en=_en))
 
     def _append_p4_get_latest_dir_item(self, pum, track_list, callback, enabled=False):
@@ -6370,107 +6376,245 @@ example:
                 'P4 Get: project path not in Perforce client view — {0}'.format(_path))
         self._uiFunc_p4_sync_directory_path(_path, list_key='project')
 
-    def uiFunc_p4_submit_file(self, list_key=None, *args):
+    def _scene_p4_classify_open_paths(self, paths, user, client):
+        """Split selected paths into ready, prepare (add/checkout), and blocked."""
+        import cgm.core.lib.perforce as P4UTIL
+        _ready = []
+        _prepare = []
+        _blocked = []
+        for _path in paths or []:
+            _stat = P4UTIL.query_file_status(_path, p4_user=user, p4_client=client)
+            _action = P4UTIL.submit_prepare_action(_stat)
+            if _action is None:
+                _ready.append((_path, _stat.get('change') or 'default'))
+            elif _action == 'add':
+                _prepare.append((_path, 'add'))
+            elif _action == 'checkout':
+                _prepare.append((_path, 'checkout'))
+            else:
+                _blocked.append((_path, _action))
+        return _ready, _prepare, _blocked
+
+    def _scene_p4_confirm_open_action_blocked(self, ready, prepare, blocked, action_label='Submit'):
+        """Confirm when some selected files are blocked."""
+        if not blocked:
+            return True
+        _lines = []
+        for _path, _reason in blocked:
+            _lines.append('{0}\n  — {1}'.format(_path, _reason))
+        _skip_msg = '\n\n'.join(_lines)
+        _actionable = len(ready) + len(prepare)
+        if not _actionable:
+            mc.confirmDialog(
+                title='P4 {0}'.format(action_label),
+                message='No selected files can be {0}d:\n\n{1}'.format(
+                    action_label.lower(), _skip_msg),
+                button=['OK'],
+                defaultButton='OK',
+            )
+            log.warning('P4 {0}: no eligible files in selection'.format(action_label))
+            return False
+        _result = mc.confirmDialog(
+            title='P4 {0}'.format(action_label),
+            message=(
+                'Some selected files cannot be {0}d:\n\n{1}\n\n'
+                'Continue with {2} file(s)?'.format(
+                    action_label.lower(), _skip_msg, _actionable)
+            ),
+            button=['Continue', 'Cancel'],
+            defaultButton='Cancel',
+            cancelButton='Cancel',
+            dismissString='Cancel',
+        )
+        if _result != 'Continue':
+            log.info('P4 {0}: cancelled — {1} blocked file(s)'.format(
+                action_label, len(blocked)))
+            return False
+        for _path, _reason in blocked:
+            log.warning('P4 {0}: skip — {1} — {2}'.format(action_label, _reason, _path))
+        return True
+
+    def _scene_p4_prepare_open_files(self, prepare_list, user, client, action_label='Submit'):
+        """Run p4 add/edit before submit/shelve. Returns [(path, change), ...] for successes."""
+        import cgm.core.lib.perforce as P4UTIL
+        _prepared = []
+        for _path, _action in prepare_list or []:
+            if _action == 'add':
+                _res = P4UTIL.add(_path, p4_user=user, p4_client=client)
+            elif _action == 'checkout':
+                _res = P4UTIL.edit(_path, p4_user=user, p4_client=client)
+            else:
+                continue
+            if not _res.get('ok'):
+                log.error(
+                    'P4 prepare for {0} ({1}) failed: {2} — {3}'.format(
+                        action_label.lower(), _action, _path, _res.get('stderr') or 'unknown'))
+                continue
+            _stat = P4UTIL.query_file_status(_path, p4_user=user, p4_client=client, force=True)
+            if _stat.get('checkedOut'):
+                _prepared.append((_path, _stat.get('change') or 'default'))
+                log.info('P4 prepare for {0} ({1}): {2}'.format(
+                    action_label.lower(), _action, _path))
+            else:
+                log.error(
+                    'P4 prepare for {0}: {1} succeeded but file not opened — {2}'.format(
+                        action_label.lower(), _action, _path))
+        return _prepared
+
+    def _scene_p4_open_prepare_note(self, prepare_list, action_past='submitted'):
+        """One-line summary for submit/shelve description dialog."""
+        _add = sum(1 for _, _a in prepare_list if _a == 'add')
+        _checkout = sum(1 for _, _a in prepare_list if _a == 'checkout')
+        _parts = []
+        if _add:
+            _parts.append('{0} will be added to depot'.format(_add))
+        if _checkout:
+            _parts.append('{0} will be checked out'.format(_checkout))
+        if not _parts:
+            return ''
+        return '{0}, then {1}.'.format(' and '.join(_parts), action_past)
+
+    def _scene_p4_open_action_prompt_message(self, action_label, ready, prepare, paths):
+        """Build promptDialog message before add/checkout."""
+        _parts = []
+        _past = {'Submit': 'submitted', 'Shelve': 'shelved'}.get(
+            action_label, '{0}ed'.format(action_label.lower()))
+        _prepare_note = self._scene_p4_open_prepare_note(prepare, action_past=_past)
+        if _prepare_note:
+            _parts.append(_prepare_note)
+        if len(paths) == 1:
+            _parts.append(os.path.basename(paths[0]))
+        else:
+            _parts.append('{0} {1} selected file(s).'.format(action_label, len(paths)))
+        return '\n\n'.join(_parts) or 'Enter {0} description.'.format(_action_lower)
+
+    def _scene_p4_prompt_open_description(self, title, message, user, client, ready=None,
+                                          action_label='Submit'):
+        import cgm.core.lib.perforce as P4UTIL
+        _default_text = None
+        if ready:
+            _changes = {str(_change).lower() for _, _change in ready}
+            if len(_changes) == 1:
+                _default_text = P4UTIL.query_change_description(
+                    ready[0][1], p4_user=user, p4_client=client) or None
+        _desc = cgmUI.uiPrompt_getValue(
+            title=title,
+            message=message,
+            text=_default_text,
+            style='text',
+        )
+        if _desc is None:
+            return None
+        _desc = _desc.strip()
+        if not _desc:
+            log.warning('P4 {0}: description required'.format(action_label))
+            return None
+        return _desc
+
+    def _scene_p4_run_open_file_action(self, list_key, action_label, p4_paths_fn, title):
+        """Shared submit/shelve orchestration for Scene file popups."""
         _paths = self._scene_p4_action_paths(list_key)
         if not _paths:
-            return log.warning('P4 Submit: no file selected')
+            return log.warning('P4 {0}: no file selected'.format(action_label))
         _user, _client = self._scene_p4_connection()
         if not _user or not _client:
-            return log.warning('P4 Submit: set user/client in cgmP4')
+            return log.warning('P4 {0}: set user/client in cgmP4'.format(action_label))
         import cgm.core.lib.perforce as P4UTIL
-        _opened = []
-        for _path in _paths:
-            _stat = P4UTIL.query_file_status(_path, p4_user=_user, p4_client=_client)
-            if _stat.get('checkedOut'):
-                _opened.append((_path, _stat.get('change') or 'default'))
-        if not _opened:
-            return log.warning('P4 Submit: no opened files in selection')
-        if len(_opened) == 1:
-            _path = _opened[0][0]
-            _change = _opened[0][1]
-            _change_key = str(_change).lower()
-            _count = 1
-            try:
-                _opened_all = P4UTIL.query_opened(p4_user=_user, p4_client=_client)
-                _count = sum(
-                    1 for _rec in (P4UTIL.flatten_opened_entries(_opened_all) or [])
-                    if str(_rec.get('change', 'default')).lower() == _change_key
-                ) or 1
-            except Exception:
-                _count = 1
-            _msg = 'Submit changelist {0} for file:\n\n{1}'.format(_change, _path)
-            if _count > 1:
-                _msg = (
-                    'Submit changelist {0}?\n\nThis changelist has {1} opened file(s), '
-                    'not just this one:\n\n{2}'.format(_change, _count, _path)
-                )
-            if _change_key == 'default':
-                _msg = (
-                    'Submit default changelist?\n\nThis submits ALL files in the default '
-                    'changelist ({0} file(s)).\n\nTriggered from:\n{1}'.format(_count, _path)
-                )
-            _result = mc.confirmDialog(
-                title='Submit changelist',
-                message=_msg,
-                button=['Submit', 'Cancel'],
-                defaultButton='Cancel',
-                cancelButton='Cancel',
-                dismissString='Cancel',
-            )
-            if _result != 'Submit':
-                return
-            P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
-            _res = P4UTIL.submit_paths([_path], change=_change, p4_user=_user, p4_client=_client)
-            if _res.get('ok'):
-                log.info('P4 submitted: {0}'.format(_path))
-                self._scene_p4_after_write(list_key=list_key)
-            else:
-                log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+        _ready, _prepare, _blocked = self._scene_p4_classify_open_paths(_paths, _user, _client)
+        if not self._scene_p4_confirm_open_action_blocked(
+                _ready, _prepare, _blocked, action_label=action_label):
             return
+        _actionable_paths = [_path for _path, _change in _ready] + [
+            _path for _path, _action in _prepare]
+        if not _actionable_paths:
+            return log.warning('P4 {0}: no files to {1}'.format(
+                action_label, action_label.lower()))
+        _msg = self._scene_p4_open_action_prompt_message(
+            action_label, _ready, _prepare, _actionable_paths)
+        _desc = self._scene_p4_prompt_open_description(
+            title, _msg, _user, _client, ready=_ready, action_label=action_label)
+        if not _desc:
+            return
+        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _prepared = self._scene_p4_prepare_open_files(
+            _prepare, _user, _client, action_label=action_label)
+        if _prepare and not _prepared:
+            return log.error(
+                'P4 {0}: prepare failed — no files opened for {1}'.format(
+                    action_label, action_label.lower()))
+        _opened = list(_ready) + list(_prepared)
+        if not _opened:
+            return log.warning('P4 {0}: no files to {1}'.format(
+                action_label, action_label.lower()))
         _by_change = {}
         for _path, _change in _opened:
             _key = str(_change).lower()
             if _key not in _by_change:
                 _by_change[_key] = {'change': _change, 'paths': []}
             _by_change[_key]['paths'].append(_path)
-        _result = mc.confirmDialog(
-            title='Submit changelists',
-            message='Submit {0} opened file(s) across {1} changelist(s)?'.format(
-                len(_opened), len(_by_change)),
-            button=['Submit', 'Cancel'],
-            defaultButton='Cancel',
-            cancelButton='Cancel',
-            dismissString='Cancel',
-        )
-        if _result != 'Submit':
-            return
-        P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
+        _groups = list(_by_change.values())
         _ok = 0
         _cancelled = False
-        _groups = list(_by_change.values())
-        _progress_bar = self._scene_p4_multi_file_progress_begin('Submit', len(_groups))
+        _progress_bar = None
+        _past = {'Submit': 'submitted', 'Shelve': 'shelved'}.get(
+            action_label, action_label.lower())
+        if len(_groups) > 1:
+            _progress_bar = self._scene_p4_multi_file_progress_begin(action_label, len(_groups))
         try:
             for _idx, _grp in enumerate(_groups, 1):
-                _paths = _grp['paths']
-                if self._scene_p4_multi_file_progress_tick(
-                        _progress_bar, 'Submit', _idx, len(_groups), _paths[0]):
+                _grp_paths = _grp['paths']
+                _change = _grp['change']
+                if _progress_bar and self._scene_p4_multi_file_progress_tick(
+                        _progress_bar, action_label, _idx, len(_groups), _grp_paths[0]):
                     _cancelled = True
                     break
-                _res = P4UTIL.submit_paths(
-                    _paths, change=_grp['change'], p4_user=_user, p4_client=_client)
+                _res = p4_paths_fn(
+                    _grp_paths, change=_change, description=_desc,
+                    p4_user=_user, p4_client=_client)
                 if _res.get('ok'):
-                    _ok += len(_paths)
-                    for _path in _paths:
-                        log.info('P4 submitted: {0}'.format(_path))
+                    _ok += len(_grp_paths)
+                    for _path in _grp_paths:
+                        log.info('P4 {0}: {1}'.format(_past, _path))
                 else:
-                    log.error('P4 submit failed: {0}'.format(_res.get('stderr') or 'unknown'))
+                    log.error('P4 {0} failed: {1}'.format(
+                        action_label.lower(), _res.get('stderr') or 'unknown'))
         finally:
-            self._scene_list_progress_end(_progress_bar)
+            if _progress_bar:
+                self._scene_list_progress_end(_progress_bar)
         if _cancelled:
-            log.warning('P4 Submit: cancelled — {0}/{1} file(s) done'.format(_ok, len(_opened)))
+            log.warning('P4 {0}: cancelled — {1}/{2} file(s) done'.format(
+                action_label, _ok, len(_opened)))
+        if not _ok and _prepare:
+            _prepared_paths = {_path for _path, _change in _prepared}
+            for _path, _action in _prepare:
+                if _action != 'add' or _path not in _prepared_paths:
+                    continue
+                _rev = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
+                if _rev.get('ok'):
+                    log.warning(
+                        'P4 {0}: reverted add after failure — {1}'.format(
+                            action_label, _path))
+                else:
+                    log.error(
+                        'P4 {0}: revert after failure failed — {1}: {2}'.format(
+                            action_label, _path, _rev.get('stderr') or 'unknown'))
         if _ok:
             self._scene_p4_after_write(list_key=list_key)
-        log.info('P4 submit complete: {0}/{1} file(s)'.format(_ok, len(_opened)))
+        elif _prepare:
+            self._scene_p4_after_write(list_key=list_key)
+        if _ok or not _cancelled:
+            log.info('P4 {0} complete: {1}/{2} file(s)'.format(
+                _past, _ok, len(_opened)))
+
+    def uiFunc_p4_submit_file(self, list_key=None, *args):
+        import cgm.core.lib.perforce as P4UTIL
+        self._scene_p4_run_open_file_action(
+            list_key, 'Submit', P4UTIL.submit_paths, 'Submit to Perforce')
+
+    def uiFunc_p4_shelve_file(self, list_key=None, *args):
+        import cgm.core.lib.perforce as P4UTIL
+        self._scene_p4_run_open_file_action(
+            list_key, 'Shelve', P4UTIL.shelve_paths, 'Shelve to Perforce')
 
     def _fileListPopupDelete(self, popupAttr, sendToProjectAttr=None):
         if sendToProjectAttr:
@@ -6502,7 +6646,8 @@ example:
         for t in ['export', 'rig', 'cutscene']:
             mUI.MelMenuItem(_batch, label=t.capitalize(), command=partial(self.AddSelectedToExportQueue, t))
 
-        mUI.MelMenuItem(pum, label='Delete', command=partial(self.uiFunc_deleteSelectedInList, list_key))
+        mUI.MelMenuItem(pum, label='Delete',
+                         command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, list_key)))
 
         self.ml_p4_options_multi = []
         self._append_p4_file_menu(pum, self.ml_p4_options_multi, list_key=list_key)
@@ -6624,7 +6769,8 @@ example:
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_sets(), label='Save Maya here')
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshSubTypeList))
         mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('sets'))
+        mUI.MelMenuItem(pum, label="Delete",
+                         command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'sets')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
 
     def buildVariationListPopup(self, scrollList, pum=None):
@@ -6669,7 +6815,8 @@ example:
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_variant(), label='Save Maya here')
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshVariationList))
         mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('variation'))
+        mUI.MelMenuItem(pum, label="Delete",
+                         command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'variation')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
 
     def buildVersionListPopup(self, scrollList, pum=None):
@@ -6708,7 +6855,8 @@ example:
         mUI.MelMenuItem(pum, ann="Save Maya file", c=lambda *a: self.uiPath_mayaSaveTo_version(), label='Save Maya here')
         mUI.MelMenuItem(pum, label="Refresh", command=lambda *a: self._defer_ui(self._refreshVersionList))
         mUI.MelMenuItemDiv(pum)
-        mUI.MelMenuItem(pum, label="Delete", command=lambda *a: self.uiFunc_deleteSelectedInList('version'))
+        mUI.MelMenuItem(pum, label="Delete",
+                         command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'version')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)
 
     def UpdateVersionTSLPopup(self, mMenu = None,  *args):

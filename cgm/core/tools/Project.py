@@ -546,22 +546,16 @@ def uiProject_build_p4_status_row(self, parent):
     self.uiRow_p4Status = _row
     mUI.MelSpacer(_row, w=5)
     mUI.MelLabel(_row, l='Perforce: ')
-    self.uiLabel_p4Status = mUI.MelLabel(
+    self.uiBtn_p4Status = mUI.MelButton(
         _row,
         l='',
         ut='cgmUITemplate',
         align='center',
-        ann='Perforce connection status for this project',
-    )
-    _row.setStretchWidget(self.uiLabel_p4Status)
-    mUI.MelButton(
-        _row,
-        l='cgmP4',
-        ut='cgmUITemplate',
-        bgc=cgmUI.guiButtonColor,
         ann='Open cgmP4 tool (user/client, opened files, path query)',
+        bgc=cgmUI.guiButtonColor,
         c=cgmGEN.Callback(uiProject_open_p4_tool),
     )
+    _row.setStretchWidget(self.uiBtn_p4Status)
     self.uiBtn_p4Get = mUI.MelButton(
         _row,
         l='Get',
@@ -1016,8 +1010,8 @@ def uiProject_p4_sync_project_root(self, *args):
 def uiProject_refresh_p4_status(self, force=False):
     _sep = getattr(self, 'uiSep_p4Status', None)
     _row = getattr(self, 'uiRow_p4Status', None)
-    _label = getattr(self, 'uiLabel_p4Status', None)
-    if _row is None or _label is None:
+    _btn = getattr(self, 'uiBtn_p4Status', None)
+    if _row is None or _btn is None:
         return
 
     _version_control = 'none'
@@ -1041,7 +1035,11 @@ def uiProject_refresh_p4_status(self, force=False):
     _bgc = _colorGood if _connected else _colorWarn
     _text = 'Connected' if _connected else 'Not connected'
     _detail = _dat.get('label') or ''
-    _label(edit=True, l=_text, ann=_detail, bgc=_bgc)
+    _ann = (
+        '{0} | Click to open cgmP4'.format(_detail)
+        if _detail else
+        'Open cgmP4 tool (user/client, opened files, path query)')
+    _btn(edit=True, l=_text, ann=_ann, bgc=_bgc)
     uiProject_refresh_p4_get_button(self)
 
 

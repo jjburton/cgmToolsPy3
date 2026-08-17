@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 # Windows: p4.exe is a console app — hide subprocess windows in Maya
-_P4_SUBPROCESS_KW = {'bufsize': 1}
+_P4_SUBPROCESS_KW = {}
 if sys.platform == 'win32':
     _P4_SUBPROCESS_KW['creationflags'] = subprocess.CREATE_NO_WINDOW
 
@@ -38,7 +38,7 @@ _INFO_PREFIX_RE = re.compile(r'^info\d*:\s*', re.IGNORECASE)
 OPT_P4_USER = 'cgmVar_p4_user'
 OPT_P4_CLIENT = 'cgmVar_p4_client'
 
-# p4 changes (text): Change 12345 on YYYY/MM/DD by user@client *pending*
+# p4 changes (text): Change 12345 on YYYY/MM/DD by user@client *pending* 'description'
 _CHANGE_LINE_RE = re.compile(
     r'^Change\s+(?P<change>\d+)\s+on\s+\S+\s+by\s+\S+@\S+\s+\*(?P<status>\w+)\*'
 )
@@ -673,6 +673,317 @@ def _p4run(*args, **kwargs):
     }
 
 
+def _p4run_input(*args, **kwargs):
+    """
+    Run p4 with stdin payload (e.g. p4 submit -i, p4 change -i).
+
+    :keyword input_text: UTF-8 text piped to stdin
+    :returns: same shape as _p4run
+    """
+    _input_text = kwargs.pop('input_text', None)
+    _p4_user = kwargs.pop('p4_user', None)
+    _p4_client = kwargs.pop('p4_client', None)
+    _ztag = kwargs.pop('ztag', False)
+    _use_s = kwargs.pop('use_s', False)
+    _cwd = kwargs.pop('cwd', None)
+
+    _cmd = ['p4']
+    if _p4_user:
+        _cmd.extend(['-u', str(_p4_user)])
+    if _p4_client:
+        _cmd.extend(['-c', str(_p4_client)])
+    if _use_s:
+        _cmd.append('-s')
+    elif _ztag:
+        _cmd.append('-ztag')
+    _cmd.extend([str(a) for a in args])
+
+    try:
+        _proc = subprocess.Popen(
+            _cmd,
+            cwd=_cwd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            **_P4_SUBPROCESS_KW,
+        )
+    except FileNotFoundError as err:
+        return {
+            'ok': False,
+            'lines': [],
+            'stderr': 'p4 executable not found',
+            'exitCode': -1,
+            'tag': {},
+            'tagRecords': [],
+            'error': str(err),
+        }
+    except OSError as err:
+        return {
+            'ok': False,
+            'lines': [],
+            'stderr': str(err),
+            'exitCode': -1,
+            'tag': {},
+            'tagRecords': [],
+            'error': str(err),
+        }
+
+    _input_bytes = None
+    if _input_text is not None:
+        _input_bytes = str(_input_text).encode('utf-8')
+
+    _stdout, _stderr = _proc.communicate(input=_input_bytes)
+    _exit = _proc.returncode
+
+    try:
+        _text = _stdout.decode('utf-8', errors='replace')
+    except Exception:
+        _text = _stdout.decode('latin-1', errors='replace')
+
+    _lines = [_strip_info_prefix(l) for l in _text.splitlines()]
+    _err = _stderr.decode('utf-8', errors='replace').strip()
+    if not _err:
+        _err_lines = [l for l in _lines if l.lower().startswith('error:')]
+        if _err_lines:
+            _err = _err_lines[0]
+
+    _tag = _parse_tag_block(_lines)
+    _tag_records = _parse_tag_records(_lines)
+    _errors = [l for l in _lines if l.lower().startswith('error:')]
+    _ok = _exit == 0 and not _errors
+
+    return {
+        'ok': _ok,
+        'lines': _lines,
+        'stderr': _normalize_error(_err),
+        'exitCode': _exit,
+        'tag': _tag,
+        'tagRecords': _tag_records,
+    }
+
+
+def _change_spec_arg(change):
+    _change_str = str(change).lower() if change is not None else 'default'
+    if _change_str in ('default', ''):
+        return 'default'
+    return str(change)
+
+
+def _fetch_change_spec(change, p4_user=None, p4_client=None):
+    """Return (spec_text, error). spec_text is None on failure."""
+    _res = _p4run(
+        'change', '-o', _change_spec_arg(change),
+        p4_user=p4_user, p4_client=p4_client, ztag=False,
+    )
+    if not _res.get('ok'):
+        return None, _res.get('stderr') or 'p4 change -o failed'
+    return '\n'.join(_res.get('lines') or []), None
+
+
+def _parse_change_spec_description(spec_text):
+    """Extract Description body from a p4 change/submit form."""
+    if not spec_text:
+        return ''
+    _desc_lines = []
+    _in_desc = False
+    for _line in spec_text.splitlines():
+        if _line.startswith('Description:'):
+            _in_desc = True
+            _rest = _line[len('Description:'):].lstrip('\t ')
+            if _rest:
+                _desc_lines.append(_rest)
+            continue
+        if _in_desc:
+            if _line.startswith('\t') or (_line.startswith(' ') and _line.strip()):
+                _desc_lines.append(_line.lstrip('\t '))
+                continue
+            if _line.strip() == '':
+                _desc_lines.append('')
+                continue
+            break
+    return '\n'.join(_desc_lines).strip()
+
+
+def _format_change_spec_description_lines(description):
+    """Build Description: block lines for a p4 form."""
+    _desc = (description or '').strip()
+    _out = ['Description:']
+    if not _desc:
+        _out.append('\t<enter description here>')
+        return _out
+    for _line in _desc.splitlines():
+        _out.append('\t' + _line)
+    if len(_out) == 1:
+        _out.append('\t' + _desc)
+    return _out
+
+
+def _depot_path_key(depot_path):
+    """Normalize depot path for Files: line matching (strip #rev suffix)."""
+    if not depot_path:
+        return None
+    return str(depot_path).split('#')[0].strip().lower()
+
+
+def _depot_keys_for_submit(paths, p4_user=None, p4_client=None, force=False):
+    """Map disk paths to lowercase depot keys for changelist spec filtering."""
+    _keys = set()
+    for _path in paths or []:
+        _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=force)
+        _depot = _stat.get('depotFile')
+        if not _depot:
+            return None, 'no depot path for {0}'.format(_path)
+        _key = _depot_path_key(_depot)
+        if _key:
+            _keys.add(_key)
+    if not _keys:
+        return None, 'no depot paths resolved'
+    return _keys, None
+
+
+def _depot_file_lines_for_paths(paths, p4_user=None, p4_client=None, force=False):
+    """Build //depot/path#action lines for a shelve/change form from disk paths."""
+    _lines = []
+    for _path in paths or []:
+        _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=force)
+        _depot = _stat.get('depotFile')
+        if not _depot:
+            return None, 'no depot path for {0}'.format(_path)
+        _action = (_stat.get('openAction') or 'edit').lower()
+        _lines.append('{0}#{1}'.format(_depot.split('#')[0], _action))
+    if not _lines:
+        return None, 'no depot paths resolved'
+    return _lines, None
+
+
+def _depot_file_lines_from_spec(spec_text):
+    """Extract //depot/path#action lines from a p4 change spec Files section."""
+    _lines = []
+    _section = None
+    for _line in (spec_text or '').splitlines():
+        if _line.startswith('Files:'):
+            _section = 'files'
+            continue
+        if _section == 'files':
+            _stripped = _line.strip()
+            if _stripped.startswith('//'):
+                _lines.append(_stripped.split()[0])
+                continue
+            if not _stripped:
+                continue
+            _section = None
+    return _lines
+
+
+def _build_new_change_form_spec(p4_client, depot_file_lines, description):
+    """Build a Change: new form for p4 shelve -i (default changelist cannot be shelved via -i)."""
+    _out = [
+        'Change: new',
+        'Client: {0}'.format(p4_client),
+        '',
+    ]
+    _out.extend(_format_change_spec_description_lines(description))
+    if depot_file_lines:
+        _out.append('')
+        _out.append('Files:')
+        for _line in depot_file_lines:
+            _out.append('\t' + _line)
+    return '\n'.join(_out) + '\n'
+
+
+def _build_changelist_form_spec(spec_text, depot_keys, description):
+    """
+    Filter a p4 change spec to selected depot files and set Description.
+
+    depot_keys: set of lowercase depot paths without #rev.
+    """
+    if not spec_text:
+        return ''
+    _lines = spec_text.splitlines()
+    _header = []
+    _kept_files = []
+    _section = None
+
+    for _line in _lines:
+        if _line.startswith('Description:'):
+            _section = 'description'
+            continue
+        if _line.startswith('Files:'):
+            _section = 'files'
+            continue
+        if _section == 'description':
+            if _line.startswith('\t') or (_line.startswith(' ') and _line.strip()):
+                continue
+            if not _line.strip():
+                continue
+            _section = None
+        if _section == 'files':
+            _stripped = _line.strip()
+            if _stripped.startswith('//'):
+                _key = _depot_path_key(_stripped.split()[0])
+                if _key and _key in depot_keys:
+                    _kept_files.append('\t' + _stripped.split()[0])
+                continue
+            if not _stripped:
+                continue
+            _section = None
+        if _section is None:
+            _header.append(_line)
+
+    _out = list(_header)
+    while _out and not _out[-1].strip():
+        _out.pop()
+    _out.append('')
+    _out.extend(_format_change_spec_description_lines(description))
+    if _kept_files:
+        _out.append('')
+        _out.append('Files:')
+        _out.extend(_kept_files)
+    return '\n'.join(_out) + '\n'
+
+
+def query_change_description(change, p4_user=None, p4_client=None):
+    """Return Description field from a pending changelist spec."""
+    _spec, _err = _fetch_change_spec(change, p4_user=p4_user, p4_client=p4_client)
+    if _err or not _spec:
+        return ''
+    return _parse_change_spec_description(_spec)
+
+
+def submit_prepare_action(file_dat):
+    """
+    Return None when file is opened and ready to submit,
+    'add' or 'checkout' when a prepare step is needed,
+    else a blocked reason string.
+    """
+    if not file_dat:
+        return 'status unknown'
+    if file_dat.get('checkedOut'):
+        return None
+    if file_dat.get('notInClient'):
+        return 'not in client view'
+    if file_dat.get('lockedByOther'):
+        return 'locked or open elsewhere'
+    if file_dat.get('outOfDate'):
+        return 'out of date — sync first'
+    if file_dat.get('notOnDepot') or not file_dat.get('onDepot'):
+        return 'add'
+    return 'checkout'
+
+
+def submit_skip_reason(file_dat):
+    """
+    Return None when file_dat is opened and can be submitted, else a short reason string.
+    """
+    _action = submit_prepare_action(file_dat)
+    if _action is None:
+        return None
+    if _action in ('add', 'checkout'):
+        return 'not on depot — use Add first' if _action == 'add' else 'not checked out — use Checkout first'
+    return _action
+
+
 def _sync_target_head(dir_path):
     """Client path for recursive sync to head, e.g. D:/proj/Char/Hondo/...#head"""
     _dir = _normalize_disk_path(dir_path)
@@ -1219,6 +1530,201 @@ def query_pending_changes(p4_user=None, p4_client=None, force=False):
         })
 
     return {'changes': _changes}
+
+
+def _parse_change_list_line(line):
+    """Parse p4 changes text line → (change int, status, description) or Nones."""
+    _line = (line or '').strip()
+    if not _line or _line.lower().startswith('error:'):
+        return None, None, None
+    _m = _CHANGE_LINE_RE.match(_line)
+    if not _m:
+        return None, None, None
+    try:
+        _change = int(_m.group('change'))
+    except (TypeError, ValueError):
+        return None, None, None
+    _status = _m.group('status')
+    _desc = ''
+    _rest = _line[_m.end():].strip()
+    if _rest.startswith("'") and _rest.endswith("'") and len(_rest) > 1:
+        _desc = _rest[1:-1]
+    elif _rest.startswith("'"):
+        _desc = _rest[1:]
+    return _change, _status, _desc
+
+
+def _parse_describe_indexed_files(tag_dict, change):
+    """Extract shelved/affected files from p4 describe -ztag indexed fields (depotFile0, …)."""
+    _entries = []
+    if not tag_dict:
+        return _entries
+    _i = 0
+    while _i < 10000:
+        _depot = tag_dict.get('depotFile{0}'.format(_i))
+        if not _depot:
+            break
+        _rev = tag_dict.get('rev{0}'.format(_i))
+        try:
+            _rev = int(_rev)
+        except (TypeError, ValueError):
+            pass
+        _depot_str = str(_depot).split('#')[0]
+        _entries.append({
+            'depotFile': _depot_str,
+            'clientFile': tag_dict.get('clientFile{0}'.format(_i)),
+            'rev': _rev,
+            'action': tag_dict.get('action{0}'.format(_i)) or 'edit',
+            'change': change,
+            'type': tag_dict.get('type{0}'.format(_i)),
+        })
+        _i += 1
+    return _entries
+
+
+def _parse_describe_file_lines(lines, change):
+    """Parse //depot/path#rev action lines from p4 describe text output."""
+    _entries = []
+    _seen = set()
+    for _raw in lines or []:
+        _stripped = _strip_info_prefix(_raw).strip()
+        if _stripped.startswith('...'):
+            _stripped = _stripped[3:].strip()
+        if not _stripped.startswith('//'):
+            continue
+        _parts = _stripped.split()
+        if not _parts:
+            continue
+        _depot_part = _parts[0]
+        _depot = _depot_part.split('#')[0]
+        _key = _depot.lower()
+        if _key in _seen:
+            continue
+        _seen.add(_key)
+        _rev = None
+        if '#' in _depot_part:
+            try:
+                _rev = int(_depot_part.rsplit('#', 1)[1])
+            except (TypeError, ValueError):
+                pass
+        _action = _parts[1] if len(_parts) > 1 else 'edit'
+        _entries.append({
+            'depotFile': _depot,
+            'clientFile': None,
+            'rev': _rev,
+            'action': _action,
+            'change': change,
+            'type': None,
+        })
+    return _entries
+
+
+def _describe_shelved_entries(change, p4_user=None, p4_client=None):
+    """Return list of shelved file entry dicts for a changelist."""
+    _entries = []
+    _stderr = None
+    _res = _p4run(
+        'describe', '-sS', str(change),
+        p4_user=p4_user, p4_client=p4_client, ztag=True,
+    )
+    if _res.get('ok'):
+        for _rec in _res.get('tagRecords') or []:
+            _entries.extend(_parse_describe_indexed_files(_rec, change))
+            if _rec.get('depotFile'):
+                _rev = _rec.get('rev')
+                try:
+                    _rev = int(_rev)
+                except (TypeError, ValueError):
+                    pass
+                _entries.append({
+                    'depotFile': str(_rec.get('depotFile')).split('#')[0],
+                    'clientFile': _rec.get('clientFile'),
+                    'rev': _rev,
+                    'action': _rec.get('action') or 'edit',
+                    'change': change,
+                    'type': _rec.get('type'),
+                })
+        if not _entries:
+            _entries.extend(_parse_describe_indexed_files(_res.get('tag') or {}, change))
+        if not _entries:
+            _entries.extend(_parse_describe_file_lines(_res.get('lines'), change))
+    else:
+        _stderr = _res.get('stderr') or 'p4 describe -sS failed'
+
+    if not _entries:
+        _res_plain = _p4run(
+            'describe', '-sS', str(change),
+            p4_user=p4_user, p4_client=p4_client, ztag=False,
+        )
+        if _res_plain.get('ok'):
+            _entries.extend(_parse_describe_file_lines(_res_plain.get('lines'), change))
+        elif not _stderr:
+            _stderr = _res_plain.get('stderr') or 'p4 describe -sS failed'
+
+    if _stderr and not _entries:
+        return _entries, _stderr
+
+    _deduped = []
+    _seen = set()
+    for _entry in _entries:
+        _key = (_entry.get('depotFile') or '').lower()
+        if not _key or _key in _seen:
+            continue
+        _seen.add(_key)
+        _deduped.append(_entry)
+    return _deduped, None
+
+
+def query_shelved(p4_user=None, p4_client=None, force=False):
+    """
+    Shelved changelists and files for user/client (p4 changes -s shelved + describe -sS).
+
+    Returns dict: changes {cl: {change, description, entries, line}}, total, rawCount.
+    """
+    _empty = {'changes': {}, 'total': 0, 'rawCount': 0}
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return dict(_empty, error=_err)
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return dict(_empty, error='p4 info failed')
+
+    _res = _p4run(
+        'changes', '-s', 'shelved', '-u', _user, '-c', _client,
+        p4_user=_user, p4_client=_client, ztag=False, use_s=True,
+    )
+    if not _res['ok']:
+        return dict(_empty, error=_res.get('stderr') or 'p4 changes -s shelved failed')
+
+    _changes = {}
+    _file_count = 0
+    _cl_count = 0
+
+    for _line in _res.get('lines') or []:
+        _change, _status, _desc = _parse_change_list_line(_line)
+        if _change is None:
+            continue
+        _cl_count += 1
+        _entries, _desc_err = _describe_shelved_entries(
+            _change, p4_user=_user, p4_client=_client)
+        if _desc_err and not _entries:
+            log.warning('P4 shelved CL {0}: {1}'.format(_change, _desc_err))
+        if not _desc:
+            _desc = query_change_description(_change, p4_user=_user, p4_client=_client)
+        _file_count += len(_entries)
+        _changes[_change] = {
+            'change': _change,
+            'description': _desc or '',
+            'entries': _entries,
+            'line': _line.strip(),
+            'status': _status,
+        }
+
+    return {
+        'changes': _changes,
+        'total': _file_count,
+        'rawCount': _cl_count,
+    }
 
 
 def query_file_status(disk_path, p4_user=None, p4_client=None, force=False):
@@ -1913,6 +2419,35 @@ def iter_opened_changelist_groups(opened_dat):
     return _groups
 
 
+def iter_shelved_changelist_groups(shelved_dat):
+    """
+    Display-order shelved changelist groups from query_shelved dict.
+
+    Returns list of dicts: change, label, description, entries.
+    """
+    if not shelved_dat or shelved_dat.get('error'):
+        return []
+
+    _groups = []
+    for _cl in sorted((shelved_dat.get('changes') or {}).keys(), key=_change_sort_key):
+        _block = shelved_dat['changes'][_cl]
+        _entries = [dict(_rec) for _rec in (_block.get('entries') or [])]
+        _desc = (_block.get('description') or '').strip()
+        _desc_preview = _desc.splitlines()[0].strip()
+        if len(_desc_preview) > 48:
+            _desc_preview = _desc_preview[:45] + '...'
+        _label = 'Change {0} ({1})'.format(_cl, len(_entries))
+        if _desc_preview:
+            _label = '{0} — {1}'.format(_label, _desc_preview)
+        _groups.append({
+            'change': _cl,
+            'label': _label,
+            'description': _desc,
+            'entries': _entries,
+        })
+    return _groups
+
+
 def flatten_opened_entries(opened_dat):
     """Flatten query_opened dict into a single list of file entry dicts."""
     _entries = []
@@ -2014,7 +2549,7 @@ def edit_or_add(disk_path, p4_user=None, p4_client=None, file_type=None, changel
     )
 
 
-def revert(disk_path, p4_user=None, p4_client=None, force=False):
+def revert(disk_path, p4_user=None, p4_client=None, force=False, keep_workspace=False):
     """p4 revert — discard local open on file."""
     _path = _normalize_disk_path(disk_path)
     if not _path:
@@ -2027,7 +2562,11 @@ def revert(disk_path, p4_user=None, p4_client=None, force=False):
     if not is_available(force=force, p4_user=_user, p4_client=_client):
         return {'ok': False, 'action': 'revert', 'path': _path, 'stderr': 'p4 info failed', 'lines': []}
 
-    _res = _p4run('revert', _path, p4_user=_user, p4_client=_client, ztag=False)
+    _args = ['revert']
+    if keep_workspace:
+        _args.append('-k')
+    _args.append(_path)
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
         invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
     return _write_result('revert', _path, _res)
@@ -2185,12 +2724,35 @@ def submit_change(change, description=None, p4_user=None, p4_client=None, force=
         return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
 
     _change_str = str(change).lower() if change is not None else 'default'
+    _desc = (description or '').strip()
+
     if _change_str in ('default', ''):
         _args = ['submit']
+        if _desc:
+            _args.extend(['-d', _desc])
+        _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    elif _desc:
+        _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
+        if _spec_err or not _spec:
+            return {
+                'ok': False, 'action': 'submit', 'change': change,
+                'stderr': _spec_err or 'p4 change -o failed', 'lines': [],
+            }
+        _depot_keys, _depot_err = _depot_keys_for_submit_from_spec(_spec)
+        if _depot_err:
+            return {
+                'ok': False, 'action': 'submit', 'change': change,
+                'stderr': _depot_err, 'lines': [],
+            }
+        _submit_spec = _build_changelist_form_spec(_spec, _depot_keys, _desc)
+        _res = _p4run_input(
+            'submit', '-i', input_text=_submit_spec,
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
     else:
         _args = ['submit', '-c', str(change)]
+        _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
 
-    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
         _fstat_cache_store().clear()
 
@@ -2203,7 +2765,30 @@ def submit_change(change, description=None, p4_user=None, p4_client=None, force=
     }
 
 
-def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
+def _depot_keys_for_submit_from_spec(spec_text):
+    """Collect all depot keys listed in a change spec Files section."""
+    _keys = set()
+    _section = None
+    for _line in (spec_text or '').splitlines():
+        if _line.startswith('Files:'):
+            _section = 'files'
+            continue
+        if _section == 'files':
+            _stripped = _line.strip()
+            if _stripped.startswith('//'):
+                _key = _depot_path_key(_stripped.split()[0])
+                if _key:
+                    _keys.add(_key)
+                continue
+            if not _stripped:
+                continue
+            _section = None
+    if not _keys:
+        return None, 'changelist has no files'
+    return _keys, None
+
+
+def submit_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False):
     """p4 submit — submit specific opened files (optionally scoped to a changelist)."""
     _paths = []
     for _raw in paths or []:
@@ -2212,6 +2797,13 @@ def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
             _paths.append(_path)
     if not _paths:
         return {'ok': False, 'action': 'submit', 'change': change, 'stderr': 'no paths', 'lines': []}
+
+    _desc = (description or '').strip()
+    if not _desc:
+        return {
+            'ok': False, 'action': 'submit', 'change': change,
+            'stderr': 'submit description is required', 'lines': [],
+        }
 
     _user, _client, _err = _require_connection(p4_user, p4_client)
     if _err:
@@ -2222,11 +2814,29 @@ def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
 
     _change_str = str(change).lower() if change is not None else 'default'
     if _change_str in ('default', ''):
-        _args = ['submit'] + _paths
+        _args = ['submit', '-d', _desc] + _paths
+        _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     else:
-        _args = ['submit', '-c', str(change)] + _paths
+        _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
+        if _spec_err or not _spec:
+            return {
+                'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
+                'stderr': _spec_err or 'p4 change -o failed', 'lines': [],
+            }
+        _depot_keys, _depot_err = _depot_keys_for_submit(
+            _paths, p4_user=_user, p4_client=_client, force=force,
+        )
+        if _depot_err:
+            return {
+                'ok': False, 'action': 'submit', 'change': change, 'paths': _paths,
+                'stderr': _depot_err, 'lines': [],
+            }
+        _submit_spec = _build_changelist_form_spec(_spec, _depot_keys, _desc)
+        _res = _p4run_input(
+            'submit', '-i', input_text=_submit_spec,
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
 
-    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
         invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
 
@@ -2235,6 +2845,565 @@ def submit_paths(paths, change=None, p4_user=None, p4_client=None, force=False):
         'action': 'submit',
         'change': change,
         'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def _update_change_description(change, description, p4_user=None, p4_client=None):
+    """Update Description on a pending numbered changelist via p4 change -i."""
+    _desc = (description or '').strip()
+    if not _desc:
+        return {'ok': False, 'stderr': 'description is empty', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'stderr': _err, 'lines': []}
+
+    _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
+    if _spec_err or not _spec:
+        return {'ok': False, 'stderr': _spec_err or 'p4 change -o failed', 'lines': []}
+
+    _depot_keys, _depot_err = _depot_keys_for_submit_from_spec(_spec)
+    if _depot_err:
+        return {'ok': False, 'stderr': _depot_err, 'lines': []}
+
+    _change_spec = _build_changelist_form_spec(_spec, _depot_keys, _desc)
+    _res = _p4run_input(
+        'change', '-i', input_text=_change_spec,
+        p4_user=_user, p4_client=_client, ztag=False,
+    )
+    return {
+        'ok': bool(_res.get('ok')),
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+_SHELVE_CHANGE_RE = re.compile(r'^Change\s+(\d+)\s+', re.IGNORECASE)
+_CHANGE_CREATED_RE = re.compile(r'^Change\s+(\d+)\s+created', re.IGNORECASE)
+
+
+def _parse_shelve_change_number(lines):
+    """Parse new changelist number from p4 shelve stdout (default CL → Change: new flow)."""
+    for _line in lines or []:
+        _m = _SHELVE_CHANGE_RE.match(str(_line).strip())
+        if _m:
+            return _m.group(1)
+    return None
+
+
+def _parse_change_created_number(lines):
+    """Parse changelist number from p4 change -i stdout (Change N created)."""
+    for _line in lines or []:
+        _m = _CHANGE_CREATED_RE.match(str(_line).strip())
+        if _m:
+            return int(_m.group(1))
+    return _parse_shelve_change_number(lines)
+
+
+def _change_key(change):
+    _change_str = str(change).lower() if change is not None else 'default'
+    if _change_str in ('default', ''):
+        return 'default'
+    try:
+        return int(_change_str)
+    except (TypeError, ValueError):
+        return _change_str
+
+
+def _unshelve_target_args(target_change):
+    """Build -c arg pair for p4 unshelve target changelist."""
+    _key = _change_key(target_change)
+    if _key == 'default':
+        return ['-c', 'default']
+    return ['-c', str(target_change)]
+
+
+def create_pending_change(description, p4_user=None, p4_client=None, force=False):
+    """Create empty pending changelist via p4 change -i (Change: new)."""
+    _desc = (description or '').strip()
+    if not _desc:
+        return {
+            'ok': False, 'action': 'create_change', 'change': None,
+            'stderr': 'description is required', 'lines': [],
+        }
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'create_change', 'change': None, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {
+            'ok': False, 'action': 'create_change', 'change': None,
+            'stderr': 'p4 info failed', 'lines': [],
+        }
+
+    _change_spec = _build_new_change_form_spec(_client, [], _desc)
+    _res = _p4run_input(
+        'change', '-i', input_text=_change_spec,
+        p4_user=_user, p4_client=_client, ztag=False,
+    )
+    if not _res.get('ok'):
+        return {
+            'ok': False, 'action': 'create_change', 'change': None,
+            'stderr': _res.get('stderr') or 'p4 change -i failed', 'lines': _res.get('lines') or [],
+        }
+
+    _change = _parse_change_created_number(_res.get('lines'))
+    if not _change:
+        return {
+            'ok': False, 'action': 'create_change', 'change': None,
+            'stderr': 'could not parse created changelist number', 'lines': _res.get('lines') or [],
+        }
+
+    _fstat_cache_store().clear()
+    return {
+        'ok': True,
+        'action': 'create_change',
+        'change': _change,
+        'stderr': '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def unshelve_paths(paths, source_change, target_change, p4_user=None, p4_client=None, force=False):
+    """p4 unshelve -s SOURCE -c TARGET — open shelved files in target changelist."""
+    _paths = []
+    for _raw in paths or []:
+        _path = str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': 'no paths', 'lines': [],
+        }
+
+    if _change_key(source_change) == _change_key(target_change):
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': 'source and target changelist are the same',
+            'lines': [],
+        }
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': _err, 'lines': [],
+        }
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': 'p4 info failed', 'lines': [],
+        }
+
+    _args = ['unshelve', '-s', str(source_change)]
+    _args.extend(_unshelve_target_args(target_change))
+    if force:
+        _args.append('-f')
+    _args.extend(_paths)
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'unshelve',
+        'source_change': source_change,
+        'target_change': target_change,
+        'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def unshelve_change(source_change, target_change, p4_user=None, p4_client=None, force=False):
+    """p4 unshelve -s SOURCE -c TARGET — unshelve all files from shelved changelist."""
+    if _change_key(source_change) == _change_key(target_change):
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change,
+            'stderr': 'source and target changelist are the same', 'lines': [],
+        }
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': _err, 'lines': [],
+        }
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {
+            'ok': False, 'action': 'unshelve', 'source_change': source_change,
+            'target_change': target_change, 'stderr': 'p4 info failed', 'lines': [],
+        }
+
+    _args = ['unshelve', '-s', str(source_change)]
+    _args.extend(_unshelve_target_args(target_change))
+    if force:
+        _args.append('-f')
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'unshelve',
+        'source_change': source_change,
+        'target_change': target_change,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def move_shelf_paths(paths, source_change, target_change, p4_user=None, p4_client=None, force=False):
+    """Unshelve to target changelist, then delete shelf from source."""
+    _paths = []
+    for _raw in paths or []:
+        _path = str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {
+            'ok': False, 'action': 'move_shelf', 'source_change': source_change,
+            'target_change': target_change, 'stderr': 'no paths', 'lines': [],
+        }
+
+    _uns = unshelve_paths(
+        _paths, source_change, target_change,
+        p4_user=p4_user, p4_client=p4_client, force=force,
+    )
+    if not _uns.get('ok'):
+        _out = dict(_uns)
+        _out['action'] = 'move_shelf'
+        return _out
+
+    _del = delete_shelf_paths(
+        _paths, source_change, p4_user=p4_user, p4_client=p4_client, force=force,
+    )
+    if not _del.get('ok'):
+        return {
+            'ok': False,
+            'action': 'move_shelf',
+            'source_change': source_change,
+            'target_change': target_change,
+            'paths': _paths,
+            'stderr': 'unshelve ok but delete shelf failed: {0}'.format(
+                _del.get('stderr') or 'unknown'),
+            'lines': _del.get('lines') or [],
+            'unshelved': True,
+        }
+
+    return {
+        'ok': True,
+        'action': 'move_shelf',
+        'source_change': source_change,
+        'target_change': target_change,
+        'paths': _paths,
+        'stderr': '',
+        'lines': (_uns.get('lines') or []) + (_del.get('lines') or []),
+    }
+
+
+def move_shelf_change(source_change, target_change, p4_user=None, p4_client=None, force=False):
+    """Unshelve entire shelved changelist to target, then delete source shelf."""
+    _uns = unshelve_change(
+        source_change, target_change,
+        p4_user=p4_user, p4_client=p4_client, force=force,
+    )
+    if not _uns.get('ok'):
+        _out = dict(_uns)
+        _out['action'] = 'move_shelf'
+        return _out
+
+    _del = delete_shelf_change(source_change, p4_user=p4_user, p4_client=p4_client, force=force)
+    if not _del.get('ok'):
+        return {
+            'ok': False,
+            'action': 'move_shelf',
+            'source_change': source_change,
+            'target_change': target_change,
+            'stderr': 'unshelve ok but delete shelf failed: {0}'.format(
+                _del.get('stderr') or 'unknown'),
+            'lines': _del.get('lines') or [],
+            'unshelved': True,
+        }
+
+    return {
+        'ok': True,
+        'action': 'move_shelf',
+        'source_change': source_change,
+        'target_change': target_change,
+        'stderr': '',
+        'lines': (_uns.get('lines') or []) + (_del.get('lines') or []),
+    }
+
+
+def _revert_paths_after_shelve(paths, p4_user=None, p4_client=None, force=False):
+    """
+    Revert workspace opens after shelve (P4V default).
+
+    Shelved depot copies are kept; only local pending opens are cleared.
+    Add files use p4 revert without -k (P4V removes from disk).
+    """
+    _paths = []
+    for _raw in paths or []:
+        _path = _normalize_disk_path(_raw) or str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {'ok': True, 'reverted': True, 'stderr': '', 'lines': []}
+
+    _errors = []
+    _reverted_any = False
+    for _path in _paths:
+        _stat = query_file_status(_path, p4_user=p4_user, p4_client=p4_client, force=True)
+        if not _stat.get('checkedOut'):
+            continue
+        _rev = revert(
+            _path, p4_user=p4_user, p4_client=p4_client, force=force, keep_workspace=False)
+        if _rev.get('ok'):
+            _reverted_any = True
+        else:
+            _errors.append('{0}: {1}'.format(_path, _rev.get('stderr') or 'revert failed'))
+
+    _ok = not _errors
+    if _errors:
+        log.warning('P4 shelve revert-after: {0}'.format('; '.join(_errors)))
+    return {
+        'ok': _ok,
+        'reverted': _ok and _reverted_any,
+        'stderr': '; '.join(_errors),
+        'lines': [],
+    }
+
+
+def shelve_change(change, description=None, p4_user=None, p4_client=None, force=False):
+    """p4 shelve -Af — shelf entire pending changelist (files only, no stream spec)."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _change_str = str(change).lower() if change is not None else 'default'
+    _desc = (description or '').strip()
+    if not _desc:
+        return {
+            'ok': False, 'action': 'shelve', 'change': change,
+            'stderr': 'shelve description is required', 'lines': [],
+        }
+
+    if _change_str in ('default', ''):
+        _spec, _spec_err = _fetch_change_spec(change, p4_user=_user, p4_client=_client)
+        if _spec_err or not _spec:
+            return {
+                'ok': False, 'action': 'shelve', 'change': change,
+                'stderr': _spec_err or 'p4 change -o failed', 'lines': [],
+            }
+        _depot_lines = _depot_file_lines_from_spec(_spec)
+        if not _depot_lines:
+            return {
+                'ok': False, 'action': 'shelve', 'change': change,
+                'stderr': 'default changelist has no opened files', 'lines': [],
+            }
+        _shelve_spec = _build_new_change_form_spec(_client, _depot_lines, _desc)
+        _res = _p4run_input(
+            'shelve', '-Af', '-i', input_text=_shelve_spec,
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
+    else:
+        _upd = _update_change_description(change, _desc, p4_user=_user, p4_client=_client)
+        if not _upd.get('ok'):
+            return {
+                'ok': False, 'action': 'shelve', 'change': change,
+                'stderr': _upd.get('stderr') or 'p4 change -i failed', 'lines': [],
+            }
+        _res = _p4run(
+            'shelve', '-Af', '-c', str(change),
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
+
+    _revert = None
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+        if _change_str in ('default', ''):
+            _new_cl = _parse_shelve_change_number(_res.get('lines'))
+            if _new_cl:
+                _revert = revert_change(_new_cl, p4_user=_user, p4_client=_client, force=force)
+            else:
+                log.warning('P4 shelve: could not parse changelist number for revert-after-shelve')
+                _revert = {
+                    'ok': False, 'reverted': False,
+                    'stderr': 'could not parse shelved changelist number', 'lines': [],
+                }
+        else:
+            _revert = revert_change(change, p4_user=_user, p4_client=_client, force=force)
+        if _revert and not _revert.get('ok'):
+            log.warning(
+                'P4 shelve revert-after failed: {0}'.format(_revert.get('stderr') or 'unknown'))
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'shelve',
+        'change': change,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+        'reverted': bool(_revert.get('ok')) if _revert else False,
+        'revert_stderr': (_revert.get('stderr') or '') if _revert else '',
+    }
+
+
+def shelve_paths(paths, change=None, description=None, p4_user=None, p4_client=None, force=False):
+    """p4 shelve -Af — shelf specific opened files in a changelist."""
+    _paths = []
+    for _raw in paths or []:
+        _path = _normalize_disk_path(_raw) or str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': 'no paths', 'lines': []}
+
+    _desc = (description or '').strip()
+    if not _desc:
+        return {
+            'ok': False, 'action': 'shelve', 'change': change,
+            'stderr': 'shelve description is required', 'lines': [],
+        }
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'shelve', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _change_str = str(change).lower() if change is not None else 'default'
+    if _change_str in ('default', ''):
+        # Default changelist has no real change number — shelve via Change: new form,
+        # not p4 change -o default filtered spec (P4: "Default change unknown").
+        _depot_lines, _depot_err = _depot_file_lines_for_paths(
+            _paths, p4_user=_user, p4_client=_client, force=True,
+        )
+        if _depot_err:
+            return {
+                'ok': False, 'action': 'shelve', 'change': change, 'paths': _paths,
+                'stderr': _depot_err, 'lines': [],
+            }
+        _shelve_spec = _build_new_change_form_spec(_client, _depot_lines, _desc)
+        _res = _p4run_input(
+            'shelve', '-Af', '-i', input_text=_shelve_spec,
+            p4_user=_user, p4_client=_client, ztag=False,
+        )
+    else:
+        _upd = _update_change_description(change, _desc, p4_user=_user, p4_client=_client)
+        if not _upd.get('ok'):
+            return {
+                'ok': False, 'action': 'shelve', 'change': change, 'paths': _paths,
+                'stderr': _upd.get('stderr') or 'p4 change -i failed', 'lines': [],
+            }
+        _args = ['shelve', '-Af', '-c', str(change)] + _paths
+        _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+
+    _revert = None
+    if _res.get('ok'):
+        invalidate_fstat_paths(_paths, p4_user=_user, p4_client=_client)
+        _revert = _revert_paths_after_shelve(
+            _paths, p4_user=_user, p4_client=_client, force=force)
+        if _revert and not _revert.get('ok'):
+            log.warning(
+                'P4 shelve revert-after failed: {0}'.format(_revert.get('stderr') or 'unknown'))
+
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'shelve',
+        'change': change,
+        'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+        'reverted': bool(_revert.get('ok')) if _revert else False,
+        'revert_stderr': (_revert.get('stderr') or '') if _revert else '',
+    }
+
+
+def delete_shelf_change(change, p4_user=None, p4_client=None, force=False):
+    """p4 shelve -d -Af — delete all shelved files from a changelist."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'delete_shelf', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'delete_shelf', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _res = _p4run(
+        'shelve', '-d', '-Af', '-c', str(change),
+        p4_user=_user, p4_client=_client, ztag=False,
+    )
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'delete_shelf',
+        'change': change,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def delete_shelf_paths(paths, change, p4_user=None, p4_client=None, force=False):
+    """p4 shelve -d -Af — delete selected shelved files from a changelist."""
+    _paths = []
+    for _raw in paths or []:
+        _path = str(_raw).strip()
+        if _path:
+            _paths.append(_path)
+    if not _paths:
+        return {'ok': False, 'action': 'delete_shelf', 'change': change, 'stderr': 'no paths', 'lines': []}
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'delete_shelf', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'delete_shelf', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _args = ['shelve', '-d', '-Af', '-c', str(change)] + _paths
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'delete_shelf',
+        'change': change,
+        'paths': _paths,
+        'stderr': _res.get('stderr') or '',
+        'lines': _res.get('lines') or [],
+    }
+
+
+def submit_shelved_change(change, description=None, p4_user=None, p4_client=None, force=False):
+    """p4 submit -e — submit shelved files directly from a shelved changelist."""
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'action': 'submit_shelved', 'change': change, 'stderr': _err, 'lines': []}
+
+    if not is_available(force=force, p4_user=_user, p4_client=_client):
+        return {'ok': False, 'action': 'submit_shelved', 'change': change, 'stderr': 'p4 info failed', 'lines': []}
+
+    _args = ['submit', '-e', '-c', str(change)]
+    _desc = (description or '').strip()
+    if _desc:
+        _args.extend(['-d', _desc])
+    _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
+    if _res.get('ok'):
+        _fstat_cache_store().clear()
+    return {
+        'ok': bool(_res.get('ok')),
+        'action': 'submit_shelved',
+        'change': change,
         'stderr': _res.get('stderr') or '',
         'lines': _res.get('lines') or [],
     }
@@ -2269,6 +3438,7 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
         'p4User': _user,
         'p4Client': _client,
         'opened': None,
+        'shelved': None,
         'pendingChanges': None,
         'scene': None,
     }
@@ -2284,6 +3454,7 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
         return dict(_report)
 
     _report['opened'] = query_opened(p4_user=_user, p4_client=_client, force=force)
+    _report['shelved'] = query_shelved(p4_user=_user, p4_client=_client, force=force)
     _report['pendingChanges'] = query_pending_changes(p4_user=_user, p4_client=_client, force=force)
 
     if _scene:
@@ -2349,6 +3520,26 @@ def log_status_report(dat):
             log.info('[change {0}] {1} file(s)'.format(_cl, len(_files)))
             for _rec in _files:
                 log.info('  {0} {1}#{2}'.format(_rec['action'], _rec['depotFile'], _rec['rev']))
+
+    _shelved = _dat.get('shelved') or {}
+    if _shelved.get('error'):
+        log.info(cgmGEN.logString_sub(_str_func, 'Shelved changelists'))
+        log.info(_shelved['error'])
+    else:
+        _s_total = _shelved.get('total', 0)
+        _s_cls = _shelved.get('rawCount', 0)
+        log.info(cgmGEN.logString_sub(_str_func, 'Shelved changelists ({0} CL, {1} file(s))'.format(
+            _s_cls, _s_total)))
+        for _cl in sorted((_shelved.get('changes') or {}).keys(), key=lambda x: int(x) if str(x).isdigit() else x):
+            _block = _shelved['changes'][_cl]
+            _files = _block.get('entries') or []
+            _desc = (_block.get('description') or '').splitlines()[0].strip()
+            log.info('[change {0}] {1} shelved file(s){2}'.format(
+                _cl, len(_files), ' — {0}'.format(_desc) if _desc else ''))
+            for _rec in _files:
+                _rev = _rec.get('rev')
+                _rev_s = '#{0}'.format(_rev) if _rev is not None else ''
+                log.info('  {0} {1}{2}'.format(_rec.get('action', '?'), _rec['depotFile'], _rev_s))
 
     _pending = _dat.get('pendingChanges') or {}
     log.info(cgmGEN.logString_sub(_str_func, 'Pending changelists'))

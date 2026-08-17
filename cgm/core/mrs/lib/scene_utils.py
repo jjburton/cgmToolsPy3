@@ -100,7 +100,7 @@ SCENE_LIST_DIR_ALIAS_PREFIX = '+ '
 
 # P4 file-row tints (versionControl + connected only) — shared_data / Builder saturated RGB
 SCENE_LIST_ITC_P4_CHECKED_OUT = [0.31, 0.81, 1.0]
-SCENE_LIST_ITC_P4_MARKED_ADD = [0.17, 0.50, 0.02]
+SCENE_LIST_ITC_P4_MARKED_ADD = [0.35, 0.72, 0.18]
 SCENE_LIST_ITC_P4_OUT_OF_SYNC = [0.84, 0.40, 0.02]
 SCENE_LIST_ITC_P4_UNKNOWN = [1.0, 0.88, 0.0]
 SCENE_LIST_ITC_P4_LOCKED = [1.0, 0.3, 0.3]
