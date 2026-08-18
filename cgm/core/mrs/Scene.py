@@ -7940,7 +7940,7 @@ def BatchExport(dataList = []):
     _str_func = 'BatchExport'
     log.info(log_start(_str_func))
 
-    PATHUTIL.clear_non_writable_export_paths()
+    PATHUTIL.clear_export_prepare_records()
     clear_batch_export_results()
 
     t1 = time.time()
@@ -8026,11 +8026,19 @@ def BatchExport(dataList = []):
             if _exportOk is False:
                 log.error("{0} | ExportScene returned False | index={1} | file={2}".format(
                     _str_func, i, fileDat.get('file')))
-                _resFail.append({'index': i,
-                                 'file': fileDat.get('file'),
-                                 'mode': fileDat.get('mode'),
-                                 'stage': 'export_scene',
-                                 'error': 'ExportScene returned False (early exit, user cancel, or failure)'})
+                _fail = {'index': i,
+                         'file': fileDat.get('file'),
+                         'mode': fileDat.get('mode'),
+                         'stage': 'export_scene',
+                         'error': 'ExportScene returned False (early exit, user cancel, or failure)'}
+                _p4_fail = PATHUTIL.get_last_export_prepare_failure()
+                if _p4_fail:
+                    _fail['p4Outcome'] = _p4_fail.get('outcome')
+                    if _p4_fail.get('reason'):
+                        _fail['p4Reason'] = _p4_fail.get('reason')
+                    if _p4_fail.get('path'):
+                        _fail['exportPath'] = _p4_fail.get('path')
+                _resFail.append(_fail)
                 continue
         except Exception as err:
             _ctx = {'stage': 'batch_item',
@@ -8059,13 +8067,7 @@ def BatchExport(dataList = []):
         log.warning(cgmGEN._str_hardBreak)
         pprint.pprint(_resFail)
         log.warning(cgmGEN._str_hardBreak)
-    _nonWritable = PATHUTIL.get_non_writable_export_paths()
-    if _nonWritable:
-        log.warning(cgmGEN._str_hardBreak)
-        log.warning("{0} | Non-writable export paths (checkout required):".format(_str_func))
-        for _p in _nonWritable:
-            log.warning("{0} |   - {1}".format(_str_func, _p))
-        log.warning(cgmGEN._str_hardBreak)
+    PATHUTIL.log_export_prepare_summary(_str_func)
     if _batch_export_results:
         log_export_results_summary(_str_func, _batch_export_results, title='Batch export summary')
     return
@@ -8484,11 +8486,14 @@ def ExportScene(mode = -1,
                     _ov = cgmMeta.cgmOptionVar(
                         "cgmVar_sceneUI_auto_checkout_export_files", defaultValue=0)
                     autoCheckoutExportFiles = bool(_ov.getValue())
-                # Silent P4 checkout when batch (no summary) or Auto Check Out Export Files is on.
+                # Interactive: checkout with confirm unless Auto Check Out is on.
+                # Batch: checkout only when Auto Check Out is on (no dialogs in mayapy).
+                _p4_checkout = autoCheckoutExportFiles or bool(logExportSummary)
                 _confirm_p4 = bool(logExportSummary) and not autoCheckoutExportFiles
                 _mDat = PATHUTIL.get_project_mDat()
-                log.info('{0} | export preflight P4 | confirm_p4={1} autoCheckout={2} project={3}'.format(
+                log.info('{0} | export preflight P4 | p4_checkout={1} confirm_p4={2} autoCheckout={3} project={4}'.format(
                     _str_func,
+                    _p4_checkout,
                     _confirm_p4,
                     autoCheckoutExportFiles,
                     getattr(_mDat, 'str_filepath', None) or 'none',
@@ -8497,21 +8502,36 @@ def ExportScene(mode = -1,
                     [_entry['path'] for _entry in _planned],
                     mDat=_mDat,
                     confirm_p4=_confirm_p4,
+                    p4_checkout=_p4_checkout,
+                    prepare_context={'sceneFile': _ctx_base.get('sceneFile')},
                     _str_func='{0}|export_preflight'.format(_str_func),
                 )
             except PATHUTIL.PathWritePrepareError as err:
                 if getattr(err, 'reason', None) == 'Save cancelled':
                     log.info('{0} | export preflight cancelled'.format(_str_func))
                     return _finalize_failure('export_preflight', 'Export preflight cancelled', _preflight_ctx)
-                log.error(str(err))
-                _preflight_ctx['reason'] = getattr(err, 'reason', None) or str(err)
-                return _finalize_failure('export_preflight', 'Export preflight failed', _preflight_ctx)
-            except PATHUTIL.ExportOutputNotWritableError as err:
-                PATHUTIL.record_non_writable_export_path(err.path)
-                _preflight_ctx['exportPath'] = err.path
-                _preflight_ctx['reason'] = getattr(err, 'reason', None) or 'not_writable'
-                log.error("{0} | Export output not writable: {1}".format(_str_func, err.path))
-                return _finalize_failure('export_preflight', 'Export output not writable', _preflight_ctx)
+                raise
+            except PATHUTIL.ExportPreflightFailedError as err:
+                for _f in err.failures:
+                    log.error('{0} | Export preflight failed: {1} | {2}'.format(
+                        _str_func,
+                        _f.get('path'),
+                        _f.get('reason') or 'unknown',
+                    ))
+                _preflight_ctx['failures'] = err.failures
+                _preflight_ctx['failedPaths'] = [_f.get('path') for _f in err.failures if _f.get('path')]
+                if len(err.failures) == 1:
+                    _preflight_ctx['exportPath'] = err.failures[0].get('path')
+                    _preflight_ctx['reason'] = err.failures[0].get('reason')
+                    if err.failures[0].get('p4Outcome'):
+                        _preflight_ctx['p4Outcome'] = err.failures[0].get('p4Outcome')
+                    if err.failures[0].get('p4Reason'):
+                        _preflight_ctx['p4Reason'] = err.failures[0].get('p4Reason')
+                return _finalize_failure(
+                    'export_preflight',
+                    'Export preflight failed ({0} path(s))'.format(len(err.failures)),
+                    _preflight_ctx,
+                )
 
     exportFiles = []
 
