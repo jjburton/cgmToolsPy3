@@ -43,8 +43,10 @@ _edge_padding = 5
 _UNKNOWN_EXT_FILTER_BGC = [.66, .70, .78]
 _UNKNOWN_EXT_ALL = '__all__'
 _UNKNOWN_EXT_NONE = '(none)'
-_UNKNOWN_EXT_GRID_COLS = 6
-_UNKNOWN_EXT_CELL_WH = (100, 22)
+_UNKNOWN_EXT_GRID_COLS = 5
+_UNKNOWN_EXT_CELL_WH = (72, 18)
+_UNKNOWN_CTRL_ROW_H = 24
+_UNKNOWN_SEARCH_ROW_H = 22
 _PROJECT_SCOPE = 'project'
 
 
@@ -75,7 +77,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = False
-    DEFAULT_SIZE = 560, 520
+    DEFAULT_SIZE = 400, 520
     TOOLNAME = '{0}.ui'.format(__toolname__)
 
     def insert_init(self, *args, **kws):
@@ -220,11 +222,15 @@ class ui(cgmUI.cgmGUI):
         # --- Unknown Files (controls in frame; file rows scroll below) ---
         _frame_unknown, self.uiColumn_unknown = self._build_collapse_frame(
             _top, 'Unknown Files', 'unknownFrameCollapse', 0,
-            leading_spacer=False, column_adj=True, row_spacing=0, margin_height=2)
+            leading_spacer=False, column_adj=True, row_spacing=0, margin_height=0)
 
         self.uiRow_unknown_ctrl = mUI.MelHSingleStretchLayout(
-            self.uiColumn_unknown, ut='cgmUISubTemplate', padding=_padding, expand=False)
-        mUI.MelSpacer(self.uiRow_unknown_ctrl, w=_padding)
+            self.uiColumn_unknown,
+            ut='cgmUISubTemplate',
+            padding=2,
+            expand=True,
+            h=_UNKNOWN_CTRL_ROW_H)
+        mUI.MelSpacer(self.uiRow_unknown_ctrl, w=2)
         self.btn_unknown_query = mUI.MelIconButton(
             self.uiRow_unknown_ctrl,
             ann='Scan project content for local files not on depot (refreshes cache when present)',
@@ -235,6 +241,7 @@ class ui(cgmUI.cgmGUI):
             self.uiRow_unknown_ctrl,
             l='All',
             ut='cgmUITemplate',
+            h=22,
             ann='Enable extension filters matching search; None clears all extension filters',
             c=cgmGEN.Callback(uiFunc_unknown_toggle_ext_all, self),
         )
@@ -263,7 +270,7 @@ class ui(cgmUI.cgmGUI):
             **_icon_btn_kw('clear.png', w=22, h=22),
         )
         self.btn_unknown_batch_delete.hide()
-        mUI.MelSpacer(self.uiRow_unknown_ctrl, w=_padding)
+        mUI.MelSpacer(self.uiRow_unknown_ctrl, w=2)
         self.uiRow_unknown_ctrl.layout()
 
         self.uiForm_unknown_ext = mUI.MelFormLayout(
@@ -273,19 +280,24 @@ class ui(cgmUI.cgmGUI):
         self.uiForm_unknown_search = mUI.MelFormLayout(
             self.uiColumn_unknown, ut='cgmUIHeaderTemplate', bgc=cgmUI.guiHeaderColor)
         _row_unknown_search = mUI.MelHSingleStretchLayout(
-            self.uiForm_unknown_search, ut='cgmUIHeaderTemplate', padding=0, expand=False)
+            self.uiForm_unknown_search,
+            ut='cgmUIHeaderTemplate',
+            padding=0,
+            expand=True,
+            h=_UNKNOWN_SEARCH_ROW_H)
         mUI.MelLabel(_row_unknown_search, l='Search:', w=50)
         self.tf_unknown_search = mUI.MelTextField(
             _row_unknown_search,
             ut='cgmUIReservedTemplate',
+            h=20,
             ann='Filter loaded files — space-separated terms match basename or path')
         _row_unknown_search.setStretchWidget(self.tf_unknown_search)
         mUI.MelIconButton(
             _row_unknown_search,
             ann='Clear the field',
             image=os.path.join(_path_imageFolder, 'clear.png'),
-            w=25,
-            h=25,
+            w=22,
+            h=22,
             c=cgmGEN.Callback(uiFunc_unknown_clear_search, self),
         )
         self.tf_unknown_search(edit=True, tcc=cgmGEN.Callback(uiFunc_unknown_search_changed, self))
@@ -296,7 +308,6 @@ class ui(cgmUI.cgmGUI):
                 (_row_unknown_search, 'top', 0),
                 (_row_unknown_search, 'left', 0),
                 (_row_unknown_search, 'right', 0),
-                (_row_unknown_search, 'bottom', 0),
             ],
         )
         self.uiForm_unknown_search.hide()
@@ -503,7 +514,7 @@ def uiFunc_unknown_collect_extensions(entries):
 
 def uiFunc_unknown_ext_checkbox_label(ext_key, count):
     if ext_key == _UNKNOWN_EXT_NONE:
-        return '(no ext) ({0})'.format(count)
+        return '(none) ({0})'.format(count)
     return '{0} ({1})'.format(ext_key, count)
 
 
@@ -788,11 +799,9 @@ def uiFunc_unknown_rebuild_ext_filters(self):
     self.uiForm_unknown_ext(
         edit=True,
         attachForm=[
-            (_grid, 'top', 0), (_grid, 'left', 0), (_grid, 'right', 0), (_grid, 'bottom', 0),
+            (_grid, 'top', 0), (_grid, 'left', 0), (_grid, 'right', 0),
         ],
     )
-    _nrows = (len(_sorted) + _ncols - 1) // _ncols
-    self.uiForm_unknown_ext(edit=True, height=(_nrows * _UNKNOWN_EXT_CELL_WH[1]) + 4)
 
     uiFunc_unknown_update_ext_all_btn(self)
     self.uiForm_unknown_ext.show()
