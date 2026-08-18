@@ -182,16 +182,25 @@ _l_directoryMask = ['meta','.mayaSwatches','incrementalSave','cgmDat','mayaSwatc
 
 # Dependencies — reloaded on Scene open via reload_dependencies()
 l_dependencies = (
+    'cgm.core.tools.Project',
     'cgm.core.tools.lib.project_utils',
+    'cgm.core.mrs.lib.scene_export_utils',
 )
 
 
 def reload_dependencies():
     """Reload Scene backend modules (tool open / Reload menu / Reload SceneStuff)."""
-    global PU
+    global Project, PROJECT, PU, SCENEEXPORTUTIL
+    import cgm.core.tools.Project as _project
     import cgm.core.tools.lib.project_utils as _project_utils
+    import cgm.core.mrs.lib.scene_export_utils as _scene_export_utils
+    cgmGEN._reloadMod(_project)
     cgmGEN._reloadMod(_project_utils)
+    cgmGEN._reloadMod(_scene_export_utils)
+    Project = _project
+    PROJECT = _project
     PU = _project_utils
+    SCENEEXPORTUTIL = _scene_export_utils
     return PU
 
 
@@ -203,7 +212,7 @@ def reloadSceneStuff():
 
     log.info("reloading Scene Stuff...")
     reload_dependencies()
-    for m in [bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS]:
+    for m in [PROJECT, PU, bakeAndPrep, SHOTS, BATCH, PATHUTIL, MAYASET, SCENEUTILS, SCENEEXPORTUTIL]:
         print(m)
         cgmGEN._reloadMod(m)
     log.info(cgmGEN._str_subLine)
@@ -266,6 +275,7 @@ example:
         #self.var_removeNamespace        = cgmMeta.cgmOptionVar("cgmVar_sceneUI_remove_namespace", defaultValue = 0)
         #self.var_zeroRoot               = cgmMeta.cgmOptionVar("cgmVar_sceneUI_zero_root", defaultValue = 0)
         self.var_useMayaPy              = cgmMeta.cgmOptionVar("cgmVar_sceneUI_use_mayaPy", defaultValue = 1)
+        self.var_autoCheckoutExportFiles = cgmMeta.cgmOptionVar("cgmVar_sceneUI_auto_checkout_export_files", defaultValue = 0)
         self.var_categoryStore               = cgmMeta.cgmOptionVar("cgmVar_sceneUI_category", defaultValue = 0)
         self.var_subTypeStore                = cgmMeta.cgmOptionVar("cgmVar_sceneUI_subType", defaultValue = 0)
         self.var_alwaysSendReferenceFiles    = cgmMeta.cgmOptionVar("cgmVar_sceneUI_alwaysSendReferences", varType= 'int', defaultValue = 0)
@@ -343,6 +353,7 @@ example:
         #self.cb_removeNamespace       = None
         #self.cb_zeroRoot              = None
         self.cb_useMayaPy             = None
+        self.cb_autoCheckoutExportFiles = None
         self.cb_showDirectories       = None
         self.cb_showPathWarnings      = None
 
@@ -354,6 +365,7 @@ example:
         #self.removeNamespace             = self.var_removeNamespace.getValue()
         #self.zeroRoot                    = self.var_zeroRoot.getValue()
         self.useMayaPy                   = self.var_useMayaPy.getValue()
+        self.autoCheckoutExportFiles     = bool(self.var_autoCheckoutExportFiles.getValue())
 
         self.fileListMenuItems           = []
         self.batchExportItems            = []
@@ -1234,6 +1246,7 @@ example:
         #self.removeNamespace = bool(self.var_removeNamespace.getValue())
         #self.zeroRoot        = bool(self.var_zeroRoot.getValue())
         self.useMayaPy       = bool(self.var_useMayaPy.getValue())
+        self.autoCheckoutExportFiles = bool(self.var_autoCheckoutExportFiles.getValue())
         self.showDirectories = bool(self.var_showDirectories.getValue())
         self.showPathWarnings = bool(self.var_showPathWarnings.getValue())
         self.displayDetails  = bool(self.var_displayDetails.getValue())
@@ -1243,6 +1256,8 @@ example:
             self.cb_showAllFiles(e=True, checkBox = self.showAllFiles)
         if self.cb_showPathWarnings:
             self.cb_showPathWarnings(e=True, checkBox=self.showPathWarnings)
+        if self.cb_autoCheckoutExportFiles:
+            self.cb_autoCheckoutExportFiles(e=True, checkBox=self.autoCheckoutExportFiles)
         #if self.cb_removeNamespace:
         #    self.cb_removeNamespace(e=True, checkBox = self.removeNamespace)
         #if self.cb_zeroRoot:
@@ -1265,6 +1280,7 @@ example:
         #self.zeroRoot = self.cb_zeroRoot( q=True, checkBox=True ) if self.cb_zeroRoot else False
 
         self.useMayaPy = self.cb_useMayaPy( q=True, checkBox=True ) if self.cb_useMayaPy else False
+        self.autoCheckoutExportFiles = self.cb_autoCheckoutExportFiles(q=True, checkBox=True) if self.cb_autoCheckoutExportFiles else False
         self.showDirectories = self.cb_showDirectories( q=True, checkBox=True ) if self.cb_showDirectories else False
         self.showPathWarnings = self.cb_showPathWarnings(q=True, checkBox=True) if self.cb_showPathWarnings else False
 
@@ -1272,6 +1288,7 @@ example:
         #self.var_removeNamespace.setValue(self.removeNamespace)
         #self.var_zeroRoot.setValue(self.zeroRoot)
         self.var_useMayaPy.setValue(self.useMayaPy)
+        self.var_autoCheckoutExportFiles.setValue(self.autoCheckoutExportFiles)
         self.var_showDirectories.setValue(self.showDirectories)
         self.var_showPathWarnings.setValue(self.showPathWarnings)
         self.var_displayDetails.setValue(self.displayDetails)
@@ -2658,7 +2675,15 @@ example:
         self.cb_useMayaPy =  mUI.MelMenuItem( self.uiMenu_OptionsMenu, l="Use Maya Standalone",
                                               ann="Use Mayapy/Maya stand alone to process",
                                                  checkBox=self.useMayaPy,
-                                                 c = lambda *a:mc.evalDeferred(self.SaveOptions,lp=True))        
+                                                 c = lambda *a:mc.evalDeferred(self.SaveOptions,lp=True))
+        self.cb_autoCheckoutExportFiles = mUI.MelMenuItem(
+            self.uiMenu_OptionsMenu,
+            l="Auto Check Out Export Files",
+            ann="When on, export preflight silently p4 edit/add FBX outputs (Perforce projects only). "
+                "Still fails if out of date, locked elsewhere, or not in client.",
+            checkBox=self.autoCheckoutExportFiles,
+            c=lambda *a: mc.evalDeferred(self.SaveOptions, lp=True),
+        )
 
         """
         self.cb_removeNamespace = mUI.MelMenuItem( self.uiMenu_OptionsMenu, l="Remove namespace upon export",
@@ -7612,6 +7637,7 @@ example:
                       'deleteMesh':PU.exportOption_getValue(self, 'deleteMesh'),
                       'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                       }
+            d_base.update(BATCH.batch_export_context_from_ui(self))
 
             for animDict in self.batchExportItems:
 
@@ -7863,6 +7889,7 @@ example:
                     'deleteMesh':deleteMesh,
                     'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                 }
+                d.update(BATCH.batch_export_context_from_ui(self))
                 pprint.pprint(d)
 
                 BATCH.create_Scene_batchFile([d])
@@ -7897,6 +7924,7 @@ example:
                                  noShotListExportName=noShotListExportName,
                                  parentExportToWorld=parentExportToWorld,
                                  deleteMesh=deleteMesh,
+                                 autoCheckoutExportFiles=self.autoCheckoutExportFiles,
                                  )
             return bool(result)
         except Exception:
@@ -7918,6 +7946,7 @@ def BatchExport(dataList = []):
     t1 = time.time()
 
     if dataList:
+        BATCH.apply_batch_export_context(dataList[0], _str_func=_str_func)
         world_up = dataList[0].get('worldUp')
         if world_up:
             from cgm.core.lib import mayaSettings_utils as MAYASET
@@ -7977,6 +8006,11 @@ def BatchExport(dataList = []):
             _d['deleteMesh'] = False if _deleteMesh == "False" else True
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
             _d['logExportSummary'] = False
+            _auto_co = fileDat.get('autoCheckoutExportFiles', 0)
+            if isinstance(_auto_co, str):
+                _d['autoCheckoutExportFiles'] = _auto_co not in ('0', 'False', '')
+            else:
+                _d['autoCheckoutExportFiles'] = bool(_auto_co)
 
             log.info(mFile)
             pprint.pprint(_d)
@@ -8089,6 +8123,7 @@ def ExportScene(mode = -1,
                 logExportSummary = True,
                 noShotListExportName = 'asset',
                 parentExportToWorld = True,
+                autoCheckoutExportFiles = None,
                 ):
 
     _str_func = 'ExportScene'
@@ -8445,10 +8480,23 @@ def ExportScene(mode = -1,
                                   stage='export_preflight',
                                   paths=[_entry['path'] for _entry in _planned])
             try:
+                if autoCheckoutExportFiles is None:
+                    _ov = cgmMeta.cgmOptionVar(
+                        "cgmVar_sceneUI_auto_checkout_export_files", defaultValue=0)
+                    autoCheckoutExportFiles = bool(_ov.getValue())
+                # Silent P4 checkout when batch (no summary) or Auto Check Out Export Files is on.
+                _confirm_p4 = bool(logExportSummary) and not autoCheckoutExportFiles
+                _mDat = PATHUTIL.get_project_mDat()
+                log.info('{0} | export preflight P4 | confirm_p4={1} autoCheckout={2} project={3}'.format(
+                    _str_func,
+                    _confirm_p4,
+                    autoCheckoutExportFiles,
+                    getattr(_mDat, 'str_filepath', None) or 'none',
+                ))
                 PATHUTIL.preflight_export_output_paths(
                     [_entry['path'] for _entry in _planned],
-                    mDat=PATHUTIL.get_project_mDat(),
-                    confirm_p4=bool(logExportSummary),
+                    mDat=_mDat,
+                    confirm_p4=_confirm_p4,
                     _str_func='{0}|export_preflight'.format(_str_func),
                 )
             except PATHUTIL.PathWritePrepareError as err:

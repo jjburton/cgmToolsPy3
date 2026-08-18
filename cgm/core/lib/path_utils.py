@@ -390,7 +390,7 @@ def _resolve_use_p4_for_path(path, mDat=None, extra_roots=(), assume_in_scope=Fa
     return path_in_p4_scope(path, mDat, extra_roots=extra_roots)
 
 
-def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, extra_roots=(),
+def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, p4_add=True, extra_roots=(),
                             assume_in_scope=False, _str_func='prepare_paths_for_write'):
     """
     Prepare one or more output paths; P4 only when project perforce mode and path in scope.
@@ -409,6 +409,7 @@ def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, extra_roots=(),
             mDat=mDat,
             use_p4=_use_p4,
             confirm_p4=confirm_p4,
+            p4_add=p4_add,
             _str_func=_str_func,
         ))
     if not _out and paths:
@@ -471,9 +472,11 @@ def prepare_maya_scene_for_save(path, mDat=None, confirm_p4=True, extra_roots=()
     )
 
 
-def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, _str_func='prepare_output_for_write'):
+def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=True,
+                          _str_func='prepare_output_for_write'):
     """
     Query fstat, block out-of-date depot files, confirm before edit/add.
+    When p4_add=False, checkout depot files only — skip p4 add for not-on-depot paths.
     Raises PathWritePrepareError on failure or user cancel.
     """
     import cgm.core.lib.perforce as P4UTIL
@@ -516,6 +519,10 @@ def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, _str_func='pre
     if not _needs_add and not _needs_edit:
         return
 
+    if _needs_add and not p4_add:
+        log.debug('{0} || P4 add skipped (edit-only) — local write: {1}'.format(_str_func, path))
+        return
+
     if confirm:
         _summary = P4UTIL.format_file_status(_stat)
         if _needs_add:
@@ -546,7 +553,7 @@ def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, _str_func='pre
 
 
 def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_client=None,
-                             confirm_p4=True, _str_func='prepare_output_for_write'):
+                             confirm_p4=True, p4_add=True, _str_func='prepare_output_for_write'):
     """
     Global prepare before writing a cgm output file (project .cfg, BaseDat, export targets).
 
@@ -579,7 +586,7 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
         _user, _client = P4UTIL.resolve_connection(p4_user, p4_client)
         if _user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client):
             _prepare_p4_for_write(
-                _norm, _user, _client, confirm=confirm_p4, _str_func=_str_func)
+                _norm, _user, _client, confirm=confirm_p4, p4_add=p4_add, _str_func=_str_func)
             _p4_ran = True
         else:
             _p4_disconnected = True

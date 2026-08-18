@@ -903,6 +903,57 @@ def _where_depot_path(disk_path, p4_user=None, p4_client=None):
     return None
 
 
+def resolve_client_disk_path(path, p4_user=None, p4_client=None, force=False):
+    """
+    Resolve depot / UNC / disk path to the local path under the P4 client root.
+
+    Scene popup revert uses browser paths (e.g. D:\\p4\\client\\...). p4 opened
+    clientFile may be UNC while clientRoot is a mapped drive — p4 revert requires
+    a path under clientRoot.
+    """
+    _path_str = str(path).strip() if path else ''
+    if not _path_str:
+        return None
+
+    _norm = _normalize_disk_path(_path_str)
+    if not _norm:
+        return None
+
+    _info = connection_info(force=force, p4_user=p4_user, p4_client=p4_client)
+    _root = (_info or {}).get('clientRoot')
+    if _root:
+        try:
+            _root_norm = os.path.normcase(os.path.normpath(_root))
+            _norm_case = os.path.normcase(_norm)
+            if _norm_case == _root_norm or _norm_case.startswith(_root_norm + os.sep):
+                return _norm
+        except Exception:
+            pass
+
+    _res = _p4run('where', _path_str, p4_user=p4_user, p4_client=p4_client, ztag=True)
+    for _rec in _res.get('tagRecords') or []:
+        for _key in ('path', 'clientFile'):
+            _val = _rec.get(_key)
+            if not _val:
+                continue
+            _s = str(_val).strip()
+            if _s.startswith('//'):
+                continue
+            return os.path.normpath(_s)
+
+    for _line in _res.get('lines') or []:
+        _stripped = _strip_info_prefix(_line).strip()
+        if not _stripped or _stripped.lower().startswith('error:'):
+            continue
+        _parts = _stripped.split()
+        if len(_parts) >= 3:
+            _local = str(_parts[2]).strip()
+            if _local and not _local.startswith('//'):
+                return os.path.normpath(_local)
+
+    return _norm
+
+
 def _depot_file_line_from_opened_entry(entry):
     """Build //depot/path#action from a p4 opened record."""
     if not entry:
@@ -2746,9 +2797,50 @@ def edit_or_add(disk_path, p4_user=None, p4_client=None, file_type=None, changel
     )
 
 
+def resolve_revert_path(entry, p4_user=None, p4_client=None, force=False):
+    """
+    Resolve path for p4 revert from an opened-file record.
+
+    Prefer client-root disk path (Scene browser style) via p4 where on depotFile,
+    then clientFile — not raw UNC clientFile from p4 opened.
+    """
+    if not entry:
+        return None
+    _candidates = []
+    _depot = entry.get('depotFile')
+    if _depot:
+        _candidates.append(str(_depot).split('#')[0].strip())
+    _cf = entry.get('clientFile')
+    if _cf:
+        _candidates.append(str(_cf).strip())
+    for _raw in _candidates:
+        _disk = resolve_client_disk_path(
+            _raw, p4_user=p4_user, p4_client=p4_client, force=force)
+        if _disk:
+            return _disk
+    return _candidates[0] if _candidates else None
+
+
+def revert_opened_entry(entry, p4_user=None, p4_client=None, force=False, keep_workspace=False):
+    """p4 revert — discard local open using depot-aware path from an opened record."""
+    _path = resolve_revert_path(entry, p4_user=p4_user, p4_client=p4_client, force=force)
+    if not _path:
+        return {
+            'ok': False,
+            'action': 'revert',
+            'path': None,
+            'stderr': 'opened entry missing depot and client path',
+            'lines': [],
+        }
+    return revert(_path, p4_user=p4_user, p4_client=p4_client, force=force, keep_workspace=keep_workspace)
+
+
 def revert(disk_path, p4_user=None, p4_client=None, force=False, keep_workspace=False):
     """p4 revert — discard local open on file."""
-    _path = _normalize_disk_path(disk_path)
+    _path = resolve_client_disk_path(
+        disk_path, p4_user=p4_user, p4_client=p4_client, force=force)
+    if not _path:
+        _path = _normalize_disk_path(disk_path)
     if not _path:
         return {'ok': False, 'action': 'revert', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
 

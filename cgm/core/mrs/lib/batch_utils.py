@@ -57,8 +57,79 @@ __version__ = 'alpha.1.10212019'
 #MRSBATCH.process_blocks_rig('D:/Dropbox/cgmMRS/maya/batch/master_template_v01.mb')
 
 
+def batch_export_context_from_ui(ui_root):
+    """Project cfg + P4 user/client + auto-checkout flag for mayapy batch payloads."""
+    _out = {}
+    _pc = ''
+    try:
+        _var = getattr(ui_root, 'var_project', None)
+        if _var:
+            _pc = (_var.getValue() or '').strip()
+    except Exception:
+        pass
+    if not _pc:
+        _mDat = getattr(ui_root, 'mDat', None)
+        if _mDat:
+            _pc = (getattr(_mDat, 'str_filepath', None) or '').strip()
+    if _pc:
+        _out['projectConfig'] = _pc.replace('\\', '/')
+    try:
+        import cgm.core.lib.perforce as P4UTIL
+        _user, _client = P4UTIL.resolve_connection()
+        if _user:
+            _out['p4User'] = _user
+        if _client:
+            _out['p4Client'] = _client
+    except Exception:
+        pass
+    _out['autoCheckoutExportFiles'] = int(bool(getattr(ui_root, 'autoCheckoutExportFiles', False)))
+    return _out
+
+
+def apply_batch_export_context(file_dat, _str_func='batch_export'):
+    """Restore project cfg + P4 connection from batch payload (mayapy BatchExport)."""
+    if not file_dat:
+        return
+    import cgm.core.cgm_Meta as cgmMeta
+    _pc = (file_dat.get('projectConfig') or '').strip()
+    if _pc and os.path.exists(_pc):
+        cgmMeta.cgmOptionVar('cgmVar_projectCurrent', varType='string').setValue(_pc)
+        log.info('{0} | batch project cfg: {1}'.format(_str_func, _pc))
+    _pu = (file_dat.get('p4User') or '').strip()
+    _pcl = (file_dat.get('p4Client') or '').strip()
+    if _pu and _pcl:
+        import cgm.core.lib.perforce as P4UTIL
+        P4UTIL.save_connection_prefs(p4_user=_pu, p4_client=_pcl)
+        log.info('{0} | batch P4 context: {1}@{2}'.format(_str_func, _pu, _pcl))
+
+
+def batch_export_setup_script_lines(dat):
+    """Mayapy script lines: set project + P4 prefs before Scene.BatchExport."""
+    if not dat:
+        return []
+    _first = dat[0]
+    _lines = []
+    _pc = (_first.get('projectConfig') or '').strip()
+    if _pc:
+        _lines.append('import cgm.core.cgm_Meta as cgmMeta')
+        _lines.append(
+            'cgmMeta.cgmOptionVar("cgmVar_projectCurrent", varType="string").setValue("{0}")'.format(
+                _pc.replace('\\', '/'))
+        )
+    _pu = (_first.get('p4User') or '').strip()
+    _pcl = (_first.get('p4Client') or '').strip()
+    if _pu and _pcl:
+        _lines.append('import cgm.core.lib.perforce as P4UTIL')
+        _lines.append(
+            'P4UTIL.save_connection_prefs(p4_user="{0}", p4_client="{1}")'.format(_pu, _pcl)
+        )
+    if _lines:
+        _lines.append('')
+    return _lines
+
+
 def _batch_prepare_write_path(path, mDat=None, _str_func='batch_utils'):
-    """P4 prepare for batch script / rig output writes (no confirm dialogs)."""
+    """P4 prepare for batch script writes — edit-only, no confirm dialogs, never p4 add."""
     if not path:
         return None
     if mDat is None:
@@ -68,6 +139,7 @@ def _batch_prepare_write_path(path, mDat=None, _str_func='batch_utils'):
             [path],
             mDat=mDat,
             confirm_p4=False,
+            p4_add=False,
             _str_func=_str_func,
         )
     except COREPATHS.PathWritePrepareError as err:
@@ -124,6 +196,7 @@ def create_Scene_batchFile(dat = [], batchFile = None, process = True,
     'mc.workspace("{0}",openWorkspace=1)'.format(mPath_content),
     'import cgm.core.mrs.lib.batch_utils as MRSBATCH',
     '']
+    l_pre.extend(batch_export_setup_script_lines(dat))
     
     if cgmGEN.__mayaVersionInt__ > 2020:
         if mc.pluginInfo('mtoa', q=True, registered=True):

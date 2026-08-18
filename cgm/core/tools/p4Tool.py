@@ -854,7 +854,7 @@ def uiFunc_changelist_revert(self, change_key):
         _failures = []
         for _entry in _selected_entries:
             _path = _opened_entry_label_path(_entry)
-            _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
+            _res = P4UTIL.revert_opened_entry(_entry, p4_user=_user, p4_client=_client)
             if _res.get('ok'):
                 log.info('Reverted: {0}'.format(_path))
             else:
@@ -1114,9 +1114,7 @@ def uiFunc_row_revert(self, idx):
     except (IndexError, TypeError):
         return
 
-    _path = _entry.get('depotFile') or _entry.get('clientFile')
-    if not _path:
-        return
+    _path = _opened_entry_label_path(_entry)
 
     _result = mc.confirmDialog(
         title='Revert file',
@@ -1130,7 +1128,7 @@ def uiFunc_row_revert(self, idx):
         return
 
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
-    _res = P4UTIL.revert(_path, p4_user=_user, p4_client=_client)
+    _res = P4UTIL.revert_opened_entry(_entry, p4_user=_user, p4_client=_client)
     if _res.get('ok'):
         log.info('Reverted: {0}'.format(_path))
     else:
