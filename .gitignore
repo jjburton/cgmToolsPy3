@@ -1,2 +1,7 @@
 __pycache__
 .pyc
+
+# PyCharm / JetBrains project settings
+.idea/
+
+.gitignore
