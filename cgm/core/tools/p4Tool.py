@@ -1,4 +1,4 @@
-"""
+﻿"""
 ------------------------------------------
 p4Tool : cgm.core.tools
 Perforce connection UI — prefs, status, opened files, path query.
@@ -16,10 +16,26 @@ import maya.cmds as mc
 import cgm.core.classes.GuiFactory as cgmUI
 import cgm.core.cgm_Meta as cgmMeta
 import cgm.core.cgm_General as cgmGEN
+import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.perforce as P4UTIL
+import cgm.images.icons as cgmIcons
 
 mUI = cgmUI.mUI
+_path_imageFolder = PATHS.Path(cgmIcons.__file__).up().asFriendly()
+
+
+def _icon_btn_kw(image_name, w=25, h=25):
+    """Match Scene column-row icon buttons — fixed size, no stretch."""
+    return dict(
+        ut='cgmUITemplate',
+        style='iconOnly',
+        l='',
+        image=os.path.join(_path_imageFolder, image_name),
+        w=w,
+        h=h,
+        bgc=cgmUI.guiButtonColor,
+    )
 
 __version__ = cgmGEN.__RELEASESTRING
 __toolname__ = 'cgmP4'
@@ -47,7 +63,7 @@ class ui(cgmUI.cgmGUI):
     MIN_BUTTON = True
     MAX_BUTTON = False
     FORCE_DEFAULT_SIZE = False
-    DEFAULT_SIZE = 600, 580
+    DEFAULT_SIZE = 600, 480
     TOOLNAME = '{0}.ui'.format(__toolname__)
 
     def insert_init(self, *args, **kws):
@@ -349,6 +365,7 @@ def uiFunc_toggle_shelf_cl_checks(self, change_key, *args):
     _val = _ui['master_cb'].getValue()
     for _cb in _ui['file_cbs']:
         _cb.setValue(_val)
+    uiFunc_refresh_shelved_cl_label(self, change_key)
 
 
 def uiFunc_get_shelf_cl_selection(self, change_key):
@@ -374,6 +391,118 @@ def _opened_change_key(change):
     return _change_str if _change_str not in ('',) else 'default'
 
 
+def uiFunc_count_cl_checked(ui):
+    _file_cbs = (ui or {}).get('file_cbs') or []
+    _total = len(_file_cbs)
+    _checked = sum(1 for _cb in _file_cbs if _cb.getValue())
+    return _checked, _total
+
+
+def uiFunc_format_cl_count_label(checked, total):
+    return '({0}/{1})'.format(checked, total)
+
+
+def uiFunc_cl_desc_preview(description, max_desc=48):
+    _desc = (description or '').strip()
+    if not _desc:
+        return ''
+    _desc = _desc.splitlines()[0].strip()
+    if len(_desc) > max_desc:
+        _desc = _desc[:max_desc - 3] + '...'
+    return _desc
+
+
+def uiFunc_format_cl_frame_label(label_base, checked, total, description=None, max_desc=48):
+    """Changelist frame header — base, optional description preview, checked/total count."""
+    _count = uiFunc_format_cl_count_label(checked, total)
+    _desc = uiFunc_cl_desc_preview(description, max_desc=max_desc)
+    if _desc:
+        return '{0} — {1} {2}'.format(label_base, _desc, _count)
+    return '{0} {1}'.format(label_base, _count)
+
+
+def uiFunc_opened_cl_label_base(change):
+    if str(change).lower() in ('default', ''):
+        return 'Default'
+    return 'Change {0}'.format(change)
+
+
+def uiFunc_refresh_opened_cl_label(self, change_key):
+    _ui = self._d_opened_cl_ui.get(_opened_change_key(change_key))
+    if not _ui:
+        return
+    _frame = _ui.get('frame')
+    if not _frame:
+        return
+    _checked, _total = uiFunc_count_cl_checked(_ui)
+    _frame(
+        edit=True,
+        label=uiFunc_format_cl_frame_label(
+            _ui.get('label_base') or 'Change',
+            _checked,
+            _total,
+            description=_ui.get('description'),
+        ),
+    )
+
+
+def uiFunc_sync_opened_cl_master(self, change_key):
+    _ui = self._d_opened_cl_ui.get(_opened_change_key(change_key))
+    if not _ui:
+        return
+    _master = _ui.get('master_cb')
+    _file_cbs = _ui.get('file_cbs') or []
+    if not _master or not _file_cbs:
+        return
+    try:
+        _master.setValue(all(_cb.getValue() for _cb in _file_cbs))
+    except Exception:
+        pass
+
+
+def uiFunc_opened_cl_file_check_changed(self, change_key, *args):
+    uiFunc_sync_opened_cl_master(self, change_key)
+    uiFunc_refresh_opened_cl_label(self, change_key)
+
+
+def uiFunc_refresh_shelved_cl_label(self, change_key):
+    _ui = self._d_shelved_cl_ui.get(_shelved_change_key(change_key))
+    if not _ui:
+        return
+    _frame = _ui.get('frame')
+    if not _frame:
+        return
+    _checked, _total = uiFunc_count_cl_checked(_ui)
+    _frame(
+        edit=True,
+        label=uiFunc_format_cl_frame_label(
+            _ui.get('label_base') or 'Change',
+            _checked,
+            _total,
+            description=_ui.get('description'),
+        ),
+    )
+
+
+def uiFunc_sync_shelved_cl_master(self, change_key):
+    _ui = self._d_shelved_cl_ui.get(_shelved_change_key(change_key))
+    if not _ui:
+        return
+    _master = _ui.get('master_cb')
+    _file_cbs = _ui.get('file_cbs') or []
+    if not _master or not _file_cbs:
+        return
+    try:
+        _master.setValue(all(_cb.getValue() for _cb in _file_cbs))
+    except Exception:
+        pass
+
+
+def uiFunc_shelved_cl_file_check_changed(self, change_key, *args):
+    uiFunc_sync_shelved_cl_master(self, change_key)
+    uiFunc_refresh_shelved_cl_label(self, change_key)
+
+
 def uiFunc_toggle_cl_checks(self, change_key, *args):
     _ui = self._d_opened_cl_ui.get(_opened_change_key(change_key))
     if not _ui:
@@ -381,6 +510,7 @@ def uiFunc_toggle_cl_checks(self, change_key, *args):
     _val = _ui['master_cb'].getValue()
     for _cb in _ui['file_cbs']:
         _cb.setValue(_val)
+    uiFunc_refresh_opened_cl_label(self, change_key)
 
 
 def _opened_entry_label_path(entry):
@@ -517,6 +647,144 @@ def _format_cl_path_preview(paths, max_lines=8):
     return _preview
 
 
+def uiFunc_format_pending_cl_label(change, description, max_desc=48):
+    _desc = uiFunc_cl_desc_preview(description, max_desc=max_desc)
+    if _desc:
+        return '{0} — {1}'.format(change, _desc)
+    return str(change)
+
+
+def uiFunc_get_pending_changelist_options(user, client, status_dat=None, exclude_change=None):
+    """Pending numbered changelists for pickers — change, description, label."""
+    _changes = []
+    if status_dat:
+        _pending_dat = status_dat.get('pendingChanges') or {}
+        if not _pending_dat.get('error'):
+            _changes = list(_pending_dat.get('changes') or [])
+    if not _changes:
+        _q = P4UTIL.query_pending_changes(p4_user=user, p4_client=client)
+        if not _q.get('error'):
+            _changes = list(_q.get('changes') or [])
+
+    _options = []
+    for _ch in _changes:
+        _cl = _ch.get('change')
+        if _cl is None:
+            continue
+        if exclude_change is not None and str(_cl) == str(exclude_change):
+            continue
+        _desc = (_ch.get('description') or '').strip()
+        _options.append({
+            'change': _cl,
+            'description': _desc,
+            'label': uiFunc_format_pending_cl_label(_cl, _desc),
+        })
+    _options.sort(key=lambda _o: int(_o['change']), reverse=True)
+    return _options
+
+
+def uiFunc_prompt_pick_existing_changelist(pending_options, title='Select changelist'):
+    """
+    Modal scroll-list picker for a pending changelist.
+
+    Returns change id on OK, False when cancelled.
+    """
+    if not pending_options:
+        return False
+
+    def _pick(tsl, items, *args):
+        _sel = mc.textScrollList(tsl, q=True, selectIndexedItem=True) or []
+        if not _sel:
+            return
+        mc.layoutDialog(dismiss=items[_sel[0] - 1])
+
+    def _build_ui():
+        mc.columnLayout(adjustableColumn=True, rowSpacing=5)
+        mc.text(l=title, align='center', font='boldLabelFont')
+        mc.separator(h=5, style='none')
+
+        _labels = [_opt.get('label') or str(_opt['change']) for _opt in pending_options]
+        _items = [_opt['change'] for _opt in pending_options]
+        _rows = min(14, max(4, len(_labels)))
+        _tsl = mc.textScrollList(
+            numberOfRows=_rows,
+            allowMultiSelection=False,
+            height=_rows * 18,
+        )
+        for _lbl in _labels:
+            mc.textScrollList(_tsl, e=True, append=_lbl)
+        mc.textScrollList(_tsl, e=True, selectIndexedItem=1)
+        mc.textScrollList(
+            _tsl,
+            e=True,
+            doubleClickCommand=cgmGEN.Callback(_pick, _tsl, _items),
+        )
+
+        mc.separator(h=5, style='none')
+        mc.rowLayout(
+            numberOfColumns=2,
+            adjustableColumn=2,
+            columnAttach=[(1, 'both', 4), (2, 'both', 4)],
+            columnWidth2=(120, 120),
+        )
+        mc.button(l='OK', c=cgmGEN.Callback(_pick, _tsl, _items))
+        mc.button(l='Cancel', c=lambda *a: mc.layoutDialog(dismiss='cancel'))
+        mc.setParent('..')
+
+    _result = mc.layoutDialog(ui=_build_ui)
+    if _result in (None, 'dismiss', 'cancel'):
+        return False
+    return _result
+
+
+def uiFunc_prompt_changelist_target(
+        title,
+        message,
+        user,
+        client,
+        status_dat=None,
+        exclude_change=None,
+        default_button='Default'):
+    """
+    Prompt for changelist target: default, existing pending CL, new, or cancel.
+
+    Returns:
+        False — cancelled
+        None — default changelist
+        'new' — caller should create a new changelist
+        int/str — numbered pending changelist
+    """
+    _pending = uiFunc_get_pending_changelist_options(
+        user, client, status_dat=status_dat, exclude_change=exclude_change)
+
+    _buttons = ['Default']
+    if _pending:
+        _buttons.append('Existing...')
+    _buttons.extend(['New...', 'Cancel'])
+
+    _result = mc.confirmDialog(
+        title=title,
+        message=message,
+        button=_buttons,
+        defaultButton=default_button,
+        cancelButton='Cancel',
+        dismissString='Cancel',
+    )
+    if _result in (None, 'Cancel'):
+        return False
+    if _result == 'Default':
+        return None
+    if _result == 'New...':
+        return 'new'
+    if _result == 'Existing...':
+        _picked = uiFunc_prompt_pick_existing_changelist(
+            _pending, title='{0} — existing'.format(title))
+        if _picked is False:
+            return False
+        return _picked
+    return False
+
+
 def uiFunc_prompt_change_description(title, message, change, user, client):
     _default = P4UTIL.query_change_description(change, p4_user=user, p4_client=client) or None
     _desc = cgmUI.uiPrompt_getValue(
@@ -534,12 +802,16 @@ def uiFunc_prompt_change_description(title, message, change, user, client):
     return _desc
 
 
-def uiFunc_build_opened_file_row(parent, self, entry, idx, file_cbs):
+def uiFunc_build_opened_file_row(parent, self, entry, idx, file_cbs, change_key):
     _bgc = _ROW_BGC_EVEN if MATH.is_even(idx) else _ROW_BGC_ODD
     _row = mUI.MelHSingleStretchLayout(parent, h=30, bgc=_bgc, padding=2)
     mUI.MelSpacer(_row, w=5)
 
-    _cb = mUI.MelCheckBox(_row, value=1)
+    _cb = mUI.MelCheckBox(
+        _row,
+        value=1,
+        changeCommand=cgmGEN.Callback(uiFunc_opened_cl_file_check_changed, self, change_key),
+    )
     file_cbs.append(_cb)
 
     _change = entry.get('change', 'default')
@@ -552,20 +824,23 @@ def uiFunc_build_opened_file_row(parent, self, entry, idx, file_cbs):
     mUI.MelLabel(_row, l=_label, ann=_path)
     _row.setStretchWidget(mUI.MelLabel(_row, l=''))
 
-    mUI.MelButton(
-        _row, l='Revert', bgc=cgmUI.guiButtonColor,
+    mUI.MelIconButton(
+        _row,
         ann='p4 revert {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_row_revert, self, idx),
+        **_icon_btn_kw('revert.png', w=22, h=22),
     )
-    mUI.MelButton(
-        _row, l='Submit', bgc=cgmUI.guiButtonColor,
+    mUI.MelIconButton(
+        _row,
         ann='p4 submit {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_row_submit, self, idx),
+        **_icon_btn_kw('submit.png', w=22, h=22),
     )
-    mUI.MelButton(
-        _row, l='Shelve', bgc=cgmUI.guiButtonColor,
+    mUI.MelIconButton(
+        _row,
         ann='p4 shelve {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_row_shelve, self, idx),
+        **_icon_btn_kw('shelve.png', w=22, h=22),
     )
     mUI.MelSpacer(_row, w=5)
     _row.layout()
@@ -588,9 +863,12 @@ def uiFunc_build_opened_changelist_section(self, parent, grp, start_idx):
     mUI.MelSpacer(_row, w=5)
 
     _sub_column = mUI.MelColumnLayout(_row, bgc=_header)
+    _total = len(grp['entries'])
+    _label_base = uiFunc_opened_cl_label_base(grp['change'])
+    _description = (grp.get('description') or '').strip()
     _frame = mUI.MelFrameLayout(
         _sub_column,
-        label=grp['label'],
+        label=uiFunc_format_cl_frame_label(_label_base, _total, _total, description=_description),
         vis=True,
         collapse=False,
         collapsable=True,
@@ -605,32 +883,26 @@ def uiFunc_build_opened_changelist_section(self, parent, grp, start_idx):
     for _entry in grp['entries']:
         self._l_opened_entries.append(_entry)
         _indices.append(_idx)
-        uiFunc_build_opened_file_row(_inside, self, _entry, _idx, _file_cbs)
+        uiFunc_build_opened_file_row(_inside, self, _entry, _idx, _file_cbs, _change_key)
         _idx += 1
 
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='R',
-        w=22,
-        bgc=cgmUI.guiButtonColor,
         ann='Revert changelist — checked files only, or all if none checked',
         c=cgmGEN.Callback(uiFunc_changelist_revert, self, _change_key),
+        **_icon_btn_kw('revert.png', w=22, h=22),
     )
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='S',
-        w=22,
-        bgc=cgmUI.guiButtonColor,
         ann='Submit changelist — checked files only, or all if none checked',
         c=cgmGEN.Callback(uiFunc_changelist_submit, self, _change_key),
+        **_icon_btn_kw('submit.png', w=22, h=22),
     )
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='Sh',
-        w=22,
-        bgc=cgmUI.guiButtonColor,
         ann='Shelve changelist — checked files only, or all if none checked',
         c=cgmGEN.Callback(uiFunc_changelist_shelve, self, _change_key),
+        **_icon_btn_kw('shelve.png', w=22, h=22),
     )
     mUI.MelSpacer(_row, w=5)
 
@@ -639,6 +911,9 @@ def uiFunc_build_opened_changelist_section(self, parent, grp, start_idx):
 
     self._d_opened_cl_ui[_change_key] = {
         'change': grp['change'],
+        'frame': _frame,
+        'label_base': _label_base,
+        'description': _description,
         'master_cb': _master_cb,
         'file_cbs': _file_cbs,
         'indices': _indices,
@@ -662,7 +937,10 @@ def uiFunc_build_opened_rows(self, opened_dat):
             opened_dat['error'])
         return
 
-    _groups = P4UTIL.iter_opened_changelist_groups(opened_dat)
+    _groups = P4UTIL.iter_opened_changelist_groups(
+        opened_dat,
+        pending_dat=(getattr(self, '_p4_status_dat', None) or {}).get('pendingChanges'),
+    )
     if not _groups:
         _uiFunc_set_section_empty_state(
             self, 'uiFrame_opened', 'uiRow_opened_empty', 'uiLabel_opened_empty',
@@ -677,12 +955,16 @@ def uiFunc_build_opened_rows(self, opened_dat):
         mUI.MelSeparator(self.uiFrame_opened, h=3)
 
 
-def uiFunc_build_shelved_file_row(parent, self, entry, idx, file_cbs):
+def uiFunc_build_shelved_file_row(parent, self, entry, idx, file_cbs, change_key):
     _bgc = _ROW_BGC_EVEN if MATH.is_even(idx) else _ROW_BGC_ODD
     _row = mUI.MelHSingleStretchLayout(parent, h=30, bgc=_bgc, padding=2)
     mUI.MelSpacer(_row, w=5)
 
-    _cb = mUI.MelCheckBox(_row, value=1)
+    _cb = mUI.MelCheckBox(
+        _row,
+        value=1,
+        changeCommand=cgmGEN.Callback(uiFunc_shelved_cl_file_check_changed, self, change_key),
+    )
     file_cbs.append(_cb)
 
     _action = entry.get('action', '?')
@@ -695,10 +977,11 @@ def uiFunc_build_shelved_file_row(parent, self, entry, idx, file_cbs):
     mUI.MelLabel(_row, l=_label, ann=_path)
     _row.setStretchWidget(mUI.MelLabel(_row, l=''))
 
-    mUI.MelButton(
-        _row, l='Delete', bgc=cgmUI.guiButtonColor,
+    mUI.MelIconButton(
+        _row,
         ann='p4 shelve -d {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_shelf_row_delete, self, idx),
+        **_icon_btn_kw('clear.png', w=22, h=22),
     )
     mUI.MelSpacer(_row, w=5)
     _row.layout()
@@ -721,9 +1004,12 @@ def uiFunc_build_shelved_changelist_section(self, parent, grp, start_idx):
     mUI.MelSpacer(_row, w=5)
 
     _sub_column = mUI.MelColumnLayout(_row, bgc=_header)
+    _total = len(grp['entries'])
+    _label_base = 'Change {0}'.format(grp['change'])
+    _description = (grp.get('description') or '').strip()
     _frame = mUI.MelFrameLayout(
         _sub_column,
-        label=grp['label'],
+        label=uiFunc_format_cl_frame_label(_label_base, _total, _total, description=_description),
         vis=True,
         collapse=False,
         collapsable=True,
@@ -738,32 +1024,26 @@ def uiFunc_build_shelved_changelist_section(self, parent, grp, start_idx):
     for _entry in grp['entries']:
         self._l_shelved_entries.append(_entry)
         _indices.append(_idx)
-        uiFunc_build_shelved_file_row(_inside, self, _entry, _idx, _file_cbs)
+        uiFunc_build_shelved_file_row(_inside, self, _entry, _idx, _file_cbs, _change_key)
         _idx += 1
 
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='D',
-        w=22,
-        bgc=cgmUI.guiButtonColor,
         ann='Delete shelf — checked files only, or all shelved if none checked',
         c=cgmGEN.Callback(uiFunc_shelf_changelist_delete, self, _change_key),
+        **_icon_btn_kw('clear.png', w=22, h=22),
     )
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='Mv',
-        w=26,
-        bgc=cgmUI.guiButtonColor,
         ann='Move to changelist — unshelve checked files into target CL, then delete from source shelf',
         c=cgmGEN.Callback(uiFunc_shelf_changelist_move, self, _change_key),
+        **_icon_btn_kw('file_move.png', w=22, h=22),
     )
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='Sub',
-        w=28,
-        bgc=cgmUI.guiButtonColor,
         ann='Submit shelved changelist (p4 submit -e)',
         c=cgmGEN.Callback(uiFunc_shelf_changelist_submit, self, _change_key),
+        **_icon_btn_kw('submit.png', w=22, h=22),
     )
     mUI.MelSpacer(_row, w=5)
 
@@ -772,6 +1052,9 @@ def uiFunc_build_shelved_changelist_section(self, parent, grp, start_idx):
 
     self._d_shelved_cl_ui[_change_key] = {
         'change': grp['change'],
+        'frame': _frame,
+        'label_base': _label_base,
+        'description': _description,
         'master_cb': _master_cb,
         'file_cbs': _file_cbs,
         'indices': _indices,
@@ -1240,40 +1523,20 @@ def uiFunc_shelf_get_action_paths(self, change_key):
 
 
 def uiFunc_prompt_shelf_target_changelist(self, source_change, user, client):
-    """Prompt for target changelist number, default, or new."""
-    _pending = []
-    _dat = getattr(self, '_p4_status_dat', None) or {}
-    _pending_dat = _dat.get('pendingChanges') or {}
-    for _ch in _pending_dat.get('changes') or []:
-        _cl = _ch.get('change')
-        if _cl is not None and str(_cl) != str(source_change):
-            _pending.append(str(_cl))
-    _msg = 'Enter target changelist: number, default, or new'
-    if _pending:
-        _msg += '\n\nPending changelists: {0}'.format(', '.join(_pending[:24]))
-    _raw = cgmUI.uiPrompt_getValue(
+    """Prompt for target changelist: default, existing pending CL, or new."""
+    _result = uiFunc_prompt_changelist_target(
         title='Move to changelist',
-        message=_msg,
-        style='text',
+        message='Move shelved files to which changelist?',
+        user=user,
+        client=client,
+        status_dat=getattr(self, '_p4_status_dat', None),
+        exclude_change=source_change,
     )
-    if _raw is None:
+    if _result is False:
         return None
-    _raw = _raw.strip()
-    if not _raw:
-        log.warning('Move to changelist: target required')
-        return None
-    _lower = _raw.lower()
-    if _lower in ('default', 'new'):
-        return _lower
-    try:
-        _target = int(_raw)
-    except (TypeError, ValueError):
-        log.error('Move to changelist: invalid target "{0}"'.format(_raw))
-        return None
-    if str(_target) == str(source_change):
-        log.error('Move to changelist: target cannot be the same as source ({0})'.format(_target))
-        return None
-    return _target
+    if _result is None:
+        return 'default'
+    return _result
 
 
 def uiFunc_shelf_changelist_move(self, change_key):

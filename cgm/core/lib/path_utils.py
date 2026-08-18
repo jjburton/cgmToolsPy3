@@ -79,11 +79,15 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
     _i = 0
     
     _rootKey = None
+    _l_mask_lower = [m.lower() for m in l_mask] if l_mask else []
     for root, dirs, files in os.walk(_path.asString(), True, None):
 
         if hardCap and _i > hardCap:
             log.warning(cgmGEN.logString_msg(_str_func,"hit cap...{0}".format(hardCap)))
             break
+
+        if _l_mask_lower:
+            dirs[:] = [d for d in dirs if d.lower() not in _l_mask_lower]
 
         _rootPath = PATHS.Path(root)
         _split = _rootPath.split()
@@ -103,14 +107,15 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
         if _subRoot[0] in ['.']:
             log.debug(cgmGEN.logString_msg(_str_func,"Skipping...{0}".format(_subRoot)))
             continue
-        elif _subRoot in l_mask:
+        elif _l_mask_lower and _subRoot.lower() in _l_mask_lower:
             log.debug(cgmGEN.logString_msg(_str_func,"Masked...{0}".format(_subRoot)))
             continue
         
-        if l_mask:
+        if _l_mask_lower:
+            _splitUp_lower = [p.lower() for p in _splitUp]
             _break = False
-            for v in l_mask:
-                if v in _splitUp:
+            for v in _l_mask_lower:
+                if v in _splitUp_lower:
                     log.debug(cgmGEN.logString_msg(_str_func,"Masked...{0}".format(_rootPath)))
                     _break = True
                     continue

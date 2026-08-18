@@ -3665,6 +3665,15 @@ example:
         mUI.MelMenuItem( self.uiMenu_ToolsMenu, l="Maya Scanner",
                          c = lambda *a:mc.evalDeferred(self.uiFunc_mayaScannerProject,lp=True))
 
+        if self._scene_p4_menu_active():
+            mUI.MelMenuItemDiv(self.uiMenu_ToolsMenu, label='Perforce..')
+            mUI.MelMenuItem(
+                self.uiMenu_ToolsMenu,
+                l='Find Unknowns',
+                ann='Find local project files not on depot (set user/client in cgmP4 first)',
+                c=lambda *a: mc.evalDeferred(self.uiFunc_p4_find_unknowns, lp=True),
+            )
+
     def uiFunc_mayaScannerProject(self):
 
         mc.loadPlugin("MayaScanner")
@@ -5858,6 +5867,10 @@ example:
             return bool(PU.project_uses_perforce(self.mDat))
         except Exception:
             return False
+
+    def uiFunc_p4_find_unknowns(self, *args):
+        import cgm.core.tools.lib.tool_calls as TOOLCALLS
+        TOOLCALLS.p4FindUnknownsTool()
 
     def _scene_p4_connected(self):
         try:

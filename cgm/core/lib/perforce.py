@@ -83,15 +83,27 @@ def get_connection_prefs():
 
 
 def save_connection_prefs(p4_user=None, p4_client=None):
-    """Persist p4 user/client to Maya optionVars."""
+    """Persist p4 user/client to Maya optionVars.
+
+    Clears the P4 session cache only when user or client actually changes.
+    """
     import cgm.core.cgm_Meta as cgmMeta
+    _prev_user, _prev_client = get_connection_prefs()
+    _changed = False
+
     if p4_user is not None:
-        cgmMeta.cgmOptionVar(OPT_P4_USER, varType='string', defaultValue='').setValue(
-            str(p4_user).strip())
+        _new_user = str(p4_user).strip()
+        if _new_user != (_prev_user or ''):
+            _changed = True
+        cgmMeta.cgmOptionVar(OPT_P4_USER, varType='string', defaultValue='').setValue(_new_user)
     if p4_client is not None:
+        _new_client = str(p4_client).strip()
+        if _new_client != (_prev_client or ''):
+            _changed = True
         cgmMeta.cgmOptionVar(OPT_P4_CLIENT, varType='string', defaultValue='').setValue(
-            str(p4_client).strip())
-    _clear_cache()
+            _new_client)
+    if _changed:
+        _clear_cache()
 
 
 def _clear_cache():
@@ -111,6 +123,10 @@ def reload_session_cache():
 
 
 FSTAT_QUERY_CHUNK = 96
+
+DEFAULT_P4_CACHE_DIR_MASK = [
+    'meta', '.mayaSwatches', 'incrementalSave', 'cgmDat', 'mayaSwatches',
+]
 
 
 def _connection_report_cache_key(p4_user, p4_client, scene_path):
@@ -1768,12 +1784,13 @@ def query_pending_changes(p4_user=None, p4_client=None, force=False):
         _line = _line.strip()
         if not _line or _line.lower().startswith('error:'):
             continue
-        _m = _CHANGE_LINE_RE.match(_line)
-        if not _m:
+        _change, _status, _desc = _parse_change_list_line(_line)
+        if _change is None:
             continue
         _changes.append({
-            'change': int(_m.group('change')),
-            'status': _m.group('status'),
+            'change': _change,
+            'status': _status or 'pending',
+            'description': (_desc or '').strip(),
             'line': _line,
         })
 
@@ -2129,6 +2146,59 @@ def _fstat_cache_key(p4_user, p4_client, normpath):
     return (p4_user or '', p4_client or '', _path_lookup_key(normpath))
 
 
+def _path_key_under_root(path_key, root_key):
+    if not path_key or not root_key:
+        return False
+    if path_key == root_key:
+        return True
+    return path_key.startswith(root_key + os.sep)
+
+
+def _fstat_cache_depot_skip_and_unknown(root_path, p4_user, p4_client):
+    """
+    Session fstat entries under root_path.
+
+    Returns (depot_skip_keys, cached_unknown_entries).
+    depot_skip_keys: paths already classified — skip batch fstat (same role as depot_paths).
+    cached_unknown_entries: known unknowns from cache — include without re-query.
+    """
+    _root = _normalize_disk_path(root_path)
+    _root_key = _path_lookup_key(_root)
+    if not _root_key:
+        return set(), []
+
+    _store = _fstat_cache_store()
+    if not _store:
+        return set(), []
+
+    _depot_keys = set()
+    _unknown_entries = []
+    for _key, _dat in _store.items():
+        if len(_key) < 3:
+            continue
+        if _key[0] != (p4_user or '') or _key[1] != (p4_client or ''):
+            continue
+        _path_key = _key[2]
+        if not _path_key_under_root(_path_key, _root_key):
+            continue
+        if not _dat:
+            continue
+        if _is_unknown_file(_dat):
+            _norm = _normalize_disk_path(_dat.get('path'))
+            if _norm and os.path.isfile(_norm):
+                _unknown_entries.append({'path': _norm, 'dat': dict(_dat)})
+            continue
+        if _dat.get('notInClient'):
+            _depot_keys.add(_path_key)
+            continue
+        if _dat.get('onDepot') or not _dat.get('notOnDepot'):
+            _depot_keys.add(_path_key)
+            continue
+        if classify_file_status_ui(_dat) is not None:
+            _depot_keys.add(_path_key)
+    return _depot_keys, _unknown_entries
+
+
 def invalidate_fstat_paths(disk_paths, p4_user=None, p4_client=None):
     """Drop cached fstat entries for specific disk paths (current user/client when omitted)."""
     _store = _fstat_cache_store()
@@ -2159,6 +2229,7 @@ def flush_fstat_cache(p4_user=None, p4_client=None):
         return
     if p4_user is None and p4_client is None:
         _store.clear()
+        flush_unknown_cache()
         return
     _drop = []
     for _key in _store:
@@ -2514,6 +2585,271 @@ def store_fstat_cache_record(record, p4_user=None, p4_client=None):
     return store_fstat_cache_records([record], p4_user=p4_user, p4_client=p4_client)
 
 
+def _unknown_cache_store():
+    _store = _cache.get('unknown_files')
+    if _store is None:
+        _store = {}
+        _cache['unknown_files'] = _store
+    return _store
+
+
+def _unknown_cache_key(p4_user, p4_client, root):
+    _root = _normalize_disk_path(root)
+    _lookup = _path_lookup_key(_root) if _root else ''
+    return (p4_user or '', p4_client or '', _lookup or '')
+
+
+def _is_unknown_file(dat):
+    return classify_file_status_ui(dat) == 'unknown'
+
+
+def _collect_disk_files(root, dir_mask=None):
+    """Local file paths under root (respecting dir_mask), no p4 calls."""
+    _root = _normalize_disk_path(root)
+    if not _root or not os.path.isdir(_root):
+        return []
+    _mask = [m for m in (dir_mask or []) if m]
+    _files = []
+    _seen = set()
+    try:
+        for _walk_root, _dirnames, _filenames in os.walk(_root):
+            _dirnames[:] = [d for d in _dirnames if not _fstat_dir_mask_skip(d, _mask)]
+            for _fname in _filenames:
+                _path = os.path.normpath(os.path.join(_walk_root, _fname))
+                if not os.path.isfile(_path):
+                    continue
+                if _mask and _path_has_masked_dir_component(_path, _root, _mask):
+                    continue
+                _key = _path_lookup_key(_path)
+                if not _key or _key in _seen:
+                    continue
+                _seen.add(_key)
+                _files.append(_path)
+    except Exception:
+        pass
+    return _files
+
+
+def flush_unknown_cache(p4_user=None, p4_client=None):
+    """Clear session unknown-files cache (all entries, or scoped to user/client)."""
+    _store = _unknown_cache_store()
+    if not _store:
+        return
+    if p4_user is None and p4_client is None:
+        _store.clear()
+        return
+    _drop = []
+    for _key in _store:
+        if p4_user is not None and _key[0] != (p4_user or ''):
+            continue
+        if p4_client is not None and _key[1] != (p4_client or ''):
+            continue
+        _drop.append(_key)
+    for _key in _drop:
+        del _store[_key]
+
+
+def invalidate_unknown_paths(disk_paths, p4_user=None, p4_client=None):
+    """Drop listed paths from all unknown-file cache entries for user/client."""
+    _user = p4_user
+    _client = p4_client
+    if _user is None or _client is None:
+        _user, _client = resolve_connection(p4_user, p4_client)
+    _store = _unknown_cache_store()
+    if not _store:
+        return
+    _drop_keys = {_path_lookup_key(_normalize_disk_path(_p)) for _p in (disk_paths or [])}
+    _drop_keys.discard(None)
+    if not _drop_keys:
+        return
+    for _cache_key, _dat in list(_store.items()):
+        if _cache_key[0] != (_user or '') or _cache_key[1] != (_client or ''):
+            continue
+        _entries = _dat.get('entries') or []
+        _filtered = [
+            _e for _e in _entries
+            if _path_lookup_key(_e.get('path')) not in _drop_keys
+        ]
+        if len(_filtered) != len(_entries):
+            _dat['entries'] = _filtered
+            _dat['fileCount'] = len(_filtered)
+
+
+def flush_unknown_cache_root(root_path, p4_user=None, p4_client=None):
+    """Drop cached unknown-files payload for one project root (user/client)."""
+    _root = _normalize_disk_path(root_path)
+    if not _root:
+        return False
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return False
+    _store = _unknown_cache_store()
+    _key = _unknown_cache_key(_user, _client, _root)
+    if _key in _store:
+        del _store[_key]
+        return True
+    return False
+
+
+def get_cached_unknown_files(root_path, p4_user=None, p4_client=None):
+    """Return cached unknown-files payload for root, or None if not cached."""
+    _root = _normalize_disk_path(root_path)
+    if not _root:
+        return None
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return None
+    _cached = _unknown_cache_store().get(_unknown_cache_key(_user, _client, _root))
+    if not _cached:
+        return None
+    return dict(_cached)
+
+
+def collect_unknown_files(
+        root_path,
+        p4_user=None,
+        p4_client=None,
+        dir_mask=None,
+        depot_paths=None,
+        scope='project',
+        progress_cb=None,
+        cancel_cb=None,
+        use_fstat_cache_depot_paths=True):
+    """
+    Find local in-client / not-on-depot files under root_path.
+
+    depot_paths: normpaths already classified by recursive fstat (skip batch query).
+    When depot_paths is omitted and use_fstat_cache_depot_paths is True, skip paths
+    already classified in the session fstat cache under root_path (fast path after Cache).
+    progress_cb(processed, total, current_path) -> True to cancel.
+    cancel_cb() -> True to cancel.
+
+    Returns dict: ok, cancelled, root, scope, entries, fileCount, error.
+    """
+    _root = _normalize_disk_path(root_path)
+    _result = {
+        'ok': False,
+        'cancelled': False,
+        'root': _root,
+        'scope': scope or 'project',
+        'entries': [],
+        'fileCount': 0,
+        'error': None,
+    }
+    if not _root or not os.path.isdir(_root):
+        _result['error'] = 'not a directory'
+        return _result
+
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        _result['error'] = _err
+        return _result
+
+    if not is_available(force=False, p4_user=_user, p4_client=_client):
+        _result['error'] = 'p4 info failed'
+        return _result
+
+    _mask = [m for m in (dir_mask if dir_mask is not None else DEFAULT_P4_CACHE_DIR_MASK) if m]
+    _depot_keys = set()
+    for _p in depot_paths or []:
+        _norm = _normalize_disk_path(_p)
+        _key = _path_lookup_key(_norm) if _norm else None
+        if _key:
+            _depot_keys.add(_key)
+
+    _entries = []
+    _cached_unknown_keys = set()
+    if use_fstat_cache_depot_paths and depot_paths is None:
+        _cache_depot, _cache_unknown = _fstat_cache_depot_skip_and_unknown(
+            _root, _user, _client)
+        _depot_keys.update(_cache_depot)
+        for _entry in _cache_unknown:
+            _entries.append(_entry)
+            _key = _path_lookup_key(_entry.get('path'))
+            if _key:
+                _cached_unknown_keys.add(_key)
+        if _cache_depot or _cache_unknown:
+            log.info(
+                'P4 unknown: fstat cache skip {0} depot-classified, {1} cached unknown'.format(
+                    len(_cache_depot), len(_cache_unknown)))
+
+    _disk_files = _collect_disk_files(_root, _mask)
+    _candidates = []
+    for _path in _disk_files:
+        _key = _path_lookup_key(_path)
+        if not _key or _key in _depot_keys or _key in _cached_unknown_keys:
+            continue
+        _candidates.append(_path)
+
+    _total = len(_candidates)
+    _processed = 0
+
+    if _depot_keys or _cached_unknown_keys:
+        log.info(
+            'P4 unknown: {0} candidate(s) need fstat ({1} on disk)'.format(
+                _total, len(_disk_files)))
+
+    if progress_cb:
+        progress_cb(0, _total, _root)
+
+    for _i in range(0, _total, FSTAT_QUERY_CHUNK):
+        if cancel_cb and cancel_cb():
+            _result['cancelled'] = True
+            break
+        _chunk = _candidates[_i:_i + FSTAT_QUERY_CHUNK]
+        if not _chunk:
+            continue
+
+        def _chunk_progress_cb(step, total, status):
+            if cancel_cb and cancel_cb():
+                return True
+            if progress_cb:
+                _idx = min(_processed + step, _total)
+                _cur = _chunk[min(step - 1, len(_chunk) - 1)] if step > 0 and _chunk else _root
+                return progress_cb(_idx, _total, _cur)
+            return False
+
+        _status = query_files_status(
+            _chunk,
+            p4_user=_user,
+            p4_client=_client,
+            force=False,
+            progress_cb=_chunk_progress_cb if progress_cb else None,
+        )
+        if cancel_cb and cancel_cb():
+            _result['cancelled'] = True
+            break
+
+        for _path in _chunk:
+            _norm = _normalize_disk_path(_path)
+            _dat = _status.get(_norm)
+            if not _dat or not _is_unknown_file(_dat):
+                continue
+            _entries.append({'path': _norm, 'dat': dict(_dat)})
+
+        _processed = min(_i + len(_chunk), _total)
+        if progress_cb:
+            _last = _chunk[-1]
+            if progress_cb(_processed, _total, _last):
+                _result['cancelled'] = True
+                break
+
+    _entries.sort(key=lambda _e: (_e.get('path') or '').lower())
+    _payload = {
+        'root': _root,
+        'scope': scope or 'project',
+        'entries': _entries,
+        'fileCount': len(_entries),
+    }
+    if not _result['cancelled']:
+        _unknown_cache_store()[_unknown_cache_key(_user, _client, _root)] = dict(_payload)
+        _result['ok'] = True
+
+    _result['entries'] = _entries
+    _result['fileCount'] = len(_entries)
+    return _result
+
+
 def warm_fstat_cache_tree(
         root_path,
         p4_user=None,
@@ -2529,7 +2865,7 @@ def warm_fstat_cache_tree(
         Return True to cancel.
     cancel_cb() -> True to cancel.
 
-    Returns dict: ok, cancelled, path, fileCount, fileTotal, dirTotal, error.
+    Returns dict: ok, cancelled, path, fileCount, fileTotal, dirTotal, unknownCount, error.
     """
     _fetch = fetch_fstat_tree_records(
         root_path,
@@ -2546,6 +2882,7 @@ def warm_fstat_cache_tree(
         'fileCount': 0,
         'fileTotal': 0,
         'dirTotal': _fetch.get('dirTotal', 0),
+        'unknownCount': 0,
         'error': _fetch.get('error'),
     }
     if _fetch.get('error') or _fetch.get('cancelled'):
@@ -2573,6 +2910,31 @@ def warm_fstat_cache_tree(
                 _parent):
             _result['cancelled'] = True
             _result['ok'] = False
+            return _result
+
+    _depot_paths = {(_rec.get('norm') or '') for _rec in _records if _rec.get('norm')}
+
+    def _unknown_progress_cb(processed, total, current_path):
+        if cancel_cb and cancel_cb():
+            return True
+        if not progress_cb:
+            return False
+        return progress_cb(processed, max(total, 1), current_path)
+
+    _unknown = collect_unknown_files(
+        root_path,
+        p4_user=p4_user,
+        p4_client=p4_client,
+        dir_mask=dir_mask,
+        depot_paths=_depot_paths,
+        scope='project',
+        progress_cb=_unknown_progress_cb if progress_cb else None,
+        cancel_cb=cancel_cb,
+    )
+    _result['unknownCount'] = _unknown.get('fileCount', 0)
+    if _unknown.get('cancelled'):
+        _result['cancelled'] = True
+        _result['ok'] = False
     return _result
 
 
@@ -2638,15 +3000,27 @@ def _change_sort_key(change_id):
         return (1, str(change_id))
 
 
-def iter_opened_changelist_groups(opened_dat):
+def _pending_change_description_map(pending_dat):
+    _map = {}
+    if not pending_dat or pending_dat.get('error'):
+        return _map
+    for _ch in pending_dat.get('changes') or []:
+        _cl = _ch.get('change')
+        if _cl is not None:
+            _map[str(_cl)] = (_ch.get('description') or '').strip()
+    return _map
+
+
+def iter_opened_changelist_groups(opened_dat, pending_dat=None):
     """
     Display-order changelist groups from query_opened dict.
 
-    Returns list of dicts: change, label, entries.
+    Returns list of dicts: change, label, description, entries.
     """
     if not opened_dat or opened_dat.get('error'):
         return []
 
+    _desc_map = _pending_change_description_map(pending_dat)
     _groups = []
     _default = opened_dat.get('default') or []
     if _default:
@@ -2654,14 +3028,17 @@ def iter_opened_changelist_groups(opened_dat):
         _groups.append({
             'change': 'default',
             'label': 'Default ({0})'.format(len(_entries)),
+            'description': '',
             'entries': _entries,
         })
 
     for _cl in sorted((opened_dat.get('changes') or {}).keys(), key=_change_sort_key):
         _entries = [dict(_rec) for _rec in opened_dat['changes'][_cl]]
+        _desc = _desc_map.get(str(_cl), '')
         _groups.append({
             'change': _cl,
             'label': 'Change {0} ({1})'.format(_cl, len(_entries)),
+            'description': _desc,
             'entries': _entries,
         })
     return _groups
@@ -2762,6 +3139,7 @@ def add(disk_path, p4_user=None, p4_client=None, file_type=None, changelist=None
     _res = _p4run(*_args, p4_user=_user, p4_client=_client, ztag=False)
     if _res.get('ok'):
         invalidate_fstat_paths([_path], p4_user=_user, p4_client=_client)
+        invalidate_unknown_paths([_path], p4_user=_user, p4_client=_client)
     return _write_result('add', _path, _res)
 
 

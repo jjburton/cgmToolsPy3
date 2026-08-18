@@ -24,6 +24,7 @@ _CACHE = {
     'connection_report': None,
     'connection_report_key': None,
     'fstat_by_path': {},
+    'unknown_files': {},
 }
 
 
@@ -36,3 +37,4 @@ def clear():
     _CACHE['connection_report'] = None
     _CACHE['connection_report_key'] = None
     _CACHE['fstat_by_path'] = {}
+    _CACHE['unknown_files'] = {}

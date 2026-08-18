@@ -556,31 +556,37 @@ def uiProject_build_p4_status_row(self, parent):
         c=cgmGEN.Callback(uiProject_open_p4_tool),
     )
     _row.setStretchWidget(self.uiBtn_p4Status)
-    self.uiBtn_p4Get = mUI.MelButton(
-        _row,
-        l='Get',
+    _p4_icon_kw = dict(
         ut='cgmUITemplate',
+        style='iconOnly',
+        w=25,
+        h=25,
+        marginWidth=5,
+        marginHeight=5,
         bgc=cgmUI.guiButtonColor,
+    )
+    self.uiBtn_p4Get = mUI.MelIconButton(
+        _row,
+        image=os.path.join(_path_imageFolder, 'sync.png'),
         ann='p4 sync — get latest on project content root and below',
         en=False,
         c=cgmGEN.Callback(uiProject_p4_sync_project_root, self),
+        **_p4_icon_kw,
     )
-    self.uiBtn_p4Cache = mUI.MelButton(
+    self.uiBtn_p4Cache = mUI.MelIconButton(
         _row,
-        l='Cache',
-        ut='cgmUITemplate',
-        bgc=cgmUI.guiButtonColor,
+        image=os.path.join(_path_imageFolder, 'cache.png'),
         ann='Warm P4 fstat session cache for all files under project content path',
         en=False,
         c=cgmGEN.Callback(uiProject_p4_cache_project_root, self),
+        **_p4_icon_kw,
     )
-    mUI.MelButton(
+    mUI.MelIconButton(
         _row,
-        l='Refresh',
-        ut='cgmUITemplate',
-        bgc=cgmUI.guiButtonColor,
+        image=os.path.join(_path_imageFolder, 'refresh.png'),
         ann='Query p4 connection using cgmP4 user/client',
         c=cgmGEN.Callback(uiProject_refresh_p4_status, self, True),
+        **_p4_icon_kw,
     )
     mUI.MelSpacer(_row, w=5)
     _row.layout()
@@ -625,6 +631,52 @@ def uiProject_p4_project_root_in_client(self):
 _l_p4_cache_dir_mask = ['meta', '.mayaSwatches', 'incrementalSave', 'cgmDat', 'mayaSwatches']
 
 
+def project_dir_mask(mDat=None, l_dirMask=None, dirMask=None):
+    """Merged project directory mask (base + project dirMask field)."""
+    if l_dirMask:
+        return list(l_dirMask)
+
+    _mask = copy.copy(_l_p4_cache_dir_mask)
+    if dirMask is None and mDat:
+        dirMask = mDat.d_project.get('dirMask')
+    if dirMask:
+        _mask.extend(CORESTRING.parseCommaString(dirMask))
+    if _mask:
+        _mask = [n.lower() for n in _mask]
+    return _mask
+
+
+def uiProject_build_dir_mask(self, from_ui=False):
+    _dir_mask = None
+    if from_ui:
+        try:
+            _dir_mask = self.d_tf['general']['dirMask'].getValue()
+        except Exception:
+            pass
+    self.l_dirMask = project_dir_mask(
+        mDat=getattr(self, 'mDat', None),
+        dirMask=_dir_mask,
+    )
+    return self.l_dirMask
+
+
+def uiProject_dirMask_refresh_lists(self):
+    uiProject_build_dir_mask(self, from_ui=True)
+    _l_dirMask = self.l_dirMask
+    for _scroll in (
+            getattr(self, 'uiScrollList_dirContent', None),
+            getattr(self, 'uiScrollList_dirExport', None),
+    ):
+        if _scroll:
+            _scroll.l_dirMask = _l_dirMask
+    _content = self.d_tf['paths']['content'].getValue()
+    _export = self.d_tf['paths']['export'].getValue()
+    if getattr(self, 'uiScrollList_dirContent', None) and _content:
+        self.uiScrollList_dirContent.rebuild(_content)
+    if getattr(self, 'uiScrollList_dirExport', None) and _export:
+        self.uiScrollList_dirExport.rebuild(_export)
+
+
 def uiProject_p4_cache_dir_mask(self):
     try:
         _mask = getattr(self, 'l_dirMask', None)
@@ -632,7 +684,7 @@ def uiProject_p4_cache_dir_mask(self):
             return _mask
     except Exception:
         pass
-    return list(_l_p4_cache_dir_mask)
+    return project_dir_mask(mDat=getattr(self, 'mDat', None))
 
 
 def uiProject_refresh_p4_get_button(self):
@@ -774,7 +826,18 @@ def _uiProject_p4_cache_store_deferred(
         cgmUI.progressBar_end(progress_bar)
     except Exception:
         pass
+    _depot_paths = {(_rec.get('norm') or '') for _rec in records if _rec.get('norm')}
+    _unknown = P4UTIL.collect_unknown_files(
+        path,
+        p4_user=p4_user,
+        p4_client=p4_client,
+        dir_mask=uiProject_p4_cache_dir_mask(self),
+        depot_paths=_depot_paths,
+        scope='project',
+    )
     log.info('P4 Cache: warmed {0} file(s) under {1}'.format(_total, path))
+    if _unknown.get('fileCount'):
+        log.info('P4 Cache: {0} unknown file(s) cached'.format(_unknown.get('fileCount')))
     return None
 
 
@@ -1123,6 +1186,13 @@ def buildFrame_baseDat(self,parent,changeCommand = ''):
                                        ann='settings | {}'.format(key),
                                        cc = changeCommand,
                                         )
+        elif key == 'dirMask':
+            _d[key] = mUI.MelTextField(
+                _row,
+                cc=cgmGEN.Callback(uiProject_dirMask_refresh_lists, self),
+                ann='Project settings | {0}'.format(key),
+                text='',
+            )
         else:
             #_rowContextKeys.setStretchWidget( mUI.MelSeparator(_rowContextKeys) )
             _d[key] =  mUI.MelTextField(_row,
@@ -1462,6 +1532,7 @@ class ui(cgmUI.cgmGUI):
         self.d_uiTypes = {}
         self.d_buttons = {}
         self.d_labels = {}
+        self.l_dirMask = copy.copy(_l_p4_cache_dir_mask)
         
         
     def reload_headerImage(self, path = None):
@@ -2265,12 +2336,16 @@ def uiProject_fill(self,fillDir = True):
     try:self.reload_headerImage()
     except:
         pass
+    uiProject_build_dir_mask(self)
+    _l_dirMask = self.l_dirMask
+
     #Update file dir
-    self.uiScrollList_dirContent.rebuild( self.mDat.d_paths.get('content'))
-    self.uiScrollList_dirExport.rebuild(self.mDat.d_paths.get('export'))
-    
     self.uiScrollList_dirContent.mDat = self.mDat
     self.uiScrollList_dirExport.mDat = self.mDat
+    self.uiScrollList_dirContent.l_dirMask = _l_dirMask
+    self.uiScrollList_dirExport.l_dirMask = _l_dirMask
+    self.uiScrollList_dirContent.rebuild(self.mDat.d_paths.get('content'))
+    self.uiScrollList_dirExport.rebuild(self.mDat.d_paths.get('export'))
 
     uiProject_refresh_p4_get_button(self)
         
@@ -3787,10 +3862,15 @@ class cgmProjectDirList(mUI.BaseMelWidget):
         #except:pass                
         
         
+        _l_mask = project_dir_mask(
+            mDat=self.mDat,
+            l_dirMask=getattr(self, 'l_dirMask', None),
+        )
         _d_dir, _d_levels, l_keys = COREPATHS.walk_below_dir(path,
                                                              uiStrings = 1,
                                                              #fileTest = {'endsWith':'pose'},
                                                              hardCap = None,
+                                                             l_mask=_l_mask,
                                                              )        
         
         #self._l_uiStrings = _l_uiStrings
