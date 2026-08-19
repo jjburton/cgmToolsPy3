@@ -861,6 +861,27 @@ def uiSection_animUtils(parent):
                 ann='Re-key all rotation keys on selected transforms with continuous Euler solutions (first frame toward zero, then each frame toward the previous).',
                 c=lambda *a: TOOLCALLS.fixRotationAnimation())
 
+    mc.menuItem(parent=parent,
+                l='Change Rotate Order (Current Frame)',
+                ann='Change rotate order on selected transforms, preserving orientation at the current frame only. Animated keys on other frames may pop.',
+                c=lambda *a: TOOLCALLS.rotateOrderChangeCurrent())
+
+    mc.menuItem(parent=parent,
+                l='Change Rotate Order Animation',
+                ann='Change rotate order on selected transforms and remap all rotation keys to keep orientation.',
+                c=lambda *a: TOOLCALLS.rotateOrderChangeAnimation())
+
+    uiMenu_rotateOrder = mc.menuItem(parent=parent, l='Rotate Order', subMenu=True)
+    uiRC_rotateOrder = mc.radioMenuItemCollection()
+    _var_rotateOrder = cgmMeta.cgmOptionVar('cgmVar_animUtilsRotateOrder', defaultValue='zyx')
+    _v_rotateOrder = _var_rotateOrder.value
+    for item in [v for v in SHARED._d_rotateOrder_from_index.values() if v != 'none']:
+        mc.menuItem(parent=uiMenu_rotateOrder,
+                    collection=uiRC_rotateOrder,
+                    label=item,
+                    c=cgmGEN.Callback(_var_rotateOrder.setValue, item),
+                    rb=item == _v_rotateOrder)
+
     mc.menuItem(parent = parent,
                 l='mlBreakdown',
                 ann = "mlBreakdown by Morgan Loomis",

@@ -37,7 +37,10 @@ def rotateOrder_change(nodes=None,rotateOrder='zyx',timeContext='all',report=Tru
     _res = {}
     for mObj in ml_nodes:
         d_dat = {}
-        _keys = SEARCH.get_key_indices_from(mObj.mNode,timeContext)        
+        if timeContext in ('current', 'now'):
+            _keys = []
+        else:
+            _keys = SEARCH.get_key_indices_from(mObj.mNode,timeContext)
         if mObj.getEnumValueString('rotateOrder') == rotateOrder:
             print(cgmGEN.logString_msg(_str_func,"Already has rotateOrder: {} | {}".format(rotateOrder,mObj.p_nameShort)))
             continue
