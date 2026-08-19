@@ -938,6 +938,12 @@ def uiFunc_build_unknown_file_row(parent, self, entry, idx, file_cbs):
 
     mUI.MelIconButton(
         _row,
+        ann='Open folder — {0}'.format(_path),
+        c=cgmGEN.Callback(uiFunc_unknown_row_open_dir, self, idx),
+        **_icon_btn_kw('explorer_25.png', w=22, h=22),
+    )
+    mUI.MelIconButton(
+        _row,
         ann='p4 add {0}'.format(_path),
         c=cgmGEN.Callback(uiFunc_unknown_row_add, self, idx),
         **_icon_btn_kw('new_set.png', w=22, h=22),
@@ -1212,6 +1218,19 @@ def uiFunc_unknown_add_paths(self, entries):
 
     if _failures:
         log.error('Some adds failed:\n{0}'.format('\n'.join(_failures)))
+
+
+def uiFunc_unknown_row_open_dir(self, idx, *args):
+    try:
+        _entry = self._l_unknown_entries[idx]
+    except IndexError:
+        return
+    _path = _entry.get('path') or ''
+    _dir = os.path.dirname(os.path.normpath(_path)) if _path else ''
+    if _dir and os.path.isdir(_dir):
+        os.startfile(_dir)
+        return
+    log.warning('Path not found - {0}'.format(_dir or _path or '?'))
 
 
 def uiFunc_unknown_row_add(self, idx, *args):
