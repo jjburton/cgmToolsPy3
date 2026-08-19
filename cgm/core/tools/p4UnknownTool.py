@@ -54,9 +54,10 @@ _PROJECT_SCOPE = 'project'
 
 
 def reload_tool():
+    """Reload Find Unknowns + p4Tool + perforce lib. Does not flush perforce_session cache."""
     import cgm.core.tools.p4Tool as P4TOOL
+    cgmGEN._reloadMod(P4UTIL)
     cgmGEN._reloadMod(P4TOOL)
-    P4TOOL.reload_dependencies()
     cgmGEN._reloadMod(__import__(__name__))
 
 
@@ -67,6 +68,7 @@ def _ui_layout_current(self):
         and hasattr(self, 'uiLabel_connection')
         and hasattr(self, 'uiColumn_unknown')
         and hasattr(self, 'uiScroll_unknown_files')
+        and hasattr(self, 'btn_unknown_cache')
         and hasattr(self, 'uiRow_cgm_footer')
     )
 
@@ -136,13 +138,18 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItem(
             self.uiMenu_FirstMenu,
             l='Reload',
-            ann='Reload Find Unknowns and perforce lib',
+            ann='Reload Find Unknowns and perforce lib (session cache kept)',
             c=lambda *a: mc.evalDeferred(self.reload, lp=True),
+        )
+        mUI.MelMenuItem(
+            self.uiMenu_FirstMenu,
+            l='Deep Scan',
+            ann='Disk walk + fstat files not already in the session cache (no recursive p4 fstat)',
+            c=cgmGEN.Callback(uiFunc_deep_scan_unknown_files, self),
         )
 
     def reload(self):
         reload_tool()
-        cgmGEN._reloadMod(__import__(__name__))
         super(ui, self).reload()
 
     @classmethod
@@ -234,11 +241,11 @@ class ui(cgmUI.cgmGUI):
             expand=True,
             h=_UNKNOWN_CTRL_ROW_H)
         mUI.MelSpacer(self.uiRow_unknown_ctrl, w=2)
-        self.btn_unknown_query = mUI.MelIconButton(
+        self.btn_unknown_cache = mUI.MelIconButton(
             self.uiRow_unknown_ctrl,
-            ann='Scan project content for local files not on depot (refreshes cache when present)',
-            c=cgmGEN.Callback(uiFunc_query_unknown_files, self),
-            **_icon_btn_kw('find_file.png', w=22, h=22),
+            ann='Warm P4 fstat session cache and list unknown files (same as Scene P4 Cache)',
+            c=cgmGEN.Callback(uiFunc_cache_unknown_files, self),
+            **_icon_btn_kw('cache.png', w=22, h=22),
         )
         self.btn_unknown_ext_all = mUI.MelButton(
             self.uiRow_unknown_ctrl,
@@ -485,18 +492,6 @@ def uiFunc_resolve_project_unknown_scan():
     if not _root or not os.path.isdir(_root):
         return None, None, 'No project content path — load a project in Scene'
     return os.path.normpath(_root), PROJECT.project_dir_mask(_mDat), None
-
-
-def _fstat_cache_warm_for_user_client(user, client):
-    try:
-        import cgm.core.lib.perforce_session as P4SESSION
-        _store = P4SESSION._CACHE.get('fstat_by_path') or {}
-    except Exception:
-        return False
-    for _key in _store:
-        if len(_key) >= 2 and _key[0] == (user or '') and _key[1] == (client or ''):
-            return True
-    return False
 
 
 def uiFunc_unknown_entry_ext_key(path):
@@ -1019,41 +1014,90 @@ def uiFunc_load_unknown_from_cache(self):
     _user, _client = uiFunc_get_connection(self)
     _cached = P4UTIL.get_cached_unknown_files(_root, p4_user=_user, p4_client=_client)
     if _cached is None:
-        uiFunc_build_unknown_rows(self, '(click Query to scan project content)')
+        uiFunc_build_unknown_rows(self, '(click Cache, or Scene P4 Cache first)')
         return
     uiFunc_build_unknown_rows(self, _cached)
 
 
-def uiFunc_query_unknown_files(self):
+def _uiFunc_unknown_resolve_scan(self):
+    """Return (user, client, root, dir_mask) or None after logging / empty-state."""
     _user, _client = uiFunc_get_connection(self)
     if not _user or not _client:
-        return log.warning('Set User and Client first.')
-
+        log.warning('Set User and Client first.')
+        return None
     _root, _dir_mask, _err = uiFunc_resolve_project_unknown_scan()
     if _err:
         uiFunc_build_unknown_rows(self, _err)
-        return log.warning('P4 Find Unknowns: {0}'.format(_err))
-
+        log.warning('P4 Find Unknowns: {0}'.format(_err))
+        return None
     self._scan_root = _root
     self._scan_dir_mask = _dir_mask
-
     P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
-    _has_unknown_cache = P4UTIL.get_cached_unknown_files(_root, p4_user=_user, p4_client=_client) is not None
-    _cache_warm = _fstat_cache_warm_for_user_client(_user, _client)
-    _use_warm = (not _cache_warm) or _has_unknown_cache
+    return _user, _client, _root, _dir_mask
 
-    if _has_unknown_cache:
-        P4UTIL.flush_unknown_cache_root(_root, p4_user=_user, p4_client=_client)
-        log.info('P4 Find Unknowns: refreshing cache for {0}'.format(_root))
-    elif not _cache_warm:
-        log.info('P4 Find Unknowns: warming fstat cache for {0}'.format(_root))
-    else:
-        log.info('P4 Find Unknowns: scanning {0}'.format(_root))
 
-    _progress = uiFunc_p4_progress_begin(
-        'P4 Find Unknowns | refreshing cache...' if _has_unknown_cache else (
-            'P4 Find Unknowns | warming cache...' if not _cache_warm else 'P4 Find Unknowns | starting...'),
-        100)
+def uiFunc_cache_unknown_files(self):
+    _ctx = _uiFunc_unknown_resolve_scan(self)
+    if not _ctx:
+        return
+    _user, _client, _root, _dir_mask = _ctx
+    log.info('P4 Find Unknowns: warming fstat cache for {0}'.format(_root))
+
+    _progress = uiFunc_p4_progress_begin('P4 Find Unknowns | warming cache...', 100)
+
+    def _cancel_cb():
+        if not _progress:
+            return False
+        try:
+            return mc.progressBar(_progress, query=True, isCancelled=True)
+        except Exception:
+            return False
+
+    def _warm_progress_cb(files_cached, files_total, current_path, dirs_done=0, dir_total=0, current_dir=None):
+        _total = files_total if files_total else max(files_cached, 1)
+        if uiFunc_p4_progress_update(
+                _progress,
+                status='P4 Find Unknowns | cache {0}/{1} | {2}'.format(
+                    files_cached, _total, os.path.basename(current_path or _root)),
+                progress=files_cached,
+                max_value=_total):
+            return True
+        return False
+
+    _warm = P4UTIL.warm_fstat_cache_tree(
+        _root,
+        p4_user=_user,
+        p4_client=_client,
+        dir_mask=_dir_mask,
+        progress_cb=_warm_progress_cb,
+        cancel_cb=_cancel_cb,
+    )
+    uiFunc_p4_progress_end(_progress)
+
+    if _warm.get('cancelled'):
+        return log.warning('P4 Find Unknowns: cancelled')
+    if _warm.get('error'):
+        return log.error('P4 Find Unknowns cache failed: {0}'.format(_warm.get('error')))
+
+    _cached = P4UTIL.get_cached_unknown_files(_root, p4_user=_user, p4_client=_client)
+    if _cached is not None:
+        log.info(
+            'P4 Find Unknowns: {0} file(s) under {1} (cache warmed)'.format(
+                _cached.get('fileCount', 0), _root))
+        uiFunc_build_unknown_rows(self, _cached)
+        return
+    log.warning('P4 Find Unknowns: cache warm completed with no unknown list')
+    uiFunc_build_unknown_rows(self, '(no unknown files)')
+
+
+def uiFunc_deep_scan_unknown_files(self, *args):
+    _ctx = _uiFunc_unknown_resolve_scan(self)
+    if not _ctx:
+        return
+    _user, _client, _root, _dir_mask = _ctx
+    log.info('P4 Find Unknowns: deep scan {0}'.format(_root))
+
+    _progress = uiFunc_p4_progress_begin('P4 Find Unknowns | scanning...', 100)
 
     def _cancel_cb():
         if not _progress:
@@ -1073,42 +1117,6 @@ def uiFunc_query_unknown_files(self):
             return True
         return False
 
-    if _use_warm:
-        def _warm_progress_cb(files_cached, files_total, current_path, dirs_done=0, dir_total=0, current_dir=None):
-            _total = files_total if files_total else max(files_cached, 1)
-            if uiFunc_p4_progress_update(
-                    _progress,
-                    status='P4 Find Unknowns | cache {0}/{1} | {2}'.format(
-                        files_cached, _total, os.path.basename(current_path or _root)),
-                    progress=files_cached,
-                    max_value=_total):
-                return True
-            return False
-
-        _warm = P4UTIL.warm_fstat_cache_tree(
-            _root,
-            p4_user=_user,
-            p4_client=_client,
-            dir_mask=_dir_mask,
-            progress_cb=_warm_progress_cb,
-            cancel_cb=_cancel_cb,
-        )
-        if _warm.get('cancelled'):
-            uiFunc_p4_progress_end(_progress)
-            return log.warning('P4 Find Unknowns: cancelled')
-        if _warm.get('error'):
-            uiFunc_p4_progress_end(_progress)
-            return log.error('P4 Find Unknowns cache failed: {0}'.format(_warm.get('error')))
-
-        _cached = P4UTIL.get_cached_unknown_files(_root, p4_user=_user, p4_client=_client)
-        uiFunc_p4_progress_end(_progress)
-        if _cached is not None:
-            log.info(
-                'P4 Find Unknowns: {0} file(s) under {1} (cache warmed)'.format(
-                    _cached.get('fileCount', 0), _root))
-            uiFunc_build_unknown_rows(self, _cached)
-            return
-
     _res = P4UTIL.collect_unknown_files(
         _root,
         p4_user=_user,
@@ -1124,7 +1132,7 @@ def uiFunc_query_unknown_files(self):
     if _res.get('cancelled'):
         return log.warning('P4 Find Unknowns: cancelled')
     if _res.get('error'):
-        return log.error('P4 Find Unknowns failed: {0}'.format(_res.get('error')))
+        return log.error('P4 Find Unknowns deep scan failed: {0}'.format(_res.get('error')))
 
     log.info('P4 Find Unknowns: {0} file(s) under {1}'.format(_res.get('fileCount', 0), _root))
     uiFunc_build_unknown_rows(self, _res)

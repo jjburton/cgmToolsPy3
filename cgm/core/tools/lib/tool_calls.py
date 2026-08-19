@@ -268,7 +268,7 @@ def cgmP4Tool():
 def p4FindUnknownsTool():
     try:
         import cgm.core.tools.p4UnknownTool as P4UNKNOWNTool
-        P4UNKNOWNTool.reload_tool()
+        cgmGEN._reloadMod(P4UNKNOWNTool)
         P4UNKNOWNTool.ui.showUI()
     except Exception as err:
         cgmGEN.cgmException(Exception, err)
