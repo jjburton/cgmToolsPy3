@@ -970,6 +970,78 @@ def resolve_client_disk_path(path, p4_user=None, p4_client=None, force=False):
     return _norm
 
 
+def _unc_disk_prefix_from_pair(unc_path, disk_path):
+    """Return (unc_prefix, disk_prefix) by stripping a shared trailing path, or None."""
+    _unc = os.path.normpath(str(unc_path))
+    _disk = os.path.normpath(str(disk_path))
+    _unc_parts = _unc.split(os.sep)
+    _disk_parts = _disk.split(os.sep)
+    _shared = 0
+    while _shared < len(_unc_parts) and _shared < len(_disk_parts):
+        if os.path.normcase(_unc_parts[-1 - _shared]) != os.path.normcase(_disk_parts[-1 - _shared]):
+            break
+        _shared += 1
+    if _shared <= 0:
+        return None
+    _unc_prefix = os.sep.join(_unc_parts[:-_shared]) if _shared < len(_unc_parts) else _unc
+    _disk_prefix = os.sep.join(_disk_parts[:-_shared]) if _shared < len(_disk_parts) else _disk
+    if not _unc_prefix or os.path.normcase(_unc_prefix) == os.path.normcase(_disk_prefix):
+        return None
+    return _unc_prefix, _disk_prefix
+
+
+def _apply_unc_disk_prefix_map(path, prefix_map):
+    if not path or not prefix_map:
+        return None
+    _norm = os.path.normpath(str(path))
+    _case = os.path.normcase(_norm)
+    for _unc_prefix, _disk_prefix in sorted(prefix_map.items(), key=lambda item: -len(item[0])):
+        if _case == _unc_prefix:
+            return _disk_prefix
+        if _case.startswith(_unc_prefix + os.sep):
+            return os.path.normpath(_disk_prefix + _norm[len(_unc_prefix):])
+    return None
+
+
+def _disk_path_for_fstat_client_file(client_file, p4_user=None, p4_client=None, prefix_map=None):
+    """
+    Map p4 fstat clientFile (UNC or disk) to the client-root disk path for cache keys.
+
+    Learns a UNC-prefix → disk-prefix map from one resolve so tree/batch fstat
+    does not call p4 where per file.
+    """
+    _norm = _normalize_disk_path(client_file)
+    if not _norm:
+        return None
+
+    _info = connection_info(force=False, p4_user=p4_user, p4_client=p4_client)
+    _root = (_info or {}).get('clientRoot')
+    if _root:
+        try:
+            _root_norm = os.path.normpath(_root)
+            _root_case = os.path.normcase(_root_norm)
+            _norm_case = os.path.normcase(_norm)
+            if _norm_case == _root_case or _norm_case.startswith(_root_case + os.sep):
+                return _norm
+        except Exception:
+            pass
+
+    if prefix_map is not None:
+        _mapped = _apply_unc_disk_prefix_map(_norm, prefix_map)
+        if _mapped:
+            return _mapped
+
+    _resolved = resolve_client_disk_path(_norm, p4_user=p4_user, p4_client=p4_client)
+    if not _resolved:
+        return _norm
+
+    if prefix_map is not None and os.path.normcase(_resolved) != os.path.normcase(_norm):
+        _pair = _unc_disk_prefix_from_pair(_norm, _resolved)
+        if _pair:
+            prefix_map[os.path.normcase(_pair[0])] = _pair[1]
+    return _resolved
+
+
 def _depot_file_line_from_opened_entry(entry):
     """Build //depot/path#action from a p4 opened record."""
     if not entry:
@@ -2273,13 +2345,23 @@ def _query_files_status_batch(paths, p4_user, p4_client):
     if not paths:
         return {}
     _res = _p4run('fstat', *paths, p4_user=p4_user, p4_client=p4_client, ztag=True)
+    _prefix_map = {}
     _by_key = {}
     for _rec in _res.get('tagRecords') or []:
         _client_file = _rec.get('clientFile')
-        _lookup = _path_lookup_key(_client_file) if _client_file else None
-        if not _lookup:
+        if not _client_file:
             continue
-        _by_key[_lookup] = _file_status_from_fstat_tag(_client_file, _rec)
+        _resolved = _disk_path_for_fstat_client_file(
+            _client_file, p4_user=p4_user, p4_client=p4_client, prefix_map=_prefix_map)
+        if not _resolved:
+            continue
+        _dat = _file_status_from_fstat_tag(_resolved, _rec)
+        _lookup = _path_lookup_key(_resolved)
+        if _lookup:
+            _by_key[_lookup] = _dat
+        _orig = _path_lookup_key(_client_file)
+        if _orig and _orig not in _by_key:
+            _by_key[_orig] = _dat
 
     _out = {}
     for _norm in paths:
@@ -2489,6 +2571,7 @@ def fetch_fstat_tree_records(
     _dirs_done = 0
     _last_dir = None
     _ui_tick = 0
+    _prefix_map = {}
 
     if progress_cb:
         progress_cb(0, 0, _root, 0, _dir_total, _root)
@@ -2508,12 +2591,13 @@ def fetch_fstat_tree_records(
         _client_file = rec.get('clientFile')
         if not _client_file:
             return False
-        _norm = _normalize_disk_path(_client_file)
+        _norm = _disk_path_for_fstat_client_file(
+            _client_file, p4_user=_user, p4_client=_client, prefix_map=_prefix_map)
         if not _norm:
             return False
         if _mask and _path_has_masked_dir_component(_norm, _root, _mask):
             return False
-        _dat = _file_status_from_fstat_tag(_client_file, rec)
+        _dat = _file_status_from_fstat_tag(_norm, rec)
         _dat['path'] = _norm
         _records.append({'norm': _norm, 'dat': dict(_dat)})
         _files_fetched += 1
@@ -2719,8 +2803,8 @@ def collect_unknown_files(
     Find local in-client / not-on-depot files under root_path.
 
     depot_paths: normpaths already classified by recursive fstat (skip batch query).
-    When depot_paths is omitted and use_fstat_cache_depot_paths is True, skip paths
-    already classified in the session fstat cache under root_path (fast path after Cache).
+    When use_fstat_cache_depot_paths is True, also skip paths already classified in
+    the session fstat cache under root_path (union with depot_paths; protects Scene keys).
     progress_cb(processed, total, current_path) -> True to cancel.
     cancel_cb() -> True to cancel.
 
@@ -2751,15 +2835,19 @@ def collect_unknown_files(
 
     _mask = [m for m in (dir_mask if dir_mask is not None else DEFAULT_P4_CACHE_DIR_MASK) if m]
     _depot_keys = set()
+    _prefix_map = {}
     for _p in depot_paths or []:
-        _norm = _normalize_disk_path(_p)
+        _norm = _disk_path_for_fstat_client_file(
+            _p, p4_user=_user, p4_client=_client, prefix_map=_prefix_map)
+        if not _norm:
+            _norm = _normalize_disk_path(_p)
         _key = _path_lookup_key(_norm) if _norm else None
         if _key:
             _depot_keys.add(_key)
 
     _entries = []
     _cached_unknown_keys = set()
-    if use_fstat_cache_depot_paths and depot_paths is None:
+    if use_fstat_cache_depot_paths:
         _cache_depot, _cache_unknown = _fstat_cache_depot_skip_and_unknown(
             _root, _user, _client)
         _depot_keys.update(_cache_depot)
