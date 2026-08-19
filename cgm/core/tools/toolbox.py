@@ -294,6 +294,7 @@ class ui(cgmUI.cgmGUI):
         self.var_keyType = cgmMeta.cgmOptionVar('cgmVar_KeyType', defaultValue = 0)
         self.var_keyMode = cgmMeta.cgmOptionVar('cgmVar_KeyMode', defaultValue = 0)
         self.var_resetMode = cgmMeta.cgmOptionVar('cgmVar_ChannelResetMode', defaultValue = 0)
+        self.var_animUtilsRotateOrder = cgmMeta.cgmOptionVar('cgmVar_animUtilsRotateOrder', defaultValue='zyx')
         self.var_createAimAxis = cgmMeta.cgmOptionVar('cgmVar_createAimAxis', defaultValue = 2)
         self.var_attrCreateType = cgmMeta.cgmOptionVar('cgmVar_attrCreateType', defaultValue = 'float')        
         self.var_curveCreateType = cgmMeta.cgmOptionVar('cgmVar_curveCreateType', defaultValue = 'circle')
@@ -1113,6 +1114,38 @@ def buildSection_animUtils(self,parent):
               ut='cgmUITemplate',
               ann='Re-key all rotation keys on selected transforms with continuous Euler solutions (first frame toward zero, then each frame toward the previous).',
               c=lambda *a: LOADTOOL.fixRotationAnimation())
+
+    mUI.MelSpacer(_row,w=5)
+    _row.layout()
+
+    try:self.var_animUtilsRotateOrder
+    except:self.var_animUtilsRotateOrder = cgmMeta.cgmOptionVar('cgmVar_animUtilsRotateOrder', defaultValue='zyx')
+
+    _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+    mUI.MelSpacer(_row,w=5)
+    mUI.MelLabel(_row,l='Rotate Order:')
+
+    self.uiOM_animUtilsRotateOrder = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
+                                                       ann='Target rotate order for selected transforms.')
+    for a in [v for v in SHARED._d_rotateOrder_from_index.values() if v != 'none']:
+        self.uiOM_animUtilsRotateOrder.append(a)
+    self.uiOM_animUtilsRotateOrder(edit=True,
+                                   value=self.var_animUtilsRotateOrder.value,
+                                   cc=cgmGEN.Callback(self.set_optionVar, self.var_animUtilsRotateOrder, None, self.uiOM_animUtilsRotateOrder))
+
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+
+    mc.button(parent=_row,
+              l='Current',
+              ut='cgmUITemplate',
+              ann='Change rotate order on selected transforms, preserving orientation at the current frame only. Animated keys on other frames may pop.',
+              c=lambda *a: LOADTOOL.rotateOrderChangeCurrent())
+
+    mc.button(parent=_row,
+              l='Animation',
+              ut='cgmUITemplate',
+              ann='Change rotate order on selected transforms and remap all rotation keys to keep orientation.',
+              c=lambda *a: LOADTOOL.rotateOrderChangeAnimation())
 
     mUI.MelSpacer(_row,w=5)
     _row.layout()

@@ -242,6 +242,29 @@ def fixRotationAnimation(*a):
         cgmGEN.cgmExceptCB(Exception, err)
 
 
+def _animUtilsRotateOrder():
+    from cgm.core import cgm_Meta as cgmMeta
+    return cgmMeta.cgmOptionVar('cgmVar_animUtilsRotateOrder', defaultValue='zyx').value
+
+
+def rotateOrderChangeCurrent(*a):
+    try:
+        import cgm.core.lib.meta_utils.anim_meta as ANIMMETA
+        cgmGEN._reloadMod(ANIMMETA)
+        ANIMMETA.rotateOrder_change(rotateOrder=_animUtilsRotateOrder(), timeContext='current')
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
+
+
+def rotateOrderChangeAnimation(*a):
+    try:
+        import cgm.core.lib.meta_utils.anim_meta as ANIMMETA
+        cgmGEN._reloadMod(ANIMMETA)
+        ANIMMETA.rotateOrder_change(rotateOrder=_animUtilsRotateOrder(), timeContext='all')
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
+
+
     #except Exception,err:
     #    log.warning("[mrsScene] failed to load. | {0}".format(err))
 def cgmSimChain():
