@@ -8501,13 +8501,16 @@ def ExportScene(mode = -1,
                     autoCheckoutExportFiles = bool(_ov.getValue())
                 # Interactive: checkout with confirm unless Auto Check Out is on.
                 # Batch: checkout only when Auto Check Out is on (no dialogs in mayapy).
+                # Silent p4 add for new FBX only when Auto Check Out is on.
                 _p4_checkout = autoCheckoutExportFiles or bool(logExportSummary)
                 _confirm_p4 = bool(logExportSummary) and not autoCheckoutExportFiles
+                _p4_add = bool(autoCheckoutExportFiles)
                 _mDat = PATHUTIL.get_project_mDat()
-                log.info('{0} | export preflight P4 | p4_checkout={1} confirm_p4={2} autoCheckout={3} project={4}'.format(
+                log.info('{0} | export preflight P4 | p4_checkout={1} confirm_p4={2} p4_add={3} autoCheckout={4} project={5}'.format(
                     _str_func,
                     _p4_checkout,
                     _confirm_p4,
+                    _p4_add,
                     autoCheckoutExportFiles,
                     getattr(_mDat, 'str_filepath', None) or 'none',
                 ))
@@ -8516,6 +8519,7 @@ def ExportScene(mode = -1,
                     mDat=_mDat,
                     confirm_p4=_confirm_p4,
                     p4_checkout=_p4_checkout,
+                    p4_add=_p4_add,
                     prepare_context={'sceneFile': _ctx_base.get('sceneFile')},
                     _str_func='{0}|export_preflight'.format(_str_func),
                 )

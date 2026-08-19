@@ -226,8 +226,10 @@ def walk_below_dir(arg = None, tests = None,uiStrings = True,
 # Save flow contract (paths first):
 #   Once the output path is known, call prepare_* BEFORE expensive work
 #   (scene queries, pose capture, skin gather, CCL build, etc.) so P4
-#   checkout / writability dialogs appear immediately. Low-level writers
-#   may accept skip_prepare=True when the caller already prepared.
+#   checkout / writability dialogs appear immediately. Interactive saves
+#   skip p4 add (local write; add later via Find Unknowns / Scene Add).
+#   Low-level writers may accept skip_prepare=True when the caller already
+#   prepared.
 _non_writable_export_paths = []
 _export_prepare_records = []
 
@@ -412,13 +414,14 @@ def _resolve_use_p4_for_path(path, mDat=None, extra_roots=(), assume_in_scope=Fa
     return path_in_p4_scope(path, mDat, extra_roots=extra_roots)
 
 
-def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, p4_add=True, extra_roots=(),
+def prepare_paths_for_write(paths, mDat=None, confirm_p4=True, p4_add=False, extra_roots=(),
                             assume_in_scope=False, _str_func='prepare_paths_for_write'):
     """
     Prepare one or more output paths; P4 only when project perforce mode and path in scope.
 
     Call as soon as the path(s) are known — before heavy save work — so checkout /
     writability prompts are not delayed by scene queries or data gathering.
+    Default p4_add=False: new files write locally (add via Find Unknowns / Scene Add).
     """
     _out = []
     for _p in paths or []:
@@ -654,11 +657,12 @@ def _record_export_prepare_path(path, outcome, ok, reason=None, p4_action='none'
     ))
 
 
-def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=True,
+def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=False,
                           prepare_context=None, _str_func='prepare_output_for_write'):
     """
-    Query fstat, block out-of-date depot files, confirm before edit/add.
-    When p4_add=False, checkout depot files only — skip p4 add for not-on-depot paths.
+    Query fstat, block out-of-date / locked depot files, confirm before checkout.
+    When p4_add=False (default), skip p4 add for not-on-depot paths — local write only.
+    When p4_add=True, silent p4 add (no Add dialog). confirm applies to checkout only.
     Raises PathWritePrepareError on failure or user cancel.
     """
     import cgm.core.lib.perforce as P4UTIL
@@ -731,25 +735,18 @@ def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=True,
         _log_p4('p4_skipped_add_disabled', True, p4_attempted=False)
         return
 
-    if confirm:
+    if confirm and _needs_edit:
         _summary = P4UTIL.format_file_status(_stat)
-        if _needs_add:
-            _title = 'Perforce add'
-            _btn = 'Add'
-            _msg = 'Add this file to Perforce before saving?\n\n{0}\n\n{1}'.format(path, _summary)
-        else:
-            _title = 'Perforce checkout'
-            _btn = 'Checkout'
-            _msg = 'Check out this file for edit before saving?\n\n{0}\n\n{1}'.format(path, _summary)
         _result = mc.confirmDialog(
-            title=_title,
-            message=_msg,
-            button=[_btn, 'Cancel'],
+            title='Perforce checkout',
+            message='Check out this file for edit before saving?\n\n{0}\n\n{1}'.format(
+                path, _summary),
+            button=['Checkout', 'Cancel'],
             defaultButton='Cancel',
             cancelButton='Cancel',
             dismissString='Cancel',
         )
-        if _result != _btn:
+        if _result != 'Checkout':
             _log_p4('p4_user_cancel', False, reason='Save cancelled')
             raise PathWritePrepareError(path, reason='Save cancelled')
 
@@ -766,13 +763,15 @@ def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=True,
 
 
 def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_client=None,
-                             confirm_p4=True, p4_checkout=True, p4_add=True, prepare_context=None,
+                             confirm_p4=True, p4_checkout=True, p4_add=False, prepare_context=None,
                              _str_func='prepare_output_for_write'):
     """
     Global prepare before writing a cgm output file (project .cfg, BaseDat, export targets).
 
     When use_p4 is None and mDat is provided, uses project versionControl (perforce gate).
-    When P4 is connected: fstat first (block if out of date), confirm before edit/add.
+    When P4 is connected: fstat first (block if out of date / locked), confirm before checkout.
+    Interactive default p4_add=False: new files write locally (add via Find Unknowns / Scene Add).
+    Pass p4_add=True for silent p4 add (export Auto Check Out). Never prompts to add.
     When p4_checkout is False, skip edit/add (writability check only) — export batch with
     Auto Check Out Export Files off.
     When P4 is unavailable, skips P4 silently (optional layer — no behavior change).
@@ -1089,11 +1088,13 @@ def check_export_output_writable(finalPath, prepare_context=None, _str_func='che
 
 
 def prepare_export_output_for_write(path, mDat=None, confirm_p4=True, p4_checkout=True,
-                                    prepare_context=None, _str_func='prepare_export_output_for_write'):
+                                    p4_add=False, prepare_context=None,
+                                    _str_func='prepare_export_output_for_write'):
     """
     FBX export prepare — sidecar cleanup + global prepare (writability + optional P4).
 
     P4 subprocess/dialogs only when project versionControl=perforce, path in scope, and connected.
+    Pass p4_add=True (Auto Check Out Export Files) for silent add of new FBX.
     """
     if not path:
         raise ExportOutputNotWritableError(path, reason='Export path is empty')
@@ -1106,6 +1107,7 @@ def prepare_export_output_for_write(path, mDat=None, confirm_p4=True, p4_checkou
             mDat=mDat,
             confirm_p4=confirm_p4,
             p4_checkout=p4_checkout,
+            p4_add=p4_add,
             prepare_context=prepare_context,
             _str_func=_str_func,
         )
@@ -1120,7 +1122,8 @@ def prepare_export_output_for_write(path, mDat=None, confirm_p4=True, p4_checkou
 
 
 def preflight_export_output_paths(paths, mDat=None, confirm_p4=True, p4_checkout=True,
-                                  prepare_context=None, _str_func='preflight_export_output_paths'):
+                                  p4_add=False, prepare_context=None,
+                                  _str_func='preflight_export_output_paths'):
     """Prepare each unique FBX export path before bake/prep; checks all paths, then raises."""
     _unique = []
     _seen = set()
@@ -1141,6 +1144,7 @@ def preflight_export_output_paths(paths, mDat=None, confirm_p4=True, p4_checkout
                 mDat=mDat,
                 confirm_p4=confirm_p4,
                 p4_checkout=p4_checkout,
+                p4_add=p4_add,
                 prepare_context=prepare_context,
                 _str_func=_str_func,
             ))
