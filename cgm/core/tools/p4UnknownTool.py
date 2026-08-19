@@ -44,7 +44,10 @@ _UNKNOWN_EXT_FILTER_BGC = [.66, .70, .78]
 _UNKNOWN_EXT_ALL = '__all__'
 _UNKNOWN_EXT_NONE = '(none)'
 _UNKNOWN_EXT_GRID_COLS = 5
-_UNKNOWN_EXT_CELL_WH = (72, 18)
+_UNKNOWN_EXT_CELL_H = 18
+_UNKNOWN_EXT_CELL_MIN_W = 72
+_UNKNOWN_EXT_CELL_CHAR_W = 8
+_UNKNOWN_EXT_CELL_PAD = 28
 _UNKNOWN_CTRL_ROW_H = 24
 _UNKNOWN_SEARCH_ROW_H = 22
 _PROJECT_SCOPE = 'project'
@@ -773,13 +776,19 @@ def uiFunc_unknown_rebuild_ext_filters(self):
     _sorted = sorted(_counts.items(), key=uiFunc_unknown_ext_sort_key)
     self._l_unknown_ext_keys = [_ext for _ext, _count in _sorted]
 
+    _labels = [uiFunc_unknown_ext_checkbox_label(_ext, _count) for _ext, _count in _sorted]
+    _max_label = max(len(_label) for _label in _labels) if _labels else 0
+    _cell_w = max(
+        _UNKNOWN_EXT_CELL_MIN_W,
+        (_max_label * _UNKNOWN_EXT_CELL_CHAR_W) + _UNKNOWN_EXT_CELL_PAD)
+
     _ncols = min(_UNKNOWN_EXT_GRID_COLS, max(1, len(_sorted)))
     _grid = mUI.MelGridLayout(
         self.uiForm_unknown_ext,
         ut='cgmUISubTemplate',
         numberOfColumns=_ncols,
-        cellWidthHeight=_UNKNOWN_EXT_CELL_WH,
-        columnsResizable=True,
+        cellWidthHeight=(_cell_w, _UNKNOWN_EXT_CELL_H),
+        columnsResizable=False,
         bgc=_UNKNOWN_EXT_FILTER_BGC,
     )
     for _ext, _count in _sorted:
