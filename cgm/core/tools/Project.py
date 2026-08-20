@@ -640,7 +640,7 @@ def project_dir_mask(mDat=None, l_dirMask=None, dirMask=None):
     if dirMask is None and mDat:
         dirMask = mDat.d_project.get('dirMask')
     if dirMask:
-        _mask.extend(CORESTRING.parseCommaString(dirMask))
+        _mask.extend(CORESTRINGS.parseCommaString(dirMask))
     if _mask:
         _mask = [n.lower() for n in _mask]
     return _mask
