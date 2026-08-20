@@ -1,6 +1,29 @@
 
 import inspect
+import sys
 import weakref
+
+# Process-global Mel/instance unique ids. Survives cgm.core._reload() class
+# recreation so BaseMelUI does not rescan MelButton0__..N__ on every Layout.
+_MEL_WIDGET_NEXT_KEY_ATTR = '_cgmMelWidgetNextKey'
+
+
+def _next_key_store():
+	d = getattr(sys, _MEL_WIDGET_NEXT_KEY_ATTR, None)
+	if d is None:
+		d = {}
+		setattr(sys, _MEL_WIDGET_NEXT_KEY_ATTR, d)
+	return d
+
+
+def persist_next_key(cls_or_name, value):
+	name = cls_or_name if isinstance(cls_or_name, str) else cls_or_name.__name__
+	_next_key_store()[name] = int(value)
+
+
+def restore_next_key(cls_or_name, default=0):
+	name = cls_or_name if isinstance(cls_or_name, str) else cls_or_name.__name__
+	return _next_key_store().get(name, default)
 
 
 class SingletonType(type):
@@ -88,8 +111,9 @@ def instanceTrackerTypeFactory( metaclassSuper=type ):
 			new._INSTANCE_LIST = weakref.WeakValueDictionary()
 
 			#use this as a simple way to generate a unique key - this value gets incremented each time an instance is added to
-			#the above weak ref'd dict
-			new._NEXT_KEY = 0
+			#the above weak ref'd dict. Restore from sys so Reload Core does not reset to 0
+			#while leftover Maya UI names (Toolbox / RETAIN windows) still exist.
+			new._NEXT_KEY = restore_next_key(name, 0)
 
 			return new
 		def __call__( self, *a, **kw ):
@@ -107,6 +131,7 @@ def instanceTrackerTypeFactory( metaclassSuper=type ):
 			'''
 			self._INSTANCE_LIST[ self._NEXT_KEY ] = instance
 			self._NEXT_KEY += 1
+			persist_next_key(self, self._NEXT_KEY)
 		def GetUniqueId( self ):
 			return self._NEXT_KEY
 		def IterInstances( self ):

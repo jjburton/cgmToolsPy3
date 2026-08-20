@@ -142,6 +142,11 @@ class BaseMelUI(str, metaclass=typeFactories.trackableTypeFactory( typeFactories
             n += 1
             uniqueName = formatStr % (baseName, n)
 
+        # Catch up if leftover Maya names forced a skip (e.g. stale id after Reload Core)
+        if n > cls._NEXT_KEY:
+            cls._NEXT_KEY = n
+            typeFactories.persist_next_key(cls, n)
+
         WIDGET_CMD( uniqueName, **kw )
 
         new = str.__new__( cls, uniqueName )
