@@ -187,6 +187,9 @@ d_dirFramework = {
 d_projType ={'game':['character','environment','fx','visdev','ui','prop','poses','cutscene'],
              'film':['character','environment','fx','visdev','prop','poses','sequence']}
 
+# Opt-in defaults for Project/Scene "Fill Default Asset Types" (not applied on load).
+l_defaultAssetTypes = ['character', 'environment', 'prop']
+
 def dirCreateList_get2(projectType,dirSet=None,key = None):
     try:
         _dType = d_dirFramework.get(projectType,{})

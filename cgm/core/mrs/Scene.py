@@ -2186,6 +2186,10 @@ example:
         self.uiProject_refreshDisplay()
         self.uiFunc_projectDirtyState(False)
 
+    def uiAssetTypes_fillDefaults(self):
+        PROJECT.uiAssetTypes_refill(self)
+        self.uiProject_refreshDisplay()
+
     def reload_headerImage(self, path = None):
         _str_func = 'reload_headerImage'
         log.debug("|{0}| >>...".format(_str_func))
@@ -2500,6 +2504,9 @@ example:
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Clear",
                          ann='Clear the fields',
                          c = lambda *a:mc.evalDeferred(self.uiProject_clear,lp=True))
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Fill Default Asset Types",
+                         ann='Add default asset types (character, environment, prop) if missing',
+                         c = lambda *a:mc.evalDeferred(self.uiAssetTypes_fillDefaults,lp=True))
 
 
         """

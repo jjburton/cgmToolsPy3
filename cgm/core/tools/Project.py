@@ -1658,6 +1658,9 @@ class ui(cgmUI.cgmGUI):
         mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Clear",
                          ann='Clear the fields',
                          c = lambda *a:mc.evalDeferred(cgmGEN.Callback(uiProject_clear,self),lp=True))
+        mUI.MelMenuItem( self.uiMenu_FirstMenu, l="Fill Default Asset Types",
+                         ann='Add default asset types (character, environment, prop) if missing',
+                         c = lambda *a:mc.evalDeferred(cgmGEN.Callback(uiAssetTypes_refill,self),lp=True))
         
         
         
@@ -2406,7 +2409,12 @@ def uiProject_load(self,path=None,revert=False):
 
     
 def uiAssetTypes_refill(self):
-    pass
+    _str_func = 'uiAssetTypes_refill'
+    log.debug("|{0}| >>...".format(_str_func))
+    self.mDat.assetTypes_fillDefaults()
+    uiAsset_rebuildOptionMenu(self)
+    uiAsset_rebuildSub(self)
+    uiProject_save(self)
 
     
 def uiProject_save(self, path = None, updateFile = True, duplicateMode = False):
@@ -2879,10 +2887,14 @@ class data(object):
                                 d2["n"], k, d2.get("dv")
                             )
                         )
-                    
-        if not self.assetDat:
-            for k in 'character','environment','prop':
-                self.assetType_add(k)
+
+    def assetTypes_fillDefaults(self):
+        """Add default asset types if missing. Does not wipe existing types."""
+        _str_func = 'data.assetTypes_fillDefaults'
+        log.debug("|{0}| >>...".format(_str_func))
+        for k in PU.l_defaultAssetTypes:
+            self.assetType_add(k)
+        return True
         
     def nameStyle_push(self):
         _nameStyle = self.d_project.get('nameStyle')
