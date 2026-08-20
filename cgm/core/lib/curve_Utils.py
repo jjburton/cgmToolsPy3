@@ -164,6 +164,54 @@ def create_pointOnInfoNode(crvShape,parameter= None,turnOnPercentage=None):
     
     return _infoNode
 
+
+def nurbs_percent_sampler(curve):
+    """
+    Cached world-space sampler: percent 0-1 -> [x, y, z].
+
+    Matches pointOnCurveInfo turnOnPercentage (parametric min/max U, not arc-length).
+    Bind once and call repeatedly; do not create DG nodes.
+    """
+    from maya.api import OpenMaya as om2
+
+    _shape = curve
+    if isinstance(_shape, (list, tuple)):
+        _shape = _shape[0]
+    _shape = cgmValid.mNodeString(_shape)
+    if cgmValid.get_mayaType(_shape) != 'nurbsCurve':
+        _shapes = TRANS.shapes_get(_shape, True) or []
+        _nurbs = [s for s in _shapes if cgmValid.get_mayaType(s) == 'nurbsCurve']
+        if not _nurbs:
+            raise ValueError('nurbs_percent_sampler: no nurbsCurve on {0}'.format(_shape))
+        _shape = _nurbs[0]
+
+    _sel = om2.MSelectionList()
+    _sel.add(_shape)
+    _dag = _sel.getDagPath(0)
+    _fn = om2.MFnNurbsCurve(_dag)
+    _umin = float(mc.getAttr(_shape + '.minValue'))
+    _umax = float(mc.getAttr(_shape + '.maxValue'))
+    _span = _umax - _umin
+    _space = om2.MSpace.kWorld
+
+    def _point(percent):
+        _pct = max(0.0, min(1.0, float(percent)))
+        _param = _umin + _pct * _span if _span else _umin
+        _p = _fn.getPointAtParam(_param, _space)
+        return [_p.x, _p.y, _p.z]
+
+    def _closest_percent(position):
+        _pt = om2.MPoint(float(position[0]), float(position[1]), float(position[2]))
+        _hit, _param = _fn.closestPoint(_pt, space=_space)
+        if not _span:
+            return 0.0
+        return max(0.0, min(1.0, (float(_param) - _umin) / _span))
+
+    _point.closest_percent = _closest_percent
+    _point.shape = _shape
+    return _point
+
+
 def get_shape_info(crvShape):
     """
     Get data for a given nurbs curve shape

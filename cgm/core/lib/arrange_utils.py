@@ -114,6 +114,7 @@ _d_arrangeRatio_ann = {
     'ratioFingerTarget': 'Last selected must be a curve; finger ratio along the whole curve (first at start, last at end)',
     'ratioCustomTarget': 'Last selected must be a curve; prompt for ratio or segment weights along the whole curve (first at start, last at end)',
     'ratioSlider': 'Drag to live-redistribute the selection. 1 = even, 1.618 = golden. Path from Linear / Curve / To Curve.',
+    'stackSlider': '0 = stacked at start, 0.5 = even, 1 = stacked at end. One object + curve: slider is U along the curve. Uses Ratio path.',
 }
 
 _d_ratioPresets = ('golden_all', 'finger')
@@ -177,6 +178,26 @@ def _ratio_cumulative_fractions(weights):
         _out.append(_acc / _sum)
     _out[-1] = 1.0
     return _out
+
+
+def _ratio_stack_fractions(count, t):
+    """
+    Path fractions for *count* objects.
+
+    t=0 all at start, t=0.5 even, t=1 all at end.
+    One object: t is the U parameter on the path (0 start, 1 end).
+    """
+    _t = max(0.0, min(1.0, float(t)))
+    if count < 1:
+        return []
+    if count == 1:
+        return [_t]
+    _even = [i / float(count - 1) for i in range(count)]
+    if _t <= 0.5:
+        _u = _t * 2.0
+        return [e * _u for e in _even]
+    _u = (_t - 0.5) * 2.0
+    return [e + (1.0 - e) * _u for e in _even]
 
 
 def _ratio_curve_shape(curveBuffer):
@@ -451,6 +472,140 @@ def alongRatio_value(objList=None, ratio=None, curve='linear', spans=2, move=Tru
     return alongRatio(
         objList, preset='golden_all', curve=curve, spans=spans, move=move,
         segmentWeights=_weights, quiet=quiet)
+
+
+def alongRatio_slide_bind(objList, curve='linear', spans=2):
+    """
+    Cache objects + path sampler for interactive ratio sliding.
+
+    Target / cubic sample a bound MFnNurbsCurve (no per-tick DG nodes).
+    Linear uses the first-to-last vector at bind time.
+    Target stack: one object + curve is valid (slider is U 0→1).
+    """
+    _str_func = 'alongRatio_slide_bind'
+    objList = VALID.mNodeStringList(objList)
+    if not objList:
+        raise ValueError('|{0}| >> Nothing selected'.format(_str_func))
+
+    _work = list(objList)
+    if curve == 'target':
+        if VALID.get_mayaType(_work[-1]) != 'nurbsCurve':
+            raise ValueError(
+                "Last selected must be curve. Found: '{}' | type: '{}'".format(
+                    _work[-1], VALID.get_mayaType(_work[-1])))
+        _work = _work[:-1]
+    _min_work = 1 if curve == 'target' else 3
+    if len(_work) < _min_work:
+        raise ValueError(
+            '|{0}| >> Need at least {1} objects'.format(_str_func, _min_work))
+
+    _session = {
+        'curve': curve,
+        'work': _work,
+        'temp': [],
+        'sampler': None,
+        'linear': None,
+        'pct_start': 0.0,
+        'pct_span': 1.0,
+        'indices': None,
+    }
+
+    if curve == 'linear':
+        _start = POS.get(_work[0])
+        _end = POS.get(_work[-1])
+        _session['linear'] = (
+            _start,
+            MATH.get_vector_of_two_points(_start, _end),
+            DIST.get_distance_between_points(_start, _end),
+        )
+        _session['indices'] = range(1, len(_work) - 1)
+        return _session
+
+    if curve == 'target':
+        _shape = _ratio_curve_shape(objList[-1])
+        _session['sampler'] = CURVES.nurbs_percent_sampler(_shape)
+        _session['indices'] = range(len(_work))
+        return _session
+
+    _shape, _temp = _ratio_build_curve(objList, curve, spans)
+    _session['temp'] = list(_temp) if isinstance(_temp, (list, tuple)) else [_temp]
+    for _node in _session['temp']:
+        if mc.objExists(_node):
+            try:
+                mc.setAttr(_node + '.visibility', 0)
+            except Exception:
+                pass
+    _sampler = CURVES.nurbs_percent_sampler(_shape)
+    _session['sampler'] = _sampler
+    _pct_start = _sampler.closest_percent(POS.get(_work[0]))
+    _pct_end = _sampler.closest_percent(POS.get(_work[-1]))
+    if _pct_start > _pct_end:
+        _pct_start, _pct_end = _pct_end, _pct_start
+    _session['pct_start'] = _pct_start
+    _session['pct_span'] = _pct_end - _pct_start
+    _session['indices'] = range(1, len(_work) - 1)
+    return _session
+
+
+def alongRatio_slide_eval(session, value, mode='ratio'):
+    """
+    Apply a bound slider session. No select, no DG create.
+
+    mode 'ratio' — geometric chain (value must be > 0).
+    mode 'stack' — 0 stacked at start, 0.5 even, 1 stacked at end.
+    """
+    if not session:
+        return False
+    _work = session['work']
+    if not _work:
+        return False
+    _seg = len(_work) - 1
+    if _seg < 1 and mode != 'stack':
+        return False
+
+    if mode == 'stack':
+        _cum = _ratio_stack_fractions(len(_work), value)
+    else:
+        _ratio = float(value)
+        if _ratio <= 0:
+            raise ValueError('alongRatio_slide_eval: ratio must be positive')
+        _cum = _ratio_cumulative_fractions(
+            [_ratio ** (_seg - 1 - i) for i in range(_seg)])
+
+    _indices = session.get('indices')
+    if _indices is None:
+        _indices = range(len(_work))
+
+    _linear = session.get('linear')
+    if _linear is not None:
+        _start, _vec, _total = _linear
+        for _i in _indices:
+            _p = DIST.get_pos_by_vec_dist(_start, _vec, _cum[_i] * _total)
+            mc.move(_p[0], _p[1], _p[2], _work[_i], ws=True, rpr=True, r=False)
+        return True
+
+    _sampler = session.get('sampler')
+    if _sampler is None:
+        raise ValueError('alongRatio_slide_eval: no curve sampler')
+    _pct0 = session.get('pct_start') or 0.0
+    _span = session.get('pct_span')
+    if _span is None:
+        _span = 1.0
+    for _i in _indices:
+        _p = _sampler(_pct0 + _cum[_i] * _span)
+        mc.move(_p[0], _p[1], _p[2], _work[_i], ws=True, rpr=True, r=False)
+    return True
+
+
+def alongRatio_slide_release(session):
+    """Delete temp curves from a cubic bind, if any."""
+    if not session:
+        return
+    _temp = [n for n in (session.get('temp') or []) if n and mc.objExists(n)]
+    if _temp:
+        mc.delete(_temp)
+    session['temp'] = []
+    session['sampler'] = None
 
 
 def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):

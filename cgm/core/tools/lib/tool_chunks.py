@@ -59,6 +59,8 @@ from cgm.core.classes import HotkeyFactory as HKEY
 from cgm.core.tools.lib import snap_calls as UISNAPCALLS
 import cgm.core.lib.arrange_utils as ARRANGE
 import cgm.core.lib.position_utils as POS
+cgmGEN._reloadMod(CURVES)
+cgmGEN._reloadMod(ARRANGE)
 import cgm.core.tools.lightLoomLite as LIGHTLOOMLITE
 import cgm.core.rig.joint_utils as JOINTS
 from cgm.core.lib import transform_utils as TRANS
@@ -365,13 +367,17 @@ def buildRows_ratio_arrange(parent, ui=None):
 
 _VAR_ARRANGE_RATIO = 'cgmVar_arrangeRatioValue'
 _VAR_ARRANGE_RATIO_CURVE = 'cgmVar_arrangeRatioCurve'
+_VAR_ARRANGE_STACK = 'cgmVar_arrangeStackValue'
 _RATIO_SLIDE_MIN = 0.25
 _RATIO_SLIDE_MAX = 4.0
+_STACK_SLIDE_MIN = 0.0
+_STACK_SLIDE_MAX = 1.0
 _d_ratioSlide = {
     'chunk': False,
     'objList': None,
     'origPos': None,
     'curve': 'linear',
+    'session': None,
 }
 
 
@@ -383,13 +389,33 @@ def _arrange_ratio_curve_var():
     return cgmMeta.cgmOptionVar(_VAR_ARRANGE_RATIO_CURVE, defaultValue='linear')
 
 
+def _arrange_stack_var():
+    return cgmMeta.cgmOptionVar(_VAR_ARRANGE_STACK, defaultValue=0.5)
+
+
+def _ratio_slide_release_session():
+    _session = _d_ratioSlide.get('session')
+    if _session:
+        ARRANGE.alongRatio_slide_release(_session)
+    _d_ratioSlide['session'] = None
+
+
 def _ratio_slide_capture(curve=None):
+    _ratio_slide_release_session()
     _sel = mc.ls(sl=True, long=True) or []
     _d_ratioSlide['objList'] = list(_sel)
     _d_ratioSlide['origPos'] = [POS.get(o) for o in _sel]
     if curve is None:
         curve = _arrange_ratio_curve_var().value
     _d_ratioSlide['curve'] = curve or 'linear'
+    if not _sel:
+        return
+    try:
+        _d_ratioSlide['session'] = ARRANGE.alongRatio_slide_bind(
+            _sel, curve=_d_ratioSlide['curve'])
+    except Exception as err:
+        log.warning(err)
+        _d_ratioSlide['session'] = None
 
 
 def _ratio_slide_restore():
@@ -400,13 +426,30 @@ def _ratio_slide_restore():
             POS.set(o, p)
 
 
-def _ratio_slide_apply(value, restore=False, quiet=True):
+def _ratio_slide_apply(value, restore=False, quiet=True, mode='ratio'):
+    _session = _d_ratioSlide.get('session')
+    if _session:
+        try:
+            ARRANGE.alongRatio_slide_eval(_session, value, mode=mode)
+        except Exception as err:
+            log.warning(err)
+        return
     _objs = _d_ratioSlide.get('objList')
     if not _objs:
         _ratio_slide_capture()
         _objs = _d_ratioSlide.get('objList')
+        _session = _d_ratioSlide.get('session')
+        if _session:
+            try:
+                ARRANGE.alongRatio_slide_eval(_session, value, mode=mode)
+            except Exception as err:
+                log.warning(err)
+            return
     if not _objs:
         log.warning('|AlongRatio| >> Nothing selected')
+        return
+    if mode == 'stack':
+        log.warning('|AlongRatio| >> Stack slide needs a bound path (select objects, To Curve last is a curve)')
         return
     if restore:
         _ratio_slide_restore()
@@ -425,25 +468,37 @@ def _ratio_slide_begin(*a):
 
 
 def _ratio_slide_drag(value):
-    _ratio_slide_apply(value, restore=True, quiet=True)
+    _ratio_slide_apply(value, restore=True, quiet=True, mode='ratio')
 
 
-def _ratio_slide_end(value, field=None, slider=None):
+def _stack_slide_drag(value):
+    _ratio_slide_apply(value, restore=True, quiet=True, mode='stack')
+
+
+def _ratio_slide_end(value, field=None, slider=None, mode='ratio'):
     _restore = bool(_d_ratioSlide['chunk'])
     if not _restore:
         _ratio_slide_capture()
-    _ratio_slide_apply(value, restore=_restore, quiet=False)
+    _ratio_slide_apply(value, restore=_restore, quiet=False, mode=mode)
     try:
         _v = float(value)
-        if _v > 0:
+        if mode == 'stack':
+            _v = min(max(_v, _STACK_SLIDE_MIN), _STACK_SLIDE_MAX)
+            _arrange_stack_var().value = _v
+            _smin, _smax = _STACK_SLIDE_MIN, _STACK_SLIDE_MAX
+        elif _v > 0:
             _arrange_ratio_var().value = _v
+            _smin, _smax = _RATIO_SLIDE_MIN, _RATIO_SLIDE_MAX
+        else:
+            _smin = _smax = None
+        if _smin is not None:
             if field is not None:
                 field.setValue(_v, executeChangeCB=False)
             if slider is not None:
-                _clamp = min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX)
-                slider.setValue(_clamp, executeChangeCB=False)
+                slider.setValue(min(max(_v, _smin), _smax), executeChangeCB=False)
     except Exception:
         pass
+    _ratio_slide_release_session()
     if _d_ratioSlide['chunk']:
         mc.undoInfo(closeChunk=True)
         _d_ratioSlide['chunk'] = False
@@ -462,7 +517,8 @@ def _ratio_field_change(field, slider):
     _clamp = min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX)
     slider.setValue(_clamp, executeChangeCB=False)
     _ratio_slide_capture()
-    _ratio_slide_apply(_v, restore=False, quiet=False)
+    _ratio_slide_apply(_v, restore=False, quiet=False, mode='ratio')
+    _ratio_slide_release_session()
 
 
 def _ratio_set_phi(field, slider):
@@ -472,7 +528,33 @@ def _ratio_set_phi(field, slider):
         min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX), executeChangeCB=False)
     _arrange_ratio_var().value = _v
     _ratio_slide_capture()
-    _ratio_slide_apply(_v, restore=False, quiet=False)
+    _ratio_slide_apply(_v, restore=False, quiet=False, mode='ratio')
+    _ratio_slide_release_session()
+
+
+def _stack_field_change(field, slider):
+    try:
+        _v = float(field.getValue())
+    except Exception:
+        log.warning('|AlongRatio| >> Invalid stack value')
+        return
+    _v = min(max(_v, _STACK_SLIDE_MIN), _STACK_SLIDE_MAX)
+    _arrange_stack_var().value = _v
+    slider.setValue(_v, executeChangeCB=False)
+    field.setValue(_v, executeChangeCB=False)
+    _ratio_slide_capture()
+    _ratio_slide_apply(_v, restore=False, quiet=False, mode='stack')
+    _ratio_slide_release_session()
+
+
+def _stack_set_even(field, slider):
+    _v = 0.5
+    field.setValue(_v, executeChangeCB=False)
+    slider.setValue(_v, executeChangeCB=False)
+    _arrange_stack_var().value = _v
+    _ratio_slide_capture()
+    _ratio_slide_apply(_v, restore=False, quiet=False, mode='stack')
+    _ratio_slide_release_session()
 
 
 def _ratio_set_curve(mode):
@@ -514,6 +596,39 @@ def buildRow_ratio_slider(parent, ui=None):
     mUI.MelSpacer(_row, w=5)
     _row.layout()
 
+    _ann_stack = ARRANGE._d_arrangeRatio_ann.get('stackSlider')
+    _stack_var = _arrange_stack_var()
+    try:
+        _stack_val = float(_stack_var.value)
+    except Exception:
+        _stack_val = 0.5
+    _stack_val = min(max(_stack_val, _STACK_SLIDE_MIN), _STACK_SLIDE_MAX)
+
+    _row_stack = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_stack, w=5)
+    mUI.MelLabel(_row_stack, l='Stack:')
+    _stack_field = mUI.MelFloatField(
+        _row_stack, ut='cgmUISubTemplate', w=50, precision=3,
+        minValue=_STACK_SLIDE_MIN, maxValue=_STACK_SLIDE_MAX,
+        value=_stack_val, ann=_ann_stack)
+    _stack_slider = mUI.MelFloatSlider(
+        _row_stack, _STACK_SLIDE_MIN, _STACK_SLIDE_MAX,
+        defaultValue=0.5, value=_stack_val, ann=_ann_stack)
+    _stack_slider.setPreChangeCB(_ratio_slide_begin)
+    _stack_slider.setChangeCB(_stack_slide_drag)
+    _stack_slider.setPostChangeCB(
+        lambda v: _ratio_slide_end(v, _stack_field, _stack_slider, mode='stack'))
+    _stack_field(
+        edit=True,
+        changeCommand=lambda *a: _stack_field_change(_stack_field, _stack_slider))
+    mc.button(
+        parent=_row_stack, l='Even', ut='cgmUITemplate',
+        c=lambda *a: _stack_set_even(_stack_field, _stack_slider),
+        ann='Set stack slider to even (0.5) and apply')
+    _row_stack.setStretchWidget(_stack_slider)
+    mUI.MelSpacer(_row_stack, w=5)
+    _row_stack.layout()
+
     _row_mode = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row_mode, w=5)
     mUI.MelLabel(_row_mode, l='Ratio path:')
@@ -535,6 +650,8 @@ def buildRow_ratio_slider(parent, ui=None):
     if ui is not None:
         ui.uiFF_arrangeRatio = _field
         ui.uiSlider_arrangeRatio = _slider
+        ui.uiFF_arrangeStack = _stack_field
+        ui.uiSlider_arrangeStack = _stack_slider
 
 
 def buildRow_to_curve_arrange(parent):
