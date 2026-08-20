@@ -1595,26 +1595,6 @@ def buildTab_legacy(self,parent):
                      lambda a:LOADTOOL.animToolsLEGACY(),
                      "Old simple anim tool holder")
 
-    cgmUI.add_Button(_column,
-                     'SetTools 1.0',
-                     lambda a:LOADTOOL.setToolsLEGACY(),
-                     "Old object set tool window. Crashy. Use with caution")        
-
-    cgmUI.add_Button(_column,
-                     'Locinator 1.0',
-                     lambda a:LOADTOOL.locinatorLEGACY(),
-                     "Original Tool for creating, updating, locators")
-
-    cgmUI.add_Button(_column,
-                     'tdTools 1.0',
-                     lambda a:LOADTOOL.tdToolsLEGACY(),
-                     "Series of tools for general purpose TD work - curves, naming, position, deformers") 
-
-    cgmUI.add_Button(_column,
-                     'attrTools 1.0',
-                     lambda a:LOADTOOL.attrToolsLEGACY(),
-                     "Old attribute tools")
-
 
 def buildTab_options(self,parent):
 

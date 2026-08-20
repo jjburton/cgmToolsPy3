@@ -18,7 +18,6 @@ from cgm.core.lib import snap_utils as SNAP
 from cgm.core.lib.zoo import baseMelUI as mUI
 #from cgm.lib import search
 from cgm.lib import locators
-from cgm.tools.lib import tdToolsLib#...REFACTOR THESE!!!!
 
 def run():
     mmWindow = cgmMarkingMenu()
@@ -260,12 +259,6 @@ class cgmMarkingMenu(mmTemplate.cgmMetaMM):
                         l = 'scalePivot',
                         c = lambda *a:snap_action(self,'scalePivot'),
                         rp = 'SE')	        
-    
-        mUI.MelMenuItem(_r,
-                        en = self._b_sel_pair,
-                        l = 'Surface',
-                        c = lambda *a:self.button_action(tdToolsLib.doSnapClosestPointToSurface(False)),
-                        rp = 'SW')
     
         mUI.MelMenuItem(_r,
                         en = self._b_sel,
