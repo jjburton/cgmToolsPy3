@@ -1390,12 +1390,12 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
             plug_rotateGroup = "%s.%s"%(i_rotateUpGroup.mNode,rotateGroupAxis)
             #Twist setup start
             #grab driver
-            driverNodeAttr = attributes.returnDriverAttribute(plug_rotateGroup,True) 
+            driverNodeAttr = ATTR.get_driver(plug_rotateGroup, skipConversionNodes=True) 
 
             #get driven
             #rotDriven = attributes.returnDrivenAttribute(driverNodeAttr,True)
 
-            rotPlug = attributes.doBreakConnection(i_rotateUpGroup.mNode,
+            rotPlug = ATTR.break_connection(i_rotateUpGroup.mNode,
                                                    rotateGroupAxis)
             #Create the add node
             mPlug_controlDriver = cgmMeta.cgmAttr(mControl.mNode,controlTwistAxis)
@@ -1424,7 +1424,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
             i_pmaAdd = NodeF.createAverageNode(l_driverPlugs,
                                                operation=1)
 
-            attributes.doConnectAttr("%s.output1D"%i_pmaAdd.mNode,plug_rotateGroup)
+            ATTR.connect("%s.output1D"%i_pmaAdd.mNode,plug_rotateGroup)
 
             #>> Let's do the blend ===============================================================
             #First split it out ------------------------------------------------------------------
@@ -1458,16 +1458,16 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
                     plug_rotateGroup = "%s.%s"%(i_rotateUpGroup.mNode,rotateGroupAxis)
 
                     #Twist setup start
-                    driverNodeAttr = attributes.returnDriverAttribute(plug_rotateGroup,True) 
+                    driverNodeAttr = ATTR.get_driver(plug_rotateGroup, skipConversionNodes=True) 
 
-                    rotPlug = attributes.doBreakConnection(i_rotateUpGroup.mNode,
+                    rotPlug = ATTR.break_connection(i_rotateUpGroup.mNode,
                                                            rotateGroupAxis)
                     #Create the add node
                     l_driverPlugs = [driverNodeAttr,mPlugs_factors[i].p_combinedShortName]		    
                     i_pmaAdd = NodeF.createAverageNode(l_driverPlugs,
                                                        operation=1)
 
-                    attributes.doConnectAttr("%s.output1D"%i_pmaAdd.mNode,plug_rotateGroup)
+                    ATTR.connect("%s.output1D"%i_pmaAdd.mNode,plug_rotateGroup)
                 except Exception as error:
                     log.error("'%s' Failed | %s"%(i_jnt.getShortName(),error))
 

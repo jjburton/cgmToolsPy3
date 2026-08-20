@@ -30,8 +30,6 @@ from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as cgmValid
 from cgm.core import cgm_Meta as cgmMeta
 
-from cgm.lib import attributes
-from cgm.core.lib import attribute_utils as coreAttr
 import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.cgmPy.os_Utils as CGMOS
 

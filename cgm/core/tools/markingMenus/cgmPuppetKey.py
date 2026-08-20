@@ -11,7 +11,7 @@ from cgm.core.classes import GuiFactory as cgmUI
 
 from cgm.lib import guiFactory
 from cgm.core.lib import list_utils as lists
-from cgm.lib import search
+from cgm.core.lib import search_utils as SEARCH
 from cgm.tools.lib import animToolsLib
 #from cgm.tools.lib import tdToolsLib
 #from cgm.tools.lib import locinatorLib
@@ -48,7 +48,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
             if 'MayaWindow' in mc.panel(panel,q = True,ctl = True):
                 panel = 'viewPanes'
 
-        sel = search.selectCheck()
+        sel = SEARCH.select_check()
 
         #>>>> Clock set
         #====================================================================
@@ -785,7 +785,7 @@ def killUI():
     IsClickedOptionVar = cgmMeta.cgmOptionVar('cgmVar_IsClicked')
     mmActionOptionVar = cgmMeta.cgmOptionVar('cgmVar_mmAction')
 
-    sel = search.selectCheck()
+    sel = SEARCH.select_check()
 
     #>>> Timer stuff
     #=============================================================================
@@ -813,7 +813,7 @@ def setKey():
         else:
             mc.setKeyframe(breakdown = True)
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(report=False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:
@@ -838,7 +838,7 @@ def deleteKey():
         else:
             mc.cutKey(selection)	    
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(report=False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:

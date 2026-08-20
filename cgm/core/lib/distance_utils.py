@@ -1384,7 +1384,7 @@ def returnNormalizedUV(mesh, uValue, vValue):
             mesh = cgmValid.objString(mesh,'nurbsSurface', calledFrom = _str_funcName)
             if len(mc.ls(mesh))>1:
                 raise Exception("{0}>>> More than one mesh named: {1}".format(_str_funcName,mesh))
-            _str_objType = search.returnObjectType(mesh)
+            _str_objType = VALID.get_mayaType(mesh)
 
             l_shapes = mc.listRelatives(mesh, shapes=True)
             if len(l_shapes)>1:

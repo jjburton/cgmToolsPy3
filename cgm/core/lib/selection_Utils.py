@@ -17,7 +17,7 @@ import copy
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OM
 from cgm.core.cgmPy import validateArgs as cgmValid
-from cgm.lib import search
+from cgm.core.lib import search_utils as SEARCH
 
 def get_filtered(mode = 'transform'):
     """
@@ -39,7 +39,7 @@ def get_filtered(mode = 'transform'):
     if _m == 'transform':
         _sel = mc.ls(sl=True)
         for s in _sel:
-            _t = search.get_transform(s)
+            _t = SEARCH.get_transform(s)
             if _t not in _res:
                 _res.append(_t)
                 

@@ -44,7 +44,6 @@ from cgm.lib import (cgmMath,
                      distance,
                      dictionary,
                      rigging,
-                     search,
                      curves,
                      lists,
                      )

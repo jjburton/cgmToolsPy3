@@ -33,12 +33,11 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.lib import (search,
-					 curves,#tmp
+from cgm.core.lib import attribute_utils as ATTR
+from cgm.lib import (curves,#tmp
 					 modules,#tmp
 					 distance,#tmp
 					 controlBuilder,
-					 attributes,
 					 dictionary,
 					 rigging,
 					 settings,
@@ -202,7 +201,7 @@ class  OLDSTUFF():
 	#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>     
 	def verifyRotateOrderControl(self):
 		assert self.transform,"'%s' has no transform"%self.nameShort	
-		initialValue = attributes.doGetAttr(self.nameLong,'rotateOrder')
+		initialValue = ATTR.get(self.nameLong,'rotateOrder')
 		try:
 			self.RotateOrderControl = AttrFactory(self,'setRO','enum',enum = 'xyz:yzx:zxy:xzy:yxz:zyx',initialValue=initialValue) 
 		except:

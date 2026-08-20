@@ -48,10 +48,8 @@ from cgm.core.classes import GuiFactory as cgmUI
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as cgmValid
-from cgm.lib import (search,
-                     names,
+from cgm.lib import (names,
                      cgmMath,
-                     attributes,
                      rigging,
                      distance,
                      skinning)
@@ -207,7 +205,7 @@ class data(object):
             if not _bfr:raise ValueError("No selection found and no source arg")
             mesh = _bfr[0]
             
-        _type = search.returnObjectType(mesh)
+        _type = cgmValid.get_mayaType(mesh)
         
         if _type in ['mesh', 'nurbsCurve', 'nurbsSurface']:
             if _type in ['nurbsCurve','nurbsSurface']:
@@ -220,7 +218,7 @@ class data(object):
         elif _type in ['skinCluster']:
             log.info("skinCluster '{0}' passed...".format(mesh))
             _skin = mesh
-            _mesh = attributes.doGetAttr(_skin,'outputGeometry')[0]
+            _mesh = ATTR.get(_skin,'outputGeometry')[0]
             log.info("Found: {0}".format(_mesh))
         else:
             raise ValueError("Not a usable mesh type : {0}".format(_type))
@@ -1043,7 +1041,7 @@ def applySkin(*args,**kws):
             for k in _skinclusterAttributesToCopy:
                 _value = _skinclusterAttributesToCopy[k](self.mData.d_sourceSkin[k])
                 self.log_info("Setting '{0}' to {1}".format(k,_value))
-                try:attributes.doSetAttr(_targetSkin,k,_value)
+                try:ATTR.set(_targetSkin,k,_value)
                 except Exception as error:
                     self.log_error("{0} failed | {1}".format(k,error))
                     

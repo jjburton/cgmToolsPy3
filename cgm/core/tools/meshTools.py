@@ -34,7 +34,6 @@ mUI = cgmUI.mUI
 from cgm.core.lib.zoo import baseMelUI as zooUI
 from cgm.core.lib import list_utils as lists
 from cgm.lib import dictionary
-from cgm.lib import search
 from cgm.core.classes import DraggerContextFactory
 from cgm.core.lib import shapeCaster as ShapeCaster
 from cgm.core.lib import selection_Utils as selUtils

@@ -27,15 +27,14 @@ from cgm.core.lib import name_utils as NAMES
 import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.shape_utils as SHAPE
 import cgm.core.lib.rigging_utils as CORERIG
+from cgm.core.lib import attribute_utils as ATTR
 
 #reload(DIST)
 from cgm.core import cgm_General as cgmGEN
 from cgm.lib import locators
 from cgm.lib import dictionary
-from cgm.lib import search
 from cgm.lib import cgmMath
 from cgm.lib import distance
-from cgm.lib import attributes
 import os
 #CANNOT IMPORT: LOC, SNAP
 
@@ -1395,17 +1394,17 @@ def returnNormalizedUVOLD(mesh, uValue, vValue):
             mesh = VALID.objString(mesh,'nurbsSurface', calledFrom = _str_func)
             if len(mc.ls(mesh))>1:
                 raise Exception("{0}>>> More than one mesh named: {1}".format(_str_func,mesh))
-            _str_objType = search.returnObjectType(mesh)
+            _str_objType = VALID.get_mayaType(mesh)
 
             l_shapes = mc.listRelatives(mesh, shapes=True)
             if len(l_shapes)>1:
                 log.debug( "More than one shape found. Using 0. targetSurface : %s | shapes: %s"%(mesh,l_shapes) )
             #mi_shape = cgmMeta.validateObjArg(l_shapes[0],cgmMeta.cgmNode,noneValid=False)
 
-            uMin = attributes.doGetAttr(l_shapes[0],'mnu')
-            uMax = attributes.doGetAttr(l_shapes[0],'mxu')
-            vMin = attributes.doGetAttr(l_shapes[0],'mnv')
-            vMax = attributes.doGetAttr(l_shapes[0],'mxv')         
+            uMin = ATTR.get(l_shapes[0],'mnu')
+            uMax = ATTR.get(l_shapes[0],'mxu')
+            vMin = ATTR.get(l_shapes[0],'mnv')
+            vMax = ATTR.get(l_shapes[0],'mxv')         
             """uMin = mi_shape.mnu
             uMax = mi_shape.mxu
             vMin = mi_shape.mnv

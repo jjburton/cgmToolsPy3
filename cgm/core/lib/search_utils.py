@@ -44,6 +44,12 @@ log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
 log_start = cgmGEN.logString_start
 
+def select_check():
+    """Return True if anything is selected. Alias: selectCheck."""
+    return bool(mc.ls(sl=True))
+selectCheck = select_check
+returnObjectType = get_mayaType
+
 
 def animLayers_getSelected():
     layers= []
@@ -743,7 +749,9 @@ def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict
             return _res
     return False 
 
-def get_referencePrefix(node = None):
+def returnSelectedAttributesFromChannelBox(returnRaw=False):
+    """Old lib.search name. returnRaw True = channel names only."""
+    return get_selectedFromChannelBox(attributesOnly=returnRaw, report=False)
     """
     Get the reference prefix of a node...
 

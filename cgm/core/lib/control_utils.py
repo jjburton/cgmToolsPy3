@@ -26,8 +26,7 @@ import maya.cmds as mc
 from cgm.core import cgm_General as cgmGeneral
 from cgm.core.cgmPy import validateArgs as cgmValid
 
-from cgm.lib import attributes
-from cgm.core.lib import attribute_utils as coreAttr
+from cgm.core.lib import attribute_utils as ATTR
 
 #>>> Utilities
 #===================================================================
@@ -63,15 +62,15 @@ def set_primeScaleAxis(control = None, primeAxis = None, slaveOthers = False, al
     log.debug("{0} || other attrs:{1}".format(_str_func,_l_others))
         
     if alias:
-        coreAttr.alias_set("{0}.{1}".format(control,_attr_prime),alias)
+        ATTR.set_alias("{0}.{1}".format(control,_attr_prime), alias)
             
     for attr in _l_others:
         if slaveOthers:
-            try:attributes.doConnectAttr("{0}.{1}".format(control,_attr_prime),
-                                         "{0}.scale{1}".format(control,attr.capitalize()),
-                                         transferConnection=True)
+            try:ATTR.connect("{0}.{1}".format(control,_attr_prime),
+                             "{0}.scale{1}".format(control,attr.capitalize()))
             except:pass
-        attributes.doSetLockHideKeyableAttr(control, lock = True, visible= False, keyable=False, channels=['s{0}'.format(attr.lower())])
+        ATTR.set_standardFlags(control, attrs=['s{0}'.format(attr.lower())],
+                               lock=True, visible=False, keyable=False)
            
     return True
 

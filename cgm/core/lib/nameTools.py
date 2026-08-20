@@ -37,10 +37,8 @@ import cgm.core.lib.transform_utils as TRANS
 #reload(CORESHARE)
 #reload(SEARCH)
 # From cgm ==============================================================
-from cgm.lib import (search,
-                     dictionary,
-                     settings,
-                     attributes)
+from cgm.lib import (dictionary,
+                     settings)
 
 #namesDictionaryFile = settings.getNamesDictionaryFile()
 #typesDictionaryFile = settings.getTypesDictionaryFile()

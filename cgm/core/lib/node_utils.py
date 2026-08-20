@@ -32,8 +32,6 @@ from cgm.core.lib import attribute_utils as ATTR
 #reload(SHARED)
 
 #CANNOT IMPORT: DIST, LOC
-from cgm.core.lib import attribute_utils as ATTR
-from cgm.lib import attributes
 
 #>>> Utilities
 #===================================================================

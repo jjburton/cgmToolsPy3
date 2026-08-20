@@ -41,13 +41,11 @@ import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.list_utils as LISTS
 from cgm.lib import (distance,
                      #locators,
-                     attributes,
                      curves,
                      deformers,
                      rigging,
                      skinning,
                      dictionary,
-                     search,
                      nodes,
                      joints,
                      cgmMath)

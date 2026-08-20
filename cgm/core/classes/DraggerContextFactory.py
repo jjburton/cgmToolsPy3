@@ -49,8 +49,6 @@ from cgm.core.lib import math_utils as MATHUTILS
 from cgm.lib import (locators,
                      geo,
                      curves,
-                     search,
-                     attributes,
                      nodes,
                      rigging,
                      distance,
@@ -381,7 +379,7 @@ class clickMesh(ContextualPick):
                             'planeY':[0,1,0],
                             'planeZ':[0,0,1]}
             self._str_castPlane = mc.polyPlane(n=mode, axis = d_plane_axis[mode], width = self._f_maxDistance, height = self._f_maxDistance, cuv = 1)[0]
-            attributes.doSetAttr(self._str_castPlane,'v',False)
+            ATTR.set(self._str_castPlane,'v',False)
             self.addTargetMesh( self._str_castPlane )
             mode = 'surface'#...change for casting
             
@@ -565,8 +563,8 @@ class clickMesh(ContextualPick):
                     for f_dat in self._l_folliclesToMake:
                         _follicle = NODES.add_follicle(f_dat[0],f_dat[2])
                         log.info("|finalize| >> Follicle created: {0}".format(_follicle))                        
-                        attributes.doSetAttr(_follicle[0],'parameterU',f_dat[1][0])
-                        attributes.doSetAttr(_follicle[0],'parameterV',f_dat[1][1])                    
+                        ATTR.set(_follicle[0],'parameterU',f_dat[1][0])
+                        ATTR.set(_follicle[0],'parameterV',f_dat[1][1])                    
                         """bufferList = []
                         for o in self.l_created:
                     mesh = attributes.doGetAttr(o,'cgmHitTarget')
@@ -575,8 +573,8 @@ class clickMesh(ContextualPick):
                         log.info("uv: {0}".format(uv))
                         follicle = nodes.createFollicleOnMesh(mesh)
                         log.info("follicle: {0}".format(follicle))                        
-                        attributes.doSetAttr(follicle[0],'parameterU',uv[0])
-                        attributes.doSetAttr(follicle[0],'parameterV',uv[1])
+                        ATTR.set(follicle[0],'parameterU',uv[0])
+                        ATTR.set(follicle[0],'parameterV',uv[1])
                         try:mc.delete(o)
                         except:pass   """   
                 try:mc.delete(self.l_created)
@@ -1220,7 +1218,7 @@ class clickMesh(ContextualPick):
                 """
                 for m in self.d_meshPos.keys():#check each mesh dictionary to see where it came from
                     if pos in self.d_meshPos[m]:#if the mesh has a match
-                        attributes.storeInfo(nameBuffer,'cgmHitTarget',m)
+                        ATTR.store_info(nameBuffer,'cgmHitTarget',m)
 
                         #attributes.doSetAttr(nameBuffer,'localScaleX',(self.f_meshArea*.025))
                         #attributes.doSetAttr(nameBuffer,'localScaleY',(self.f_meshArea*.025))

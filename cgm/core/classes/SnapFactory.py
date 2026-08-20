@@ -34,7 +34,6 @@ from cgm.core.lib import rayCaster as RayCast
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.classes import GuiFactory as gui
 from cgm.lib import (
-                     search,
                      distance,#tmp
                      dictionary,
                      locators,
@@ -290,6 +289,6 @@ class go(object):
             return False
 
         if target not in self.l_targets:self.l_targets.append(target)
-        self.d_targetTypes[target] = search.returnObjectType(target)
+        self.d_targetTypes[target] = VALID.get_mayaType(target)
         return True
 

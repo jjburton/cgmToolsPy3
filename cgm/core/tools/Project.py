@@ -67,10 +67,8 @@ _colorWarn = CORESHARE._d_colors_to_RGB['orange']
 #RangeSlider|MainPlaybackRangeLayout|formLayout9|formLayout13|optionMenuGrp1
 #timeField -e -v `playbackOptions -q -ast` RangeSlider|MainPlaybackRangeLayout|formLayout9|timeField2; timeField -e -v `playbackOptions -q -aet` RangeSlider|MainPlaybackRangeLayout|formLayout9|timeField5;
 
-from cgm.lib import (search,
-                     names,
+from cgm.lib import (names,
                      cgmMath,
-                     attributes,
                      rigging,
                      distance,
                      skinning)

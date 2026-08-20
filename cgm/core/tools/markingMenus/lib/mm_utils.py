@@ -132,7 +132,7 @@ def deleteKey():
         else:
             mc.cutKey(selection)"""
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(report=False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:
