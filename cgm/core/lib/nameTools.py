@@ -37,8 +37,7 @@ import cgm.core.lib.transform_utils as TRANS
 #reload(CORESHARE)
 #reload(SEARCH)
 # From cgm ==============================================================
-from cgm.lib import (lists,
-                     search,
+from cgm.lib import (search,
                      dictionary,
                      settings,
                      attributes)

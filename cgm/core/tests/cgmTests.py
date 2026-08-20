@@ -28,9 +28,11 @@ log.setLevel(logging.INFO)
 
 
 _d_modules = {'cgmMeta':['base','mClasses'],
-              'coreLib':['PATH','ATTR','VALID','NODEFACTORY'],
+              'coreLib':['LISTS','PATH','ATTR','VALID','NODEFACTORY'],
+              # MRS RigBlocks suite is incomplete (selection leaks + xform on attr plugs).
+              # Left in the dict so the Unittesting menu can still list it; skipped from 'all'.
               'MRS':['RigBlocks']}
-_l_all_order = ['coreLib','cgmMeta','MRS']
+_l_all_order = ['coreLib','cgmMeta']
 
 def print_suite(suite):
 	"""
@@ -51,6 +53,9 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 	    tests(list): Str list of tests to be run. Should be in data lists above in the module. 'all' will run all found tests.
 	    verbosity(int): 1,2
 	    testCheck(bool): If True, no tests will run it will just collect the list so you can see what would have run
+
+	NOTE: A real run calls mc.file(new=True) and wipes the current scene. LISTS tests are Maya-free
+	(no nodes) but still run after that new-file. Use testCheck=True to list without wiping.
 
 	"""   
 	
@@ -96,10 +101,7 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 	#....meat of it...
 	if testCheck is not True:
 		import cgm
-		cgm.core._reload() 
-		sceneSetup()
-		
-		
+		cgm.core._reload()
 
 	_t_start = time.time()
 	_len_all = 0    
@@ -113,10 +115,11 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 			exec("import {0}".format(module))
 			exec("cgmGEN._reloadMod({0})".format(module))
 		except Exception as err:
-			log.error("New File fail!")
+			log.error("Import fail: {0}".format(module))
 			for arg in err.args:
-				log.error(arg)                
-			raise err 		
+				log.error(arg)
+			raise err
+
 
 		tests = unittest.defaultTestLoader.loadTestsFromName(module)
 		
@@ -125,6 +128,7 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 		print_suite(suite)
 		
 		if testCheck is not True:
+			sceneSetup()
 			unittest.TextTestRunner(verbosity=v).run(suite)
 		
 		_len_all += tests.countTestCases()

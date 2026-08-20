@@ -43,7 +43,7 @@ import cgm.core.classes.GuiFactory as cgmUI
 cgmUI.initializeTemplates()
 mUI = cgmUI.mUI
 
-from cgm.lib import lists
+from cgm.core.lib import list_utils as lists
 
 
 

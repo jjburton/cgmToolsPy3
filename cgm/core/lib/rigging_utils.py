@@ -29,9 +29,6 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as VALID
 
-from cgm.lib import search
-from cgm.lib import rigging
-from cgm.lib import locators #....CANNOT IMPORT LOCATORS - loop
 from cgm.core.lib import attribute_utils as ATTR
 #reload(ATTR)
 from cgm.core.lib import name_utils as coreNames

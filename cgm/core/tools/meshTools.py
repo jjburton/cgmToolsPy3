@@ -32,7 +32,7 @@ from cgm.core.lib import geo_Utils as GEO
 #reload(cgmUI)
 mUI = cgmUI.mUI
 from cgm.core.lib.zoo import baseMelUI as zooUI
-from cgm.lib import lists
+from cgm.core.lib import list_utils as lists
 from cgm.lib import dictionary
 from cgm.lib import search
 from cgm.core.classes import DraggerContextFactory

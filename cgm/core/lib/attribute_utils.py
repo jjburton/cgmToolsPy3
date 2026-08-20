@@ -31,7 +31,6 @@ from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import name_utils as NAMES
 from cgm.core.lib import list_utils as LISTS
-from cgm.lib import lists
 
 _l_simpleTypes = ['string','float','enum','vector','int','bool','message']
 _d_attrTypes = {'message':('message','msg'),
@@ -2292,6 +2291,54 @@ def get_messageLong(*a,**kws):
         return [NAMES.get_long(o) for o in _res]
     return _res
 
+def returnMessageData(storageObject, messageAttr, longNames=True):
+    """
+    Old cgm.lib.attributes name. Simple message-plug connections (no cgmMsgData).
+    Returns a list of connected nodes, or False if the attr is missing or unconnected.
+    """
+    attrBuffer = storageObject + '.' + messageAttr
+    if not mc.objExists(attrBuffer):
+        return False
+    msgLinks = mc.listConnections(attrBuffer, destination=True, source=True)
+    if not msgLinks:
+        return False
+    returnList = []
+    for msg in msgLinks:
+        if longNames:
+            returnList.append(str(mc.ls(msg, l=True)[0]))
+        else:
+            returnList.append(str(mc.ls(msg, shortNames=True)[0]))
+    return returnList
+
+def repairMessageToReferencedTarget(obj, attr):
+    """
+    Restore a message connection that resolved to a reference node.
+    Requires a reverse message from the target. Returns the matched object or False.
+    """
+    targetAttr = "%s.%s" % (obj, attr)
+    assert mc.attributeQuery(attr, node=obj, msg=True), "'%s' isn't a message attribute. Aborted" % targetAttr
+
+    objTest = mc.listConnections(targetAttr, p=1)
+    assert mc.objectType(objTest[0]) == 'reference', "'%s' isn't returning a reference. Aborted" % targetAttr
+
+    ref = objTest[0].split('RN.')[0]
+    log.info("Reference connection found, attempting to fix...")
+
+    messageConnectionsOut = mc.listConnections("%s.message" % (obj), p=1)
+    if messageConnectionsOut and ref:
+        for plug in messageConnectionsOut:
+            if ref in plug:
+                log.info("Checking '%s'" % plug)
+                matchObj = plug.split('.')[0]
+                connect("%s.message" % matchObj, targetAttr)
+                log.info("'%s' restored to '%s'" % (targetAttr, matchObj))
+                if len(messageConnectionsOut) > 1:
+                    log.warning("Found more than one possible connection. Candidates are:'%s'" % "','".join(messageConnectionsOut))
+                    return False
+                return matchObj
+    log.warning("No message connections and reference found")
+    return False
+
 def get_message(messageHolder, messageAttr = None, dataAttr = None, dataKey = None, simple = False):
     """   
     This is a speciality cgm setup using both message attributes and a cgmMessageData attriubute for storing extra data via json
@@ -2842,7 +2889,7 @@ def reorder(node = None, attrs = None, direction = 0,top = False):
                 _to_move.remove(a)
                 _to_move.insert(0,a)
     else:
-        _to_move = lists.reorderListInPlace(_to_move,attrs,direction)
+        _to_move = LISTS.reorderListInPlace(_to_move,attrs,direction)
     log.debug(_to_move)
     
     #To reorder, we need delete and undo in the order we want

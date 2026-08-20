@@ -842,6 +842,13 @@ def list_mult(l1,l2):
         l_return.append( x*l2[i])
     return l_return
 
+def multiplyLists(lists, allowZeros=True):
+    """Old cgm.lib.cgmMath name: multiply corresponding elements of a sequence of lists."""
+    acc = lists[0]
+    for nxt in lists[1:]:
+        acc = list_mult(acc, nxt)
+    return acc
+
 def list_div(l1,l2):
     """ 
     """

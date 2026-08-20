@@ -51,11 +51,11 @@ from cgm.lib import (locators,
                      curves,
                      search,
                      attributes,
-                     lists,
                      nodes,
                      rigging,
                      distance,
                      guiFactory)
+from cgm.core.lib import list_utils as lists
 #reload(distance)
 #reload(curves)
 import os

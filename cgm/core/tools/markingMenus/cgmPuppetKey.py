@@ -10,7 +10,8 @@ from cgm.core import cgm_RigMeta as cgmRigMeta
 from cgm.core.classes import GuiFactory as cgmUI
 
 from cgm.lib import guiFactory
-from cgm.lib import (lists,search)
+from cgm.core.lib import list_utils as lists
+from cgm.lib import search
 from cgm.tools.lib import animToolsLib
 #from cgm.tools.lib import tdToolsLib
 #from cgm.tools.lib import locinatorLib

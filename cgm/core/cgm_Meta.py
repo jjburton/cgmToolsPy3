@@ -47,7 +47,6 @@ import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.lib.list_utils as CORELISTS
 
 from cgm.lib.ml import ml_resetChannels
-from cgm.lib import lists
 from cgm.lib import search
 from cgm.lib import attributes
 from cgm.core.lib import attribute_utils as ATTR

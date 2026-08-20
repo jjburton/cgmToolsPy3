@@ -47,7 +47,7 @@ import cgm.core.lib.mocap_align_utils as MOCAPALIGN
 import cgm.core.lib.path_utils as COREPATHS
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.cgmPy import path_Utils as CGMPATH
-from cgm.lib import lists
+from cgm.core.lib import list_utils as lists
 
 
 #>>> Root settings =============================================================

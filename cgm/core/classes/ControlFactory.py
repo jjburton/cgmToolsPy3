@@ -33,8 +33,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.lib import (lists,
-					 search,
+from cgm.lib import (search,
 					 curves,#tmp
 					 modules,#tmp
 					 distance,#tmp

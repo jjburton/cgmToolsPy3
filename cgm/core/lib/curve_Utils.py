@@ -44,7 +44,6 @@ from cgm.lib import (distance,
                      attributes,
                      curves,
                      deformers,
-                     lists,
                      rigging,
                      skinning,
                      dictionary,
@@ -2044,7 +2043,7 @@ def mirrorCurve(*args, **kws):
 
                     #l_newCurvePos = l_epPos + l_otherSide
                     l_newCurvePos = l_otherSide
-                    l_newCurvePos = lists.returnListNoDuplicates(l_newCurvePos)
+                    l_newCurvePos = LISTS.get_noDuplicates(l_newCurvePos)
 
                     self.mi_created = cgmMeta.cgmObject( mc.curve(d=2,p=l_newCurvePos,os = True) )
                     self.mi_created.rename( mi_base.p_nameBase + '_mirrored')

@@ -48,6 +48,8 @@ import cgm.core.lib.transform_utils as TRANS
                      )"""
 
 from cgm.core.lib import nameTools
+from cgm.core.lib import list_utils as lists
+from cgm.lib import distance
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Modules
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 

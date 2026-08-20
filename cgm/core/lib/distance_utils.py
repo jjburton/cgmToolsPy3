@@ -98,6 +98,13 @@ def get_axisSize(arg):
 
 get_bb_size = POS.get_bb_size
 
+def get_bb_average(arg, objOnly=False):
+    """Mean of bounding-box XYZ size. Old name: returnBoundingBoxSizeToAverage."""
+    size = get_bb_size(arg)
+    return float(sum(size)) / len(size)
+
+returnBoundingBoxSizeToAverage = get_bb_average
+
 def get_bb_sizeOLD(arg = None, shapes = False, mode = None):
     """
     Get the bb size of a given arg
