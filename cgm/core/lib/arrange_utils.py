@@ -94,8 +94,8 @@ _d_arrangeLine_ann = {'linearEven':"Layout on line from first to last item evenl
                       'cubicEven':'Layout evenly on a curve created from the list',
                       'cubicArcEven':'Layout evenly on an arc defined by start,mid,last',
                       'cubicArcSpaced':'Layout spaced on an arc defined by start,mid,last',
-                      'targetEven':'First objects along last item (must be curve',
-                      'targetClosest':'First objects along last item (must be curve',                      
+                      'targetEven':'Last selected must be a curve; remaining objects even along the whole curve (first at start, last at end)',
+                      'targetClosest':'Last selected must be a curve; remaining objects snap to closest point on the curve',                      
                       'cubicRebuild2Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild3Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild2Spaced':'Layout spaced on a 2 span rebuild curve from the list.',
@@ -110,6 +110,10 @@ _d_arrangeRatio_ann = {
     'ratioFingerCubic': 'Finger ratio spacing along a cubic curve through the selection; endpoints fixed',
     'ratioCustomLinear': 'Prompt for a ratio or comma-separated segment weights; linear path; endpoints fixed',
     'ratioCustomCubic': 'Prompt for a ratio or comma-separated segment weights; cubic curve path; endpoints fixed',
+    'ratioGoldenTarget': 'Last selected must be a curve; golden chain along the whole curve (first at start, last at end)',
+    'ratioFingerTarget': 'Last selected must be a curve; finger ratio along the whole curve (first at start, last at end)',
+    'ratioCustomTarget': 'Last selected must be a curve; prompt for ratio or segment weights along the whole curve (first at start, last at end)',
+    'ratioSlider': 'Drag to live-redistribute the selection. 1 = even, 1.618 = golden. Path from Linear / Curve / To Curve.',
 }
 
 _d_ratioPresets = ('golden_all', 'finger')
@@ -240,10 +244,13 @@ def _ratio_build_curve(objList, curve, spans):
 
 
 def alongRatio(objList=None, preset='golden_all', curve='linear', spans=2, move=True,
-               segmentWeights=None):
+               segmentWeights=None, quiet=False):
     """
-    Arrange middle controls along a path using proportional segment weights.
-    First and last controls stay fixed.
+    Arrange controls along a path using proportional segment weights.
+
+    linear / cubic / cubicRebuild / cubicArc — first and last stay fixed; middles move.
+    target — last selected must be a nurbsCurve; remaining objects cover U 0→1
+    (first at curve start, last at curve end).
 
     :parameters:
         objList(list): ordered objects (selection order)
@@ -252,6 +259,7 @@ def alongRatio(objList=None, preset='golden_all', curve='linear', spans=2, move=
         spans(int): rebuild spans when curve is 'cubicRebuild'
         move(bool): apply positions
         segmentWeights(list): optional explicit weights (overrides preset)
+        quiet(bool): skip Script Editor weight log (slider drag)
 
     :returns:
         list of world positions (all objects; unchanged entries match current pos)
@@ -264,13 +272,17 @@ def alongRatio(objList=None, preset='golden_all', curve='linear', spans=2, move=
 
     objListWork = list(objList)
     if curve == 'target':
+        if not objListWork:
+            raise ValueError('|{0}| >> Nothing selected'.format(_str_func))
         if VALID.get_mayaType(objListWork[-1]) != 'nurbsCurve':
             raise ValueError(
                 "Last selected must be curve. Found: '{}' | type: '{}'".format(
                     objListWork[-1], VALID.get_mayaType(objListWork[-1])))
         objListWork = objListWork[:-1]
-    if len(objListWork) < 3:
-        raise ValueError('|{0}| >> Need at least 3 objects'.format(_str_func))
+    _min_work = 2 if curve == 'target' else 3
+    if len(objListWork) < _min_work:
+        raise ValueError(
+            '|{0}| >> Need at least {1} objects'.format(_str_func, _min_work))
 
     _seg_count = len(objListWork) - 1
     if segmentWeights is not None:
@@ -290,8 +302,9 @@ def alongRatio(objList=None, preset='golden_all', curve='linear', spans=2, move=
     _pos_end = POS.get(objListWork[-1])
     _cumulative = _ratio_cumulative_fractions(_weights)
     _label = 'custom' if segmentWeights is not None else preset
-    log.info('|{0}| >> {1} | weights: {2} | cumulative: {3}'.format(
-        _str_func, _label, _weights, _cumulative))
+    if not quiet:
+        log.info('|{0}| >> {1} | weights: {2} | cumulative: {3}'.format(
+            _str_func, _label, _weights, _cumulative))
 
     _l_pos = [_pos_start]
     for _o in objListWork[1:-1]:
@@ -314,12 +327,19 @@ def alongRatio(objList=None, preset='golden_all', curve='linear', spans=2, move=
     else:
         _poci = CURVES.create_pointOnInfoNode(_curve_shape, turnOnPercentage=True)
         try:
-            _pct_start = _ratio_closest_curve_percentage(_curve_shape, _pos_start, _poci)
-            _pct_end = _ratio_closest_curve_percentage(_curve_shape, _pos_end, _poci)
-            if _pct_start > _pct_end:
-                _pct_start, _pct_end = _pct_end, _pct_start
+            if curve == 'target':
+                _pct_start = 0.0
+                _pct_end = 1.0
+                _indices = range(len(objListWork))
+            else:
+                _pct_start = _ratio_closest_curve_percentage(_curve_shape, _pos_start, _poci)
+                _pct_end = _ratio_closest_curve_percentage(_curve_shape, _pos_end, _poci)
+                if _pct_start > _pct_end:
+                    _pct_start, _pct_end = _pct_end, _pct_start
+                _indices = range(1, len(objListWork) - 1)
             _pct_span = _pct_end - _pct_start
-            for _i, _o in enumerate(objListWork[1:-1], start=1):
+            for _i in _indices:
+                _o = objListWork[_i]
                 _pct = _pct_start + _cumulative[_i] * _pct_span
                 ATTR.set(_poci, 'parameter', _pct)
                 _p = [
@@ -358,10 +378,16 @@ def alongRatio_prompt(objList=None, curve='linear', spans=2, move=True, default=
         raise ValueError('|{0}| >> Nothing selected'.format(_str_func))
 
     _work = list(objList)
-    if curve == 'target' and VALID.get_mayaType(_work[-1]) == 'nurbsCurve':
+    if curve == 'target':
+        if VALID.get_mayaType(_work[-1]) != 'nurbsCurve':
+            raise ValueError(
+                "Last selected must be curve. Found: '{}' | type: '{}'".format(
+                    _work[-1], VALID.get_mayaType(_work[-1])))
         _work = _work[:-1]
-    if len(_work) < 3:
-        raise ValueError('|{0}| >> Need at least 3 objects'.format(_str_func))
+    _min_work = 2 if curve == 'target' else 3
+    if len(_work) < _min_work:
+        raise ValueError(
+            '|{0}| >> Need at least {1} objects'.format(_str_func, _min_work))
 
     _seg_count = len(_work) - 1
     if default is None:
@@ -387,6 +413,44 @@ def alongRatio_prompt(objList=None, curve='linear', spans=2, move=True, default=
     return alongRatio(
         objList, preset='golden_all', curve=curve, spans=spans, move=move,
         segmentWeights=_weights)
+
+
+def alongRatio_value(objList=None, ratio=None, curve='linear', spans=2, move=True,
+                     quiet=False):
+    """
+    Arrange from a single geometric ratio (slider / one-number custom).
+
+    ratio^(n-1) … ratio^0 per segment. ratio=1 is even; phi is golden.
+    """
+    _str_func = 'alongRatio_value'
+    if not objList:
+        objList = mc.ls(sl=1)
+    objList = VALID.mNodeStringList(objList)
+    if not objList:
+        raise ValueError('|{0}| >> Nothing selected'.format(_str_func))
+    if ratio is None:
+        ratio = PHI
+    _ratio = float(ratio)
+    if _ratio <= 0:
+        raise ValueError('|{0}| >> Ratio must be positive'.format(_str_func))
+
+    _work = list(objList)
+    if curve == 'target':
+        if VALID.get_mayaType(_work[-1]) != 'nurbsCurve':
+            raise ValueError(
+                "Last selected must be curve. Found: '{}' | type: '{}'".format(
+                    _work[-1], VALID.get_mayaType(_work[-1])))
+        _work = _work[:-1]
+    _min_work = 2 if curve == 'target' else 3
+    if len(_work) < _min_work:
+        raise ValueError(
+            '|{0}| >> Need at least {1} objects'.format(_str_func, _min_work))
+
+    _seg_count = len(_work) - 1
+    _weights = [_ratio ** (_seg_count - 1 - i) for i in range(_seg_count)]
+    return alongRatio(
+        objList, preset='golden_all', curve=curve, spans=spans, move=move,
+        segmentWeights=_weights, quiet=quiet)
 
 
 def alongLine(objList = None, mode = 'even', curve = 'linear',spans = 2):

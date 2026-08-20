@@ -58,6 +58,7 @@ from cgm.core.lib import attribute_utils as ATTRS
 from cgm.core.classes import HotkeyFactory as HKEY
 from cgm.core.tools.lib import snap_calls as UISNAPCALLS
 import cgm.core.lib.arrange_utils as ARRANGE
+import cgm.core.lib.position_utils as POS
 import cgm.core.tools.lightLoomLite as LIGHTLOOMLITE
 import cgm.core.rig.joint_utils as JOINTS
 from cgm.core.lib import transform_utils as TRANS
@@ -288,7 +289,7 @@ def uiSection_query(parent = None):
 
 
 
-def buildRows_ratio_arrange(parent):
+def buildRows_ratio_arrange(parent, ui=None):
     """Ratio arrange button rows for cgmToolbox / snapTools snap sections."""
     _ann = ARRANGE._d_arrangeRatio_ann
     _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
@@ -319,6 +320,18 @@ def buildRows_ratio_arrange(parent):
             MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
             **{'preset': 'finger', 'curve': 'cubic'}),
         ann=_ann.get('ratioFingerCubic'))
+    mc.button(
+        parent=_row_preset, l='Golden | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'golden_all', 'curve': 'target'}),
+        ann=_ann.get('ratioGoldenTarget'))
+    mc.button(
+        parent=_row_preset, l='Finger | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **{'preset': 'finger', 'curve': 'target'}),
+        ann=_ann.get('ratioFingerTarget'))
     mUI.MelSpacer(_row_preset, w=5)
     _row_preset.layout()
 
@@ -338,14 +351,219 @@ def buildRows_ratio_arrange(parent):
             MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
             **{'curve': 'cubic', 'defaultStyle': 'golden'}),
         ann=_ann.get('ratioCustomCubic'))
+    mc.button(
+        parent=_row_custom, l='Custom | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **{'curve': 'target', 'defaultStyle': 'golden'}),
+        ann=_ann.get('ratioCustomTarget'))
     mUI.MelSpacer(_row_custom, w=5)
     _row_custom.layout()
+
+    buildRow_ratio_slider(parent, ui=ui)
+
+
+_VAR_ARRANGE_RATIO = 'cgmVar_arrangeRatioValue'
+_VAR_ARRANGE_RATIO_CURVE = 'cgmVar_arrangeRatioCurve'
+_RATIO_SLIDE_MIN = 0.25
+_RATIO_SLIDE_MAX = 4.0
+_d_ratioSlide = {
+    'chunk': False,
+    'objList': None,
+    'origPos': None,
+    'curve': 'linear',
+}
+
+
+def _arrange_ratio_var():
+    return cgmMeta.cgmOptionVar(_VAR_ARRANGE_RATIO, defaultValue=float(ARRANGE.PHI))
+
+
+def _arrange_ratio_curve_var():
+    return cgmMeta.cgmOptionVar(_VAR_ARRANGE_RATIO_CURVE, defaultValue='linear')
+
+
+def _ratio_slide_capture(curve=None):
+    _sel = mc.ls(sl=True, long=True) or []
+    _d_ratioSlide['objList'] = list(_sel)
+    _d_ratioSlide['origPos'] = [POS.get(o) for o in _sel]
+    if curve is None:
+        curve = _arrange_ratio_curve_var().value
+    _d_ratioSlide['curve'] = curve or 'linear'
+
+
+def _ratio_slide_restore():
+    _objs = _d_ratioSlide.get('objList') or []
+    _pos = _d_ratioSlide.get('origPos') or []
+    for o, p in zip(_objs, _pos):
+        if mc.objExists(o):
+            POS.set(o, p)
+
+
+def _ratio_slide_apply(value, restore=False, quiet=True):
+    _objs = _d_ratioSlide.get('objList')
+    if not _objs:
+        _ratio_slide_capture()
+        _objs = _d_ratioSlide.get('objList')
+    if not _objs:
+        log.warning('|AlongRatio| >> Nothing selected')
+        return
+    if restore:
+        _ratio_slide_restore()
+    _curve = _d_ratioSlide.get('curve') or 'linear'
+    try:
+        ARRANGE.alongRatio_value(_objs, ratio=value, curve=_curve, quiet=quiet)
+    except Exception as err:
+        log.warning(err)
+
+
+def _ratio_slide_begin(*a):
+    if not _d_ratioSlide['chunk']:
+        mc.undoInfo(openChunk=True, chunkName='AlongRatioSlide')
+        _d_ratioSlide['chunk'] = True
+    _ratio_slide_capture()
+
+
+def _ratio_slide_drag(value):
+    _ratio_slide_apply(value, restore=True, quiet=True)
+
+
+def _ratio_slide_end(value, field=None, slider=None):
+    _restore = bool(_d_ratioSlide['chunk'])
+    if not _restore:
+        _ratio_slide_capture()
+    _ratio_slide_apply(value, restore=_restore, quiet=False)
+    try:
+        _v = float(value)
+        if _v > 0:
+            _arrange_ratio_var().value = _v
+            if field is not None:
+                field.setValue(_v, executeChangeCB=False)
+            if slider is not None:
+                _clamp = min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX)
+                slider.setValue(_clamp, executeChangeCB=False)
+    except Exception:
+        pass
+    if _d_ratioSlide['chunk']:
+        mc.undoInfo(closeChunk=True)
+        _d_ratioSlide['chunk'] = False
+
+
+def _ratio_field_change(field, slider):
+    try:
+        _v = float(field.getValue())
+    except Exception:
+        log.warning('|AlongRatio| >> Invalid ratio')
+        return
+    if _v <= 0:
+        log.warning('|AlongRatio| >> Ratio must be positive')
+        return
+    _arrange_ratio_var().value = _v
+    _clamp = min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX)
+    slider.setValue(_clamp, executeChangeCB=False)
+    _ratio_slide_capture()
+    _ratio_slide_apply(_v, restore=False, quiet=False)
+
+
+def _ratio_set_phi(field, slider):
+    _v = float(ARRANGE.PHI)
+    field.setValue(_v, executeChangeCB=False)
+    slider.setValue(
+        min(max(_v, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX), executeChangeCB=False)
+    _arrange_ratio_var().value = _v
+    _ratio_slide_capture()
+    _ratio_slide_apply(_v, restore=False, quiet=False)
+
+
+def _ratio_set_curve(mode):
+    _arrange_ratio_curve_var().value = mode
+    _d_ratioSlide['curve'] = mode
+
+
+def buildRow_ratio_slider(parent, ui=None):
+    """Interactive geometric-ratio slider for snap / toolbox arrange."""
+    _ann = ARRANGE._d_arrangeRatio_ann.get('ratioSlider')
+    _var = _arrange_ratio_var()
+    _curve_var = _arrange_ratio_curve_var()
+    try:
+        _val = float(_var.value)
+    except Exception:
+        _val = float(ARRANGE.PHI)
+    if _val <= 0:
+        _val = float(ARRANGE.PHI)
+
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Ratio slide:')
+    _field = mUI.MelFloatField(
+        _row, ut='cgmUISubTemplate', w=50, precision=3,
+        minValue=0.01, value=_val, ann=_ann)
+    _slider_val = min(max(_val, _RATIO_SLIDE_MIN), _RATIO_SLIDE_MAX)
+    _slider = mUI.MelFloatSlider(
+        _row, _RATIO_SLIDE_MIN, _RATIO_SLIDE_MAX,
+        defaultValue=float(ARRANGE.PHI), value=_slider_val, ann=_ann)
+    _slider.setPreChangeCB(_ratio_slide_begin)
+    _slider.setChangeCB(_ratio_slide_drag)
+    _slider.setPostChangeCB(lambda v: _ratio_slide_end(v, _field, _slider))
+    _field(edit=True, changeCommand=lambda *a: _ratio_field_change(_field, _slider))
+    mc.button(
+        parent=_row, l='φ', ut='cgmUITemplate', w=24,
+        c=lambda *a: _ratio_set_phi(_field, _slider),
+        ann='Set slider to golden ratio ({0:.3f}) and apply'.format(ARRANGE.PHI))
+    _row.setStretchWidget(_slider)
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+    _row_mode = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_mode, w=5)
+    mUI.MelLabel(_row_mode, l='Ratio path:')
+    _row_mode.setStretchWidget(mUI.MelSeparator(_row_mode))
+    _uiRC = mUI.MelRadioCollection()
+    _on = _curve_var.value or 'linear'
+    for _label, _mode in (
+            ('Linear', 'linear'),
+            ('Curve', 'cubic'),
+            ('To Curve', 'target')):
+        _uiRC.createButton(
+            _row_mode, label=_label, sl=(_mode == _on),
+            onCommand=cgmGEN.Callback(_ratio_set_curve, _mode),
+            ann=_ann)
+        mUI.MelSpacer(_row_mode, w=2)
+    mUI.MelSpacer(_row_mode, w=5)
+    _row_mode.layout()
+
+    if ui is not None:
+        ui.uiFF_arrangeRatio = _field
+        ui.uiSlider_arrangeRatio = _slider
+
+
+def buildRow_to_curve_arrange(parent):
+    """To Curve even/spaced row — last selected must be a nurbsCurve."""
+    _ann = ARRANGE._d_arrangeLine_ann
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='To Curve:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mc.button(
+        parent=_row, l='Even', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongLine, None, 'all', 'AlongLine',
+            **{'mode': 'even', 'curve': 'target'}),
+        ann=_ann.get('targetEven'))
+    mc.button(
+        parent=_row, l='Spaced', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongLine, None, 'all', 'AlongLine',
+            **{'mode': 'spaced', 'curve': 'target'}),
+        ann=_ann.get('targetClosest'))
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
 
 
 def _ui_arrange_ratio(parent, snapMenu=False):
     """Ratio arrange submenu — presets (golden/finger) plus custom prompt variants."""
     _ratio = mc.menuItem(parent=parent, subMenu=True, l='Ratio',
-                         ann='Proportional spacing along path; first and last fixed')
+                         ann='Proportional spacing; | Curve through selection; | To Curve last item is the path')
     _kws = {'noSelect': 0} if snapMenu else {}
     # --- presets (no prompt) ---
     mc.menuItem(
@@ -386,6 +604,25 @@ def _ui_arrange_ratio(parent, snapMenu=False):
             MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
             **_kws, **{'curve': 'cubic', 'defaultStyle': 'golden'}),
         ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomCubic'))
+    mUI.MelMenuItemDiv(_ratio, l='To Curve')
+    mc.menuItem(
+        parent=_ratio, l='Golden | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'golden_all', 'curve': 'target'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioGoldenTarget'))
+    mc.menuItem(
+        parent=_ratio, l='Finger | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+            **_kws, **{'preset': 'finger', 'curve': 'target'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioFingerTarget'))
+    mc.menuItem(
+        parent=_ratio, l='Custom | To Curve', ut='cgmUITemplate',
+        c=cgmGEN.Callback(
+            MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None, 'all', 'AlongRatio',
+            **_kws, **{'curve': 'target', 'defaultStyle': 'golden'}),
+        ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
 
 
 def uiSection_arrange(parent = None, selection = None, pairSelected = True):
@@ -447,7 +684,19 @@ def uiSection_arrange(parent = None, selection = None, pairSelected = True):
               l = '3[Spaced]',
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'even','curve':'cubicRebuild','spans':3}),
-              ann = ARRANGE._d_arrangeLine_ann.get('cubicRebuild3Spaced'))    
+              ann = ARRANGE._d_arrangeLine_ann.get('cubicRebuild3Spaced'))
+
+    mUI.MelMenuItemDiv(_arrange, l='To Curve')
+    mc.menuItem(parent=_arrange,
+              l = 'Even',
+              ut = 'cgmUITemplate',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'even','curve':'target'}),
+              ann = ARRANGE._d_arrangeLine_ann.get('targetEven'))
+    mc.menuItem(parent=_arrange,
+              l = 'Spaced',
+              ut = 'cgmUITemplate',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'spaced','curve':'target'}),
+              ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))
 
 def uiSection_distance(parent = None, selection = None, pairSelected = True):
     _p = mc.menuItem(parent=parent, subMenu = True,tearOff = True,
@@ -1856,17 +2105,32 @@ def uiSection_snap(parent, selection = None ):
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine',noSelect = 0, **{'mode':'spaced','curve':'cubicRebuild','spans':3}),
               ann = ARRANGE._d_arrangeLine_ann.get('cubicRebuild3Spaced'))
     
-    mUI.MelMenuItemDiv(_arrange,l='Target')
+    mUI.MelMenuItemDiv(_arrange,l='To Curve')
     mc.menuItem(parent=_arrange,
               l = 'Even',
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine',noSelect = 0, **{'mode':'even','curve':'target'}),
               ann = ARRANGE._d_arrangeLine_ann.get('targetEven'))
     mc.menuItem(parent=_arrange,
-              l = 'Closest',
+              l = 'Spaced',
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine',noSelect = 0, **{'mode':'spaced','curve':'target'}),
-              ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))        
+              ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))
+    mc.menuItem(parent=_arrange,
+              l = 'Golden',
+              ut = 'cgmUITemplate',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongRatio, None,'all', 'AlongRatio',noSelect = 0, **{'preset':'golden_all','curve':'target'}),
+              ann = ARRANGE._d_arrangeRatio_ann.get('ratioGoldenTarget'))
+    mc.menuItem(parent=_arrange,
+              l = 'Finger',
+              ut = 'cgmUITemplate',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongRatio, None,'all', 'AlongRatio',noSelect = 0, **{'preset':'finger','curve':'target'}),
+              ann = ARRANGE._d_arrangeRatio_ann.get('ratioFingerTarget'))
+    mc.menuItem(parent=_arrange,
+              l = 'Custom',
+              ut = 'cgmUITemplate',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None,'all', 'AlongRatio',noSelect = 0, **{'curve':'target','defaultStyle':'golden'}),
+              ann = ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
     
     
     #>>Match ----------------------------------------------------------------------------------------
