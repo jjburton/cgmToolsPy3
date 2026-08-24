@@ -9,8 +9,8 @@ Website : https://github.com/jjburton/cgmTools/wiki
 ================================================================
 """
 __MAYALOCAL = "cgmGEN"
-__RELEASE = "26.08.18.01"
-__BRANCH = "P4Integration"
+__RELEASE = "26.08.24.01"
+__BRANCH = "main"
 
 import maya.cmds as mc
 import maya.mel as mel
