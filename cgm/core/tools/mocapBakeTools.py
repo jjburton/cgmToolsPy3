@@ -1343,7 +1343,7 @@ class ui(cgmUI.cgmGUI):
 
     def uiFunc_reorder_parent_target(self, direction=0, *args):
         """
-        Reorder selected target list items. direction 0 = up, 1 = down (lists.reorderListInPlace).
+        Reorder selected target list items. direction 0 = up, 1 = down.
         """
         idxs = self._get_parent_target_selected_idxs()
         if idxs is None:
@@ -1352,7 +1352,7 @@ class ui(cgmUI.cgmGUI):
         to_move = [self.parent_target_items[i] for i in idxs]
         new_items = list(self.parent_target_items)
 
-        lists.reorderListInPlace(new_items, to_move, direction)
+        lists.reorder_in_place(new_items, to_move, direction)
         return self._apply_parent_target_list_order(new_items, idxs)
 
     def uiFunc_reorder_parent_target_to_top(self, *args):

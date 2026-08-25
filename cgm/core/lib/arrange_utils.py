@@ -63,7 +63,7 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
     sizeXBuffer = []
     sizeYBuffer = []
     for obj in objectList:
-        sizeBuffer = distance.returnBoundingBoxSize(obj)
+        sizeBuffer = DIST.get_bb_size(obj)
         sizeXBuffer.append(sizeBuffer[0])
         sizeYBuffer.append(sizeBuffer[1])
 

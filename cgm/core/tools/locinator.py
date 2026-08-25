@@ -353,7 +353,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
                 _loc = SEARCH.get_key_indices_from( SEARCH.get_transform( _d['source']),mode= keysDirection)
                 
                 _keys = _source + _loc
-                _keys = lists.returnListNoDuplicates(_keys)
+                _keys = lists.get_noDuplicates(_keys)
             elif keysMode == 'frames':
                 _keys = list(range(_start,_end +1))
             else:raise ValueError("|{0}| >> Unknown keysMode: {1}".format(_str_func,keysMode))
@@ -392,7 +392,7 @@ def bake_match(targets = None, move = True, rotate = True, boundingBox = False, 
     #pprint.pprint(_d)
     #return 
     #Second for loop processes our keys so we can do it in one go...
-    _keysToProcess = lists.returnListNoDuplicates(_keysToProcess)
+    _keysToProcess = lists.get_noDuplicates(_keysToProcess)
     #log.info(_keysToProcess)
     
     if not _keysToProcess:

@@ -13,7 +13,7 @@ __MAYALOCAL = 'DIST'
 # From Python =============================================================
 import copy
 import re
-from math import sqrt,pow
+from math import sqrt, pow, pi
 import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -102,8 +102,6 @@ def get_bb_average(arg, objOnly=False):
     """Mean of bounding-box XYZ size. Old name: returnBoundingBoxSizeToAverage."""
     size = get_bb_size(arg)
     return float(sum(size)) / len(size)
-
-returnBoundingBoxSizeToAverage = get_bb_average
 
 def get_bb_sizeOLD(arg = None, shapes = False, mode = None):
     """
@@ -194,7 +192,7 @@ def get_arcLen(arg=None):
         infoNode = NODES.curveInfo(shape)
         shapeLengths.append(mc.getAttr(infoNode+'.arcLength'))
         mc.delete(infoNode)
-    return sum(shapeLengths)    
+    return sum(shapeLengths)
 
 def get_createSize(arg = None, mode = None):
     """
@@ -731,6 +729,57 @@ def get_closestTarget(source = None, objects = None):
         pos = POS.get(obj)
         l_dists.append (get_distance_between_points(_point, pos))
     return objects[(l_dists.index ((min(l_dists))))]
+
+def get_closest_from_posList(startPoint, posList):
+    """Closest position in a list of points. Do not confuse with get_closest_point (surface)."""
+    if not posList:
+        raise ValueError("get_closest_from_posList | empty posList")
+    distanceList = [get_distance_between_points(startPoint, pos) for pos in posList]
+    return posList[distanceList.index(min(distanceList))]
+
+def get_furthest_from_posList(startPoint, posList):
+    """Furthest position in a list of points. Old name: returnFurthestPoint."""
+    if not posList:
+        raise ValueError("get_furthest_from_posList | empty posList")
+    distanceList = [get_distance_between_points(startPoint, pos) for pos in posList]
+    return posList[distanceList.index(max(distanceList))]
+
+def get_positions_sorted_by_distance(startPosition, posList):
+    """Return posList ordered nearest-to-farthest from startPosition. Old name: returnPositionDataDistanceSortedList."""
+    bufferList = copy.copy(posList)
+    sortedList = []
+    while bufferList:
+        currentClosest = get_closest_from_posList(startPosition, bufferList)
+        sortedList.append(currentClosest)
+        bufferList.remove(currentClosest)
+    return sortedList
+
+def get_object_size(obj, debugReport=False):
+    """
+    Semi-intelligent object sizer for mesh / nurbsSurface / nurbsCurve.
+    Old name: returnObjectSize. Component types (polyFace/Edge/Vertex) stay on lib distance
+    until those helpers are ported — core callers only pass mesh/nurbs.
+    """
+    objType = VALID.get_mayaType(obj)
+    if objType == 'mesh':
+        size = mc.polyEvaluate(obj, worldArea=True)
+        if debugReport:
+            log.info('mesh area is %s' % size)
+        return size
+    if objType == 'nurbsSurface':
+        bb = get_bb_size(obj)
+        size = bb[0] * bb[1] * bb[2]
+        if debugReport:
+            log.info('Bounding box volume is %s' % size)
+        return size
+    if objType == 'nurbsCurve':
+        size = get_arcLen(obj)
+        if debugReport:
+            log.info('Curve length is %s' % size)
+        return size
+    if debugReport:
+        log.warning("get_object_size | unhandled type: %s | %s" % (objType, obj))
+    return False
 
 def get_targetsOrderedByDist(source = None, objects = None, allowDups = True):
     """

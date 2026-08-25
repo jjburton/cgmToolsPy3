@@ -871,7 +871,7 @@ class ui(cgmUI.cgmGUI):
             
         _initialValue = _l_parents[_indices[0]]
         
-        _to_move = LISTS.reorderListInPlace(_l_parents,_to_move,direction)
+        _to_move = LISTS.reorder_in_place(_l_parents,_to_move,direction)
         
         self._mGroup.clearParents()
         
@@ -984,7 +984,7 @@ class ui(cgmUI.cgmGUI):
                 _to_move.append(a)
     
         log.info(_to_move)
-        _to_move = LISTS.reorderListInPlace(_to_move,attrs,direction)
+        _to_move = LISTS.reorder_in_place(_to_move,attrs,direction)
         log.info(_to_move)
         
         #To reorder, we need delete and undo in the order we want

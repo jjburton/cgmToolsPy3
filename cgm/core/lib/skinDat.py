@@ -48,11 +48,11 @@ from cgm.core.classes import GuiFactory as cgmUI
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as cgmValid
-from cgm.lib import (names,
-                     cgmMath,
-                     rigging,
-                     distance,
-                     skinning)
+import cgm.core.lib.distance_utils as DIST
+import cgm.core.lib.position_utils as POS
+import cgm.core.lib.math_utils as MATH
+import cgm.core.lib.name_utils as NAMES
+from cgm.core.lib import skin_utils as SKIN
 import cgm.core.lib.attribute_utils as ATTR
 from cgm.core.cgmPy import path_Utils as PATHS
 mUI = cgmUI.mUI
@@ -212,7 +212,7 @@ class data(object):
                 raise  NotImplementedError("Haven't implemented nurbsCurve or nurbsSurface yet")
             log.info("Skinnable object '{0}', checking skin".format(mesh))
             _mesh = mesh
-            _skin = skinning.querySkinCluster(_mesh) or False
+            _skin = SKIN.get_cluster(_mesh) or False
             if _skin:
                 log.info("Found skin '{0}' on '{1}'".format(_skin,_mesh))
         elif _type in ['skinCluster']:
@@ -472,7 +472,7 @@ def applySkin(*args,**kws):
             _len_configList = len(_l_configInfluenceList)
             _targetMesh = self.mData.d_target['mesh']
             #...See if we have a skin cluster...
-            _targetSkin = skinning.querySkinCluster(_targetMesh) or False            
+            _targetSkin = SKIN.get_cluster(_targetMesh) or False            
             
             if _mode == 'config':
                 _l_jointTargets = _l_configInfluenceList
@@ -518,7 +518,7 @@ def applySkin(*args,**kws):
             elif _mode == 'source':
                 if not self.mData.d_source:
                     return self._FailBreak_("No source data found, cannot use '{0}' influenceMode".format(_mode))                
-                _sourceSkin = skinning.querySkinCluster(self.mData.d_source['mesh']) or False
+                _sourceSkin = SKIN.get_cluster(self.mData.d_source['mesh']) or False
                 _l_sourceInfluences = mc.listConnections(_sourceSkin+'.matrix') or []
                 
                 if len(_l_sourceInfluences) != len(_l_configInfluenceList):
@@ -624,7 +624,7 @@ def applySkin(*args,**kws):
                 for k,value in list(_bfr_clean.items()):
                     _bfr_toNormalize.append(value)
                     
-                _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
+                _bfr_normalized = MATH.normalizeListToSum(_bfr_toNormalize,1.0)
                 #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
                 #self.log_info("Normalized: {0}".format(_bfr_normalized))
                 #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
@@ -635,7 +635,7 @@ def applySkin(*args,**kws):
                 #self.log_info("clean: {0}".format(_bfr_clean))                
                 #self.log_info("norm:  {0}".format(_d_normalized))                
                     
-                if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
+                if not MATH.is_float_equivalent(1.0, sum(_bfr_normalized) ):
                     self.log_info("vert {0} not normalized".format(i))
                 #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
                 #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
@@ -648,7 +648,7 @@ def applySkin(*args,**kws):
             if self._b_nameMatch:
                 self.log_info("nameMatch attempt...")
                 _l_configInfluenceList = self.l_configInfluenceList
-                _l_jointsToUseBaseNames = [names.getBaseName(n) for n in self.l_jointsToUse]
+                _l_jointsToUseBaseNames = [NAMES.get_base(n) for n in self.l_jointsToUse]
                 
                 for n in _l_jointsToUseBaseNames:#...see if all our names are there
                     if not n in _l_configInfluenceList:
@@ -708,8 +708,8 @@ def applySkin(*args,**kws):
                         self.progressBar_iter(status = "Finding closest to '{0}'".format(_str_vert))                                        
                         
                         #self.log_info(_str_vert)
-                        _pos = distance.returnWorldSpacePosition(_str_vert)#...get position       
-                        _closestPos = distance.returnClosestPoint(_pos, l_source_pos)#....get closest
+                        _pos = POS.get(_str_vert)#...get position       
+                        _closestPos = DIST.get_closest_from_posList(_pos, l_source_pos)#....get closest
                         _closestIdx = l_source_pos.index(_closestPos)
                         #self.log_info("target idx: {0} | Closest idx: {1} | value{2}".format(i,_closestIdx,_l_cleanData[_closestIdx]))
                         _l_closestRetarget.append(_l_cleanData[_closestIdx])
@@ -756,7 +756,7 @@ def applySkin(*args,**kws):
                 for k,value in list(_bfr_clean.items()):
                     _bfr_toNormalize.append(value)
                     
-                _bfr_normalized = cgmMath.normSumList(_bfr_toNormalize,1.0)
+                _bfr_normalized = MATH.normalizeListToSum(_bfr_toNormalize,1.0)
                 #self.log_info("To Normalize: {0}".format(_bfr_toNormalize))                
                 #self.log_info("Normalized: {0}".format(_bfr_normalized))
                 #self.log_info("{0} pre sum: {1}".format(i,sum(_bfr_toNormalize)))                
@@ -773,7 +773,7 @@ def applySkin(*args,**kws):
                 #self.log_info("{0} clean: {1}".format(i,_bfr_clean))                
                 #self.log_info("{0} norm:  {1}".format(i,_d_normalized))                
                     
-                if not cgmMath.isFloatEquivalent(1.0, sum(_bfr_normalized) ):
+                if not MATH.is_float_equivalent(1.0, sum(_bfr_normalized) ):
                     self.log_info("vert {0} not normalized".format(i))
                 #self.log_info("vert {0} base: {1}".format(i,_bfr_toNormalize))
                 #self.log_info("vert {0} norm: {1}".format(i,_bfr_normalized))
@@ -802,7 +802,7 @@ def applySkin(*args,**kws):
             _targetMesh = self.mData.d_target['mesh']
 
             #...See if we have a skin cluster...
-            _targetSkin = skinning.querySkinCluster(_targetMesh) or False
+            _targetSkin = SKIN.get_cluster(_targetMesh) or False
             if _targetSkin:
                 if self._l_missingInfluences:
                     self.log_info("Adding influences...")                    
@@ -816,7 +816,7 @@ def applySkin(*args,**kws):
                 #...create our skin cluster                
                 _l_bind = copy.copy(self.l_jointsToUse)
                 _l_bind.append(_targetMesh)                
-                _targetSkin = mc.skinCluster(_l_bind,tsb=True,n=(names.getBaseName(_targetMesh)+'_skinCluster'))[0]                
+                _targetSkin = mc.skinCluster(_l_bind,tsb=True,n=(NAMES.get_base(_targetMesh)+'_skinCluster'))[0]                
             
 
             self.mData.d_target['skin'] = _targetSkin#...update the stored data
@@ -1148,10 +1148,10 @@ def gather_skinning_dict(*args,**kws):
         for i in range(influencePaths.length()):
             _k = str(i)
             influenceName = influencePaths[i].partialPathName()
-            influenceWithoutNamespace = names.getBaseName(influenceName)
+            influenceWithoutNamespace = NAMES.get_base(influenceName)
             
             _d_influenceData[_k] = {'name': influenceWithoutNamespace,
-                                    'position':distance.returnWorldSpacePosition(influenceName)}
+                                    'position':POS.get(influenceName)}
             
             # store weights by influence & not by namespace so it can be imported with different namespaces.
             #progressBar_iter(status = 'Getting {0}...data'.format(influenceName))                                
@@ -1423,10 +1423,10 @@ def gather_skinning_dictOLD(*args,**kws):
             for i in range(influencePaths.length()):
                 _k = str(i)
                 influenceName = influencePaths[i].partialPathName()
-                influenceWithoutNamespace = names.getBaseName(influenceName)
+                influenceWithoutNamespace = NAMES.get_base(influenceName)
                 
                 _d_influenceData[_k] = {'name': influenceWithoutNamespace,
-                                        'position':distance.returnWorldSpacePosition(influenceName)}
+                                        'position':POS.get(influenceName)}
                 
                 # store weights by influence & not by namespace so it can be imported with different namespaces.
                 self.progressBar_iter(status = 'Getting {0}...data'.format(influenceName))                                

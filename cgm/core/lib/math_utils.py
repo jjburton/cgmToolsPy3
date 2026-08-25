@@ -681,6 +681,8 @@ def normalizeListToSum(L, normalizeTo=1.0):
     """
 
     #return [float(i)/normalizeTo for i in [float(i)/sum(L) for i in L]]
+    # Core wins vs lib cgmMath.normSumList: lib divided by normalizeTo (wrong for sum==N).
+    # At normalizeTo=1.0 both match. Old name: normSumList.
     norm = normalizeList(L)
     normSum = [float(i)/sum(L) for i in L]
     return [i * normalizeTo for i in normSum]
@@ -941,6 +943,15 @@ def dotproduct(v1, v2):
 def length(v):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python    
     return math.sqrt(dotproduct(v, v))
+
+def mag(v):
+    """
+    Vector magnitude for a list/tuple. Old cgm.lib.cgmMath name.
+    Do not alias to length() — length goes through euclidVector3Arg.
+    """
+    if type(v) not in (list, tuple):
+        raise TypeError("mag>>> arg must be vector")
+    return math.sqrt(sum(i**2 for i in v))
 
 def angleBetweenVectors(v1, v2):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python    

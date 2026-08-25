@@ -97,3 +97,10 @@ def get_influences_fromCluster(skinCluster):
 
 def get_influences_fromMatrix(skinCluster):
     return mc.listConnections(skinCluster+'.matrix') or []
+
+def get_cluster(obj):
+    """First skinCluster in object history (Maya findRelatedSkinCluster). Empty string if none."""
+    if not obj or not mc.objExists(obj):
+        return ''
+    found = mc.ls(mc.listHistory(obj, pruneDagObjects=True) or [], type='skinCluster')
+    return found[0] if found else ''

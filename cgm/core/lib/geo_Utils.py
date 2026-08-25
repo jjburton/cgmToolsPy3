@@ -35,7 +35,7 @@ from cgm.core.cgmPy import validateArgs as VALID
 #reload(VALID)
 from cgm.core.lib import selection_Utils as selUtils
 from cgm.core.cgmPy import OM_Utils as cgmOM
-from cgm.lib import guiFactory
+from cgm.core.classes import GuiFactory as guiFactory
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import rayCaster as cgmRAYS
 #reload(cgmRAYS)
@@ -299,7 +299,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
         """
     #Validate our expand amount =======================================================================================================
     if expandAmount == 'default':
-        expandAmount = DIST.returnBoundingBoxSizeToAverage(sourceObj)    
+        expandAmount = DIST.get_bb_average(sourceObj)    
 
     #Get our objects if we don't have them
     if sourceObj is None and targets is None:
@@ -543,7 +543,7 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
     #Validate our expand amount =======================================================================================================
     _expandAmount = expandAmount
     if expandAmount == 'default':
-        _expandAmount = DIST.returnBoundingBoxSizeToAverage(sourceObj)
+        _expandAmount = DIST.get_bb_average(sourceObj)
 
     #Get our faces =======================================================================================================
     _dat = get_proximityGeo(sourceObj, target, mode = mode, returnMode = 1, expandBy = expandBy, expandAmount = _expandAmount)

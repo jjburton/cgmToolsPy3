@@ -13,7 +13,6 @@ import sys
 
 from shutil import copyfile
 #import fnmatch
-import cgm.lib.pyui as pyui
 #import subprocess
 import re
 from cgm.core import cgm_Meta as cgmMeta

@@ -40,7 +40,7 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.name_utils as NAMES
 import cgm.core.lib.list_utils as LISTS
-import cgm.lib.skinning as OLDSKINNING
+from cgm.core.lib import skin_utils as SKIN
 #reload(IK)
 """from cgm.lib import (distance,
                      attributes,
@@ -183,12 +183,6 @@ def create_curveSetup(jointList = None,
         JOINTS.orientChain(ml_joints,str_orientation[0]+'+', )
         if str_secondaryAxis is None:
             raise Exception("Must have secondaryAxis arg if no moduleInstance is passed")
-        for mJnt in ml_joints:
-            """
-            Cannot iterate how important this step is. Lost a day trying to trouble shoot why one joint chain worked and another didn't.
-            WILL NOT connect right without this.
-            """
-            joints.orientJoint(mJnt.mNode,str_orientation,str_secondaryAxis)
 
     ml_splineRes = []
 
@@ -1383,7 +1377,7 @@ def add_subControl_toCurve(joints=None, segmentCurve = None, baseParent = None, 
 
             ml_drivenJoints = mSegmentCurve.msgList_get('drivenJoints',asMeta = True)
 
-            closestJoint = distance.returnClosestObject(mJnt.mNode,[i_jnt.mNode for i_jnt in ml_drivenJoints])
+            closestJoint = DIST.get_closestTarget(mJnt.mNode,[i_jnt.mNode for i_jnt in ml_drivenJoints])
             closestIndex = [i_jnt.mNode for i_jnt in ml_drivenJoints].index(closestJoint)
             upLoc = cgmMeta.cgmObject(closestJoint).rotateUpGroup.upLoc.mNode
             i_rotateUpGroup = cgmMeta.cgmObject(closestJoint).rotateUpGroup
@@ -1556,7 +1550,7 @@ def curve_tightenEndWeights(curve,start = None, end = None, blendLength = 2):
     l_cvs = i_curve.getComponents('cv')
     l_skinClusters = i_curve.getDeformers('skinCluster')
     i_skinCluster = cgmMeta.cgmNode(l_skinClusters[0])
-    l_influenceObjects = OLDSKINNING.queryInfluences(i_skinCluster.mNode) or []
+    l_influenceObjects = SKIN.get_influences_fromCluster(i_skinCluster.mNode) or []
 
     log.debug("l_skinClusters: '%s'"%l_skinClusters)
     log.debug("i_skinCluster: '%s'"%i_skinCluster)

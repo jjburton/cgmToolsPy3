@@ -39,6 +39,7 @@ from cgm.core.lib import list_utils as LISTS
 from cgm.core.lib import math_utils as MATH
 from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import transform_utils as TRANS
+from cgm.core.lib import node_utils as NODES
 
 
 #reload(search)
@@ -2166,7 +2167,7 @@ def groupToConditionNodeSet(group,chooseAttr = 'switcher', controlObject = None,
         else:
             if mc.objExists('%s_condNode'%c):
                 mc.delete('%s_condNode'%c)
-            buffer = nodes.createNamedNode('%s_picker'%c,'condition') #Make our node
+            buffer = NODES.create('%s_picker'%c, 'condition')
         #print buffer
         ATTR.set(buffer,'secondTerm',i+1)
         ATTR.set(buffer,'colorIfTrueR',1)

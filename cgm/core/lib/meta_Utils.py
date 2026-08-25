@@ -23,7 +23,7 @@ import maya.cmds as mc
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGeneral
 from cgm.core.cgmPy import validateArgs as cgmValid
-from cgm.lib import modules
+from cgm.core.lib import shared_data as SHARED
 #>>> Utilities
 #===================================================================
 def sort_listToDictByAttrs(ml_toSort = None,l_attrsToCheck = None):
@@ -177,7 +177,9 @@ def get_matchedListFromAttrDict(*args,**kws):
 	return fncWrap(*args,**kws).go()
 
 def getSettingsColors(arg = None):
-	try:
-		return modules.returnSettingsData(('color'+arg.capitalize()),True)
-	except:
-		return modules.returnSettingsData('colorCenter',True)
+	"""Side color-name pair. Matches cgmSettings.conf colorLeft/Right/Center (primary, secondary)."""
+	key = (arg or 'center').lower()
+	d = SHARED._d_side_colors_index.get(key) or SHARED._d_side_colors_index['center']
+	if key == 'center':
+		return [d['sub'], d['aux']]
+	return [d['main'], d['sub']]

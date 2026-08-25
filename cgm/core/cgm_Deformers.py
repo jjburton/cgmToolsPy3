@@ -29,8 +29,7 @@ from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.cgmPy import OM_Utils as cgmOM
 from cgm.core.lib import geo_Utils as geoUtils
 from cgm.core.lib import attribute_utils as ATTR
-
-from cgm.lib import cgmMath
+from cgm.core.lib import math_utils as MATH
 
 #=========================================================================
 import logging
@@ -162,7 +161,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 else:
                     _c_data = _data[idx][:-1]
 
-                _deltaPlus_base = cgmMath.list_add(_l_deltaBaseLine[_idx], _c_data)
+                _deltaPlus_base = MATH.list_add(_l_deltaBaseLine[_idx], _c_data)
                 #log.info(_str_funcName + c)
                 mc.xform(c, t =_deltaPlus_base, os = True, a=True)
                 #mc.xform(c, t = [-v for v in _data[idx][:-1]], r = True, os = True)		
@@ -283,7 +282,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                     #_c_data = [weight*v for v in _l_deltaVs[i][:-1]]
                 _c_data = _l_deltaVs[i][:-1]
                 log.debug("idx: {0} | data:{1}".format(_idx,_c_data))
-                #_l_delta[_idx] = cgmMath.list_add(_l_delta[i][:-1], _c_data)
+                #_l_delta[_idx] = MATH.list_add(_l_delta[i][:-1], _c_data)
                 _l_delta[_idx] = _c_data
         #log.info(len(_l_deltaVs))
         #log.info(len(_split_idx))
@@ -671,7 +670,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 _match = False
                 for pair in _buffer:
                     log.info("{0} =?= {1}".format(weight,pair[1]))
-                    if cgmMath.isFloatEquivalent(weight, pair[1]):
+                    if MATH.is_float_equivalent(weight, pair[1]):
                         _match = True
                         _indexBuffer = _d_targetsData[pair[0]][pair[1]]
                         _index = pair[0]
@@ -1040,7 +1039,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 else:
                     _c_data = _data[idx][:-1]
 
-                _deltaPlus_base = cgmMath.list_add(_l_deltaBaseLine[_idx], _c_data)
+                _deltaPlus_base = MATH.list_add(_l_deltaBaseLine[_idx], _c_data)
                 #log.info(_str_funcName + c)
                 mc.xform(c, t =_deltaPlus_base, os = True, a=True)
                 #mc.xform(c, t = [-v for v in _data[idx][:-1]], r = True, os = True)		

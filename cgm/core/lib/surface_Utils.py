@@ -44,18 +44,6 @@ import cgm.core.lib.shared_data as SHARED
 #reload(SHARED)
 #reload(MATH)
 
-from cgm.lib import (distance,
-                     locators,
-                     curves,
-                     deformers,
-                     lists,
-                     rigging,
-                     skinning,
-                     dictionary,
-                     nodes,
-                     joints,
-                     cgmMath)
-
 #>>> Utilities
 #===================================================================
 
@@ -431,8 +419,8 @@ def attachObjToSurface(*args,**kws):
 
             self.f_offset = VALID.valueArg(self.d_kws['f_offset'], calledFrom=self._str_funcCombined)
             #Get info ============================================================================
-            self.d_closestInfo = distance.returnClosestPointOnSurfaceInfo(self.mi_obj.mNode,self.mi_targetSurface.mNode)
-            self.d_closestInfo = DIST.get_closest_point_data_from_mesh(self.mi_obj.mNode,self.mi_targetSurface.mNode)
+            self.d_closestInfo = DIST.get_closest_point_data_from_mesh(
+                mesh=self.mi_targetSurface.mNode, targetObj=self.mi_obj.mNode)
             #Running Lists ============================================================================
             self.md_return = {}
 

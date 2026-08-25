@@ -46,13 +46,7 @@ import cgm.core.lib.transform_utils as TRANS
 #reload(NODES)
 from cgm.core.lib import math_utils as MATHUTILS
 #reload(RayCast)
-from cgm.lib import (locators,
-                     geo,
-                     curves,
-                     nodes,
-                     rigging,
-                     distance,
-                     guiFactory)
+import cgm.core.lib.rigging_utils as CORERIG
 from cgm.core.lib import list_utils as lists
 #reload(distance)
 #reload(curves)
@@ -409,7 +403,7 @@ class clickMesh(ContextualPick):
         self.f_meshArea = 1
         buffer = []
         for m in self.l_mesh:
-            buffer.append(distance.returnObjectSize(m))
+            buffer.append(DIST.get_object_size(m))
 
         if buffer:
             self.f_meshArea = sum(buffer)/len(buffer)
@@ -526,15 +520,15 @@ class clickMesh(ContextualPick):
         """
         #Clean our lists...
         _str_funcName = 'finalize'
-        self.l_created = lists.returnListNoDuplicates(self.l_created)
-        self.l_return = lists.returnListNoDuplicates(self.l_return)
+        self.l_created = lists.get_noDuplicates(self.l_created)
+        self.l_return = lists.get_noDuplicates(self.l_return)
 
             
         if self._createMode in ['curve','jointChain','group','follicle'] and self.l_return:
             if self._createMode == 'group':
                 bufferList = []
                 for i,o in enumerate(self.l_created):
-                    buffer = rigging.groupMeObject(o,False)
+                    buffer = TRANS.group_me(o, parent=False, maintainParent=False)
                     bufferList.append(buffer)                    
                     try:mc.delete(o)
                     except:pass
@@ -569,7 +563,7 @@ class clickMesh(ContextualPick):
                         for o in self.l_created:
                     mesh = attributes.doGetAttr(o,'cgmHitTarget')
                     if mc.objExists(mesh):
-                        uv = distance.returnClosestUVToPos(mesh,distance.returnWorldSpacePosition(o))
+                        uv = distance.returnClosestUVToPos(mesh,POS.get(o))
                         log.info("uv: {0}".format(uv))
                         follicle = nodes.createFollicleOnMesh(mesh)
                         log.info("follicle: {0}".format(follicle))                        
@@ -693,7 +687,7 @@ class clickMesh(ContextualPick):
         
         self.release_pre_insert()
         
-        self.l_created = lists.returnListNoDuplicates(self.l_created)
+        self.l_created = lists.get_noDuplicates(self.l_created)
         #Only store return values on release
         if not self.b_dragStoreMode:#If not on drag, do it here. Otherwise do it on update
             if self._posBuffer:
@@ -872,10 +866,10 @@ class clickMesh(ContextualPick):
 
     def getDistanceToCheck(self,m):
         assert mc.objExists(m), "'%s' doesn't exist. Couldn't check distance!"%m
-        baseDistance = distance.returnDistanceBetweenPoints(self.clickPos, distance.returnWorldSpacePosition(m))
-        baseSize = distance.returnBoundingBoxSize(m)
+        baseDistance = DIST.get_distance_between_points(self.clickPos, POS.get(m))
+        baseSize = DIST.get_bb_size(m)
 
-        return distance.returnWorldSpaceFromMayaSpace( baseDistance + sum(baseSize) )
+        return MATHUTILS.get_space_value(baseDistance + sum(baseSize), 'apiSpace')
 
     def updatePos(self):
         """
@@ -973,7 +967,7 @@ class clickMesh(ContextualPick):
         
         if self.b_clampSetting and self.b_clampSetting < len(self._posBuffer):
             log.warning("Position buffer was clamped. Check settings if this was not desired.")
-            self._posBuffer = distance.returnPositionDataDistanceSortedList(self.startPoint,self._posBuffer)
+            self._posBuffer = DIST.get_positions_sorted_by_distance(self.startPoint,self._posBuffer)
             self._posBuffer = self._posBuffer[:self.b_clampSetting]      
             
         #...Gonna do our offsets now
@@ -1159,14 +1153,14 @@ class clickMesh(ContextualPick):
                 elif self._createMode == 'vectorLine':
                     _dist_base = DIST.get_distance_between_points(self.clickPos, pos)#...get our base distance                    
                     _crv_ray = mc.curve (d=1, ep = [self.clickPos,pos], ws=True)
-                    curves.setCurveColorByName(_crv_ray,'yellow')
+                    CORERIG.override_color(_crv_ray,'yellow')
                     _crv_ray = mc.rename(_crv_ray,"ray_cast_{0}_hit_{1}_crv".format(self._int_runningTally,i))   
                     nameBuffer = [_crv_ray]
                     
                     if _m_normal:
                         _crv_normal = mc.curve (d=1, ep = [pos,  DIST.get_pos_by_vec_dist(pos,_m_normal,(_dist_base/10)) ], ws=True)                    
                         _crv_normal = mc.rename(_crv_normal,"normal_cast_{0}_hit_{1}_crv".format(self._int_runningTally,i))
-                        curves.setCurveColorByName(_crv_normal,'white')                    
+                        CORERIG.override_color(_crv_normal,'white')                    
                         nameBuffer.append(_crv_normal)
 
                 else:

@@ -2889,7 +2889,7 @@ def reorder(node = None, attrs = None, direction = 0,top = False):
                 _to_move.remove(a)
                 _to_move.insert(0,a)
     else:
-        _to_move = LISTS.reorderListInPlace(_to_move,attrs,direction)
+        _to_move = LISTS.reorder_in_place(_to_move,attrs,direction)
     log.debug(_to_move)
     
     #To reorder, we need delete and undo in the order we want

@@ -3106,7 +3106,7 @@ def handle_fixTwist(ikHandle, aimAxis = None):
         return 
         v_localAim = MATH.get_vector_of_two_points(mStartJoint.p_position, mStartJoint.getChildren(asMeta=True)[0].p_position)
         
-        str_localAim = dictionary.returnVectorToString(v_localAim)
+        #str_localAim = SHARED.returnVectorToString(v_localAim)
         str_localAimSingle = str_localAim[0]
         log.debug("IKHandle_fixTwist>>> vector aim: %s | str aim: %s"%(v_localAim,str_localAim))  
 

@@ -29,16 +29,14 @@ from Red9.core import Red9_General as r9General
 from Red9.core import Red9_AnimationUtils as r9Anim
 from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import rayCaster as RayCast
+from cgm.core.lib import distance_utils as DIST
+from cgm.core.lib import position_utils as POS
+from cgm.core.lib import snap_utils as SNAP
 
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.classes import GuiFactory as gui
-from cgm.lib import (
-                     distance,#tmp
-                     dictionary,
-                     locators,
-                     dictionary,
-                     position)
+from cgm.core.lib import shared_data as SHARED
 
 #>>>>>>>>>>>>>>>>>>>>>>>      
 class go(object):
@@ -148,15 +146,17 @@ class go(object):
                         mc.progressBar(mayaMainProgressBar, edit=True, status = ("Wrapping '%s'"%c), step=1)
 
                     if targetType in ['mesh','nurbsSurface','nurbsCurve']:
-                        pos = distance.returnWorldSpacePosition(c)
+                        pos = POS.get(c)
                         targetLoc = mc.spaceLocator()
                         mc.move (pos[0],pos[1],pos[2], targetLoc[0])
 
-                        closestLoc = locators.locClosest([targetLoc[0]],i_target.mNode)
+                        _close = DIST.get_closest_point(targetLoc[0], i_target.mNode)
+                        closestLoc = mc.spaceLocator()[0]
+                        mc.move(_close[0][0], _close[0][1], _close[0][2], closestLoc)
                         if self._posOffset:
                             self.doOrientObjToSurface(i_target.mNode,closestLoc)
                             mc.move (self._posOffset[0],self._posOffset[1],self._posOffset[2], [closestLoc], r=True, rpr = True, os = True, wd = True)								
-                        position.movePointSnap(c,closestLoc)
+                        SNAP.move_point_snap(c, closestLoc)
                         mc.delete([targetLoc[0],closestLoc])
 
                 if mayaMainProgressBar:gui.doEndMayaProgressBar(mayaMainProgressBar)#Close out this progress bar    
@@ -166,7 +166,10 @@ class go(object):
                 if self.b_snaptoSurface:#>>> If our target is surface we can use
                     if targetType in ['mesh','nurbsCurve','nurbsSurface']:
                         i_locObj = self.i_obj.doLoc()#Get our position loc
-                        i_locTarget = cgmMeta.cgmObject( locators.locClosest([i_locObj.mNode],i_target.mNode) )#Loc closest
+                        _close = DIST.get_closest_point(i_locObj.mNode, i_target.mNode)
+                        closestLoc = mc.spaceLocator()[0]
+                        mc.move(_close[0][0], _close[0][1], _close[0][2], closestLoc)
+                        i_locTarget = cgmMeta.cgmObject(closestLoc)#Loc closest
                         #i_locObj.rename('objLoc')
                         #i_locTarget.rename('targetLoc')
                         if self._posOffset:
@@ -189,7 +192,7 @@ class go(object):
                     axisToCheck = kws.pop('axisToCheck',False)
                     if not axisToCheck:
                         axisToCheck = []		    
-                        up = dictionary.returnVectorToString(self._upVector) or False
+                        up = SHARED._d_axis_vector_to_string.get('[' + ','.join(map(str, self._upVector)) + ']') or False
                         if not up:
                             raise Exception("SnapFactory>>> must have up vector for midSurfaceSnap: %s"%self._upVector)
                         for a in ['x','y','z']:

@@ -28,9 +28,6 @@ class Test_chunks(unittest.TestCase):
         self.assertEqual(LISTS.get_chunks([1, 2, 3, 4, 5], 2),
                          [[1, 2], [3, 4], [5]])
 
-    def test_alias(self):
-        self.assertIs(LISTS.returnListChunks, LISTS.get_chunks)
-
 
 class Test_noDuplicates(unittest.TestCase):
     def test_order_preserved(self):
@@ -38,9 +35,6 @@ class Test_noDuplicates(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(LISTS.get_noDuplicates([]), [])
-
-    def test_alias(self):
-        self.assertIs(LISTS.returnListNoDuplicates, LISTS.get_noDuplicates)
 
 
 class Test_pairs(unittest.TestCase):
@@ -52,9 +46,6 @@ class Test_pairs(unittest.TestCase):
     def test_two(self):
         self.assertEqual(LISTS.get_listPairs([1, 2]), [[1, 2]])
 
-    def test_alias(self):
-        self.assertIs(LISTS.parseListToPairs, LISTS.get_listPairs)
-
 
 class Test_match(unittest.TestCase):
     def test_overlap(self):
@@ -62,9 +53,6 @@ class Test_match(unittest.TestCase):
 
     def test_none(self):
         self.assertEqual(LISTS.get_matchList([1, 2], [3, 4]), [])
-
-    def test_alias(self):
-        self.assertIs(LISTS.returnMatchList, LISTS.get_matchList)
 
 
 class Test_keys(unittest.TestCase):
@@ -84,9 +72,6 @@ class Test_reorder(unittest.TestCase):
         self.assertEqual(LISTS.reorder_in_place(l, ['b'], direction=1),
                          ['a', 'c', 'b', 'd'])
 
-    def test_alias(self):
-        self.assertIs(LISTS.reorderListInPlace, LISTS.reorder_in_place)
-
 
 class Test_split(unittest.TestCase):
     def test_even_mode0(self):
@@ -100,17 +85,11 @@ class Test_split(unittest.TestCase):
     def test_too_short(self):
         self.assertRaises(Exception, LISTS.get_split, [1, 2])
 
-    def test_alias(self):
-        self.assertIs(LISTS.returnSplitList, LISTS.get_split)
-
 
 class Test_firstMidLast(unittest.TestCase):
     def test_seven(self):
         self.assertEqual(LISTS.get_first_mid_last([0, 1, 2, 3, 4, 5, 6]),
                          [0, 4, 6])
-
-    def test_alias(self):
-        self.assertIs(LISTS.returnFirstMidLastList, LISTS.get_first_mid_last)
 
 
 class Test_missing(unittest.TestCase):
@@ -119,10 +98,6 @@ class Test_missing(unittest.TestCase):
 
     def test_difference_empty_base(self):
         self.assertEqual(LISTS.get_difference([], [1, 2]), [1, 2])
-
-    def test_alias(self):
-        self.assertIs(LISTS.returnMissingList, LISTS.get_missing)
-        self.assertIs(LISTS.returnDifference, LISTS.get_difference)
 
 
 class Test_indexEntries(unittest.TestCase):
@@ -158,14 +133,16 @@ class Test_cvSimplify(unittest.TestCase):
         src = ['a', 'b', 'c']
         self.assertEqual(LISTS.simplify_cv_list(src, 6), src)
 
-    def test_alias(self):
-        self.assertIs(LISTS.cvListSimplifier, LISTS.simplify_cv_list)
-
 
 class Test_shimNames(unittest.TestCase):
-    """Old import path must resolve after cgm.lib.lists is a shim."""
+    """Old import path must resolve after cgm.lib.lists is a shim. Old names live on the shim, not list_utils."""
     def test_lib_reexport(self):
         from cgm.lib import lists as oldLists
         self.assertIs(oldLists.get_chunks, LISTS.get_chunks)
         self.assertEqual(oldLists.returnListChunks([1, 2, 3, 4], 2),
                          [[1, 2], [3, 4]])
+        self.assertIs(oldLists.returnListChunks, LISTS.get_chunks)
+
+    def test_old_names_not_on_core(self):
+        self.assertFalse(hasattr(LISTS, 'returnListChunks'))
+        self.assertFalse(hasattr(LISTS, 'parseListToPairs'))

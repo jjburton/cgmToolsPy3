@@ -516,11 +516,11 @@ def matchValue_iterator(matchObj = None,
             mPlug_driver.value = minValue#Set to min
             pos_min = mc.xform(mi_drivenObj.mNode, q=True, ws=True, rp=True)
             #f_minDist = MATH.mag( MATH.list_subtract(pos_match,pos_min))#get Dif
-            f_minDist = distance.returnDistanceBetweenObjects(mi_drivenObj.mNode,mi_matchObj.mNode)
+            f_minDist = DIST.get_distance_between_targets([mi_drivenObj.mNode,mi_matchObj.mNode])
 
             mPlug_driver.value = maxValue#Set to max
             pos_max = mc.xform(mi_drivenObj.mNode, q=True, ws=True, rp=True)
-            f_maxDist = distance.returnDistanceBetweenObjects(mi_drivenObj.mNode,mi_matchObj.mNode)
+            f_maxDist = DIST.get_distance_between_targets([mi_drivenObj.mNode,mi_matchObj.mNode])
             f_half = ((maxValue-minValue)/2.0) + minValue#get half	
 
             if f_minDist>f_maxDist:#if min dif greater, use half as new min

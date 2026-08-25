@@ -28,7 +28,7 @@ import maya.cmds as mc
 from Red9.core import Red9_General as r9General
 import cgm.core.cgm_General as cgmGEN
 from cgm.core.cgmPy import str_Utils as strUtils
-from cgm.lib import names
+import cgm.core.lib.name_utils as NAMES
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.lib.search_utils as SEARCH
 import cgm.core.lib.attribute_utils as ATTR
@@ -37,12 +37,8 @@ import cgm.core.lib.transform_utils as TRANS
 #reload(CORESHARE)
 #reload(SEARCH)
 # From cgm ==============================================================
-from cgm.lib import (dictionary,
-                     settings)
-
-#namesDictionaryFile = settings.getNamesDictionaryFile()
-#typesDictionaryFile = settings.getTypesDictionaryFile()
-#settingsDictionaryFile = settings.getSettingsDictionaryFile()
+# Conf-file dictionary loaders still live on cgm.lib.dictionary / settings
+# (commented — leftover until a naming-conf wave).
         
 #>>>Utilities
 #==================================================================================
@@ -273,7 +269,7 @@ def get_objNameDict(obj,ignore=[False]):
                     try:namesDict.pop(k)
                     except:pass
                 log.debug("nameObj: {0}".format(nameObj))
-                namesDict['cgmName'] = names.getBaseName(nameObj)
+                namesDict['cgmName'] = NAMES.get_base(nameObj)
                 return namesDict
         
         typeTag = SEARCH.get_nodeTagInfo(obj,'cgmType')

@@ -28,13 +28,10 @@ import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.shape_utils as SHAPE
 import cgm.core.lib.rigging_utils as CORERIG
 from cgm.core.lib import attribute_utils as ATTR
+from cgm.core.lib import shared_data as SHARED
 
 #reload(DIST)
 from cgm.core import cgm_General as cgmGEN
-from cgm.lib import locators
-from cgm.lib import dictionary
-from cgm.lib import cgmMath
-from cgm.lib import distance
 import os
 #CANNOT IMPORT: LOC, SNAP
 
@@ -272,7 +269,7 @@ def cast(mesh = None, obj = None, axis = 'z+',
             matrix = mc.xform(obj, q=True,  matrix=True, worldSpace=True)
     
             #>>> Figure out our vector
-            if axis not in list(dictionary.stringToVectorDict.keys()):
+            if axis not in SHARED._d_axis_string_to_vector:
                 log.error("|{0}| >> axis arg not valid: '{1}'".format(_str_func,axis))
                 return False
             if list(axis)[0] not in list(d_matrixVectorIndices.keys()):
@@ -355,8 +352,8 @@ def cast(mesh = None, obj = None, axis = 'z+',
             return {}
     
     
-        _near = distance.returnClosestPoint(startPoint, _l_posBuffer)
-        _furthest = distance.returnFurthestPoint(startPoint,_l_posBuffer)
+        _near = DIST.get_closest_from_posList(startPoint, _l_posBuffer)
+        _furthest = DIST.get_furthest_from_posList(startPoint,_l_posBuffer)
     
         _d = {'source':startPoint, 'near':_near, 'far':_furthest, 'hits':_l_posBuffer, 'uvs':_d_meshUV, 'uvsRaw':_d_meshUVRaw, 'meshHits':_d_meshPos,'meshNormals':_d_meshNormal}
     
@@ -1214,7 +1211,7 @@ def findMeshIntersectionFromObjectAxis(mesh, obj, axis = 'z+', vector = False, m
             matrix = mc.xform(obj, q=True,  matrix=True, worldSpace=True)
 
             #>>> Figure out our vector
-            if axis not in list(dictionary.stringToVectorDict.keys()):
+            if axis not in SHARED._d_axis_string_to_vector:
                 log.error("findMeshIntersectionFromObjectAxis axis arg not valid: '%s'"%axis)
                 return False
             if list(axis)[0] not in list(d_matrixVectorIndices.keys()):
@@ -1238,7 +1235,7 @@ def findMeshIntersectionFromObjectAxis(mesh, obj, axis = 'z+', vector = False, m
         for m in _mesh:
             _b = {}
             if firstHit:
-                try:_b = findMeshIntersection(m, distance.returnWorldSpacePosition(obj), rayDir=vector, maxDistance = maxDistance)
+                try:_b = findMeshIntersection(m, POS.get(obj), rayDir=vector, maxDistance = maxDistance)
                 except:log.error("{0} mesh failed to get hit: {1}".format(_str_func,m))
                 #if _oneMesh:return _b
                 if not _d_meshUV.get(m):_d_meshUV[m] = []
@@ -1250,7 +1247,7 @@ def findMeshIntersectionFromObjectAxis(mesh, obj, axis = 'z+', vector = False, m
                     _d_meshPos[m].append(_b['hit'])								    
                     #_l_uvBuffer.append("{0}.uv[{1},{2}]".format(m,_uv[0],_uv[1]))
             else:
-                try:_b = findMeshIntersections(m, distance.returnWorldSpacePosition(obj), rayDir=vector, maxDistance = maxDistance)
+                try:_b = findMeshIntersections(m, POS.get(obj), rayDir=vector, maxDistance = maxDistance)
                 except:log.error("{0} mesh failed to get hit: {1}".format(_str_func,m))	
                 #if _oneMesh:return _b	
                 if not _d_meshUV.get(m):_d_meshUV[m] = []
@@ -1270,8 +1267,8 @@ def findMeshIntersectionFromObjectAxis(mesh, obj, axis = 'z+', vector = False, m
         if not _l_posBuffer:
             log.info("{0} No hits detected. cast: {1} | mesh{2} | axis: {3}".format(_str_func,obj,mesh,axis))
             return {}
-        _near = distance.returnClosestPoint(_source, _l_posBuffer)
-        _furthest = distance.returnFurthestPoint(_source,_l_posBuffer)
+        _near = DIST.get_closest_from_posList(_source, _l_posBuffer)
+        _furthest = DIST.get_furthest_from_posList(_source,_l_posBuffer)
         _d = {'source':_source, 'near':_near, 'far':_furthest, 'hits':_l_posBuffer, 'uvs':_d_meshUV, 'meshHits':_d_meshPos}
         if firstHit:
             _d['hit'] = _near
@@ -1305,18 +1302,18 @@ def findMeshMidPointFromObject(mesh,obj,axisToCheck = ['x','z'],
 
                 if 'hit' in list(d_posReturn.keys()) and list(d_negReturn.keys()):
                     l_pos = [d_posReturn.get('hit'),d_negReturn.get('hit')]
-                    pos = distance.returnAveragePointPosition(l_pos)          
+                    pos = DIST.get_average_position(l_pos)          
                     l_positions.append(pos)
                 else:
                     raise RuntimeError("No hit deteted. Object isn't in the mesh")
             if len(l_positions) == 1:
                 l_pos =  l_positions[0]
             else:
-                l_pos =  distance.returnAveragePointPosition(l_positions)
-            if l_lastPos:dif = cgmMath.mag( cgmMath.list_subtract(l_pos,l_lastPos) )
+                l_pos =  DIST.get_average_position(l_positions)
+            if l_lastPos:dif = MATH.mag( MATH.list_subtract(l_pos,l_lastPos) )
             else:dif = 'No last'
             log.debug("findMeshMidPointFromObject>>> Step : %s | dif: %s | last: %s | pos: %s "%(i,dif,l_lastPos,l_pos)) 					
-            if l_lastPos and cgmMath.isVectorEquivalent(l_lastPos,l_pos,2):
+            if l_lastPos and MATH.is_vector_equivalent(l_lastPos,l_pos,2):
                 log.debug("findMeshMidPointFromObject>>> Match found step: %s"%(i))
                 mc.delete(loc)
                 return l_pos
@@ -1344,7 +1341,7 @@ def findFurthestPointInRangeFromObject(mesh,obj,axis = 'z+', pierceDepth = 4,
         if not d_firstcast.get('hit'):
             raise Exception("findFurthestPointInRangeFromObject>>> first cast failed to hit")
 
-        baseDistance = distance.returnDistanceBetweenPoints(distance.returnWorldSpacePosition(obj),d_firstcast['hit'])
+        baseDistance = DIST.get_distance_between_points(POS.get(obj),d_firstcast['hit'])
         log.debug("findFurthestPointInRangeFromObject>>>baseDistance: %s"%baseDistance)
         castDistance = baseDistance + pierceDepth
         log.debug("findFurthestPointInRangeFromObject>>>castDistance: %s"%castDistance)
@@ -1354,7 +1351,7 @@ def findFurthestPointInRangeFromObject(mesh,obj,axis = 'z+', pierceDepth = 4,
         d_castReturn = findMeshIntersectionFromObjectAxis(mesh, obj, axis=axis, maxDistance = castDistance, firstHit=False) or {}
         log.debug("2nd castReturn: %s"%d_castReturn)
         if d_castReturn.get('hits'):
-            closestPoint = distance.returnFurthestPoint(distance.returnWorldSpacePosition(obj),d_castReturn.get('hits')) or False
+            closestPoint = DIST.get_furthest_from_posList(POS.get(obj),d_castReturn.get('hits')) or False
             d_castReturn['hit'] = closestPoint
         return d_castReturn
     except Exception as error:

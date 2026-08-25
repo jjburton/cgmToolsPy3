@@ -137,10 +137,10 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
     
             #Need to move this to default cgmNode stuff
             mBuffer = mi_control
-            i_newTransform = cgmMeta.cgmObject( rigging.groupMeObject(mTarget.mNode,False) )
+            i_newTransform = cgmMeta.cgmObject( CORERIG.group_me(mTarget.mNode, parent=False, maintainParent=False) )
             for a in mc.listAttr(mi_control.mNode, userDefined = True):
                 ATTR.copy_to(mi_control.mNode,a,i_newTransform.mNode)
-            curves.parentShapeInPlace(i_newTransform.mNode,mi_control.mNode)#Parent shape
+            CORERIG.shapeParent_in_place(i_newTransform.mNode,mi_control.mNode)#Parent shape
             i_newTransform.parent = mi_control.parent#Copy parent
             mi_control = cgmMeta.asMeta(i_newTransform,'cgmControl', setClass=True)
             mc.delete(mBuffer.mNode)    
@@ -155,7 +155,7 @@ def register(controlObject = None,#(mObject - None) -- The object to use as a co
     
         if useShape is not None:
             i_shape = cgmMeta.validateObjArg(useShape,cgmMeta.cgmObject,mayaType='nurbsCurve')
-            curves.parentShapeInPlace(mi_control.mNode,i_shape.mNode)
+            CORERIG.shapeParent_in_place(mi_control.mNode,i_shape.mNode)
             
         #Copy Pivot ============================================================================================
         if copyPivot is not None:

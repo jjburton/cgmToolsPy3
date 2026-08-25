@@ -527,4 +527,35 @@ def verify_aimAttrs(obj = None, aim = None, up = None, checkOnly = False):
             ATTR.set(_d,value = _v)
 
     return True
-    
+
+
+def move_parent_snap(obj, target):
+    """
+    Snap with parent-constraint style (world scale-pivot + rotation).
+    Old name: moveParentSnap. 1:1 with cgm.lib.position — not SNAP.go
+    (go converts rotateOrder).
+    """
+    objTrans = mc.xform(target, q=True, ws=True, sp=True)
+    objRot = mc.xform(target, q=True, ws=True, ro=True)
+    mc.move(objTrans[0], objTrans[1], objTrans[2], [obj], rotatePivotRelative=True)
+    mc.rotate(objRot[0], objRot[1], objRot[2], [obj], ws=True)
+
+
+def move_point_snap(obj, target):
+    """
+    Snap with point-constraint style (world rotate pivot).
+    Old name: movePointSnap. 1:1 with cgm.lib.position — not SNAP.go.
+    Mocap align / bake must keep this rotate-pivot query (Feature_MocapAlignSnap).
+    """
+    objTrans = mc.xform(target, q=True, ws=True, rp=True)
+    mc.move(objTrans[0], objTrans[1], objTrans[2], [obj], rpr=True)
+
+
+def move_orient_snap(obj, target):
+    """
+    Snap with orient-constraint style (world rotation copy).
+    Old name: moveOrientSnap. 1:1 with cgm.lib.position — not SNAP.go
+    (go converts rotateOrder).
+    """
+    objRot = mc.xform(target, q=True, ws=True, ro=True)
+    mc.rotate(objRot[0], objRot[1], objRot[2], [obj], ws=True)

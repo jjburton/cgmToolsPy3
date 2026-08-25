@@ -1634,7 +1634,6 @@ def uiSection_hotkeys(parent):
                 c=cgmGEN.Callback(HKEY.hotkeys_resetAll))     
     
 
-from cgm.lib import optionVars
 #from cgm.core.lib.wing import mayaWingServer as mWingServer
 #cgmGEN._reloadMod(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
@@ -1722,7 +1721,7 @@ def uiSection_dev(parent):
     mc.menuItem(parent = parent,
                 l='Purge Option Vars',
                 ann = "Purge all cgm option vars. Warning will break any open tools",
-                c=lambda *a: optionVars.purgeCGM())    
+                c=lambda *a: cgmUI.purgeCGM())    
     
     #...------------------------------------------------------------------
     _wipTools = mc.menuItem(parent = parent,subMenu = True,tearOff = True,
