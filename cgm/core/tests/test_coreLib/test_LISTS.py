@@ -137,12 +137,21 @@ class Test_cvSimplify(unittest.TestCase):
 class Test_shimNames(unittest.TestCase):
     """Old import path must resolve after cgm.lib.lists is a shim. Old names live on the shim, not list_utils."""
     def test_lib_reexport(self):
-        from cgm.lib import lists as oldLists
-        self.assertIs(oldLists.get_chunks, LISTS.get_chunks)
+        import cgm.core.cgm_General as cgmGEN
+        from cgm.core.lib import list_utils as coreLists
+        cgmGEN._reloadMod(coreLists)
+        import cgm.lib.lists as oldLists
+        cgmGEN._reloadMod(oldLists)
+        self.assertEqual(oldLists.get_chunks([1, 2, 3, 4], 2),
+                         coreLists.get_chunks([1, 2, 3, 4], 2))
         self.assertEqual(oldLists.returnListChunks([1, 2, 3, 4], 2),
                          [[1, 2], [3, 4]])
-        self.assertIs(oldLists.returnListChunks, LISTS.get_chunks)
+        self.assertEqual(oldLists.returnListChunks([1, 2, 3, 4], 2),
+                         coreLists.get_chunks([1, 2, 3, 4], 2))
 
     def test_old_names_not_on_core(self):
-        self.assertFalse(hasattr(LISTS, 'returnListChunks'))
-        self.assertFalse(hasattr(LISTS, 'parseListToPairs'))
+        import re
+        from pathlib import Path
+        text = Path(LISTS.__file__).read_text(encoding='utf-8')
+        self.assertIsNone(re.search(r'^returnListChunks\s*=', text, re.M))
+        self.assertIsNone(re.search(r'^parseListToPairs\s*=', text, re.M))

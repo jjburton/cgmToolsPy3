@@ -6,6 +6,7 @@ import maya.standalone
 import pprint
 import logging
 import time
+import sys
 import importlib
 import cgm.core.cgm_General as cgmGEN
 import cgm.core.cgmPy.path_Utils as PATH
@@ -112,8 +113,11 @@ def main(tests = 'all', verbosity = 1, testCheck = False, **kwargs):
 		module = "cgm.core.tests.{0}".format(_d_testModulePaths[mod])
 		print((">>> Testing Module: {0} | {1}".format(mod,module) + '-'*100))		
 		try:
-			exec("import {0}".format(module))
-			exec("cgmGEN._reloadMod({0})".format(module))
+			# importlib.reload leaves removed Test* classes on the module.
+			# Drop and reimport so the suite matches the file on disk.
+			if module in sys.modules:
+				del sys.modules[module]
+			importlib.import_module(module)
 		except Exception as err:
 			log.error("Import fail: {0}".format(module))
 			for arg in err.args:

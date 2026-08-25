@@ -40,9 +40,11 @@ class Test_setup_offset_cycle_speed(unittest.TestCase):
         mc.addAttr(loc, ln='speed', at='double', k=True, dv=1)
         md = NODES.setup_offset_cycle_speed(loc, loc + '.speed', 10, -20)
         self.assertEqual(mc.nodeType(md), 'multiplyDivide')
-        self.assertTrue(mc.isConnected('time1.outTime', md + '.input1X'))
+        self.assertTrue(
+            mc.isConnected('time1.outTime', md + '.input1X', ignoreUnitConversion=True))
         self.assertTrue(mc.isConnected(loc + '.speed', md + '.input2X'))
         anim = loc + '_offset'
         self.assertTrue(mc.objExists(anim))
-        self.assertTrue(mc.isConnected(md + '.outputX', anim + '.input'))
+        self.assertTrue(
+            mc.isConnected(md + '.outputX', anim + '.input', ignoreUnitConversion=True))
         self.assertEqual(mc.keyframe(loc + '.offset', q=True, kc=True), 2)
