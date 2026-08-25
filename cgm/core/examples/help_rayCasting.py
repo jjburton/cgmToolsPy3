@@ -13,7 +13,7 @@ Help for using the concept of rayCasting. We'll be looking at rayCaster,clickMes
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.lib import rayCaster as RayCast
 from cgm.core.lib import shapeCaster as ShapeCast
-from cgm.lib import curves,locators
+from cgm.core.lib import curve_Utils as CURVES
 #==============================================================================================
 #>> rayCasting
 #==============================================================================================
@@ -32,7 +32,7 @@ str_mesh = 'pSphere1'
 str_surface = 'nurbsSphere1'
 
 #Make a curve from our library so we can more sensibly see our cast direction.We'll be casting from z+
-mi_aimObj = cgmMeta.cgmObject(curves.createControlCurve('arrowSingleFat3d',5,'y-'))
+mi_aimObj = cgmMeta.cgmObject(CURVES.create_fromName('arrowSingleFat3d', size=5, direction='y-'))
 
 #Aim
 #mc.delete(mc.aimConstraint('pSphere1', mi_loc.mNode))
@@ -92,7 +92,8 @@ str_castTo = str_surface#Link to the surface and let's go back and do the same 1
 
 #7) Here's another sample to play with. Move the cast object around within the sphere and try some of these
 for axis in ['x+','x-','z+','z-']:
-    locators.doLocPos(RayCast.findMeshIntersectionFromObjectAxis(str_castTo,mi_aimObj.mNode,axis = axis)['hit'])
+    hit = RayCast.findMeshIntersectionFromObjectAxis(str_castTo,mi_aimObj.mNode,axis = axis)['hit']
+    mc.spaceLocator(p=hit)
 #===============================================================================================
 
 #findMeshMidPointFromObject ==============================================================
