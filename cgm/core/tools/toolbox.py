@@ -409,15 +409,13 @@ class ui(cgmUI.cgmGUI):
         uiTab_td = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')
         uiTab_anim = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')        
         uiTab_options = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
-        uiTab_legacy = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
 
-        for i,tab in enumerate(['TD','Anim','Settings','Legacy']):
+        for i,tab in enumerate(['TD','Anim','Settings']):
             ui_tabs.setLabel(i,tab)
 
         buildTab_td(self,uiTab_td)
         buildTab_anim(self,uiTab_anim)
         buildTab_options(self,uiTab_options)
-        buildTab_legacy(self,uiTab_legacy)
 
         #self.buildTab_create(uiTab_create)
         #self.buildTab_update(uiTab_update)
@@ -1577,23 +1575,6 @@ def buildTab_anim(self,parent):
               l='red9.Studio Tools',
               ann = "Launch Red 9's tools",
               c=lambda *a:Red9.start())           
-
-
-def buildTab_legacy(self,parent):
-    _column = mUI.MelScrollLayout(parent,useTemplate = 'cgmUITemplate') 
-    parent(edit = True,
-           af = [(_column,"top",0),
-                 (_column,"left",0),
-                 (_column,"right",0),                        
-                 (_column,"bottom",0)])    
-
-    #>>>Shape Creation ====================================================================================
-    mc.setParent(_column)
-
-    cgmUI.add_Button(_column,
-                     'AnimTools',
-                     lambda a:LOADTOOL.animToolsLEGACY(),
-                     "Old simple anim tool holder")
 
 
 def buildTab_options(self,parent):

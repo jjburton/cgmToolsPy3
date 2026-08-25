@@ -749,24 +749,12 @@ def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict
             return _res
     return False 
 
-def returnSelectedAttributesFromChannelBox(returnRaw=False):
-    """Old lib.search name. returnRaw True = channel names only."""
-    return get_selectedFromChannelBox(attributesOnly=returnRaw, report=False)
-    """
-    Get the reference prefix of a node...
-
-    :parameters:
-        node(str): What you want to get the keys of
-
-    :returns
-        list of keys(list)
-    """ 
-    _str_func = 'get_referencePrefix'
-    _node =  VALID.mNodeString(node)
-    
+def get_referencePrefix(node):
+    """Reference namespace prefix, or False if the node is not referenced. Old lib name: returnReferencePrefix."""
+    _node = VALID.mNodeString(node)
     if mc.referenceQuery(_node, isNodeReferenced=True):
         splitBuffer = _node.split(':')
-        return (':'.join(splitBuffer[:-1]))
+        return ':'.join(splitBuffer[:-1])
     return False
 
 
