@@ -1352,7 +1352,11 @@ def uiSection_mrsAnim(parent):
     mc.menuItem(parent = parent,
                 l='cgmMocapBakeTool',
                 ann = "Mocap Bake Tool - A tool for retargeting and baking control transforms from an animated source",
-                c=lambda *a:TOOLCALLS.mocapBakeTool())        
+                c=lambda *a:TOOLCALLS.mocapBakeTool())
+    mc.menuItem(parent = parent,
+                l='cgmAnimClip',
+                ann = "Launch cgmAnimClip - animation clip Dat",
+                c=lambda *a:TOOLCALLS.ANIMCLIPDATui())
     mc.menuItem(parent = parent,
                 l='cgmLocinator',
                 ann = "Launch cgmLocinator - a tool for aiding in the snapping of things",

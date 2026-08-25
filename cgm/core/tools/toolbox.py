@@ -1539,6 +1539,11 @@ def buildTab_anim(self,parent):
               l='cgmMocapBakeTool',
               ann = "Launch cgmMocapBakeTool -A tool for retargeting and baking control transforms from an animated source",
               c=lambda *a: MOCAPBAKE.ui())
+    mc.button(parent = _column,
+              ut = 'cgmUITemplate',
+              l='cgmAnimClip',
+              ann = "Launch cgmAnimClip - animation clip Dat",
+              c=lambda *a: LOADTOOL.ANIMCLIPDATui())
     
     mc.button(parent = _column,
               ut = 'cgmUITemplate',                                                                                                

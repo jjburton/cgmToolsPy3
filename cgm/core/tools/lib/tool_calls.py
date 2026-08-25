@@ -164,6 +164,11 @@ def SHAPEDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
     cgmGEN._reloadMod(MRSDAT)
     MRSDAT.uiShapeDat()
+
+def ANIMCLIPDATui():
+    import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+    cgmGEN._reloadMod(ANIMCLIPDAT)
+    ANIMCLIPDAT.ui()
     
 def mrsShots():
     try:
