@@ -7,7 +7,7 @@ To install `cgmTools`, follow these steps:
 Open a terminal and run:
 
 ```
-git clone https://github.com/jjburton/cgmTools.git
+git clone https://github.com/jjburton/cgmToolsPy3.git
 ```
 
 ### 2. Set Up the Environment
