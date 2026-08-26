@@ -166,9 +166,17 @@ def SHAPEDATui():
     MRSDAT.uiShapeDat()
 
 def ANIMCLIPDATui():
-    import cgm.core.lib.animClip_dat as ANIMCLIPDAT
-    cgmGEN._reloadMod(ANIMCLIPDAT)
-    ANIMCLIPDAT.ui()
+    try:
+        from cgm.core import cgm_Dat as CGMDAT
+        import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
+        import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+        cgmGEN._reloadMod(CGMDAT)
+        cgmGEN._reloadMod(ANIMCLIPCURVE)
+        cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
+        ANIMCLIPDAT.ui()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
     
 def mrsShots():
     try:

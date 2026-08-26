@@ -1,7 +1,9 @@
 """
-AnimClip Dat — Phase 0 UI stub + JSON Dat shell.
+AnimClip Dat — JSON Dat + Phase 0 UI + Phase 1 curve fixture wrap + Phase 2a capture.
 
-Curve snapshot/rebuild is Phase 1. Capture range / apply / matching are later.
+Curve snapshot/rebuild lives in animClip_curve.py. Capture uses ATTR.get_keyed /
+ATTR.get_driver, then snapshot + slice_keys. Relative time, boundary samples, apply,
+and matching are later.
 """
 __MAYALOCAL = 'ANIMCLIPDAT'
 
@@ -23,6 +25,8 @@ import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.lib.string_utils as CORESTRINGS
 import cgm.core.lib.search_utils as SEARCH
+import cgm.core.lib.attribute_utils as ATTR
+import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
 
 mUI = CGMUI.mUI
 __version__ = cgmGEN.__RELEASESTRING
@@ -31,6 +35,17 @@ log_msg = cgmGEN.logString_msg
 log_start = cgmGEN.logString_start
 
 _CLIP_VERSION = 1
+
+
+def reload_dependencies():
+    """Reload AnimClip backend modules (tool open / ui.reload)."""
+    from cgm.core import cgm_Dat as _CGMDAT
+    import cgm.core.lib.animClip_curve as _animClip_curve
+    cgmGEN._reloadMod(_CGMDAT)
+    cgmGEN._reloadMod(_animClip_curve)
+    global ANIMCLIPCURVE
+    ANIMCLIPCURVE = _animClip_curve
+    return ANIMCLIPCURVE
 
 
 def _clip_name(uiDat, loadedFile):
@@ -83,7 +98,7 @@ def empty_clip_dat():
 
 
 def _object_identity(node):
-    """Phase 0 identity stubs. No matching, no channels."""
+    """Identity stubs for later matching. Capture fills channels separately."""
     short = mc.ls(node, shortNames=True)[0]
     longName = mc.ls(node, long=True)[0]
     ns = ''
@@ -127,6 +142,38 @@ class AnimClip(CGMDAT.data):
         if dat:
             self.dat = dat
 
+    def from_curve(self, curve):
+        """Phase 1 fixture: wrap one curve dict in a clip. No matching, no range slice."""
+        _str_func = 'AnimClip.from_curve'
+        log.debug(log_start(_str_func))
+        snap = ANIMCLIPCURVE.snapshot(curve)
+        clip = empty_clip_dat()
+        clip['scene'] = mc.file(q=True, sn=True) or ''
+        clip['user'] = getpass.getuser()
+        clip['date'] = time.strftime('%Y-%m-%d %H:%M')
+        clip['fps'] = mc.currentUnit(q=True, time=True)
+        clip['timeUnit'] = clip['fps']
+        clip['linearUnit'] = mc.currentUnit(q=True, linear=True)
+        clip['angularUnit'] = mc.currentUnit(q=True, angle=True)
+        clip['objects'] = [{
+            'shortName': snap.get('nodeName') or '',
+            'longName': '',
+            'namespace': '',
+            'cgmName': '',
+            'cgmType': '',
+            'uuid': '',
+            'rotateOrder': None,
+            'channels': [{
+                'attr': '',
+                'plug': '',
+                'curve': snap,
+            }],
+        }]
+        self.dat = clip
+        log.info(log_msg(_str_func, '{} | {} keys'.format(
+            snap.get('curveType'), len(snap.get('keys') or []))))
+        return self.dat
+
     def get(self, start=None, end=None, includeStatic=False):
         _str_func = 'AnimClip.get'
         log.debug(log_start(_str_func))
@@ -158,10 +205,44 @@ class AnimClip(CGMDAT.data):
         clip['sourceStart'] = start
         clip['sourceEnd'] = end
         clip['includeStatic'] = bool(includeStatic)
-        clip['objects'] = [_object_identity(n) for n in sel]
+
+        objects = []
+        nCurves = 0
+        for n in sel:
+            ident = _object_identity(n)
+            chans = []
+            for attr in ATTR.get_keyed(n) or []:
+                driver = ATTR.get_driver(n, attr, getNode=True, skipConversionNodes=True)
+                if not driver:
+                    continue
+                if not ANIMCLIPCURVE.is_time_curve(driver):
+                    log.warning(log_msg(_str_func,
+                                        'Skip {}.{} | driver is {} (need time-based animCurve)'.format(
+                                            ident['shortName'], attr, mc.nodeType(driver))))
+                    continue
+                dat = ANIMCLIPCURVE.slice_keys(
+                    ANIMCLIPCURVE.snapshot(driver), start, end)
+                if not dat or not dat.get('keys'):
+                    continue
+                chans.append({
+                    'attr': attr,
+                    'plug': '{}.{}'.format(ident['shortName'], attr),
+                    'curve': dat,
+                })
+            ident['channels'] = chans
+            nCurves += len(chans)
+            objects.append(ident)
+        clip['objects'] = objects
         self.dat = clip
-        log.info(log_msg(_str_func, '{} objects | {}-{} (identity stubs, no curves)'.format(
-            len(sel), start, end)))
+
+        extra = ' | includeStatic' if includeStatic else ''
+        if nCurves:
+            log.info(log_msg(_str_func, '{} objects | {} curves | {}-{}{}'.format(
+                len(sel), nCurves, start, end, extra)))
+        else:
+            log.info(log_msg(_str_func,
+                             '{} objects | 0 curves | {}-{}{} (no time-based keys in range)'.format(
+                                 len(sel), start, end, extra)))
         return self.dat
 
 
@@ -179,6 +260,11 @@ class ui(CGMDAT.ui):
     DEFAULT_SIZE = 560, 700
 
     _datClass = AnimClip
+
+    def reload(self):
+        reload_dependencies()
+        cgmGEN._reloadMod(__import__(__name__))
+        super(ui, self).reload()
 
     def insert_init(self, *args, **kws):
         CGMDAT.ui.insert_init(self, *args, **kws)
@@ -266,7 +352,7 @@ class ui(CGMDAT.ui):
                   l='Capture Animation',
                   ut='cgmUITemplate',
                   h=30,
-                  ann='Store identity stubs and range from the current selection. Curves are Phase 1.',
+                  ann='Capture time-based curves on the selection over Start/End. Skips layers and blends.',
                   c=lambda *a: mc.evalDeferred(cgmGEN.Callback(self.uiFunc_capture)))
 
     def uiFunc_capture_refresh_count(self):
@@ -294,8 +380,10 @@ class ui(CGMDAT.ui):
         includeStatic = bool(self.uiCB_includeStatic.getValue())
         self.uiDat.get(start=start, end=end, includeStatic=includeStatic)
         nObj = len(self.uiDat.dat.get('objects') or [])
+        nCurves = _clip_curve_count(self.uiDat.dat)
         self.uiStatus_refresh()
-        self.uiFunc_status('Captured {} objects  {}-{}'.format(nObj, int(start), int(end)))
+        self.uiFunc_status('Captured {} objects | {} curves  {}-{}'.format(
+            nObj, nCurves, int(start), int(end)))
         if _sel:
             mc.select(_sel)
 
@@ -412,7 +500,7 @@ class ui(CGMDAT.ui):
             _col = mUI.MelColumnLayout(_f, useTemplate='cgmUISubTemplate')
             channels = obj.get('channels') or []
             if not channels:
-                mUI.MelLabel(_col, label='No curves yet (Phase 1)',
+                mUI.MelLabel(_col, label='No curves in range',
                              h=16, align='center', ut='cgmUISubTemplate')
                 self._ui_kv_row(_col, 'namespace', obj.get('namespace'))
                 self._ui_kv_row(_col, 'cgmName', obj.get('cgmName'))
@@ -489,10 +577,9 @@ class ui(CGMDAT.ui):
             log.warning('Object not in scene: {}'.format(n))
 
     def uiStatus_fileClear(self):
-        self._loadedFile = ''
-        self.var_LastLoaded.setValue('')
-        self.uiDat.dat = {}
-        self.uiStatus_refresh()
+        if self.uiDat:
+            self.uiDat.dat = {}
+        super(ui, self).uiStatus_fileClear()
         self.uiFunc_status('')
 
     def uiFunc_clip_clear(self):

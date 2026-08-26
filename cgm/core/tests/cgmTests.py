@@ -28,7 +28,7 @@ log.setLevel(logging.INFO)
 
 
 _d_modules = {'cgmMeta':['base','mClasses'],
-              'coreLib':['PATH','ATTR','VALID','NODEFACTORY'],
+              'coreLib':['PATH','ATTR','VALID','NODEFACTORY','ANIMCLIP'],
               'MRS':['RigBlocks']}
 _l_all_order = ['coreLib','cgmMeta','MRS']
 
