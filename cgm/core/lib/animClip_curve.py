@@ -3,12 +3,19 @@ AnimClip curve IO — Phase 1 snapshot/rebuild + Phase 2a key-range slice.
 
 Snapshot / rebuild time-based animCurve* nodes. Query the curve node, not the plug.
 Driven/unitless types are out of scope. Capture uses ATTR.get_keyed / ATTR.get_driver
-then snapshot; slice_keys drops keys outside Start/End. Relative time / boundary
-samples later.
+then snapshot; slice_keys drops keys outside Start/End; ensure_boundary_keys samples
+unkeyed Start/End when capture requests it; offset_keys makes times relative to Start.
+apply_to_plug keys dest.attr (Replace/Merge/Insert).
 """
 import logging
 
 import maya.cmds as mc
+try:
+    import maya.api.OpenMaya as om
+    import maya.api.OpenMayaAnim as oma
+except ImportError:
+    om = None
+    oma = None
 
 from cgm.core import cgm_General as cgmGEN
 
@@ -26,7 +33,7 @@ _FLOAT_KEYS = ('time', 'value', 'inAngle', 'outAngle', 'inWeight', 'outWeight')
 
 
 def slice_keys(dat, start=None, end=None):
-    """Keep keys whose time is in [start, end]. Absolute times. No boundary samples."""
+    """Keep keys whose time is in [start, end]. Absolute times."""
     if dat is None:
         return None
     if start is None or end is None:
@@ -35,6 +42,76 @@ def slice_keys(dat, start=None, end=None):
     out = dict(dat)
     out['keys'] = [k for k in (dat.get('keys') or [])
                    if lo <= k.get('time', 0) <= hi]
+    return out
+
+
+def ensure_boundary_keys(dat, curve, start=None, end=None):
+    """
+    If start/end are unkeyed, insert evaluated samples on a copy.
+    Absolute times. Evaluates curve.output; does not listConnections.
+    Sampled keys use linear tangents. Does not mutate the Maya curve.
+
+    Do not sample Start when it falls before the first key and preInfinity
+    is not constant. Do not sample End when it falls after the last key
+    and postInfinity is not constant. Interior unkeyed bounds still sample.
+    """
+    if dat is None:
+        return None
+    if start is None and end is None:
+        return dat
+    if not curve or not mc.objExists(curve):
+        return dat
+    out = dict(dat)
+    keys = list(dat.get('keys') or [])
+    times = [float(k.get('time', 0)) for k in keys]
+    first_t = min(times) if times else None
+    last_t = max(times) if times else None
+    pri = _infinity_to_name(dat.get('preInfinity'))
+    poi = _infinity_to_name(dat.get('postInfinity'))
+
+    bounds = []
+    if start is not None:
+        t = float(start)
+        in_pre = first_t is not None and t < first_t and not _close(t, first_t)
+        if not (in_pre and pri != 'constant'):
+            bounds.append(t)
+    if end is not None and (start is None or not _close(float(end), float(start))):
+        t = float(end)
+        in_post = last_t is not None and t > last_t and not _close(t, last_t)
+        if not (in_post and poi != 'constant'):
+            bounds.append(t)
+
+    changed = False
+    for t in bounds:
+        if any(_close(k.get('time', 0), t) for k in keys):
+            continue
+        k = empty_key_dat()
+        k['time'] = t
+        k['value'] = _as_float(mc.getAttr('{}.output'.format(curve), time=t))
+        k['inTangentType'] = 'linear'
+        k['outTangentType'] = 'linear'
+        keys.append(k)
+        changed = True
+    if changed:
+        keys.sort(key=lambda x: x.get('time', 0))
+        out['keys'] = keys
+    return out
+
+
+def offset_keys(dat, origin=0.0):
+    """Subtract origin from each key time. Clip-level relative time (Phase 2b)."""
+    if dat is None:
+        return None
+    origin = float(origin or 0)
+    if origin == 0:
+        return dat
+    out = dict(dat)
+    keys = []
+    for k in (dat.get('keys') or []):
+        nk = dict(k)
+        nk['time'] = float(k.get('time', 0)) - origin
+        keys.append(nk)
+    out['keys'] = keys
     return out
 
 
@@ -63,12 +140,104 @@ def _as_float(v, default=0.0):
 
 
 def _infinity_to_name(v):
+    v = _first(v, 'constant')
     if isinstance(v, str):
-        return v
+        key = v.strip()
+        if key.isdigit():
+            try:
+                return _INF_NAMES[int(key)]
+            except Exception:
+                return 'constant'
+        for name in _INF_NAMES:
+            if name.lower() == key.lower():
+                return name
+        return 'constant'
     try:
         return _INF_NAMES[int(v)]
     except Exception:
         return 'constant'
+
+
+def _mfn_anim_curve(curve):
+    if om is None or oma is None:
+        return None
+    sl = om.MSelectionList()
+    sl.add(curve)
+    return oma.MFnAnimCurve(sl.getDependNode(0))
+
+
+def _om_inf_enums():
+    if oma is None:
+        return {}
+    return {
+        'constant': oma.MFnAnimCurve.kConstant,
+        'linear': oma.MFnAnimCurve.kLinear,
+        'cycle': oma.MFnAnimCurve.kCycle,
+        'cycleRelative': oma.MFnAnimCurve.kCycleRelative,
+        'oscillate': oma.MFnAnimCurve.kOscillate,
+    }
+
+
+def _om_inf_name(val):
+    for name, enum in _om_inf_enums().items():
+        if int(val) == int(enum):
+            return name
+    try:
+        return _INF_NAMES[int(val)]
+    except Exception:
+        return 'constant'
+
+
+def _om_call(fn, name, *args):
+    attr = getattr(fn, name)
+    if args:
+        return attr(*args)
+    return attr() if callable(attr) else attr
+
+
+def read_curve_infinity(curve):
+    """pre/post infinity names. MFnAnimCurve first — cmds.getAttr often stays constant."""
+    try:
+        fn = _mfn_anim_curve(curve)
+        if fn is not None:
+            pri = _om_inf_name(_om_call(fn, 'preInfinityType'))
+            poi = _om_inf_name(_om_call(fn, 'postInfinityType'))
+            return pri, poi
+    except Exception:
+        pass
+    pri = _infinity_to_name(mc.getAttr('{}.preInfinity'.format(curve)))
+    poi = _infinity_to_name(mc.getAttr('{}.postInfinity'.format(curve)))
+    return pri, poi
+
+
+def set_curve_infinity(curve, pri=None, poi=None):
+    """Set pre/post infinity via MFnAnimCurve. cmds.setInfinity does not stick on many animCurves."""
+    d = _om_inf_enums()
+    try:
+        fn = _mfn_anim_curve(curve)
+        if fn is not None:
+            if pri is not None and pri in d:
+                _om_call(fn, 'setPreInfinityType', d[pri])
+            if poi is not None and poi in d:
+                _om_call(fn, 'setPostInfinityType', d[poi])
+            return read_curve_infinity(curve)
+    except Exception:
+        pass
+    if pri is not None and pri in _INF_NAMES:
+        mc.setAttr('{}.preInfinity'.format(curve), _INF_NAMES.index(pri))
+    if poi is not None and poi in _INF_NAMES:
+        mc.setAttr('{}.postInfinity'.format(curve), _INF_NAMES.index(poi))
+    try:
+        kw = {}
+        if pri is not None:
+            kw['pri'] = pri
+        if poi is not None:
+            kw['poi'] = poi
+        if kw:
+            mc.setInfinity(curve, **kw)
+    except Exception:
+        pass
+    return read_curve_infinity(curve)
 
 
 def is_time_curve(node):
@@ -120,8 +289,7 @@ def snapshot(curve):
     values = mc.keyframe(curve, q=True, valueChange=True) or []
     weighted = _as_bool(mc.keyTangent(curve, q=True, weightedTangents=True), False)
 
-    pri = _infinity_to_name(mc.getAttr('{}.preInfinity'.format(curve)))
-    poi = _infinity_to_name(mc.getAttr('{}.postInfinity'.format(curve)))
+    pri, poi = read_curve_infinity(curve)
 
     color = None
     try:
@@ -210,22 +378,99 @@ def rebuild(dat, name=None):
                               weightLock=bool(k.get('weightLock', True)))
             mc.keyTangent(node, index=idx, edit=True, lock=bool(k.get('lock', True)))
 
-    pri = dat.get('preInfinity') or 'constant'
-    poi = dat.get('postInfinity') or 'constant'
-    if not isinstance(pri, str):
-        pri = _infinity_to_name(pri)
-    if not isinstance(poi, str):
-        poi = _infinity_to_name(poi)
-    if keys:
-        mc.setInfinity(node, pri=pri, poi=poi)
-    else:
-        if pri in _INF_NAMES:
-            mc.setAttr('{}.preInfinity'.format(node), _INF_NAMES.index(pri))
-        if poi in _INF_NAMES:
-            mc.setAttr('{}.postInfinity'.format(node), _INF_NAMES.index(poi))
+    pri = _infinity_to_name(dat.get('preInfinity'))
+    poi = _infinity_to_name(dat.get('postInfinity'))
+    set_curve_infinity(node, pri=pri, poi=poi)
 
     log.debug(log_msg(_str_func, '{} | {} keys'.format(node, len(keys))))
     return node
+
+
+def _shift_keys_after(node, attr, after_time, delta):
+    """Move keys on node.attr that are strictly after after_time by delta. No-op if none."""
+    if delta <= 0:
+        return
+    existing = mc.keyframe(node, attribute=attr, q=True, timeChange=True) or []
+    later = [float(t) for t in existing
+             if float(t) > after_time and not _close(t, after_time)]
+    if not later:
+        return
+    mc.keyframe(node, attribute=attr, edit=True, relative=True,
+                timeChange=delta, time=(min(later), max(later)))
+
+
+def apply_to_plug(dat, node, attr, timeOffset=0.0, mode='replace'):
+    """
+    Write clip keys onto node.attr. Does not look up animCurve node names.
+    Replace cuts keys in the dest window first. Merge keeps other keys.
+    Insert shifts dest keys after the first pasted time by the clip span, then writes.
+    Tangents are set by time, not index. Insert does not change infinity.
+    """
+    _str_func = 'apply_to_plug'
+    log.debug(log_start(_str_func))
+    if not dat:
+        raise ValueError('No curve dat')
+    if not node or not mc.objExists(node):
+        raise ValueError('Node does not exist: {}'.format(node))
+    if not attr or not mc.attributeQuery(attr, node=node, exists=True):
+        raise ValueError('Missing attr: {}.{}'.format(node, attr))
+    mode = (mode or 'replace').lower()
+    if mode not in ('replace', 'merge', 'insert'):
+        raise ValueError('Unknown apply mode: {}'.format(mode))
+
+    keys = dat.get('keys') or []
+    off = float(timeOffset or 0)
+    dest_times = [float(k.get('time', 0)) + off for k in keys]
+    if mode == 'replace' and dest_times:
+        mc.cutKey(node, attribute=attr,
+                  time=(min(dest_times), max(dest_times)), clear=True)
+    elif mode == 'insert' and dest_times:
+        _shift_keys_after(node, attr, min(dest_times),
+                          max(dest_times) - min(dest_times))
+
+    weighted = bool(dat.get('weightedTangents'))
+    for k, t in zip(keys, dest_times):
+        mc.setKeyframe(node, attribute=attr,
+                       time=t,
+                       value=k['value'],
+                       breakdown=bool(k.get('breakdown')))
+
+    if keys:
+        mc.keyTangent(node, attribute=attr, edit=True, weightedTangents=weighted)
+        for k, t in zip(keys, dest_times):
+            tm = (t, t)
+            itt = k.get('inTangentType') or 'auto'
+            ott = k.get('outTangentType') or 'auto'
+            use_fixed = itt in _FIXED_TANGENTS or ott in _FIXED_TANGENTS
+            mc.keyTangent(node, attribute=attr, time=tm, edit=True, lock=False)
+            if weighted and use_fixed:
+                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
+                              inWeight=_as_float(k.get('inWeight'), 1.0),
+                              outWeight=_as_float(k.get('outWeight'), 1.0))
+            mc.keyTangent(node, attribute=attr, time=tm, edit=True,
+                          inTangentType=itt, outTangentType=ott)
+            if use_fixed:
+                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
+                              inAngle=_as_float(k.get('inAngle')),
+                              outAngle=_as_float(k.get('outAngle')))
+            if weighted and use_fixed:
+                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
+                              weightLock=bool(k.get('weightLock', True)))
+            mc.keyTangent(node, attribute=attr, time=tm, edit=True,
+                          lock=bool(k.get('lock', True)))
+
+        if mode == 'replace':
+            pri = dat.get('preInfinity') or 'constant'
+            poi = dat.get('postInfinity') or 'constant'
+            if not isinstance(pri, str):
+                pri = _infinity_to_name(pri)
+            if not isinstance(poi, str):
+                poi = _infinity_to_name(poi)
+            mc.setInfinity(node, at=attr, pri=pri, poi=poi)
+
+    log.debug(log_msg(_str_func, '{}.{} | {} keys | {}'.format(
+        node, attr, len(keys), mode)))
+    return '{}.{}'.format(node, attr)
 
 
 def _close(a, b, places=4):
