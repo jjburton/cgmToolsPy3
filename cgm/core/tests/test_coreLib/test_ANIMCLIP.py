@@ -1,5 +1,5 @@
 """
-AnimClip Phase 1 curve round-trip + Phase 2 capture + Phase 3 paste + Phase 4 Pose mapping.
+AnimClip Phase 1 curve round-trip + Phase 2 capture + Phase 3 paste + Phase 4 Pose mapping + Phase 6 animLayer.
 
 Run from Toolbox Unittesting → Test Modules → coreLib → ANIMCLIP
 (opens a new file).
@@ -14,6 +14,7 @@ try:
     import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
     import cgm.core.lib.animClip_dat as ANIMCLIPDAT
     import cgm.core.lib.attribute_utils as ATTR
+    import cgm.core.lib.search_utils as SEARCH
     from cgm.core import cgm_General as cgmGEN
 except ImportError:
     raise Exception('ANIMCLIP tests can only be run in Maya')
@@ -175,8 +176,10 @@ class Test_curveRoundTrip(unittest.TestCase):
 class Test_capture(unittest.TestCase):
     def setUp(self):
         mc.file(new=True, f=True)
+        cgmGEN._reloadMod(SEARCH)
         cgmGEN._reloadMod(ANIMCLIPCURVE)
         cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
 
     def test_locator_tx_in_range(self):
         loc = mc.spaceLocator(name='ac_capLoc')[0]
@@ -430,3 +433,176 @@ class Test_capture(unittest.TestCase):
         self.assertEqual(nHit, 1)
         self.assertEqual(pairs[0][1], 'ac_prevLoc')
         self.assertFalse(mc.keyframe(dst, query=True, name=True) or [])
+
+    def test_metaData_falls_back_to_stripPrefix(self):
+        src = mc.spaceLocator(name='pfx_ac_metaLoc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=3)
+        mc.setKeyframe(src, attribute='translateX', time=10, value=7)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        dst = mc.spaceLocator(name='ac_metaLoc')[0]
+        mc.select(dst)
+        n = clip.apply(atFrame=40, mode='Replace', mapping='metaData')
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[40.0], 3.0)
+        self.assertAlmostEqual(by_time[50.0], 7.0)
+
+    def test_pose_mapping_uses_selection_only(self):
+        src = mc.spaceLocator(name='pfx_ac_leafLoc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=4)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        grp = mc.group(em=True, name='ac_leafGrp')
+        dst = mc.spaceLocator(name='ac_leafLoc')[0]
+        mc.parent(dst, grp)
+        mc.select(grp)
+        n = clip.apply(atFrame=20, mode='Replace', mapping='stripPrefix')
+        self.assertEqual(n, 0)
+        mc.select(dst)
+        n = clip.apply(atFrame=20, mode='Replace', mapping='stripPrefix')
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[20.0], 4.0)
+
+    def test_mirrorIndex_mapping(self):
+        import Red9.core.Red9_AnimationUtils as r9Anim
+        mh = r9Anim.MirrorHierarchy()
+        src = mc.spaceLocator(name='ac_mirSrc')[0]
+        dst = mc.spaceLocator(name='ac_mirDst')[0]
+        mh.setMirrorIDs(src, side='Left', slot=4)
+        mh.setMirrorIDs(dst, side='Left', slot=4)
+        mc.setKeyframe(src, attribute='translateX', time=0, value=2)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        mc.select(dst)
+        n = clip.apply(atFrame=30, mode='Replace', mapping='mirrorIndex')
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[30.0], 2.0)
+
+    def test_mirrorIndex_ID_maps_opposite_side(self):
+        import Red9.core.Red9_AnimationUtils as r9Anim
+        mh = r9Anim.MirrorHierarchy()
+        src = mc.spaceLocator(name='ac_mirIdSrc')[0]
+        dst = mc.spaceLocator(name='ac_mirIdDst')[0]
+        mh.setMirrorIDs(src, side='Left', slot=5)
+        mh.setMirrorIDs(dst, side='Right', slot=5)
+        mc.setKeyframe(src, attribute='translateX', time=0, value=8)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        mc.select(dst)
+        n = clip.apply(atFrame=12, mode='Replace', mapping='mirrorIndex_ID')
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[12.0], 8.0)
+
+    def test_empty_selection_falls_back_to_name(self):
+        src = mc.spaceLocator(name='ac_emptyMapLoc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=1)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        mc.rename(src, 'ac_emptyMapSrc')
+        dst = mc.spaceLocator(name='ac_emptyMapLoc')[0]
+        mc.select(cl=True)
+        n = clip.apply(atFrame=5, mode='Replace', mapping='stripPrefix')
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[5.0], 1.0)
+
+    def test_paste_to_animLayer_creates_layer_keys(self):
+        src = mc.spaceLocator(name='ac_layerSrc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=9)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        dst = mc.spaceLocator(name='ac_layerDst')[0]
+        mc.setKeyframe(dst, attribute='translateX', time=0, value=0)
+        mc.select(dst)
+        n = clip.apply(atFrame=20, mode='Replace', mapping='Index',
+                       layer='ac_clipLayer', layerOverride=True)
+        self.assertGreaterEqual(n, 1)
+        self.assertTrue(mc.objExists('ac_clipLayer'))
+        self.assertEqual(mc.nodeType('ac_clipLayer'), 'animLayer')
+        self.assertTrue(mc.animLayer('ac_clipLayer', q=True, override=True))
+        self.assertTrue(SEARCH.animLayer_contains('ac_clipLayer', dst, attr='translateX'))
+        curves = mc.animLayer('ac_clipLayer', q=True, animCurves=True) or []
+        self.assertTrue(curves)
+        snap = ANIMCLIPCURVE.snapshot(curves[0])
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[20.0], 9.0)
+        mc.currentTime(20)
+        mc.animLayer('ac_clipLayer', e=True, mute=True)
+        self.assertAlmostEqual(mc.getAttr(dst + '.translateX'), 0.0, places=3)
+        mc.animLayer('ac_clipLayer', e=True, mute=False)
+        self.assertAlmostEqual(mc.getAttr(dst + '.translateX'), 9.0, places=3)
+
+    def test_ensure_anim_layer_override_only_on_create(self):
+        add = ANIMCLIPCURVE.ensure_anim_layer('ac_addLayer', override=False)
+        self.assertEqual(mc.nodeType(add), 'animLayer')
+        self.assertFalse(bool(mc.animLayer(add, q=True, override=True)))
+        ovr = ANIMCLIPCURVE.ensure_anim_layer('ac_ovrLayer', override=True)
+        self.assertTrue(bool(mc.animLayer(ovr, q=True, override=True)))
+        again = ANIMCLIPCURVE.ensure_anim_layer('ac_addLayer', override=True)
+        self.assertEqual(again, add)
+        self.assertFalse(bool(mc.animLayer(add, q=True, override=True)))
+
+    def test_get_nodes_ignores_selection(self):
+        src = mc.spaceLocator(name='ac_hookSrc')[0]
+        other = mc.spaceLocator(name='ac_hookOther')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=4)
+        mc.setKeyframe(other, attribute='translateX', time=0, value=7)
+        mc.select(other)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10, nodes=[src])
+        names = [o.get('shortName') for o in clip.dat.get('objects') or []]
+        self.assertIn('ac_hookSrc', names)
+        self.assertNotIn('ac_hookOther', names)
+
+    def test_apply_dests_uses_given_list(self):
+        src = mc.spaceLocator(name='ac_hookApplySrc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=6)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        dst = mc.spaceLocator(name='ac_hookApplyDst')[0]
+        decoy = mc.spaceLocator(name='ac_hookApplyDecoy')[0]
+        mc.select(decoy)
+        n = clip.apply(atFrame=8, mode='Replace', mapping='Index', dests=[dst])
+        self.assertGreaterEqual(n, 1)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        self.assertTrue(driver)
+        snap = ANIMCLIPCURVE.snapshot(driver)
+        by_time = {round(k['time'], 4): k['value'] for k in snap['keys']}
+        self.assertAlmostEqual(by_time[8.0], 6.0)
+        decoy_driver = ATTR.get_driver(decoy, 'translateX', getNode=True,
+                                      skipConversionNodes=True)
+        self.assertFalse(decoy_driver)
+
+    def test_apply_empty_dests_does_nothing(self):
+        src = mc.spaceLocator(name='ac_hookEmptySrc')[0]
+        mc.setKeyframe(src, attribute='translateX', time=0, value=3)
+        mc.select(src)
+        clip = ANIMCLIPDAT.AnimClip()
+        clip.get(start=0, end=10)
+        dst = mc.spaceLocator(name='ac_hookEmptyDst')[0]
+        mc.select(dst)
+        n = clip.apply(atFrame=5, mode='Replace', mapping='Index', dests=[])
+        self.assertEqual(n, 0)
+        driver = ATTR.get_driver(dst, 'translateX', getNode=True, skipConversionNodes=True)
+        self.assertFalse(driver)

@@ -5,7 +5,8 @@ Snapshot / rebuild time-based animCurve* nodes. Query the curve node, not the pl
 Driven/unitless types are out of scope. Capture uses ATTR.get_keyed / ATTR.get_driver
 then snapshot; slice_keys drops keys outside Start/End; ensure_boundary_keys samples
 unkeyed Start/End when capture requests it; offset_keys makes times relative to Start.
-apply_to_plug keys dest.attr (Replace/Merge/Insert).
+apply_to_plug keys dest.attr (Replace/Merge/Insert). Optional animLayer
+adds dest controls to that Maya animLayer, then keys the preferred layer.
 """
 import logging
 
@@ -18,6 +19,7 @@ except ImportError:
     oma = None
 
 from cgm.core import cgm_General as cgmGEN
+import cgm.core.lib.search_utils as SEARCH
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -386,8 +388,202 @@ def rebuild(dat, name=None):
     return node
 
 
-def _shift_keys_after(node, attr, after_time, delta):
-    """Move keys on node.attr that are strictly after after_time by delta. No-op if none."""
+def is_base_anim_layer(layer):
+    """True when paste should hit Base (None, empty, Base, BaseAnimation)."""
+    if layer is None:
+        return True
+    s = str(layer).strip()
+    if not s:
+        return True
+    return s.lower() in ('base', 'baseanimation')
+
+
+def ensure_anim_layer(layer, override=None):
+    """Return the animLayer node, creating it if needed. None for Base.
+    override True=Override, False=Additive; applied only when the layer is created."""
+    if is_base_anim_layer(layer):
+        return None
+    name = str(layer).strip()
+    if not name or name.lower() == 'new':
+        return None
+    if mc.objExists(name):
+        try:
+            if mc.nodeType(name) == 'animLayer':
+                return name
+        except Exception:
+            pass
+    kws = {}
+    if override is not None:
+        kws['override'] = bool(override)
+    created = mc.animLayer(name, **kws)
+    node = created or name
+    if override is not None and node and mc.objExists(node):
+        try:
+            mc.animLayer(node, e=True, override=bool(override))
+        except Exception:
+            pass
+    return node
+
+
+def _anim_layer_names():
+    names = list(SEARCH.animLayers_get(includeBase=True) or [])
+    seen = set(n.lower() for n in names)
+    for n in mc.ls(type='animLayer') or []:
+        short = str(n).split('|')[-1]
+        if short.lower() not in seen:
+            seen.add(short.lower())
+            names.append(short)
+    return names
+
+
+def _attr_long(node, attr):
+    try:
+        return mc.attributeQuery(attr, node=node, longName=True) or attr
+    except Exception:
+        return attr
+
+
+def anim_layer_add_nodes(layer, nodes):
+    """Put dest transforms on the animLayer (addSelectedObjects). Restores selection."""
+    if not layer or is_base_anim_layer(layer):
+        return
+    to_add = []
+    for n in nodes or []:
+        if n and mc.objExists(n) and n not in to_add:
+            to_add.append(n)
+    if not to_add:
+        return
+    sel = mc.ls(sl=True) or []
+    try:
+        try:
+            if mc.animLayer(layer, q=True, lock=True):
+                mc.animLayer(layer, e=True, lock=False)
+        except Exception:
+            pass
+        mc.select(to_add, replace=True)
+        mc.animLayer(layer, e=True, addSelectedObjects=True)
+    finally:
+        if sel:
+            try:
+                mc.select(sel, replace=True)
+            except Exception:
+                pass
+        else:
+            mc.select(clear=True)
+
+
+def anim_layer_add_plug(layer, node, attr):
+    """Add node.attr to the animLayer if it is not already there."""
+    if not layer or not node or not attr:
+        return
+    long_attr = _attr_long(node, attr)
+    plugs = []
+    for n in (node, (mc.ls(node, long=True) or [node])[0],
+              (mc.ls(node, shortNames=True) or [node])[0]):
+        plugs.append('{}.{}'.format(n, attr))
+        if long_attr != attr:
+            plugs.append('{}.{}'.format(n, long_attr))
+    existing = mc.animLayer(layer, q=True, attribute=True) or []
+    if any(p in existing for p in plugs):
+        return
+    last_err = None
+    for p in plugs:
+        try:
+            mc.animLayer(layer, e=True, addAttribute=p)
+            return
+        except Exception as err:
+            last_err = err
+    if last_err:
+        log.warning(log_msg('anim_layer_add_plug', '{}.{} | {}'.format(node, attr, last_err)))
+
+
+def anim_layer_ensure_plug(layer, node, attr):
+    """Add the dest control to the layer, then the plug if needed. True if on the layer."""
+    if SEARCH.animLayer_contains(layer, node, attr=attr):
+        return True
+    anim_layer_add_nodes(layer, [node])
+    if SEARCH.animLayer_contains(layer, node, attr=attr):
+        return True
+    anim_layer_add_plug(layer, node, attr)
+    return SEARCH.animLayer_contains(layer, node, attr=attr)
+
+
+def anim_layer_curve_for_plug(layer, node, attr):
+    """Layer animCurve for node.attr, or None."""
+    if not layer or not node or not attr:
+        return None
+    long_attr = _attr_long(node, attr)
+    plugs = []
+    for n in ((mc.ls(node, long=True) or [node])[0], node,
+              (mc.ls(node, shortNames=True) or [node])[0]):
+        plugs.append('{}.{}'.format(n, attr))
+        if long_attr != attr:
+            plugs.append('{}.{}'.format(n, long_attr))
+    for plug in plugs:
+        try:
+            found = mc.animLayer(layer, q=True, findCurveForPlug=plug)
+        except Exception:
+            found = None
+        if found:
+            if isinstance(found, (list, tuple)):
+                return found[0] if found else None
+            return found
+    return None
+
+
+def anim_layer_push(layer):
+    """Prefer the target layer (or BaseAnimation). Unlock it for keying. Return restore state."""
+    state = []
+    for l in _anim_layer_names():
+        try:
+            state.append((l,
+                          bool(mc.animLayer(l, q=True, selected=True)),
+                          bool(mc.animLayer(l, q=True, preferred=True)),
+                          bool(mc.animLayer(l, q=True, lock=True))))
+        except Exception:
+            pass
+    target = ensure_anim_layer(layer)
+    for l in _anim_layer_names():
+        try:
+            mc.animLayer(l, e=True, selected=False, preferred=False)
+        except Exception:
+            pass
+    if target:
+        try:
+            mc.animLayer(target, e=True, lock=False)
+        except Exception:
+            pass
+        mc.animLayer(target, e=True, selected=True, preferred=True)
+    elif mc.objExists('BaseAnimation'):
+        try:
+            mc.animLayer('BaseAnimation', e=True, selected=True, preferred=True)
+        except Exception:
+            pass
+    return state, target
+
+
+def anim_layer_pop(state):
+    for item in state or []:
+        if len(item) < 3:
+            continue
+        l, sel, pref = item[0], item[1], item[2]
+        lock = item[3] if len(item) > 3 else None
+        if not mc.objExists(l):
+            continue
+        try:
+            mc.animLayer(l, e=True, selected=sel, preferred=pref)
+        except Exception:
+            pass
+        if lock is not None:
+            try:
+                mc.animLayer(l, e=True, lock=lock)
+            except Exception:
+                pass
+
+
+def _shift_keys_after(node, attr, after_time, delta, animLayer=None):
+    """Move keys on node.attr that are strictly after after_time by delta. No-op if none.
+    Caller must prefer the target animLayer so keyframe hits that layer, not Base."""
     if delta <= 0:
         return
     existing = mc.keyframe(node, attribute=attr, q=True, timeChange=True) or []
@@ -399,12 +595,15 @@ def _shift_keys_after(node, attr, after_time, delta):
                 timeChange=delta, time=(min(later), max(later)))
 
 
-def apply_to_plug(dat, node, attr, timeOffset=0.0, mode='replace'):
+def apply_to_plug(dat, node, attr, timeOffset=0.0, mode='replace', animLayer=None):
     """
     Write clip keys onto node.attr. Does not look up animCurve node names.
     Replace cuts keys in the dest window first. Merge keeps other keys.
     Insert shifts dest keys after the first pasted time by the clip span, then writes.
     Tangents are set by time, not index. Insert does not change infinity.
+    animLayer: None/Base writes Base; any other name adds the dest control
+    to that Maya animLayer (created if missing) and keys the preferred layer.
+    Dest list / mapping are the caller's job.
     """
     _str_func = 'apply_to_plug'
     log.debug(log_start(_str_func))
@@ -421,55 +620,80 @@ def apply_to_plug(dat, node, attr, timeOffset=0.0, mode='replace'):
     keys = dat.get('keys') or []
     off = float(timeOffset or 0)
     dest_times = [float(k.get('time', 0)) + off for k in keys]
-    if mode == 'replace' and dest_times:
-        mc.cutKey(node, attribute=attr,
-                  time=(min(dest_times), max(dest_times)), clear=True)
-    elif mode == 'insert' and dest_times:
-        _shift_keys_after(node, attr, min(dest_times),
-                          max(dest_times) - min(dest_times))
+    state, layer_node = anim_layer_push(animLayer)
+    try:
+        if layer_node and not anim_layer_ensure_plug(layer_node, node, attr):
+            raise ValueError('Could not add {}.{} to animLayer {}'.format(
+                node, attr, layer_node))
+        if mode == 'replace' and dest_times:
+            mc.cutKey(node, attribute=attr,
+                      time=(min(dest_times), max(dest_times)), clear=True)
+        elif mode == 'insert' and dest_times:
+            _shift_keys_after(node, attr, min(dest_times),
+                              max(dest_times) - min(dest_times),
+                              animLayer=layer_node)
 
-    weighted = bool(dat.get('weightedTangents'))
-    for k, t in zip(keys, dest_times):
-        mc.setKeyframe(node, attribute=attr,
-                       time=t,
-                       value=k['value'],
-                       breakdown=bool(k.get('breakdown')))
-
-    if keys:
-        mc.keyTangent(node, attribute=attr, edit=True, weightedTangents=weighted)
+        weighted = bool(dat.get('weightedTangents'))
         for k, t in zip(keys, dest_times):
-            tm = (t, t)
-            itt = k.get('inTangentType') or 'auto'
-            ott = k.get('outTangentType') or 'auto'
-            use_fixed = itt in _FIXED_TANGENTS or ott in _FIXED_TANGENTS
-            mc.keyTangent(node, attribute=attr, time=tm, edit=True, lock=False)
-            if weighted and use_fixed:
-                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
-                              inWeight=_as_float(k.get('inWeight'), 1.0),
-                              outWeight=_as_float(k.get('outWeight'), 1.0))
-            mc.keyTangent(node, attribute=attr, time=tm, edit=True,
-                          inTangentType=itt, outTangentType=ott)
-            if use_fixed:
-                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
-                              inAngle=_as_float(k.get('inAngle')),
-                              outAngle=_as_float(k.get('outAngle')))
-            if weighted and use_fixed:
-                mc.keyTangent(node, attribute=attr, time=tm, edit=True,
-                              weightLock=bool(k.get('weightLock', True)))
-            mc.keyTangent(node, attribute=attr, time=tm, edit=True,
-                          lock=bool(k.get('lock', True)))
+            mc.setKeyframe(node, attribute=attr,
+                           time=t,
+                           value=k['value'],
+                           breakdown=bool(k.get('breakdown')))
 
-        if mode == 'replace':
-            pri = dat.get('preInfinity') or 'constant'
-            poi = dat.get('postInfinity') or 'constant'
-            if not isinstance(pri, str):
-                pri = _infinity_to_name(pri)
-            if not isinstance(poi, str):
-                poi = _infinity_to_name(poi)
-            mc.setInfinity(node, at=attr, pri=pri, poi=poi)
+        if keys:
+            kt_obj = node
+            kt_kw = {'attribute': attr}
+            if layer_node:
+                layer_curve = anim_layer_curve_for_plug(layer_node, node, attr)
+                if layer_curve:
+                    kt_obj = layer_curve
+                    kt_kw = {}
+            mc.keyTangent(kt_obj, edit=True, weightedTangents=weighted, **kt_kw)
+            for k, t in zip(keys, dest_times):
+                tm = (t, t)
+                itt = k.get('inTangentType') or 'auto'
+                ott = k.get('outTangentType') or 'auto'
+                use_fixed = itt in _FIXED_TANGENTS or ott in _FIXED_TANGENTS
+                mc.keyTangent(kt_obj, time=tm, edit=True, lock=False, **kt_kw)
+                if weighted and use_fixed:
+                    mc.keyTangent(kt_obj, time=tm, edit=True,
+                                  inWeight=_as_float(k.get('inWeight'), 1.0),
+                                  outWeight=_as_float(k.get('outWeight'), 1.0),
+                                  **kt_kw)
+                mc.keyTangent(kt_obj, time=tm, edit=True,
+                              inTangentType=itt, outTangentType=ott, **kt_kw)
+                if use_fixed:
+                    mc.keyTangent(kt_obj, time=tm, edit=True,
+                                  inAngle=_as_float(k.get('inAngle')),
+                                  outAngle=_as_float(k.get('outAngle')),
+                                  **kt_kw)
+                if weighted and use_fixed:
+                    mc.keyTangent(kt_obj, time=tm, edit=True,
+                                  weightLock=bool(k.get('weightLock', True)),
+                                  **kt_kw)
+                mc.keyTangent(kt_obj, time=tm, edit=True,
+                              lock=bool(k.get('lock', True)), **kt_kw)
 
-    log.debug(log_msg(_str_func, '{}.{} | {} keys | {}'.format(
-        node, attr, len(keys), mode)))
+            if mode == 'replace':
+                pri = dat.get('preInfinity') or 'constant'
+                poi = dat.get('postInfinity') or 'constant'
+                if not isinstance(pri, str):
+                    pri = _infinity_to_name(pri)
+                if not isinstance(poi, str):
+                    poi = _infinity_to_name(poi)
+                try:
+                    if kt_kw:
+                        mc.setInfinity(kt_obj, at=attr, pri=pri, poi=poi)
+                    else:
+                        mc.setInfinity(kt_obj, pri=pri, poi=poi)
+                except Exception:
+                    pass
+    finally:
+        anim_layer_pop(state)
+
+    log.debug(log_msg(_str_func, '{}.{} | {} keys | {}{}'.format(
+        node, attr, len(keys), mode,
+        ' | {}'.format(layer_node) if layer_node else '')))
     return '{}.{}'.format(node, attr)
 
 

@@ -1318,6 +1318,10 @@ def uiSection_mrsAnim(parent):
                 l='mrsPoser',
                 ann = "Pose Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsPOSER())
+    mc.menuItem(parent = parent,
+                l='mrsAnimClip',
+                ann = "MRS AnimClip — context capture/paste using cgmAnimClip",
+                c=lambda *a:TOOLCALLS.mrsANIMCLIP())
     
     mc.menuItem(parent = parent,
                 l='mrsPicker',
@@ -1584,6 +1588,10 @@ def uiSection_mrs(parent):
                 l='mrsPoser',
                 ann = "Pose Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsPOSER())
+    mc.menuItem(parent = parent,
+                l='mrsAnimClip',
+                ann = "MRS AnimClip — context capture/paste using cgmAnimClip",
+                c=lambda *a:TOOLCALLS.mrsANIMCLIP())
     mc.menuItem(parent = parent,
                 l='cgmMocapBakeTool',
                 ann = "Mocap Bake Tool - A tool for retargeting and baking control transforms from an animated source",
