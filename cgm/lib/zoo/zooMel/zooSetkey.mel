@@ -67,7 +67,7 @@ global proc zooSetkeyCreateUI( string $parent, int $keyCommands ) {
 	menuItem -en $sel -l "copycat value toward prev" -c( "zooCopycat left "+ $factor +";" ) -rp SW;
 
 	menuItem -en $sel -l "copycat adjacent" -c( "zooCopycat left "+ $factor +"; zooCopycat right "+ $factor +";" ) -rp N;
-	menuItem -en $sel -l "dragBreakdown" -c(python("from cgm.tools.lib import animToolsLib;animToolsLib.ml_breakdownDraggerCall()")) -rp "S";
+	menuItem -en $sel -l "dragBreakdown" -c(python("from cgm.core.lib.ml_tools import ml_breakdownDragger;ml_breakdownDragger.drag()")) -rp "S";
 
 	menuItem -en $sel -l "copycat (breakdown) factor" -sm 1;
 		menuItem -l "nudge by 2%" -cb( $factor == 0.02 ) -c( "optionVar -fv zooCopycatFactor 0.02;" );

@@ -6,8 +6,7 @@ email: cgmonks.info@gmail.com
 Website : https://github.com/jjburton/cgmTools/wiki
 ------------------------------------------
 
-Canonical list helpers. Old cgm.lib.lists names are aliases (shim re-exports this module).
-Maya-free — do not import maya.cmds here.
+Canonical list helpers. Maya-free — do not import maya.cmds here.
 """
 import logging
 logging.basicConfig()

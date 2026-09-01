@@ -34,6 +34,7 @@ import Red9.core.Red9_General as r9General
 import cgm.core.mrs.SceneDat as SCENEDAT
 import cgm.core.lib.string_utils as CORESTRING
 import cgm.core.lib.path_utils as PATHUTIL
+import cgm.core.lib.texture_utils as TEXTURE
 
 import cgm.core.classes.GuiFactory as cgmUI
 import importlib
@@ -3696,8 +3697,10 @@ example:
 
 
     def RemapTextures(self, *args):
-        import cgm.tools.findTextures as findTextures
-        findTextures.FindAndRemapTextures()
+        cgmGEN._reloadMod(TEXTURE)
+        d_userPaths = self.mDat.userPaths_get()
+        TEXTURE.remap_missing(content=d_userPaths.get('content'),
+                              export=d_userPaths.get('export'))
 
     def buildMenu_category(self, *args):
         self.categoryMenu.clear()

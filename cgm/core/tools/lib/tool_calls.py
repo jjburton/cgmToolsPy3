@@ -375,11 +375,3 @@ def loadSkinPropagation( *a ):
 def loadXferAnim( *a ):
     from cgm.lib.zoo.zooPyMaya import xferAnimUI
     xferAnimUI.XferAnimWindow()
-    
-    
-
-#>>Legacy Tools =======================================================================================
-def animToolsLEGACY( *a ):
-    from cgm.tools import animTools
-    cgmGEN._reloadMod(animTools)
-    cgmAnimToolsWin = animTools.run()

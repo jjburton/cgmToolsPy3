@@ -11,10 +11,10 @@ from cgm.core.classes import GuiFactory as cgmUI
 
 from cgm.core.lib import list_utils as lists
 from cgm.core.lib import search_utils as SEARCH
-from cgm.tools.lib import animToolsLib
+from cgm.core.lib.ml_tools import (ml_breakdownDragger,
+                                   ml_resetChannels)
 #from cgm.tools.lib import tdToolsLib
 #from cgm.tools.lib import locinatorLib
-#reload(animToolsLib)
 #from cgm.lib import locators
 
 
@@ -295,7 +295,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         mUI.MelMenuItem(parent,
                     en = selCheck,
                     l = 'Reset Selected',
-                    c = lambda *a:buttonAction(animToolsLib.ml_resetChannelsCall(transformsOnly = self.ResetModeOptionVar.value)),
+                    c = lambda *a:buttonAction(ml_resetChannels.main(transformsOnly = self.ResetModeOptionVar.value)),
                     rp = 'N')  
 
         mUI.MelMenuItem(parent,
@@ -313,7 +313,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         mUI.MelMenuItem(parent,
                     en = selCheck,
                     l = 'dragBreakdown',
-                    c = lambda *a:buttonAction(animToolsLib.ml_breakdownDraggerCall()),
+                    c = lambda *a:buttonAction(ml_breakdownDragger.drag()),
                     rp = 'S')
 
         mUI.MelMenuItem(parent,
@@ -758,13 +758,13 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
 	                c = lambda *a: buttonAction(cgmToolbox.loadAnimTools()))	
 		mUI.MelMenuItemDiv(parent)
 		mUI.MelMenuItem(parent,l = 'ml Set Key',
-			        c = lambda *a: buttonAction(animToolsLib.ml_setKeyCall()))
+			        c = lambda *a: buttonAction(ml_setKey.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Hold',
-			        c = lambda *a: buttonAction(animToolsLib.ml_holdCall()))
+			        c = lambda *a: buttonAction(ml_hold.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Delete Key',
-			        c = lambda *a: buttonAction(animToolsLib.ml_deleteKeyCall()))
+			        c = lambda *a: buttonAction(ml_deleteKey.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Arc Tracer',
-			        c = lambda *a: buttonAction(animToolsLib.ml_arcTracerCall()))
+			        c = lambda *a: buttonAction(ml_arcTracer.ui()))
 		"""
         #mUI.MelMenuItem(parent,l = "-"*20,en = False)
         mUI.MelMenuItemDiv(parent)							
