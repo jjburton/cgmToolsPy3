@@ -306,8 +306,6 @@ d_defaultSettings = {'version':__version__,
                      'irisBuild':1,
                      'lidDepth':.108,
                      'baseSize':[2.7,2.7,2.7],
-                     'numLidLwrShapers':3,
-                     'numLidUprShapers':3,
                      'numLidSplit_u':10,
                      'numLidSplit_v':8,
                      'numConLids':1,
@@ -1796,7 +1794,7 @@ def prerig(self):
                                                                      None,
                                                                      _side,
                                                                      nameDict=_dUse,
-                                                                     mStateNull=mLidParent,
+                                                                     mParent=mLidParent,
                                                                      size= size_anchor)
                             #mAnchor.p_position = p
                             
@@ -2668,9 +2666,8 @@ def skeleton_build(self, forceNew = True):
     return ml_joints    
 
     return
-    
 
-    
+
 
 
 #=============================================================================================================

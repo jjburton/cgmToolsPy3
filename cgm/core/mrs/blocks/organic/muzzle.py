@@ -7247,7 +7247,7 @@ def rig_frame(self):
                     l_targets = []
                     l_targets.append(self.md_handles['lipUpr'][s.lower()][0].mNode)
                     
-                    for k2 in ['nostril','cheek','noseBase','sneer','cheekUpr']:
+                    for k2 in ['cheek','noseBase','sneer','cheekUpr']:
                         if k2 not in ['noseBase']:
                             _k2 = k2+s
                         else:
@@ -7261,6 +7261,9 @@ def rig_frame(self):
                     targetWeights = mc.pointConstraint(_c,q=True,
                                                         weightAliasList=True,
                                                         maintainOffset=True)
+                    l_values = DIST.get_normalizedWeightsByDistanceToObj(mdD[k].mNode,l_targets)
+                    for i,v in enumerate(l_values):
+                        ATTR.set(_c,targetWeights[i],v)
                     ATTR.set(_c,targetWeights[0],1.25)
                     #ATTR.set(_c,targetWeights[1],.9)
                     
