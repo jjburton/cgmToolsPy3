@@ -109,7 +109,9 @@ def mocapBakeTool():
         
 def cgmUpdateTool():
     try:
+        import cgmUpdate
         import cgm.core.tools.updateTool as CGMUPDATE
+        cgmGEN._reloadMod(cgmUpdate)
         cgmGEN._reloadMod(CGMUPDATE)
         CGMUPDATE.ui()
     except Exception as err:
@@ -362,16 +364,3 @@ def testMorpheus( *a ):
     cgmGEN._reloadMod(testCGM)
     testCGM.MorpheusBase_Test()
 
-
-#Zoo stuff =====================================================================
-def loadZooToolbox( *a ):
-    import zooToolbox
-    zooToolbox.ToolboxWindow()
-
-def loadSkinPropagation( *a ):
-    from cgm.lib.zoo.zooPyMaya import refPropagation
-    refPropagation.propagateWeightChangesToModel_confirm()
-
-def loadXferAnim( *a ):
-    from cgm.lib.zoo.zooPyMaya import xferAnimUI
-    xferAnimUI.XferAnimWindow()

@@ -60,15 +60,9 @@ import cgm.core.lib.skinDat as SKINDAT
 import cgm.core.tools.lib.tool_chunks as UICHUNKS
 import cgm.core.tools.lib.tool_calls as LOADTOOL
 import cgm.core.tools.snapTools as SNAPTOOLS
-from cgm.lib.ml import (ml_breakdownDragger,
-                        ml_resetChannels,
-                        ml_deleteKey,
-                        ml_setKey,
-                        ml_hold,
-                        ml_stopwatch,
-                        ml_arcTracer,
-                        ml_convertRotationOrder,
-                        ml_copyAnim)
+from cgm.core.lib.ml_tools import (ml_hold,
+                                   ml_arcTracer,
+                                   ml_copyAnim)
 
 __version__ = cgmGEN.__RELEASESTRING
 

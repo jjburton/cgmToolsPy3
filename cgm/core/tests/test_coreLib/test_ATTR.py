@@ -69,3 +69,29 @@ class Test_message(unittest.TestCase):
 
     def test_returnMessageData_missing(self):
         self.assertFalse(ATTR.returnMessageData(self.holder, 'noMsg'))
+
+
+class Test_get_driver(unittest.TestCase):
+    """skipConversionNodes is a keyword. Positional True would bind to attr, not skip."""
+
+    def setUp(self):
+        self.src = mc.spaceLocator(name='cgmDrvSrc')[0]
+        self.dst = mc.spaceLocator(name='cgmDrvDst')[0]
+        mc.connectAttr(self.src + '.rx', self.dst + '.rx')
+
+    def tearDown(self):
+        for o in (self.src, self.dst):
+            if mc.objExists(o):
+                mc.delete(o)
+
+    def test_skip_conversion_keyword(self):
+        driver = ATTR.get_driver(self.dst, 'rx', skipConversionNodes=True)
+        self.assertTrue(driver)
+        self.assertIn('.rotateX', driver)
+        self.assertNotIn('unitConversion', driver)
+
+    def test_getNode(self):
+        node = ATTR.get_driver(self.dst, 'rx', getNode=True, skipConversionNodes=True)
+        self.assertTrue(node)
+        self.assertEqual(mc.ls(node, shortNames=True)[0],
+                         mc.ls(self.src, shortNames=True)[0])

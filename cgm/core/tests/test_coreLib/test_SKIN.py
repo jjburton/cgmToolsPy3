@@ -33,3 +33,22 @@ class Test_get_cluster(unittest.TestCase):
         self.assertTrue(found)
         self.assertEqual(mc.nodeType(found), 'skinCluster')
         self.assertTrue(SKIN.get_influences_fromCluster(found))
+
+
+class Test_transfer_fromTo(unittest.TestCase):
+    def test_copies_cluster_to_unskinned(self):
+        src = mc.polyCube(name='cgmSkinSrc')[0]
+        dst = mc.polyCube(name='cgmSkinDst')[0]
+        jnt = mc.joint(name='cgmSkinJnt')
+        mc.skinCluster(jnt, src, tsb=True)
+        SKIN.transfer_fromTo(src, [dst])
+        found = SKIN.get_cluster(dst)
+        self.assertTrue(found)
+        self.assertEqual(mc.nodeType(found), 'skinCluster')
+        self.assertIn(jnt, SKIN.get_influences_fromCluster(found))
+
+    def test_missing_source_cluster_logs(self):
+        src = mc.polyCube(name='cgmSkinBare')[0]
+        dst = mc.polyCube(name='cgmSkinBareDst')[0]
+        SKIN.transfer_fromTo(src, [dst])
+        self.assertEqual(SKIN.get_cluster(dst), '')

@@ -531,8 +531,7 @@ def uiBuild_cgmMenu( *args ):
     UICHUNKS.uiSection_utils(_utils)
 
     #>>>Anim ----------------------------------------------------------------------
-    UICHUNKS.uiSection_animUtils(_anim) 
-    UICHUNKS.uiSection_layout(_anim)
+    UICHUNKS.uiSection_animUtils(_anim)
 
     #>>Layout ----------------------------------------------------------------------
     #_layout = mc.menuItem(p=menu,l='Layout',subMenu = True, tearOff = True)

@@ -29,7 +29,7 @@ log.setLevel(logging.INFO)
 
 
 _d_modules = {'cgmMeta':['base','mClasses'],
-              'coreLib':['LISTS','PATH','ATTR','VALID','NODEFACTORY','DIST','MATH','SHARED','NAMES','GUI','RIGGING','CURVES','SKIN','NODES','ANIMCLIP'],
+              'coreLib':['LISTS','PATH','ATTR','VALID','NODEFACTORY','DIST','MATH','SHARED','NAMES','GUI','RIGGING','CURVES','SKIN','NODES','ANIMCLIP','SEARCH','SNAP','TEXTURE','UISMOKE'],
               # MRS RigBlocks suite is incomplete (selection leaks + xform on attr plugs).
               # Left in the dict so the Unittesting menu can still list it; skipped from 'all'.
               'MRS':['RigBlocks']}
