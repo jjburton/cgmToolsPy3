@@ -49,17 +49,105 @@ log_start = cgmGEN.logString_start
 
 def animLayers_getSelected():
     layers= []
-    for layer in mc.ls(type='animLayer'):
-        if mc.animLayer(layer,query=True, selected=True):
-            layers.append(layer)
+    for layer in animLayers_get(includeBase=True):
+        try:
+            if mc.animLayer(layer, query=True, selected=True):
+                layers.append(layer)
+        except Exception:
+            pass
     if layers:return layers
     return False
 
-def animLayer_contains(layer_name, obj):
-    for a in mc.animLayer(layer_name, query=True, attribute=True):
-        if a.split('.')[0] == mc.ls(obj,sn=True)[0]:
+def animLayers_get(includeBase=False):
+    """Maya animLayer short names. Walks root + children; ls(type) alone can miss nested layers."""
+    found = []
+    seen = set()
+    walked = set()
+
+    def _short(name):
+        if not name:
+            return ''
+        return str(name).split('|')[-1]
+
+    def _walk(name):
+        if not name:
+            return
+        key = str(name)
+        if key in walked:
+            return
+        walked.add(key)
+        short = _short(name)
+        sl = short.lower()
+        if sl and sl not in seen:
+            if includeBase or sl not in ('baseanimation', 'base'):
+                seen.add(sl)
+                found.append(short)
+        try:
+            kids = mc.animLayer(name, query=True, children=True) or []
+        except Exception:
+            kids = []
+        for k in kids:
+            _walk(k)
+
+    try:
+        for n in mc.ls(type='animLayer') or []:
+            _walk(n)
+    except Exception:
+        pass
+    try:
+        root = mc.animLayer(query=True, root=True)
+    except Exception:
+        root = None
+    if root:
+        _walk(root)
+    return found
+
+def animLayer_contains(layer_name, obj, attr=None):
+    """True if obj is a member of the animLayer. If attr, that plug must be on the layer."""
+    if not layer_name or not obj:
+        return False
+    try:
+        plugs = mc.animLayer(layer_name, query=True, attribute=True) or []
+    except Exception:
+        return False
+    if not plugs:
+        return False
+    obj_names = set()
+    try:
+        obj_names.add((mc.ls(obj, shortNames=True) or [obj])[0])
+    except Exception:
+        pass
+    try:
+        obj_names.add((mc.ls(obj, long=True) or [obj])[0])
+    except Exception:
+        pass
+    obj_names.add(str(obj).split('|')[-1])
+    attr_names = set()
+    if attr:
+        attr_names.add(attr)
+        try:
+            ln = mc.attributeQuery(attr, node=obj, longName=True)
+            if ln:
+                attr_names.add(ln)
+        except Exception:
+            pass
+        try:
+            sn = mc.attributeQuery(attr, node=obj, shortName=True)
+            if sn:
+                attr_names.add(sn)
+        except Exception:
+            pass
+    for plug in plugs:
+        node_part, _, attr_part = str(plug).partition('.')
+        node_short = node_part.split('|')[-1]
+        if node_part not in obj_names and node_short not in obj_names:
+            continue
+        if not attr:
             return True
-        
+        if attr_part in attr_names:
+            return True
+    return False
+
 
 def get_nodeTagInfo(node = None, tag = None):
     """

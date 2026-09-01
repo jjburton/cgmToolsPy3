@@ -70,6 +70,23 @@ def mrsPOSER():
     import cgm.core.mrs.PoseManager as MRSPOSER
     cgmGEN._reloadMod(MRSPOSER)
     MRSPOSER.ui()
+
+def mrsANIMCLIP():
+    try:
+        from cgm.core import cgm_Dat as CGMDAT
+        import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
+        import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+        import cgm.core.mrs.lib.animate_utils as MRSANIMUTILS
+        import cgm.core.mrs.mrsAnimClip as MRSANIMCLIP
+        cgmGEN._reloadMod(CGMDAT)
+        cgmGEN._reloadMod(MRSANIMUTILS)
+        cgmGEN._reloadMod(ANIMCLIPCURVE)
+        cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
+        cgmGEN._reloadMod(MRSANIMCLIP)
+        MRSANIMCLIP.ui()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
     
 def cgmSnapTools():
     try:
@@ -164,6 +181,19 @@ def SHAPEDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
     cgmGEN._reloadMod(MRSDAT)
     MRSDAT.uiShapeDat()
+
+def ANIMCLIPDATui():
+    try:
+        from cgm.core import cgm_Dat as CGMDAT
+        import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
+        import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+        cgmGEN._reloadMod(CGMDAT)
+        cgmGEN._reloadMod(ANIMCLIPCURVE)
+        cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
+        ANIMCLIPDAT.ui()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
     
 def mrsShots():
     try:
