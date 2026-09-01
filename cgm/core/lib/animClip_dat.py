@@ -24,6 +24,7 @@ import maya.cmds as mc
 
 from cgm.core import cgm_Dat as CGMDAT
 from cgm.core import cgm_General as cgmGEN
+from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.classes import GuiFactory as CGMUI
 import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.lib.shared_data as CORESHARE
@@ -200,29 +201,53 @@ def _node_namespace(node):
     return ''
 
 
+def _as_transform_meta(arg):
+    """Wrap a node or meta as a transform. Shapes use getParent(asMeta=True)."""
+    mObj = cgmMeta.validateObjArg(arg, noneValid=True)
+    if not mObj:
+        return None
+    if SEARCH.is_transform(mObj.mNode):
+        return mObj
+    mParent = mObj.getParent(asMeta=True)
+    if mParent and SEARCH.is_transform(mParent.mNode):
+        return mParent
+    return None
+
+
+def _name_long(arg):
+    mObj = _as_transform_meta(arg)
+    if mObj:
+        return mObj.p_nameLong
+    return None
+
+
 def _long_without_ns(node):
     """DAG path with namespaces stripped from each token."""
-    longName = NAMES.get_long(node)
+    longName = _name_long(node)
+    if not longName:
+        return ''
     return '|'.join(p.split(':')[-1] for p in longName.split('|'))
 
 
 def _object_identity(node):
     """Identity for Phase 4 matching. Names are stored without namespace."""
-    short = NAMES.get_base(node)
-    longName = _long_without_ns(node)
+    mObj = _as_transform_meta(node)
+    src = mObj.mNode if mObj else node
+    short = mObj.p_nameBase if mObj else NAMES.get_base(src)
+    longName = _long_without_ns(mObj or src)
     uuid = ''
     try:
-        uuid = mc.ls(node, uuid=True)[0]
+        uuid = mc.ls(src, uuid=True)[0]
     except Exception:
         pass
     cgmName = ''
     cgmType = ''
     cgmDirection = ''
     for attr in ('cgmName', 'cgmType', 'cgmDirection'):
-        if not mc.attributeQuery(attr, node=node, exists=True):
+        if not ATTR.has_attr(src, attr):
             continue
         try:
-            v = ATTR.get(node, attr)
+            v = ATTR.get(src, attr)
             if isinstance(v, (list, tuple)):
                 v = v[0] if v else ''
             if v not in (None, False):
@@ -235,14 +260,14 @@ def _object_identity(node):
         except Exception:
             pass
     rotateOrder = None
-    if mc.attributeQuery('rotateOrder', node=node, exists=True):
+    if ATTR.has_attr(src, 'rotateOrder'):
         try:
-            rotateOrder = ATTR.get(node, 'rotateOrder')
+            rotateOrder = ATTR.get(src, 'rotateOrder')
         except Exception:
             rotateOrder = None
     metaData = {}
     try:
-        raw = r9Meta.MetaClass.getNodeConnectionMetaDataMap(node)
+        raw = r9Meta.MetaClass.getNodeConnectionMetaDataMap(src)
         if isinstance(raw, dict) and raw:
             metaData = raw
     except Exception:
@@ -261,50 +286,19 @@ def _object_identity(node):
 
 
 def _selected_transforms():
-    sel = mc.ls(sl=True, type='transform', long=True) or []
-    if not sel:
-        raw = mc.ls(sl=True, objectsOnly=True, long=True) or []
-        sel = mc.ls(raw, type='transform', long=True) or []
-        if not sel and raw:
-            sel = mc.listRelatives(raw, parent=True, type='transform', fullPath=True) or []
-    seen = set()
-    ordered = []
-    for n in sel:
-        if n not in seen:
-            seen.add(n)
-            ordered.append(n)
-    return ordered
+    return _normalize_nodes(mc.ls(sl=True, objectsOnly=True) or [])
 
 
 def _normalize_nodes(nodes):
-    """Unique transform long names from a node list (names or meta)."""
+    """Unique transform longs from names or meta. Shapes resolve via getParent."""
     ordered = []
     seen = set()
     for n in nodes or []:
-        raw = n
-        try:
-            if hasattr(n, 'mNode'):
-                raw = n.mNode
-        except Exception:
-            raw = n
-        if not raw:
+        longName = _name_long(n)
+        if not longName or longName in seen:
             continue
-        hits = []
-        try:
-            hits = mc.ls(raw, type='transform', long=True) or []
-        except Exception:
-            hits = []
-        if not hits:
-            try:
-                parent = mc.listRelatives(raw, parent=True, type='transform',
-                                         fullPath=True) or []
-                hits = parent
-            except Exception:
-                hits = []
-        for h in hits:
-            if h not in seen:
-                seen.add(h)
-                ordered.append(h)
+        seen.add(longName)
+        ordered.append(longName)
     return ordered
 
 
@@ -346,14 +340,7 @@ def _clip_src_token(obj, mapping, clip_ns=''):
 
 
 def _sel_long_set(sel):
-    out = set()
-    for n in sel or []:
-        try:
-            out.add(NAMES.get_long(n))
-        except Exception:
-            if n:
-                out.add(n)
-    return out
+    return set(_normalize_nodes(sel))
 
 
 def _name_destinations(objects, namespace='', sel=None):
@@ -363,10 +350,7 @@ def _name_destinations(objects, namespace='', sel=None):
     for obj in objects:
         hit = _scene_node_by_name(obj, namespace)
         if hit and allowed is not None:
-            try:
-                hl = NAMES.get_long(hit)
-            except Exception:
-                hl = hit
+            hl = _name_long(hit) or hit
             if hl not in allowed and hit not in allowed:
                 hit = None
         dests.append(hit)
