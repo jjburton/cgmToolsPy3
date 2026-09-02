@@ -32,8 +32,6 @@ from cgm.core.lib import attribute_utils as ATTR
 #reload(SHARED)
 
 #CANNOT IMPORT: DIST, LOC
-from cgm.core.lib import attribute_utils as ATTR
-from cgm.lib import attributes
 
 #>>> Utilities
 #===================================================================
@@ -120,7 +118,22 @@ def create(name = None, nodeType = None):
         return mc.shadingNode (nodeType,name= (name+'_'+_suffix), asUtility=True)
     else:
         return mc.createNode (nodeType,name= (name+'_'+_suffix),)
-    
+
+def setup_offset_cycle_speed(deformer, speedAttr, cycleLength, offset):
+    """Drive deformer.offset as a cycling animCurve whose input is time * speedAttr.
+
+    Lib offsetCycleSpeedControlNodeSetup created an unused offset multiplyDivide; this does not.
+    """
+    speed_md = create('speedMult', 'multiplyDivide')
+    plug = deformer + '.offset'
+    mc.setKeyframe(plug, time=0, value=0, inTangentType='spline', outTangentType='spline')
+    mc.setKeyframe(plug, time=cycleLength, value=(offset * .99), inTangentType='linear', outTangentType='linear')
+    mc.setInfinity(plug, pri='cycleRelative', poi='cycleRelative')
+    mc.connectAttr('time1.outTime', speed_md + '.input1X')
+    mc.connectAttr(speedAttr, speed_md + '.input2X')
+    mc.connectAttr(speed_md + '.outputX', deformer + '_offset.input')
+    return speed_md
+
 def curveInfo(curve,baseName = 'curveInfo'):
     """
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

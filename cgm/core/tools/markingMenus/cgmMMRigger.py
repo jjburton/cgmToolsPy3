@@ -13,12 +13,10 @@ from cgm.core import cgm_General as cgmGen
 from cgm.core.tools.markingMenus import cgmMMTemplate as mmTemplate
 from cgm.core.lib import rigging_utils as RIGGING
 from cgm.core.lib import snap_utils as SNAP
+from cgm.core.lib import locator_utils as LOC
 #reload(RIGGING)
 #reload(mmTemplate)
 from cgm.core.lib.zoo import baseMelUI as mUI
-#from cgm.lib import search
-from cgm.lib import locators
-from cgm.tools.lib import tdToolsLib#...REFACTOR THESE!!!!
 
 def run():
     mmWindow = cgmMarkingMenu()
@@ -108,11 +106,11 @@ class cgmMarkingMenu(mmTemplate.cgmMetaMM):
                          en = self._b_sel,
                          l = 'Locator',
                          #c = lambda *a:buttonAction(tdToolsLib.doPointSnap()),
-                         c = mUI.Callback(self.button_action_per_sel,locators.locMeObject,'Locator'),
+                         c = mUI.Callback(self.button_action_per_sel,LOC.create,'Locator'),
                          rp = "S")          
         
         
-        #locators.locMeObject(item, self.forceBoundingBoxState)
+        #LOC.create(item, ...)
         
     def build_radial_aim(self,parent,direction = None):
         _r = mUI.MelMenuItem(parent,subMenu = True,
@@ -154,7 +152,7 @@ class cgmMarkingMenu(mmTemplate.cgmMetaMM):
                         en = False,
                         l = 'Orientation',
                         #c = lambda *a:buttonAction(tdToolsLib.doPointSnap()),
-                        #c = mUI.Callback(self.button_action_per_sel,locators.locMeObject,'Locator'),
+                        #c = mUI.Callback(self.button_action_per_sel,LOC.create,'Locator'),
                         rp = "NW")         
     def build_radial_control(self,parent,direction = None):
         _r = mUI.MelMenuItem(parent,subMenu = True,
@@ -260,12 +258,6 @@ class cgmMarkingMenu(mmTemplate.cgmMetaMM):
                         l = 'scalePivot',
                         c = lambda *a:snap_action(self,'scalePivot'),
                         rp = 'SE')	        
-    
-        mUI.MelMenuItem(_r,
-                        en = self._b_sel_pair,
-                        l = 'Surface',
-                        c = lambda *a:self.button_action(tdToolsLib.doSnapClosestPointToSurface(False)),
-                        rp = 'SW')
     
         mUI.MelMenuItem(_r,
                         en = self._b_sel,

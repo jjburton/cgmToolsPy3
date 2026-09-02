@@ -2,7 +2,7 @@
 mocap_align_utils
 -----------------
 Orchestration for mocapBakeTools local-TR align / snap / bake.
-Reuses doLoc, movePointSnap/moveOrientSnap, TRANS, NAMES — does not reimplement snap math.
+Reuses doLoc, SNAP.move_point_snap / move_orient_snap, TRANS, NAMES — does not reimplement snap math.
 
 Design contract: cgmToolsDev Features/Feature_MocapAlignSnap.md
 """
@@ -24,7 +24,7 @@ from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.lib import name_utils as NAMES
 from cgm.core.lib import transform_utils as TRANS
-from cgm.lib import position as POSITION
+from cgm.core.lib import snap_utils as SNAP
 
 log_start = cgmGEN.logString_start
 log_msg = cgmGEN.logString_msg
@@ -1199,9 +1199,9 @@ def _snap_connection_pair(conn, index=None, delete_loc=True):
         before_rot = _world_rotation(tgt)
 
         if conn.get('setPosition', True):
-            POSITION.movePointSnap(tgt, m_loc.p_nameLong)
+            SNAP.move_point_snap(tgt, m_loc.p_nameLong)
         if conn.get('setRotation', True):
-            POSITION.moveOrientSnap(tgt, m_loc.p_nameLong)
+            SNAP.move_orient_snap(tgt, m_loc.p_nameLong)
 
         after_pos = _world_position(tgt)
         after_rot = _world_rotation(tgt)
@@ -1404,10 +1404,10 @@ def bake_connections(connections, start, end, indices=None):
                 if not loc or not mc.objExists(loc):
                     continue
                 if conn.get('setPosition', True):
-                    POSITION.movePointSnap(tgt, loc)
+                    SNAP.move_point_snap(tgt, loc)
                     mc.setKeyframe(tgt + '.translate')
                 if conn.get('setRotation', True):
-                    POSITION.moveOrientSnap(tgt, loc)
+                    SNAP.move_orient_snap(tgt, loc)
                     mc.setKeyframe(tgt + '.rotate')
     finally:
         mc.undoInfo(closeChunk=True)

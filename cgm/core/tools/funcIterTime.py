@@ -70,7 +70,6 @@ import cgm.core.classes.GuiFactory as CGMUI
 CGMUI.initializeTemplates()
 mUI = CGMUI.mUI
 
-from cgm.lib import lists
 log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
 log_start = cgmGEN.logString_start

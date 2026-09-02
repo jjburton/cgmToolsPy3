@@ -28,26 +28,19 @@ import cgm.core.cgm_General as cgmGEN
 from cgm.core.classes import SnapFactory as Snap
 from cgm.core.lib import rayCaster as RayCast
 from cgm.core.lib import curve_Utils as crvUtils
+import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.snap_utils as SNAP
 import cgm.core.lib.position_utils as POS
 from cgm.core.cgmPy import validateArgs as VALID
 import pprint
-from cgm.lib import guiFactory
 import cgm.core.lib.locator_utils as LOC
+from cgm.core.lib import shared_data as SHARED
 #reload(RayCast)
 #reload(Snap)
-from cgm.lib import (cgmMath,
-                     locators,
-                     modules,
-                     distance,
-                     dictionary,
-                     rigging,
-                     search,
-                     curves,
-                     lists,
-                     )
+from cgm.core.lib import shape_utils as SHAPES
+import cgm.core.lib.rigging_utils as CORERIG
 
 from cgm.core.lib import nameTools
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -87,7 +80,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
                 axis = ['x','y','z']
             if type(axis) in [list,tuple]:
                 for a in axis:
-                    if a in list(dictionary.stringToVectorDict.keys()):
+                    if a in SHARED._d_axis_string_to_vector:
                         if list(a)[0] in list(d_axisToDo.keys()):
                             d_axisToDo[list(a)[0]].append( a )
                         else:
@@ -114,7 +107,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
             if len(directions) == 1:#gonna multiply our distance 
                 try:
                     info = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[0])
-                    d_returnDistances[axis] = (distance.returnDistanceBetweenPoints(info['near'],mi_obj.getPosition()) *2)
+                    d_returnDistances[axis] = (DIST.get_distance_between_points(info['near'],mi_obj.getPosition()) *2)
                 except Exception as error:
                     raise Exception("raycast | %s"%error)
             else:
@@ -122,7 +115,7 @@ def returnBaseControlSize(mi_obj,mesh,axis=True,closestInRange = True):
                     info1 = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[0])
                     info2 = RayCast.findMeshIntersectionFromObjectAxis(mesh,mi_obj.mNode,directions[1])
                     if info1 and info2:
-                        d_returnDistances[axis] = distance.returnDistanceBetweenPoints(info1['near'],info2['near'])                    
+                        d_returnDistances[axis] = DIST.get_distance_between_points(info1['near'],info2['near'])                    
                 except Exception as error:
                     raise Exception("raycast | %s"%error)
 
@@ -299,7 +292,7 @@ def createWrapControlShape(targetObjects,
             log.warning("Segment build mode only works with two objects or more")    
         else:
             if insetMult is not None:
-                rootDistanceToMove = distance.returnDistanceBetweenObjects(targetObjects[0],targetObjects[1])
+                rootDistanceToMove = DIST.get_distance_between_targets([targetObjects[0],targetObjects[1]])
                 log.debug("rootDistanceToMove: %s"%rootDistanceToMove)
                 mi_rootLoc.__setattr__('t%s'%latheAxis,rootDistanceToMove*insetMult)
                 #mi_rootLoc.tz = (rootDistanceToMove*insetMult)#Offset it
@@ -307,7 +300,7 @@ def createWrapControlShape(targetObjects,
             #Notes -- may need to play with up object for aim snapping
             #mi_upLoc = cgmMeta.cgmNode(targetObjects[0]).doLoc()
             #mi_upLoc.doGroup()#To zero
-            objectUpVector = dictionary.returnStringToVectors(objectUp)
+            objectUpVector = SHARED._d_axis_string_to_vector.get(objectUp)
             log.debug("objectUpVector: %s"%objectUpVector)		    
             #mi_uploc
 
@@ -315,7 +308,7 @@ def createWrapControlShape(targetObjects,
                 log.debug("i: %s"%i)
                 #> End Curve
                 mi_endLoc = cgmMeta.cgmNode(obj).doLoc()
-                aimVector = dictionary.returnStringToVectors(latheAxis+'-')
+                aimVector = SHARED._d_axis_string_to_vector.get(latheAxis+'-')
                 log.debug("segment aimback: %s"%aimVector)		    
                 #Snap.go(mi_endLoc.mNode,mi_rootLoc.mNode,move=False,aim=True,aimVector=aimVector,upVector=objectUpVector)
                 #Snap.go(mi_endLoc.mNode,mi_rootLoc.mNode,move=False,orient=True)	
@@ -326,7 +319,7 @@ def createWrapControlShape(targetObjects,
                 if i == len(targetObjects[1:])-1:
                     if insetMult is not None:
                         log.debug("segment insetMult: %s"%insetMult)			    
-                        distanceToMove = distance.returnDistanceBetweenObjects(targetObjects[-1],targetObjects[0])
+                        distanceToMove = DIST.get_distance_between_targets([targetObjects[-1],targetObjects[0]])
                         log.debug("distanceToMove: %s"%distanceToMove)
                         #mi_endLoc.tz = -(distanceToMove*insetMult)#Offset it  
                         mi_endLoc.__setattr__('t%s'%latheAxis,-(distanceToMove*insetMult))
@@ -409,7 +402,7 @@ def createWrapControlShape(targetObjects,
             l_size = d_size[single_aimAxis]
             size = l_size/3
         log.info("loli size: %s"%size)
-        i_ball = cgmMeta.cgmObject(curves.createControlCurve('sphere',size = size))
+        i_ball = cgmMeta.cgmObject(crvUtils.create_fromName('sphere',size = size))
 
     elif extendMode == 'endCap':
         log.debug("|{0}| >> endCap...".format(_str_func))            
@@ -468,7 +461,7 @@ def createWrapControlShape(targetObjects,
             log.info(d_return)
             raise ValueError,"No hit on loli check"
         pos = d_return.get('hit')
-        dist = distance.returnDistanceBetweenPoints(i_ball.getPosition(),pos) * 2"""
+        dist = DIST.get_distance_between_points(i_ball.getPosition(),pos) * 2"""
         
         if vectorOffset is not None:
             dist = vectorOffset + subSize * 4
@@ -487,7 +480,7 @@ def createWrapControlShape(targetObjects,
         i_ball.parent = False
         mc.delete(pBuffer)
         
-        uPos = distance.returnClosestUPosition(i_ball.mNode,mi_crv.mNode)
+        uPos = DIST.get_closest_point(i_ball.mNode, mi_crv.mNode)[0]
 
         SNAP.aim(i_ball.mNode,mi_rootLoc.mNode,aimAxis='z-')
         #if posOffset:
@@ -535,9 +528,9 @@ def createWrapControlShape(targetObjects,
                     log.debug("createWrapControlShape>>> skipping curve fail: %s"%(degree))
 
     #>>Combine the curves
-    newCurve = curves.combineCurves(l_curvesToCombine) 
-    mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(targetObjects[0],False) )
-    curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+    newCurve = SHAPES.combine(l_curvesToCombine) 
+    mi_crv = cgmMeta.cgmObject( TRANS.group_me(targetObjects[0], parent=False, maintainParent=False) )
+    CORERIG.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
     mc.delete(newCurve)
 
     #>>Copy tags and name

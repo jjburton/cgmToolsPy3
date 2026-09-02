@@ -33,7 +33,6 @@ from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.lib.transform_utils as TRANS
 from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
 import cgm.core.cgmPy.os_Utils as cgmOS
 import cgm.core.lib.position_utils as POS
 import cgm.core.lib.geo_Utils as GEO

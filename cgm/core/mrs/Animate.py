@@ -54,7 +54,6 @@ from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.lib.transform_utils as TRANS
 from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.lib.path_utils as COREPATHS
 

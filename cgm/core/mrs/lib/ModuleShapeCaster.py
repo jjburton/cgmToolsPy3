@@ -6,6 +6,7 @@ Module for building controls for cgmModules
 import copy
 import re
 import time
+import math
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 import logging
@@ -35,6 +36,8 @@ import cgm.core.lib.name_utils as NAMES
 import cgm.core.lib.snap_utils as SNAP
 #reload(Snap)
 import cgm.core.lib.transform_utils as TRANS
+import cgm.core.lib.distance_utils as DIST
+from cgm.core.lib import shape_utils as SHAPES
 
 """from cgm.lib import (cgmMath,
                      locators,
@@ -48,6 +51,7 @@ import cgm.core.lib.transform_utils as TRANS
                      )"""
 
 from cgm.core.lib import nameTools
+from cgm.core.lib import list_utils as lists
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Modules
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
@@ -125,7 +129,7 @@ class go(object):
             self._direction = self._mi_module.getMayaAttr('cgmDirection') or None
             log.info("part...done")
             #>>> Instances and joint stuff
-            self.str_jointOrientation = str(modules.returnSettingsData('jointOrientation')) or 'zyx'#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   
+            self.str_jointOrientation = 'zyx' 
             self.f_skinOffset = self._mi_puppet.getMayaAttr('skinDepth') or 1 #Need to get from puppet!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<		
             self._verifyCastObjects()#verify cast objects
             log.info('castObjects')
@@ -246,7 +250,7 @@ class go(object):
                                                                   pierceDepth=self.f_skinOffset*15) or {}
             if not d_return.get('hit'):
                 raise Exception("go._verifyCastObjects>>failed to get hit to measure first distance")
-            dist_cast = distance.returnDistanceBetweenPoints(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
+            dist_cast = DIST.get_distance_between_points(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
             mi_lastLoc.__setattr__("t"+self.str_jointOrientation[0],dist_cast*.6)#Move
             pBuffer = mi_lastLoc.parent
             mi_lastLoc.parent = False
@@ -254,8 +258,8 @@ class go(object):
             self.ml_specialLocs.append(mi_lastLoc)
             self.l_controlSnapObjects.append(mi_lastLoc.mNode)
 
-        self.l_indexPairs = lists.parseListToPairs(list(range(len(self.l_controlSnapObjects))))
-        self.l_segments = lists.parseListToPairs(self.l_controlSnapObjects)	    
+        self.l_indexPairs = lists.get_listPairs(list(range(len(self.l_controlSnapObjects))))
+        self.l_segments = lists.get_listPairs(self.l_controlSnapObjects)	    
         return True
 
     def _returnBaseThickness(self):
@@ -281,13 +285,13 @@ class go(object):
             #average = (sum(l_lengths))/len(l_lengths)
             return d_return['average'] #*1.25
         elif self._mi_module.getMessage('helper'):
-            return distance.returnBoundingBoxSizeToAverage(self._mi_module.getMessage('helper'))
+            return DIST.get_bb_average(self._mi_module.getMessage('helper'))
         else:
             raise Exception("%s >> Not enough info to figure out"%_str_funcName)
 
     def _returnBaseDistance(self):
         if len(self.l_controlSnapObjects) >1:
-            return distance.returnDistanceBetweenObjects(self.l_controlSnapObjects[0],self.l_controlSnapObjects[-1])/10
+            return DIST.get_distance_between_targets([self.l_controlSnapObjects[0],self.l_controlSnapObjects[-1]])/10
         return 1
     def build_eyelids(self):
         _str_funcName = "go.build_eyelids(%s)"%self._strShortName
@@ -305,7 +309,7 @@ class go(object):
                 log.info("%s >>> ml_uprLidHandles : %s "%(_str_funcName,[mObj.mNode for mObj in ml_uprLidHandles]))	
                 log.info("%s >>> ml_lwrLidHandles : %s"%(_str_funcName,[mObj.mNode for mObj in ml_lwrLidHandles]))		
 
-                __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_uprLidHandles]) /2 
+                __baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_uprLidHandles], average=True) /2 
                 log.info("%s >>> baseDistance : %s"%(_str_funcName,__baseDistance))				
             except Exception as error:
                 raise Exception("Gather Data fail! | error: %s"%(error))  
@@ -316,7 +320,7 @@ class go(object):
                     if mObj.getAttr('isSubControl') or mObj in [ml_uprLidHandles[0],ml_uprLidHandles[-1]]:
                         _size = __baseDistance * .6
                     else:_size = __baseDistance
-                    mi_crv =  cgmMeta.asMeta(curves.createControlCurve('circle',size = _size,direction=self.str_jointOrientation[0]+'+'),'cgmObject', setClass=False)	
+                    mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('circle',size = _size,direction=self.str_jointOrientation[0]+'+'),'cgmObject', setClass=False)	
                     SNAP.go(mi_crv,mObj.mNode,move=True,orient=False)
                     str_grp = mi_crv.doGroup()
                     mi_crv.__setattr__("t%s"%self.str_jointOrientation[0],__baseDistance)
@@ -324,8 +328,8 @@ class go(object):
                     mc.delete(str_grp)
                     #>>Color curve		    		    
                     if mObj.getAttr('isSubControl'):
-                        curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[1])  
-                    else:curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])  
+                        coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[1])  
+                    else:coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])  
                     #>>Copy tags and name		    
                     mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
                     mi_crv.doName()
@@ -351,9 +355,9 @@ class go(object):
         time_func = time.time() 		
         try:
             mi_helper = self._mi_module.helper
-            _baseDistance = distance.returnDistanceBetweenObjects(mi_helper.mNode, mi_helper.pupilHelper.mNode)
+            _baseDistance = DIST.get_distance_between_targets([mi_helper.mNode, mi_helper.pupilHelper.mNode])
 
-            mi_crv = cgmMeta.asMeta( curves.createControlCurve('gear',
+            mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('gear',
                                                                   direction = 'z+',
                                                                   size = _baseDistance*.5,
                                                                   absoluteSize=False),'cgmObject',setClass=False)
@@ -369,7 +373,7 @@ class go(object):
             mi_crv.doName()          	    
 
             #Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[1])    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[1])    
             self.d_returnControls['settings'] = mi_crv.mNode
             self.md_ReturnControls['settings'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_settings','owner')
@@ -385,8 +389,8 @@ class go(object):
         time_func = time.time() 		
         try:
             mi_helper = self._mi_module.helper
-            _baseDistance = distance.returnDistanceBetweenObjects(mi_helper.mNode, mi_helper.pupilHelper.mNode)	    
-            mi_crvBase = cgmMeta.cgmObject( curves.createControlCurve('circle',
+            _baseDistance = DIST.get_distance_between_targets([mi_helper.mNode, mi_helper.pupilHelper.mNode])	    
+            mi_crvBase = cgmMeta.cgmObject( crvUtils.create_fromName('circle',
                                                                       direction = 'z+',
                                                                       size = _baseDistance * .75,
                                                                       absoluteSize=False),setClass=False)
@@ -402,12 +406,12 @@ class go(object):
             l_curvesToCombine = [_str_trace,mi_crvBase.mNode]
 
             #>>>Combine the curves
-            try:newCurve = curves.combineCurves(l_curvesToCombine) 
+            try:newCurve = SHAPES.combine(l_curvesToCombine) 
             except Exception as error:raise Exception("Failed to combine | error: %s"%error)
 
-            mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_helper.mNode,False) )
+            mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_helper.mNode, parent=False, maintainParent=False) )
 
-            try:curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+            try:coreRigging.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
             except Exception as error:raise Exception("Parent shape in place fail | error: %s"%error)
 
             mc.delete(_str_trace)
@@ -418,7 +422,7 @@ class go(object):
             mi_crv.doName()          	    
 
             #Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])    
             self.d_returnControls['eyeballFK'] = mi_crv.mNode
             self.md_ReturnControls['eyeballFK'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_eyeballFK','owner')
@@ -435,8 +439,8 @@ class go(object):
         time_func = time.time() 		
         try:
             mi_helper = self._mi_module.helper
-            _baseDistance = distance.returnDistanceBetweenObjects(mi_helper.mNode, mi_helper.pupilHelper.mNode)	    	    
-            mi_crv = cgmMeta.asMeta( curves.createControlCurve('fatCross',
+            _baseDistance = DIST.get_distance_between_targets([mi_helper.mNode, mi_helper.pupilHelper.mNode])	    	    
+            mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('fatCross',
                                                                   direction = 'z+',
                                                                   size = _baseDistance*.75,
                                                                   absoluteSize=False),'cgmObject',
@@ -453,7 +457,7 @@ class go(object):
             mi_crv.doName()          	    
 
             #Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])    
             self.d_returnControls['eyeballFK'] = mi_crv.mNode
             self.md_ReturnControls['eyeballFK'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_eyeballIK','owner')
@@ -470,8 +474,8 @@ class go(object):
         time_func = time.time() 		
         try:#we need to find an eye module/head module
             mi_helper = self._mi_module.helper
-            _baseDistance = distance.returnDistanceBetweenObjects(mi_helper.mNode, mi_helper.pupilHelper.mNode)	    	    
-            mi_crv = cgmMeta.asMeta( curves.createControlCurve('arrow4Fat',
+            _baseDistance = DIST.get_distance_between_targets([mi_helper.mNode, mi_helper.pupilHelper.mNode])	    	    
+            mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('arrow4Fat',
                                                                   direction = 'z+',
                                                                   size = _baseDistance * 1.5,
                                                                   absoluteSize=False),'cgmObject',setClass=False)	    
@@ -496,8 +500,8 @@ class go(object):
             mi_crv.doName()          	    
 
             #Color
-            l_color = modules.returnSettingsData('colorCenter',True)
-            curves.setCurveColorByName(mi_crv.mNode,l_color[0])    
+            l_color = metaUtils.getSettingsColors('center')
+            coreRigging.override_color(mi_crv.mNode,l_color[0])    
             self.d_returnControls['eyeLook'] = mi_crv.mNode
             self.md_ReturnControls['eyeLook'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_eyeLook','owner')
@@ -524,7 +528,7 @@ class go(object):
         #ize = fl_size/4
         size = self._baseModuleThickness/2
         ml_curvesToCombine = []
-        mi_crvBase = cgmMeta.asMeta( curves.createControlCurve('arrowSingleFat3d',direction = 'y-',size = size,absoluteSize=False),'cgmObject',setClass=False)
+        mi_crvBase = cgmMeta.asMeta( crvUtils.create_fromName('arrowSingleFat3d',direction = 'y-',size = size,absoluteSize=False),'cgmObject',setClass=False)
         mi_crvBase.scaleY = 2
         mi_crvBase.scaleZ = .75
         SNAP.go(mi_crvBase, tmplRoot.mNode) #Snap it
@@ -542,7 +546,7 @@ class go(object):
                     log.info(d_return)
                     raise Exception("build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode))
                 #log.debug("hitDict: %s"%d_return)
-                dist = distance.returnDistanceBetweenPoints(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*7)#self._baseModuleThickness/4
+                dist = DIST.get_distance_between_points(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*7)#self._baseModuleThickness/4
                 #log.debug("dist: %s"%dist)
                 #log.debug("crv: %s"%mi_crvBase.mNode)
                 mi_crvBase.__setattr__("tz",dist)
@@ -558,7 +562,7 @@ class go(object):
         
         try:
             log.info(ml_curvesToCombine)
-            mi_crv = cgmMeta.cgmObject( curves.combineCurves([i_obj.mNode for i_obj in ml_curvesToCombine]) )
+            mi_crv = cgmMeta.cgmObject( SHAPES.combine([i_obj.mNode for i_obj in ml_curvesToCombine]) )
             #log.debug("mi_crv: %s"%mi_crv.mNode)
         except Exception as error:
             raise Exception("Reinitialize | {0}".format(error))            
@@ -574,7 +578,7 @@ class go(object):
             raise Exception("Copy tags | {0}".format(error))
         
         try:#>>> Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])    
             self.d_returnControls['cog'] = mi_crv.mNode
             self.md_ReturnControls['cog'] = mi_crv
             self._mi_rigNull.connectChildNode(mi_crv,'shape_cog','owner')
@@ -600,7 +604,7 @@ class go(object):
             log.info(d_return)
             log.info(self._targetMesh)
             raise Exception("build_hips>>failed to get hit. Master form object probably isn't in mesh")
-        dist = distance.returnDistanceBetweenPoints(mi_loc.getPosition(),d_return['hit'])
+        dist = DIST.get_distance_between_points(mi_loc.getPosition(),d_return['hit'])
         mi_loc.tz = -dist *.2	
 
         returnBuffer = ShapeCast.createWrapControlShape(mi_loc.mNode,self._targetMesh,
@@ -624,7 +628,7 @@ class go(object):
                                                       posOffset = [0,0,self.f_skinOffset*3],
                                                       )
 
-        mi_crv = cgmMeta.cgmObject ( curves.combineCurves([mi_crvRound.mNode,str_traceCrv]) )
+        mi_crv = cgmMeta.cgmObject ( SHAPES.combine([mi_crvRound.mNode,str_traceCrv]) )
 
         mc.delete(mi_loc.getParents()[-1])
 
@@ -636,7 +640,7 @@ class go(object):
         #>>> Color
         coreRigging.match_transform(mi_crv.mNode, self._ml_controlObjects[1].mNode)
         
-        curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
+        coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])    
         self.d_returnControls['hips'] = mi_crv.mNode
         self.md_ReturnControls['hips'] = mi_crv
         self._mi_rigNull.connectChildNode(mi_crv,'shape_hips','owner')
@@ -687,7 +691,7 @@ class go(object):
                                                                 extendMode='segment')
                 mi_crv = returnBuffer['instance']	    
                 #>>> Color
-                curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])                    
+                coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])                    
                 mi_crv.addAttr('cgmType',attrType='string',value = 'segFKCurve',lock=True)	
                 mi_crv.doName()
 
@@ -855,7 +859,7 @@ class go(object):
                                                      )                
                 coreRigging.shapeParent_in_place(mi_newCurve.mNode,[crv1,crv2],False)
             #>>> Color
-            curves.setCurveColorByName(mi_newCurve.mNode,self.l_moduleColors[0])                    
+            coreRigging.override_color(mi_newCurve.mNode,self.l_moduleColors[0])                    
             mi_newCurve.addAttr('cgmType',attrType='string',value = 'loliHandle',lock=True)	
             mi_newCurve.doName()
             
@@ -913,7 +917,7 @@ class go(object):
                                                                       pierceDepth=self.f_skinOffset*15) or {}
                 if not d_return.get('hit'):
                     raise Exception("go._verifyCastObjects>>failed to get hit to measure first distance")
-                dist_cast = distance.returnDistanceBetweenPoints(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
+                dist_cast = DIST.get_distance_between_points(mi_lastLoc.getPosition(),d_return['hit']) * 1.25
                 mi_lastLoc.__setattr__("t"+self.str_jointOrientation[0],dist_cast*.6)#Move
                 pBuffer = mi_lastLoc.parent
                 mi_lastLoc.parent = False
@@ -940,7 +944,7 @@ class go(object):
             mi_newCurve.doCopyPivot(_snapObject)
 
             #>>> Color
-            curves.setCurveColorByName(mi_newCurve.mNode,self.l_moduleColors[0])                    
+            coreRigging.override_color(mi_newCurve.mNode,self.l_moduleColors[0])                    
             mi_newCurve.addAttr('cgmType',attrType='string',value = 'moduleCap',lock=True)	
             mi_newCurve.doName()
 
@@ -1000,7 +1004,7 @@ class go(object):
             l_specifiedRotates = [15,30,90,120,180]
             rootRotate = 30	    
 
-        dist_inset = distance.returnDistanceBetweenPoints(mi_endLoc.getPosition(),mi_startLoc.getPosition()) *.3
+        dist_inset = DIST.get_distance_between_points(mi_endLoc.getPosition(),mi_startLoc.getPosition()) *.3
 
         #Move our cast locs
         mi_startLoc.doGroup()#zero
@@ -1019,7 +1023,7 @@ class go(object):
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh, mi_endLoc.mNode, axis_distanceDirectionCast, pierceDepth=self.f_skinOffset*2) or {}
         if not d_return.get('hit'):
             raise Exception("go.build_clavicle>>failed to get hit to measure first distance")
-        dist_cast = distance.returnDistanceBetweenPoints(mi_endLoc.getPosition(),d_return['hit']) * 1.25
+        dist_cast = DIST.get_distance_between_points(mi_endLoc.getPosition(),d_return['hit']) * 1.25
 
         log.debug("go.build_clavicle>>cast distance: %s"%dist_cast)
         log.debug("go.build_clavicle>>inset distance: %s"%dist_inset)
@@ -1052,13 +1056,13 @@ class go(object):
 
         #Combine and finale
         #============================================================================
-        newCurve = curves.combineCurves(l_curvesToCombine) 
-        mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_startObj.mNode,False) )
-        curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+        newCurve = SHAPES.combine(l_curvesToCombine) 
+        mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_startObj.mNode, parent=False, maintainParent=False) )
+        coreRigging.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
         mc.delete(newCurve)
 
         #>>> Color
-        curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])                    
+        coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])                    
         mi_crv.doCopyNameTagsFromObject(mi_startObj.mNode,ignore = ['cgmType'])
         mi_crv.addAttr('cgmType',attrType='string',value = 'clavicle',lock=True)	    
         mi_crv.doName()
@@ -1107,13 +1111,13 @@ class go(object):
 	                                                    extendMode='cylinder')
 
 	    mi_newCurve = returnBuffer['instance']"""
-            mi_newCurve = cgmMeta.cgmObject(curves.createControlCurve('sphere',size = self._baseModuleThickness * .75))
+            mi_newCurve = cgmMeta.cgmObject(crvUtils.create_fromName('sphere',size = self._baseModuleThickness * .75))
             mi_newCurve.doCopyNameTagsFromObject(mi_mid.mNode)
 
             SNAP.go(mi_newCurve,obj,True, True)#Snap to main object
 
             #>>> Color
-            curves.setCurveColorByName(mi_newCurve.mNode,self.l_moduleColors[0])                    
+            coreRigging.override_color(mi_newCurve.mNode,self.l_moduleColors[0])                    
             mi_newCurve.addAttr('cgmType',attrType='string',value = 'midIK',lock=True)	
             mi_newCurve.doName()
 
@@ -1149,7 +1153,7 @@ class go(object):
 
             log.debug("loli size return: %s"%d_size)
             log.debug("loli size: %s"%size)
-            i_ball = cgmMeta.cgmObject(curves.createControlCurve('sphere',size = size/4))
+            i_ball = cgmMeta.cgmObject(crvUtils.create_fromName('sphere',size = size/4))
             SNAP.go(i_ball,i_target.mNode,True, True)#Snap to main object
 
             #make ball
@@ -1168,7 +1172,7 @@ class go(object):
             log.debug("mid: %s"%midIndex)
 
             #Move the ball
-            pos = distance.returnWorldSpacePosition(l_eps[midIndex])
+            pos = POS.get(l_eps[midIndex])
             mc.xform( i_ball.mNode, translation = pos, ws = True)#Snap to the mid ep
             mc.move(0,self.f_skinOffset*3,0,i_ball.mNode,relative = True,os=True)
 
@@ -1176,10 +1180,10 @@ class go(object):
             traceCurve = mc.curve(degree = 1, ep = [pos,i_ball.getPosition()])
 
             #Combine
-            mi_newCurve = cgmMeta.cgmObject( curves.combineCurves([mi_crv.mNode,i_ball.mNode,traceCurve]) )
+            mi_newCurve = cgmMeta.cgmObject( SHAPES.combine([mi_crv.mNode,i_ball.mNode,traceCurve]) )
 
             #>>> Color
-            curves.setCurveColorByName(mi_newCurve.mNode,self.l_moduleColors[0])                    
+            coreRigging.override_color(mi_newCurve.mNode,self.l_moduleColors[0])                    
             mi_crv.addAttr('cgmType',attrType='string',value = 'loliHandle',lock=True)	
             mi_crv.doName()
 
@@ -1211,12 +1215,12 @@ class go(object):
         mc.delete(mi_loc.parent)#delete loc	    
         size = fl_size/4
         ml_curvesToCombine = []
-        mi_crvBase = cgmMeta.asMeta( curves.createControlCurve('arrowSingleFat3d',direction = 'y-',size = size,absoluteSize=False),'cgmObject',setClass=False)
+        mi_crvBase = cgmMeta.asMeta( crvUtils.create_fromName('arrowSingleFat3d',direction = 'y-',size = size,absoluteSize=False),'cgmObject',setClass=False)
         mi_crvBase.rz = 90
         #mi_crvBase.scaleZ = .75
         SNAP.go(mi_crvBase, tmplRoot.mNode) #Snap it
         
-        dist = distance.returnDistanceBetweenPoints(mi_crvBase.getPosition(),self._ml_controlObjects[-1].getPosition()) * .5
+        dist = DIST.get_distance_between_points(mi_crvBase.getPosition(),self._ml_controlObjects[-1].getPosition()) * .5
         #reload(TRANS)
         TRANS.position_set(mi_crvBase.mNode, [0,dist,0],relative= True)
         
@@ -1236,7 +1240,7 @@ class go(object):
                     log.info(d_return)
                     raise Exception("build_cog>> failed to get hit. Mesh '{0}' object probably isn't in mesh".format(self._targetMesh.mNode))
                 #log.debug("hitDict: %s"%d_return)
-                dist = distance.returnDistanceBetweenPoints(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*5)
+                dist = DIST.get_distance_between_points(mi_crvBase.getPosition(),d_return['hit'])+(self.f_skinOffset*5)
                 #log.debug("dist: %s"%dist)
                 #log.debug("crv: %s"%mi_crvBase.mNode)
                 mi_crvBase.__setattr__("tz",dist * 1.1)
@@ -1251,7 +1255,7 @@ class go(object):
     
         try:
             log.info(ml_curvesToCombine)
-            mi_crv = cgmMeta.cgmObject( curves.combineCurves([i_obj.mNode for i_obj in ml_curvesToCombine]) )
+            mi_crv = cgmMeta.cgmObject( SHAPES.combine([i_obj.mNode for i_obj in ml_curvesToCombine]) )
             
             #log.debug("mi_crv: %s"%mi_crv.mNode)
         except Exception as error:
@@ -1260,7 +1264,7 @@ class go(object):
         try:#>>Copy tags and name
             coreRigging.match_transform(mi_crv.mNode, self._ml_controlObjects[-1].mNode)
             
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])    
             
             mi_crv.doCopyNameTagsFromObject(self.l_controlSnapObjects[-1],ignore = ['cgmType'])
             mi_crv.addAttr('cgmType',attrType='string',value = 'ikCurve',lock=True)	    
@@ -1272,7 +1276,7 @@ class go(object):
         except Exception as error:
             raise Exception("Color | {0}".format(error))
         log.info("%s >> Complete Time >> %0.3f seconds " % (_str_funcName,(time.time()-time_func)) + "-"*75)         
-        #rigging.copyPivot(mi_crv.mNode, self._ml_controlObjects[-1].mNode)
+        #coreRigging.copy_pivot(mi_crv.mNode, self._ml_controlObjects[-1].mNode)
         #mi_crv.doCopyTransform(self._ml_controlObjects[-1])          
 
         try:
@@ -1293,7 +1297,7 @@ class go(object):
                                                                 extendMode='disc')
                 mi_crv = returnBuffer['instance']	    
                 #>>> Color
-                curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[1])                    
+                coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[1])                    
                 mi_crv.addAttr('cgmType',attrType='string',value = 'segIKCurve',lock=True)	
                 mi_crv.doName()
 
@@ -1307,7 +1311,7 @@ class go(object):
                     #log.info("Owner!")
                     _handleJointBuffer = mObj.owner.getMessage('handleJoint')
                     if _handleJointBuffer:
-                        rigging.copyPivot(mi_crv.mNode,_handleJointBuffer[0])		
+                        coreRigging.copy_pivot(mi_crv.mNode,_handleJointBuffer[0])		
 
 
             self.d_returnControls['segmentIK'] = l_segmentControls 
@@ -1335,7 +1339,7 @@ class go(object):
             mi_crv = returnBuffer['instance']
 
             #>>> Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])                    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])                    
             mi_crv.doCopyNameTagsFromObject(self.l_controlSnapObjects[-1],ignore = ['cgmType'])
             mi_crv.addAttr('cgmType',attrType='string',value = 'ikCurve',lock=True)	    
             mi_crv.doName()
@@ -1404,7 +1408,7 @@ class go(object):
         baseSize = d_size.get('average') * _sizeMultiplier
         log.debug("build_settings>>> baseSize: %s"%baseSize)
 
-        i_gear = cgmMeta.cgmObject(curves.createControlCurve('gear',size = baseSize,direction=_direction))	
+        i_gear = cgmMeta.cgmObject(crvUtils.create_fromName('gear',size = baseSize,direction=_direction))	
 
         #Move stuff
         SNAP.go(i_gear.mNode,mi_rootLoc.mNode,True, False)#Snap to main object
@@ -1425,7 +1429,7 @@ class go(object):
             d_return = RayCast.findMeshIntersectionFromObjectAxis(self._targetMesh,mi_rootLoc.mNode,axis = self.aimAxis,firstHit=True)		    
             if not d_return.get('hit'):
                 raise Exception("go.build_settings>>failed to get hit to measure distance")	    
-            dist_move = distance.returnDistanceBetweenPoints(mi_rootLoc.getPosition(),d_return['hit'])
+            dist_move = DIST.get_distance_between_points(mi_rootLoc.getPosition(),d_return['hit'])
             log.debug("axis cast move: %s"%dist_move)
             grp = mi_rootLoc.doGroup(True)
             mi_rootLoc.__setattr__("t%s"%self.str_jointOrientation[1],dist_move*_moveMultiplier)
@@ -1439,7 +1443,7 @@ class go(object):
         #============================================================================
         i_gear.doCopyPivot(i_target.mNode)
         #>>> Color
-        curves.setCurveColorByName(i_gear.mNode,self.l_moduleColors[0])                    
+        coreRigging.override_color(i_gear.mNode,self.l_moduleColors[0])                    
         #i_gear.doCopyNameTagsFromObject(i_target.mNode,ignore = ['cgmType'])
         i_gear.addAttr('cgmName',self.str_partName,attrType='string',lock=True)	    
         i_gear.addAttr('cgmType',attrType='string',value = 'settings',lock=True)	    
@@ -1512,7 +1516,7 @@ class go(object):
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,self.str_jointOrientation[0]+'+',pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
             raise Exception("go.build_footShape>>failed to get hit to measure first distance")
-        dist = distance.returnDistanceBetweenPoints(mi_ballLoc.getPosition(),d_return['hit']) *1.5
+        dist = DIST.get_distance_between_points(mi_ballLoc.getPosition(),d_return['hit']) *1.5
         log.debug("go.build_footShape>>front distance: %s"%dist)
 
         #Pivots
@@ -1679,7 +1683,7 @@ class go(object):
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_ballLoc.mNode,self.str_jointOrientation[0]+'+',pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
             raise Exception("go.build_footShape>>failed to get hit to measure first distance")
-        dist = distance.returnDistanceBetweenPoints(mi_ballLoc.getPosition(),d_return['hit']) *1.25
+        dist = DIST.get_distance_between_points(mi_ballLoc.getPosition(),d_return['hit']) *1.25
         log.debug("go.build_footShape>>front distance: %s"%dist)
 
         #Pivots
@@ -1803,11 +1807,11 @@ class go(object):
         #Let's collect the points of the curves
         l_pos = []
         l_basePos = []
-        ballY = distance.returnWorldSpacePosition(mi_ballLoc.mNode)[1]/2
+        ballY = POS.get(mi_ballLoc.mNode)[1]/2
         log.debug("ballY: %s"%ballY)
         for crv in [str_frontCurve,str_backCurve,str_sideCurve]:
             for ep in cgmMeta.cgmNode(crv).getComponents('ep'):
-                buffer = distance.returnWorldSpacePosition(ep)
+                buffer = POS.get(ep)
                 l_pos.append( [buffer[0],ballY,buffer[2]] )
                 l_basePos.append( [buffer[0],0,buffer[2]] )
             mc.delete(crv)
@@ -1823,12 +1827,12 @@ class go(object):
 
         #Combine and finale
         #============================================================================
-        newCrv = curves.combineCurves([topCrv,baseCrv])
+        newCrv = SHAPES.combine([topCrv,baseCrv])
         mi_crv = cgmMeta.cgmObject(newCrv)
 
         mi_crv.doCopyPivot(mi_ankle.mNode)
         #>>> Color
-        curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])                    
+        coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])                    
         mi_crv.doCopyNameTagsFromObject(mi_ankle.mNode,ignore = ['cgmType'])
         mi_crv.addAttr('cgmType',attrType='string',value = 'foot',lock=True)	    
         mi_crv.doName()
@@ -1905,7 +1909,7 @@ class go(object):
         d_return = RayCast.findFurthestPointInRangeFromObject(self._targetMesh,mi_palmLoc.mNode,axis_distanceDirectionCast,pierceDepth=self.f_skinOffset*15) or {}
         if not d_return.get('hit'):
             raise Exception("go.build_clavicle>>failed to get hit to measure first distance")
-        dist_cast = distance.returnDistanceBetweenPoints(mi_palmLoc.getPosition(),d_return['hit']) * 4
+        dist_cast = DIST.get_distance_between_points(mi_palmLoc.getPosition(),d_return['hit']) * 4
 
         #Cast our stuff
         #============================================================================
@@ -1934,13 +1938,13 @@ class go(object):
 
         #Combine and finale
         #============================================================================
-        newCurve = curves.combineCurves(l_curvesToCombine) 
-        mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_wrist.mNode,False) )
-        curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+        newCurve = SHAPES.combine(l_curvesToCombine) 
+        mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_wrist.mNode, parent=False, maintainParent=False) )
+        coreRigging.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
         mc.delete(newCurve)
 
         #>>> Color
-        curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[0])                    
+        coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[0])                    
         mi_crv.doCopyNameTagsFromObject(mi_wrist.mNode,ignore = ['cgmType'])
         mi_crv.addAttr('cgmType',attrType='string',value = 'hand',lock=True)	    
         mi_crv.doName()
@@ -2083,7 +2087,7 @@ class go(object):
                                                             axisToCheck = self.axisToCheck)
             mi_crv = returnBuffer['instance']	    
             #>>> Color
-            curves.setCurveColorByName(mi_crv.mNode,self.l_moduleColors[1])                    
+            coreRigging.override_color(mi_crv.mNode,self.l_moduleColors[1])                    
             mi_crv.addAttr('cgmType',attrType='string',value = 'segIKCurve',lock=True)	
             mi_crv.doName()
 
@@ -2092,7 +2096,7 @@ class go(object):
                 log.info("Owner!")
                 _handleJointBuffer = mObj.getMessage('handleJoint')
                 if _handleJointBuffer:
-                    rigging.copyPivot(mi_crv.mNode,_handleJointBuffer[0])
+                    coreRigging.copy_pivot(mi_crv.mNode,_handleJointBuffer[0])
 
             #Store for return
             l_segmentControls.append( mi_crv.mNode )
@@ -2214,7 +2218,7 @@ def shapeCast_eyebrow(*args,**kws):
             if not self.ml_centerRigJoints:raise Exception("Failed to find center rig joints")	    
 
             #>> calculate ------------------------------------------------------------------------
-            self.f_browLength = distance.returnCurveLength(self.mi_helper.leftBrowHelper.mNode)	    	    
+            self.f_browLength = DIST.get_arcLen(self.mi_helper.leftBrowHelper.mNode)	    	    
             self.f_baseDistance = self.f_browLength /10
             '''
 	    ml_measureJointList = self.ml_browLeftHandles
@@ -2222,10 +2226,10 @@ def shapeCast_eyebrow(*args,**kws):
 		d_return = RayCast.findMeshIntersectionFromObjectAxis(self.mi_go._targetMesh[0],ml_measureJointList[0].mNode,axis=self.str_orientation[0]+'+')
 		if d_return:
 		    pos = d_return.get('hit')			
-		    self.f_baseDistance = distance.returnDistanceBetweenPoints(pos,ml_measureJointList[0].getPosition()) * 2
+		    self.f_baseDistance = DIST.get_distance_between_points(pos,ml_measureJointList[0].getPosition()) * 2
 		if not d_return:raise Exception
 	    except:
-		self.f_baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_measureJointList]) /4 		
+		self.f_baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_measureJointList], average=True) /4 		
 	    '''
             #>> Running lists --------------------------------------------------------------------
             self.ml_handles = []
@@ -2249,10 +2253,10 @@ def shapeCast_eyebrow(*args,**kws):
 		    d_return = RayCast.findMeshIntersectionFromObjectAxis(self.mi_go._targetMesh[0],ml_jointList[0].mNode,axis=self.str_orientation[0]+'+')
 		    if d_return:
 			pos = d_return.get('hit')			
-			__baseDistance = distance.returnDistanceBetweenPoints(pos,ml_jointList[0].getPosition()) * 2
+			__baseDistance = DIST.get_distance_between_points(pos,ml_jointList[0].getPosition()) * 2
 		    if not d_return:raise Exception
 		except:
-		    __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_jointList]) /4 		
+		    __baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_jointList], average=True) /4 		
 		"""
                 int_lenMax = len(ml_jointList)    
                 for i,mObj in enumerate(ml_jointList):
@@ -2268,7 +2272,7 @@ def shapeCast_eyebrow(*args,**kws):
                         if str_direction == 'center':
                             _size = __baseDistance * 1			    
 
-                        mi_crv =  cgmMeta.asMeta(curves.createControlCurve('circle',size = _size,direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+                        mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('circle',size = _size,direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
                         SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
                         str_grp = mi_crv.doGroup()
                         if str_direction == 'right':
@@ -2280,8 +2284,8 @@ def shapeCast_eyebrow(*args,**kws):
 
                         #>>Color curve --------------------------------------------------------------------------------		    		    
                         if mObj.getAttr('isSubControl'):
-                            curves.setCurveColorByName(mi_crv.mNode,_color)  
-                        else:curves.setCurveColorByName(mi_crv.mNode,_color)  
+                            coreRigging.override_color(mi_crv.mNode,_color)  
+                        else:coreRigging.override_color(mi_crv.mNode,_color)  
                         #>>Copy tags and name		    
                         mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
                         mi_crv.doName()
@@ -2311,10 +2315,10 @@ def shapeCast_eyebrow(*args,**kws):
 		    d_return = RayCast.findMeshIntersectionFromObjectAxis(self.mi_go._targetMesh[0],ml_jointList[0].mNode,axis=self.str_orientation[0]+'+')
 		    if d_return:
 			pos = d_return.get('hit')			
-			__baseDistance = distance.returnDistanceBetweenPoints(pos,ml_jointList[0].getPosition()) * 2
+			__baseDistance = DIST.get_distance_between_points(pos,ml_jointList[0].getPosition()) * 2
 		    if not d_return:raise Exception
 		except:
-		    __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_jointList]) /4 		
+		    __baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_jointList], average=True) /4 		
 		"""
                 for mObj in ml_jointList:
                     try:
@@ -2325,7 +2329,7 @@ def shapeCast_eyebrow(*args,**kws):
                             _size = __baseDistance * 1.5
                             _color = l_colors[0]
 
-                        mi_crv =  cgmMeta.cgmObject(curves.createControlCurve('circle',size = _size,direction=self.str_orientation[0]+'+'),setClass=False)	
+                        mi_crv =  cgmMeta.cgmObject(crvUtils.create_fromName('circle',size = _size,direction=self.str_orientation[0]+'+'),setClass=False)	
                         SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
                         str_grp = mi_crv.doGroup()
                         if str_direction == 'right':
@@ -2338,8 +2342,8 @@ def shapeCast_eyebrow(*args,**kws):
 
                         #>>Color curve --------------------------------------------------------------------------------		    		    
                         if mObj.getAttr('isSubControl'):
-                            curves.setCurveColorByName(mi_crv.mNode,_color)  
-                        else:curves.setCurveColorByName(mi_crv.mNode,_color)  
+                            coreRigging.override_color(mi_crv.mNode,_color)  
+                        else:coreRigging.override_color(mi_crv.mNode,_color)  
                         #>>Copy tags and name		    
                         mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
                         mi_crv.doName()
@@ -2373,7 +2377,7 @@ def shapeCast_eyebrow(*args,**kws):
                             _size = __baseDistance * 1.1
                             _color = l_colors[0]
 
-                        mi_crv =  cgmMeta.asMeta(curves.createControlCurve('circle',size = _size,direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+                        mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('circle',size = _size,direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
                         SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
                         str_grp = mi_crv.doGroup()
                         if str_direction == 'right':
@@ -2386,8 +2390,8 @@ def shapeCast_eyebrow(*args,**kws):
 
                         #>>Color curve --------------------------------------------------------------------------------		    		    
                         if mObj.getAttr('isSubControl'):
-                            curves.setCurveColorByName(mi_crv.mNode,_color)  
-                        else:curves.setCurveColorByName(mi_crv.mNode,_color)  
+                            coreRigging.override_color(mi_crv.mNode,_color)  
+                        else:coreRigging.override_color(mi_crv.mNode,_color)  
                         #>>Copy tags and name		    
                         mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
                         mi_crv.doName()
@@ -2399,7 +2403,7 @@ def shapeCast_eyebrow(*args,**kws):
                 self.ml_handles.extend(ml_handleCrvs)	
 
         def _facePins_(self): 
-            #distance.returnCurveLength(self.mi_jawLineCrv.mNode)
+            #DIST.get_arcLen(self.mi_jawLineCrv.mNode)
             __baseDistance = self.f_browLength / 5
             log.info("%s >>> baseDistance : %s"%(self._str_reportStart,__baseDistance))
 
@@ -2423,7 +2427,7 @@ def shapeCast_eyebrow(*args,**kws):
                 for i,mObj in enumerate(ml_jointList):
                     self.progressBar_set(status = "shaping : '%s'... "%mObj.p_nameShort, progress = i, maxValue = int_lenMax)		    				    		    		    
                     try:
-                        mi_crv =  cgmMeta.asMeta(curves.createControlCurve('semiSphere',size = _size,direction=str_cast),'cgmObject',setClass=False)	
+                        mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('semiSphere',size = _size,direction=str_cast),'cgmObject',setClass=False)	
                         try:
                             d_return = RayCast.findMeshIntersectionFromObjectAxis(self.mi_go._targetMesh[0],mObj.mNode,axis=str_cast)
                             if d_return:
@@ -2437,7 +2441,7 @@ def shapeCast_eyebrow(*args,**kws):
                                 pass
                                 #mi_crv.__setattr__("r%s"%self.str_orientation[1],(mi_crv.getAttr("r%s"%self.str_orientation[1]) + 180))		
                         #>>Color curve --------------------------------------------------------------------------------		    		    
-                        curves.setCurveColorByName(mi_crv.mNode,_color) 
+                        coreRigging.override_color(mi_crv.mNode,_color) 
 
                         #>>Copy tags and name		    
                         mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2668,9 +2672,9 @@ def shapeCast_mouthNose(*args,**kws):
 
             try:#>> calculate ------------------------------------------------------------------------
                 #ml_measureJointList = [d_['smileBaseLeft'],d_['smileLeft'],d_['sneerLeft']]
-                #self.f_baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_measureJointList]) /4 		
-                #self.f_mouthWidth = distance.returnDistanceBetweenObjects(self.md_handles['lipCornerRight'].mNode,self.md_handles['lipCornerLeft'].mNode)
-                self.f_mouthWidth = distance.returnCurveLength(self.mi_helper.getMessage('mouthMidCastHelper'))                                
+                #self.f_baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_measureJointList], average=True) /4 		
+                #self.f_mouthWidth = DIST.get_distance_between_targets([self.md_handles['lipCornerRight'].mNode,self.md_handles['lipCornerLeft'].mNode])
+                self.f_mouthWidth = DIST.get_arcLen(self.mi_helper.getMessage('mouthMidCastHelper'))                                
                 self.f_baseDistance = self.f_mouthWidth / 4
             except Exception as error:raise Exception("Initial distance calculation | %s"%error)
             #>> Running lists --------------------------------------------------------------------
@@ -2700,16 +2704,16 @@ def shapeCast_mouthNose(*args,**kws):
                     str_shape = d_buffer['shape']
                     f_multi = d_buffer.get('shapeMulti') or 1
                     b_centerPivot = d_buffer.get('centerPivot') or False
-                    mi_crv =  cgmMeta.asMeta(curves.createControlCurve(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+                    mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
                     if b_centerPivot:
-                        mc.xform(mi_crv.mNode,ws = True, piv = distance.returnCenterPivotPosition(mi_crv.mNode))
+                        mc.xform(mi_crv.mNode,ws = True, piv = POS.get_bb_center(mi_crv.mNode))
                     SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
 
                     mi_crv.__setattr__("s%s"%self.str_orientation[1],.4)
                     mc.makeIdentity(mi_crv.mNode, apply=True,s=1,n=0)	
 
                     #>>Color curve --------------------------------------------------------------------------------		    		    
-                    curves.setCurveColorByName(mi_crv.mNode,l_colors[0])  
+                    coreRigging.override_color(mi_crv.mNode,l_colors[0])  
 
                     #>>Copy tags and name --------------------------------------------------------------------------------		    
                     mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2743,11 +2747,11 @@ def shapeCast_mouthNose(*args,**kws):
                     str_shape = d_buffer['shape']                    
                     b_centerPivot = d_buffer.get('centerPivot') or False
                     f_offset_up = d_buffer.get('offset_up') or 0.0
-                    #mi_crv =  cgmMeta.asMeta(curves.createControlCurve(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
-                    mi_crv =  cgmMeta.asMeta(curves.createTextCurve(str_shape,size = (_size * f_multi)),'cgmObject',setClass=False)	
+                    #mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+                    mi_crv =  cgmMeta.asMeta(crvUtils.create_text(str_shape,size = (_size * f_multi)),'cgmObject',setClass=False)	
                     
                     if b_centerPivot:
-                        mc.xform(mi_crv.mNode,ws = True, piv = distance.returnCenterPivotPosition(mi_crv.mNode))
+                        mc.xform(mi_crv.mNode,ws = True, piv = POS.get_bb_center(mi_crv.mNode))
                     SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
 
                     #mi_crv.__setattr__("s%s"%self.str_orientation[1], .2)
@@ -2756,7 +2760,7 @@ def shapeCast_mouthNose(*args,**kws):
                     mc.makeIdentity(mi_crv.mNode, apply=True,s=1,n=0)	
 
                     #>>Color curve --------------------------------------------------------------------------------		    		    
-                    curves.setCurveColorByName(mi_crv.mNode,l_colors[0])  
+                    coreRigging.override_color(mi_crv.mNode,l_colors[0])  
 
                     #>>Copy tags and name --------------------------------------------------------------------------------		    
                     mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2780,21 +2784,21 @@ def shapeCast_mouthNose(*args,**kws):
             f_multi = .4
 
             #b_centerPivot = d_buffer.get('centerPivot') or False
-            mi_crv =  cgmMeta.asMeta(curves.createControlCurve(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+            mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
             #if b_centerPivot:
-                #mc.xform(mi_crv.mNode,ws = True, piv = distance.returnCenterPivotPosition(mi_crv.mNode))
+                #mc.xform(mi_crv.mNode,ws = True, piv = POS.get_bb_center(mi_crv.mNode))
 
             SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
             pos1 = self.md_handles['lipLwrCenter'].controlShape.getPosition()
             pos2 = self.md_handles['lipUprCenter'].controlShape.getPosition()
-            pos = distance.returnAveragePointPosition([pos1,pos2])
+            pos = DIST.get_average_position([pos1,pos2])
             mc.move (pos[0],pos[1],pos[2], mi_crv.mNode)
 
             mi_crv.__setattr__("s%s"%self.str_orientation[1],.1)	    
             mc.makeIdentity(mi_crv.mNode, apply=True,s=1,n=0)	
 
             #>>Color curve --------------------------------------------------------------------------------		    		    
-            curves.setCurveColorByName(mi_crv.mNode,l_colors[0])  
+            coreRigging.override_color(mi_crv.mNode,l_colors[0])  
 
             #>>Copy tags and name --------------------------------------------------------------------------------		    
             mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2815,8 +2819,8 @@ def shapeCast_mouthNose(*args,**kws):
             mi_castLoc = self.md_handles['noseTip'].doLoc(fastMode = True)
             pos1 = self.md_handles['nostrilLeft'].getPosition()
             pos2 = self.md_handles['nostrilRight'].getPosition()
-            pos = distance.returnAveragePointPosition([pos1,pos2])
-            f_castDistance = distance.returnDistanceBetweenPoints(pos1,pos2) * 1.5
+            pos = DIST.get_average_position([pos1,pos2])
+            f_castDistance = DIST.get_distance_between_points(pos1,pos2) * 1.5
             mc.move (pos[0],pos[1],pos[2], mi_castLoc.mNode)	    
 
             str_crv = ShapeCast.createMeshSliceCurve(self.mi_go._targetMesh[0],mi_castLoc.mNode,
@@ -2828,10 +2832,10 @@ def shapeCast_mouthNose(*args,**kws):
             mi_castLoc.delete()
             #b_centerPivot = d_buffer.get('centerPivot') or False
             #if b_centerPivot:
-                #mc.xform(mi_crv.mNode,ws = True, piv = distance.returnCenterPivotPosition(mi_crv.mNode))
+                #mc.xform(mi_crv.mNode,ws = True, piv = POS.get_bb_center(mi_crv.mNode))
 
             #>>Color curve --------------------------------------------------------------------------------		    		    
-            curves.setCurveColorByName(mi_crv.mNode,l_colors[0])  
+            coreRigging.override_color(mi_crv.mNode,l_colors[0])  
 
             #>>Copy tags and name --------------------------------------------------------------------------------		    
             mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2854,9 +2858,9 @@ def shapeCast_mouthNose(*args,**kws):
             f_multi = .5
 
             #b_centerPivot = d_buffer.get('centerPivot') or False
-            mi_crv =  cgmMeta.asMeta(curves.createControlCurve(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+            mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName(str_shape,size = (_size * f_multi),direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
             #if b_centerPivot:
-                #mc.xform(mi_crv.mNode,ws = True, piv = distance.returnCenterPivotPosition(mi_crv.mNode))
+                #mc.xform(mi_crv.mNode,ws = True, piv = POS.get_bb_center(mi_crv.mNode))
 
             SNAP.go(mi_crv,mTarget.mNode,move=True,orient=True)
             SNAP.go(mi_crv,self.mi_go._targetMesh[0],snapToSurface=True)					
@@ -2866,7 +2870,7 @@ def shapeCast_mouthNose(*args,**kws):
             mc.makeIdentity(mi_crv.mNode, apply=True,s=1,n=0)	
 
             #>>Color curve --------------------------------------------------------------------------------		    		    
-            curves.setCurveColorByName(mi_crv.mNode,l_colors[0])  
+            coreRigging.override_color(mi_crv.mNode,l_colors[0])  
 
             #>>Copy tags and name --------------------------------------------------------------------------------		    
             mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2919,7 +2923,7 @@ def shapeCast_mouthNose(*args,**kws):
                     except Exception as error:
                         raise Exception("%s info fail | %s"%(i,error))
 
-                    mi_crv =  cgmMeta.asMeta(curves.createControlCurve(_shape,size = _size, direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
+                    mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName(_shape,size = _size, direction=self.str_orientation[0]+'+'),'cgmObject',setClass=False)	
                     SNAP.go(mi_crv,mObj.mNode,move=True,orient=True)
                     str_grp = mi_crv.doGroup()
                     if str_direction == 'right':
@@ -2931,7 +2935,7 @@ def shapeCast_mouthNose(*args,**kws):
                     mc.delete(str_grp)
 
                     #>>Color curve --------------------------------------------------------------------------------		    		    
-                    curves.setCurveColorByName(mi_crv.mNode,_color)
+                    coreRigging.override_color(mi_crv.mNode,_color)
 
                     #>>Copy tags and name --------------------------------------------------------------------------------		    
                     mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -2945,7 +2949,7 @@ def shapeCast_mouthNose(*args,**kws):
             self.ml_handles.extend(ml_handleCrvs)	
 
         def _facePins_(self): 
-            __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in self.ml_leftRigJoints]) /2 
+            __baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in self.ml_leftRigJoints], average=True) /2 
             log.info("%s >>> baseDistance : %s"%(self._str_reportStart,__baseDistance))
 
             d_build = {'left':{'jointList': self.ml_leftRigJoints},
@@ -2971,7 +2975,7 @@ def shapeCast_mouthNose(*args,**kws):
 
                     if mObj not in self.ml_rigCull:
                         try:
-                            mi_crv =  cgmMeta.asMeta(curves.createControlCurve('semiSphere',size = _size,direction=str_cast),'cgmObject',setClass=False)	
+                            mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('semiSphere',size = _size,direction=str_cast),'cgmObject',setClass=False)	
                             try:
                                 d_return = RayCast.findMeshIntersectionFromObjectAxis(self.mi_go._targetMesh[0],mObj.mNode,axis=str_cast)
                                 if d_return:
@@ -2985,7 +2989,7 @@ def shapeCast_mouthNose(*args,**kws):
                                     pass
                                     #mi_crv.__setattr__("r%s"%self.str_orientation[1],(mi_crv.getAttr("r%s"%self.str_orientation[1]) + 180))		
                             #>>Color curve --------------------------------------------------------------------------------		    		    
-                            curves.setCurveColorByName(mi_crv.mNode,_color) 
+                            coreRigging.override_color(mi_crv.mNode,_color) 
 
                             #>>Copy tags and name		    
                             mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
@@ -3077,16 +3081,16 @@ def shapeCast_eyeball(*args,**kws):
             #>> calculate ------------------------------------------------------------------------
             self.log_info('calculate...')
             
-            self.f_baseDistance = distance.returnDistanceBetweenObjects(self.mi_helper.mNode,
-                                                                        self.mi_helper.pupilHelper.mNode)
+            self.f_baseDistance = DIST.get_distance_between_targets([self.mi_helper.mNode,
+                                                                        self.mi_helper.pupilHelper.mNode])
             
-            #_tmpScale = distance.returnBoundingBoxSize(self.mi_irisCrv.mNode)
+            #_tmpScale = DIST.get_bb_size(self.mi_irisCrv.mNode)
             #self.f_irisSize = (_tmpScale[0]+_tmpScale[1])/2
-            self.f_irisSize = distance.returnCurveDiameter(self.mi_irisCrv.mNode) 
+            self.f_irisSize = DIST.get_arcLen(self.mi_irisCrv.mNode) / math.pi 
             
-            #_tmpScale = distance.returnBoundingBoxSize(self.mi_pupilCrv.mNode)
+            #_tmpScale = DIST.get_bb_size(self.mi_pupilCrv.mNode)
             #self.f_pupilSize = (_tmpScale[0]+_tmpScale[1])/2
-            self.f_pupilSize = distance.returnCurveDiameter(self.mi_pupilCrv.mNode)
+            self.f_pupilSize = DIST.get_arcLen(self.mi_pupilCrv.mNode) / math.pi
 
             #>> Get the iris/pupil base position
             self.log_info('baseDat...')
@@ -3097,7 +3101,7 @@ def shapeCast_eyeball(*args,**kws):
             self._baseIrisPos = mi_loc.getPosition()
             self.mi_irisPosLoc = mi_loc
 
-            #distance.returnBoundingBoxSizeToAverage(self.mi_irisCrv.mNode)
+            #DIST.get_bb_average(self.mi_irisCrv.mNode)
             #>> Running lists --------------------------------------------------------------------
             self.ml_handles = []	    
             return True
@@ -3111,7 +3115,7 @@ def shapeCast_eyeball(*args,**kws):
 
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
-                mi_tmpCrv = cgmMeta.asMeta( curves.createControlCurve('circle',
+                mi_tmpCrv = cgmMeta.asMeta( crvUtils.create_fromName('circle',
                                                                       direction = 'z+',
                                                                       size = _irisSize * .75,
                                                                       absoluteSize=False),'cgmObject',setClass=False)
@@ -3140,12 +3144,12 @@ def shapeCast_eyeball(*args,**kws):
 		l_curvesToCombine = [_str_trace,mi_crvBase.mNode]
 		'''
                 #>>>Combine the curves
-                try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
+                try:newCurve = SHAPES.combine([mObj.mNode for mObj in ml_curvesToCombine]) 
                 except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
 
-                mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_helper.mNode,False) )
+                mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_helper.mNode, parent=False, maintainParent=False) )
 
-                try:curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+                try:coreRigging.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
                 except Exception as error:raise Exception("Parent shape in place fail | error: %s"%error)
 
                 mc.delete(newCurve)
@@ -3157,7 +3161,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3174,7 +3178,7 @@ def shapeCast_eyeball(*args,**kws):
             except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
-                mi_crv = cgmMeta.asMeta( curves.createControlCurve('fatCross',
+                mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('fatCross',
                                                                       direction = 'z+',
                                                                       size = _irisSize * 1,
                                                                       absoluteSize=False),'cgmObject',
@@ -3193,7 +3197,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3212,7 +3216,7 @@ def shapeCast_eyeball(*args,**kws):
             except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================		
-                mi_crv = cgmMeta.asMeta( curves.createControlCurve('gear',
+                mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('gear',
                                                                    direction = 'z+',
                                                                    size = _irisSize*.5,
                                                                    absoluteSize=False),'cgmObject',setClass=False)
@@ -3230,7 +3234,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3243,19 +3247,19 @@ def shapeCast_eyeball(*args,**kws):
             try:#query ===========================================================
                 mi_helper = self.mi_helper
                 f_baseDistance = self.f_baseDistance  
-                f_size = distance.returnBoundingBoxSizeToAverage(mi_helper.irisHelper.mNode)
+                f_size = DIST.get_bb_average(mi_helper.irisHelper.mNode)
             except Exception as error: raise Exception("!Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
                 '''
-		f_castDistance = distance.returnBoundingBoxSizeToAverage(mi_helper.mNode)
+		f_castDistance = DIST.get_bb_average(mi_helper.mNode)
 		str_crv = ShapeCast.createMeshSliceCurve(self.mi_go._targetMesh[0],mi_helper.mNode,
 		                                          rotateBank = 30,curveDegree=3,posOffset = [0,0,self.mi_go.f_skinOffset/2],
 		                                          maxDistance=f_castDistance,
 		                                          points=8,returnDict = False,latheAxis=self.str_orientation[0],
 		                                          aimAxis=self.str_orientation[0]+'+')
 		mi_crv =  cgmMeta.cgmObject(str_crv,setClass=False)'''	
-                #mi_crv =  cgmMeta.cgmObject(curves.createControlCurve('squareRounded',size = f_size * .5,direction=self.str_orientation[0]+'+'),setClass=False)	
+                #mi_crv =  cgmMeta.cgmObject(crvUtils.create_fromName('squareRounded',size = f_size * .5,direction=self.str_orientation[0]+'+'),setClass=False)	
 
                 mi_loc = mi_helper.doLoc(fastMode = True)
                 mi_tmpGroup = cgmMeta.cgmObject( mi_loc.doGroup())
@@ -3268,16 +3272,16 @@ def shapeCast_eyeball(*args,**kws):
 
                 #>>>Combine the curves
                 '''
-		try:newCurve = curves.combineCurves(l_curvesToCombine) 
+		try:newCurve = SHAPES.combine(l_curvesToCombine) 
 		except Exception,error:raise Exception,"!Failed to combine]{%s}"%error
 		'''
-                mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_helper.mNode,False) )
+                mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_helper.mNode, parent=False, maintainParent=False) )
                 '''
 		if mi_helper.getEnumValueString('direction') == 'right':#mirror control setup
 		    self.log_info("mirroring EyeMove")
 		    mi_crv.__setattr__("r%s"%self.str_orientation[2],180)'''
 
-                try:curves.parentShapeInPlace(mi_crv.mNode,_str_trace)#Parent shape
+                try:coreRigging.shapeParent_in_place(mi_crv.mNode,_str_trace)#Parent shape
                 except Exception as error:raise Exception("Parent shape in place fail | %s"%error)
 
                 mc.delete(_str_trace,mi_tmpGroup.mNode)		
@@ -3290,7 +3294,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][1]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3311,7 +3315,7 @@ def shapeCast_eyeball(*args,**kws):
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
                 try:
-                    mi_tmpCrv = cgmMeta.asMeta( curves.createControlCurve('circle',
+                    mi_tmpCrv = cgmMeta.asMeta( crvUtils.create_fromName('circle',
                                                                           direction = 'z+',
                                                                           size = _irisSize,
                                                                           absoluteSize=False),'cgmObject',setClass=False)
@@ -3334,7 +3338,7 @@ def shapeCast_eyeball(*args,**kws):
                 except Exception as error: raise Exception("Move | {0}".format(error))
                 
                 #>>>Combine the curves
-                try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
+                try:newCurve = SHAPES.combine([mObj.mNode for mObj in ml_curvesToCombine]) 
                 except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
                 try:
                     mi_crv = cgmMeta.cgmObject(newCurve)
@@ -3348,7 +3352,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3368,7 +3372,7 @@ def shapeCast_eyeball(*args,**kws):
 
             try:#Curve creation ===========================================================
                 ml_curvesToCombine = []
-                mi_tmpCrv = cgmMeta.asMeta( curves.createControlCurve('circle',
+                mi_tmpCrv = cgmMeta.asMeta( crvUtils.create_fromName('circle',
                                                                       direction = 'z+',
                                                                       size = _pupilSize,
                                                                       absoluteSize=False),'cgmObject',setClass=False)
@@ -3386,12 +3390,12 @@ def shapeCast_eyeball(*args,**kws):
                 mi_tmpGroup.delete()
 
                 #>>>Combine the curves
-                try:newCurve = curves.combineCurves([mObj.mNode for mObj in ml_curvesToCombine]) 
+                try:newCurve = SHAPES.combine([mObj.mNode for mObj in ml_curvesToCombine]) 
                 except Exception as error:raise Exception("!Failed to combine]{%s}"%error)
 
-                #mi_crv = cgmMeta.cgmObject( rigging.groupMeObject(mi_pupilCrv.mNode,False) )
+                #mi_crv = cgmMeta.cgmObject( TRANS.group_me(mi_pupilCrv.mNode, parent=False, maintainParent=False) )
 
-                #try:curves.parentShapeInPlace(mi_crv.mNode,newCurve)#Parent shape
+                #try:coreRigging.shapeParent_in_place(mi_crv.mNode,newCurve)#Parent shape
                 #except Exception,error:raise Exception,"Parent shape in place fail | error: %s"%error
 
                 #mc.delete(newCurve)
@@ -3404,7 +3408,7 @@ def shapeCast_eyeball(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                curves.setCurveColorByName(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
+                coreRigging.override_color(mi_crv.mNode,self.d_colors[self.str_direction][0]) 
             except Exception as error: raise Exception("!Tag,name,color]{%s}"%error)
 
             try:#connect ===========================================================
@@ -3444,7 +3448,7 @@ def shapeCast_eyelids(*args,**kws):
             log.info("%s >>> ml_uprLidHandles : %s "%(_str_funcName,[mObj.mNode for mObj in ml_uprLidHandles]))	
             log.info("%s >>> ml_lwrLidHandles : %s"%(_str_funcName,[mObj.mNode for mObj in ml_lwrLidHandles]))		
 
-            __baseDistance = distance.returnAverageDistanceBetweenObjects([mObj.mNode for mObj in ml_uprLidHandles]) /2 
+            __baseDistance = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_uprLidHandles], average=True) /2 
             log.info("%s >>> baseDistance : %s"%(_str_funcName,__baseDistance))	
             '''
             '''
@@ -3471,10 +3475,10 @@ def shapeCast_eyelids(*args,**kws):
             except Exception as error:raise Exception("Missing lwrlid handleJoints | %s "%(error))  
 
             #>> calculate ------------------------------------------------------------------------
-            #self.f_baseDistance = distance.returnCurveLength(self.mi_helper.lwrLidHelper.mNode) /4
-            #_tmpScale = distance.returnBoundingBoxSize(self.mi_helper.pupilHelper.mNode)
+            #self.f_baseDistance = DIST.get_arcLen(self.mi_helper.lwrLidHelper.mNode) /4
+            #_tmpScale = DIST.get_bb_size(self.mi_helper.pupilHelper.mNode)
             #self.f_baseDistance = (_tmpScale[0]+_tmpScale[1])/3
-            self.f_baseDistance = ( distance.returnCurveDiameter(self.mi_helper.pupilHelper.mNode))/1
+            self.f_baseDistance = ( DIST.get_arcLen(self.mi_helper.pupilHelper.mNode) / math.pi)/1
 
         def _buildShapes_(self):
             #query ===========================================================
@@ -3491,7 +3495,7 @@ def shapeCast_eyelids(*args,**kws):
                     if mObj.getAttr('isSubControl') or mObj in [ml_uprLidHandles[0],ml_uprLidHandles[-1]]:
                         _size = __baseDistance * .6
                     else:_size = __baseDistance
-                    mi_crv =  cgmMeta.asMeta(curves.createControlCurve('circle',size = _size,direction=mi_go.str_jointOrientation[0]+'+'),'cgmObject',setClass=False)	
+                    mi_crv =  cgmMeta.asMeta(crvUtils.create_fromName('circle',size = _size,direction=mi_go.str_jointOrientation[0]+'+'),'cgmObject',setClass=False)	
                     SNAP.go(mi_crv,mObj.mNode)
                     str_grp = mi_crv.doGroup()
                     mi_crv.__setattr__("t%s"%mi_go.str_jointOrientation[0],__baseDistance*2)
@@ -3500,8 +3504,8 @@ def shapeCast_eyelids(*args,**kws):
 
                     #>>Color curve		    		    
                     if mObj.getAttr('isSubControl'):
-                        curves.setCurveColorByName(mi_crv.mNode,mi_go.l_moduleColors[1])  
-                    else:curves.setCurveColorByName(mi_crv.mNode,mi_go.l_moduleColors[0])  
+                        coreRigging.override_color(mi_crv.mNode,mi_go.l_moduleColors[1])  
+                    else:coreRigging.override_color(mi_crv.mNode,mi_go.l_moduleColors[0])  
                     #>>Copy tags and name		    
                     mi_crv.doCopyNameTagsFromObject(mObj.mNode,ignore = ['cgmType'])
                     mi_crv.doName()
@@ -3548,7 +3552,7 @@ def shapeCast_eyeLook(*args,**kws):
             self.mi_parentModule = self.mi_module.moduleParent
 
             #>> calculate ------------------------------------------------------------------------
-            self.f_baseDistance = distance.returnDistanceBetweenObjects(self.mi_helper.mNode, self.mi_helper.pupilHelper.mNode) 
+            self.f_baseDistance = DIST.get_distance_between_targets([self.mi_helper.mNode, self.mi_helper.pupilHelper.mNode]) 
 
 
         def _buildShapes_(self):
@@ -3560,7 +3564,7 @@ def shapeCast_eyeLook(*args,**kws):
             except Exception as error: raise Exception("[Query]{%s}"%error)
 
             try:#Curve creation ===========================================================
-                mi_crv = cgmMeta.asMeta( curves.createControlCurve('arrow4Fat',
+                mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('arrow4Fat',
                                                                    direction = 'z+',
                                                                    size = __baseDistance * 1.5,
                                                                    absoluteSize=False),'cgmObject',setClass=False)	    
@@ -3581,8 +3585,8 @@ def shapeCast_eyeLook(*args,**kws):
                 mi_crv.doName()          	    
 
                 #Color
-                l_color = modules.returnSettingsData('colorCenter',True)
-                curves.setCurveColorByName(mi_crv.mNode,l_color[0])    
+                l_color = metaUtils.getSettingsColors('center')
+                coreRigging.override_color(mi_crv.mNode,l_color[0])    
 
             except Exception as error: raise Exception("[Connect]{%s}"%error)
 
@@ -3601,8 +3605,8 @@ def build_eyeLook(self):
     time_func = time.time() 		
     try:#we need to find an eye module/head module
         mi_helper = self._mi_module.helper
-        _baseDistance = distance.returnDistanceBetweenObjects(mi_helper.mNode, mi_helper.pupilHelper.mNode)	    	    
-        mi_crv = cgmMeta.asMeta( curves.createControlCurve('arrow4Fat',
+        _baseDistance = DIST.get_distance_between_targets([mi_helper.mNode, mi_helper.pupilHelper.mNode])	    	    
+        mi_crv = cgmMeta.asMeta( crvUtils.create_fromName('arrow4Fat',
                                                            direction = 'z+',
                                                            size = _baseDistance * 1.5,
                                                            absoluteSize=False),'cgmObject',setClass=False)	    
@@ -3627,8 +3631,8 @@ def build_eyeLook(self):
         mi_crv.doName()          	    
 
         #Color
-        l_color = modules.returnSettingsData('colorCenter',True)
-        curves.setCurveColorByName(mi_crv.mNode,l_color[0])    
+        l_color = metaUtils.getSettingsColors('center')
+        coreRigging.override_color(mi_crv.mNode,l_color[0])    
         self.d_returnControls['eyeLook'] = mi_crv.mNode
         self.md_ReturnControls['eyeLook'] = mi_crv
         self._mi_rigNull.connectChildNode(mi_crv,'shape_eyeLook','owner')

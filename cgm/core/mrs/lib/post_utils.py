@@ -41,6 +41,7 @@ from cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.snap_utils as SNAP
+import cgm.core.lib.node_utils as NODES
 
 """
 from cgm.core.rigger import ModuleShapeCaster as mShapeCast
@@ -349,9 +350,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
     mSettings.maxRadius = 2
     
     if setupCycle:
-        import cgm
-        cgmGEN._reloadMod(cgm.lib.nodes)
-        cgm.lib.nodes.offsetCycleSpeedControlNodeSetup (mDeformer.mNode,(_settings+'.speed'),cycleLength,cycleOffset)
+        NODES.setup_offset_cycle_speed(mDeformer.mNode, (_settings+'.speed'), cycleLength, cycleOffset)
     
     pprint.pprint(vars())
     

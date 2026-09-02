@@ -26,8 +26,6 @@ import maya.mel as mel
 
 import Red9
 
-#from cgm.lib.zoo.zooPyMaya import xferAnimUI
-
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
@@ -1282,29 +1280,6 @@ def uiSection_animUtils(parent):
                 c=lambda *a:Red9.start())
     
     
-    mc.menuItem(parent = parent,
-                l='zoo.XferAnim',
-                ann = "Tool for transferring animation - from Hamish McKenzie's zooToolbox",
-                c=lambda *a:xferAnimUI.XferAnimWindow()) 
-    mc.menuItem(parent = parent,
-                l='zoo.Keymaster',
-                ann = "from Hamish McKenzie's zooToolbox - keymaster gives you a heap of tools to manipulate keyframes - scaling around curve pivots, min/max scaling of curves/keys etc...",
-                c=lambda *a: mel.eval('source zooKeymaster; zooKeymasterWin;'))    
-
-def uiSection_layout(parent):
-    _str_func = 'uiSection_layout'  
-    
-    mc.menuItem(parent = parent,
-                l='zoo.Shots',
-                ann = "from Hamish McKenzie's zooToolbox -  zooShots is a camera management tool.  It lets you create a bunch of cameras in your scene, and 'edit' them together in time.  The master camera then cuts between each 'shot' camera.  All camera attributes are maintained over the cut - focal length, clipping planes, fstop etc...",
-                c=lambda *a: mel.eval('zooShots'))
-    mc.menuItem(parent = parent,
-            l='zoo.HUDCtrl',
-            ann = "from Hamish McKenzie's zooToolbox -  zooHUDCtrl lets you easily add stuff to your viewport HUD.",
-            c=lambda *a: mel.eval('zooHUDCtrl'))
-
-
-
 def uiSection_mrsAnim(parent):
     _str_func = 'uiSection_layout'  
     
@@ -1636,17 +1611,11 @@ def uiSection_hotkeys(parent):
                     c=cgmGEN.Callback(HKEY.cgmHotkeyer, 'cgmMM_tool',  'cgmMarkingMenu;', 'cgmMarkingMenuKillUI;','Marking menu for working with rigging tools', 'mel','s'))          
     
     mc.menuItem(parent = parent,
-                l='zoo.Tangent Works',
-                ann = "zooTangentWks is a marking menu script that provides super fast access to common tangent based operations.  Tangent tightening, sharpening, change tangent types, changing default tangents etc...",
-                c=cgmGEN.Callback(HKEY.cgmHotkeyer, 'zooTangentWks',  'zooTangentWks;', 'zooTangentWksKillUI;','tangent works is a marking menu script to speed up working with the graph editor','mel','q'))    
-
-    mc.menuItem(parent = parent,
                 l='Reset ALL hotkeys',
                 ann = "Reset ALL hotkeys back to maya default",
                 c=cgmGEN.Callback(HKEY.hotkeys_resetAll))     
     
 
-from cgm.lib import optionVars
 #from cgm.core.lib.wing import mayaWingServer as mWingServer
 #cgmGEN._reloadMod(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
@@ -1734,7 +1703,7 @@ def uiSection_dev(parent):
     mc.menuItem(parent = parent,
                 l='Purge Option Vars',
                 ann = "Purge all cgm option vars. Warning will break any open tools",
-                c=lambda *a: optionVars.purgeCGM())    
+                c=lambda *a: cgmUI.purgeCGM())    
     
     #...------------------------------------------------------------------
     _wipTools = mc.menuItem(parent = parent,subMenu = True,tearOff = True,

@@ -109,7 +109,9 @@ def mocapBakeTool():
         
 def cgmUpdateTool():
     try:
+        import cgmUpdate
         import cgm.core.tools.updateTool as CGMUPDATE
+        cgmGEN._reloadMod(cgmUpdate)
         cgmGEN._reloadMod(CGMUPDATE)
         CGMUPDATE.ui()
     except Exception as err:
@@ -341,16 +343,6 @@ def cgmProject():
     #    log.warning("[cgmProject] failed to load. | {0}".format(err))
     #    raise Exception,err
 
-def loadPuppetBox( *a ):
-    from cgm.tools import puppetBox
-    cgmGEN._reloadMod(puppetBox)
-    cgmPuppetBoxWin = puppetBox.run()
-
-def loadPuppetBox2( *a ):
-    from cgm.tools import puppetBox2
-    cgmGEN._reloadMod(puppetBox2)
-    cgmPuppetBoxWin = puppetBox2.run()	
-
 def loadCGMSimpleGUI( *a ):
     try:
         
@@ -372,48 +364,3 @@ def testMorpheus( *a ):
     cgmGEN._reloadMod(testCGM)
     testCGM.MorpheusBase_Test()
 
-
-#Zoo stuff =====================================================================
-def loadZooToolbox( *a ):
-    import zooToolbox
-    zooToolbox.ToolboxWindow()
-
-def loadSkinPropagation( *a ):
-    from cgm.lib.zoo.zooPyMaya import refPropagation
-    refPropagation.propagateWeightChangesToModel_confirm()
-
-def loadXferAnim( *a ):
-    from cgm.lib.zoo.zooPyMaya import xferAnimUI
-    xferAnimUI.XferAnimWindow()
-    
-    
-
-#>>Legacy Tools =======================================================================================
-def attrToolsLEGACY( *a ):
-    from cgm.tools import attrTools as attrTools1
-    cgmGEN._reloadMod(attrTools1)
-    cgmAttrToolsWin = attrTools1.run()
-    
-def animToolsLEGACY( *a ):
-    from cgm.tools import animTools
-    cgmGEN._reloadMod(animTools)
-    cgmAnimToolsWin = animTools.run()
-
-def setToolsLEGACY( *a ):
-    from cgm.tools import setTools
-    cgmGEN._reloadMod(setTools)
-    cgmSetToolsWin = setTools.run()	
-    
-    
-def locinatorLEGACY( *a ):
-    from cgm.tools import locinator
-    cgmGEN._reloadMod(locinator)
-    locinator.run()
-    
-def tdToolsLEGACY( *a ):
-    import maya.cmds as mc
-    import maya.mel as mel
-    mel.eval('python("import maya.cmds as mc;")')
-    from cgm.tools import tdTools
-    cgmGEN._reloadMod(tdTools)
-    tdTools.run()

@@ -60,15 +60,9 @@ import cgm.core.lib.skinDat as SKINDAT
 import cgm.core.tools.lib.tool_chunks as UICHUNKS
 import cgm.core.tools.lib.tool_calls as LOADTOOL
 import cgm.core.tools.snapTools as SNAPTOOLS
-from cgm.lib.ml import (ml_breakdownDragger,
-                        ml_resetChannels,
-                        ml_deleteKey,
-                        ml_setKey,
-                        ml_hold,
-                        ml_stopwatch,
-                        ml_arcTracer,
-                        ml_convertRotationOrder,
-                        ml_copyAnim)
+from cgm.core.lib.ml_tools import (ml_hold,
+                                   ml_arcTracer,
+                                   ml_copyAnim)
 
 __version__ = cgmGEN.__RELEASESTRING
 
@@ -409,15 +403,13 @@ class ui(cgmUI.cgmGUI):
         uiTab_td = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')
         uiTab_anim = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')        
         uiTab_options = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
-        uiTab_legacy = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
 
-        for i,tab in enumerate(['TD','Anim','Settings','Legacy']):
+        for i,tab in enumerate(['TD','Anim','Settings']):
             ui_tabs.setLabel(i,tab)
 
         buildTab_td(self,uiTab_td)
         buildTab_anim(self,uiTab_anim)
         buildTab_options(self,uiTab_options)
-        buildTab_legacy(self,uiTab_legacy)
 
         #self.buildTab_create(uiTab_create)
         #self.buildTab_update(uiTab_update)
@@ -1582,43 +1574,6 @@ def buildTab_anim(self,parent):
               l='red9.Studio Tools',
               ann = "Launch Red 9's tools",
               c=lambda *a:Red9.start())           
-
-
-def buildTab_legacy(self,parent):
-    _column = mUI.MelScrollLayout(parent,useTemplate = 'cgmUITemplate') 
-    parent(edit = True,
-           af = [(_column,"top",0),
-                 (_column,"left",0),
-                 (_column,"right",0),                        
-                 (_column,"bottom",0)])    
-
-    #>>>Shape Creation ====================================================================================
-    mc.setParent(_column)
-
-    cgmUI.add_Button(_column,
-                     'AnimTools',
-                     lambda a:LOADTOOL.animToolsLEGACY(),
-                     "Old simple anim tool holder")
-
-    cgmUI.add_Button(_column,
-                     'SetTools 1.0',
-                     lambda a:LOADTOOL.setToolsLEGACY(),
-                     "Old object set tool window. Crashy. Use with caution")        
-
-    cgmUI.add_Button(_column,
-                     'Locinator 1.0',
-                     lambda a:LOADTOOL.locinatorLEGACY(),
-                     "Original Tool for creating, updating, locators")
-
-    cgmUI.add_Button(_column,
-                     'tdTools 1.0',
-                     lambda a:LOADTOOL.tdToolsLEGACY(),
-                     "Series of tools for general purpose TD work - curves, naming, position, deformers") 
-
-    cgmUI.add_Button(_column,
-                     'attrTools 1.0',
-                     lambda a:LOADTOOL.attrToolsLEGACY(),
-                     "Old attribute tools")
 
 
 def buildTab_options(self,parent):

@@ -33,17 +33,8 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 # From cgm ==============================================================
 from cgm.core import cgm_Meta as cgmMeta
-from cgm.lib import (lists,
-					 search,
-					 curves,#tmp
-					 modules,#tmp
-					 distance,#tmp
-					 controlBuilder,
-					 attributes,
-					 dictionary,
-					 rigging,
-					 settings,
-					 guiFactory)
+from cgm.core.lib import attribute_utils as ATTR
+from cgm.core.lib import shared_data as SHARED
 
 
 class go(object):
@@ -174,14 +165,14 @@ class  OLDSTUFF():
 			self.optionUpAxis.set(i)  
 		else:
 			self.optionUpAxis.set(axisBuffer[0]) 
-			guiFactory.warning("Aim axis has '%s'. Changed up axis to '%s'. Change aim setting if you want this seeting"%(dictionary.axisDirectionsByString[self.optionAimAxis.get()],dictionary.axisDirectionsByString[self.optionUpAxis.get()]))                  
+			mc.warning("Aim axis has '%s'. Changed up axis to '%s'. Change aim setting if you want this seeting"%(SHARED._l_axis_by_string[self.optionAimAxis.get()],SHARED._l_axis_by_string[self.optionUpAxis.get()]))                  
 			axisBuffer.remove(axisBuffer[0])
 
 		if self.optionOutAxis.get() in [self.optionAimAxis.get(),self.optionUpAxis.get()]:
 			for i in axisBuffer:
 				if i not in [self.optionAimAxis.get(),self.optionUpAxis.get()]:
 					self.doSetOutAxis(i)
-					guiFactory.warning("Setting conflict. Changed out axis to '%s'"%dictionary.axisDirectionsByString[i])                    
+					mc.warning("Setting conflict. Changed out axis to '%s'"%SHARED._l_axis_by_string[i])                    
 					break
 		return True        
 
@@ -196,14 +187,14 @@ class  OLDSTUFF():
 			axisBuffer.remove(self.optionAimAxis.get())
 			axisBuffer.remove(self.optionUpAxis.get())
 			self.optionOutAxis.set(axisBuffer[0]) 
-			guiFactory.warning("Setting conflict. Changed out axis to '%s'"%dictionary.axisDirectionsByString[ axisBuffer[0] ])                    
+			mc.warning("Setting conflict. Changed out axis to '%s'"%SHARED._l_axis_by_string[ axisBuffer[0] ])                    
 
 	#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	# RotateOrder
 	#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>     
 	def verifyRotateOrderControl(self):
 		assert self.transform,"'%s' has no transform"%self.nameShort	
-		initialValue = attributes.doGetAttr(self.nameLong,'rotateOrder')
+		initialValue = ATTR.get(self.nameLong,'rotateOrder')
 		try:
 			self.RotateOrderControl = AttrFactory(self,'setRO','enum',enum = 'xyz:yzx:zxy:xzy:yxz:zyx',initialValue=initialValue) 
 		except:

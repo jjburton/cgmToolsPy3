@@ -39,19 +39,6 @@ from cgm.core.lib import attribute_utils as ATTR
 
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.list_utils as LISTS
-from cgm.lib import (distance,
-                     #locators,
-                     attributes,
-                     curves,
-                     deformers,
-                     lists,
-                     rigging,
-                     skinning,
-                     dictionary,
-                     search,
-                     nodes,
-                     joints,
-                     cgmMath)
 
 #>>> Utilities
 #===================================================================    
@@ -1405,7 +1392,7 @@ def getUSplitList(curve=None, points=3, markPoints=False,
                 mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
             if len(ml_built)>1:
-                try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+                try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
                 except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                 try:
                     for o in ml_built:
@@ -1592,7 +1579,7 @@ def returnSplitCurveList(*args, **kws):
                         mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
                     if len(ml_built)>1:
-                        try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+                        try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
                         except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                         try:
                             for o in ml_built:
@@ -1708,7 +1695,7 @@ def returnSplitCurveList(curve = None,points = 3, markPoints = False, startSplit
 		    log.debug("%s >> created : %s | at: %s"%(_str_funcName,ml_built[-1].p_nameShort,pos))              											
 		    mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
-		try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+		try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
 		except StandardError,error:raise StandardError,"Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error)
 		try:
 		    for o in ml_built:
@@ -1734,7 +1721,7 @@ def attachObjToCurve(obj = None, crv = None):
     try:
 	obj = cgmValid.objString(obj,isTransform=True)
 	crv = cgmValid.objString(crv,mayaType='nurbsCurve')	
-	d_returnBuff = distance.returnNearestPointOnCurveInfo(obj,crv)
+	d_returnBuff = DIST.get_closest_point_data(targetSurface=crv, targetObj=obj)
 	mi_poci = cgmMeta.cgmNode(nodeType = 'pointOnCurveInfo')
 	mc.connectAttr("%s.worldSpace"%d_returnBuff['shape'],"%s.inputCurve"%mi_poci.mNode)
 	mi_poci.parameter = d_returnBuff['parameter']
@@ -1756,7 +1743,7 @@ def attachObjToCurve(obj = None, crv = None):
 
     obj = cgmValid.objString(obj,isTransform=True)
     crv = cgmValid.objString(crv,mayaType='nurbsCurve')	
-    d_returnBuff = distance.returnNearestPointOnCurveInfo(obj,crv)
+    d_returnBuff = DIST.get_closest_point_data(targetSurface=crv, targetObj=obj)
     mi_poci = cgmMeta.cgmNode(nodeType = 'pointOnCurveInfo')
     mc.connectAttr("%s.worldSpace"%d_returnBuff['shape'],"%s.inputCurve"%mi_poci.mNode)
     mi_poci.parameter = d_returnBuff['parameter']
@@ -1941,7 +1928,7 @@ def convertCurve(*args, **kws):
                 l_pos = []
                 for cv in mi_crv.getComponents('cv'):
                     locatorName = CORERIG.simpleLoc(cv)
-                    pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
+                    pos = DIST.get_closest_point(locatorName, mi_crv.mNode)[0]
                     mc.delete(locatorName)
                     l_pos.append( pos )	
                 if not self.b_keepOriginal:mi_crv.delete()
@@ -2044,7 +2031,7 @@ def mirrorCurve(*args, **kws):
 
                     #l_newCurvePos = l_epPos + l_otherSide
                     l_newCurvePos = l_otherSide
-                    l_newCurvePos = lists.returnListNoDuplicates(l_newCurvePos)
+                    l_newCurvePos = LISTS.get_noDuplicates(l_newCurvePos)
 
                     self.mi_created = cgmMeta.cgmObject( mc.curve(d=2,p=l_newCurvePos,os = True) )
                     self.mi_created.rename( mi_base.p_nameBase + '_mirrored')
@@ -2091,7 +2078,7 @@ def mirrorCurve(*args, **kws):
 
             #> First see our push direction ----------------------------------------------------------
             try:
-                if cgmMath.isFloatEquivalent( d_return['f_bbMax'], d_return['f_bbMin']):
+                if MATH.is_float_equivalent( d_return['f_bbMax'], d_return['f_bbMin']):
                     d_return['b_balanced'] = 1
 
                 if d_return['f_bbMax'] > d_return['f_bbMin']:
@@ -2129,7 +2116,7 @@ def mirrorCurve(*args, **kws):
                         l_cvPos.append( mc.pointPosition(cv,w=True) )	 
                         #Get an ep value
                         locatorName = CORERIG.simpleLoc(cv)
-                        pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
+                        pos = DIST.get_closest_point(locatorName, mi_crv.mNode)[0]
                         mc.delete(locatorName)
                         l_epPos.append( pos )	 
 

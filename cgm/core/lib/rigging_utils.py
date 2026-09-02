@@ -29,9 +29,6 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as VALID
 
-from cgm.lib import search
-from cgm.lib import rigging
-from cgm.lib import locators #....CANNOT IMPORT LOCATORS - loop
 from cgm.core.lib import attribute_utils as ATTR
 #reload(ATTR)
 from cgm.core.lib import name_utils as coreNames
@@ -45,8 +42,8 @@ import cgm.core.lib.geo_Utils as GEO
 import cgm.core.lib.name_utils as NAMES
 import cgm.core.lib.position_utils as POS
 import cgm.core.lib.math_utils as COREMATH
+import cgm.core.lib.distance_utils as DIST
 #reload(COREMATH)
-#NO DIST
 
 #>>> Utilities
 #===================================================================
@@ -1681,7 +1678,7 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
         if __matchMode__ == 'value':
             if __drivenMode__ == 'attr':
                 log.debug("matchValue_iterator>>> Step : %s | min: %s | max: %s | baseValue: %s | current: %s"%(i,minValue,maxValue,f_baseValue,mPlug_driven.value))  					
-                if cgmMath.isFloatEquivalent(mPlug_driven.value,matchValue,3):
+                if COREMATH.is_float_equivalent(mPlug_driven.value,matchValue,3):
                     log.debug("matchValue_iterator>>> Match found: %s == %s | %s: %s | step: %s"%(mPlug_driven.p_combinedShortName,matchValue,mPlug_driver.p_combinedShortName,minValue,i))  			    
                     b_matchFound = minValue
                     break
@@ -1698,7 +1695,7 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
                 if f_minSetValue > matchValue or f_maxSetValue < matchValue:
                     log.error("Bad range, alternate range find. minSetValue = %s > %s < maxSetValue = %s"%(f_minSetValue,matchValue,f_maxSetValue))
 
-                if not cgmMath.isFloatEquivalent(matchValue,0) and not cgmMath.isFloatEquivalent(minValue,0) and not cgmMath.isFloatEquivalent(f_minSetValue,0):
+                if not COREMATH.is_float_equivalent(matchValue,0) and not COREMATH.is_float_equivalent(minValue,0) and not COREMATH.is_float_equivalent(f_minSetValue,0):
                     #if none of our values are 0, this is really fast
                     minValue = (minValue * matchValue)/f_minSetValue
                     log.debug("matchValue_iterator>>> Equated: %s"%minValue)		    
@@ -1732,7 +1729,7 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
 		f_half = ((maxValue-minValue)/2.0) + minValue#get half	
 
 		#First find range
-		if not cgmMath.isFloatEquivalent(matchValue,0) and not cgmMath.isFloatEquivalent(minValue,0) and not cgmMath.isFloatEquivalent(f_minSetValue,0):
+		if not COREMATH.is_float_equivalent(matchValue,0) and not COREMATH.is_float_equivalent(minValue,0) and not COREMATH.is_float_equivalent(f_minSetValue,0):
 		    #if none of our values are 0, this is really fast
 		    minValue = (minValue * matchValue)/f_minSetValue
 		    log.debug("matchValue_iterator>>> Equated: %s"%minValue)		    
@@ -1791,19 +1788,19 @@ def matchValue_iterator(matchObj = None, matchAttr = None, drivenObj = None, dri
             pos_match = mc.xform(mi_matchObj.mNode, q=True, ws=True, rp=True)
             pos_driven = mc.xform(mi_drivenObj.mNode, q=True, ws=True, rp=True)
             log.debug("matchValue_iterator>>> min: %s | max: %s | pos_match: %s | pos_driven: %s"%(minValue,maxValue,pos_match,pos_driven))  						    
-            if cgmMath.isVectorEquivalent(pos_match,pos_driven,2):
+            if COREMATH.is_vector_equivalent(pos_match,pos_driven,2):
                 log.debug("matchValue_iterator>>> Match found: %s <<pos>> %s | %s: %s | step: %s"%(mi_matchObj.getShortName(),mi_drivenObj.getShortName(),mPlug_driver.p_combinedShortName,minValue,i))  			    
                 b_matchFound = mPlug_driver.value
                 break
 
             mPlug_driver.value = minValue#Set to min
             pos_min = mc.xform(mi_drivenObj.mNode, q=True, ws=True, rp=True)
-            #f_minDist = cgmMath.mag( cgmMath.list_subtract(pos_match,pos_min))#get Dif
-            f_minDist = distance.returnDistanceBetweenObjects(mi_drivenObj.mNode,mi_matchObj.mNode)
+            #f_minDist = COREMATH.mag( COREMATH.list_subtract(pos_match,pos_min))#get Dif
+            f_minDist = DIST.get_distance_between_targets([mi_drivenObj.mNode,mi_matchObj.mNode])
 
             mPlug_driver.value = maxValue#Set to max
             pos_max = mc.xform(mi_drivenObj.mNode, q=True, ws=True, rp=True)
-            f_maxDist = distance.returnDistanceBetweenObjects(mi_drivenObj.mNode,mi_matchObj.mNode)
+            f_maxDist = DIST.get_distance_between_targets([mi_drivenObj.mNode,mi_matchObj.mNode])
             f_half = ((maxValue-minValue)/2.0) + minValue#get half	
 
             if f_minDist>f_maxDist:#if min dif greater, use half as new min

@@ -32,9 +32,8 @@ from cgm.core.lib import geo_Utils as GEO
 #reload(cgmUI)
 mUI = cgmUI.mUI
 from cgm.core.lib.zoo import baseMelUI as zooUI
-from cgm.lib import lists
-from cgm.lib import dictionary
-from cgm.lib import search
+from cgm.core.lib import list_utils as lists
+from cgm.core.lib import shared_data as SHARED
 from cgm.core.classes import DraggerContextFactory
 from cgm.core.lib import shapeCaster as ShapeCaster
 from cgm.core.lib import selection_Utils as selUtils
@@ -404,7 +403,7 @@ class go(cgmUI.cgmGUI):
 
         cgmUI.add_Header('Cast Targets')
         _help = mUI.MelLabel(containerName,
-                             bgc = dictionary.returnStateColor('help'),
+                             bgc = SHARED._d_gui_state_colors['help'],
                              align = 'center',
                              label = 'Load and remove targets for casting',
                              h=20,
@@ -436,7 +435,7 @@ class go(cgmUI.cgmGUI):
         mc.setParent(containerName)
         cgmUI.add_Header('Click Mesh')
         _help = mUI.MelLabel(containerName,
-                             bgc = dictionary.returnStateColor('help'),
+                             bgc = SHARED._d_gui_state_colors['help'],
                              align = 'center',
                              label = 'Click to create stuff...',
                              h=20,
@@ -511,7 +510,7 @@ class go(cgmUI.cgmGUI):
         mc.setParent(containerName)
         cgmUI.add_Header('Object Cast')
         _help = mUI.MelLabel(containerName,
-                             bgc = dictionary.returnStateColor('help'),
+                             bgc = SHARED._d_gui_state_colors['help'],
                              align = 'center',
                              label = 'Cast curves from selected objects',
                              h=20,
@@ -763,7 +762,7 @@ class go(cgmUI.cgmGUI):
 
         cgmUI.add_Header('Proximity Query')
         _help = mUI.MelLabel(containerName,
-                             bgc = dictionary.returnStateColor('help'),
+                             bgc = SHARED._d_gui_state_colors['help'],
                              align = 'center',
                              label = 'Target proximity to selection or mesh',
                              h=20,
@@ -874,7 +873,7 @@ class go(cgmUI.cgmGUI):
         mc.setParent(containerName)
         cgmUI.add_Header('Mesh Splitter')
         _help = mUI.MelLabel(containerName,
-                             bgc = dictionary.returnStateColor('help'),
+                             bgc = SHARED._d_gui_state_colors['help'],
                              align = 'center',
                              label = 'Load and remove materials for mesh splitting',
                              h=20,
@@ -950,7 +949,7 @@ class go(cgmUI.cgmGUI):
             #>>> Main Help
             containerName = mUI.MelColumn(parent,vis=True)   
             self.uiReport_CustomizeHelp = mUI.MelLabel(containerName,
-                                                       bgc = dictionary.returnStateColor('help'),
+                                                       bgc = SHARED._d_gui_state_colors['help'],
                                                        align = 'center',
                                                        label = 'Add a base object and do other functions based on that',
                                                        h=20,
@@ -984,7 +983,7 @@ class go(cgmUI.cgmGUI):
 
             #>>> Base Report			
             self.uiReport_base = mUI.MelLabel(containerName,
-                                              bgc = dictionary.returnStateColor('help'),
+                                              bgc = SHARED._d_gui_state_colors['help'],
                                               align = 'center',
                                               label = '...',
                                               h=20)
@@ -1076,7 +1075,7 @@ class go(cgmUI.cgmGUI):
                 cgmUI.add_Header('Base Select')
     
                 _help_baseSelect = mUI.MelLabel(containerName,
-                                                bgc = dictionary.returnStateColor('help'),
+                                                bgc = SHARED._d_gui_state_colors['help'],
                                                 align = 'center',
                                                 label = 'Select components on base from sym',
                                                 h=20,
@@ -1138,7 +1137,7 @@ class go(cgmUI.cgmGUI):
             cgmUI.add_LineBreak()
             cgmUI.add_Header('Targets to Base')        
             _help_targetsToBase = mUI.MelLabel(containerName,
-                                               bgc = dictionary.returnStateColor('help'),
+                                               bgc = SHARED._d_gui_state_colors['help'],
                                                align = 'center',
                                                label = 'Functions using the base object for comparison',
                                                h=20,
@@ -1239,7 +1238,7 @@ class go(cgmUI.cgmGUI):
             cgmUI.add_LineBreak()
             cgmUI.add_Header('Target Math')        
             _help_targets = mUI.MelLabel(containerName,
-                                         bgc = dictionary.returnStateColor('help'),
+                                         bgc = SHARED._d_gui_state_colors['help'],
                                          align = 'center',
                                          label = 'Fuctions between targets. Some Cumulative effects.',
                                          h=20,
@@ -1876,13 +1875,13 @@ class go(cgmUI.cgmGUI):
         log.info("Bank: {0}".format(self.var_CastRotateBank.value))
 
         log.info("Targets: {0}".format(len(_l_mesh)))	
-        _ml_pairs = lists.returnListChunks(_ml_objs,2)
+        _ml_pairs = lists.get_chunks(_ml_objs,2)
 
         if _extendMode in ['segment']:
             if len(_ml_objs) == 1:
                 raise ValueError("Must have two objects selected for segment casting")
             log.info(_ml_pairs)
-            _ml_pairs = lists.parseListToPairs(_ml_objs)
+            _ml_pairs = lists.get_listPairs(_ml_objs)
             for p in _ml_pairs:
                 log.info(ShapeCaster.createWrapControlShape([mObj.mNode for mObj in p], 
                                                             targetGeo=_l_mesh, 
@@ -2085,7 +2084,7 @@ class go(cgmUI.cgmGUI):
         _d = self.get_FunctionOptions()        
         _sel = mc.ls(sl=True)
         _l_trans = [cgmMeta.getTransform(o) for o in _sel]
-        _l_trans = lists.returnListNoDuplicates(_l_trans)
+        _l_trans = lists.get_noDuplicates(_l_trans)
         _ml_objs = cgmMeta.validateObjListArg(_l_trans,'cgmObject',mayaType='mesh')
         if not _ml_objs:
             log.error("{0}: No selected objects.".format(self._str_reportStart))                
@@ -2152,7 +2151,7 @@ class go(cgmUI.cgmGUI):
                 _l_trans.append(cgmMeta.getTransform(o))                
                 c = int(o.split('[')[-1].split(']')[0])
                 _tar.append(c)
-        _l_trans = lists.returnListNoDuplicates(_l_trans)
+        _l_trans = lists.get_noDuplicates(_l_trans)
         if not _tar:
             log.error("{0}: No components selected.".format(self._str_reportStart))                
             return False            

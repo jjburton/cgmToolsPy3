@@ -39,6 +39,7 @@ import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.snap_utils as SNAP
 import cgm.core.lib.curve_Utils as CURVES
+from cgm.core.lib import list_utils as LISTS
 
 #>>> Utilities
 #===================================================================
@@ -62,7 +63,7 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
     sizeXBuffer = []
     sizeYBuffer = []
     for obj in objectList:
-        sizeBuffer = distance.returnBoundingBoxSize(obj)
+        sizeBuffer = DIST.get_bb_size(obj)
         sizeXBuffer.append(sizeBuffer[0])
         sizeYBuffer.append(sizeBuffer[1])
 
@@ -80,7 +81,7 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
     objectCnt = 0
     #sort the list
 
-    sortedList = lists.returnListChunks(objectList,columns)
+    sortedList = LISTS.get_chunks(objectList,columns)
     bufferY = startY
     for row in sortedList:
         bufferX = startX

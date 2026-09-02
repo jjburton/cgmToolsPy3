@@ -258,7 +258,6 @@ d_shortAxisToLong = {
     'z':'z+'
 }
 
-
 #>>> Colors
 #===================================================================
 _d_colors_to_index = {'black':1,'grayDark':2,'grayLight':3,'redDark':4,
@@ -323,6 +322,9 @@ _d_side_colors_index = {'left':{'main':'blueBright',
                         'center':{'main':'yellow',
                                   'sub':'yellowBright',
                                   'aux':'peach'}}
+
+# cgmSettings.conf colorLeft/Right/Center is primary,secondary.
+# left/right → main,sub. center conf is yellowBright,peach → sub,aux (main is 'yellow').
 
 #>>> Gui
 #===================================================================

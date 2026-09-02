@@ -33,7 +33,7 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.lib import attribute_utils as ATTR
-#from cgm.core.lib import list_utils as LISTS
+from cgm.core.lib import list_utils as LISTS
 from cgm.core.tools.markingMenus.lib import contextual_utils as CONTEXT
 from cgm.core.cgmPy import str_Utils as STRINGS
 import cgm.core.lib.string_utils as CORESTRING
@@ -41,7 +41,6 @@ from cgm.core.tools import attrTools as ATTRTOOLS
 from cgm.core.rig import spacePivot_utils as SPACEPIVOT
 #from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 
@@ -872,7 +871,7 @@ class ui(cgmUI.cgmGUI):
             
         _initialValue = _l_parents[_indices[0]]
         
-        _to_move = lists.reorderListInPlace(_l_parents,_to_move,direction)
+        _to_move = LISTS.reorder_in_place(_l_parents,_to_move,direction)
         
         self._mGroup.clearParents()
         
@@ -985,7 +984,7 @@ class ui(cgmUI.cgmGUI):
                 _to_move.append(a)
     
         log.info(_to_move)
-        _to_move = lists.reorderListInPlace(_to_move,attrs,direction)
+        _to_move = LISTS.reorder_in_place(_to_move,attrs,direction)
         log.info(_to_move)
         
         #To reorder, we need delete and undo in the order we want

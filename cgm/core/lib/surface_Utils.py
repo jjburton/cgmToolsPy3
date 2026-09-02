@@ -44,20 +44,6 @@ import cgm.core.lib.shared_data as SHARED
 #reload(SHARED)
 #reload(MATH)
 
-from cgm.lib import (distance,
-                     locators,
-                     attributes,
-                     curves,
-                     deformers,
-                     lists,
-                     rigging,
-                     skinning,
-                     dictionary,
-                     search,
-                     nodes,
-                     joints,
-                     cgmMath)
-
 #>>> Utilities
 #===================================================================
 
@@ -433,8 +419,8 @@ def attachObjToSurface(*args,**kws):
 
             self.f_offset = VALID.valueArg(self.d_kws['f_offset'], calledFrom=self._str_funcCombined)
             #Get info ============================================================================
-            self.d_closestInfo = distance.returnClosestPointOnSurfaceInfo(self.mi_obj.mNode,self.mi_targetSurface.mNode)
-            self.d_closestInfo = DIST.get_closest_point_data_from_mesh(self.mi_obj.mNode,self.mi_targetSurface.mNode)
+            self.d_closestInfo = DIST.get_closest_point_data_from_mesh(
+                mesh=self.mi_targetSurface.mNode, targetObj=self.mi_obj.mNode)
             #Running Lists ============================================================================
             self.md_return = {}
 
@@ -579,15 +565,15 @@ def attachObjToSurface(*args,**kws):
                 mi_worldTranslate.doName()
                 self.mi_worldTranslate = mi_worldTranslate
 
-                attributes.doConnectAttr("%s.worldMatrix"%(mi_controlLoc.mNode),"%s.%s"%(mi_worldTranslate.mNode,'inputMatrix'))
+                ATTR.connect("%s.worldMatrix"%(mi_controlLoc.mNode),"%s.%s"%(mi_worldTranslate.mNode,'inputMatrix'))
 
                 #Create node --------------------------------------------------------------
                 mi_cpos = NodeF.createNormalizedClosestPointNode(self.mi_obj,self.mi_targetSurface)
 
-                attributes.doConnectAttr ((mi_cpos.mNode+'.out_uNormal'),(mi_follicleFollowShape.mNode+'.parameterU'))
-                attributes.doConnectAttr  ((mi_cpos.mNode+'.out_vNormal'),(mi_follicleFollowShape.mNode+'.parameterV'))
-                #attributes.doConnectAttr  ((mi_controlLoc.mNode+'.translate'),(mi_cpos.mNode+'.inPosition'))
-                attributes.doConnectAttr  ((mi_worldTranslate.mNode+'.outputTranslate'),(mi_cpos.mNode+'.inPosition'))
+                ATTR.connect ((mi_cpos.mNode+'.out_uNormal'),(mi_follicleFollowShape.mNode+'.parameterU'))
+                ATTR.connect  ((mi_cpos.mNode+'.out_vNormal'),(mi_follicleFollowShape.mNode+'.parameterV'))
+                #ATTR.connect  ((mi_controlLoc.mNode+'.translate'),(mi_cpos.mNode+'.inPosition'))
+                ATTR.connect  ((mi_worldTranslate.mNode+'.outputTranslate'),(mi_cpos.mNode+'.inPosition'))
 
                 #Constrain =====================================================================
                 #mc.pointConstraint(self.mi_driverLoc.mNode, self.mi_obj.mNode, maintainOffset = True)
@@ -600,7 +586,7 @@ def attachObjToSurface(*args,**kws):
 
                 if self.b_attachControlLoc:
                     for attr in self.mi_orientation.p_string[0]:
-                        attributes.doConnectAttr  ((mi_controlLoc.mNode+'.t%s'%attr),(mi_offsetGroup.mNode+'.t%s'%attr))
+                        ATTR.connect  ((mi_controlLoc.mNode+'.t%s'%attr),(mi_offsetGroup.mNode+'.t%s'%attr))
 
                 if self.b_createUpLoc:#Make our up loc =============================================================
                     mi_upLoc = mi_zeroGroup.doLoc()

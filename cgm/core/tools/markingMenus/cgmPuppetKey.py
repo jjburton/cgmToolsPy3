@@ -9,12 +9,12 @@ from cgm.core import cgm_RigMeta as cgmRigMeta
 #from cgm.core import cgm_PuppetMeta as cgmPM
 from cgm.core.classes import GuiFactory as cgmUI
 
-from cgm.lib import guiFactory
-from cgm.lib import (lists,search)
-from cgm.tools.lib import animToolsLib
+from cgm.core.lib import list_utils as lists
+from cgm.core.lib import search_utils as SEARCH
+from cgm.core.lib.ml_tools import (ml_breakdownDragger,
+                                   ml_resetChannels)
 #from cgm.tools.lib import tdToolsLib
 #from cgm.tools.lib import locinatorLib
-#reload(animToolsLib)
 #from cgm.lib import locators
 
 
@@ -47,7 +47,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
             if 'MayaWindow' in mc.panel(panel,q = True,ctl = True):
                 panel = 'viewPanes'
 
-        sel = search.selectCheck()
+        sel = SEARCH.select_check()
 
         #>>>> Clock set
         #====================================================================
@@ -72,21 +72,26 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
 
     def setupVariables(self):
         self.KeyTypeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyType', defaultValue = 0)
-        guiFactory.appendOptionVarList(self,self.KeyTypeOptionVar.name)
+        if self.KeyTypeOptionVar.name not in self.optionVars:
+            self.optionVars.append(self.KeyTypeOptionVar.name)
 
         self.KeyModeOptionVar = cgmMeta.cgmOptionVar('cgmVar_KeyMode', defaultValue = 0)
-        guiFactory.appendOptionVarList(self,self.KeyModeOptionVar.name)	
+        if self.KeyModeOptionVar.name not in self.optionVars:
+            self.optionVars.append(self.KeyModeOptionVar.name)	
 
         self.mmActionOptionVar = cgmMeta.cgmOptionVar('cgmVar_mmAction')
 
         self.BuildModuleOptionVar = cgmMeta.cgmOptionVar('cgmVar_PuppetKeyBuildModule', defaultValue = 1)
-        guiFactory.appendOptionVarList(self,self.BuildModuleOptionVar.name)	
+        if self.BuildModuleOptionVar.name not in self.optionVars:
+            self.optionVars.append(self.BuildModuleOptionVar.name)	
 
         self.BuildPuppetOptionVar = cgmMeta.cgmOptionVar('cgmVar_PuppetKeyBuildPuppet', defaultValue = 1)
-        guiFactory.appendOptionVarList(self,self.BuildPuppetOptionVar.name)	
+        if self.BuildPuppetOptionVar.name not in self.optionVars:
+            self.optionVars.append(self.BuildPuppetOptionVar.name)	
 
         self.ResetModeOptionVar = cgmMeta.cgmOptionVar('cgmVar_ChannelResetMode', defaultValue = 0)		
-        guiFactory.appendOptionVarList(self,self.ResetModeOptionVar.name)
+        if self.ResetModeOptionVar.name not in self.optionVars:
+            self.optionVars.append(self.ResetModeOptionVar.name)
 
 
     def createUI(self,parent):
@@ -290,7 +295,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         mUI.MelMenuItem(parent,
                     en = selCheck,
                     l = 'Reset Selected',
-                    c = lambda *a:buttonAction(animToolsLib.ml_resetChannelsCall(transformsOnly = self.ResetModeOptionVar.value)),
+                    c = lambda *a:buttonAction(ml_resetChannels.main(transformsOnly = self.ResetModeOptionVar.value)),
                     rp = 'N')  
 
         mUI.MelMenuItem(parent,
@@ -308,7 +313,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         mUI.MelMenuItem(parent,
                     en = selCheck,
                     l = 'dragBreakdown',
-                    c = lambda *a:buttonAction(animToolsLib.ml_breakdownDraggerCall()),
+                    c = lambda *a:buttonAction(ml_breakdownDragger.drag()),
                     rp = 'S')
 
         mUI.MelMenuItem(parent,
@@ -453,7 +458,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         timeStart_ModuleStuff = time.time()  	    
         if self.BuildModuleOptionVar.value and self.ml_modules:
             #MelMenuItem(parent,l="-- Modules --",en = False)	    
-            self.ml_modules = lists.returnListNoDuplicates(self.ml_modules)
+            self.ml_modules = lists.get_noDuplicates(self.ml_modules)
             int_lenModules = len(self.ml_modules)
             if int_lenModules == 1:
                 use_parent = parent
@@ -576,7 +581,7 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
         timeStart_PuppetStuff = time.time()  	    
         if self.BuildPuppetOptionVar.value and self.l_puppets:
             #MelMenuItem(parent,l="-- Puppets --",en = False)	    
-            self.l_puppets = lists.returnListNoDuplicates(self.l_puppets)
+            self.l_puppets = lists.get_noDuplicates(self.l_puppets)
             self.ml_puppets = cgmMeta.validateObjListArg(self.l_puppets)
             log.info("Puppets:")
             for p in self.l_puppets:
@@ -753,18 +758,18 @@ class puppetKeyMarkingMenu(mUI.BaseMelWindow):
 	                c = lambda *a: buttonAction(cgmToolbox.loadAnimTools()))	
 		mUI.MelMenuItemDiv(parent)
 		mUI.MelMenuItem(parent,l = 'ml Set Key',
-			        c = lambda *a: buttonAction(animToolsLib.ml_setKeyCall()))
+			        c = lambda *a: buttonAction(ml_setKey.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Hold',
-			        c = lambda *a: buttonAction(animToolsLib.ml_holdCall()))
+			        c = lambda *a: buttonAction(ml_hold.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Delete Key',
-			        c = lambda *a: buttonAction(animToolsLib.ml_deleteKeyCall()))
+			        c = lambda *a: buttonAction(ml_deleteKey.ui()))
 		mUI.MelMenuItem(parent,l = 'ml Arc Tracer',
-			        c = lambda *a: buttonAction(animToolsLib.ml_arcTracerCall()))
+			        c = lambda *a: buttonAction(ml_arcTracer.ui()))
 		"""
         #mUI.MelMenuItem(parent,l = "-"*20,en = False)
         mUI.MelMenuItemDiv(parent)							
         mUI.MelMenuItem(parent, l="Reset",
-                    c=lambda *a: guiFactory.resetGuiInstanceOptionVars(self.optionVars))
+                    c=lambda *a: cgmUI.do_resetGuiInstanceOptionVars(self.optionVars))
 
         f_time = time.time()-time_buildMenuStart
         log.info('build menu took: %0.3f seconds  ' % (f_time) + '<'*10)  
@@ -784,7 +789,7 @@ def killUI():
     IsClickedOptionVar = cgmMeta.cgmOptionVar('cgmVar_IsClicked')
     mmActionOptionVar = cgmMeta.cgmOptionVar('cgmVar_mmAction')
 
-    sel = search.selectCheck()
+    sel = SEARCH.select_check()
 
     #>>> Timer stuff
     #=============================================================================
@@ -812,7 +817,7 @@ def setKey():
         else:
             mc.setKeyframe(breakdown = True)
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(report=False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:
@@ -837,7 +842,7 @@ def deleteKey():
         else:
             mc.cutKey(selection)	    
     else:#Let's check the channel box for objects
-        selection = search.returnSelectedAttributesFromChannelBox(False) or []
+        selection = SEARCH.get_selectedFromChannelBox(report=False) or []
         if not selection:
             selection = mc.ls(sl=True) or []
             if not selection:

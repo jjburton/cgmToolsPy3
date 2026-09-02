@@ -32,10 +32,8 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as CORESHARE
 from cgm.core.lib import name_utils as NAME
 from cgm.core.lib import attribute_utils as ATTR
-#import cgm.core.lib.transform_utils as TRANS #CAN'T IMPORT 
-from cgm.lib import attributes
-
-from cgm.lib import lists
+from cgm.core.lib import list_utils as LISTS
+#import cgm.core.lib.transform_utils as TRANS #CAN'T IMPORT
 #>>> Utilities
 #===================================================================   
 is_shape = VALID.is_shape
@@ -45,6 +43,12 @@ get_transform = VALID.get_transform
 log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
 log_start = cgmGEN.logString_start
+
+def select_check():
+    """Return True if anything is selected. Alias: selectCheck."""
+    return bool(mc.ls(sl=True))
+selectCheck = select_check
+returnObjectType = get_mayaType
 
 
 def animLayers_getSelected():
@@ -166,12 +170,12 @@ def get_nodeTagInfo(node = None, tag = None):
         messageQuery = (mc.attributeQuery (tag,node=_node,msg=True))
         if messageQuery == True:
             log.debug("|{0}| >> message...".format(_str_func))
-            returnBuffer = attributes.returnMessageData(_node,tag,False)
+            returnBuffer = ATTR.returnMessageData(_node,tag,False)
             if not returnBuffer:
                 return False
             elif VALID.get_mayaType(returnBuffer[0]) == 'reference':
-                if attributes.repairMessageToReferencedTarget(_node,tag):
-                    return attributes.returnMessageData(_node,tag,False)[0]
+                if ATTR.repairMessageToReferencedTarget(_node,tag):
+                    return ATTR.returnMessageData(_node,tag,False)[0]
                 return returnBuffer[0]
             return returnBuffer[0]
         else:
@@ -737,7 +741,7 @@ def get_key_indices_from(node = None, mode = 'all'):
         raise ValueError("Unknown mode: {0}".format(mode))
     
     #mc.currentTime(initialTimeState)
-    return lists.returnListNoDuplicates(keyFrames)
+    return LISTS.get_noDuplicates(keyFrames)
     
 def get_anim_value_by_time(node = None, attributes = [], time = 0.0):
     _str_func = 'get_anim_value_by_time'    
@@ -833,22 +837,12 @@ def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict
             return _res
     return False 
 
-def get_referencePrefix(node = None):
-    """
-    Get the reference prefix of a node...
-
-    :parameters:
-        node(str): What you want to get the keys of
-
-    :returns
-        list of keys(list)
-    """ 
-    _str_func = 'get_referencePrefix'
-    _node =  VALID.mNodeString(node)
-    
+def get_referencePrefix(node):
+    """Reference namespace prefix, or False if the node is not referenced. Old lib name: returnReferencePrefix."""
+    _node = VALID.mNodeString(node)
     if mc.referenceQuery(_node, isNodeReferenced=True):
         splitBuffer = _node.split(':')
-        return (':'.join(splitBuffer[:-1]))
+        return ':'.join(splitBuffer[:-1])
     return False
 
 

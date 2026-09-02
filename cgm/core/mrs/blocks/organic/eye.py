@@ -4594,8 +4594,7 @@ def create_clamBlinkCurves(self, ml_uprSkinJoints = None, ml_lwrSkinJoints = Non
     mBsNode.doName()
 
     mPlug_height = cgmMeta.cgmAttr(mSettings,'blinkHeight',attrType = 'float', defaultValue=.1, minValue = 0, maxValue = 1)
-    import cgm.lib.deformers as deformers
-    l_bsAttrs = deformers.returnBlendShapeAttributes(mBsNode.mNode)
+    l_bsAttrs = mc.listAttr(mBsNode.mNode + '.weight', m=True)
     log.debug(l_bsAttrs)
     d_return = NODEFACTORY.createSingleBlendNetwork([mSettings.mNode,'blinkHeight'],
                                               [mSettings.mNode,'blinkHeight_upr'],
@@ -4644,7 +4643,7 @@ def create_clamBlinkCurves(self, ml_uprSkinJoints = None, ml_lwrSkinJoints = Non
         mi_bsNode = cgmMeta.asMeta(_str_bsNode,'cgmNode',setClass=True)
         mi_bsNode.doStore('cgmName',mi_driven)
         mi_bsNode.doName()
-        l_bsAttrs = deformers.returnBlendShapeAttributes(mi_bsNode.mNode)
+        l_bsAttrs = mc.listAttr(mi_bsNode.mNode + '.weight', m=True)
         mPlug_blink.doConnectOut('%s.%s' % (mi_bsNode.mNode,l_bsAttrs[0]))    
 
 
