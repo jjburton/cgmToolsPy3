@@ -530,6 +530,17 @@ def _run_batch_post_stage(_str_func, stage_name, stage_call):
         raise
 
 
+def resolve_build_output_path(version_file_path):
+    """MRS Build output scene: same directory, basename + ``_BUILD`` before extension."""
+    if not version_file_path:
+        return None
+    mFile = PATHS.Path(version_file_path)
+    _name = mFile.name()
+    _d = mFile.up().asFriendly()
+    return os.path.normpath(os.path.join(
+        _d, '{0}_BUILD.{1}'.format(_name, mFile.getExtension())))
+
+
 @cgmGEN.Timer
 def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _str_func = 'process_blocks_rig'
@@ -543,14 +554,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _path = mFile.asFriendly()
     
     log.info("Good Path: {0}".format(_path))
-    """
-    if 'template' in _path:
-        _newPath = _path.replace('template','build')
-    else:"""
-    _name = mFile.name()
-    _d = mFile.up().asFriendly()
-    log.debug(cgmGEN.logString_msg(_str_func,_name))
-    _newPath = os.path.join(_d,_name+'_BUILD.{0}'.format(mFile.getExtension()))        
+    _newPath = resolve_build_output_path(f)
 
     log.info("New Path: {0}".format(_newPath))
     

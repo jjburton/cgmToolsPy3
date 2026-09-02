@@ -61,6 +61,7 @@ from cgm.core.lib import skin_utils as CORESKIN
 
 #reload(BLOCKSHARE)
 import cgm.core.mrs.lib.general_utils as BLOCKGEN
+import cgm.core.mrs.lib.block_utils as BLOCKUTILS
 
 #=============================================================================================================
 #>> Queries
@@ -1400,6 +1401,13 @@ def proxyMesh_verify(self, forceNew = True, puppetMeshMode = False,progressBar =
                                   status = mRigBlock.p_nameShort,
                                   progress=i, vis=True)
         try:
+            if mRigBlock.getMayaAttr('meshBuild') in [False, 0]:
+                log.debug("|{0}| >> meshBuild off: {1}".format(_str_func, mRigBlock))
+                continue
+            if mRigBlock.blockType in BLOCKUTILS._l_faceProxyBlockTypes:
+                if not BLOCKUTILS.block_proxy_mesh_flow(mRigBlock):
+                    log.debug("|{0}| >> proxyBuild off: {1}".format(_str_func, mRigBlock))
+                    continue
             mRigBlock.verify_proxyMesh(forceNew=forceNew,puppetMeshMode=puppetMeshMode)
         except Exception as err:
             log.error("{0} | {1}".format(mRigBlock, err))
@@ -2288,15 +2296,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             else:
                 return bfr
     
-    #if proxy:
-        #if unified:
-        #    log.warning("|{0}| >> Proxy mode detected, unified option overridden".format(_str_func))
-        #    unified = False
-        #if skin:
-        #    log.warning("|{0}| >> Proxy mode detected, skin option overridden".format(_str_func))
-        #    skin = False
+    _skinUnify = skin
     
-    #Process-------------------------------------------------------------------------------------
+    #Check for existance of mesh ========================================================================
     #if self.blockType == 'master':
     #    mRoot = self
     #else:
@@ -2305,25 +2307,30 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         
     log.debug("|{0}| >> mRoot: {1}".format(_str_func,mRoot))
     ml_ordered = mRoot.getBlockChildrenAll()
-    ml_mesh = []
-    subSkin = False
-    if skin:
-        #if not unified:
-        subSkin=True
+    ml_skinned = []
+    ml_proxy = []
+    subSkin = bool(_skinUnify)
             
     for mBlock in ml_ordered:
         if mBlock.blockType in ['master', 'eyeMain']:
             log.debug("|{0}| >> unmeshable: {1}".format(_str_func,mBlock))
             continue
         log.debug("|{0}| >> Meshing... {1}".format(_str_func,mBlock))
+
+        if mBlock.getMayaAttr('meshBuild') in [False, 0]:
+            log.debug("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
+            continue
         
-        if proxy and mBlock.blockType not in ['eye']:
-            _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True,skin=subSkin)
-            if _res:ml_mesh.extend(_res)
-            
+        _blockProxyFlow = proxy and BLOCKUTILS.block_proxy_mesh_flow(mBlock)
+        
+        if _blockProxyFlow:
+            _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True)
+            if _res:
+                ml_proxy.extend(_res)
         else:
             _res = mBlock.UTILS.create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
-            if _res:ml_mesh.extend(_res)
+            if _res:
+                ml_skinned.extend(_res)
         
         """
         if skin:
@@ -2337,47 +2344,41 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 return log.error("|{0}| >> Must have moduleJoints for skining mode".format(_str_func))
             ml_moduleJoints.extend(ml_joints)"""
         
+    ml_mesh = []
     if unified:
-        if skin:
-            #self.msgList_connect('simpleMesh',ml_mesh)
+        if _skinUnify and ml_skinned:
             mMesh = None
-            for mObj in ml_mesh:
+            for mObj in ml_skinned:
                 TRANS.pivots_zeroTransform(mObj)
                 mObj.dagLock(False)
                 mObj.p_parent = False
-            #Have to dup and copy weights because the geo group isn't always world center
-            if len(ml_mesh)>1:
-                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_mesh],ch=0))
+            if len(ml_skinned)>1:
+                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_skinned],ch=0))
                 mMesh = mMesh[0]
-            elif ml_mesh:
-                mMesh = ml_mesh[0]
+            elif ml_skinned:
+                mMesh = ml_skinned[0]
             
             if mMesh:
                 mMesh.dagLock(False)
-                
-                #mMeshBase = mMeshBase[0]
-                #mMesh = mMeshBase.doDuplicate(po=False,ic=False)
                 mMesh.rename('{0}_unified_geo'.format(mPuppet.p_nameBase))
                 mMesh.p_parent = mParent
-                #cgmGEN.func_snapShot(vars())
-                
-                #now copy weights
-                #CORESKIN.transfer_fromTo(mMeshBase.mNode, [mMesh.mNode])
-                #mMeshBase.delete()
-                
-                ml_mesh = [mMesh]
-                #ml_mesh[0].p_parent = mGeoGroup
+                ml_mesh.append(mMesh)
                 mMesh.dagLock(True)
-            
-
-        else:
-            if len(ml_mesh)>1:
-                ml_mesh = cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_mesh],ch=False))
+        elif ml_skinned:
+            ml_mesh.extend(ml_skinned)
+        
+        if ml_proxy:
+            if len(ml_proxy)>1:
+                ml_mesh.extend(cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_proxy],ch=False)))
+            else:
+                ml_mesh.extend(ml_proxy)
         
         if ml_mesh:
             ml_mesh[0].rename('{}_puppetMesh_unified_geo'.format(mRoot.cgmName))
+    else:
+        ml_mesh = ml_skinned + ml_proxy
         
-    if skin or proxy and ml_mesh:
+    if _skinUnify or proxy and ml_mesh:
         mPuppet.msgList_connect('puppetMesh',ml_mesh)
         
     #for mGeo in ml_mesh:

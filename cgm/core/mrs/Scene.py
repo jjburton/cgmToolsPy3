@@ -7053,6 +7053,27 @@ example:
         if not f:
             return log.error("SendToBuild: No version file found")
 
+        _build_path = BATCH.resolve_build_output_path(f)
+        if _build_path and os.path.exists(_build_path):
+            # Paths-first P4 prepare before MRS Build (export preflight confirm rule).
+            _confirm_p4 = not self.autoCheckoutExportFiles
+            log.info(log_msg(
+                _str_func,
+                "Prepare BUILD output | path={0} confirm_p4={1} autoCheckout={2}".format(
+                    _build_path, _confirm_p4, self.autoCheckoutExportFiles,
+                ),
+            ))
+            try:
+                PATHUTIL.prepare_maya_scene_for_save(
+                    _build_path,
+                    mDat=self.mDat,
+                    confirm_p4=_confirm_p4,
+                    _str_func=_str_func,
+                )
+            except PATHUTIL.PathWritePrepareError as err:
+                log.error(str(err))
+                return
+
         log.info(log_msg(_str_func, "Opening MRS Build for file | {0}".format(f)))
         try:
             m_standalone = BUILDER.ui_toStandAlone()
