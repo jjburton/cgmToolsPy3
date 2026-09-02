@@ -4184,8 +4184,8 @@ def rig_frame(self):
         log.debug("|{0}| >> scale blend chain setup...".format(_str_func))    
         l_constraints = ['point','orient']
         
-        if self.str_lidBuild not in ['clamSimple']:
-            l_constraints.append('scale')
+        # if self.str_lidBuild not in ['clamSimple']:
+        #     l_constraints.append('scale')
             
         if mBlock.ikSetup:
             RIGCONSTRAINT.blendChainsBy(mJointFK,mJointIK,mBlendJoint,
@@ -6270,7 +6270,7 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
                 _d_mesh = {}
                 for k in 'upr','lwr':
                     mMesh = self.getMessageAsMeta('{0}LidFormLoft'.format(k))
-                    d_kws = {'mode':'default',
+                    d_kws = {'mode':'general',
                              'uNumber':self.numLidSplit_u,
                              'vNumber':self.numLidSplit_v,
                              }
