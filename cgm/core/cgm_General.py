@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = "cgmGEN"
 __RELEASE = "26.09.01.01"
-__BRANCH = "AnimData"
+__BRANCH = "FaceRigging26"
 
 import maya.cmds as mc
 import maya.mel as mel

@@ -265,7 +265,7 @@ d_attrsToMake = {'faceType':'default:muzzle:beak',
                  'numJointsNoseTip':'int',
                  
                  #Lips...
-                 'lipMidFollowSetup':'ribbon:prntConstraint:parent',
+                 'lipMidFollowSetup':'ribbon:prntConstraint:pntConstraint:parent',
                  'lipMidSealSetup':'bool',
                  'lipSealCrossBlendMult':'float',
                  
@@ -6840,8 +6840,76 @@ def rig_frame(self):
                     for mHandle in ml_left:
                         mHandle.masterGroup.p_parent = d['parent']                        
                     for mHandle in ml_right:
-                        mHandle.masterGroup.p_parent = d['parent']                        
-                
+                        mHandle.masterGroup.p_parent = d['parent']
+
+            elif self.str_lipMidFollowSetup == 'prntConstraint':
+                # ...parentConstraint....
+                d_lipSetup = {'upr': {'left': self.md_handles['lipUpr']['left'][1:],
+                                      'right': self.md_handles['lipUpr']['right'][1:],
+                                      'mInfluences': [mRightCorner.uprInfluence, mUprCenter, mLeftCorner.uprInfluence]},
+
+                              'lwr': {'left': self.md_handles['lipLwr']['left'],
+                                      'mInfluences': [mRightCorner.lwrInfluence, mLwrCenter, mLeftCorner.lwrInfluence],
+                                      'right': self.md_handles['lipLwr']['right']}}
+
+                for k, d in list(d_lipSetup.items()):
+                    # need our handle chain to make a ribbon
+                    pprint.pprint(d)
+                    ml_left = d['left']
+                    ml_right = d['right']
+                    mInfluences = d['mInfluences']
+
+                    for mHandle in ml_left:
+                        mHandle.masterGroup.p_parent = mFollowParent
+                        mc.parentConstraint([mObj.mNode for mObj in mInfluences[1:]],
+                                           mHandle.masterGroup.mNode,
+                                           maintainOffset=True, weight=1)
+                    for mHandle in ml_right:
+                        mHandle.masterGroup.p_parent = mFollowParent
+                        mc.parentConstraint([mObj.mNode for mObj in mInfluences[:2]],
+                                           mHandle.masterGroup.mNode,
+                                           maintainOffset=True, weight=1)
+
+                # Lip Aim setup...
+                ml_lwrLeft = self.md_handles['lipLwr']['left']
+                ml_lwrRight = self.md_handles['lipLwr']['right']
+                d_lipAim = {'upr': {'left': self.md_handles['lipUpr']['left'][1:],
+                                    'right': self.md_handles['lipUpr']['right'][1:]},
+                            'lwr': {'left': self.md_handles['lipLwr']['left'],
+                                    'right': self.md_handles['lipLwr']['right']}}
+
+                for tag, sectionDat in list(d_lipAim.items()):
+                    for side, sideDat in list(sectionDat.items()):
+
+                        if side == 'left':
+                            _aim = [-1, 0, 0]
+                            _corner = mLeftCorner.mNode
+                        else:
+                            _aim = [1, 0, 0]
+                            _corner = mRightCorner.mNode
+
+                        for i, mJnt in enumerate(sideDat):
+                            _mode = None
+
+                            if not i:
+                                _tar = _corner
+                            else:
+                                _tar = sideDat[i - 1].mNode
+
+                            mAimGroup = mJnt.doGroup(True, True,
+                                                     asMeta=True,
+                                                     typeModifier='aim',
+                                                     setClass='cgmObject')
+
+                            mc.aimConstraint(_tar,
+                                             mAimGroup.mNode,
+                                             maintainOffset=True, weight=1,
+                                             aimVector=_aim,
+                                             upVector=[0, 1, 0],
+                                             worldUpVector=[0, 1, 0],
+                                             worldUpObject=mJnt.masterGroup.mNode,
+                                             worldUpType='objectRotation')
+
             else:
                 #...parentConstraint....
                 d_lipSetup = {'upr':{'left':self.md_handles['lipUpr']['left'][1:],
@@ -6861,59 +6929,26 @@ def rig_frame(self):
                     
                     for mHandle in ml_left:
                         mHandle.masterGroup.p_parent = mFollowParent                        
-                        mc.parentConstraint([mObj.mNode for mObj in mInfluences[1:]],
+                        mc.pointConstraint([mObj.mNode for mObj in mInfluences[1:]],
+                                            mHandle.masterGroup.mNode,
+                                            maintainOffset = True, weight = 1)
+                        mc.orientConstraint([mObj.mNode for mObj in mInfluences[1:]],
                                             mHandle.masterGroup.mNode,
                                             maintainOffset = True, weight = 1)
                     for mHandle in ml_right:
                         mHandle.masterGroup.p_parent = mFollowParent                        
-                        mc.parentConstraint([mObj.mNode for mObj in mInfluences[:2]],
+                        mc.pointConstraint([mObj.mNode for mObj in mInfluences[:2]],
                                             mHandle.masterGroup.mNode,
                                             maintainOffset = True, weight = 1)
-                                                
+                        mc.orientConstraint([mObj.mNode for mObj in mInfluences[:2]],
+                                            mHandle.masterGroup.mNode,
+                                            maintainOffset = True, weight = 1)
                  
                         
                     
 
-                #Lip Aim setup...
-                ml_lwrLeft = self.md_handles['lipLwr']['left']
-                ml_lwrRight = self.md_handles['lipLwr']['right']
-                d_lipAim = {'upr':{'left':self.md_handles['lipUpr']['left'][1:],
-                                   'right':self.md_handles['lipUpr']['right'][1:]},
-                            'lwr':{'left':self.md_handles['lipLwr']['left'],
-                                   'right':self.md_handles['lipLwr']['right']}}
-                
-                for tag,sectionDat in list(d_lipAim.items()):
-                    for side,sideDat in list(sectionDat.items()):
 
-                        if side == 'left':
-                            _aim = [-1,0,0]
-                            _corner = mLeftCorner.mNode
-                        else:
-                            _aim = [1,0,0]
-                            _corner = mRightCorner.mNode
-                            
-                        for i,mJnt in enumerate(sideDat):
-                            _mode = None
-                            
-                            if not i:
-                                _tar = _corner
-                            else:
-                                _tar=sideDat[i-1].mNode
-                                
-                            mAimGroup = mJnt.doGroup(True,True,
-                                                     asMeta=True,
-                                                     typeModifier = 'aim',
-                                                     setClass='cgmObject')
 
-                            mc.aimConstraint(_tar,
-                                             mAimGroup.mNode,
-                                             maintainOffset = True, weight = 1,
-                                             aimVector = _aim,
-                                             upVector = [0,1,0],
-                                             worldUpVector = [0,1,0],
-                                             worldUpObject = mJnt.masterGroup.mNode,
-                                             worldUpType = 'objectRotation' )
-                    
             
             
             #Lip Corner influences ------------------------------------------------------
