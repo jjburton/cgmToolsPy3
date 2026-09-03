@@ -136,6 +136,11 @@ d_cgmTypes = {### Custom Types
               'reverseNode':'revNode'}
 
 
+# Maya 2026+ may report abbreviated utility node names from objectType().
+d_mayaNodeType_canonical = {
+    'addDL': 'addDoubleLinear',
+}
+
 
 #>>> Attributes
 #==================================================================
