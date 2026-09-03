@@ -52,7 +52,7 @@ import uuid
 import types
 import inspect
 import traceback
-import pyperclip
+import Red9.packages.pyperclip as pyperclip
 
 
 import Red9.startup.setup as r9Setup
