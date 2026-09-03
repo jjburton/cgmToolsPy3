@@ -2029,8 +2029,6 @@ class MetaClass(object):
                 # cache the dagpath on the object as a back-up for error reporting
                 object.__setattr__(self, '_lastDagPath', _result)
                 return _result
-            except MetaInstanceError as error:
-                raise
             except Exception as error:
                 raise Exception(error)
 
@@ -2403,10 +2401,8 @@ class MetaClass(object):
                     else:
                         raise AttributeError('object instance has no attribute : %s' % attr)
         except MetaInstanceError as error:
-            #...this is to match previous function where a dead mNode wouldn't throw an exception but AttributeError would
-            log.error(error)
-            # raise MetaInstanceError('MObject is no longer valid - Last good dag path was: "%s"' %
-            #                          object.__getattribute__(self, "_lastDagPath"))
+            raise MetaInstanceError('MObject is no longer valid - Last good dag path was: "%s"' %
+                                     object.__getattribute__(self, "_lastDagPath"))
         except AttributeError as error:
             raise AttributeError(error)
 
