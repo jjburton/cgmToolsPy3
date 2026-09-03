@@ -9426,6 +9426,7 @@ def puppetMesh_delete(self):
     return False
 
 _l_faceProxyBlockTypes = ['muzzle', 'brow', 'eye', 'facs']
+_l_puppetMeshSelfColoredBlockTypes = ['eye']
 
 def block_proxy_mesh_flow(mBlock):
     """
@@ -9435,6 +9436,10 @@ def block_proxy_mesh_flow(mBlock):
     if mBlock.blockType in _l_faceProxyBlockTypes:
         return mBlock.getMayaAttr('proxyBuild') in [True, 1]
     return True
+
+def block_puppet_mesh_self_colored(mBlock):
+    """Blocks that assign per-part puppet/proxy shaders in build_proxyMesh / create_simpleMesh."""
+    return mBlock.blockType in _l_puppetMeshSelfColoredBlockTypes
 
 @cgmGEN.Timer
 def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True):
@@ -9529,7 +9534,8 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             _res = create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
             if _res:
                 puppetMesh_normalCheck(_res)
-                puppetMesh_colorGeo(mBlock, _res)
+                if not block_puppet_mesh_self_colored(mBlock):
+                    puppetMesh_colorGeo(mBlock, _res)
                 ml_skinned.extend(_res)
         
         

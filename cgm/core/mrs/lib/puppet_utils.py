@@ -2331,7 +2331,8 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             _res = mBlock.UTILS.create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
             if _res:
                 BLOCKUTILS.puppetMesh_normalCheck(_res)
-                BLOCKUTILS.puppetMesh_colorGeo(mBlock, _res)
+                if not BLOCKUTILS.block_puppet_mesh_self_colored(mBlock):
+                    BLOCKUTILS.puppetMesh_colorGeo(mBlock, _res)
                 ml_skinned.extend(_res)
         
         """
