@@ -51,6 +51,7 @@ import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.rig.joint_utils as JOINT
 import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.transform_utils as TRANS
+import cgm.core.lib.geo_Utils as GEO
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.position_utils as POS
 import cgm.core.lib.math_utils as MATH
@@ -7723,6 +7724,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
                 mNew.p_parent = False
                 mNew.doStore('cgmName',lnk)
                 mNew.doName()
+                for s in TRANS.shapes_get(mNew.mNode, True):
+                    GEO.normalCheck(s)
                 ml_use = copy.copy(ml_rigJoints)
                 ml_remove = []
                 if lnk in ['uprLip','overLip']:
@@ -7755,8 +7758,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
                 ml_proxy.append(mNew)
 
     def _wireProxyVis(ml_targets):
+        _sideShader = _side if _side not in ['none', ''] else 'center'
         for mProxy in ml_targets:
-            CORERIG.colorControl(mProxy.mNode,_side,'main',transparent=False,proxy=True)
+            CORERIG.color_mesh(mProxy.mNode,_sideShader,'main',transparent=False,proxy=True)
             mProxy.overrideEnabled = 1
             ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
             ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )

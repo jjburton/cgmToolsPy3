@@ -6279,7 +6279,8 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
                     mMesh = RIGCREATE.get_meshFromNurbs(mMesh,**d_kws)    
                     ml_proxy.append(mMesh)
                     ml_noFreeze.append(mMesh)
-                    CORERIG.colorControl(mMesh.mNode,_side,'main',transparent=False,proxy=True)
+                    _sideShader = _side if _side not in ['none', ''] else 'center'
+                    CORERIG.color_mesh(mMesh.mNode,_sideShader,'main',transparent=False,proxy=True)
                 
                     mc.skinCluster ([mJnt.mNode for mJnt in md_map[k] + md_map['lidCorner'] + _d_joints[k]],
                                     mMesh.mNode,

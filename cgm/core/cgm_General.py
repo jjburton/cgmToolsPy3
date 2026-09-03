@@ -25,8 +25,6 @@ import traceback
 # import linecache
 # import datetime
 import pprint
-from time import gmtime
-from time import strftime
 
 # Shared Defaults ========================================================
 
@@ -92,9 +90,33 @@ else:
 
 
 def get_timeString(v):
-    if v > 1:
-        return strftime("%H:%M:%S", gmtime(v))
-    return "%0.3f" % (v) + "s"
+    """Format elapsed seconds for log output (e.g. 21m 9.9s, 1h 5m)."""
+    v = float(v)
+    if v < 1.0:
+        return "%0.3fs" % v
+    _hours = int(v // 3600)
+    _minutes = int((v % 3600) // 60)
+    _seconds = v % 60
+    _parts = []
+    if _hours:
+        _parts.append("%dh" % _hours)
+    if _minutes:
+        _parts.append("%dm" % _minutes)
+    if _seconds >= 0.05 or not _parts:
+        if _parts:
+            _parts.append("%0.1fs" % _seconds)
+        else:
+            return "%0.3fs" % v
+    return " ".join(_parts)
+
+
+def get_timeLogString(v):
+    """Human elapsed time; include raw seconds when duration is 1 minute or more."""
+    v = float(v)
+    _human = get_timeString(v)
+    if v >= 60.0:
+        return "%s (%0.3fs)" % (_human, v)
+    return _human
 
 
 def get_releaseString():
@@ -2214,13 +2236,7 @@ def Timer(func):
             t1 = time.time()
             res = func(*args, **kws)
             t2 = time.time()
-            print(
-                (
-                    "|{0}| >> Time >> = {1} seconds".format(
-                        _str_func, "%0.4f" % (t2 - t1)
-                    )
-                )
-            )
+            print("|{0}| >> Time >> = {1}".format(_str_func, get_timeLogString(t2 - t1)))
             return res
         finally:
             pass

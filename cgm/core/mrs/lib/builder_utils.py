@@ -1116,6 +1116,9 @@ def create_loftMesh(targets = None, name = 'test', degree = 2, uSplit = 0,vSplit
     if planar:
         log.debug(cgmGEN.logString_sub(_str_func,"planar"))                
         mc.polySetToFaceNormal(_res_body[0],setUserNormal = True)#THIS WILL MAKE GEO SMOOTH
+
+    for s in TRANS.shapes_get(_res[0], True):
+        GEO.normalCheck(s)
         
     return _res[0]    
 

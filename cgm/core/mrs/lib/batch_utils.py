@@ -565,6 +565,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     T1 = time.time()
     
     get_time = cgmGEN.get_timeString
+    get_time_log = cgmGEN.get_timeLogString
     try:
         if not blocks:
             #cgmGEN.logString_sub(_str_func,'No blocks arg')
@@ -805,7 +806,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     
     except Exception as err:
         T2 = time.time()
-        log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
+        log.info("|{0}| >> Total Time >> = {1}".format(_str_func, get_time_log(T2-T1)))
         
     
         #cgmGEN.logString_msg(_str_func,'File Save...')
@@ -826,7 +827,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     #    log.error(err)
     
     T2 = time.time()
-    log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
+    log.info("|{0}| >> Total Time >> = {1}".format(_str_func, get_time_log(T2-T1))) 
     
 
     #cgmGEN.logString_msg(_str_func,'File Save...')

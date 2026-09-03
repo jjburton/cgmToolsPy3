@@ -2868,8 +2868,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
                         normalizeWeights = 1, dropoffRate=4)
 
     def _wireProxyVis(ml_targets):
+        _sideShader = _side if _side not in ['none', ''] else 'center'
         for mProxy in ml_targets:
-            CORERIG.colorControl(mProxy.mNode,_side,'main',transparent=False,proxy=True)
+            CORERIG.color_mesh(mProxy.mNode,_sideShader,'main',transparent=False,proxy=True)
             mc.makeIdentity(mProxy.mNode, apply = True, t=1, r=1,s=1,n=0,pn=1)
             mProxy.overrideEnabled = 1
             ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )

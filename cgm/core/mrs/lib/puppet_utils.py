@@ -2321,7 +2321,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             log.debug("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
             continue
         
-        _blockProxyFlow = proxy and BLOCKUTILS.block_proxy_mesh_flow(mBlock)
+        _blockProxyFlow = proxy and BLOCKUTILS.block_proxy_mesh_flow(mBlock) and not _skinUnify
         
         if _blockProxyFlow:
             _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True)
@@ -2330,6 +2330,8 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         else:
             _res = mBlock.UTILS.create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
             if _res:
+                BLOCKUTILS.puppetMesh_normalCheck(_res)
+                BLOCKUTILS.puppetMesh_colorGeo(mBlock, _res)
                 ml_skinned.extend(_res)
         
         """
@@ -2347,6 +2349,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     ml_mesh = []
     if unified:
         if _skinUnify and ml_skinned:
+            BLOCKUTILS.puppetMesh_normalCheck(ml_skinned)
             mMesh = None
             for mObj in ml_skinned:
                 TRANS.pivots_zeroTransform(mObj)

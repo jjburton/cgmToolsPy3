@@ -104,6 +104,24 @@ def get_side(self):
         _side = self.getEnumValueString('side') 
     return _side
 
+def puppetMesh_colorGeo(mBlock, ml_geo, controlType='main'):
+    """Puppet/proxy display mesh shader — matches limb/segment color_mesh usage."""
+    if not ml_geo:
+        return
+    _side = get_side(mBlock)
+    if _side in ['none', '']:
+        _side = 'center'
+    for mObj in cgmMeta.validateObjListArg(ml_geo):
+        CORERIG.color_mesh(mObj.mNode, _side, controlType, transparent=False, proxy=True)
+
+def puppetMesh_normalCheck(ml_geo):
+    """Flip poly normals when GEO.is_reversed detects inside-out tessellation."""
+    if not ml_geo:
+        return
+    for mObj in cgmMeta.validateObjListArg(ml_geo):
+        for s in TRANS.shapes_get(mObj.mNode, True):
+            GEO.normalCheck(s)
+
 def reorder_udAttrs(self):
     ATTR.reorder_ud(self.mNode)
     
@@ -9499,7 +9517,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             log.debug("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
             continue
         
-        _blockProxyFlow = proxy and block_proxy_mesh_flow(mBlock)
+        _blockProxyFlow = proxy and block_proxy_mesh_flow(mBlock) and not _skinUnify
         
         if _blockProxyFlow:
             _res = mBlock.verify_proxyMesh(puppetMeshMode=True)
@@ -9510,11 +9528,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 continue
             _res = create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
             if _res:
+                puppetMesh_normalCheck(_res)
+                puppetMesh_colorGeo(mBlock, _res)
                 ml_skinned.extend(_res)
-                
-                _side = get_side(mBlock)
-                for mObj in _res:
-                    CORERIG.colorControl(mObj.mNode,_side,'main',transparent=False,proxy=True)
         
         
         """
@@ -9532,6 +9548,7 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     ml_mesh = []
     if unified:
         if _skinUnify and ml_skinned:
+            puppetMesh_normalCheck(ml_skinned)
             mMesh = False
             for mObj in ml_skinned:
                 TRANS.pivots_zeroTransform(mObj)
@@ -9836,6 +9853,9 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     
     _mesh = BUILDUTILS.create_loftMesh([mCrv.mNode for mCrv in ml_loftCurves],
                                       **_d)
+    
+    for s in TRANS.shapes_get(_mesh, True):
+        GEO.normalCheck(s)
     
     """
     if form in [1,2]:
