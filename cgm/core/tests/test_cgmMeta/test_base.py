@@ -54,6 +54,15 @@ class Test_r9Issues(unittest.TestCase):
         self.assertNotEqual(self.r9Node1,self.r9Node1_dup)
         self.r9Node1_dup.delete()
 
+    def test_delete_with_stale_cache_entry(self):
+        """Orphaned cache entries (maya delete without meta.delete) must not break removeFromCache."""
+        stale = r9Meta.MetaClass(name='stale_poci', nodeType='pointOnCurveInfo')
+        r9Meta.MetaClass(stale.mNode)
+        mc.delete(stale.mNode)
+
+        live = r9Meta.MetaClass(name='live_tmp', nodeType='transform')
+        live.delete()
+
 class Test_general(unittest.TestCase):   
     def test_mClassConversion_r9(self):
         n1 = cgmMeta.cgmNode(name='test_setClass',nodeType = 'transform')
