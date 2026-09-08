@@ -9417,13 +9417,7 @@ def puppetMesh_delete(self):
     if not mPuppet:
         return log.error("|{0}| >> Must have puppet to check".format(_str_func))
 
-    #Check for existance of mesh ========================================================================
-    bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-    if bfr:
-        log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
-        mc.delete([mObj.mNode for mObj in bfr])
-        return True
-    return False
+    return puppet_mesh_delete_existing(mPuppet)
 
 _l_faceProxyBlockTypes = ['muzzle', 'brow', 'eye', 'facs']
 _l_puppetMeshSelfColoredBlockTypes = ['eye']
@@ -9440,6 +9434,106 @@ def block_proxy_mesh_flow(mBlock):
 def block_puppet_mesh_self_colored(mBlock):
     """Blocks that assign per-part puppet/proxy shaders in build_proxyMesh / create_simpleMesh."""
     return mBlock.blockType in _l_puppetMeshSelfColoredBlockTypes
+
+_l_puppetMeshProtectedGroupPlugs = [
+    'rigGroup', 'deformGroup', 'noTransformGroup', 'geoGroup', 'skeletonGroup',
+    'partsGroup', 'worldSpaceObjectsGroup', 'puppetSpaceObjectsGroup', 'spacePivotsGroup',
+]
+
+def _puppet_mesh_has_mesh_shape(mNode):
+    for s in TRANS.shapes_get(mNode, True) or []:
+        if mc.nodeType(s) == 'mesh':
+            return True
+    return False
+
+def puppet_mesh_protected_mNodes(mPuppet):
+    """Puppet structure transforms that must never be deleted or fed to polyUnite."""
+    _protected = set()
+    if not mPuppet:
+        return _protected
+    mMasterNull = mPuppet.masterNull
+    if mMasterNull:
+        _protected.add(mMasterNull.mNode)
+        for _plug in _l_puppetMeshProtectedGroupPlugs:
+            mGrp = mMasterNull.getMessageAsMeta(_plug)
+            if not mGrp:
+                continue
+            if VALID.isListArg(mGrp):
+                for mSub in mGrp:
+                    _protected.add(mSub.mNode)
+            else:
+                _protected.add(mGrp.mNode)
+    mArmature = mPuppet.getMessageAsMeta('armature')
+    if mArmature:
+        _protected.add(mArmature.mNode)
+        for _plug in ('geoGroup', 'skeletonGroup'):
+            mGrp = mArmature.getMessageAsMeta(_plug)
+            if not mGrp:
+                continue
+            if VALID.isListArg(mGrp):
+                for mSub in mGrp:
+                    _protected.add(mSub.mNode)
+            else:
+                _protected.add(mGrp.mNode)
+    mMaster = mPuppet.getMessageAsMeta('masterControl')
+    if mMaster:
+        _protected.add(mMaster.mNode)
+    return _protected
+
+def puppet_geoGroup_get(mPuppet, verify=True):
+    """Resolve puppet geo group; verify/create puppet groups when missing."""
+    _str_func = 'puppet_geoGroup_get'
+    if not mPuppet:
+        return False
+    if verify:
+        mPuppet.UTILS.groups_verify(mPuppet)
+    mMasterNull = mPuppet.masterNull
+    if not mMasterNull:
+        log.error("|{0}| >> No masterNull on puppet: {1}".format(_str_func, mPuppet))
+        return False
+    mGeoGroup = mMasterNull.getMessageAsMeta('geoGroup')
+    if not mGeoGroup:
+        mArmature = mPuppet.getMessageAsMeta('armature')
+        if mArmature:
+            mGeoGroup = mArmature.getMessageAsMeta('geoGroup')
+    if VALID.isListArg(mGeoGroup):
+        mGeoGroup = mGeoGroup[0]
+    if not mGeoGroup or not mc.objExists(mGeoGroup.mNode):
+        log.error("|{0}| >> geoGroup missing on puppet: {1}".format(_str_func, mPuppet))
+        return False
+    return mGeoGroup
+
+def puppet_mesh_filter_nodes(mPuppet, ml_nodes, for_delete=False):
+    """Drop puppet structure groups and (for unite) non-mesh transforms."""
+    _str_func = 'puppet_mesh_filter_nodes'
+    _protected = puppet_mesh_protected_mNodes(mPuppet)
+    _filtered = []
+    for mObj in cgmMeta.validateObjListArg(ml_nodes, noneValid=True) or []:
+        if not mObj or not mc.objExists(mObj.mNode):
+            continue
+        if mObj.mNode in _protected:
+            log.warning("|{0}| >> skipping protected node: {1}".format(_str_func, mObj.mNode))
+            continue
+        if not for_delete and not _puppet_mesh_has_mesh_shape(mObj.mNode):
+            log.warning("|{0}| >> skipping non-mesh node: {1}".format(_str_func, mObj.mNode))
+            continue
+        _filtered.append(mObj)
+    return _filtered
+
+def puppet_mesh_delete_existing(mPuppet):
+    """Delete prior puppetMesh msgList entries without touching puppet groups."""
+    _str_func = 'puppet_mesh_delete_existing'
+    if not mPuppet:
+        return False
+    bfr = mPuppet.msgList_get('puppetMesh', asMeta=True)
+    if not bfr:
+        return False
+    ml_delete = puppet_mesh_filter_nodes(mPuppet, bfr, for_delete=True)
+    if not ml_delete:
+        return False
+    log.debug("|{0}| >> deleting puppetMesh: {1}".format(_str_func, [m.mNode for m in ml_delete]))
+    mc.delete([mObj.mNode for mObj in ml_delete])
+    return True
 
 @cgmGEN.Timer
 def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True):
@@ -9474,7 +9568,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             if not mPuppet:
                 return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))"""
             
-        mGeoGroup = mPuppet.masterNull.geoGroup
+        mGeoGroup = puppet_geoGroup_get(mPuppet)
+        if not mGeoGroup:
+            return log.error("|{0}| >> Must have geoGroup for skining mode".format(_str_func))
         mParent = mGeoGroup
         log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
         log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
@@ -9489,13 +9585,13 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     
     
     #Check for existance of mesh ========================================================================
-    if mPuppet:
+    if mPuppet and skin:
         bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-        if skin and bfr:
+        if bfr:
             log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
             if forceNew:
-                log.debug("|{0}| >> force new...".format(_str_func))                            
-                mc.delete([mObj.mNode for mObj in bfr])
+                log.debug("|{0}| >> force new...".format(_str_func))
+                puppet_mesh_delete_existing(mPuppet)
             else:
                 return bfr
     
@@ -9554,6 +9650,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     ml_mesh = []
     if unified:
         if _skinUnify and ml_skinned:
+            ml_skinned = puppet_mesh_filter_nodes(mPuppet, ml_skinned)
+            if not ml_skinned:
+                return log.error("|{0}| >> No valid skinned mesh nodes to unify".format(_str_func))
             puppetMesh_normalCheck(ml_skinned)
             mMesh = False
             for mObj in ml_skinned:
@@ -9628,7 +9727,9 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
         mPuppet = puppet_get(self,mModuleTarget)
         if not mPuppet:
             return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))
-        mGeoGroup = mPuppet.masterNull.geoGroup
+        mGeoGroup = puppet_geoGroup_get(mPuppet)
+        if not mGeoGroup:
+            return log.error("|{0}| >> Must have geoGroup for skining mode".format(_str_func))
         mParent = mGeoGroup
         log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
         log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        

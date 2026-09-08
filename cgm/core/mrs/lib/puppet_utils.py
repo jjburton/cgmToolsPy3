@@ -2268,7 +2268,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             if not mPuppet:
                 return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))"""
             
-        mGeoGroup = mPuppet.masterNull.geoGroup
+        mGeoGroup = BLOCKUTILS.puppet_geoGroup_get(mPuppet)
+        if not mGeoGroup:
+            return log.error("|{0}| >> Must have geoGroup for skining mode".format(_str_func))
         mParent = mGeoGroup
         log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
         log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
@@ -2286,13 +2288,13 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     
     
     #Check for existance of mesh ========================================================================
-    if mPuppet:
+    if mPuppet and skin:
         bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-        if skin and bfr:
+        if bfr:
             log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
             if forceNew:
-                log.debug("|{0}| >> force new...".format(_str_func))                            
-                mc.delete([mObj.mNode for mObj in bfr])
+                log.debug("|{0}| >> force new...".format(_str_func))
+                BLOCKUTILS.puppet_mesh_delete_existing(mPuppet)
             else:
                 return bfr
     
@@ -2350,6 +2352,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     ml_mesh = []
     if unified:
         if _skinUnify and ml_skinned:
+            ml_skinned = BLOCKUTILS.puppet_mesh_filter_nodes(mPuppet, ml_skinned)
+            if not ml_skinned:
+                return log.error("|{0}| >> No valid skinned mesh nodes to unify".format(_str_func))
             BLOCKUTILS.puppetMesh_normalCheck(ml_skinned)
             mMesh = None
             for mObj in ml_skinned:

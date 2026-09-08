@@ -3211,6 +3211,302 @@ def get_midIK_basePos(ml_handles = [], baseAxis = 'y+', markPos = False, forceMi
     
     return pos_use
 
+def _ribbon_applySquashStretch(ml_joints,
+                               mControlSurface,
+                               mGroup,
+                               mSettings,
+                               str_baseName,
+                               masterScalePlug,
+                               squashStretch=None,
+                               squashStretchMain='arcLength',
+                               extraSquashControl=False,
+                               squashFactorMin=0.0,
+                               squashFactorMax=1.0,
+                               squashFactorMode='midPeak',
+                               ml_follicles=None,
+                               ml_influences=None,
+                               parentDeformTo=False,
+                               setupAimScale=False,
+                               skipAim=True,
+                               extraKeyable=False,
+                               mModule=None):
+    """
+    Shared squash/stretch setup for ribbon and ribbon_seal driven joint chains.
+    """
+    _str_func = '_ribbon_applySquashStretch'
+    
+    if squashStretch is None:
+        return
+    
+    if not ml_joints:
+        return
+    
+    ml_joints = cgmMeta.validateObjListArg(ml_joints, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    int_lenJoints = len(ml_joints)
+    l_influences = None
+    if ml_influences:
+        ml_influences = cgmMeta.validateObjListArg(ml_influences, mType='cgmObject', noneValid=True)
+        l_influences = [mObj.p_nameShort for mObj in ml_influences]
+    
+    if ml_follicles is None:
+        ml_follicles = []
+    
+    l_scaleFactors = None
+    if extraSquashControl:
+        l_scaleFactors = MATH.get_blendList(int_lenJoints, squashFactorMax, squashFactorMin, squashFactorMode)
+    
+    mPlug_masterScale = None
+    if masterScalePlug is not None:
+        if issubclass(type(masterScalePlug), cgmMeta.cgmAttr):
+            mPlug_masterScale = masterScalePlug
+        else:
+            d_attr = cgmMeta.validateAttrArg(masterScalePlug)
+            if not d_attr:
+                raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
+            mPlug_masterScale = d_attr['mPlug']
+    
+    if not mPlug_masterScale:
+        raise ValueError("masterScalePlug required for squash/stretch setup")
+    
+    _surf_shape = mControlSurface.getShapes()[0]
+    minU = ATTR.get(_surf_shape, 'minValueU')
+    maxU = ATTR.get(_surf_shape, 'maxValueU')
+    minV = ATTR.get(_surf_shape, 'minValueV')
+    maxV = ATTR.get(_surf_shape, 'maxValueV')
+    
+    mPlug_inverseScale = None
+    mPlug_masterAimScale = None
+    mPlug_aimNormalized = None
+    
+    if squashStretchMain == 'arcLength':
+        plug_inverse = '{0}_segInverseScale'.format(str_baseName)
+        
+        mArcLen = cgmMeta.validateObjArg(mc.createNode('arcLengthDimension'), setClass=True)
+        mArcLenDag = mArcLen.getTransform(asMeta=True)
+        mArcLen.uParamValue = MATH.average(minU, maxU)
+        mArcLen.vParamValue = maxV
+        mArcLenDag.rename('{0}_arcLengthNode'.format(str_baseName))
+        
+        plug_dim = '{0}_arcLengthDim'.format(str_baseName)
+        mControlSurface.connectChildNode(mArcLen.mNode, plug_dim, 'arcLenDim')
+        ATTR.connect("{0}.worldSpace".format(_surf_shape), "{0}.nurbsGeometry".format(mArcLen.mNode))
+        mArcLen.addAttr('baseDist', mArcLen.arcLengthInV, attrType='float', lock=True)
+        
+        mPlug_inverseScale = cgmMeta.cgmAttr(mArcLen.mNode, plug_inverse, 'float')
+        NODEFAC.argsToNodes("{0} = {2} / {1}".format(mPlug_inverseScale.p_combinedName,
+                                                      '{0}.arcLengthInV'.format(mArcLen.mNode),
+                                                      "{0}.baseDist".format(mArcLen.mNode))).doBuild()
+        
+        if setupAimScale:
+            plug_aim = '{0}_segAimScale'.format(str_baseName)
+            mPlug_masterAimScale = cgmMeta.cgmAttr(mArcLen.mNode, plug_aim, 'float')
+            NODEFAC.argsToNodes("{0} = {1} / {2}".format(mPlug_masterAimScale.p_combinedName,
+                                                          '{0}.arcLengthInV'.format(mArcLen.mNode),
+                                                          "{0}.baseDist".format(mArcLen.mNode))).doBuild()
+    
+    def createDist(mJnt, typeModifier=None):
+        mShape = cgmMeta.cgmNode(mc.createNode('distanceDimShape'))
+        mObject = mShape.getTransform(asMeta=True)
+        mObject.doStore('cgmName', mJnt)
+        if typeModifier:
+            mObject.addAttr('cgmTypeModifier', typeModifier, lock=True)
+        mObject.addAttr('cgmType', 'measureNode', lock=True)
+        mObject.doName(nameShapes=True)
+        mObject.parent = mGroup.mNode
+        mObject.overrideEnabled = 1
+        mObject.overrideVisibility = 1
+        if mModule:
+            ATTR.connect("{0}.gutsVis".format(mModule.rigNull.mNode),
+                         "{0}.overrideVisibility".format(mObject.mNode))
+            ATTR.connect("{0}.gutsLock".format(mModule.rigNull.mNode),
+                         "{0}.overrideDisplayType".format(mObject.mNode))
+        return mObject, mShape
+    
+    log.debug("|{0}| >> SquashStretch...".format(_str_func) + cgmGEN._str_subLine)
+    
+    mPlug_segScale = None
+    if extraSquashControl:
+        mPlug_segScale = cgmMeta.cgmAttr(mSettings.mNode,
+                                         "{0}_segScale".format(str_baseName),
+                                         attrType='float',
+                                         hidden=False,
+                                         initialValue=1.0,
+                                         defaultValue=1.0,
+                                         keyable=extraKeyable,
+                                         lock=False,
+                                         minValue=0)
+    
+    ml_aimInversePlugs = []
+    
+    if squashStretchMain == 'arcLength' and mPlug_inverseScale:
+        mPlug_inverseNormalized = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_normalInverse".format(str_baseName),
+                                                  attrType='float',
+                                                  hidden=False)
+        NODEFAC.argsToNodes("{0} = {1} * {2}".format(mPlug_inverseNormalized.p_combinedName,
+                                                      mPlug_inverseScale.p_combinedName,
+                                                      mPlug_masterScale.p_combinedName)).doBuild()
+        
+        if setupAimScale and mPlug_masterAimScale:
+            mPlug_aimNormalized = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_aimNormalized".format(str_baseName),
+                                                  attrType='float',
+                                                  hidden=False)
+            NODEFAC.argsToNodes("{0} = {1} / {2}".format(mPlug_aimNormalized.p_combinedName,
+                                                          mPlug_masterAimScale.p_combinedName,
+                                                          mPlug_masterScale.p_combinedName)).doBuild()
+        
+        for i, mJnt in enumerate(ml_joints):
+            try:
+                v_scaleFactor = l_scaleFactors[i]
+            except Exception as err:
+                log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i, err))
+                v_scaleFactor = 1.0
+            
+            l_argBuild = []
+            if extraSquashControl:
+                mPlug_outResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_outScaleBaseResult_{1}".format(str_baseName, i),
+                                                  attrType='float',
+                                                  initialValue=0,
+                                                  lock=True,
+                                                  minValue=0)
+                mPlug_jointFactor = cgmMeta.cgmAttr(mSettings.mNode,
+                                                    "{0}_outFactor_{1}".format(str_baseName, i),
+                                                    attrType='float',
+                                                    hidden=False,
+                                                    initialValue=v_scaleFactor,
+                                                    defaultValue=v_scaleFactor,
+                                                    keyable=extraKeyable,
+                                                    lock=False,
+                                                    minValue=0)
+                mPlug_jointRes = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                 "{0}_factorRes_{1}".format(str_baseName, i),
+                                                 attrType='float')
+                mPlug_jointDiff = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_factorDiff_{1}".format(str_baseName, i),
+                                                  attrType='float')
+                mPlug_jointMult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_factorMult_{1}".format(str_baseName, i),
+                                                  attrType='float')
+                mPlug_baseRes = mPlug_inverseNormalized
+                l_argBuild.append("{0} = 1 + {1}".format(mPlug_outResult.p_combinedName,
+                                                           mPlug_jointMult.p_combinedName))
+                l_argBuild.append("{0} = {1} - 1".format(mPlug_jointDiff.p_combinedName,
+                                                           mPlug_baseRes.p_combinedName))
+                l_argBuild.append("{0} = {1} * {2}".format(mPlug_jointMult.p_combinedName,
+                                                           mPlug_jointDiff.p_combinedName,
+                                                           mPlug_jointRes.p_combinedName))
+                l_argBuild.append("{0} = {1} * {2}".format(mPlug_jointRes.p_combinedName,
+                                                           mPlug_jointFactor.p_combinedName,
+                                                           mPlug_segScale.p_combinedName))
+                if setupAimScale and mPlug_aimNormalized:
+                    mPlug_aimResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                      "{0}_aimScaleResult_{1}".format(str_baseName, i),
+                                                      attrType='float',
+                                                      initialValue=0,
+                                                      lock=True,
+                                                      minValue=0)
+                else:
+                    mPlug_aimResult = mPlug_aimNormalized
+            else:
+                mPlug_outResult = mPlug_inverseNormalized
+                mPlug_aimResult = mPlug_aimNormalized or mPlug_outResult
+            
+            for arg in l_argBuild:
+                NODEFAC.argsToNodes(arg).doBuild()
+            
+            ml_aimInversePlugs.append(mPlug_outResult)
+            
+            if squashStretch == 'simple':
+                for axis in ['scaleX', 'scaleY']:
+                    mPlug_outResult.doConnectOut('{0}.{1}'.format(mJnt.mNode, axis))
+            
+            if not skipAim and mPlug_aimResult:
+                mPlug_aimResult.doConnectOut('{0}.scaleZ'.format(mJnt.mNode))
+    
+    elif squashStretchMain == 'pointDist' and ml_follicles:
+        md_distDat = {'aim': {'active': {'mDist': []}}}
+        for i, mJnt in enumerate(ml_joints):
+            if mJnt == ml_joints[-1]:
+                continue
+            mDistanceDag, mDistanceShape = createDist(mJnt, 'active')
+            ATTR.connect(ml_follicles[i].mNode + '.translate', mDistanceShape.mNode + '.startPoint')
+            ATTR.connect(ml_follicles[i + 1].mNode + '.translate', mDistanceShape.mNode + '.endPoint')
+            md_distDat['aim']['active']['mDist'].append(mDistanceShape)
+        
+        for i, mJnt in enumerate(ml_joints):
+            if i >= len(md_distDat['aim']['active']['mDist']):
+                continue
+            mActive_aim = md_distDat['aim']['active']['mDist'][i]
+            mPlug_aimResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                              "{0}_aimScaleResult_{1}".format(str_baseName, i),
+                                              attrType='float',
+                                              initialValue=0,
+                                              lock=True,
+                                              minValue=0)
+            mPlug_aimBase = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                            "{0}_aimBase_{1}".format(str_baseName, i),
+                                            attrType='float',
+                                            lock=True,
+                                            value=ATTR.get('{0}.distance'.format(mActive_aim.mNode)))
+            mPlug_aimBaseNorm = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                "{0}_aimBaseNorm_{1}".format(str_baseName, i),
+                                                attrType='float',
+                                                initialValue=0,
+                                                lock=True,
+                                                minValue=0)
+            l_argBuild = ["{0} = {1} * {2}".format(mPlug_aimBaseNorm.p_combinedName,
+                                                   mPlug_aimBase.p_combinedName,
+                                                   mPlug_masterScale.p_combinedName)]
+            l_argBuild.append("{0} = {2} / {1}".format(mPlug_aimResult.p_combinedName,
+                                                         mPlug_aimBaseNorm.p_combinedName,
+                                                         "{0}.distance".format(mActive_aim.mNode)))
+            for arg in l_argBuild:
+                NODEFAC.argsToNodes(arg).doBuild()
+            
+            if squashStretch not in ['single', 'both']:
+                for axis in ['scaleX', 'scaleY']:
+                    mPlug_aimResult.doConnectOut('{0}.{1}'.format(mJnt.mNode, axis))
+    
+    if squashStretch == 'simple' and l_influences:
+        cgmGEN._reloadMod(CONSTRAINT)
+        for i, mJnt in enumerate(ml_joints):
+            str_joint = mJnt.mNode
+            if mJnt == ml_joints[0]:
+                l_targets = [l_influences[0]]
+            elif mJnt == ml_joints[-1]:
+                l_targets = [l_influences[-1]]
+            else:
+                l_targets = l_influences
+            
+            if len(l_targets) > 4:
+                l_targets = [t[0] for t in DIST.get_targetsOrderedByDist(mJnt.mNode, l_targets)[:3]]
+            
+            mScaleReader = mJnt.doCreateAt(setClass=True)
+            mScaleReader.rename("{0}_scaleReader".format(mJnt.p_nameBase))
+            mScaleReader.parent = parentDeformTo or mGroup.mNode
+            
+            _scale = mc.scaleConstraint(l_targets,
+                                        mScaleReader.mNode,
+                                        maintainOffset=1)
+            if len(l_targets) > 1:
+                _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode, l_targets)
+                CONSTRAINT.set_weightsByDistance(_scale[0], _vList)
+            
+            mAdditiveScale = cgmMeta.cgmNode(nodeType='multiplyDivide')
+            mAdditiveScale.operation = 1
+            mAdditiveScale.rename("{}_additiveScale_mdNode".format(str_joint))
+            _mdNode = mAdditiveScale.mNode
+            for axis in ['X', 'Y', 'Z']:
+                plug = ATTR.get_driver(str_joint, "scale" + axis)
+                if plug:
+                    ATTR.connect(plug, "{}.input1{}".format(_mdNode, axis))
+                    ATTR.connect("{}.scale{}".format(mScaleReader.mNode, axis),
+                                 "{}.input2{}".format(_mdNode, axis))
+                    ATTR.connect("{}.output.output{}".format(_mdNode, axis),
+                                 "{}.scale{}".format(str_joint, axis))
+
 def ribbon_seal(driven1 = None,
                 driven2 = None,
 
@@ -3253,6 +3549,18 @@ def ribbon_seal(driven1 = None,
                 moduleInstance = None,
                 parentGutsTo = None,
                 paramaterization='blend',
+                
+                squashStretchMain = 'arcLength',
+                squashStretch = None,
+                masterScalePlug = None,
+                additiveScaleEnds = False,
+                extraSquashControl = False,
+                squashFactorMode = 'midPeak',
+                squashFactorMin = 0.0,
+                squashFactorMax = 1.0,
+                setupAimScale = False,
+                skipAim = True,
+                parentDeformTo = False,
                 
                 **kws):
     """
@@ -3865,6 +4173,28 @@ def ribbon_seal(driven1 = None,
                 else:
                     dat['mPlug_sealOff'].doConnectOut('%s.%s' % (_const,targetWeights[0]))
                     dat['mPlug_sealOn'].doConnectOut('%s.%s' % (_const,targetWeights[1]))
+
+            if squashStretch is not None and masterScalePlug is not None:
+                _ribbonBaseName = baseName1 if idx == 1 else baseName2
+                ml_folliclesOrdered = [md_follicles[mObj] for mObj in dat['driven'] if mObj in md_follicles]
+                _ribbon_applySquashStretch(dat['driven'],
+                                         dat['mSurf'],
+                                         mGroup,
+                                         mSettings,
+                                         _ribbonBaseName,
+                                         masterScalePlug,
+                                         squashStretch=squashStretch,
+                                         squashStretchMain=squashStretchMain,
+                                         extraSquashControl=extraSquashControl,
+                                         squashFactorMin=squashFactorMin,
+                                         squashFactorMax=squashFactorMax,
+                                         squashFactorMode=squashFactorMode,
+                                         ml_follicles=ml_folliclesOrdered,
+                                         ml_influences=dat['mInfluences'],
+                                         parentDeformTo=parentDeformTo,
+                                         setupAimScale=setupAimScale,
+                                         skipAim=skipAim,
+                                         mModule=mModule)
 
             log.debug("|{0}| >> Blend drivers...".format(_str_func))
 

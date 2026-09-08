@@ -4767,9 +4767,6 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                 
                 ml_headStuff.append(  mObj )
                 mObj.p_parent = False
-                if parent:
-                    mObj.p_parent = parent
-                    #if skin:mObj.doCopyPivot(parent)
                 if skin:
                     mc.skinCluster ([ ml_moduleJoints[-1].mNode],
                                     mObj.mNode,
@@ -4788,10 +4785,6 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             
             
             ml_headStuff.extend(ml_neckMesh)
-            if parent:
-                for mObj in ml_neckMesh:
-                    mObj.p_parent = parent
-                    #if skin:mObj.doCopyPivot(parent)
             
             if skin:
                 for mMesh in ml_neckMesh:
@@ -4808,7 +4801,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                 _res = mc.polyUniteSkinned([mObj.mNode for mObj in ml_headStuff],ch=False,objectPivot=True)
                 _mesh = mc.rename(_res[0],'{0}_0_geo'.format(self.p_nameBase))
                 mc.rename(_res[1],'{0}_skinCluster'.format(_mesh))       
-                
+                ml_headStuff = []
             else:
                 _mesh = ml_headStuff[0]
                 ml_headStuff = []
@@ -4830,8 +4823,12 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             return
         
         for mObj in ml_headStuff:
-            try:mObj.delete()
-            except:pass
+            try:
+                if parent and hasattr(parent, 'mNode') and mObj.mNode == parent.mNode:
+                    continue
+                mObj.delete()
+            except:
+                pass
         
         return cgmMeta.validateObjListArg(_mesh)
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        

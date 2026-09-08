@@ -231,6 +231,11 @@ l_attrsStandard = ['side',
                    #'loftDegree',
                    #'loftSplit',
                    'scaleSetup',
+                   'squashMeasure',
+                   'squash',
+                   'squashExtraControl',
+                   'squashFactorMax',
+                   'squashFactorMin',
                    'visLabels',
                    'buildSDK',                   
                    'visFormHandles',
@@ -337,6 +342,8 @@ d_defaultSettings = {'version':__version__,
                      'numLoftOverUnder_u':6,
                      'numLoftLipUnder_u':3,
                      'ribbonParam':'blend',
+                     'squashFactorMax':1.0,
+                     'squashFactorMin':1.0,
                      'numLoftLip_v':13,
                      'numLoftNose_u':10,
                      'numLoftNose_v':10,
@@ -5721,6 +5728,13 @@ def rig_prechecks(self):
     str_chinSetup = mBlock.getEnumValueString('chinSetup')
     if str_chinSetup not in ['none','single']:
         self.l_precheckErrors.append("Chin setup not completed: {0}".format(str_chinSetup))
+    
+    if mBlock.scaleSetup and str_lipSetup not in ['none']:
+        str_ribbonParam = mBlock.getEnumValueString('ribbonParam')
+        str_squashMeasure = mBlock.getEnumValueString('squashMeasure')
+        if str_squashMeasure in ['pointDist']:
+            if str_ribbonParam in ['floating']:
+                self.l_precheckErrors.append("Squash measure pointDist and floating ribbon param is pointless. Change ribbonParam to fixed or blend OR squashMeasure to arcLen")
                 
 
 #@cgmGEN.Timer
@@ -5740,6 +5754,32 @@ def rig_dataBuffer(self):
 
     
     self.b_scaleSetup = mBlock.scaleSetup
+    
+    #Squash stretch logic  =================================================================================
+    log.debug("|{0}| >> Squash stretch..".format(_str_func))
+    self.b_squashSetup = False
+    self.d_squashStretch = {}
+    
+    _squashStretch = None
+    if mBlock.squash:
+        _squashStretch = mBlock.getEnumValueString('squash')
+        self.b_squashSetup = True
+    self.d_squashStretch['squashStretch'] = _squashStretch
+    
+    _squashMeasure = None
+    if mBlock.squashMeasure:
+        _squashMeasure = mBlock.getEnumValueString('squashMeasure')
+    self.d_squashStretch['squashStretchMain'] = _squashMeasure
+    
+    self.d_squashStretch['driverSetup'] = None
+    self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
+    self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
+    self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
+    self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
+    
+    log.debug("|{0}| >> self.b_scaleSetup: {1}".format(_str_func,self.b_scaleSetup))
+    log.debug("|{0}| >> self.b_squashSetup: {1}".format(_str_func,self.b_squashSetup))
+    log.debug(cgmGEN._str_subLine)
     
     
     for k in ['muzzle','nose','nostril','cheek','bridge',
@@ -7479,6 +7519,10 @@ def rig_lipSegments(self):
     ml_uprRig = dUpr['right'] + dUpr['center']+ _revUprLeft
     ml_lwrRig = dLwr['right'] + dLwr['center']+ _revLwrLeft
 
+    if self.b_squashSetup:
+        for mJnt in ml_uprRig + ml_lwrRig:
+            mJnt.segmentScaleCompensate = False
+
     mMidDag = cgmMeta.cgmObject(name='midSealMarker')
     mMidDag.p_position = DIST.get_average_position([mUprCenter.p_position,
                                                     mLwrCenter.p_position])
@@ -7507,6 +7551,17 @@ def rig_lipSegments(self):
               'msgDriver':'driverJoint'}    
     
     d_lips['liveSurface'] = False
+    
+    if self.b_scaleSetup:
+        res_segScale = self.UTILS.get_blockScale(self,
+                                                 'segMeasure',
+                                                 ml_joints=[mRightCorner, mLeftCorner])
+        mPlug_masterScale = res_segScale[0]
+        mMasterCurve = res_segScale[1]
+        mMasterCurve.p_parent = mDeformNull
+        d_lips['masterScalePlug'] = mPlug_masterScale
+        d_lips.update(self.d_squashStretch)
+    
     #pprint.pprint(d_test)
     cgmGEN._reloadMod(IK)
     #pprint.pprint(d_lips)

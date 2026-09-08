@@ -2318,7 +2318,10 @@ def rig_skeleton(self):
         
         #...fk chain -------------------------------------------------------------------------------------
         log.debug("|{0}| >> fk_chain".format(_str_func))
-        ml_fkJoints = BLOCKUTILS.skeleton_buildHandleChain(mBlock,'fk','fkJoints')
+        if mBlock.numControls == mBlock.numJoints:
+             ml_fkJoints = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock, ml_joints, 'fk', self.mRigNull, 'fkJoints')
+        else:
+            ml_fkJoints = BLOCKUTILS.skeleton_buildHandleChain(mBlock,'fk','fkJoints',mOrientHelper=mBlock.defineRpHelper)
         ml_jointsToHide.extend(ml_fkJoints)
         
         ml_controlsFK = copy.copy(ml_fkJoints)
