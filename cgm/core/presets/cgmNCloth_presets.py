@@ -82,6 +82,7 @@ d_profileKind = {
     'leather': 'fabric',
     'flag': 'fabric',
     'stable': 'fabric',
+    'bangs_firm': 'fabric',
     'rubber': 'fabric',
     'inputAttract': 'fabric',
     # solver — simulation (n only)
@@ -193,6 +194,31 @@ stable = {
         'pushOutRadius': 5.0,
         'inputMeshAttract': 0.15,
         'inputAttractDamp': 0.6,
+    },
+}
+
+# Short panels / hair cage — high stretch+compression, soft bend, moderate damp,
+# subtle inputMeshAttract (head follow). Pair with solver_quality or solver_balanced.
+bangs_firm = {
+    'nc': {
+        'stretchResistance': 120.0,
+        'compressionResistance': 80.0,
+        'bendResistance': 0.25,
+        'bendAngleDropoff': 0.4,
+        'shearResistance': 30.0,
+        'damp': 1.0,
+        'stretchDamp': 0.2,
+        'pointMass': 0.6,
+        'drag': 0.08,
+        'tangentialDrag': 0.05,
+        'lift': 0.0,
+        'friction': 0.15,
+        'stickiness': 0.0,
+        'inputMeshAttract': 0.08,
+        'inputAttractDamp': 0.5,
+        'restLengthScale': 1.0,
+        'rigidity': 0.0,
+        'deformResistance': 0.05,
     },
 }
 

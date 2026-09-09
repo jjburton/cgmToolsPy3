@@ -797,7 +797,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                      name = None,
                      upSetup = "guess",
                      extendStart = None,
-                     extendEnd = True,
+                     extendEnd = False,
                      mNucleus=None,
                      upControl = None,
                      aimUpMode = None,
@@ -816,7 +816,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                      name = None,
                      upSetup = "guess",
                      extendStart = None,
-                     extendEnd = True,
+                     extendEnd = False,
                      mNucleus=None,
                      upControl = None,
                      aimUpMode = None,
@@ -856,8 +856,10 @@ class cgmDynFK(cgmMeta.cgmObject):
         fwd = fwd or self.fwd
         up = up or self.up
         upSetup = upSetup or self.upSetup
-        extendStart = extendStart or self.extendStart
-        extendEnd = extendEnd or self.extendEnd
+        if extendStart is None:
+            extendStart = self.extendStart
+        if extendEnd is None:
+            extendEnd = self.extendEnd
         upControl = upControl or self.upControl
         aimUpMode = aimUpMode or self.aimUpMode
         
@@ -908,9 +910,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                     
                     l_pos.append( DIST.get_pos_by_axis_dist(ml[-1],
                                                             fwdAxis.p_string,
-                                                            extendEnd ))                            
-            else:
-                l_pos.append( _p_baseExtend)
+                                                            extendEnd ))
         
             if extendStart:
                 f_extendStart = VALID.valueArg(extendStart)
@@ -960,7 +960,7 @@ class cgmDynFK(cgmMeta.cgmObject):
         #for i,p in enumerate(l_pos):
         #    LOC.create(position=p,name='p_{0}'.format(i))
             
-        crv = CORERIG.create_at(create='curve',l_pos= l_pos, baseName = name)
+        crv = CORERIG.create_at(create='curveLinear', l_pos=l_pos, baseName=name)
         mInCrv = cgmMeta.asMeta(crv)
         mInCrv.rename("{0}_inCrv".format(name))
         mGrp.connectChildNode(mInCrv.mNode,'mInCrv')
@@ -1137,8 +1137,13 @@ class cgmDynFK(cgmMeta.cgmObject):
         mc.parent(chain[0], _follicle)
         mInCrv.p_parent = mGrp
 
-        mc.bindSkin(mInCrv.mNode, chain[0], ts=True)
+        mc.skinCluster(chain, mInCrv.mNode,
+                       name='{0}_skinCluster'.format(name),
+                       maximumInfluences=1,
+                       obeyMaxInfluences=True)
 
+        _l_jointPos = [mObj.p_position for mObj in ml]
+        _l_paramFrac = CURVES.polyline_length_fractions(_l_jointPos)
 
         log.debug(cgmGEN.logString_msg(_str_func,'aimUpMode: {0}'.format(aimUpMode)))
         
@@ -1162,29 +1167,21 @@ class cgmDynFK(cgmMeta.cgmObject):
             #aimNull = mc.group(em=True)
             #aimNull = mc.rename('%s_aim' % mObj.getShortName())
             
-            poc = CURVES.create_pointOnInfoNode(outCurveShape)
-#mc.createNode('pointOnCurveInfo', name='%s_pos' % loc)
+            _param = _l_paramFrac[i] if i < len(_l_paramFrac) else 0.0
+            poc = CURVES.create_pointOnInfoNode(outCurveShape,
+                                                parameter=_param,
+                                                turnOnPercentage=True)
             mPoci_obj = cgmMeta.asMeta(poc)
             mPoci_obj.rename('%s_pos' % loc)
-            pocAim = CURVES.create_pointOnInfoNode(outCurveShape)
-            #mc.createNode('pointOnCurveInfo', name='%s_aim' % loc)
-            
-            pr = CURVES.getUParamOnCurve(loc, outCurve)
-            mPoci_obj.parameter = pr
-            
-            #mc.connectAttr( '%s.worldSpace[0]' % outCurveShape, '%s.inputCurve' % poc, f=True )
-            #mc.connectAttr( '%s.worldSpace[0]' % outCurveShape, '%s.inputCurve' % pocAim, f=True )
-
-            #mc.setAttr( '%s.parameter' % poc, pr )
-            
-            if i < len(ml)-1:
-                nextpr = CURVES.getUParamOnCurve(ml[i+1], outCurve)
-                mc.setAttr('%s.parameter' % pocAim, (nextpr))# + pr))# * .5)
+            if i < len(ml) - 1:
+                _aimParam = _l_paramFrac[i + 1]
+            elif extendEnd:
+                _aimParam = 1.0
             else:
-                if extendStart:
-                    mc.setAttr( '%s.parameter' % pocAim, len(ml)+1 )                    
-                else:
-                    mc.setAttr( '%s.parameter' % pocAim, len(ml) )
+                _aimParam = _param
+            pocAim = CURVES.create_pointOnInfoNode(outCurveShape,
+                                                   parameter=_aimParam,
+                                                   turnOnPercentage=True)
                     
                     
             

@@ -117,6 +117,27 @@ def get_shapeArcLength(shape):
     return _len
 
 
+def polyline_length_fractions(l_positions):
+    """Return 0-1 cumulative fractions along a polyline (chord-length, not curve U).
+
+    Used to place pointOnCurveInfo with turnOnPercentage on linear joint chains so
+    each sample matches joint spacing.
+    """
+    if not l_positions:
+        return []
+    if len(l_positions) == 1:
+        return [0.0]
+    _cumulative = [0.0]
+    _total = 0.0
+    for i in range(1, len(l_positions)):
+        _total += DIST.get_distance_between_points(l_positions[i - 1], l_positions[i])
+        _cumulative.append(_total)
+    if _total <= 0.0001:
+        _den = float(max(len(l_positions) - 1, 1))
+        return [float(i) / _den for i in range(len(l_positions))]
+    return [v / _total for v in _cumulative]
+
+
 def _closestPointOnShape(shape, position):
     """Closest world position and U parameter on a nurbsCurve shape."""
     _node = mc.createNode('nearestPointOnCurve')

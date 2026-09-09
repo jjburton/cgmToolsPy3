@@ -335,6 +335,43 @@ ponytail2 = {'hs': {'attractionScale': {0: (0.0, 1.0, 1.0),
         'stretchResistance': 200.0,
         'tangentialDrag': 1.0}}
 
+bob = {'hs': {'attractionScale': {0: (0.0, 1.0, 1.0),
+                            1: (0.25, 0.45, 1.0),
+                            2: (0.55, 0.15, 1.0),
+                            3: (0.85, 0.05, 1.0)},
+        'bendResistance': 0.15,
+        'damp': 0.08,
+        'drag': 0.35,
+        'extraBendLinks': 1,
+        'mass': 8.0,
+        'motionDrag': 0.25,
+        'startCurveAttract': 0.45,
+        'stiffnessScale': {0: (0.0, 0.65, 1.0),
+                           1: (0.35, 0.35, 1.0),
+                           2: (1.0, 0.12, 1.0)},
+        'stretchResistance': 150.0,
+        'stretchDamp': 0.05,
+        'tangentialDrag': 0.15}}
+
+bangs_firm = {'hs': {'attractionScale': {0: (0.0, 1.0, 1.0),
+                            1: (0.20, 0.70, 1.0),
+                            2: (0.50, 0.40, 1.0),
+                            3: (0.80, 0.15, 1.0)},
+        'bendResistance': 0.35,
+        'compressionResistance': 35.0,
+        'damp': 0.15,
+        'drag': 0.60,
+        'extraBendLinks': 2,
+        'mass': 5.0,
+        'motionDrag': 0.45,
+        'startCurveAttract': 0.75,
+        'stiffnessScale': {0: (0.0, 0.90, 1.0),
+                           1: (0.35, 0.60, 1.0),
+                           2: (1.0, 0.30, 1.0)},
+        'stretchResistance': 210.0,
+        'stretchDamp': 0.12,
+        'tangentialDrag': 0.35}}
+
 d_chain = {'base':
            {'n':
             {'airDensity': 1.0,
@@ -538,4 +575,6 @@ d_profileKind = {
     'spine': 'hair',
     'ponytail': 'hair',
     'ponytail2': 'hair',
+    'bob': 'hair',
+    'bangs_firm': 'hair',
 }
