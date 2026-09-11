@@ -1,0 +1,28 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "autodesk-seed"
+    },
+    "name": "denim",
+    "profile": {
+        "bendAngleDropoff": 0.603,
+        "bendResistance": 0.4,
+        "compressionResistance": 20.0,
+        "damp": 0.8,
+        "drag": 0.05,
+        "friction": 0.8,
+        "lift": 0.05,
+        "pointMass": 2.0,
+        "pushOutRadius": 0.108,
+        "shearResistance": 50.0,
+        "stretchResistance": 50.0,
+        "tangentialDrag": 0.1
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

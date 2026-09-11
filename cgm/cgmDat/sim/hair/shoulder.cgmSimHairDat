@@ -1,0 +1,38 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "shoulder",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.3, 0.5, 1.0],
+            "2": [0.6, 0.2, 1.0],
+            "3": [0.9, 0.08, 1.0]
+        },
+        "bendResistance": 0.12,
+        "compressionResistance": 40.0,
+        "damp": 0.1,
+        "drag": 0.45,
+        "extraBendLinks": 1,
+        "mass": 9.0,
+        "motionDrag": 0.3,
+        "startCurveAttract": 0.35,
+        "stiffnessScale": {
+            "0": [0.0, 0.55, 1.0],
+            "1": [0.4, 0.3, 1.0],
+            "2": [1.0, 0.18, 1.0]
+        },
+        "stretchDamp": 0.06,
+        "stretchResistance": 165.0,
+        "tangentialDrag": 0.18
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

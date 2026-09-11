@@ -174,6 +174,211 @@ class chain(object):
         pass
 
 
+def _transform_has_follicle_shape(node):
+    node = VALID.mNodeString(node)
+    return bool(mc.listRelatives(node, shapes=True, type='follicle') or [])
+
+
+def _resolve_follicle_from_incurve(inCurve):
+    """Return follicle transform for a dynamic hair inCurve after makeCurvesDynamic."""
+    inCurve = VALID.mNodeString(inCurve)
+    _parents = mc.listRelatives(inCurve, parent=True, fullPath=True) or []
+    for _p in _parents:
+        if _transform_has_follicle_shape(_p):
+            return _p
+    _crvShapes = mc.listRelatives(inCurve, shapes=True, type='nurbsCurve', fullPath=True) or []
+    for _shape in _crvShapes:
+        _follicleShapes = mc.listConnections(_shape, type='follicle', s=False, d=True) or []
+        for _fs in _follicleShapes:
+            _folParents = mc.listRelatives(_fs, parent=True, fullPath=True) or []
+            if _folParents:
+                return _folParents[0]
+    return None
+
+
+def _resolve_start_curve_from_follicle(follicleShape):
+    """Return (transform, nurbsCurve shape) wired to follicle startPosition after MCD."""
+    follicleShape = VALID.mNodeString(follicleShape)
+    if not mc.attributeQuery('startPosition', node=follicleShape, exists=True):
+        return None, None
+    _src = mc.listConnections(
+        '{0}.startPosition'.format(follicleShape),
+        source=True, destination=False, plugs=False) or []
+    if not _src:
+        return None, None
+    _node = _src[0]
+    if mc.nodeType(_node) == 'nurbsCurve':
+        _shape = _node
+        _parents = mc.listRelatives(_shape, parent=True, fullPath=True) or []
+        return (_parents[0] if _parents else None), _shape
+    if mc.nodeType(_node) == 'transform':
+        _shapes = mc.listRelatives(_node, shapes=True, type='nurbsCurve', fullPath=True) or []
+        return _node, (_shapes[0] if _shapes else None)
+    return None, None
+
+
+# Default follicle sim segment length (scene linear units — typically cm in Maya).
+FOLLICLE_FIXED_SEGMENT_LENGTH = 1.0
+
+
+def _configure_follicle_segment_sampling(follicleShape, fixedSegmentLength=False,
+                                         segmentLength=None, l_positions=None):
+    """
+    Follicle sim/collision sampling for dynFK hair chains.
+
+    Default (fixedSegmentLength=False): sampleDensity=1 — one sim segment per inCurve CV span.
+    Optional fixedSegmentLength=True: uniform world-length segments (segmentLength, default 1 unit).
+    """
+    _str_func = '_configure_follicle_segment_sampling'
+    follicleShape = VALID.mNodeString(follicleShape)
+    if fixedSegmentLength:
+        _seg = segmentLength if segmentLength is not None else FOLLICLE_FIXED_SEGMENT_LENGTH
+        if mc.attributeQuery('fixedSegmentLength', node=follicleShape, exists=True):
+            mc.setAttr('{0}.fixedSegmentLength'.format(follicleShape), 1)
+        if mc.attributeQuery('segmentLength', node=follicleShape, exists=True):
+            mc.setAttr('{0}.segmentLength'.format(follicleShape), _seg)
+        log.debug(cgmGEN.logString_msg(
+            _str_func, 'fixedSegmentLength=on, segmentLength={0}'.format(_seg)))
+    else:
+        if mc.attributeQuery('fixedSegmentLength', node=follicleShape, exists=True):
+            mc.setAttr('{0}.fixedSegmentLength'.format(follicleShape), 0)
+        if mc.attributeQuery('sampleDensity', node=follicleShape, exists=True):
+            mc.setAttr('{0}.sampleDensity'.format(follicleShape), 1.0)
+        log.debug(cgmGEN.logString_msg(_str_func, 'sampleDensity=1, fixedSegmentLength=off'))
+
+
+def _warn_hair_system_extra_segments(hairSystemShape):
+    """Shared hairSystem bend/subdivision attrs add collision samples beyond joint CV count."""
+    hairSystemShape = VALID.mNodeString(hairSystemShape)
+    _extra = 0
+    _sub = 0
+    if mc.attributeQuery('extraBendLinks', node=hairSystemShape, exists=True):
+        _extra = mc.getAttr('{0}.extraBendLinks'.format(hairSystemShape)) or 0
+    if mc.attributeQuery('subSegments', node=hairSystemShape, exists=True):
+        _sub = mc.getAttr('{0}.subSegments'.format(hairSystemShape)) or 0
+    if _extra or _sub:
+        log.info(cgmGEN.logString_msg(
+            '_warn_hair_system_extra_segments',
+            'hairSystem extraBendLinks={0} subSegments={1} — collision chain has more/shorter segments than joint CV spans'.format(
+                _extra, _sub)))
+
+
+def _wire_follicle_start_curve(follicleShape, curveShape):
+    """Connect nurbsCurve worldSpace to follicle startPosition (post-MCD input curve)."""
+    follicleShape = VALID.mNodeString(follicleShape)
+    curveShape = VALID.mNodeString(curveShape)
+    _dest = '{0}.startPosition'.format(follicleShape)
+    for _src in mc.listConnections(_dest, source=True, destination=False, plugs=True) or []:
+        try:
+            mc.disconnectAttr(_src, _dest)
+        except Exception:
+            pass
+    mc.connectAttr('{0}.worldSpace[0]'.format(curveShape), _dest, f=True)
+
+
+def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, chain, l_pos, skinCluster,
+                                        fixedSegmentLength=False, follicleSegmentLength=None):
+    """
+    After makeCurvesDynamic, rebuild the follicle input curve from joint positions.
+
+    MCD often leaves the cgm *_inCrv transform as an empty shell (or with a non-driving
+    shape) while follicle.startPosition uses a different curve — CVs and skin diverge.
+    Replace the dynamic input with a fresh linear curve, wire startPosition, and rebind skin.
+    """
+    _str_func = '_consolidate_hair_incurve_after_mcd'
+    _follicleShape = mFollicleShape.mNode if hasattr(mFollicleShape, 'mNode') else mFollicleShape
+
+    _oldInCrv = mInCrv.mNode
+    _prevStartXform, _prevStartShape = _resolve_start_curve_from_follicle(_follicleShape)
+
+    for _node in {n for n in (_oldInCrv, _prevStartXform) if n and mc.objExists(n)}:
+        if _node == _oldInCrv:
+            try:
+                mGrp.disconnectChildNode(_node, 'mInCrv')
+            except Exception:
+                pass
+        try:
+            mc.delete(_node)
+        except Exception as err:
+            log.debug(cgmGEN.logString_msg(_str_func, 'Delete {0}: {1}'.format(_node, err)))
+
+    if skinCluster and mc.objExists(skinCluster):
+        try:
+            mc.delete(skinCluster)
+        except Exception:
+            pass
+
+    crv = CORERIG.create_at(create='curveLinear', l_pos=l_pos, baseName=name)
+    mInCrv = cgmMeta.asMeta(crv)
+    mInCrv.rename('{0}_inCrv'.format(name))
+    mInCrv.p_parent = mGrp
+    mGrp.connectChildNode(mInCrv.mNode, 'mInCrv')
+
+    _shape = mc.listRelatives(mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+    _wire_follicle_start_curve(_follicleShape, _shape)
+
+    mSkinCluster = mc.skinCluster(
+        chain, mInCrv.mNode,
+        name='{0}_skinCluster'.format(name),
+        tsb=True,
+        maximumInfluences=1,
+        obeyMaxInfluences=True)[0]
+
+    _l_cvs = mc.ls('{0}.cv[*]'.format(_shape), flatten=True) or []
+    if not _l_cvs:
+        _l_cvs = ['{0}.cv[{1}]'.format(_shape, i) for i in range(len(l_pos))]
+    for i, _cv in enumerate(_l_cvs):
+        _jnt = chain[i] if i < len(chain) else chain[-1]
+        mc.skinPercent(mSkinCluster, _cv, tv=[_jnt, 1.0])
+
+    _configure_follicle_segment_sampling(
+        _follicleShape,
+        fixedSegmentLength=fixedSegmentLength,
+        segmentLength=follicleSegmentLength,
+        l_positions=l_pos)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'Rebuilt startPosition inCurve: {0} ({1} CVs)'.format(mInCrv.mNode, len(_l_cvs))))
+    return mInCrv
+
+
+def _configure_follicle_rest_match_start(follicleShape):
+    """Follicle restPose Same As Start — rest outCurve follows start curve."""
+    follicleShape = VALID.mNodeString(follicleShape)
+    if mc.attributeQuery('restPose', node=follicleShape, exists=True):
+        mc.setAttr('{0}.restPose'.format(follicleShape), 1)
+
+
+def _refresh_hair_rest_output(follicleShape, hairSystemShape):
+    """Evaluate hair rest state after inCurve rebuild (outCurve may still hold pre-rebuild CVs)."""
+    follicleShape = VALID.mNodeString(follicleShape)
+    hairSystemShape = VALID.mNodeString(hairSystemShape)
+    _time = mc.currentTime(q=True)
+    _start = 1
+    if mc.attributeQuery('startFrame', node=hairSystemShape, exists=True):
+        _start = mc.getAttr('{0}.startFrame'.format(hairSystemShape))
+    for _node in (follicleShape, hairSystemShape):
+        mc.dgdirty(_node)
+    mc.currentTime(_start, edit=True)
+    mc.currentTime(_time, edit=True)
+
+
+def _sync_hair_outcurve_to_incurve(inCurveShape, outCurveShape):
+    """Copy inCurve CVs onto outCurve at build rest (MCD outCurve is stale after inCurve rebuild)."""
+    _str_func = '_sync_hair_outcurve_to_incurve'
+    inCurveShape = VALID.mNodeString(inCurveShape)
+    outCurveShape = VALID.mNodeString(outCurveShape)
+    if not mc.objExists(inCurveShape) or not mc.objExists(outCurveShape):
+        return False
+    try:
+        CURVES.match(inCurveShape, outCurveShape, autoRebuild=True, keepOriginal=True, space='ws')
+        log.info(cgmGEN.logString_msg(_str_func, 'Matched outCurve CVs to inCurve at rest'))
+        return True
+    except Exception as err:
+        log.warning(cgmGEN.logString_msg(_str_func, 'match failed: {0}'.format(err)))
+        return False
+
+
 def _resolve_ncloth_shape(node):
     """Return nClothShape from an nCloth shape or transform that owns one."""
     node = VALID.mNodeString(node)
@@ -563,6 +768,8 @@ class cgmDynFK(cgmMeta.cgmObject):
     startFrame = None
     useExistingNucleus = True
     upSetup = 'liveStart'
+    fixedSegmentLength = False
+    follicleSegmentLength = FOLLICLE_FIXED_SEGMENT_LENGTH
     
     def __init__(self,node = None, name = None,
                  objs = None, fwd = 'z+', up = 'y+',
@@ -575,6 +782,8 @@ class cgmDynFK(cgmMeta.cgmObject):
                  extendEnd = None,
                  upControl = False,
                  aimUpMode = 'joint',
+                 fixedSegmentLength = False,
+                 follicleSegmentLength = None,
                  *args,**kws):
         """ 
         
@@ -620,6 +829,9 @@ class cgmDynFK(cgmMeta.cgmObject):
         self.extendStart = extendStart
         self.aimUpMode = aimUpMode
         self.upControl = upControl
+        self.fixedSegmentLength = fixedSegmentLength
+        self.follicleSegmentLength = (
+            follicleSegmentLength if follicleSegmentLength is not None else FOLLICLE_FIXED_SEGMENT_LENGTH)
        
         if not node:
             self.rename("{0}_dynFK".format(self.baseName))
@@ -801,6 +1013,8 @@ class cgmDynFK(cgmMeta.cgmObject):
                      mNucleus=None,
                      upControl = None,
                      aimUpMode = None,
+                     fixedSegmentLength = None,
+                     follicleSegmentLength = None,
                      chainMode = None,
                      **kws):
         _chainMode = chainMode or kws.pop('chainMode', 'hair')
@@ -809,7 +1023,9 @@ class cgmDynFK(cgmMeta.cgmObject):
         return self.chain_create_hair(
             objs=objs, fwd=fwd, up=up, name=name, upSetup=upSetup,
             extendStart=extendStart, extendEnd=extendEnd, mNucleus=mNucleus,
-            upControl=upControl, aimUpMode=aimUpMode, **kws)
+            upControl=upControl, aimUpMode=aimUpMode,
+            fixedSegmentLength=fixedSegmentLength,
+            follicleSegmentLength=follicleSegmentLength, **kws)
 
     def chain_create_hair(self, objs = None,
                      fwd = None, up=None,
@@ -820,6 +1036,8 @@ class cgmDynFK(cgmMeta.cgmObject):
                      mNucleus=None,
                      upControl = None,
                      aimUpMode = None,
+                     fixedSegmentLength = None,
+                     follicleSegmentLength = None,
                      **kws):
         
         _str_func = 'chain_create_hair'
@@ -862,6 +1080,10 @@ class cgmDynFK(cgmMeta.cgmObject):
             extendEnd = self.extendEnd
         upControl = upControl or self.upControl
         aimUpMode = aimUpMode or self.aimUpMode
+        if fixedSegmentLength is None:
+            fixedSegmentLength = self.fixedSegmentLength
+        if follicleSegmentLength is None:
+            follicleSegmentLength = self.follicleSegmentLength
         
         #fwdAxis = simpleAxis(fwd)
         #upAxis = simpleAxis(up)
@@ -964,7 +1186,44 @@ class cgmDynFK(cgmMeta.cgmObject):
         mInCrv = cgmMeta.asMeta(crv)
         mInCrv.rename("{0}_inCrv".format(name))
         mGrp.connectChildNode(mInCrv.mNode,'mInCrv')
-        mc.select(cl=1)
+        mInCrv.p_parent = mGrp
+
+        # Skin inCurve to sim joints before makeCurvesDynamic (inCurve is not bindable after dynamic hookup)
+        log.debug(cgmGEN.logString_sub(_str_func, 'skin setup'))
+        mc.select(cl=True)
+        chain = []
+        for obj in ml:
+            if len(chain) > 0:
+                mc.select(chain[-1])
+            jnt = mc.joint(name='%s_%s_jnt' % (name, obj.p_nameBase))
+            SNAP.matchTarget_set(jnt, obj.mNode)
+            mObj = cgmMeta.asMeta(jnt)
+            mObj.doSnapTo(mObj.getMessageAsMeta('cgmMatchTarget'))
+            chain.append(jnt)
+
+        mc.parent(chain[0], mGrp.mNode)
+
+        mSkinCluster = mc.skinCluster(
+            chain, mInCrv.mNode,
+            name='{0}_skinCluster'.format(name),
+            tsb=True,
+            maximumInfluences=1,
+            obeyMaxInfluences=True)[0]
+
+        _l_cvs = mInCrv.getComponents('cv') or []
+        if not _l_cvs:
+            _l_cvs = ['{0}.cv[{1}]'.format(mInCrv.mNode, i) for i in range(len(l_pos))]
+        for i, _cv in enumerate(_l_cvs):
+            _jnt = chain[i] if i < len(chain) else chain[-1]
+            mc.skinPercent(mSkinCluster, _cv, tv=[_jnt, 1.0])
+
+        _l_jointPos = [mObj.p_position for mObj in ml]
+        _l_paramFrac = CURVES.polyline_length_fractions(_l_jointPos)
+
+        # makeCurvesDynamic expects the inCurve at world (not under chain grp)
+        mc.parent(mInCrv.mNode, world=True)
+
+        mc.select(cl=True)
 
         # make the dynamic setup
         log.debug(cgmGEN.logString_sub(_str_func,'dyn setup'))
@@ -986,22 +1245,33 @@ class cgmDynFK(cgmMeta.cgmObject):
                 log.info(cgmGEN.logString_msg(_str_func,'Using existing nucleus: {0}'.format(mNucleus.mNode)))
                 self.connectChildNode(mNucleus.mNode,'mNucleus')
         
-        mc.select(mInCrv.mNode,add=True)
+        mc.select(mInCrv.mNode, add=True)
         mel.eval('makeCurvesDynamic 2 { "0", "0", "1", "1", "0" }')
 
         # get relevant nodes
-        follicle = mc.listRelatives(mInCrv.mNode,parent=True)[0]
-        mFollicle = cgmMeta.asMeta(follicle)
+        _follicleNode = _resolve_follicle_from_incurve(mInCrv.mNode)
+        if not _follicleNode:
+            return log.error(cgmGEN.logString_msg(
+                _str_func, 'No follicle found after makeCurvesDynamic on {0}'.format(mInCrv.mNode)))
+
+        mFollicle = cgmMeta.asMeta(_follicleNode)
         mFollicle.rename("{0}_foll".format(name))
-        parent = mFollicle.getParent(asMeta=1)
+        _melWrapper = mFollicle.getParent(asMeta=1)
         mFollicle.p_parent = mGrp
-        mFollicleShape = mFollicle.getShapes(1)[0]
-        mc.delete(parent.mNode)
+        mFollicleShape = mFollicle.getShapes(asMeta=True)[0]
+        if _melWrapper and _melWrapper.mNode not in (mGrp.mNode, self.mNode):
+            mc.delete(_melWrapper.mNode)
         
         _follicle = mFollicle.mNode
         mGrp.connectChildNode(mFollicle.mNode,'mFollicle','group')
         
         follicleShape = mFollicleShape.mNode#mc.listRelatives(mFollicle.mNode, shapes=True)[0]
+
+        mInCrv = _consolidate_hair_incurve_after_mcd(
+            mInCrv, mFollicleShape, mGrp, name, chain, l_pos, mSkinCluster,
+            fixedSegmentLength=fixedSegmentLength,
+            follicleSegmentLength=follicleSegmentLength)
+
         _hairSystem = mc.listRelatives( mc.listConnections('%s.currentPosition' % follicleShape)[0],
                                         shapes=True)[0]
         if not b_existing:
@@ -1023,6 +1293,19 @@ class cgmDynFK(cgmMeta.cgmObject):
         mCrv.p_parent = mGrp.mNode
         
         mc.delete(parent.mNode)
+
+        _inShape = mc.listRelatives(
+            mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+        _configure_follicle_rest_match_start(follicleShape)
+        _refresh_hair_rest_output(follicleShape, _hairSystem)
+        _sync_hair_outcurve_to_incurve(_inShape, outCurveShape)
+        _configure_follicle_segment_sampling(
+            follicleShape,
+            fixedSegmentLength=fixedSegmentLength,
+            segmentLength=follicleSegmentLength,
+            l_positions=l_pos)
+        _warn_hair_system_extra_segments(_hairSystem)
+
         _nucleus = mc.listConnections( '%s.currentState' % mHairSys.mNode )[0]
         
         if not b_existing_nucleus:
@@ -1069,6 +1352,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         # set default properties
         mFollicleShape.pointLock = 1
         #mc.setAttr( '%s.pointLock' % follicleShape, 1 )
+        mc.parent(chain[0], _follicle)
+        mInCrv.p_parent = mGrp
         mc.parentConstraint(ml[0].getParent(), _follicle, mo=True)
         
         # create locators on objects
@@ -1082,7 +1367,9 @@ class cgmDynFK(cgmMeta.cgmObject):
         _upVector = None
         if upSetup == 'guess':
             log.debug(cgmGEN.logString_msg(_str_func, 'Resolving up/aim'))
-            poci_base = CURVES.create_pointOnInfoNode(mInCrv.mNode,1)
+            # outCurve — not inCurve: after makeCurvesDynamic (esp. existing hairSys)
+            # the input curve is follicle-wired and has no transform.worldSpace
+            poci_base = CURVES.create_pointOnInfoNode(outCurveShape, 1)
             mPoci_base = cgmMeta.asMeta(poci_base)
             
             _upVector = mPoci_base.normalizedNormal
@@ -1119,31 +1406,6 @@ class cgmDynFK(cgmMeta.cgmObject):
             
         else:
             mc.parentConstraint(ml[0].getParent(), mUp.mNode, mo=True)
-            
-        
-        # create control joint chain
-        mc.select(cl=True)
-        chain = []
-        for obj in ml:
-            if len(chain) > 0:
-                mc.select(chain[-1])
-            jnt = mc.joint(name='%s_%s_jnt' % (name, obj.p_nameBase))
-            SNAP.matchTarget_set(jnt, obj.mNode)
-            mObj = cgmMeta.asMeta(jnt)
-            mObj.doSnapTo(mObj.getMessageAsMeta('cgmMatchTarget'))
-
-            chain.append(jnt)
-
-        mc.parent(chain[0], _follicle)
-        mInCrv.p_parent = mGrp
-
-        mc.skinCluster(chain, mInCrv.mNode,
-                       name='{0}_skinCluster'.format(name),
-                       maximumInfluences=1,
-                       obeyMaxInfluences=True)
-
-        _l_jointPos = [mObj.p_position for mObj in ml]
-        _l_paramFrac = CURVES.polyline_length_fractions(_l_jointPos)
 
         log.debug(cgmGEN.logString_msg(_str_func,'aimUpMode: {0}'.format(aimUpMode)))
         
@@ -1268,6 +1530,9 @@ class cgmDynFK(cgmMeta.cgmObject):
         mGrp.msgList_connect('mObjJointChain',chain)
         mGrp.doStore('cgmName', name)
         mGrp.doStore('chainMode', 'hair')
+        mGrp.doStore('fixedSegmentLength', bool(fixedSegmentLength))
+        if fixedSegmentLength:
+            mGrp.doStore('follicleSegmentLength', follicleSegmentLength)
 
         mNucleus.doConnectOut('startFrame',"{0}.startFrame".format(mHairSys.mNode))
         
@@ -1302,15 +1567,16 @@ class cgmDynFK(cgmMeta.cgmObject):
             _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
             _d = {'mGrp':mGrp,
                   'chainMode': _chainMode,
-                  'surfaceTrack': getattr(mGrp, 'surfaceTrack', None) or 'follicle',
                   'mFollicle':mGrp.getMessageAsMeta('mFollicle'),
-                  'mInCrv':self.getMessageAsMeta('mInCrv'),
+                  'mInCrv':mGrp.getMessageAsMeta('mInCrv'),
                   'mOutCrv':mGrp.getMessageAsMeta('mOutCrv'),
                   'mMeshFollicles': mGrp.msgList_get('mMeshFollicles'),
                   'mRivets': mGrp.msgList_get('mRivets'),
                   'mUvPins': mGrp.msgList_get('mUvPins'),
                   }
-            
+            if _chainMode == 'clothAttach':
+                _d['surfaceTrack'] = getattr(mGrp, 'surfaceTrack', None) or 'follicle'
+
             for lnk in 'mLocs','mAims','mParents','mTargets', 'mObjJointChain':
                 _d[lnk] = mGrp.msgList_get(lnk)
                 
@@ -1592,6 +1858,63 @@ def profile_get(arg = None, module = dynFKPresets ):
     if isinstance(d_chain, dict):
         return d_chain.get(arg)
     return None
+
+def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
+                          profileKind='hair', module=dynFKPresets):
+    """
+    Apply a flat attr dict to a hairSystem (``hs``) or nucleus (``n``) node.
+
+    Mirrors ``profile_load`` clean/seed rules for dat-file apply.
+    """
+    _str_func = 'profile_apply_section'
+    import cgm.core.lib.nCloth_utils as NCLOTH
+
+    if not attrs:
+        return 0
+
+    mTar = cgmMeta.asMeta(target, noneValid=True)
+    if not mTar:
+        return log.error(cgmGEN.logString_msg(_str_func, "No valid target"))
+
+    _type = mTar.getMayaType()
+    _key = d_shortHand.get(_type, _type)
+    if section != _key:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, "Section {0} != target key {1} for {2}".format(section, _key, _type)))
+
+    _base = profile_get('base', module) or {}
+    d_use = {}
+
+    if clean:
+        if profileKind == 'base' or (profileKind == 'hair' and _key == 'hs'):
+            d_use = copy.deepcopy(_base.get(_key) or {})
+        else:
+            d_use = {}
+    else:
+        d_use = {}
+
+    d_use.update(copy.deepcopy(attrs))
+
+    if _key == 'n':
+        NCLOTH._remap_nucleus_scene_axes(d_use)
+        log.info(cgmGEN.logString_msg(
+            _str_func, "Scene up: {0} | gravityDirection: {1}".format(
+                NCLOTH.scene_up_get(), d_use.get('gravityDirection'))))
+
+    _node = mTar.mNode
+    _count = 0
+    for a, v in list(d_use.items()):
+        try:
+            ATTR.set(_node, a, v)
+            _count += 1
+        except Exception as err:
+            log.warning("{3} | Failed to set: {0} | {1} | {2}".format(a, v, err, _type))
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, "{0} | section={1} kind={2} | {3} attrs".format(
+            _node, _key, profileKind, _count)))
+    return _count
+
 
 def profile_load(target = None, arg = None, module = dynFKPresets, clean = True):
     """

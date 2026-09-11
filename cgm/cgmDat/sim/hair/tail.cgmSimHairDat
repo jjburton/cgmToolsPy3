@@ -1,0 +1,37 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "tail",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.5043478012084961, 0.03999999910593033, 1.0],
+            "2": [0.0, 0.9200000166893005, 1.0],
+            "3": [0.27826085686683655, 0.6399999856948853, 1.0]
+        },
+        "bendResistance": 0.35,
+        "compressionResistance": 105.0,
+        "damp": 0.1,
+        "drag": 0.25,
+        "mass": 100.0,
+        "motionDrag": 0.2,
+        "startCurveAttract": 0.1,
+        "stiffnessScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.104347825050354, 0.8799999952316284, 1.0],
+            "2": [0.33043476939201355, 0.2199999988079071, 2.0]
+        },
+        "stretchDamp": 0.0,
+        "stretchResistance": 200.0,
+        "tangentialDrag": 0.15
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

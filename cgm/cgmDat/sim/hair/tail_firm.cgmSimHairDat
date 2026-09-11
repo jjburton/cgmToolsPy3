@@ -1,0 +1,40 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "tail_firm",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.25, 0.65, 1.0],
+            "2": [0.55, 0.22, 1.0],
+            "3": [0.9, 0.04, 1.0]
+        },
+        "bendResistance": 0.22,
+        "compressionResistance": 55.0,
+        "damp": 0.08,
+        "drag": 0.35,
+        "extraBendLinks": 2,
+        "gravity": 1.0,
+        "mass": 18.0,
+        "motionDrag": 0.25,
+        "startCurveAttract": 0.58,
+        "stiffnessScale": {
+            "0": [0.0, 0.82, 1.0],
+            "1": [0.35, 0.5, 1.0],
+            "2": [0.7, 0.22, 1.0],
+            "3": [1.0, 0.1, 1.0]
+        },
+        "stretchDamp": 0.06,
+        "stretchResistance": 185.0,
+        "tangentialDrag": 0.18
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

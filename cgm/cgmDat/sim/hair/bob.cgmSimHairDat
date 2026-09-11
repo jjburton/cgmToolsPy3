@@ -1,0 +1,38 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "bob",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.2, 0.65, 1.0],
+            "2": [0.5, 0.32, 1.0],
+            "3": [0.8, 0.14, 1.0]
+        },
+        "bendResistance": 0.28,
+        "compressionResistance": 38.0,
+        "damp": 0.09,
+        "drag": 0.35,
+        "extraBendLinks": 2,
+        "mass": 8.0,
+        "motionDrag": 0.25,
+        "startCurveAttract": 0.7,
+        "stiffnessScale": {
+            "0": [0.0, 0.82, 1.0],
+            "1": [0.36, 0.5, 1.0],
+            "2": [1.0, 0.22, 1.0]
+        },
+        "stretchDamp": 0.1,
+        "stretchResistance": 195.0,
+        "tangentialDrag": 0.18
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

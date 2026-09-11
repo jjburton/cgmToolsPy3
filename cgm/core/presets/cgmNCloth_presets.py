@@ -17,6 +17,7 @@
 #     base    - full nc + n baseline (query diff catalog + explicit reset)
 #
 # Usage:
+#   Artist presets: cgm/cgmDat/sim/cloth/*.cgmSimClothDat, nucleus/*.cgmSimNucleusDat
 #   import cgm.core.lib.nCloth_utils as NCLOTH
 #   NCLOTH.profile_load('cotton')                          # fabric only
 #   NCLOTH.profile_load('cotton', solver='solver_quality') # fabric + solver

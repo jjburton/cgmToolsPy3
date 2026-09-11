@@ -1,0 +1,24 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "rope",
+    "profile": {
+        "drag": 0.05,
+        "hairWidth": 50.0,
+        "mass": 50.0,
+        "solverDisplay": 0,
+        "stiffnessScale": {
+            "0": [0.0, 0.3400000035762787, 1.0]
+        },
+        "stretchResistance": 10.0
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

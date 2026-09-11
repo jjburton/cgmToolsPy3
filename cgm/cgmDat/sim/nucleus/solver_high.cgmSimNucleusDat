@@ -1,0 +1,19 @@
+{
+    "datKind": "nucleus",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "solver_high",
+    "profile": {
+        "maxCollisionIterations": 50,
+        "subSteps": 20,
+        "timeScale": 1.0
+    },
+    "profileKind": "solver",
+    "schemaVersion": 1,
+    "section": "n"
+}

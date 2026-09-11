@@ -160,9 +160,16 @@ def create_pointOnInfoNode(crvShape,parameter= None,turnOnPercentage=None):
         log.warning("|{0}| >> not a nurbsCurve. Skipping {1}({2})...".format(_str_func,crvShape,cgmValid.get_mayaType(crvShape)))
         return False
     
-    _transform = SEARCH.get_transform(crvShape)
+    if cgmValid.is_shape(crvShape):
+        _shape = crvShape
+    else:
+        _shapes = mc.listRelatives(SEARCH.get_transform(crvShape), shapes=True) or []
+        if not _shapes:
+            log.warning("|{0}| >> no nurbsCurve shape on {1}. Skipping...".format(_str_func, crvShape))
+            return False
+        _shape = _shapes[0]
     _infoNode = mc.createNode('pointOnCurveInfo')
-    mc.connectAttr((_transform+'.worldSpace'),(_infoNode+'.inputCurve'))
+    mc.connectAttr((_shape + '.worldSpace[0]'), (_infoNode + '.inputCurve'))
     
     if turnOnPercentage is not None:
         ATTR.set(_infoNode,'turnOnPercentage',turnOnPercentage)

@@ -1,0 +1,38 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "ponytail",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.35, 0.55, 1.0],
+            "2": [0.65, 0.2, 1.0],
+            "3": [0.95, 0.06, 1.0]
+        },
+        "bendResistance": 0.1,
+        "compressionResistance": 50.0,
+        "damp": 0.07,
+        "drag": 0.42,
+        "extraBendLinks": 1,
+        "mass": 8.5,
+        "motionDrag": 0.28,
+        "startCurveAttract": 0.38,
+        "stiffnessScale": {
+            "0": [0.0, 0.7, 1.0],
+            "1": [0.45, 0.25, 1.0],
+            "2": [1.0, 0.1, 1.0]
+        },
+        "stretchDamp": 0.05,
+        "stretchResistance": 175.0,
+        "tangentialDrag": 0.16
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

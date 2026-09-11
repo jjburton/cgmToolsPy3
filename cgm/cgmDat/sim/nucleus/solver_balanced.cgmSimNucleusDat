@@ -1,0 +1,19 @@
+{
+    "datKind": "nucleus",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-09 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "seed"
+    },
+    "name": "solver_balanced",
+    "profile": {
+        "maxCollisionIterations": 8,
+        "subSteps": 6,
+        "timeScale": 1.0
+    },
+    "profileKind": "solver",
+    "schemaVersion": 1,
+    "section": "n"
+}

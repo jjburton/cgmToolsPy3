@@ -1,0 +1,28 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "autodesk-seed"
+    },
+    "name": "cotton",
+    "profile": {
+        "bendAngleDropoff": 0.4,
+        "bendResistance": 0.1,
+        "compressionResistance": 10.0,
+        "damp": 0.8,
+        "drag": 0.05,
+        "friction": 0.3,
+        "lift": 0.05,
+        "pointMass": 0.6,
+        "pushOutRadius": 10.0,
+        "shearResistance": 35.0,
+        "stretchResistance": 35.0,
+        "tangentialDrag": 0.1
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

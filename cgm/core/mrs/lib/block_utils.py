@@ -120,6 +120,8 @@ def puppetMesh_normalCheck(ml_geo):
         return
     for mObj in cgmMeta.validateObjListArg(ml_geo):
         for s in TRANS.shapes_get(mObj.mNode, True):
+            if mc.nodeType(s) != 'mesh':
+                continue
             GEO.normalCheck(s)
 
 def reorder_udAttrs(self):

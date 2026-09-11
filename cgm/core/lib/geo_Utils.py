@@ -44,6 +44,7 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.math_utils as MATH
 from cgm.core.lib import name_utils as NAMES
 import cgm.core.lib.position_utils as POS
+import cgm.core.lib.transform_utils as TRANS
 #import cgm.core.lib.locator_utils as LOC
 
 import logging
@@ -1732,8 +1733,18 @@ def apply_shape_world_data(shape, data):
 
 #@cgmGEN.Timer
 def normalCheck(mesh,ch=0):
-    if is_reversed(mesh):
-        mc.polyNormal(mesh, normalMode = 0, userNormalMode=1,ch=ch)
+    if not mesh or not mc.objExists(mesh):
+        return False
+    _node = VALID.mNodeString(mesh)
+    if mc.nodeType(_node) == 'transform':
+        _shapes = TRANS.shapes_get(_node, True) or []
+        if not _shapes or mc.nodeType(_shapes[0]) != 'mesh':
+            return False
+        _node = _shapes[0]
+    elif mc.nodeType(_node) != 'mesh':
+        return False
+    if is_reversed(_node):
+        mc.polyNormal(_node, normalMode = 0, userNormalMode=1,ch=ch)
         return True
     return False
 
@@ -1751,6 +1762,16 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
         if mesh is None:
             _sel = mc.ls(sl=True)
             mesh = _sel[0]
+
+        _node = VALID.mNodeString(mesh)
+        if mc.nodeType(_node) == 'transform':
+            _shapes = TRANS.shapes_get(_node, True) or []
+            if not _shapes:
+                return False
+            _node = _shapes[0]
+        if mc.nodeType(_node) != 'mesh':
+            return False
+        mesh = _node
             
         from maya.api import OpenMaya as OM2
         

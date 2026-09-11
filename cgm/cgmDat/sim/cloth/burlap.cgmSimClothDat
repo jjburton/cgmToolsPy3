@@ -1,0 +1,28 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "autodesk-seed"
+    },
+    "name": "burlap",
+    "profile": {
+        "bendAngleDropoff": 0.603,
+        "bendResistance": 3.0,
+        "compressionResistance": 40.0,
+        "damp": 4.0,
+        "drag": 0.05,
+        "friction": 2.0,
+        "lift": 0.05,
+        "pointMass": 1.5,
+        "pushOutRadius": 10.0,
+        "shearResistance": 40.0,
+        "stretchResistance": 40.0,
+        "tangentialDrag": 0.4
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

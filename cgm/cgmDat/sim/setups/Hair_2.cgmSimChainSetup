@@ -1,0 +1,142 @@
+{
+    "baseName": "DynamicChain",
+    "chains": [
+        {
+            "chainMode": "hair",
+            "index": 0,
+            "name": "R_FRNT__hairTip_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_1_deform_grp|Edna:R_FRNT_bang_1_root_anim_master_grp|Edna:R_FRNT_bang_1_root_anim_dynParentGroup|Edna:R_FRNT_bang_1_root_anim_worldOrient_grp|Edna:R_FRNT_bang_1_root_anim|Edna:R_FRNT_bang_1_root_anim_Transform_fk_grp|Edna:R_FRNT_hairBase_fk_anim_master_grp|Edna:R_FRNT_hairBase_fk_anim_dynParentGroup|Edna:R_FRNT_hairBase_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_1_deform_grp|Edna:R_FRNT_bang_1_root_anim_master_grp|Edna:R_FRNT_bang_1_root_anim_dynParentGroup|Edna:R_FRNT_bang_1_root_anim_worldOrient_grp|Edna:R_FRNT_bang_1_root_anim|Edna:R_FRNT_bang_1_root_anim_Transform_fk_grp|Edna:R_FRNT_hairBase_fk_anim_master_grp|Edna:R_FRNT_hairBase_fk_anim_dynParentGroup|Edna:R_FRNT_hairBase_fk_anim|Edna:R_FRNT_hair_1_fk_anim_master_grp|Edna:R_FRNT_hair_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_1_deform_grp|Edna:R_FRNT_bang_1_root_anim_master_grp|Edna:R_FRNT_bang_1_root_anim_dynParentGroup|Edna:R_FRNT_bang_1_root_anim_worldOrient_grp|Edna:R_FRNT_bang_1_root_anim|Edna:R_FRNT_bang_1_root_anim_Transform_fk_grp|Edna:R_FRNT_hairBase_fk_anim_master_grp|Edna:R_FRNT_hairBase_fk_anim_dynParentGroup|Edna:R_FRNT_hairBase_fk_anim|Edna:R_FRNT_hair_1_fk_anim_master_grp|Edna:R_FRNT_hair_1_fk_anim|Edna:R_FRNT_hair_2_fk_anim_master_grp|Edna:R_FRNT_hair_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_1_deform_grp|Edna:R_FRNT_bang_1_root_anim_master_grp|Edna:R_FRNT_bang_1_root_anim_dynParentGroup|Edna:R_FRNT_bang_1_root_anim_worldOrient_grp|Edna:R_FRNT_bang_1_root_anim|Edna:R_FRNT_bang_1_root_anim_Transform_fk_grp|Edna:R_FRNT_hairBase_fk_anim_master_grp|Edna:R_FRNT_hairBase_fk_anim_dynParentGroup|Edna:R_FRNT_hairBase_fk_anim|Edna:R_FRNT_hair_1_fk_anim_master_grp|Edna:R_FRNT_hair_1_fk_anim|Edna:R_FRNT_hair_2_fk_anim_master_grp|Edna:R_FRNT_hair_2_fk_anim|Edna:R_FRNT__hairTip_fk_anim_master_grp|Edna:R_FRNT__hairTip_fk_anim"
+            ]
+        },
+        {
+            "chainMode": "hair",
+            "index": 1,
+            "name": "R_FRNT__bang_2_Tip_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_2_deform_grp|Edna:R_FRNT_bang_2_root_anim_master_grp|Edna:R_FRNT_bang_2_root_anim_dynParentGroup|Edna:R_FRNT_bang_2_root_anim_worldOrient_grp|Edna:R_FRNT_bang_2_root_anim|Edna:R_FRNT_bang_2_root_anim_Transform_fk_grp|Edna:R_FRNT_bang_2_Base_fk_anim_master_grp|Edna:R_FRNT_bang_2_Base_fk_anim_dynParentGroup|Edna:R_FRNT_bang_2_Base_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_2_deform_grp|Edna:R_FRNT_bang_2_root_anim_master_grp|Edna:R_FRNT_bang_2_root_anim_dynParentGroup|Edna:R_FRNT_bang_2_root_anim_worldOrient_grp|Edna:R_FRNT_bang_2_root_anim|Edna:R_FRNT_bang_2_root_anim_Transform_fk_grp|Edna:R_FRNT_bang_2_Base_fk_anim_master_grp|Edna:R_FRNT_bang_2_Base_fk_anim_dynParentGroup|Edna:R_FRNT_bang_2_Base_fk_anim|Edna:R_FRNT_bang_2_1_fk_anim_master_grp|Edna:R_FRNT_bang_2_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_2_deform_grp|Edna:R_FRNT_bang_2_root_anim_master_grp|Edna:R_FRNT_bang_2_root_anim_dynParentGroup|Edna:R_FRNT_bang_2_root_anim_worldOrient_grp|Edna:R_FRNT_bang_2_root_anim|Edna:R_FRNT_bang_2_root_anim_Transform_fk_grp|Edna:R_FRNT_bang_2_Base_fk_anim_master_grp|Edna:R_FRNT_bang_2_Base_fk_anim_dynParentGroup|Edna:R_FRNT_bang_2_Base_fk_anim|Edna:R_FRNT_bang_2_1_fk_anim_master_grp|Edna:R_FRNT_bang_2_1_fk_anim|Edna:R_FRNT_bang_2_2_fk_anim_master_grp|Edna:R_FRNT_bang_2_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_FRNT_bang_2_deform_grp|Edna:R_FRNT_bang_2_root_anim_master_grp|Edna:R_FRNT_bang_2_root_anim_dynParentGroup|Edna:R_FRNT_bang_2_root_anim_worldOrient_grp|Edna:R_FRNT_bang_2_root_anim|Edna:R_FRNT_bang_2_root_anim_Transform_fk_grp|Edna:R_FRNT_bang_2_Base_fk_anim_master_grp|Edna:R_FRNT_bang_2_Base_fk_anim_dynParentGroup|Edna:R_FRNT_bang_2_Base_fk_anim|Edna:R_FRNT_bang_2_1_fk_anim_master_grp|Edna:R_FRNT_bang_2_1_fk_anim|Edna:R_FRNT_bang_2_2_fk_anim_master_grp|Edna:R_FRNT_bang_2_2_fk_anim|Edna:R_FRNT__bang_2_Tip_fk_anim_master_grp|Edna:R_FRNT__bang_2_Tip_fk_anim"
+            ]
+        },
+        {
+            "chainMode": "hair",
+            "index": 2,
+            "name": "R_hair_1_3_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_1_deform_grp|Edna:R_hair_1_root_anim_master_grp|Edna:R_hair_1_root_anim_dynParentGroup|Edna:R_hair_1_root_anim_worldOrient_grp|Edna:R_hair_1_root_anim|Edna:R_hair_1_root_anim_Transform_fk_grp|Edna:R_hair_1_Base_fk_anim_master_grp|Edna:R_hair_1_Base_fk_anim_dynParentGroup|Edna:R_hair_1_Base_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_1_deform_grp|Edna:R_hair_1_root_anim_master_grp|Edna:R_hair_1_root_anim_dynParentGroup|Edna:R_hair_1_root_anim_worldOrient_grp|Edna:R_hair_1_root_anim|Edna:R_hair_1_root_anim_Transform_fk_grp|Edna:R_hair_1_Base_fk_anim_master_grp|Edna:R_hair_1_Base_fk_anim_dynParentGroup|Edna:R_hair_1_Base_fk_anim|Edna:R_hair_1_1_fk_anim_master_grp|Edna:R_hair_1_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_1_deform_grp|Edna:R_hair_1_root_anim_master_grp|Edna:R_hair_1_root_anim_dynParentGroup|Edna:R_hair_1_root_anim_worldOrient_grp|Edna:R_hair_1_root_anim|Edna:R_hair_1_root_anim_Transform_fk_grp|Edna:R_hair_1_Base_fk_anim_master_grp|Edna:R_hair_1_Base_fk_anim_dynParentGroup|Edna:R_hair_1_Base_fk_anim|Edna:R_hair_1_1_fk_anim_master_grp|Edna:R_hair_1_1_fk_anim|Edna:R_hair_1_2_fk_anim_master_grp|Edna:R_hair_1_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_1_deform_grp|Edna:R_hair_1_root_anim_master_grp|Edna:R_hair_1_root_anim_dynParentGroup|Edna:R_hair_1_root_anim_worldOrient_grp|Edna:R_hair_1_root_anim|Edna:R_hair_1_root_anim_Transform_fk_grp|Edna:R_hair_1_Base_fk_anim_master_grp|Edna:R_hair_1_Base_fk_anim_dynParentGroup|Edna:R_hair_1_Base_fk_anim|Edna:R_hair_1_1_fk_anim_master_grp|Edna:R_hair_1_1_fk_anim|Edna:R_hair_1_2_fk_anim_master_grp|Edna:R_hair_1_2_fk_anim|Edna:R_hair_1_3_fk_anim_master_grp|Edna:R_hair_1_3_fk_anim"
+            ]
+        },
+        {
+            "chainMode": "hair",
+            "index": 3,
+            "name": "R_hair_2_3_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_2_deform_grp|Edna:R_hair_2_root_anim_master_grp|Edna:R_hair_2_root_anim_dynParentGroup|Edna:R_hair_2_root_anim_worldOrient_grp|Edna:R_hair_2_root_anim|Edna:R_hair_2_root_anim_Transform_fk_grp|Edna:R_hair_2_Base_fk_anim_master_grp|Edna:R_hair_2_Base_fk_anim_dynParentGroup|Edna:R_hair_2_Base_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_2_deform_grp|Edna:R_hair_2_root_anim_master_grp|Edna:R_hair_2_root_anim_dynParentGroup|Edna:R_hair_2_root_anim_worldOrient_grp|Edna:R_hair_2_root_anim|Edna:R_hair_2_root_anim_Transform_fk_grp|Edna:R_hair_2_Base_fk_anim_master_grp|Edna:R_hair_2_Base_fk_anim_dynParentGroup|Edna:R_hair_2_Base_fk_anim|Edna:R_hair_2_1_fk_anim_master_grp|Edna:R_hair_2_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_2_deform_grp|Edna:R_hair_2_root_anim_master_grp|Edna:R_hair_2_root_anim_dynParentGroup|Edna:R_hair_2_root_anim_worldOrient_grp|Edna:R_hair_2_root_anim|Edna:R_hair_2_root_anim_Transform_fk_grp|Edna:R_hair_2_Base_fk_anim_master_grp|Edna:R_hair_2_Base_fk_anim_dynParentGroup|Edna:R_hair_2_Base_fk_anim|Edna:R_hair_2_1_fk_anim_master_grp|Edna:R_hair_2_1_fk_anim|Edna:R_hair_2_2_fk_anim_master_grp|Edna:R_hair_2_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_2_deform_grp|Edna:R_hair_2_root_anim_master_grp|Edna:R_hair_2_root_anim_dynParentGroup|Edna:R_hair_2_root_anim_worldOrient_grp|Edna:R_hair_2_root_anim|Edna:R_hair_2_root_anim_Transform_fk_grp|Edna:R_hair_2_Base_fk_anim_master_grp|Edna:R_hair_2_Base_fk_anim_dynParentGroup|Edna:R_hair_2_Base_fk_anim|Edna:R_hair_2_1_fk_anim_master_grp|Edna:R_hair_2_1_fk_anim|Edna:R_hair_2_2_fk_anim_master_grp|Edna:R_hair_2_2_fk_anim|Edna:R_hair_2_3_fk_anim_master_grp|Edna:R_hair_2_3_fk_anim"
+            ]
+        },
+        {
+            "chainMode": "hair",
+            "index": 4,
+            "name": "R_hair_3_3_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_3_deform_grp|Edna:R_hair_3_root_anim_master_grp|Edna:R_hair_3_root_anim_dynParentGroup|Edna:R_hair_3_root_anim_worldOrient_grp|Edna:R_hair_3_root_anim|Edna:R_hair_3_root_anim_Transform_fk_grp|Edna:R_hair_3_Base_fk_anim_master_grp|Edna:R_hair_3_Base_fk_anim_dynParentGroup|Edna:R_hair_3_Base_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_3_deform_grp|Edna:R_hair_3_root_anim_master_grp|Edna:R_hair_3_root_anim_dynParentGroup|Edna:R_hair_3_root_anim_worldOrient_grp|Edna:R_hair_3_root_anim|Edna:R_hair_3_root_anim_Transform_fk_grp|Edna:R_hair_3_Base_fk_anim_master_grp|Edna:R_hair_3_Base_fk_anim_dynParentGroup|Edna:R_hair_3_Base_fk_anim|Edna:R_hair_3_1_fk_anim_master_grp|Edna:R_hair_3_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_3_deform_grp|Edna:R_hair_3_root_anim_master_grp|Edna:R_hair_3_root_anim_dynParentGroup|Edna:R_hair_3_root_anim_worldOrient_grp|Edna:R_hair_3_root_anim|Edna:R_hair_3_root_anim_Transform_fk_grp|Edna:R_hair_3_Base_fk_anim_master_grp|Edna:R_hair_3_Base_fk_anim_dynParentGroup|Edna:R_hair_3_Base_fk_anim|Edna:R_hair_3_1_fk_anim_master_grp|Edna:R_hair_3_1_fk_anim|Edna:R_hair_3_2_fk_anim_master_grp|Edna:R_hair_3_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_3_deform_grp|Edna:R_hair_3_root_anim_master_grp|Edna:R_hair_3_root_anim_dynParentGroup|Edna:R_hair_3_root_anim_worldOrient_grp|Edna:R_hair_3_root_anim|Edna:R_hair_3_root_anim_Transform_fk_grp|Edna:R_hair_3_Base_fk_anim_master_grp|Edna:R_hair_3_Base_fk_anim_dynParentGroup|Edna:R_hair_3_Base_fk_anim|Edna:R_hair_3_1_fk_anim_master_grp|Edna:R_hair_3_1_fk_anim|Edna:R_hair_3_2_fk_anim_master_grp|Edna:R_hair_3_2_fk_anim|Edna:R_hair_3_3_fk_anim_master_grp|Edna:R_hair_3_3_fk_anim"
+            ]
+        },
+        {
+            "chainMode": "hair",
+            "index": 5,
+            "name": "R_hair_4_3_fk_anim",
+            "options": {
+                "aimUpMode": "joint",
+                "extendEnd": null,
+                "extendStart": null,
+                "fwd": "z+",
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_4_deform_grp|Edna:R_hair_4_root_anim_master_grp|Edna:R_hair_4_root_anim_dynParentGroup|Edna:R_hair_4_root_anim_worldOrient_grp|Edna:R_hair_4_root_anim|Edna:R_hair_4_root_anim_Transform_fk_grp|Edna:R_hair_4_Base_fk_anim_master_grp|Edna:R_hair_4_Base_fk_anim_dynParentGroup|Edna:R_hair_4_Base_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_4_deform_grp|Edna:R_hair_4_root_anim_master_grp|Edna:R_hair_4_root_anim_dynParentGroup|Edna:R_hair_4_root_anim_worldOrient_grp|Edna:R_hair_4_root_anim|Edna:R_hair_4_root_anim_Transform_fk_grp|Edna:R_hair_4_Base_fk_anim_master_grp|Edna:R_hair_4_Base_fk_anim_dynParentGroup|Edna:R_hair_4_Base_fk_anim|Edna:R_hair_4_1_fk_anim_master_grp|Edna:R_hair_4_1_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_4_deform_grp|Edna:R_hair_4_root_anim_master_grp|Edna:R_hair_4_root_anim_dynParentGroup|Edna:R_hair_4_root_anim_worldOrient_grp|Edna:R_hair_4_root_anim|Edna:R_hair_4_root_anim_Transform_fk_grp|Edna:R_hair_4_Base_fk_anim_master_grp|Edna:R_hair_4_Base_fk_anim_dynParentGroup|Edna:R_hair_4_Base_fk_anim|Edna:R_hair_4_1_fk_anim_master_grp|Edna:R_hair_4_1_fk_anim|Edna:R_hair_4_2_fk_anim_master_grp|Edna:R_hair_4_2_fk_anim",
+                "|Edna:master|Edna:master_anim_master_grp|Edna:master_anim_dynParentGroup|Edna:master_anim|Edna:deform|Edna:R_hair_4_deform_grp|Edna:R_hair_4_root_anim_master_grp|Edna:R_hair_4_root_anim_dynParentGroup|Edna:R_hair_4_root_anim_worldOrient_grp|Edna:R_hair_4_root_anim|Edna:R_hair_4_root_anim_Transform_fk_grp|Edna:R_hair_4_Base_fk_anim_master_grp|Edna:R_hair_4_Base_fk_anim_dynParentGroup|Edna:R_hair_4_Base_fk_anim|Edna:R_hair_4_1_fk_anim_master_grp|Edna:R_hair_4_1_fk_anim|Edna:R_hair_4_2_fk_anim_master_grp|Edna:R_hair_4_2_fk_anim|Edna:R_hair_4_3_fk_anim_master_grp|Edna:R_hair_4_3_fk_anim"
+            ]
+        }
+    ],
+    "mapped": {
+        "hairSystem": "|DynamicChain_dynFK|DynamicChain_hairSys|DynamicChain_hairSysShape",
+        "nucleus": "|DynamicChain_dynFK|cgmDynFK_nucleus"
+    },
+    "meta": {
+        "date": "2026-09-11 14:10",
+        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_02.mb",
+        "sourceNode": "|DynamicChain_dynFK",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain",
+    "options": {
+        "aimUpMode": "joint",
+        "extendEnd": null,
+        "extendStart": null,
+        "fwd": "z+",
+        "startFrame": -50,
+        "up": "y+",
+        "upSetup": "guess"
+    },
+    "presetRefs": {},
+    "schemaVersion": 1,
+    "setupRoot": "|DynamicChain_dynFK"
+}

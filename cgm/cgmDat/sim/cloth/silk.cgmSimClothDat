@@ -1,0 +1,28 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "autodesk-seed"
+    },
+    "name": "silk",
+    "profile": {
+        "bendAngleDropoff": 0.3,
+        "bendResistance": 0.05,
+        "compressionResistance": 10.0,
+        "damp": 0.2,
+        "drag": 0.05,
+        "friction": 0.05,
+        "lift": 0.05,
+        "pointMass": 0.05,
+        "pushOutRadius": 0.108,
+        "shearResistance": 30.0,
+        "stretchResistance": 60.0,
+        "tangentialDrag": 0.05
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

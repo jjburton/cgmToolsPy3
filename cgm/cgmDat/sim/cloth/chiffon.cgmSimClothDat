@@ -1,0 +1,28 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "autodesk-seed"
+    },
+    "name": "chiffon",
+    "profile": {
+        "bendAngleDropoff": 0.6,
+        "bendResistance": 0.2,
+        "compressionResistance": 20.0,
+        "damp": 2.0,
+        "drag": 0.05,
+        "friction": 0.9,
+        "lift": 0.05,
+        "pointMass": 0.15,
+        "pushOutRadius": 0.108,
+        "shearResistance": 25.0,
+        "stretchResistance": 40.0,
+        "tangentialDrag": 0.4
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

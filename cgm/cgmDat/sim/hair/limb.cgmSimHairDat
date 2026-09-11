@@ -1,0 +1,33 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-10 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed"
+    },
+    "name": "limb",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 0.6600000262260437, 1.0],
+            "1": [1.0, 0.11999999731779099, 1.0],
+            "3": [0.373913049697876, 0.5400000214576721, 1.0]
+        },
+        "bendResistance": 0.0,
+        "compressionResistance": 25.0,
+        "damp": 0.1,
+        "drag": 0.05,
+        "mass": 10.0,
+        "motionDrag": 0.08,
+        "startCurveAttract": 0.1,
+        "stiffnessScale": {
+            "0": [0.0, 0.0, 1.0]
+        },
+        "stretchResistance": 25.0,
+        "tangentialDrag": 0.05
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

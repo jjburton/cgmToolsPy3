@@ -1,0 +1,34 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-09 00:00",
+        "scene": "",
+        "sourceNode": "",
+        "user": "seed"
+    },
+    "name": "bangs_firm",
+    "profile": {
+        "bendAngleDropoff": 0.4,
+        "bendResistance": 0.25,
+        "compressionResistance": 80.0,
+        "damp": 1.0,
+        "deformResistance": 0.05,
+        "drag": 0.08,
+        "friction": 0.15,
+        "inputAttractDamp": 0.5,
+        "inputMeshAttract": 0.08,
+        "lift": 0.0,
+        "pointMass": 0.6,
+        "restLengthScale": 1.0,
+        "rigidity": 0.0,
+        "shearResistance": 30.0,
+        "stickiness": 0.0,
+        "stretchDamp": 0.2,
+        "stretchResistance": 120.0,
+        "tangentialDrag": 0.05
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

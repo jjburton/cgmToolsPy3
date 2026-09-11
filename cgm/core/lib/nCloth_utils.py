@@ -467,6 +467,50 @@ def _apply_attr_dict(node, d):
     return _count
 
 
+def profile_apply_section(node, attrs, section='nc', clean=True, profileKind='fabric',
+                          module=nClothPresets):
+    """
+    Apply a flat attr dict to an nCloth or nucleus node using preset merge/skip rules.
+
+    :param section: ``nc`` or ``n``
+    :param profileKind: ``fabric`` | ``solver`` | ``wind`` | ``utility`` | ``base`` — drives base seeding
+    :returns: count of attrs set
+    """
+    _str_func = 'profile_apply_section'
+    if not node or not attrs:
+        return 0
+
+    _base = profile_get('base', module) or {}
+    d_use = {}
+
+    if clean:
+        if profileKind in ('base', 'utility'):
+            d_use = copy.deepcopy(_base.get(section) or {})
+        elif profileKind == 'fabric' and section == 'nc':
+            d_use = copy.deepcopy(_base.get('nc') or {})
+        elif profileKind in ('solver', 'wind') and section == 'n':
+            d_use = {}
+        else:
+            d_use = copy.deepcopy(_base.get(section) or {}) if section == 'nc' else {}
+    else:
+        d_use = {}
+
+    d_use.update(copy.deepcopy(attrs))
+
+    if section == 'n':
+        _remap_nucleus_scene_axes(d_use)
+        log.info(cgmGEN.logString_msg(
+            _str_func, "Scene up: {0} | gravityDirection: {1}".format(
+                scene_up_get(), d_use.get('gravityDirection'))))
+
+    d_use = _filter_preset_dict(d_use)
+    _count = _apply_attr_dict(node, d_use)
+    log.info(cgmGEN.logString_msg(
+        _str_func, "{0} | section={1} kind={2} | {3} attrs".format(
+            node, section, profileKind, _count)))
+    return _count
+
+
 def profile_load(arg='cotton',
                  targets=None,
                  module=nClothPresets,

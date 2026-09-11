@@ -5869,6 +5869,22 @@ def rig_cleanUp(self):
     self.UTILS.rigNodes_store(self)
 
 
+def _proxyMesh_lidSurfToPoly(mBlock, mSurf, deleteSource=True):
+    """Tessellate clam/clamSimple nurbs lid proxy for puppet/skin mesh paths."""
+    mPoly = RIGCREATE.get_meshFromNurbs(
+        mSurf,
+        mode='general',
+        uNumber=mBlock.numLidSplit_u,
+        vNumber=mBlock.numLidSplit_v,
+    )
+    if deleteSource and mSurf and mPoly and mSurf.mNode != mPoly.mNode:
+        try:
+            mSurf.delete()
+        except Exception:
+            pass
+    return mPoly
+
+
 def create_simpleMesh(self, deleteHistory=True, cap=True, skin=True, parent=False, **kws):
     _str_func = 'create_simpleMesh'
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
@@ -5954,6 +5970,7 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
 
     ml_proxy = []
     ml_noFreeze = []
+    _bNeedPolyLid = simpleMeshMode or skin
 
     if not (puppetMeshMode and ml_proxyExisting):
         log.warning("|{0}| >> building mesh...".format(_str_func))
@@ -6177,13 +6194,21 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
                     mLoftSurface.overrideEnabled = 1
                     mLoftSurface.overrideDisplayType = 2
             
-                    mLoftSurface.p_parent = mModule
-                    mLoftSurface.resetAttrs()
-            
                     mLoftSurface.doStore('cgmName',"{0}_{1}Lid".format(str_partName,k),attrType='string')
                     mLoftSurface.doStore('cgmType','proxy')
                     mLoftSurface.doName()
-                    log.debug("|{0}| loft node: {1}".format(_str_func,_loftNode))             
+                    log.debug("|{0}| loft node: {1}".format(_str_func,_loftNode))
+
+                    if _bNeedPolyLid:
+                        mLoftSurface = _proxyMesh_lidSurfToPoly(mBlock, mLoftSurface)
+                        if skin:
+                            MRSPOST.skin_mesh(mLoftSurface, [mRigJoint])
+                        elif not simpleMeshMode:
+                            mLoftSurface.p_parent = mModule
+                            mLoftSurface.resetAttrs()
+                    else:
+                        mLoftSurface.p_parent = mModule
+                        mLoftSurface.resetAttrs()
     
                     ml_proxy.append(mLoftSurface)
                 
@@ -6220,12 +6245,18 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
                     mShapeSource.overrideEnabled = 1
                     mShapeSource.overrideDisplayType = 2
             
-                    mShapeSource.p_parent = mLidSkin.rigJoint#mModule
-                    #mShapeSource.resetAttrs()
-            
                     mShapeSource.doStore('cgmName',"{0}_{1}Lid".format(str_partName,k),attrType='string')
                     mShapeSource.doStore('cgmType','proxy')
                     mShapeSource.doName()
+
+                    if _bNeedPolyLid:
+                        mShapeSource = _proxyMesh_lidSurfToPoly(mBlock, mShapeSource)
+                        if skin:
+                            MRSPOST.skin_mesh(mShapeSource, [mLidSkin.rigJoint])
+                        elif not simpleMeshMode:
+                            mShapeSource.p_parent = mLidSkin.rigJoint
+                    else:
+                        mShapeSource.p_parent = mLidSkin.rigJoint
     
                     ml_proxy.append(mShapeSource)               
             

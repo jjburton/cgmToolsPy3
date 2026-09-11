@@ -1,0 +1,870 @@
+"""
+simChain_dat
+Josh Burton
+www.cgmonastery.com
+
+cgmSimChain preset + setup dat files — hair / cloth / nucleus presets (Phase 1), setup re-wire (Phase 2).
+"""
+__MAYALOCAL = 'SIMCHAINDAT'
+
+import copy
+import getpass
+import os
+import time
+import logging
+
+import maya.cmds as mc
+
+import cgm.core.cgm_Dat as CGMDAT
+import cgm.core.cgm_General as cgmGEN
+import cgm.core.cgmPy.validateArgs as VALID
+import cgm.core.cgm_Meta as cgmMeta
+import cgm.core.lib.nCloth_utils as NCLOTH
+import cgm.core.rig.dynamic_utils as RIGDYN
+import cgm.core.presets.cgmDynFK_presets as dynFKPresets
+import cgm.core.presets.cgmNCloth_presets as nClothPresets
+
+log = logging.getLogger(__name__)
+
+SCHEMA_VERSION = 1
+DAT_EXTENSIONS = ('cgmSimHairDat', 'cgmSimClothDat', 'cgmSimNucleusDat')
+SETUP_EXTENSION = 'cgmSimChainSetup'
+ALL_SIM_EXTENSIONS = DAT_EXTENSIONS + (SETUP_EXTENSION,)
+
+_D_KIND_TO_CLASS = {}
+_D_EXT_TO_CLASS = {}
+
+
+def _meta_block(sourceNode=None):
+    return {
+        'user': getpass.getuser(),
+        'date': time.strftime('%Y-%m-%d %H:%M'),
+        'scene': mc.file(q=True, sn=True) or '',
+        'sourceNode': VALID.mNodeString(sourceNode) if sourceNode else '',
+    }
+
+
+def _empty_dat(name='', datKind='', section='', profileKind='', differential=True):
+    return {
+        'schemaVersion': SCHEMA_VERSION,
+        'name': name,
+        'datKind': datKind,
+        'section': section,
+        'profileKind': profileKind,
+        'differential': differential,
+        'profile': {},
+        'meta': _meta_block(),
+    }
+
+
+def _normalize_profile_keys(d):
+    """JSON load may stringify ramp dict keys — restore int keys for Maya attrs."""
+    if not isinstance(d, dict):
+        return d
+    out = {}
+    for k, v in list(d.items()):
+        nk = int(k) if isinstance(k, str) and k.isdigit() else k
+        out[nk] = _normalize_profile_keys(v) if isinstance(v, dict) else v
+    return out
+
+
+def _dynfk_from_node(node):
+    """Return cgmDynFK meta when node is a setup root."""
+    mObj = cgmMeta.validateObjArg(node, noneValid=True)
+    if mObj and getattr(mObj, 'mClass', None) == 'cgmDynFK':
+        return mObj
+    return None
+
+
+def _ncloth_from_dynfk(mDynFK):
+    """Resolve nClothShape from a cgmDynFK setup (mapped cloth message / get_dat fallbacks)."""
+    if not mDynFK:
+        return None
+
+    mCloth = RIGDYN.get_mapped_cloth(mDynFK)
+    if mCloth:
+        _nc = NCLOTH.get_nCloth(mCloth.mNode, noneValid=True)
+        if _nc:
+            return _nc
+
+    mCloth = mDynFK.getMessageAsMeta('mCloth')
+    if mCloth:
+        _nc = NCLOTH.get_nCloth(mCloth.mNode, noneValid=True)
+        if _nc:
+            return _nc
+
+    if hasattr(mDynFK, 'get_dat'):
+        _dat = mDynFK.get_dat() or {}
+        mCloth = _dat.get('mCloth')
+        if mCloth and mCloth is not False:
+            _node = mCloth.mNode if hasattr(mCloth, 'mNode') else mCloth
+            _nc = NCLOTH.get_nCloth(_node, noneValid=True)
+            if _nc:
+                return _nc
+        mOut = _dat.get('mClothOutMesh')
+        if mOut and mOut is not False:
+            _node = mOut.mNode if hasattr(mOut, 'mNode') else mOut
+            _nc = NCLOTH.get_nCloth(_node, noneValid=True)
+            if _nc:
+                return _nc
+    return None
+
+
+def _resolve_ncloth_for_capture(nodes=None, mDynFK=None):
+    """Resolve nClothShape from loaded setup mapped cloth, selection, or cgmDynFK root."""
+    if mDynFK:
+        _nc = _ncloth_from_dynfk(mDynFK)
+        if _nc:
+            return _nc
+
+    nodes = VALID.listArg(nodes) if nodes else (mc.ls(sl=True, long=True) or [])
+    for n in nodes:
+        mSetup = _dynfk_from_node(n)
+        if mSetup:
+            _nc = _ncloth_from_dynfk(mSetup)
+            if _nc:
+                return _nc
+            continue
+        _nc = NCLOTH.get_nCloth(n, noneValid=True)
+        if _nc:
+            return _nc
+    return None
+
+
+def _resolve_hairsystem_for_capture(nodes=None, mDynFK=None):
+    """Resolve hairSystem from loaded setup, selection, or cgmDynFK root."""
+    if mDynFK:
+        mHair = mDynFK.getMessageAsMeta('mHairSysShape')
+        if mHair:
+            return mHair.mNode
+
+    nodes = VALID.listArg(nodes) if nodes else (mc.ls(sl=True, long=True) or [])
+    for n in nodes:
+        if mc.objectType(n, isType='hairSystem'):
+            return n
+        mObj = cgmMeta.validateObjArg(n, noneValid=True)
+        if mObj and mObj.getMayaType() == 'hairSystem':
+            return mObj.mNode
+        mSetup = _dynfk_from_node(n)
+        if mSetup:
+            mHair = mSetup.getMessageAsMeta('mHairSysShape')
+            if mHair:
+                return mHair.mNode
+    return None
+
+
+def _resolve_nucleus_for_capture(nodes=None, mDynFK=None):
+    """Resolve nucleus from loaded setup, selection, nCloth, or cgmDynFK root."""
+    if mDynFK:
+        mNuc = mDynFK.getMessageAsMeta('mNucleus')
+        if mNuc:
+            return mNuc.mNode
+
+    nodes = VALID.listArg(nodes) if nodes else (mc.ls(sl=True, long=True) or [])
+    for n in nodes:
+        if mc.objectType(n) == 'nucleus':
+            return n
+        _nc = NCLOTH.get_nCloth(n, noneValid=True)
+        if _nc:
+            _nucleus = NCLOTH.get_nucleus(_nc, noneValid=True)
+            if _nucleus:
+                return _nucleus
+        mSetup = _dynfk_from_node(n)
+        if mSetup:
+            mNuc = mSetup.getMessageAsMeta('mNucleus')
+            if mNuc:
+                return mNuc.mNode
+    return None
+
+
+class SimPresetDatBase(CGMDAT.data):
+    _dataFormat = 'json'
+    datKind = ''
+    section = ''
+    defaultProfileKind = ''
+
+    def __init__(self, filepath=None, dat=None, **kws):
+        kws.setdefault('dataFormat', self._dataFormat)
+        super().__init__(filepath, **kws)
+        self.structureMode = 'dev'
+        if dat:
+            self.dat = dat
+        elif not self.dat:
+            self.dat = _empty_dat(
+                datKind=self.datKind,
+                section=self.section,
+                profileKind=self.defaultProfileKind,
+            )
+
+    def read(self, filepath=None, decode=True, report=False, startDirMode=None):
+        _result = super().read(filepath, decode=decode, report=report, startDirMode=startDirMode)
+        if _result and self.dat.get('profile'):
+            self.dat['profile'] = _normalize_profile_keys(self.dat['profile'])
+        return _result
+
+    def _build_dat(self, profile, name=None, sourceNode=None, differential=True,
+                   profileKind=None):
+        _name = name or self.dat.get('name') or 'preset'
+        self.dat = _empty_dat(
+            name=_name,
+            datKind=self.datKind,
+            section=self.section,
+            profileKind=profileKind or self.defaultProfileKind,
+            differential=differential,
+        )
+        self.dat['profile'] = copy.deepcopy(profile or {})
+        self.dat['meta'] = _meta_block(sourceNode)
+        return self.dat
+
+    def capture(self, nodes=None, differential=True, name=None, profileKind=None):
+        _str_func = 'SimPresetDatBase.capture'
+        raise NotImplementedError(cgmGEN.logString_msg(_str_func, 'Subclass must implement'))
+
+    def apply(self, target=None, clean=True, mDynFK=None):
+        _str_func = '{0}.apply'.format(self.__class__.__name__)
+        profile = self.dat.get('profile') or {}
+        if not profile:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        _profileKind = self.dat.get('profileKind') or self.defaultProfileKind
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK)
+        if not _target:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'No apply target for {0}'.format(self.datKind)))
+
+        if self.section == 'hs':
+            return RIGDYN.profile_apply_section(
+                _target, profile, section='hs', clean=clean, profileKind=_profileKind)
+        return NCLOTH.profile_apply_section(
+            _target, profile, section=self.section, clean=clean,
+            profileKind=_profileKind, module=nClothPresets)
+
+    def _resolve_apply_target(self, target=None, mDynFK=None):
+        raise NotImplementedError
+
+    @classmethod
+    def from_module_profile(cls, profileName, module=None, differential=True):
+        """Build dat dict from shipped Python preset module entry."""
+        profileName = profileName or ''
+        if cls.datKind == 'hair':
+            module = module or dynFKPresets
+            _d = RIGDYN.profile_get(profileName, module)
+            if not _d or not _d.get('hs'):
+                return None
+            _profile = copy.deepcopy(_d['hs'])
+            _profileKind = RIGDYN.profile_kind(profileName, module) or 'hair'
+            if differential:
+                _wrapped = NCLOTH.profile_diff_from_base({'hs': _profile}, module=module)
+                _profile = _wrapped.get('hs') or {}
+        elif cls.datKind == 'cloth':
+            module = module or nClothPresets
+            _d = NCLOTH.profile_get(profileName, module)
+            if not _d or not _d.get('nc'):
+                return None
+            _profile = copy.deepcopy(_d['nc'])
+            _profileKind = NCLOTH.profile_kind(profileName, module) or 'fabric'
+            if differential:
+                _wrapped = NCLOTH.profile_diff_from_base({'nc': _profile}, module=module)
+                _profile = _wrapped.get('nc') or {}
+        else:
+            module = module or nClothPresets
+            _d = NCLOTH.profile_get(profileName, module)
+            if not _d or not _d.get('n'):
+                return None
+            _profile = copy.deepcopy(_d['n'])
+            _profileKind = NCLOTH.profile_kind(profileName, module) or 'solver'
+            if differential:
+                _wrapped = NCLOTH.profile_diff_from_base({'n': _profile}, module=module)
+                _profile = _wrapped.get('n') or {}
+
+        inst = cls()
+        inst._build_dat(
+            _profile,
+            name=profileName,
+            differential=differential,
+            profileKind=_profileKind,
+        )
+        return inst.dat
+
+
+class SimHairDat(SimPresetDatBase):
+    _ext = 'cgmSimHairDat'
+    _startDir = ['cgmDat', 'sim', 'hair']
+    datKind = 'hair'
+    section = 'hs'
+    defaultProfileKind = 'hair'
+
+    def capture(self, nodes=None, differential=True, name=None, profileKind=None, mDynFK=None):
+        _str_func = 'SimHairDat.capture'
+        _node = _resolve_hairsystem_for_capture(nodes=nodes, mDynFK=mDynFK)
+
+        if not _node:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'Select hairSystem or load cgmDynFK with hair mapped'))
+            return None
+
+        _prof = RIGDYN.get_dat(_node, differential=differential)
+        _profile = {}
+        if isinstance(_prof, dict):
+            _profile = _prof.get('hs') or _prof.get('hairSystem') or {}
+            if not _profile and len(_prof) == 1:
+                _profile = list(_prof.values())[0]
+
+        _short = _node.split('|')[-1].split(':')[-1]
+        return self._build_dat(
+            _profile,
+            name=name or _short,
+            sourceNode=_node,
+            differential=differential,
+            profileKind=profileKind or 'hair',
+        )
+
+    def _resolve_apply_target(self, target=None, mDynFK=None):
+        if target:
+            return VALID.mNodeString(target)
+        if mDynFK:
+            mHair = mDynFK.getMessageAsMeta('mHairSysShape')
+            if mHair:
+                return mHair.mNode
+        nodes = mc.ls(sl=True, long=True) or []
+        for n in nodes:
+            if mc.objectType(n, isType='hairSystem'):
+                return n
+        return None
+
+
+class SimClothDat(SimPresetDatBase):
+    _ext = 'cgmSimClothDat'
+    _startDir = ['cgmDat', 'sim', 'cloth']
+    datKind = 'cloth'
+    section = 'nc'
+    defaultProfileKind = 'fabric'
+
+    def capture(self, nodes=None, differential=True, name=None, profileKind=None, mDynFK=None):
+        _str_func = 'SimClothDat.capture'
+        _nc = _resolve_ncloth_for_capture(nodes=nodes, mDynFK=mDynFK)
+
+        if not _nc:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'Select nCloth or map cloth on loaded cgmDynFK setup'))
+            return None
+
+        _dat = NCLOTH.query_settings(_nc, differential=differential)
+        _profile = (_dat.get('profile') or {}).get('nc') or {}
+        _name = name or _dat.get('suggestedPresetName') or 'cloth'
+        _src = (_dat.get('source') or {}).get('nClothShape') or _nc
+        return self._build_dat(
+            _profile,
+            name=_name,
+            sourceNode=_src,
+            differential=differential,
+            profileKind=profileKind or 'fabric',
+        )
+
+    def _resolve_apply_target(self, target=None, mDynFK=None):
+        if target:
+            _nc = NCLOTH.get_nCloth(target, noneValid=True)
+            return _nc or VALID.mNodeString(target)
+        if mDynFK:
+            mCloth = RIGDYN.get_mapped_cloth(mDynFK)
+            if mCloth:
+                _nc = NCLOTH.get_nCloth(mCloth.mNode, noneValid=True)
+                if _nc:
+                    return _nc
+        nodes = mc.ls(sl=True, long=True) or []
+        for n in nodes:
+            _nc = NCLOTH.get_nCloth(n, noneValid=True)
+            if _nc:
+                return _nc
+        return None
+
+
+class SimNucleusDat(SimPresetDatBase):
+    _ext = 'cgmSimNucleusDat'
+    _startDir = ['cgmDat', 'sim', 'nucleus']
+    datKind = 'nucleus'
+    section = 'n'
+    defaultProfileKind = 'solver'
+
+    def capture(self, nodes=None, differential=True, name=None, profileKind=None, mDynFK=None):
+        _str_func = 'SimNucleusDat.capture'
+        _nucleus = _resolve_nucleus_for_capture(nodes=nodes, mDynFK=mDynFK)
+
+        if not _nucleus:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'Select nucleus/nCloth or load cgmDynFK with nucleus mapped'))
+            return None
+
+        _dat = NCLOTH.query_nucleus_settings(_nucleus, differential=differential)
+        _profile = (_dat.get('profile') or {}).get('n') or {}
+        _short = _nucleus.split('|')[-1].split(':')[-1]
+        _kind = profileKind
+        if not _kind:
+            _kind = 'solver'
+        return self._build_dat(
+            _profile,
+            name=name or _short,
+            sourceNode=_nucleus,
+            differential=differential,
+            profileKind=_kind,
+        )
+
+    def _resolve_apply_target(self, target=None, mDynFK=None):
+        if target:
+            if mc.objectType(target) == 'nucleus':
+                return VALID.mNodeString(target)
+            _nc = NCLOTH.get_nCloth(target, noneValid=True)
+            if _nc:
+                return NCLOTH.get_nucleus(_nc, noneValid=True)
+            return VALID.mNodeString(target)
+        if mDynFK:
+            mNuc = mDynFK.getMessageAsMeta('mNucleus')
+            if mNuc:
+                return mNuc.mNode
+        nuclei = NCLOTH._resolve_nuclei(None)
+        return nuclei[0] if nuclei else None
+
+
+def _node_ref(node):
+    """Serialize a Maya node or meta instance to a long-name string."""
+    if not node:
+        return ''
+    if hasattr(node, 'mNode'):
+        return VALID.mNodeString(node.mNode)
+    return VALID.mNodeString(node)
+
+
+def _resolve_node_ref(ref, typeFilter=None):
+    """Resolve a stored node reference to a scene long name."""
+    _str_func = '_resolve_node_ref'
+    if not ref:
+        return None
+    ref = VALID.stringArg(ref, noneValid=True)
+    if not ref:
+        return None
+    if mc.objExists(ref):
+        _node = VALID.mNodeString(ref)
+        if typeFilter and not mc.objectType(_node, isType=typeFilter):
+            return None
+        return _node
+
+    _short = ref.split('|')[-1].split(':')[-1]
+    _candidates = mc.ls(_short, long=True) or []
+    if typeFilter:
+        _filtered = [n for n in _candidates if mc.objectType(n, isType=typeFilter)]
+        _candidates = _filtered or _candidates
+
+    if len(_candidates) == 1:
+        return _candidates[0]
+    if len(_candidates) > 1:
+        log.warning(cgmGEN.logString_msg(_str_func, 'Ambiguous ref: {0}'.format(ref)))
+    return None
+
+
+def _find_dynfk_setup(baseName=None, setupRoot=None):
+    """Find an existing cgmDynFK setup in the scene."""
+    if setupRoot:
+        _node = _resolve_node_ref(setupRoot)
+        if _node:
+            mObj = cgmMeta.validateObjArg(_node, noneValid=True)
+            if mObj and getattr(mObj, 'mClass', None) == 'cgmDynFK':
+                return mObj
+
+    if baseName:
+        _guess = '{0}_dynFK'.format(baseName)
+        if mc.objExists(_guess):
+            mObj = cgmMeta.validateObjArg(_guess, noneValid=True)
+            if mObj and getattr(mObj, 'mClass', None) == 'cgmDynFK':
+                return mObj
+
+    for n in mc.ls(type='transform') or []:
+        mObj = cgmMeta.validateObjArg(n, noneValid=True)
+        if mObj and getattr(mObj, 'mClass', None) == 'cgmDynFK':
+            if not baseName or getattr(mObj, 'baseName', None) == baseName or mObj.cgmName == baseName:
+                return mObj
+    return None
+
+
+def resolve_library_filepath(key, mode='dev', extensions=None):
+    """Resolve library key (hair.bob or hair/bob) to an on-disk dat path."""
+    if not key:
+        return None
+    key = key.replace('/', '.')
+    if extensions is None:
+        extensions = list(DAT_EXTENSIONS)
+    _options, _ = get_library_options(force=True, mode=mode, extensions=extensions)
+    if key in _options:
+        return _options[key]
+    for k, v in list(_options.items()):
+        if k.endswith('.{0}'.format(key)) or k.split('.')[-1] == key.split('.')[-1]:
+            return v
+    return None
+
+
+def apply_preset_ref(ref, mDynFK=None, mode='dev', clean=True):
+    """Load and apply a preset dat from a library key."""
+    _path = resolve_library_filepath(ref, mode=mode, extensions=list(DAT_EXTENSIONS))
+    if not _path or not os.path.isfile(_path):
+        log.warning('Preset ref not found: {0}'.format(ref))
+        return False
+    inst, _dat = read_dat(_path)
+    if not inst:
+        return False
+    inst.apply(mDynFK=mDynFK, clean=clean)
+    return True
+
+
+class SimChainSetup(CGMDAT.data):
+    """Full cgmDynFK setup recipe — map nodes + rebuild chains when scene elements exist."""
+
+    _ext = SETUP_EXTENSION
+    _dataFormat = 'json'
+    _startDir = ['cgmDat', 'sim', 'setups']
+
+    def __init__(self, filepath=None, dat=None, **kws):
+        kws.setdefault('dataFormat', self._dataFormat)
+        super().__init__(filepath, **kws)
+        self.structureMode = 'dev'
+        if dat:
+            self.dat = dat
+        elif not self.dat:
+            self.dat = self._empty_setup_dat()
+
+    @staticmethod
+    def _empty_setup_dat(name='setup'):
+        return {
+            'schemaVersion': SCHEMA_VERSION,
+            'name': name,
+            'baseName': name,
+            'setupRoot': '',
+            'options': {
+                'fwd': 'z+',
+                'up': 'y+',
+                'startFrame': -50,
+                'upSetup': 'guess',
+                'extendStart': None,
+                'extendEnd': False,
+                'aimUpMode': 'joint',
+                'fixedSegmentLength': False,
+                'follicleSegmentLength': 1.0,
+            },
+            'mapped': {},
+            'chains': [],
+            'presetRefs': {},
+            'meta': _meta_block(),
+        }
+
+    def capture(self, mDynFK=None, name=None):
+        _str_func = 'SimChainSetup.capture'
+        mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
+        if not mSetup:
+            nodes = mc.ls(sl=True, long=True) or []
+            for n in nodes:
+                mSetup = cgmMeta.validateObjArg(n, noneValid=True)
+                if mSetup and getattr(mSetup, 'mClass', None) == 'cgmDynFK':
+                    break
+        if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+            log.warning(cgmGEN.logString_msg(_str_func, 'Select or pass a cgmDynFK setup'))
+            return None
+
+        _runtime = mSetup.get_dat() or {}
+        _base = mSetup.baseName or mSetup.cgmName or mSetup.p_nameBase.replace('_dynFK', '')
+        _name = name or _base
+
+        self.dat = self._empty_setup_dat(_name)
+        self.dat['baseName'] = _base
+        self.dat['setupRoot'] = _node_ref(mSetup)
+        self.dat['options'] = {
+            'fwd': mSetup.fwd or 'z+',
+            'up': mSetup.up or 'y+',
+            'startFrame': mSetup.startFrame,
+            'upSetup': mSetup.upSetup or 'guess',
+            'extendStart': mSetup.extendStart,
+            'extendEnd': mSetup.extendEnd,
+            'aimUpMode': mSetup.aimUpMode or 'joint',
+            'fixedSegmentLength': getattr(mSetup, 'fixedSegmentLength', False),
+            'follicleSegmentLength': getattr(mSetup, 'follicleSegmentLength', 1.0),
+        }
+
+        _mapped = {}
+        if _runtime.get('mNucleus'):
+            _mapped['nucleus'] = _node_ref(_runtime['mNucleus'])
+        if _runtime.get('mCloth'):
+            _mapped['cloth'] = _node_ref(_runtime['mCloth'])
+        if _runtime.get('mHairSysShape'):
+            _mapped['hairSystem'] = _node_ref(_runtime['mHairSysShape'])
+        if _runtime.get('mClothOutMesh'):
+            _mapped['clothOutMesh'] = _node_ref(_runtime['mClothOutMesh'])
+        self.dat['mapped'] = _mapped
+
+        _chains = []
+        for idx in sorted(_runtime.get('chains', {}).keys()):
+            _d = _runtime['chains'][idx]
+            mGrp = _d.get('mGrp')
+            if not mGrp:
+                continue
+            _entry = {
+                'index': idx,
+                'name': getattr(mGrp, 'cgmName', None) or 'chain_{0}'.format(idx),
+                'chainMode': _d.get('chainMode') or 'hair',
+                'targets': [_node_ref(t) for t in (_d.get('mTargets') or []) if t],
+            }
+            if _entry['chainMode'] == 'clothAttach':
+                _entry['surfaceTrack'] = _d.get('surfaceTrack') or 'follicle'
+            if _entry['chainMode'] == 'hair':
+                _entry['options'] = {
+                    'fwd': getattr(mGrp, 'fwd', None) or mSetup.fwd,
+                    'up': getattr(mGrp, 'up', None) or mSetup.up,
+                    'upSetup': mSetup.upSetup,
+                    'extendStart': mSetup.extendStart,
+                    'extendEnd': mSetup.extendEnd,
+                    'aimUpMode': mSetup.aimUpMode,
+                    'fixedSegmentLength': getattr(mGrp, 'fixedSegmentLength', getattr(mSetup, 'fixedSegmentLength', False)),
+                    'follicleSegmentLength': getattr(
+                        mGrp, 'follicleSegmentLength', getattr(mSetup, 'follicleSegmentLength', 1.0)),
+                }
+            _chains.append(_entry)
+
+        self.dat['chains'] = _chains
+        self.dat['meta'] = _meta_block(mSetup.mNode)
+        log.info(cgmGEN.logString_msg(
+            _str_func, '{0} | chains: {1}'.format(_name, len(_chains))))
+        return self.dat
+
+    def apply(self, mDynFK=None, recreateChains=True, applyPresets=True, mode='dev'):
+        """
+        Re-wire a cgmDynFK setup from dat when mapped nodes and targets exist in the scene.
+
+        :returns: cgmDynFK meta instance or None
+        """
+        _str_func = 'SimChainSetup.apply'
+        _dat = self.dat or {}
+        _base = _dat.get('baseName') or _dat.get('name') or 'DynamicChain'
+        _opts = _dat.get('options') or {}
+
+        mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
+        if mSetup and getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+            mSetup = None
+        if not mSetup:
+            mSetup = _find_dynfk_setup(_base, _dat.get('setupRoot'))
+
+        if not mSetup:
+            mSetup = RIGDYN.setup_sim_dynFK(
+                baseName=_base,
+                startFrame=_opts.get('startFrame'),
+                applyPreset=False,
+            )
+            log.info(cgmGEN.logString_msg(_str_func, 'Created setup: {0}'.format(mSetup.p_nameBase)))
+
+        if _base and mSetup.baseName != _base:
+            mSetup.set_base_name(_base)
+
+        _mapped = _dat.get('mapped') or {}
+        _nuc = _resolve_node_ref(_mapped.get('nucleus'), typeFilter='nucleus')
+        if _nuc:
+            RIGDYN.map_nucleus(mSetup, _nuc)
+        _cloth = _resolve_node_ref(_mapped.get('cloth'))
+        if _cloth:
+            RIGDYN.map_cloth_surface(mSetup, _cloth)
+        _hair = _resolve_node_ref(_mapped.get('hairSystem'), typeFilter='hairSystem')
+        if _hair:
+            RIGDYN.map_hair_system(mSetup, _hair)
+
+        for _chainDat in _dat.get('chains') or []:
+            self._apply_chain(mSetup, _chainDat, recreateChains=recreateChains)
+
+        if applyPresets:
+            _refs = copy.deepcopy(_dat.get('presetRefs') or {})
+            for _chainDat in _dat.get('chains') or []:
+                for k, v in (_chainDat.get('presetRefs') or {}).items():
+                    _refs.setdefault(k, v)
+            for _kind in ('nucleus', 'cloth', 'hair'):
+                if _refs.get(_kind):
+                    apply_preset_ref(_refs[_kind], mDynFK=mSetup, mode=mode)
+
+        log.info(cgmGEN.logString_msg(_str_func, 'Setup applied: {0}'.format(mSetup.p_nameBase)))
+        return mSetup
+
+    def _apply_chain(self, mSetup, chainDat, recreateChains=True):
+        _str_func = 'SimChainSetup._apply_chain'
+        _targets = []
+        for ref in chainDat.get('targets') or []:
+            _node = _resolve_node_ref(ref)
+            if not _node:
+                log.warning(cgmGEN.logString_msg(
+                    _str_func, 'Missing target: {0}'.format(ref)))
+                return False
+            _targets.append(_node)
+
+        if not _targets:
+            return False
+
+        ml_targets = cgmMeta.asMeta(_targets, noneValid=True)
+        if not ml_targets:
+            return False
+
+        _mode = chainDat.get('chainMode') or 'hair'
+        _name = chainDat.get('name') or ml_targets[-1].p_nameBase
+        _idx = chainDat.get('index')
+
+        if not recreateChains and _idx is not None:
+            ml_chains = mSetup.msgList_get('chain') or []
+            if _idx < len(ml_chains):
+                mGrp = ml_chains[_idx]
+                if self._chain_matches(mGrp, chainDat):
+                    log.info(cgmGEN.logString_msg(
+                        _str_func, 'Chain {0} verified — skip recreate'.format(_idx)))
+                    return True
+
+        if _idx is not None:
+            try:
+                mSetup.chain_deleteByIdx(_idx)
+            except Exception:
+                pass
+
+        if _mode == 'clothAttach':
+            RIGDYN.attach_to_cloth_dynFK(
+                mSetup,
+                objs=ml_targets,
+                name=_name,
+                surfaceTrack=chainDat.get('surfaceTrack') or 'follicle',
+            )
+        else:
+            _copts = chainDat.get('options') or {}
+            _setupOpts = self.dat.get('options') or {}
+            mSetup.chain_create_hair(
+                objs=ml_targets,
+                name=_name,
+                fwd=_copts.get('fwd') or _setupOpts.get('fwd'),
+                up=_copts.get('up') or _setupOpts.get('up'),
+                upSetup=_copts.get('upSetup') or _setupOpts.get('upSetup'),
+                extendStart=_copts.get('extendStart', _setupOpts.get('extendStart')),
+                extendEnd=_copts.get('extendEnd', _setupOpts.get('extendEnd')),
+                aimUpMode=_copts.get('aimUpMode') or _setupOpts.get('aimUpMode'),
+                fixedSegmentLength=_copts.get(
+                    'fixedSegmentLength', _setupOpts.get('fixedSegmentLength', False)),
+                follicleSegmentLength=_copts.get(
+                    'follicleSegmentLength', _setupOpts.get('follicleSegmentLength', 1.0)),
+            )
+        return True
+
+    @staticmethod
+    def _chain_matches(mGrp, chainDat):
+        if not mGrp:
+            return False
+        _mode = getattr(mGrp, 'chainMode', None) or 'hair'
+        if _mode != (chainDat.get('chainMode') or 'hair'):
+            return False
+        if _mode == 'clothAttach':
+            _track = getattr(mGrp, 'surfaceTrack', None) or 'follicle'
+            if _track != (chainDat.get('surfaceTrack') or 'follicle'):
+                return False
+        ml = mGrp.msgList_get('mTargets') or []
+        _existing = sorted([_node_ref(t) for t in ml if t])
+        _expected = sorted(chainDat.get('targets') or [])
+        return _existing == _expected
+
+
+def _register_classes():
+    global _D_KIND_TO_CLASS, _D_EXT_TO_CLASS
+    for cls in (SimHairDat, SimClothDat, SimNucleusDat):
+        _D_KIND_TO_CLASS[cls.datKind] = cls
+        _D_EXT_TO_CLASS[cls._ext] = cls
+    _D_EXT_TO_CLASS[SimChainSetup._ext] = SimChainSetup
+
+
+_register_classes()
+
+
+def dat_class_for_kind(kind):
+    return _D_KIND_TO_CLASS.get(kind)
+
+
+def dat_class_for_ext(ext):
+    return _D_EXT_TO_CLASS.get(ext)
+
+
+def dat_class_for_filepath(filepath):
+    if not filepath:
+        return None
+    _base = os.path.basename(filepath)
+    if '.' not in _base:
+        return None
+    _ext = _base.rsplit('.', 1)[-1]
+    return dat_class_for_ext(_ext)
+
+
+def read_dat(filepath):
+    """Read any sim dat file; returns (instance, dat dict)."""
+    cls = dat_class_for_filepath(filepath)
+    if not cls:
+        log.warning('Unknown sim dat extension: {0}'.format(filepath))
+        return None, None
+    inst = cls(filepath=filepath)
+    if inst.read(filepath):
+        return inst, inst.dat
+    return None, None
+
+
+def read_any_dat(filepath):
+    """Alias for read_dat — preset or setup file."""
+    return read_dat(filepath)
+
+
+def get_library_path(mode='dev'):
+    base = CGMDAT.startDir_getBase(mode)
+    return os.path.join(base, 'cgmDat', 'sim')
+
+
+def get_setups_library_path(mode='dev'):
+    base = CGMDAT.startDir_getBase(mode)
+    return os.path.join(base, 'cgmDat', 'sim', 'setups')
+
+
+def get_library_options(force=False, path=None, mode='dev', extensions=None):
+    """Scan cgmDat/sim for shipped preset and/or setup files."""
+    if extensions is None:
+        extensions = list(DAT_EXTENSIONS)
+    if path is None:
+        path = get_library_path(mode)
+    return CGMDAT.get_ext_options(force, path=path, extensions=list(extensions))
+
+
+def get_setup_library_options(force=False, path=None, mode='dev'):
+    """Scan cgmDat/sim/setups for setup dat files."""
+    if path is None:
+        path = get_setups_library_path(mode)
+    return CGMDAT.get_ext_options(force, path=path, extensions=[SETUP_EXTENSION])
+
+
+def seed_module_profile_to_file(profileName, datKind, outDir=None, differential=True):
+    """Write one preset module entry to a dat file (dev seed helper)."""
+    cls = dat_class_for_kind(datKind)
+    if not cls:
+        return False
+    _dat = cls.from_module_profile(profileName, differential=differential)
+    if not _dat:
+        log.warning('Could not seed {0} ({1})'.format(profileName, datKind))
+        return False
+    inst = cls(dat=_dat)
+    if outDir is None:
+        outDir = inst.startDir_get(startDirMode='dev')
+    os.makedirs(outDir, exist_ok=True)
+    _path = os.path.join(outDir, '{0}.{1}'.format(profileName, cls._ext))
+    return inst.write(filepath=_path, startDirMode='dev')
+
+
+def seed_dev_library():
+    """Export starter presets from Python modules into cgm/cgmDat/sim/."""
+    _seeds = (
+        ('hair', 'bob'),
+        ('hair', 'bangs_firm'),
+        ('cloth', 'cotton'),
+        ('cloth', 'bangs_firm'),
+        ('nucleus', 'solver_balanced'),
+        ('nucleus', 'wind_calm'),
+    )
+    _results = []
+    for kind, name in _seeds:
+        _results.append(seed_module_profile_to_file(name, kind))
+    return all(_results)
