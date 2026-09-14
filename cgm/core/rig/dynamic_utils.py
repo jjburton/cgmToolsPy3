@@ -32,6 +32,19 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 
+def _dag_str(node):
+    """Return a Maya DAG name string for mc.* (never pass meta to mc)."""
+    if node is None:
+        return None
+    if isinstance(node, str):
+        return node
+    _name = getattr(node, 'mNode', None)
+    if isinstance(_name, str):
+        return _name
+    raise TypeError(cgmGEN.logString_msg(
+        '_dag_str', 'Expected str or meta with mNode str, got {0}'.format(type(node))))
+
+
 class chain(object):
     hairSystem = None
     nucleus = None
@@ -116,14 +129,18 @@ class chain(object):
         self.nucleus = mc.listConnections( '%s.currentState' % self.hairSystem )[0]
         if not b_existing:
             pass
-        mc.select( objs[0].getParent() )
+        mc.select((mc.listRelatives(
+            _dag_str(objs[0]), parent=True, type='transform', fullPath=True) or [None])[0])
 
         self.follicles.append(follicle)
         self.outCurves.append(outCurve)
         
         # set default properties
         mc.setAttr( '%s.pointLock' % follicleShape, 1 )
-        mc.parentConstraint(objs[0].getParent(), follicle, mo=True)
+        mc.parentConstraint(
+            (mc.listRelatives(
+                _dag_str(objs[0]), parent=True, type='transform', fullPath=True) or [None])[0],
+            follicle, mo=True)
 
         # create locators on objects
         locators = []
@@ -157,7 +174,11 @@ class chain(object):
             mc.connectAttr( '%s.position' % poc, '%s.translate' % locParent)
             mc.connectAttr( '%s.position' % pocAim, '%s.translate' % aimNull)
             
-            aimConstraint = mc.aimConstraint( aimNull, locParent, aimVector=fwdAxis.p_vector, upVector = upAxis.p_vector, worldUpType = "objectrotation", worldUpVector = upAxis.p_vector, worldUpObject = objs[0].getParent() )
+            _worldUp = (mc.listRelatives(
+                _dag_str(objs[0]), parent=True, type='transform', fullPath=True) or [None])[0]
+            aimConstraint = mc.aimConstraint(
+                aimNull, locParent, aimVector=fwdAxis.p_vector, upVector=upAxis.p_vector,
+                worldUpType='objectrotation', worldUpVector=upAxis.p_vector, worldUpObject=_worldUp)
 
             mc.parent(loc, locParent)
 
@@ -219,21 +240,25 @@ def _resolve_start_curve_from_follicle(follicleShape):
 
 # Default follicle sim segment length (scene linear units — typically cm in Maya).
 FOLLICLE_FIXED_SEGMENT_LENGTH = 1.0
+FOLLICLE_DEFAULT_SAMPLE_DENSITY = 1.0
 
 HAIR_FOLLOW_MODE_LEGACY = 'legacy'
 HAIR_FOLLOW_MODE_SPLINE = 'splineIk'
 
 
 def _configure_follicle_segment_sampling(follicleShape, fixedSegmentLength=False,
-                                         segmentLength=None, l_positions=None):
+                                         segmentLength=None, l_positions=None,
+                                         sampleDensity=None):
     """
     Follicle sim/collision sampling for dynFK hair chains.
 
-    Default (fixedSegmentLength=False): sampleDensity=1 — one sim segment per inCurve CV span.
+    Default (fixedSegmentLength=False): follicle.sampleDensity (default 1.0).
     Optional fixedSegmentLength=True: uniform world-length segments (segmentLength, default 1 unit).
     """
     _str_func = '_configure_follicle_segment_sampling'
     follicleShape = VALID.mNodeString(follicleShape)
+    if sampleDensity is None:
+        sampleDensity = FOLLICLE_DEFAULT_SAMPLE_DENSITY
     if fixedSegmentLength:
         _seg = segmentLength if segmentLength is not None else FOLLICLE_FIXED_SEGMENT_LENGTH
         if mc.attributeQuery('fixedSegmentLength', node=follicleShape, exists=True):
@@ -246,8 +271,9 @@ def _configure_follicle_segment_sampling(follicleShape, fixedSegmentLength=False
         if mc.attributeQuery('fixedSegmentLength', node=follicleShape, exists=True):
             mc.setAttr('{0}.fixedSegmentLength'.format(follicleShape), 0)
         if mc.attributeQuery('sampleDensity', node=follicleShape, exists=True):
-            mc.setAttr('{0}.sampleDensity'.format(follicleShape), 1.0)
-        log.debug(cgmGEN.logString_msg(_str_func, 'sampleDensity=1, fixedSegmentLength=off'))
+            mc.setAttr('{0}.sampleDensity'.format(follicleShape), float(sampleDensity))
+        log.debug(cgmGEN.logString_msg(
+            _str_func, 'sampleDensity={0}, fixedSegmentLength=off'.format(sampleDensity)))
 
 
 def _warn_hair_system_extra_segments(hairSystemShape):
@@ -461,20 +487,58 @@ def _get_chain_hair_follow_mode(mGrp):
     return HAIR_FOLLOW_MODE_LEGACY
 
 
-def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, chain, l_pos, skinCluster,
-                                        fixedSegmentLength=False, follicleSegmentLength=None,
-                                        inCurveDegree=1, use_follicle_input_curve=False):
+def _hair_chain_integrity_missing(mGrp):
     """
-    After makeCurvesDynamic, rebuild the follicle input curve from joint positions.
+    Missing required hair/cloth chain wiring (empty list = OK for its mode).
+    Used by Details UI and rebuild guards when create failed partway.
+    """
+    mGrp = cgmMeta.asMeta(mGrp)
+    _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
+    if _chainMode == 'clothAttach':
+        _missing = []
+        if not (mGrp.msgList_get('mTargets') or []):
+            _missing.append('mTargets')
+        return _missing
+    _missing = []
+    for _msg in ('mFollicle', 'mInCrv'):
+        if not mGrp.getMessageAsMeta(_msg):
+            _missing.append(_msg)
+    for _msg in ('mTargets', 'mObjJointChain'):
+        if not (mGrp.msgList_get(_msg) or []):
+            _missing.append(_msg)
+    if _get_chain_hair_follow_mode(mGrp) == HAIR_FOLLOW_MODE_SPLINE:
+        if not mGrp.getMessageAsMeta('mOutCrv'):
+            _missing.append('mOutCrv')
+    return _missing
+
+
+def _resolve_follicle_sample_density(mGrp, mSetup=None):
+    """Sample density stored on chain grp, else setup default."""
+    if mGrp and mGrp.hasAttr('follicleSampleDensity'):
+        try:
+            return float(mGrp.follicleSampleDensity)
+        except (TypeError, ValueError):
+            pass
+    if mSetup is not None:
+        return float(getattr(mSetup, 'follicleSampleDensity', FOLLICLE_DEFAULT_SAMPLE_DENSITY))
+    return FOLLICLE_DEFAULT_SAMPLE_DENSITY
+
+
+def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, ml_sim, l_pos, skinCluster,
+                                        fixedSegmentLength=False, follicleSegmentLength=None,
+                                        inCurveDegree=1, use_follicle_input_curve=False,
+                                        sampleDensity=None):
+    """
+    After makeCurvesDynamic, rebuild the follicle input curve from sim joint positions (`l_pos`).
 
     MCD often leaves the cgm *_inCrv transform as an empty shell (or with a non-driving
     shape) while follicle.startPosition uses a different curve — CVs and skin diverge.
-    Replace the dynamic input with a fresh linear curve, wire startPosition, and rebind skin.
+    Replace the dynamic input with a fresh curve, wire startPosition, and rebind skin.
+    Caller `l_pos` is ignored; positions come from ordered sim joints via `_create_hair_incurve`.
     """
     _str_func = '_consolidate_hair_incurve_after_mcd'
     _follicleShape = mFollicleShape.mNode if hasattr(mFollicleShape, 'mNode') else mFollicleShape
-    _l_joints = VALID.mNodeStringList(cgmMeta.asMeta(chain, noneValid=True))
-    if not _l_joints:
+    if not _hair_sim_joint_chain_ordered(ml_sim):
         raise ValueError(cgmGEN.logString_msg(_str_func, 'No sim joints for skinCluster'))
 
     _oldInCrv = mInCrv.mNode
@@ -497,6 +561,7 @@ def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, chai
         except Exception:
             pass
 
+    l_pos = _resolve_hair_chain_l_pos(mGrp, ml_sim, None)
     crv = _create_hair_incurve(l_pos, name, inCurveDegree)
     mInCrv = cgmMeta.asMeta(crv)
     mInCrv.rename('{0}_inCrv'.format(name))
@@ -509,28 +574,19 @@ def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, chai
     else:
         _wire_follicle_start_curve(_follicleShape, _shape)
 
-    mSkinCluster = mc.skinCluster(
-        _l_joints, mInCrv.mNode,
-        name='{0}_skinCluster'.format(name),
-        tsb=True,
-        maximumInfluences=1,
-        obeyMaxInfluences=True)[0]
-
-    _l_cvs = mc.ls('{0}.cv[*]'.format(_shape), flatten=True) or []
-    if not _l_cvs:
-        _l_cvs = ['{0}.cv[{1}]'.format(_shape, i) for i in range(len(l_pos))]
-    for i, _cv in enumerate(_l_cvs):
-        _jnt = _l_joints[i] if i < len(_l_joints) else _l_joints[-1]
-        mc.skinPercent(mSkinCluster, _cv, tv=[_jnt, 1.0])
+    mSkinCluster, ml_sim = _hair_incurve_skin_bind(
+        ml_sim, mInCrv, '{0}_skinCluster'.format(name))
 
     _configure_follicle_segment_sampling(
         _follicleShape,
         fixedSegmentLength=fixedSegmentLength,
         segmentLength=follicleSegmentLength,
-        l_positions=l_pos)
+        l_positions=l_pos,
+        sampleDensity=sampleDensity)
 
     log.info(cgmGEN.logString_msg(
-        _str_func, 'Rebuilt startPosition inCurve: {0} ({1} CVs)'.format(mInCrv.mNode, len(_l_cvs))))
+        _str_func, 'Rebuilt startPosition inCurve: {0} ({1} CVs, {2} joints)'.format(
+            mInCrv.mNode, len(l_pos), len(ml_sim))))
     return mInCrv
 
 
@@ -573,7 +629,7 @@ def _sync_hair_outcurve_to_incurve(inCurveShape, outCurveShape):
 
 def _finalize_hair_outcurve_rest(follicleShape, hairSystemShape, inCurveShape, outCurveShape,
                                  fixedSegmentLength=None, follicleSegmentLength=None,
-                                 l_positions=None):
+                                 l_positions=None, sampleDensity=None):
     """
     Configure follicle + outCurve at rest after inCurve is wired.
 
@@ -590,7 +646,8 @@ def _finalize_hair_outcurve_rest(follicleShape, hairSystemShape, inCurveShape, o
             follicleShape,
             fixedSegmentLength=fixedSegmentLength,
             segmentLength=follicleSegmentLength,
-            l_positions=l_positions)
+            l_positions=l_positions,
+            sampleDensity=sampleDensity)
     _refresh_hair_rest_output(follicleShape, hairSystemShape)
     _sync_hair_outcurve_to_incurve(inCurveShape, outCurveShape)
     log.debug(cgmGEN.logString_msg(_str_func, 'Done'))
@@ -700,7 +757,7 @@ def _tear_down_hair_chain_follow(mGrp):
     log.info(cgmGEN.logString_msg(_str_func, mGrp.p_nameBase))
 
 
-def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, chain, name,
+def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, name,
                              fwdAxis, upAxis, _l_paramFrac=None,
                              upSetup='guess', upControl=False, aimUpMode='joint',
                              addEndJoint=False, extendEnd=None):
@@ -712,7 +769,9 @@ def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, chain, nam
     addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     _str_func = '_build_hair_chain_follow'
     mGrp = cgmMeta.asMeta(mGrp)
-    outCurveShape = VALID.mNodeString(outCurveShape)
+    mOutShape = cgmMeta.asMeta(outCurveShape, noneValid=True)
+    outCurveShape = mOutShape.mNode if mOutShape else VALID.mNodeString(outCurveShape)
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
 
     if _l_paramFrac is None:
         _l_jointPos = [mObj.p_position for mObj in ml_baseTargets]
@@ -749,9 +808,13 @@ def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, chain, nam
         crv = CURVES.create_controlCurve(mUp.mNode, 'arrowSingle', size=sizeControl, direction='y+')
         CORERIG.shapeParent_in_place(mUp.mNode, crv, False)
         mUpGroup = mUp.doGroup(True, True, asMeta=True, typeModifier='master', setClass='cgmObject')
-        mc.parentConstraint(VALID.mNodeString(ml[0].getParent()), mUpGroup.mNode, mo=True)
+        _upDriver = (mc.listRelatives(
+            _dag_str(ml[0]), parent=True, type='transform', fullPath=True) or [None])[0]
+        mc.parentConstraint(_upDriver, _dag_str(mUpGroup), mo=True)
     else:
-        mc.parentConstraint(VALID.mNodeString(ml[0].getParent()), mUp.mNode, mo=True)
+        _upDriver = (mc.listRelatives(
+            _dag_str(ml[0]), parent=True, type='transform', fullPath=True) or [None])[0]
+        mc.parentConstraint(_upDriver, _dag_str(mUp), mo=True)
 
     log.debug(cgmGEN.logString_msg(_str_func, 'aimUpMode: {0}'.format(aimUpMode)))
 
@@ -825,7 +888,7 @@ def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, chain, nam
                 mAim.mNode, mLocParent.mNode,
                 aimVector=_aimVector, upVector=upAxis.p_vector,
                 worldUpType='objectrotation', worldUpVector=upAxis.p_vector,
-                worldUpObject=VALID.mNodeString(chain[i]))
+                worldUpObject=ml_sim[i].mNode)
         elif aimUpMode == 'curveNormal':
             mUpLoc = mLoc.doGroup(False, False, asMeta=True, typeModifier='up', setClass='cgmObject')
             mUpLoc.p_parent = mLocParent
@@ -1000,9 +1063,17 @@ def _ordered_joint_chain_from_root(mRoot):
     return ml
 
 
+def _hair_reparent_sim_chain_ordered(ml_sim):
+    """Force sim joints into one root→tip chain (order from normalize). Restores duplicate-root driven IK."""
+    ml = _hair_normalize_sim_chain(ml_sim)
+    for i in range(1, len(ml)):
+        ml[i].p_parent = ml[i - 1]
+    return ml
+
+
 def _build_hair_driven_joint_chain(ml_sim, ml, name, mParent):
-    """Duplicate sim joint chain for spline IK (no skin / dynamic inputs on the copy)."""
-    ml_sim = cgmMeta.asMeta(ml_sim, noneValid=True)
+    """Duplicate sim joint hierarchy from root (renameChildren) for spline IK."""
+    ml_sim = _hair_reparent_sim_chain_ordered(ml_sim)
     if not ml_sim:
         return []
 
@@ -1017,20 +1088,20 @@ def _build_hair_driven_joint_chain(ml_sim, ml, name, mParent):
     if len(ml_driven) != len(ml_sim):
         log.warning(cgmGEN.logString_msg(
             '_build_hair_driven_joint_chain',
-            'Driven count {0} != sim {1} — using shorter'.format(len(ml_driven), len(ml_sim))))
+            'Driven hierarchy {0} != sim {1} — check sim joint parenting'.format(
+                len(ml_driven), len(ml_sim))))
 
     _count = min(len(ml_driven), len(ml_sim))
     for i in range(_count):
-        _base = ml[i].p_nameBase if i < len(ml) else ml_sim[i].p_nameBase
-        ml_driven[i].rename('{0}_{1}_driven_jnt'.format(name, _base))
+        ml_driven[i].rename('{0}_driven_{1:02d}_jnt'.format(name, i))
 
-    _parent = VALID.mNodeString(mParent)
-    if _parent and mc.objExists(_parent):
-        mc.parent(ml_driven[0].mNode, _parent)
+    mParent = cgmMeta.asMeta(mParent, noneValid=True)
+    if mParent and ml_driven:
+        ml_driven[0].p_parent = mParent
     return ml_driven[:_count] if _count else ml_driven
 
 
-def _build_hair_chain_follow_spline(mGrp, mOutCrv, ml, chain, name, fwdAxis=None, upAxis=None,
+def _build_hair_chain_follow_spline(mGrp, mOutCrv, ml, ml_sim, name, fwdAxis=None, upAxis=None,
                                     mFollicle=None):
     """
     Duplicate sim joint chain, spline IK on outCurve, locators parented under driven joints.
@@ -1045,7 +1116,7 @@ def _build_hair_chain_follow_spline(mGrp, mOutCrv, ml, chain, name, fwdAxis=None
     _str_func = '_build_hair_chain_follow_spline'
     mGrp = cgmMeta.asMeta(mGrp)
     mOutCrv = _outcurve_spline_ik_meta(mOutCrv, mGrp=mGrp, mFollicle=mFollicle)
-    ml_sim = cgmMeta.asMeta(chain, noneValid=True)
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
 
     mFollicle = cgmMeta.asMeta(mFollicle, noneValid=True) if mFollicle else mGrp.getMessageAsMeta('mFollicle')
     _drivenParent = mFollicle if mFollicle else mGrp
@@ -1107,9 +1178,48 @@ def _resolve_hair_curve_degrees(mGrp, mDynFK=None):
     return MATHUTILS.Clamp(_in, 1, 3), MATHUTILS.Clamp(_out, 1, 3)
 
 
-def _resolve_hair_chain_l_pos(mGrp, chain, ml_baseTargets):
-    """Joint positions for inCurve rebuild (sim chain ws positions)."""
-    ml_sim = cgmMeta.asMeta(chain, noneValid=True)
+def _hair_sim_joint_chain_ordered(chain):
+    """Root-to-tip sim joint metas (hierarchy walk from chain root)."""
+    return _hair_normalize_sim_chain(chain)
+
+
+def _hair_normalize_sim_chain(chain):
+    """Ordered sim joint metas; accepts meta list, node list, or root-only chain."""
+    ml = cgmMeta.asMeta(chain, noneValid=True) or []
+    ml = [m for m in ml if m]
+    if not ml:
+        return []
+    if mc.nodeType(ml[0].mNode) != 'joint':
+        return ml
+    ml_walk = _ordered_joint_chain_from_root(ml[0])
+    if len(ml_walk) >= len(ml):
+        return ml_walk
+    return ml
+
+
+def _hair_build_sim_joint_chain_from_targets(ml_baseTargets, name):
+    """Create parented sim joints from target metas (matchTarget snap, indexed names)."""
+    ml_targets = cgmMeta.asMeta(ml_baseTargets, noneValid=True) or []
+    if not ml_targets:
+        return []
+    ml_chain = []
+    for i, mTarget in enumerate(ml_targets):
+        mc.select(cl=True)
+        mJnt = mTarget.doCreateAt('joint')
+        mJnt.rename('{0}_sim_{1:02d}_jnt'.format(name, i))
+        if ml_chain:
+            mJnt.p_parent = ml_chain[-1]
+        SNAP.matchTarget_set(mJnt.mNode, mTarget.mNode)
+        mMatch = mJnt.getMessageAsMeta('cgmMatchTarget')
+        if mMatch:
+            mJnt.doSnapTo(mMatch)
+        ml_chain.append(mJnt)
+    return ml_chain
+
+
+def _resolve_hair_chain_l_pos(mGrp, ml_sim, ml_baseTargets):
+    """Joint positions for inCurve rebuild (ordered sim chain ws positions)."""
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
     if ml_sim:
         return [mJ.p_position for mJ in ml_sim]
     return [mObj.p_position for mObj in ml_baseTargets]
@@ -1148,37 +1258,52 @@ def _hair_coerce_add_end_joint_kw(addEndJoint=None, extendEnd=None):
     return extendEnd
 
 
+def _hair_resolve_add_end_distance_from_positions(pLast, pPrev, addEndJoint, upSetup, fwdAxis):
+    if isinstance(addEndJoint, bool):
+        if upSetup == 'manual' and fwdAxis is not None:
+            return MATHUTILS.Clamp(DIST.get_distance_between_points(pLast, pPrev), 0.5, None)
+        return DIST.get_distance_between_points(pPrev, pLast) / 2.0
+    try:
+        return float(addEndJoint)
+    except (TypeError, ValueError):
+        _num = VALID.valueArg(addEndJoint, noneValid=True)
+        if _num in (None, False):
+            return None
+        return float(_num)
+
+
+def _hair_resolve_add_end_distance(mBaseLast, mBasePrev, addEndJoint, upSetup, fwdAxis):
+    """Numeric tip offset for add-end joint (bool = guess from last base segment)."""
+    return _hair_resolve_add_end_distance_from_positions(
+        mBaseLast.p_position, mBasePrev.p_position, addEndJoint, upSetup, fwdAxis)
+
+
+def _hair_add_end_joint_tip_position(mBaseLast, mBasePrev, addEndJoint, upSetup, fwdAxis):
+    """Add-end ws from last base joint + distance (doDuplicate / p_position); not used for curve aim."""
+    if not _hair_add_end_joint_active(addEndJoint) or mBaseLast is None:
+        return None
+    _dist = _hair_resolve_add_end_distance(mBaseLast, mBasePrev, addEndJoint, upSetup, fwdAxis)
+    if _dist is None:
+        return None
+    _axis = fwdAxis.p_string if fwdAxis is not None else 'z+'
+    return mBaseLast.getPositionByAxisDistance(_axis, _dist)
+
+
+# Legacy l_pos helper (dat / callers); sim joints use _hair_sync_add_end_sim_joint.
 def _hair_add_end_joint_tip_to_l_pos(l_pos, addEndJoint, upSetup='guess', fwdAxis=None):
-    """
-    Append inCurve tip CV for the add-end sim joint (distance along last segment aim vector).
-    """
     if not _hair_add_end_joint_active(addEndJoint):
         return list(l_pos)
     l_pos = list(l_pos)
     if len(l_pos) < 2:
         return l_pos
-
-    _use_guess = isinstance(addEndJoint, bool)
-    if _use_guess:
-        _dist = None
-    else:
-        try:
-            _dist = float(addEndJoint)
-        except (TypeError, ValueError):
-            _num = VALID.valueArg(addEndJoint, noneValid=True)
-            if _num in (None, False):
-                return l_pos
-            _dist = float(_num)
-
+    _dist = _hair_resolve_add_end_distance_from_positions(
+        l_pos[-1], l_pos[-2], addEndJoint, upSetup, fwdAxis)
+    if _dist is None:
+        return l_pos
     if upSetup == 'manual' and fwdAxis is not None:
-        if _use_guess:
-            _dist = MATHUTILS.Clamp(
-                DIST.get_distance_between_points(l_pos[-1], l_pos[-2]), 0.5, None)
         l_pos.append(DIST.get_pos_by_vec_dist(l_pos[-1], fwdAxis.p_vector, _dist))
     else:
         _vecEnd = MATHUTILS.get_vector_of_two_points(l_pos[-2], l_pos[-1])
-        if _use_guess:
-            _dist = DIST.get_distance_between_points(l_pos[-2], l_pos[-1]) / 2.0
         l_pos.append(DIST.get_pos_by_vec_dist(l_pos[-1], _vecEnd, _dist))
     return l_pos
 
@@ -1186,92 +1311,189 @@ def _hair_add_end_joint_tip_to_l_pos(l_pos, addEndJoint, upSetup='guess', fwdAxi
 _hair_apply_extend_end_to_l_pos = _hair_add_end_joint_tip_to_l_pos
 
 
+def _hair_incurve_l_pos_for_chain(mGrp, ml_sim, ml_baseTargets, extendStart=None, upSetup='guess', fwdAxis=None):
+    """Ordered sim joint ws positions for _create_hair_incurve (no aim / extend on the curve)."""
+    return _resolve_hair_chain_l_pos(mGrp, ml_sim, ml_baseTargets)
+
+
+def _hair_incurve_skin_bind(ml_sim, mInCrv, skinClusterName, l_pos=None):
+    """Skin inCurve CVs to ordered sim joints (1 CV : 1 joint when no extendStart lead)."""
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
+    mInCrv = cgmMeta.asMeta(mInCrv)
+    _l_joints = [mJ.mNode for mJ in ml_sim]
+    if not _l_joints:
+        raise ValueError('No sim joints for inCurve skinCluster')
+    if l_pos is None:
+        l_pos = [mJ.p_position for mJ in ml_sim]
+    _inCrv = VALID.mNodeString(mInCrv)
+    mSkinCluster = mc.skinCluster(
+        _l_joints, _inCrv,
+        name=skinClusterName,
+        tsb=True,
+        maximumInfluences=1,
+        obeyMaxInfluences=True)[0]
+    _inShape = mInCrv.getShapes(asMeta=False) or []
+    _shape = _inShape[0] if _inShape else mc.listRelatives(
+        mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+    _l_cvs = mc.ls('{0}.cv[*]'.format(_shape), flatten=True) or []
+    if len(_l_cvs) == len(_l_joints):
+        for i, _cv in enumerate(_l_cvs):
+            mc.skinPercent(mSkinCluster, _cv, tv=[_l_joints[i], 1.0])
+    else:
+        for i, _cv in enumerate(_l_cvs):
+            _jnt = _l_joints[i] if i < len(_l_joints) else _l_joints[-1]
+            mc.skinPercent(mSkinCluster, _cv, tv=[_jnt, 1.0])
+        log.warning(cgmGEN.logString_msg(
+            '_hair_incurve_skin_bind',
+            'CV count {0} != joint count {1} — tip CVs bound to last joint'.format(
+                len(_l_cvs), len(_l_joints))))
+    return mSkinCluster, ml_sim
+
+
 def _hair_trim_add_end_joints(chain, num_base_joints, addEndJoint=None, extendEnd=None):
     """Remove tip add-end sim joints; keep base targets + one addEnd joint when enabled."""
     addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     _max = num_base_joints + (1 if _hair_add_end_joint_active(addEndJoint) else 0)
-    chain = list(VALID.mNodeStringList(cgmMeta.asMeta(chain, noneValid=True) or chain))
-    while len(chain) > _max:
-        _jnt = chain.pop()
-        if _jnt and mc.objExists(_jnt):
-            try:
-                mc.delete(_jnt)
-            except Exception:
-                pass
-    return chain
+    ml = _hair_normalize_sim_chain(chain)
+    while len(ml) > _max:
+        mTip = ml.pop()
+        try:
+            mTip.delete()
+        except Exception:
+            pass
+    return ml
 
 
 _hair_trim_extend_end_joints = _hair_trim_add_end_joints
 
 
-def _hair_append_add_end_joint(chain, tip_pos, name):
-    """Add one tip sim joint (addEndJoint); extendStart CVs do not get joints."""
-    chain = list(VALID.mNodeStringList(cgmMeta.asMeta(chain, noneValid=True) or chain))
-    if tip_pos is None:
-        return chain
-    if chain:
-        mc.select(chain[-1])
-    else:
-        mc.select(cl=True)
-    jnt = mc.joint(name='{0}_addEnd_jnt'.format(name))
-    mc.xform(jnt, ws=True, t=tip_pos)
-    if len(chain) >= 1:
-        _prev = chain[-1]
-        for _attr in ('jointOrient', 'rotateAxis'):
-            if mc.attributeQuery(_attr, node=_prev, exists=True):
-                _val = ATTR.get(_prev, _attr)
-                if isinstance(_val, (list, tuple)) and len(_val) >= 3:
-                    mc.setAttr('{0}.{1}'.format(jnt, _attr), _val[0], _val[1], _val[2])
-        if mc.attributeQuery('rotateOrder', node=_prev, exists=True):
-            mc.setAttr('{0}.rotateOrder'.format(jnt), mc.getAttr('{0}.rotateOrder'.format(_prev)))
-    chain.append(jnt)
-    return chain
+def _hair_sync_add_end_sim_joint(ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=None):
+    """
+    Add-end sim joint: duplicate last base joint (po, no inputs), parent under it,
+    tip at last-base.getPositionByAxisDistance(fwd, distance). Rebuild moves tip the same way.
+    """
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
+    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
+    _num_base = len(ml_baseTargets or [])
+    ml_joints = _hair_trim_add_end_joints(ml_sim, _num_base, addEndJoint=addEndJoint)
+    if not _hair_add_end_joint_active(addEndJoint) or _num_base < 2:
+        return ml_joints if ml_joints else ml_sim
+    if len(ml_joints) < _num_base:
+        return ml_joints
+    mBaseLast = ml_joints[_num_base - 1]
+    mBasePrev = ml_joints[_num_base - 2]
+    _tip_pos = _hair_add_end_joint_tip_position(mBaseLast, mBasePrev, addEndJoint, upSetup, fwdAxis)
+    if _tip_pos is None:
+        return ml_joints
+    if len(ml_joints) >= _num_base + 1:
+        mAddEnd = ml_joints[-1]
+        mAddEnd.p_position = _tip_pos
+        return _hair_normalize_sim_chain(ml_joints)
+    mAddEnd = mBaseLast.doDuplicate(po=True, ic=False)
+    mAddEnd.rename('{0}_sim_{1:02d}_jnt'.format(name, _num_base))
+    mAddEnd.p_parent = mBaseLast
+    mAddEnd.p_position = _tip_pos
+    ml_joints.append(mAddEnd)
+    return _hair_normalize_sim_chain(ml_joints)
+
+
+def _hair_append_add_end_joint_at_tip_pos(ml_sim, tip_pos, name, num_base=None):
+    """Legacy: one tip sim joint at ws position (prefer duplicate + p_position)."""
+    ml = _hair_normalize_sim_chain(ml_sim)
+    if tip_pos is None or not ml:
+        return ml
+    mBaseLast = ml[-1]
+    mAddEnd = mBaseLast.doDuplicate(po=True, ic=False)
+    _idx = num_base if num_base is not None else len(ml)
+    mAddEnd.rename('{0}_sim_{1:02d}_jnt'.format(name, _idx))
+    mAddEnd.p_parent = mBaseLast
+    mAddEnd.p_position = tip_pos
+    ml.append(mAddEnd)
+    return _hair_normalize_sim_chain(ml)
+
+
+def _hair_append_add_end_joint(ml_sim, *args, **kws):
+    """
+    Compat entry for add-end sim joint.
+
+    Legacy (3 args): (ml_sim, tip_pos, name) — ws tip from inCurve CV.
+    Current (6+ args): forwards to _hair_sync_add_end_sim_joint.
+    Stale callers (3 args): (ml_sim, ml_baseTargets, addEndJoint) — resolve aim/name.
+    """
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
+    extendEnd = kws.pop('extendEnd', None)
+    if len(args) == 2:
+        if isinstance(args[1], str):
+            _tip = args[0]
+            if isinstance(_tip, (list, tuple)) and len(_tip) >= 3:
+                try:
+                    float(_tip[0])
+                    return _hair_append_add_end_joint_at_tip_pos(ml_sim, _tip, args[1])
+                except (TypeError, ValueError):
+                    pass
+        else:
+            ml_baseTargets, addEndJoint = args[0], args[1]
+            _name = 'hair'
+            if ml_baseTargets:
+                try:
+                    _name = ml_baseTargets[-1].p_nameBase
+                except Exception:
+                    pass
+            _fwd = None
+            if len(ml_baseTargets or []) >= 2:
+                _fwd = TRANS.closestAxisTowardObj_get(ml_baseTargets[0], ml_baseTargets[1])
+            return _hair_sync_add_end_sim_joint(
+                ml_sim, ml_baseTargets, addEndJoint, 'guess', _fwd, _name, extendEnd=extendEnd)
+    if len(args) >= 5:
+        return _hair_sync_add_end_sim_joint(
+            ml_sim, args[0], args[1], args[2], args[3], args[4], extendEnd=extendEnd)
+    raise TypeError(
+        '_hair_append_add_end_joint expected (ml_sim, tip_pos, name), '
+        '(ml_sim, ml_baseTargets, addEndJoint), or 5 sync args; got {0}'.format(len(args)))
 
 
 _hair_append_extend_end_joint = _hair_append_add_end_joint
 
 
-def _hair_rebuild_sim_chain_for_incurve(mGrp, chain, ml_baseTargets, l_pos, name, addEndJoint=None, extendEnd=None):
-    """Trim tip joints; add one add-end sim joint when enabled."""
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
-    _num_base = len(ml_baseTargets)
-    _joints = _hair_trim_add_end_joints(chain, _num_base, addEndJoint=addEndJoint)
-    if _hair_add_end_joint_active(addEndJoint) and len(_joints) < _num_base + 1 and l_pos:
-        _joints = _hair_append_add_end_joint(_joints, l_pos[-1], name)
-    return _joints
+def _hair_rebuild_sim_chain_for_incurve(mGrp, ml_sim, ml_baseTargets, tip_pos, name, addEndJoint=None,
+                                        extendEnd=None, upSetup='guess', fwdAxis=None):
+    """Trim / sync add-end sim joint; tip_pos ignored (distance from chain + addEndJoint)."""
+    return _hair_sync_add_end_sim_joint(
+        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=extendEnd)
 
 
-def _hair_ensure_add_end_joint_chain(mGrp, chain, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
-                                     extendEnd=None):
+def _hair_ensure_add_end_joint_chain(mGrp, ml_sim, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
+                                     extendEnd=None, extendStart=None):
     """
-    When addEndJoint is on: tip inCurve CV + one sim joint past last target.
-    Returns (l_pos, chain).
+    When addEndJoint is on: one sim joint past last target at add-end distance.
+    Returns (inCurve l_pos from sim joints, ml_sim).
     """
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
     addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     if not _hair_add_end_joint_active(addEndJoint):
-        return l_pos, chain
-    _num_base = len(ml_baseTargets)
-    if len(l_pos) <= _num_base:
-        _base_pos = list(l_pos[:_num_base]) if len(l_pos) >= _num_base else [
-            mObj.p_position for mObj in ml_baseTargets]
-        if len(_base_pos) < 2:
-            _hair_validate_add_end_joint_count(
-                chain, ml_baseTargets, addEndJoint, l_pos=l_pos,
-                context='addEndJoint on but fewer than 2 base positions')
-            return l_pos, chain
-        l_pos = _hair_add_end_joint_tip_to_l_pos(_base_pos, addEndJoint, upSetup, fwdAxis)
-    chain = _hair_rebuild_sim_chain_for_incurve(
-        mGrp, chain, ml_baseTargets, l_pos, name, addEndJoint=addEndJoint)
+        return _hair_incurve_l_pos_for_chain(
+            mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis), ml_sim
+    _num_base = len(ml_baseTargets or [])
+    if _num_base < 2 or len(ml_sim) < 2:
+        _hair_validate_add_end_joint_count(
+            ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos,
+            context='addEndJoint on but fewer than 2 base positions')
+        return _hair_incurve_l_pos_for_chain(
+            mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis), ml_sim
+    ml_sim = _hair_sync_add_end_sim_joint(
+        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=extendEnd)
     _hair_validate_add_end_joint_count(
-        chain, ml_baseTargets, addEndJoint, context='ensure addEndJoint sim chain',
+        ml_sim, ml_baseTargets, addEndJoint, context='ensure addEndJoint sim chain',
         required=False, extendEnd=extendEnd)
-    return l_pos, chain
+    l_pos = _hair_incurve_l_pos_for_chain(
+        mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis)
+    return l_pos, ml_sim
 
 
 _hair_ensure_extend_end_sim_chain = _hair_ensure_add_end_joint_chain
 
 
-def _hair_validate_add_end_joint_count(chain, ml_baseTargets, addEndJoint, l_pos=None, context='',
+def _hair_validate_add_end_joint_count(ml_sim, ml_baseTargets, addEndJoint, l_pos=None, context='',
                                      extendEnd=None, required=False):
     """Raise if addEndJoint is on (or required) but sim joint count is not base targets + 1."""
     addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
@@ -1281,8 +1503,8 @@ def _hair_validate_add_end_joint_count(chain, ml_baseTargets, addEndJoint, l_pos
     if _num_base < 1:
         return
     _expected = _num_base + 1
-    _joints = VALID.mNodeStringList(cgmMeta.asMeta(chain, noneValid=True) or chain or [])
-    _n_joints = len(_joints)
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
+    _n_joints = len(ml_sim)
     if _n_joints != _expected:
         _n_pos = len(l_pos) if l_pos is not None else None
         raise ValueError(cgmGEN.logString_msg(
@@ -1295,7 +1517,7 @@ def _hair_validate_add_end_joint_count(chain, ml_baseTargets, addEndJoint, l_pos
                 _expected,
                 _n_joints,
                 ' | inCurve l_pos={0}'.format(_n_pos) if _n_pos is not None else '',
-                ' | {0}'.format(_joints) if _joints else '')))
+                ' | {0}'.format([m.p_nameShort for m in ml_sim]) if ml_sim else '')))
 
 
 _hair_validate_extend_end_joint_count = _hair_validate_add_end_joint_count
@@ -1692,6 +1914,7 @@ class cgmDynFK(cgmMeta.cgmObject):
     upSetup = 'liveStart'
     fixedSegmentLength = False
     follicleSegmentLength = FOLLICLE_FIXED_SEGMENT_LENGTH
+    follicleSampleDensity = FOLLICLE_DEFAULT_SAMPLE_DENSITY
     hairFollowMode = HAIR_FOLLOW_MODE_SPLINE
     inCurveDegree = 1
     outCurveDegree = 2
@@ -1710,6 +1933,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                  aimUpMode = 'joint',
                  fixedSegmentLength = False,
                  follicleSegmentLength = None,
+                 follicleSampleDensity = None,
                  hairFollowMode = None,
                  inCurveDegree = None,
                  outCurveDegree = None,
@@ -1763,6 +1987,11 @@ class cgmDynFK(cgmMeta.cgmObject):
         self.fixedSegmentLength = fixedSegmentLength
         self.follicleSegmentLength = (
             follicleSegmentLength if follicleSegmentLength is not None else FOLLICLE_FIXED_SEGMENT_LENGTH)
+        try:
+            self.follicleSampleDensity = float(
+                follicleSampleDensity if follicleSampleDensity is not None else FOLLICLE_DEFAULT_SAMPLE_DENSITY)
+        except (TypeError, ValueError):
+            self.follicleSampleDensity = FOLLICLE_DEFAULT_SAMPLE_DENSITY
         self.hairFollowMode = _resolve_hair_follow_mode(hairFollowMode, None, kws)
         self.inCurveDegree = MATHUTILS.Clamp(int(inCurveDegree if inCurveDegree is not None else 1), 1, 3)
         self.outCurveDegree = MATHUTILS.Clamp(int(outCurveDegree if outCurveDegree is not None else 2), 1, 3)
@@ -1782,6 +2011,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 aimUpMode=self.aimUpMode,
                 fixedSegmentLength=self.fixedSegmentLength,
                 follicleSegmentLength=self.follicleSegmentLength,
+                follicleSampleDensity=self.follicleSampleDensity,
                 hairFollowMode=self.hairFollowMode,
                 inCurveDegree=self.inCurveDegree,
                 outCurveDegree=self.outCurveDegree,
@@ -1984,8 +2214,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         mInCrv = mGrp.getMessageAsMeta('mInCrv')
         ml = mGrp.msgList_get('mTargets')
         ml_baseTargets = mGrp.msgList_get('mBaseTargets') or ml
-        chain = mGrp.msgList_get('mObjJointChain')
-        if not all([mFollicle, mInCrv, ml, chain]):
+        ml_sim = _hair_normalize_sim_chain(mGrp.msgList_get('mObjJointChain'))
+        if not all([mFollicle, mInCrv, ml, ml_sim]):
             return log.error(cgmGEN.logString_msg(_str_func, 'Incomplete hair chain on {0}'.format(mGrp.p_nameBase)))
 
         _name = mGrp.cgmName if mGrp.hasAttr('cgmName') else mGrp.p_nameBase
@@ -2018,38 +2248,42 @@ class cgmDynFK(cgmMeta.cgmObject):
             upAxis = TRANS.crossAxis_get(fwdAxis)
 
         _num_base = len(ml_baseTargets)
-        _ml_chain = cgmMeta.asMeta(chain, noneValid=True)
-        _base_pos = [
-            mc.xform(mJ.mNode, q=True, ws=True, t=True) for mJ in _ml_chain[:_num_base]]
-        if len(_base_pos) < _num_base:
-            _base_pos = [mObj.p_position for mObj in ml_baseTargets]
-        l_pos = _hair_apply_extend_end_to_l_pos(
-            _base_pos, _settings.get('addEndJoint'), _settings.get('upSetup'), fwdAxis)
-        chain = _hair_rebuild_sim_chain_for_incurve(
-            mGrp, chain, ml_baseTargets, l_pos, _name, addEndJoint=_settings.get('addEndJoint'))
+        l_pos, ml_sim = _hair_ensure_add_end_joint_chain(
+            mGrp, ml_sim, ml_baseTargets, None, _settings.get('addEndJoint'),
+            _settings.get('upSetup'), fwdAxis, _name,
+            extendStart=_settings.get('extendStart'))
         _hair_validate_add_end_joint_count(
-            chain, ml_baseTargets, _settings.get('addEndJoint'), l_pos=l_pos,
+            ml_sim, ml_baseTargets, _settings.get('addEndJoint'), l_pos=l_pos,
             context='{0} | after rebuild sim chain'.format(mGrp.p_nameBase))
-        mGrp.msgList_connect('mObjJointChain', chain)
+        mGrp.msgList_connect('mObjJointChain', ml_sim)
 
         _tear_down_hair_chain_follow_spline(mGrp)
 
         mInCrv = _consolidate_hair_incurve_after_mcd(
-            mInCrv, mFollicleShape, mGrp, _name, chain, l_pos, _skinName,
+            mInCrv, mFollicleShape, mGrp, _name, ml_sim, l_pos, _skinName,
             fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
             follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
             inCurveDegree=_inDeg,
-            use_follicle_input_curve=True)
+            use_follicle_input_curve=True,
+            sampleDensity=_resolve_follicle_sample_density(mGrp, self))
 
         mOutCrv, _outCurveShape = _prepare_spline_hair_outcurve(
             mFollicle, mFollicleShape, mHairSys, _name, _outDeg)
         mOutCrv.p_parent = mGrp
         mOutCrv = _follicle_outcurve_meta(mFollicle) or mOutCrv
+        _inShape = mc.listRelatives(
+            mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+        _finalize_hair_outcurve_rest(
+            _follicleShape, _hairSystem, _inShape, _outCurveShape,
+            fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
+            follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
+            l_positions=l_pos,
+            sampleDensity=_resolve_follicle_sample_density(mGrp, self))
 
         mGrp.connectChildNode(mOutCrv.mNode, 'mOutCrv', 'group')
 
         _build_hair_chain_follow_spline(
-            mGrp, mOutCrv, ml, chain, _name, fwdAxis=fwdAxis, upAxis=upAxis,
+            mGrp, mOutCrv, ml, ml_sim, _name, fwdAxis=fwdAxis, upAxis=upAxis,
             mFollicle=mFollicle)
 
         mc.currentTime(_savedTime, edit=True)
@@ -2087,8 +2321,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         mOutCrv = mGrp.getMessageAsMeta('mOutCrv')
         ml = mGrp.msgList_get('mTargets')
         ml_baseTargets = mGrp.msgList_get('mBaseTargets') or ml
-        chain = mGrp.msgList_get('mObjJointChain')
-        if not all([mFollicle, mInCrv, mOutCrv, ml, chain]):
+        ml_sim = _hair_normalize_sim_chain(mGrp.msgList_get('mObjJointChain'))
+        if not all([mFollicle, mInCrv, mOutCrv, ml, ml_sim]):
             return log.error(cgmGEN.logString_msg(_str_func, 'Incomplete hair chain on {0}'.format(mGrp.p_nameBase)))
 
         _settings = _get_hair_chain_follow_settings(mGrp)
@@ -2132,7 +2366,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             upAxis = TRANS.crossAxis_get(fwdAxis)
 
         _build_hair_chain_follow(
-            mGrp, outCurveShape, ml, ml_baseTargets, chain, _name,
+            mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, _name,
             fwdAxis, upAxis,
             upSetup=_settings['upSetup'],
             upControl=_settings['upControl'],
@@ -2159,6 +2393,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                      aimUpMode = None,
                      fixedSegmentLength = None,
                      follicleSegmentLength = None,
+                     follicleSampleDensity = None,
                      chainMode = None,
                      requireAddEndJoint = False,
                      **kws):
@@ -2174,6 +2409,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             upControl=upControl, aimUpMode=aimUpMode,
             fixedSegmentLength=fixedSegmentLength,
             follicleSegmentLength=follicleSegmentLength,
+            follicleSampleDensity=follicleSampleDensity,
             requireAddEndJoint=requireAddEndJoint, **kws)
 
     def chain_create_hair(self, objs = None,
@@ -2188,6 +2424,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                      aimUpMode = None,
                      fixedSegmentLength = None,
                      follicleSegmentLength = None,
+                     follicleSampleDensity = None,
                      requireAddEndJoint = False,
                      **kws):
         
@@ -2253,6 +2490,12 @@ class cgmDynFK(cgmMeta.cgmObject):
             fixedSegmentLength = self.fixedSegmentLength
         if follicleSegmentLength is None:
             follicleSegmentLength = self.follicleSegmentLength
+        if follicleSampleDensity is None:
+            follicleSampleDensity = getattr(self, 'follicleSampleDensity', FOLLICLE_DEFAULT_SAMPLE_DENSITY)
+        try:
+            follicleSampleDensity = float(follicleSampleDensity)
+        except (TypeError, ValueError):
+            follicleSampleDensity = FOLLICLE_DEFAULT_SAMPLE_DENSITY
 
         _hairFollowMode = _resolve_hair_follow_mode(kws.pop('hairFollowMode', None), self, kws)
         try:
@@ -2292,15 +2535,6 @@ class cgmDynFK(cgmMeta.cgmObject):
             for obj in ml:
                 l_pos.append(obj.p_position)
 
-            if extendStart:
-                f_extendStart = VALID.valueArg(extendStart)
-                if f_extendStart:
-                    l_pos.insert(0, DIST.get_pos_by_axis_dist(ml[0],
-                                                              fwdAxis.inverse.p_string,
-                                                              f_extendStart ))
-
-            l_pos = _hair_add_end_joint_tip_to_l_pos(l_pos, addEndJoint, upSetup, fwdAxis)
-                    
         else:
             log.debug(cgmGEN.logString_msg(_str_func, 'Resolving aim'))
             if len(ml) < 2:
@@ -2309,56 +2543,23 @@ class cgmDynFK(cgmMeta.cgmObject):
             for obj in ml_baseTargets:
                 l_pos.append(obj.p_position)
 
-            if extendStart:
-                f_extendStart = VALID.valueArg(extendStart)
-                if f_extendStart:
-                    log.debug(cgmGEN.logString_msg(_str_func, 'extendStart...'))
-                    
-                    _vecStart = MATHUTILS.get_vector_of_two_points(l_pos[1], l_pos[0])
-                    
-                    l_pos.insert(0, DIST.get_pos_by_vec_dist(l_pos[0],
-                                                             _vecStart,
-                                                             f_extendStart))
-
-            l_pos = _hair_add_end_joint_tip_to_l_pos(l_pos, addEndJoint, upSetup, fwdAxis)
-
         log.debug(cgmGEN.logString_sub(_str_func, 'skin setup'))
-        mc.select(cl=True)
-        chain = []
-        for obj in ml_baseTargets:
-            if len(chain) > 0:
-                mc.select(chain[-1])
-            jnt = mc.joint(name='%s_%s_jnt' % (name, obj.p_nameBase))
-            SNAP.matchTarget_set(jnt, obj.mNode)
-            mObj = cgmMeta.asMeta(jnt)
-            mObj.doSnapTo(mObj.getMessageAsMeta('cgmMatchTarget'))
-            chain.append(jnt)
+        ml_sim = _hair_build_sim_joint_chain_from_targets(ml_baseTargets, name)
 
-        if _hair_add_end_joint_active(addEndJoint) or _requireAddEndJoint:
-            if not _hair_add_end_joint_active(addEndJoint):
-                addEndJoint = 2.0
-            _num_base = len(ml_baseTargets)
-            if len(l_pos) <= _num_base:
-                l_pos = _hair_add_end_joint_tip_to_l_pos(
-                    list(l_pos[:_num_base]) if len(l_pos) >= _num_base else [m.p_position for m in ml_baseTargets],
-                    addEndJoint, upSetup, fwdAxis)
-            if len(chain) == _num_base:
-                chain = _hair_append_add_end_joint(chain, l_pos[-1], name)
-                log.info(cgmGEN.logString_msg(
-                    _str_func, 'appended addEnd joint: {0}'.format(chain[-1] if chain else None)))
+        l_pos, ml_sim = _hair_ensure_add_end_joint_chain(
+            mGrp, ml_sim, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
+            extendEnd=None, extendStart=extendStart)
 
-        l_pos, chain = _hair_ensure_add_end_joint_chain(
-            mGrp, chain, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
-            extendEnd=None)
+        ml_sim = _hair_reparent_sim_chain_ordered(ml_sim)
 
-        _joints = VALID.mNodeStringList(cgmMeta.asMeta(chain, noneValid=True) or chain or [])
         log.info(cgmGEN.logString_msg(
             _str_func,
             'after ensure: simJoints={0} l_pos={1} addEndJoint={2!r} active={3}'.format(
-                len(_joints), len(l_pos), addEndJoint, _hair_add_end_joint_active(addEndJoint))))
+                len(_hair_normalize_sim_chain(ml_sim)), len(l_pos), addEndJoint,
+                _hair_add_end_joint_active(addEndJoint))))
 
         _hair_validate_add_end_joint_count(
-            chain, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
+            ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
             context='{0} | after ensure (pre inCurve)'.format(_str_func))
 
         crv = _create_hair_incurve(l_pos, name, _inCurveDegree)
@@ -2367,21 +2568,10 @@ class cgmDynFK(cgmMeta.cgmObject):
         mGrp.connectChildNode(mInCrv.mNode,'mInCrv')
         mInCrv.p_parent = mGrp
 
-        mc.parent(chain[0], mGrp.mNode)
+        ml_sim[0].p_parent = mGrp
 
-        mSkinCluster = mc.skinCluster(
-            chain, mInCrv.mNode,
-            name='{0}_skinCluster'.format(name),
-            tsb=True,
-            maximumInfluences=1,
-            obeyMaxInfluences=True)[0]
-
-        _l_cvs = mInCrv.getComponents('cv') or []
-        if not _l_cvs:
-            _l_cvs = ['{0}.cv[{1}]'.format(mInCrv.mNode, i) for i in range(len(l_pos))]
-        for i, _cv in enumerate(_l_cvs):
-            _jnt = chain[i] if i < len(chain) else chain[-1]
-            mc.skinPercent(mSkinCluster, _cv, tv=[_jnt, 1.0])
+        mSkinCluster, ml_sim = _hair_incurve_skin_bind(
+            ml_sim, mInCrv, '{0}_skinCluster'.format(name), l_pos=l_pos)
 
         _l_jointPos = [mObj.p_position for mObj in ml]
         _l_paramFrac = CURVES.polyline_length_fractions(_l_jointPos)
@@ -2422,11 +2612,12 @@ class cgmDynFK(cgmMeta.cgmObject):
 
         mFollicle = cgmMeta.asMeta(_follicleNode)
         mFollicle.rename("{0}_foll".format(name))
-        _melWrapper = mFollicle.getParent(asMeta=1)
+        _melWrapper = (mc.listRelatives(
+            _dag_str(mFollicle), parent=True, type='transform', fullPath=True) or [None])[0]
         mFollicle.p_parent = mGrp
         mFollicleShape = mFollicle.getShapes(asMeta=True)[0]
-        if _melWrapper and _melWrapper.mNode not in (mGrp.mNode, self.mNode):
-            mc.delete(_melWrapper.mNode)
+        if _melWrapper and _melWrapper not in (_dag_str(mGrp), _dag_str(self)):
+            mc.delete(_melWrapper)
         
         _follicle = mFollicle.mNode
         mGrp.connectChildNode(mFollicle.mNode,'mFollicle','group')
@@ -2434,11 +2625,12 @@ class cgmDynFK(cgmMeta.cgmObject):
         follicleShape = mFollicleShape.mNode#mc.listRelatives(mFollicle.mNode, shapes=True)[0]
 
         mInCrv = _consolidate_hair_incurve_after_mcd(
-            mInCrv, mFollicleShape, mGrp, name, chain, l_pos, mSkinCluster,
+            mInCrv, mFollicleShape, mGrp, name, ml_sim, l_pos, mSkinCluster,
             fixedSegmentLength=fixedSegmentLength,
             follicleSegmentLength=follicleSegmentLength,
             inCurveDegree=_inCurveDegree,
-            use_follicle_input_curve=_use_follicle_input)
+            use_follicle_input_curve=_use_follicle_input,
+            sampleDensity=follicleSampleDensity)
 
         _hairSystem = mc.listRelatives( mc.listConnections('%s.currentPosition' % follicleShape)[0],
                                         shapes=True)[0]
@@ -2456,12 +2648,14 @@ class cgmDynFK(cgmMeta.cgmObject):
         if _hairFollowMode == HAIR_FOLLOW_MODE_LEGACY:
             outCurve = mc.listConnections('%s.outCurve' % _follicle)[0]
             mCrv = cgmMeta.asMeta(outCurve)
-            parent = mCrv.getParent(asMeta=1)
+            _legacyOutParent = (mc.listRelatives(
+                _dag_str(mCrv), parent=True, type='transform', fullPath=True) or [None])[0]
 
             outCurveShape = mc.listRelatives(mCrv.mNode, shapes=True)[0]
             mCrv.p_parent = mGrp.mNode
             
-            mc.delete(parent.mNode)
+            if _legacyOutParent:
+                mc.delete(_legacyOutParent)
 
             _inShape = mc.listRelatives(
                 mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
@@ -2469,11 +2663,20 @@ class cgmDynFK(cgmMeta.cgmObject):
                 follicleShape, _hairSystem, _inShape, outCurveShape,
                 fixedSegmentLength=fixedSegmentLength,
                 follicleSegmentLength=follicleSegmentLength,
-                l_positions=l_pos)
+                l_positions=l_pos,
+                sampleDensity=follicleSampleDensity)
         else:
             mCrv, _outCurveShape = _prepare_spline_hair_outcurve(
                 mFollicle, mFollicleShape, mHairSys, name, _outCurveDegree)
             mCrv.p_parent = mGrp
+            _inShape = mc.listRelatives(
+                mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+            _finalize_hair_outcurve_rest(
+                follicleShape, _hairSystem, _inShape, _outCurveShape,
+                fixedSegmentLength=fixedSegmentLength,
+                follicleSegmentLength=follicleSegmentLength,
+                l_positions=l_pos,
+                sampleDensity=follicleSampleDensity)
 
         _warn_hair_system_extra_segments(_hairSystem)
 
@@ -2506,35 +2709,35 @@ class cgmDynFK(cgmMeta.cgmObject):
             ATTR.connect('{0}.startState'.format(_hairSystem),'{0}.inputActiveStart[{1}]'.format(_useNucleus,_useIdx))"""            
             
             
-        mParent = ml[0].getParent(asMeta=1)
-        if not mParent:
-            mParent = ml[0].doGroup(1,1,
-                                    asMeta=True,
-                                    typeModifier = 'dynFKParent',
-                                    setClass='cgmObject')
-        #else:
-            #mParent.getParent(asMeta=1)
-
         if _hairFollowMode != HAIR_FOLLOW_MODE_LEGACY:
             _mOutLive = _follicle_outcurve_meta(mFollicle)
             if _mOutLive:
                 mCrv = _mOutLive
-        
-        mGrp.connectChildNode(mCrv.mNode,'mOutCrv','group')
 
-        #self.follicles.append(follicle)
-        #self.outCurves.append(outCurve)
-        
+        mGrp.connectChildNode(mCrv.mNode, 'mOutCrv', 'group')
+
+        _targetNode = _dag_str(ml[0])
+        _follDriver = (mc.listRelatives(
+            _targetNode, parent=True, type='transform', fullPath=True) or [None])[0]
+        if not _follDriver:
+            ml[0].doGroup(
+                1, 1, asMeta=True, typeModifier='dynFKParent', setClass='cgmObject')
+            _follDriver = (mc.listRelatives(
+                _targetNode, parent=True, type='transform', fullPath=True) or [None])[0]
+        if not _follDriver:
+            raise ValueError(cgmGEN.logString_msg(
+                _str_func, 'No parent transform to drive follicle for {0}'.format(_targetNode)))
+
         # set default properties
         mFollicleShape.pointLock = 1
         #mc.setAttr( '%s.pointLock' % follicleShape, 1 )
-        mc.parent(chain[0], _follicle)
+        ml_sim[0].p_parent = mFollicle
         mInCrv.p_parent = mGrp
-        mc.parentConstraint(ml[0].getParent(), _follicle, mo=True)
+        mc.parentConstraint(_follDriver, _dag_str(mFollicle), mo=True)
         
         if _hairFollowMode == HAIR_FOLLOW_MODE_LEGACY:
             _build_hair_chain_follow(
-                mGrp, outCurveShape, ml, ml_baseTargets, chain, name,
+                mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, name,
                 fwdAxis, upAxis, _l_paramFrac=_l_paramFrac,
                 upSetup=upSetup, upControl=upControl, aimUpMode=aimUpMode,
                 addEndJoint=addEndJoint)
@@ -2543,13 +2746,13 @@ class cgmDynFK(cgmMeta.cgmObject):
             mCrvParent.p_parent = mGrp
         else:
             _build_hair_chain_follow_spline(
-                mGrp, mCrv, ml, chain, name, fwdAxis=fwdAxis, upAxis=upAxis,
+                mGrp, mCrv, ml, ml_sim, name, fwdAxis=fwdAxis, upAxis=upAxis,
                 mFollicle=mFollicle)
             mCrv.rename("{0}_outCrv".format(name))
         
         mGrp.msgList_connect('mTargets',ml)
         mGrp.msgList_connect('mBaseTargets',ml_baseTargets)
-        mGrp.msgList_connect('mObjJointChain',chain)
+        mGrp.msgList_connect('mObjJointChain', ml_sim)
         mGrp.doStore('cgmName', name)
         mGrp.doStore('chainMode', 'hair')
         mGrp.doStore('hairFollowMode', _hairFollowMode)
@@ -2558,11 +2761,14 @@ class cgmDynFK(cgmMeta.cgmObject):
         mGrp.doStore('fixedSegmentLength', bool(fixedSegmentLength))
         if fixedSegmentLength:
             mGrp.doStore('follicleSegmentLength', follicleSegmentLength)
+        else:
+            mGrp.doStore('follicleSampleDensity', follicleSampleDensity)
+        self.follicleSampleDensity = follicleSampleDensity
         _store_hair_chain_follow_metadata(
             mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup)
 
         _hair_validate_add_end_joint_count(
-            chain, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
+            ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
             context='chain_create_hair {0}'.format(mGrp.p_nameBase))
 
         mNucleus.doConnectOut('startFrame',"{0}.startFrame".format(mHairSys.mNode))
@@ -2696,12 +2902,33 @@ class cgmDynFK(cgmMeta.cgmObject):
         return chains
 
     def targets_connect(self,idx=None):
-        for chain in self.get_chains(idx):
-            ml_locs = chain.msgList_get('mLocs')
-            for i, mObj in enumerate(chain.msgList_get('mTargets')):
-                mLoc = ml_locs[i]
-                SNAP.matchTarget_set(mObj.mNode, mLoc.mNode)
-                mc.parentConstraint(mLoc.mNode, mObj.mNode)
+        """
+        Connect follow locs to rig targets at the frame before sim start:
+        scrub to startFrame - 1, snap locs to target pose, set matchTarget, parentConstraint.
+        """
+        _str_func = 'targets_connect'
+        _savedTime = mc.currentTime(q=True)
+        _startFrame = _resolve_hair_start_frame(self)
+        _connectFrame = _startFrame - 1
+        mc.currentTime(_connectFrame, edit=True)
+        try:
+            for chain in self.get_chains(idx):
+                ml_locs = chain.msgList_get('mLocs') or []
+                ml_targets = chain.msgList_get('mTargets') or []
+                for i, mObj in enumerate(ml_targets):
+                    if i >= len(ml_locs):
+                        continue
+                    mLoc = ml_locs[i]
+                    _constraints = mObj.getConstraintsTo()
+                    if _constraints:
+                        mc.delete(_constraints)
+                    SNAP.go(mLoc.mNode, mObj.mNode, True, True)
+                    SNAP.matchTarget_set(mObj.mNode, mLoc.mNode)
+                    mc.parentConstraint(mLoc.mNode, mObj.mNode)
+        finally:
+            mc.currentTime(_savedTime, edit=True)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'frame {0} (startFrame {1} - 1)'.format(_connectFrame, _startFrame)))
     def targets_disconnect(self,idx=None):
         for chain in self.get_chains(idx):
             for i,mObj in enumerate(chain.msgList_get('mTargets')):

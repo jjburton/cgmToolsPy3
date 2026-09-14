@@ -548,6 +548,7 @@ class SimChainSetup(CGMDAT.data):
                 'aimUpMode': 'joint',
                 'fixedSegmentLength': False,
                 'follicleSegmentLength': 1.0,
+                'follicleSampleDensity': 1.0,
             },
             'mapped': {},
             'chains': [],
@@ -586,6 +587,7 @@ class SimChainSetup(CGMDAT.data):
             'aimUpMode': mSetup.aimUpMode or 'joint',
             'fixedSegmentLength': getattr(mSetup, 'fixedSegmentLength', False),
             'follicleSegmentLength': getattr(mSetup, 'follicleSegmentLength', 1.0),
+            'follicleSampleDensity': getattr(mSetup, 'follicleSampleDensity', 1.0),
         }
 
         _mapped = {}
@@ -625,6 +627,8 @@ class SimChainSetup(CGMDAT.data):
                     'fixedSegmentLength': getattr(mGrp, 'fixedSegmentLength', getattr(mSetup, 'fixedSegmentLength', False)),
                     'follicleSegmentLength': getattr(
                         mGrp, 'follicleSegmentLength', getattr(mSetup, 'follicleSegmentLength', 1.0)),
+                    'follicleSampleDensity': getattr(
+                        mGrp, 'follicleSampleDensity', getattr(mSetup, 'follicleSampleDensity', 1.0)),
                     'hairFollowMode': RIGDYN._get_chain_hair_follow_mode(mGrp),
                     'inCurveDegree': int(getattr(mGrp, 'inCurveDegree', getattr(mSetup, 'inCurveDegree', 1))),
                     'outCurveDegree': int(getattr(mGrp, 'outCurveDegree', getattr(mSetup, 'outCurveDegree', 2))),
@@ -753,6 +757,8 @@ class SimChainSetup(CGMDAT.data):
                     'fixedSegmentLength', _setupOpts.get('fixedSegmentLength', False)),
                 follicleSegmentLength=_copts.get(
                     'follicleSegmentLength', _setupOpts.get('follicleSegmentLength', 1.0)),
+                follicleSampleDensity=_copts.get(
+                    'follicleSampleDensity', _setupOpts.get('follicleSampleDensity', 1.0)),
                 hairFollowMode=_copts.get('hairFollowMode', _setupOpts.get('hairFollowMode')),
                 inCurveDegree=_copts.get('inCurveDegree', _setupOpts.get('inCurveDegree', 1)),
                 outCurveDegree=_copts.get('outCurveDegree', _setupOpts.get('outCurveDegree', 2)),

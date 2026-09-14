@@ -1,0 +1,46 @@
+{
+    "datKind": "hair",
+    "differential": false,
+    "meta": {
+        "date": "2026-09-14",
+        "scene": "",
+        "sourceNode": "",
+        "user": "cgm-seed",
+        "notes": "ExtraFirm example: rubber-like, minimal sag/motion. High stretch/compression/bend, startCurveAttract 1, stiffness 0.85. From bobTestNew; use with linear in + spline out rest sync."
+    },
+    "name": "bobTestNew_ExtraFirm",
+    "profile": {
+        "attractionScale": {
+            "0": [0.0, 1.0, 1.0],
+            "1": [0.15, 0.95, 1.0],
+            "2": [0.45, 0.85, 1.0],
+            "3": [0.75, 0.7, 1.0],
+            "4": [1.0, 0.55, 1.0]
+        },
+        "attractionDamp": 0.0,
+        "bendResistance": 0.75,
+        "compressionResistance": 120.0,
+        "damp": 0.35,
+        "drag": 0.85,
+        "dynamicsWeight": 1.0,
+        "extraBendLinks": 0,
+        "mass": 3.0,
+        "motionDrag": 0.75,
+        "startCurveAttract": 1.0,
+        "stiffness": 0.85,
+        "stiffnessScale": {
+            "0": [0.0, 0.98, 1.0],
+            "1": [0.25, 0.92, 1.0],
+            "2": [0.6, 0.88, 1.0],
+            "3": [1.0, 0.82, 1.0]
+        },
+        "stretchDamp": 0.25,
+        "stretchResistance": 350.0,
+        "subSegments": 0,
+        "tangentialDrag": 0.65,
+        "twistResistance": 0.15
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}
