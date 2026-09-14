@@ -379,6 +379,276 @@ def _sync_hair_outcurve_to_incurve(inCurveShape, outCurveShape):
         return False
 
 
+def _finalize_hair_outcurve_rest(follicleShape, hairSystemShape, inCurveShape, outCurveShape,
+                                 fixedSegmentLength=None, follicleSegmentLength=None,
+                                 l_positions=None):
+    """
+    Configure follicle + outCurve at rest after inCurve is wired.
+
+    Order (normative — do not reorder):
+    1. restPose Same As Start
+    2. follicle segment sampling (when build passes sampling args)
+    3. evaluate rest at startFrame — follicle rebuilds outCurve from startPosition
+    4. sync outCurve CVs to inCurve — must run **after** refresh or eval wipes CVs
+    """
+    _str_func = '_finalize_hair_outcurve_rest'
+    _configure_follicle_rest_match_start(follicleShape)
+    if fixedSegmentLength is not None:
+        _configure_follicle_segment_sampling(
+            follicleShape,
+            fixedSegmentLength=fixedSegmentLength,
+            segmentLength=follicleSegmentLength,
+            l_positions=l_positions)
+    _refresh_hair_rest_output(follicleShape, hairSystemShape)
+    _sync_hair_outcurve_to_incurve(inCurveShape, outCurveShape)
+    log.debug(cgmGEN.logString_msg(_str_func, 'Done'))
+
+
+def _store_hair_chain_follow_metadata(mGrp, aimUpMode, extendEnd, extendStart, upControl, upSetup):
+    """Persist follow-rig settings on chain grp for rebuild."""
+    mGrp.doStore('aimUpMode', aimUpMode)
+    mGrp.doStore('extendEnd', bool(extendEnd))
+    if extendStart is not None:
+        mGrp.doStore('extendStart', extendStart)
+    mGrp.doStore('upControl', bool(upControl))
+    mGrp.doStore('upSetup', upSetup)
+
+
+def _get_hair_chain_follow_settings(mGrp):
+    """Read follow-rig settings from chain grp (safe defaults for older chains)."""
+    mGrp = cgmMeta.asMeta(mGrp)
+    _settings = {
+        'aimUpMode': 'joint',
+        'extendEnd': False,
+        'extendStart': None,
+        'upControl': False,
+        'upSetup': 'guess',
+    }
+    for _key, _default in _settings.items():
+        if mGrp.hasAttr(_key):
+            _val = getattr(mGrp, _key, _default)
+            if _val is not None and _val != '':
+                _settings[_key] = _val
+    return _settings
+
+
+def _chain_targets_connected(mGrp):
+    """Return True if any chain target has incoming constraints (Connect Targets state)."""
+    for mObj in cgmMeta.asMeta(mGrp).msgList_get('mTargets') or []:
+        if mObj.getConstraintsTo():
+            return True
+    return False
+
+
+def _resolve_hair_start_frame(mDynFK):
+    """Resolve sim rest frame for hair chain rebuild."""
+    mHairSys = mDynFK.getMessageAsMeta('mHairSysShape')
+    if mHairSys and mc.attributeQuery('startFrame', node=mHairSys.mNode, exists=True):
+        return mc.getAttr('{0}.startFrame'.format(mHairSys.mNode))
+    mNucleus = mDynFK.getMessageAsMeta('mNucleus')
+    if mNucleus and mc.attributeQuery('startFrame', node=mNucleus.mNode, exists=True):
+        return mc.getAttr('{0}.startFrame'.format(mNucleus.mNode))
+    return mc.playbackOptions(q=True, min=True)
+
+
+def _tear_down_hair_chain_follow(mGrp):
+    """Remove POC/aim locator follow rig from a hair chain grp (keeps sim + curves)."""
+    _str_func = '_tear_down_hair_chain_follow'
+    mGrp = cgmMeta.asMeta(mGrp)
+    _name = mGrp.cgmName if mGrp.hasAttr('cgmName') else mGrp.p_nameBase
+
+    _l_delete = []
+    for _msg in ('mParents', 'mAims', 'mLocs'):
+        for mObj in mGrp.msgList_get(_msg) or []:
+            for _con in CONSTRAINTS.get_constraintsFrom(mObj.mNode) or []:
+                try:
+                    mc.delete(_con)
+                except Exception:
+                    pass
+            _l_delete.append(mObj.mNode)
+
+    mOutCrv = mGrp.getMessageAsMeta('mOutCrv')
+    if mOutCrv:
+        for _shape in mOutCrv.getShapes(asMeta=False) or []:
+            for _node in mc.listConnections(_shape, source=False, destination=True) or []:
+                if mc.nodeType(_node) == 'pointOnCurveInfo':
+                    _l_delete.append(_node)
+
+    for _node in mc.ls('*{0}*aimTanScale*'.format(_name), '*{0}*aimPos*'.format(_name),
+                         '*{0}*_pma*'.format(_name),
+                         type=('multiplyDivide', 'plusMinusAverage')) or []:
+        if mc.objExists(_node):
+            _l_delete.append(_node)
+
+    for _child in mGrp.getChildren(asMeta=True) or []:
+        if _child.p_nameBase == 'chain_{0}_up'.format(_name):
+            _l_delete.append(_child.mNode)
+        elif _child.p_nameBase.startswith('chain_{0}_up'.format(_name)):
+            _l_delete.append(_child.mNode)
+
+    _l_delete = list({n for n in _l_delete if n and mc.objExists(n)})
+    if _l_delete:
+        try:
+            mc.delete(_l_delete)
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(_str_func, 'delete: {0}'.format(err)))
+
+    for _msg in ('mLocs', 'mAims', 'mParents'):
+        ATTR.msgList_clean(mGrp.mNode, _msg)
+
+    log.info(cgmGEN.logString_msg(_str_func, mGrp.p_nameBase))
+
+
+def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, chain, name,
+                             fwdAxis, upAxis, _l_paramFrac=None,
+                             upSetup='guess', upControl=False, aimUpMode='joint',
+                             extendEnd=False):
+    """
+    Build POC + aim locator follow rig on outCurve.
+
+    Returns (ml_locs, ml_aims, ml_prts).
+    """
+    _str_func = '_build_hair_chain_follow'
+    mGrp = cgmMeta.asMeta(mGrp)
+    outCurveShape = VALID.mNodeString(outCurveShape)
+
+    if _l_paramFrac is None:
+        _l_jointPos = [mObj.p_position for mObj in ml_baseTargets]
+        _l_paramFrac = CURVES.polyline_length_fractions(_l_jointPos)
+
+    ml_locs = []
+    ml_aims = []
+    ml_prts = []
+
+    _upVector = None
+    if upSetup == 'guess':
+        log.debug(cgmGEN.logString_msg(_str_func, 'Resolving up/aim'))
+        mPoci_base = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(outCurveShape, 1))
+        _upVector = mPoci_base.normalizedNormal
+        log.debug(cgmGEN.logString_msg(_str_func, 'upVector: {0}'.format(_upVector)))
+
+    mUp = ml[0].doCreateAt(setClass=1)
+    mUp.rename('chain_{0}_up'.format(name))
+    mUp.p_parent = mGrp
+
+    if _upVector:
+        SNAP.aim_atPoint(
+            mUp.mNode,
+            DIST.get_pos_by_vec_dist(mUp.p_position, _upVector, 10),
+            aimAxis='y+', upAxis='z+')
+
+    if upControl:
+        log.debug(cgmGEN.logString_msg(_str_func, 'upControl'))
+        if len(ml_baseTargets) > 1:
+            sizeControl = DIST.get_distance_between_targets(
+                [mObj.mNode for mObj in ml_baseTargets], True)
+        else:
+            sizeControl = DIST.get_bb_size(ml[0], True, 'max')
+        crv = CURVES.create_controlCurve(mUp.mNode, 'arrowSingle', size=sizeControl, direction='y+')
+        CORERIG.shapeParent_in_place(mUp.mNode, crv, False)
+        mUpGroup = mUp.doGroup(True, True, asMeta=True, typeModifier='master', setClass='cgmObject')
+        mc.parentConstraint(VALID.mNodeString(ml[0].getParent()), mUpGroup.mNode, mo=True)
+    else:
+        mc.parentConstraint(VALID.mNodeString(ml[0].getParent()), mUp.mNode, mo=True)
+
+    log.debug(cgmGEN.logString_msg(_str_func, 'aimUpMode: {0}'.format(aimUpMode)))
+
+    for i, mObj in enumerate(ml):
+        mUpUse = mUp if not i else ml_locs[-1]
+
+        mLoc = cgmMeta.asMeta(LOC.create(mObj.getNameLong()))
+        loc = mLoc.mNode
+        ml_locs.append(mLoc)
+
+        mAim = mLoc.doGroup(False, False, asMeta=True, typeModifier='aim', setClass='cgmObject')
+        ml_aims.append(mAim)
+
+        _param = _l_paramFrac[i] if i < len(_l_paramFrac) else 0.0
+        poc = CURVES.create_pointOnInfoNode(
+            outCurveShape, parameter=_param, turnOnPercentage=True)
+        mPoci_obj = cgmMeta.asMeta(poc)
+        mPoci_obj.rename('{0}_pos'.format(loc))
+        _aimVector = fwdAxis.p_vector
+        if i < len(ml) - 1:
+            _aimParam = _l_paramFrac[i + 1]
+        elif extendEnd:
+            _aimParam = 1.0
+        else:
+            _aimParam = None
+        if _aimParam is not None:
+            pocAim = CURVES.create_pointOnInfoNode(
+                outCurveShape, parameter=_aimParam, turnOnPercentage=True)
+            mc.connectAttr('{0}.position'.format(pocAim), '{0}.translate'.format(mAim.mNode))
+        else:
+            _segLen = DIST.get_distance_between_points(ml[i - 1].p_position, ml[i].p_position)
+            if _segLen < 0.0001:
+                _segLen = 0.001
+            mPoci_aim = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(
+                outCurveShape, parameter=_param, turnOnPercentage=True))
+            mPoci_aim.rename('{0}_aimCrv'.format(loc))
+            mMult = cgmMeta.cgmNode(
+                name='{0}_aimTanScale'.format(mObj.p_nameBase), nodeType='multiplyDivide')
+            mc.setAttr('{0}.input2X'.format(mMult.mNode), _segLen)
+            mc.setAttr('{0}.input2Y'.format(mMult.mNode), _segLen)
+            mc.setAttr('{0}.input2Z'.format(mMult.mNode), _segLen)
+            mPoci_aim.doConnectOut('normalizedTangent', '{0}.input1'.format(mMult.mNode))
+            mPma = cgmMeta.cgmNode(
+                name='{0}_aimPos'.format(mObj.p_nameBase), nodeType='plusMinusAverage')
+            mPma.operation = 1
+            mPoci_obj.doConnectOut('position', '{0}.input3D[0]'.format(mPma.mNode))
+            mc.connectAttr('{0}.output'.format(mMult.mNode), '{0}.input3D[1]'.format(mPma.mNode))
+            mc.connectAttr('{0}.output3D'.format(mPma.mNode), '{0}.translate'.format(mAim.mNode))
+
+        mLocParent = mLoc.doGroup(False, False, asMeta=True, typeModifier='pos', setClass='cgmObject')
+        ml_prts.append(mLocParent)
+
+        mc.connectAttr('{0}.position'.format(mPoci_obj.mNode), '{0}.translate'.format(mLocParent.mNode))
+
+        if aimUpMode == 'master':
+            mc.aimConstraint(
+                mAim.mNode, mLocParent.mNode,
+                aimVector=_aimVector, upVector=upAxis.p_vector,
+                worldUpType='objectrotation', worldUpVector=upAxis.p_vector,
+                worldUpObject=mUp.mNode)
+        elif aimUpMode == 'orientToMaster':
+            mc.orientConstraint(mUp.mNode, mLocParent.mNode, maintainOffset=1)
+        elif aimUpMode == 'sequential':
+            mc.aimConstraint(
+                mAim.mNode, mLocParent.mNode,
+                aimVector=_aimVector, upVector=upAxis.p_vector,
+                worldUpType='objectrotation', worldUpVector=upAxis.p_vector,
+                worldUpObject=mUpUse.mNode)
+        elif aimUpMode == 'joint':
+            mc.aimConstraint(
+                mAim.mNode, mLocParent.mNode,
+                aimVector=_aimVector, upVector=upAxis.p_vector,
+                worldUpType='objectrotation', worldUpVector=upAxis.p_vector,
+                worldUpObject=VALID.mNodeString(chain[i]))
+        elif aimUpMode == 'curveNormal':
+            mUpLoc = mLoc.doGroup(False, False, asMeta=True, typeModifier='up', setClass='cgmObject')
+            mUpLoc.p_parent = mLocParent
+            mc.aimConstraint(
+                mAim.mNode, mLocParent.mNode,
+                aimVector=_aimVector, upVector=upAxis.p_vector, worldUpType='object')
+            mPlusMinusAverage = cgmMeta.cgmNode(
+                name='{0}_pma'.format(mObj.p_nameBase), nodeType='plusMinusAverage')
+            mPlusMinusAverage.operation = 3
+            mPoci_obj.doConnectOut('position', '{0}.input3D[0]'.format(mPlusMinusAverage.mNode))
+            mPoci_obj.doConnectOut('normalizedNormal', '{0}.input3D[1]'.format(mPlusMinusAverage.mNode))
+            mUpLoc.doConnectIn('translate', '{0}.output3D'.format(mPlusMinusAverage.mNode))
+
+        mLoc.p_parent = mLocParent
+        mAim.p_parent = mGrp
+        mLocParent.p_parent = mGrp
+
+    mGrp.msgList_connect('mLocs', ml_locs)
+    mGrp.msgList_connect('mAims', ml_aims)
+    mGrp.msgList_connect('mParents', ml_prts)
+
+    log.info(cgmGEN.logString_msg(_str_func, '{0} | {1} locs'.format(mGrp.p_nameBase, len(ml_locs))))
+    return ml_locs, ml_aims, ml_prts
+
+
 def _resolve_ncloth_shape(node):
     """Return nClothShape from an nCloth shape or transform that owns one."""
     node = VALID.mNodeString(node)
@@ -1004,6 +1274,91 @@ class cgmDynFK(cgmMeta.cgmObject):
 
         return str(axis)
 
+    def chain_rebuild_follow(self, idx=None):
+        """
+        Re-sync outCurve rest at startFrame and rebuild POC/aim locators on current outCurve.
+
+        Preserves follicle, inCurve, sim joints, and outCurve transform. Disconnects targets
+        during rebuild if Connect Targets was active.
+        """
+        _str_func = 'chain_rebuild_follow'
+        ml_chains = self.msgList_get('chain') or []
+        if idx is None:
+            idx = 0
+        if idx >= len(ml_chains):
+            return log.warning(cgmGEN.logString_msg(_str_func, 'No chain at idx {0}'.format(idx)))
+
+        mGrp = ml_chains[idx]
+        _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
+        if _chainMode != 'hair':
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'Chain {0} is not hair mode'.format(mGrp.p_nameBase)))
+
+        mFollicle = mGrp.getMessageAsMeta('mFollicle')
+        mInCrv = mGrp.getMessageAsMeta('mInCrv')
+        mOutCrv = mGrp.getMessageAsMeta('mOutCrv')
+        ml = mGrp.msgList_get('mTargets')
+        ml_baseTargets = mGrp.msgList_get('mBaseTargets') or ml
+        chain = mGrp.msgList_get('mObjJointChain')
+        if not all([mFollicle, mInCrv, mOutCrv, ml, chain]):
+            return log.error(cgmGEN.logString_msg(_str_func, 'Incomplete hair chain on {0}'.format(mGrp.p_nameBase)))
+
+        _settings = _get_hair_chain_follow_settings(mGrp)
+        _name = mGrp.cgmName if mGrp.hasAttr('cgmName') else mGrp.p_nameBase
+        mFollicleShape = mFollicle.getShapes(asMeta=True)[0]
+        _follicleShape = mFollicleShape.mNode
+        _inShape = mc.listRelatives(
+            mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+        outCurveShape = mc.listRelatives(mOutCrv.mNode, shapes=True)[0]
+
+        mHairSys = self.getMessageAsMeta('mHairSysShape')
+        _hairSystem = mHairSys.mNode if mHairSys else None
+        if not _hairSystem:
+            _hairSystem = mc.listRelatives(
+                mc.listConnections('{0}.currentPosition'.format(_follicleShape))[0],
+                shapes=True)[0]
+
+        _b_connected = _chain_targets_connected(mGrp)
+        if _b_connected:
+            self.targets_disconnect(idx)
+
+        _savedTime = mc.currentTime(q=True)
+        _startFrame = _resolve_hair_start_frame(self)
+        if abs(_savedTime - _startFrame) > 0.001:
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                'Current frame {0} != startFrame {1} — rebuilding at startFrame'.format(
+                    _savedTime, _startFrame)))
+
+        mc.currentTime(_startFrame, edit=True)
+        _finalize_hair_outcurve_rest(
+            _follicleShape, _hairSystem, _inShape, outCurveShape)
+
+        _tear_down_hair_chain_follow(mGrp)
+
+        if mGrp.hasAttr('fwd') and mGrp.hasAttr('up'):
+            fwdAxis = simpleAxis(mGrp.fwd)
+            upAxis = simpleAxis(mGrp.up)
+        else:
+            fwdAxis = TRANS.closestAxisTowardObj_get(ml_baseTargets[0], ml_baseTargets[1])
+            upAxis = TRANS.crossAxis_get(fwdAxis)
+
+        _build_hair_chain_follow(
+            mGrp, outCurveShape, ml, ml_baseTargets, chain, _name,
+            fwdAxis, upAxis,
+            upSetup=_settings['upSetup'],
+            upControl=_settings['upControl'],
+            aimUpMode=_settings['aimUpMode'],
+            extendEnd=_settings['extendEnd'])
+
+        mc.currentTime(_savedTime, edit=True)
+
+        if _b_connected:
+            self.targets_connect(idx)
+
+        log.info(cgmGEN.logString_msg(_str_func, 'Done: {0}'.format(mGrp.p_nameBase)))
+        return True
+
     def chain_create(self, objs = None,
                      fwd = None, up=None,
                      name = None,
@@ -1296,13 +1651,10 @@ class cgmDynFK(cgmMeta.cgmObject):
 
         _inShape = mc.listRelatives(
             mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
-        _configure_follicle_rest_match_start(follicleShape)
-        _refresh_hair_rest_output(follicleShape, _hairSystem)
-        _sync_hair_outcurve_to_incurve(_inShape, outCurveShape)
-        _configure_follicle_segment_sampling(
-            follicleShape,
+        _finalize_hair_outcurve_rest(
+            follicleShape, _hairSystem, _inShape, outCurveShape,
             fixedSegmentLength=fixedSegmentLength,
-            segmentLength=follicleSegmentLength,
+            follicleSegmentLength=follicleSegmentLength,
             l_positions=l_pos)
         _warn_hair_system_extra_segments(_hairSystem)
 
@@ -1356,175 +1708,16 @@ class cgmDynFK(cgmMeta.cgmObject):
         mInCrv.p_parent = mGrp
         mc.parentConstraint(ml[0].getParent(), _follicle, mo=True)
         
-        # create locators on objects
-        locators = []
-        prs = []
-        
-        ml_locs = []
-        ml_aims = []
-        ml_prts = []
-        
-        _upVector = None
-        if upSetup == 'guess':
-            log.debug(cgmGEN.logString_msg(_str_func, 'Resolving up/aim'))
-            # outCurve — not inCurve: after makeCurvesDynamic (esp. existing hairSys)
-            # the input curve is follicle-wired and has no transform.worldSpace
-            poci_base = CURVES.create_pointOnInfoNode(outCurveShape, 1)
-            mPoci_base = cgmMeta.asMeta(poci_base)
-            
-            _upVector = mPoci_base.normalizedNormal
-            log.debug(cgmGEN.logString_msg(_str_func, "upVector: {0}".format(_upVector)))        
-        
-        
-        #Let's make an up object as the parent of the root isn't good enough
-        mUp = ml[0].doCreateAt(setClass=1)
-        mUp.rename("chain_{0}_up".format(name))
-        mUp.p_parent = mGrp
-        
-        if _upVector:
-            SNAP.aim_atPoint(mUp.mNode,
-                             DIST.get_pos_by_vec_dist(mUp.p_position,
-                                                      _upVector,
-                                                      10),aimAxis='y+',upAxis='z+')
-        
-        if upControl:
-            log.debug(cgmGEN.logString_msg(_str_func,'upControl'))
-            if len(ml_baseTargets)>1:
-                sizeControl = DIST.get_distance_between_targets([mObj.mNode for mObj in ml_baseTargets],True)
-            else:
-                sizeControl = DIST.get_bb_size(ml[0],True,'max')
-                
-            crv = CURVES.create_controlCurve(mUp.mNode,'arrowSingle', size= sizeControl, direction = 'y+')
-            CORERIG.shapeParent_in_place(mUp.mNode, crv, False)
-            mUpGroup = mUp.doGroup(True,True,
-                                   asMeta=True,
-                                   typeModifier = 'master',
-                                   setClass='cgmObject')
-            
-            mc.parentConstraint(ml[0].getParent(), mUpGroup.mNode, mo=True)
-            
-            
-        else:
-            mc.parentConstraint(ml[0].getParent(), mUp.mNode, mo=True)
-
-        log.debug(cgmGEN.logString_msg(_str_func,'aimUpMode: {0}'.format(aimUpMode)))
-        
-        
-        for i, mObj in enumerate(ml):
-            if not i:
-                mUpUse = mUp
-            else:
-                mUpUse = ml_locs[-1]
-                
-            mLoc = cgmMeta.asMeta( LOC.create(mObj.getNameLong()) )
-            loc = mLoc.mNode
-            ml_locs.append(mLoc)
-            #loc = LOC.create(mObj.getNameLong())
-            
-            mAim = mLoc.doGroup(False,False,
-                                 asMeta=True,
-                                 typeModifier = 'aim',
-                                 setClass='cgmObject')
-            ml_aims.append(mAim)
-            #aimNull = mc.group(em=True)
-            #aimNull = mc.rename('%s_aim' % mObj.getShortName())
-            
-            _param = _l_paramFrac[i] if i < len(_l_paramFrac) else 0.0
-            poc = CURVES.create_pointOnInfoNode(outCurveShape,
-                                                parameter=_param,
-                                                turnOnPercentage=True)
-            mPoci_obj = cgmMeta.asMeta(poc)
-            mPoci_obj.rename('%s_pos' % loc)
-            if i < len(ml) - 1:
-                _aimParam = _l_paramFrac[i + 1]
-            elif extendEnd:
-                _aimParam = 1.0
-            else:
-                _aimParam = _param
-            pocAim = CURVES.create_pointOnInfoNode(outCurveShape,
-                                                   parameter=_aimParam,
-                                                   turnOnPercentage=True)
-                    
-                    
-            
-            mLocParent = mLoc.doGroup(False,False,
-                                      asMeta=True,
-                                      typeModifier = 'pos',
-                                      setClass='cgmObject')
-            ml_prts.append(mLocParent)
-            #locParent = mc.group(em=True)
-            #locParent = mc.rename( '%s_pos' % mObj.getShortName() )
-
-            mc.connectAttr( '%s.position' % mPoci_obj.mNode, '%s.translate' % mLocParent.mNode)
-            mc.connectAttr( '%s.position' % pocAim, '%s.translate' % mAim.mNode)
-            
-            
-            
-            if aimUpMode == 'master':
-                aimConstraint = mc.aimConstraint( mAim.mNode,
-                                                  mLocParent.mNode,
-                                                  aimVector=fwdAxis.p_vector,
-                                                  upVector = upAxis.p_vector,
-                                                  worldUpType = "objectrotation",
-                                                  worldUpVector = upAxis.p_vector,
-                                                  worldUpObject = mUp.mNode )
-            elif aimUpMode == 'orientToMaster':
-                mc.orientConstraint( mUp.mNode,
-                                     mLocParent.mNode,
-                                     maintainOffset = 1)
-                
-            elif aimUpMode == 'sequential':
-                aimConstraint = mc.aimConstraint( mAim.mNode,
-                                                  mLocParent.mNode,
-                                                  aimVector=fwdAxis.p_vector,
-                                                  upVector = upAxis.p_vector,
-                                                  worldUpType = "objectrotation",
-                                                  worldUpVector = upAxis.p_vector,
-                                                  worldUpObject = mUpUse.mNode )                
-            elif aimUpMode == 'joint':
-                aimConstraint = mc.aimConstraint( mAim.mNode,
-                                                  mLocParent.mNode,
-                                                  aimVector=fwdAxis.p_vector,
-                                                  upVector = upAxis.p_vector,
-                                                  worldUpType = "objectrotation",
-                                                  worldUpVector = upAxis.p_vector,
-                                                  worldUpObject = chain[i] )  
-            elif aimUpMode == 'curveNormal':
-                mUpLoc = mLoc.doGroup(False,False,
-                                      asMeta=True,
-                                      typeModifier = 'up',
-                                      setClass='cgmObject')
-                mUpLoc.p_parent = mLocParent
-                
-                aimConstraint = mc.aimConstraint( mAim.mNode,
-                                                  mLocParent.mNode,
-                                                  aimVector=fwdAxis.p_vector,
-                                                  upVector = upAxis.p_vector,
-                                                  worldUpType = "object")
-                
-                mPlusMinusAverage = cgmMeta.cgmNode(name="{0}_pma".format(mObj.p_nameBase),
-                                                    nodeType = 'plusMinusAverage')
-                mPlusMinusAverage.operation = 3
-                
-                mPoci_obj.doConnectOut('position','{0}.input3D[0]'.format(mPlusMinusAverage.mNode))
-                mPoci_obj.doConnectOut('normalizedNormal','{0}.input3D[1]'.format(mPlusMinusAverage.mNode))
-                mUpLoc.doConnectIn('translate','{0}.output3D'.format(mPlusMinusAverage.mNode))
-
-            
-            
-            mLoc.p_parent = mLocParent
-            mAim.p_parent = mGrp
-            mLocParent.p_parent = mGrp
-            
-            #mc.parent(loc, locParent)
+        _build_hair_chain_follow(
+            mGrp, outCurveShape, ml, ml_baseTargets, chain, name,
+            fwdAxis, upAxis, _l_paramFrac=_l_paramFrac,
+            upSetup=upSetup, upControl=upControl, aimUpMode=aimUpMode,
+            extendEnd=extendEnd)
         
         mCrv.rename("{0}_outCrv".format(name))
         mCrvParent = mCrv.getParent(asMeta=1)
         mCrvParent.p_parent = mGrp
         
-        mGrp.msgList_connect('mLocs',ml_locs)
-        mGrp.msgList_connect('mAims',ml_aims)
-        mGrp.msgList_connect('mParents',ml_prts)
         mGrp.msgList_connect('mTargets',ml)
         mGrp.msgList_connect('mBaseTargets',ml_baseTargets)
         mGrp.msgList_connect('mObjJointChain',chain)
@@ -1533,6 +1726,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         mGrp.doStore('fixedSegmentLength', bool(fixedSegmentLength))
         if fixedSegmentLength:
             mGrp.doStore('follicleSegmentLength', follicleSegmentLength)
+        _store_hair_chain_follow_metadata(
+            mGrp, aimUpMode, extendEnd, extendStart, upControl, upSetup)
 
         mNucleus.doConnectOut('startFrame',"{0}.startFrame".format(mHairSys.mNode))
         

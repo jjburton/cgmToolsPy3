@@ -1370,7 +1370,14 @@ def uiFunc_update_details(self):
             cgmGEN.Callback(uiFunc_disconnect_targets, self, i),                         
             'Disconnect All Targets') 
 
-        _row.layout()  
+        _row.layout()
+
+        if _chainMode != 'clothAttach':
+            _row = mUI.MelHLayout(_chainColumn,ut='cgmUISubTemplate',padding = _padding*2)
+            cgmUI.add_Button(_row,'Rebuild Locators',
+                cgmGEN.Callback(uiFunc_rebuild_chain_follow, self, i),
+                'Re-sync outCurve rest at startFrame and rebuild POC/aim locators on current outCurve.')
+            _row.layout()
 
         _row = mUI.MelHLayout(_chainColumn,ut='cgmUISubTemplate',padding = _padding*2)
         cgmUI.add_Button(_row,'Delete Chain',
@@ -1590,6 +1597,13 @@ def uiFunc_hair_follicle_segment_options(self):
         except (TypeError, ValueError):
             pass
     return _fixed, _seg
+
+def uiFunc_rebuild_chain_follow(self, chainIdx=None):
+    _str_func = 'uiFunc_rebuild_chain_follow'
+    if not self._mDynFK:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No setup loaded'))
+    if self._mDynFK.chain_rebuild_follow(chainIdx):
+        uiFunc_update_details(self)
 
 def uiFunc_select_nucleus(self):
     mc.select(self._mDynFK.get_dat()['mNucleus'].p_nameBase)
