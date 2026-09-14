@@ -870,7 +870,7 @@ def create_at(obj = None, create = 'null',midPoint = False, l_pos = [], baseName
             if objRotAxis:
                 mc.xform(_created, ws=True, ra= objRotAxis,p=False)
             
-        elif _create in ['curve','curveLinear','linearTrack','cubicTrack']:
+        elif _create in ['curve','curveLinear','curveQuadratic','linearTrack','cubicTrack']:
             if not l_use:
                 l_use = []
                 #_sel = mc.ls(sl=True,flatten=True)
@@ -904,6 +904,10 @@ def create_at(obj = None, create = 'null',midPoint = False, l_pos = [], baseName
                 
                     
                     
+            elif _create == 'curveQuadratic':
+                knot_len = len(l_use)+1
+                _created = mc.curve(
+                    d=2, ep=l_use, k=[i for i in range(0, knot_len)], os=True)
             elif _create == 'curve':
                 if len(l_use) >= 3:
                     knot_len = len(l_use)+2#-1		                    

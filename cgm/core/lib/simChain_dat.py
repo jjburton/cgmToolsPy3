@@ -543,6 +543,7 @@ class SimChainSetup(CGMDAT.data):
                 'startFrame': -50,
                 'upSetup': 'guess',
                 'extendStart': None,
+                'addEndJoint': False,
                 'extendEnd': False,
                 'aimUpMode': 'joint',
                 'fixedSegmentLength': False,
@@ -580,7 +581,8 @@ class SimChainSetup(CGMDAT.data):
             'startFrame': mSetup.startFrame,
             'upSetup': mSetup.upSetup or 'guess',
             'extendStart': mSetup.extendStart,
-            'extendEnd': mSetup.extendEnd,
+            'addEndJoint': getattr(mSetup, 'addEndJoint', mSetup.extendEnd),
+            'extendEnd': getattr(mSetup, 'addEndJoint', mSetup.extendEnd),
             'aimUpMode': mSetup.aimUpMode or 'joint',
             'fixedSegmentLength': getattr(mSetup, 'fixedSegmentLength', False),
             'follicleSegmentLength': getattr(mSetup, 'follicleSegmentLength', 1.0),
@@ -617,11 +619,15 @@ class SimChainSetup(CGMDAT.data):
                     'up': getattr(mGrp, 'up', None) or mSetup.up,
                     'upSetup': mSetup.upSetup,
                     'extendStart': mSetup.extendStart,
-                    'extendEnd': mSetup.extendEnd,
+                    'addEndJoint': RIGDYN._hair_add_end_joint_from_grp(mGrp),
+                    'extendEnd': RIGDYN._hair_add_end_joint_from_grp(mGrp),
                     'aimUpMode': mSetup.aimUpMode,
                     'fixedSegmentLength': getattr(mGrp, 'fixedSegmentLength', getattr(mSetup, 'fixedSegmentLength', False)),
                     'follicleSegmentLength': getattr(
                         mGrp, 'follicleSegmentLength', getattr(mSetup, 'follicleSegmentLength', 1.0)),
+                    'hairFollowMode': RIGDYN._get_chain_hair_follow_mode(mGrp),
+                    'inCurveDegree': int(getattr(mGrp, 'inCurveDegree', getattr(mSetup, 'inCurveDegree', 1))),
+                    'outCurveDegree': int(getattr(mGrp, 'outCurveDegree', getattr(mSetup, 'outCurveDegree', 2))),
                 }
             _chains.append(_entry)
 
@@ -739,12 +745,17 @@ class SimChainSetup(CGMDAT.data):
                 up=_copts.get('up') or _setupOpts.get('up'),
                 upSetup=_copts.get('upSetup') or _setupOpts.get('upSetup'),
                 extendStart=_copts.get('extendStart', _setupOpts.get('extendStart')),
-                extendEnd=_copts.get('extendEnd', _setupOpts.get('extendEnd')),
+                addEndJoint=_copts.get(
+                    'addEndJoint',
+                    _setupOpts.get('addEndJoint', _copts.get('extendEnd', _setupOpts.get('extendEnd')))),
                 aimUpMode=_copts.get('aimUpMode') or _setupOpts.get('aimUpMode'),
                 fixedSegmentLength=_copts.get(
                     'fixedSegmentLength', _setupOpts.get('fixedSegmentLength', False)),
                 follicleSegmentLength=_copts.get(
                     'follicleSegmentLength', _setupOpts.get('follicleSegmentLength', 1.0)),
+                hairFollowMode=_copts.get('hairFollowMode', _setupOpts.get('hairFollowMode')),
+                inCurveDegree=_copts.get('inCurveDegree', _setupOpts.get('inCurveDegree', 1)),
+                outCurveDegree=_copts.get('outCurveDegree', _setupOpts.get('outCurveDegree', 2)),
             )
         return True
 
