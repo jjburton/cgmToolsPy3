@@ -1,0 +1,83 @@
+{
+    "datKind": "hair",
+    "differential": true,
+    "meta": {
+        "date": "2026-09-15 15:12",
+        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_03.mb",
+        "sourceNode": "|DynamicChain_dynFK|DynamicChain_hairSys|DynamicChain_hairSysShape",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain_hairSysShape",
+    "profile": {
+        "attractionDamp": 0.15384615427599505,
+        "attractionScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                1.0,
+                0.1599999964237213,
+                3.0
+            ],
+            "2": [
+                0.25217390060424805,
+                0.699999988079071,
+                3.0
+            ],
+            "3": [
+                1.0,
+                0.20000000298023224,
+                0.0
+            ],
+            "4": [
+                0.8086956739425659,
+                0.11999999731779099,
+                3.0
+            ],
+            "5": [
+                0.0,
+                0.9399999976158142,
+                1.0
+            ]
+        },
+        "bendResistance": 0.10000000149011612,
+        "compressionResistance": 45.26315689086914,
+        "damp": 1.483516481674307,
+        "drag": 0.0,
+        "extraBendLinks": 2,
+        "mass": 7.032967036651386,
+        "motionDrag": 0.6373626378129472,
+        "startCurveAttract": 4.38461538289602,
+        "stiffnessScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.20000000298023224,
+                1.0,
+                3.0
+            ],
+            "2": [
+                1.0,
+                0.1599999964237213,
+                3.0
+            ],
+            "3": [
+                0.7739130258560181,
+                0.5400000214576721,
+                3.0
+            ]
+        },
+        "stretchDamp": 0.0,
+        "stretchResistance": 175.0,
+        "tangentialDrag": 0.0,
+        "twistResistance": 30.000000037252903
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

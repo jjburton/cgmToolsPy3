@@ -20,6 +20,7 @@ import pprint
 import copy
 import maya.mel as mel
 from cgm.core.cgmPy import validateArgs as VALID
+import cgm.core.lib.shared_data as SHARED
 import importlib
 
 __MAYALOCAL = 'RIGDYN'
@@ -666,9 +667,12 @@ def _finalize_hair_outcurve_rest(follicleShape, hairSystemShape, inCurveShape, o
     log.debug(cgmGEN.logString_msg(_str_func, 'Done'))
 
 
-def _store_hair_chain_follow_metadata(mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=None):
+def _store_hair_chain_follow_metadata(mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=None,
+                                      advancedTwist=None):
     """Persist follow-rig settings on chain grp for rebuild."""
     mGrp.doStore('aimUpMode', aimUpMode)
+    if advancedTwist is not None:
+        mGrp.doStore('advancedTwist', bool(advancedTwist))
     if not _hair_add_end_joint_active(addEndJoint):
         mGrp.doStore('addEndJoint', False)
     elif isinstance(addEndJoint, bool):
@@ -703,8 +707,9 @@ def _get_hair_chain_follow_settings(mGrp):
         'extendStart': None,
         'upControl': False,
         'upSetup': 'guess',
+        'advancedTwist': _hair_advanced_twist_from_grp(mGrp),
     }
-    for _key in ('aimUpMode', 'extendStart', 'upControl', 'upSetup'):
+    for _key in ('aimUpMode', 'extendStart', 'upControl', 'upSetup', 'advancedTwist'):
         if mGrp.hasAttr(_key):
             _val = getattr(mGrp, _key, _settings[_key])
             if _val is not None and _val != '':
@@ -1185,6 +1190,100 @@ def _hair_spline_ik_orientation(fwdAxis, upAxis):
     return '{0}{1}{2}'.format(_aim, _up, _out), upAxis.p_string
 
 
+def _hair_advanced_twist_from_grp(mGrp):
+    """Read advancedTwist bool from chain grp (default False)."""
+    mGrp = cgmMeta.asMeta(mGrp)
+    if mGrp.hasAttr('advancedTwist'):
+        return bool(getattr(mGrp, 'advancedTwist', False))
+    return False
+
+
+def _ik_spline_handle_twist_axis_enum(ik_handle, attr_name, axis_string):
+    """
+    Map simpleAxis string (e.g. y+) to Maya ikHandle enum index for dForwardAxis / dWorldUpAxis.
+
+    dWorldUpAxis includes closest* entries — never reuse the dForwardAxis integer map for it.
+    """
+    _ik = _dag_str(ik_handle)
+    if not mc.attributeQuery(attr_name, node=_ik, exists=True):
+        return None
+    _enum = mc.attributeQuery(attr_name, node=_ik, listEnum=True)
+    if _enum:
+        _labels = _enum[0].split(':')
+        _letter = axis_string[0].lower()
+        _positive = '+' in axis_string
+        for _idx, _lab in enumerate(_labels):
+            _l = _lab.strip().lower()
+            if 'closest' in _l:
+                continue
+            if _letter not in _l:
+                continue
+            if _positive and 'positive' in _l:
+                return _idx
+            if not _positive and 'negative' in _l:
+                return _idx
+    if attr_name == 'dForwardAxis':
+        return SHARED._d_simple_axis_to_ikSpline_forward_axis_enum.get(axis_string)
+    return SHARED._d_simple_axis_to_ikSpline_worldUp_axis_enum.get(axis_string)
+
+
+def _apply_hair_spline_ik_advanced_twist(mIKHandle, fwdAxis, upAxis, mWorldUpStart, mWorldUpEnd):
+    """
+    Spline IK advanced twist: Object Rotation Up (Start/End), chain fwd/up axes, sim joint WU objects.
+    """
+    _str_func = '_apply_hair_spline_ik_advanced_twist'
+    mIKHandle = cgmMeta.asMeta(mIKHandle)
+    _ik = _dag_str(mIKHandle)
+    _fwd_enum = _ik_spline_handle_twist_axis_enum(_ik, 'dForwardAxis', fwdAxis.p_string)
+    _up_enum = _ik_spline_handle_twist_axis_enum(_ik, 'dWorldUpAxis', upAxis.p_string)
+    if _fwd_enum is None or _up_enum is None:
+        raise ValueError(cgmGEN.logString_msg(
+            _str_func, 'Invalid fwd/up axis for ikSpline twist: {0} / {1}'.format(
+                fwdAxis.p_string, upAxis.p_string)))
+
+    if not mc.attributeQuery('dTwistControlEnable', node=_ik, exists=True):
+        raise ValueError(cgmGEN.logString_msg(
+            _str_func, 'ikHandle {0} has no spline advanced twist attrs — wrong solver?'.format(_ik)))
+
+    mc.setAttr('{0}.dTwistControlEnable'.format(_ik), 1)
+    mc.setAttr('{0}.dWorldUpType'.format(_ik), SHARED._ikSpline_worldUpType_objectRotationUpStartEnd)
+    mc.setAttr('{0}.dForwardAxis'.format(_ik), _fwd_enum)
+    if mc.attributeQuery('dWorldUpAxis', node=_ik, exists=True):
+        mc.setAttr('{0}.dWorldUpAxis'.format(_ik), _up_enum)
+        log.info(cgmGEN.logString_msg(
+            _str_func, '{0}.{1}={2} ({3})'.format(
+                _ik, 'dWorldUpAxis', _up_enum, upAxis.p_string)))
+    else:
+        log.warning(cgmGEN.logString_msg(_str_func, 'dWorldUpAxis missing on {0}'.format(_ik)))
+
+    _wu = upAxis.p_vector
+    mc.setAttr('{0}.dWorldUpVector'.format(_ik), _wu[0], _wu[1], _wu[2])
+    mc.setAttr('{0}.dWorldUpVectorEnd'.format(_ik), _wu[0], _wu[1], _wu[2])
+
+    _wu_start = _dag_str(mWorldUpStart)
+    _wu_end = _dag_str(mWorldUpEnd)
+    # AE "World Up Object" / "World Up Object 2" are matrix plugs, not message attrs (see ikHandle node docs).
+    if mc.attributeQuery('dWorldUpMatrix', node=_ik, exists=True):
+        mc.connectAttr('{0}.worldMatrix[0]'.format(_wu_start), '{0}.dWorldUpMatrix'.format(_ik), force=True)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'dWorldUpMatrix <- {0}.worldMatrix[0]'.format(_wu_start)))
+        if mc.attributeQuery('dWorldUpMatrixEnd', node=_ik, exists=True):
+            mc.connectAttr('{0}.worldMatrix[0]'.format(_wu_end), '{0}.dWorldUpMatrixEnd'.format(_ik), force=True)
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'dWorldUpMatrixEnd <- {0}.worldMatrix[0]'.format(_wu_end)))
+        else:
+            log.warning(cgmGEN.logString_msg(_str_func, 'dWorldUpMatrixEnd missing on {0}'.format(_ik)))
+    else:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'dWorldUpMatrix missing on ikHandle {0}'.format(_ik)))
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, '{0} | fwd={1} up={2} WU start={3} end={4}'.format(
+            _ik, fwdAxis.p_string, upAxis.p_string,
+            cgmMeta.asMeta(mWorldUpStart).p_nameShort,
+            cgmMeta.asMeta(mWorldUpEnd).p_nameShort)))
+
+
 def _prepare_spline_hair_outcurve(mFollicle, mFollicleShape, mHairSysShape, name, outCurveDegree):
     """
     Spline hair outCurve: follicle degree, regenerate via outCurve.create, rest eval (no CV match).
@@ -1243,7 +1342,7 @@ def _build_hair_driven_joint_chain(ml_sim, ml, name, mParent):
     mRoot = ml_sim[0]
     _dupRoot = mc.duplicate(
         mRoot.mNode,
-        renameChildren=True,
+        renameChildren=False,
         inputConnections=False,
         upstreamNodes=False)[0]
     ml_driven = _ordered_joint_chain_from_root(_dupRoot)
@@ -1265,7 +1364,7 @@ def _build_hair_driven_joint_chain(ml_sim, ml, name, mParent):
 
 
 def _build_hair_chain_follow_spline(mGrp, mOutCrv, ml, ml_sim, name, fwdAxis=None, upAxis=None,
-                                    mFollicle=None):
+                                    mFollicle=None, ml_baseTargets=None, advancedTwist=None):
     """
     Duplicate sim joint chain, spline IK on outCurve, locators parented under driven joints.
 
@@ -1304,6 +1403,14 @@ def _build_hair_chain_follow_spline(mGrp, mOutCrv, ml, ml_sim, name, fwdAxis=Non
         stretchBy=None)
 
     mIKHandle = _ikRes['mIKHandle']
+    if advancedTwist is None:
+        advancedTwist = _hair_advanced_twist_from_grp(mGrp)
+    if advancedTwist:
+        _n_base = len(ml_baseTargets) if ml_baseTargets else len(ml)
+        _end_idx = max(0, min(_n_base - 1, len(ml_sim) - 1))
+        _apply_hair_spline_ik_advanced_twist(
+            mIKHandle, fwdAxis, upAxis, ml_sim[0], ml_sim[_end_idx])
+
     ml_locs = []
     for i, mTarget in enumerate(ml):
         mLoc = cgmMeta.asMeta(LOC.create(mTarget.getNameLong()))
@@ -1346,6 +1453,69 @@ def _hair_sim_joint_chain_ordered(chain):
     return _hair_normalize_sim_chain(chain)
 
 
+def _hair_order_sim_joint_chain(ml_sim):
+    """
+    Root-to-tip order for joints in ml_sim only.
+
+    Ignores stray joint children (e.g. leftover spline driven duplicates parented under sim).
+    """
+    ml = cgmMeta.asMeta(ml_sim, noneValid=True) or []
+    ml = [
+        m for m in ml
+        if m and mc.objExists(m.mNode) and mc.nodeType(m.mNode) == 'joint']
+    if len(ml) <= 1:
+        return ml
+    _by_node = {m.mNode: m for m in ml}
+    m_roots = []
+    for m in ml:
+        _par = m.getParent(asMeta=False)
+        if not _par or _par not in _by_node:
+            m_roots.append(m)
+    if len(m_roots) != 1:
+        return ml
+    ordered = []
+    m_cur = m_roots[0]
+    while m_cur and m_cur.mNode in _by_node:
+        ordered.append(m_cur)
+        _kids = [
+            c for c in (m_cur.getChildren(asMeta=True) or [])
+            if mc.nodeType(c.mNode) == 'joint' and c.mNode in _by_node]
+        if len(_kids) != 1:
+            break
+        m_cur = _kids[0]
+    return ordered if len(ordered) == len(ml) else ml
+
+
+def _hair_rename_sim_joint_chain(ml_sim, name):
+    """Enforce {name}_sim_##_jnt on ordered sim joints (rebuild / fix duplicate names)."""
+    ml = _hair_order_sim_joint_chain(ml_sim)
+    for i, mJ in enumerate(ml):
+        _chain_rename_meta_short(mJ, '{0}_sim_{1:02d}_jnt'.format(name, i))
+    return ml
+
+
+def _hair_delete_stray_joints_under_sim(ml_sim):
+    """Remove joint children of sim chain that are not in the sim joint list (orphan driven dupes)."""
+    ml = _hair_order_sim_joint_chain(ml_sim)
+    if not ml:
+        return
+    _keep = {m.mNode for m in ml}
+    _delete = []
+    for m in ml:
+        for mChild in (m.getChildren(asMeta=True) or []):
+            if mc.nodeType(mChild.mNode) != 'joint':
+                continue
+            if mChild.mNode in _keep:
+                continue
+            _delete.append(mChild.mNode)
+    if _delete:
+        try:
+            mc.delete(_delete)
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                '_hair_delete_stray_joints_under_sim', 'delete: {0}'.format(err)))
+
+
 def _hair_normalize_sim_chain(chain):
     """Ordered sim joint metas; accepts meta list, node list, or root-only chain."""
     ml = cgmMeta.asMeta(chain, noneValid=True) or []
@@ -1354,10 +1524,15 @@ def _hair_normalize_sim_chain(chain):
         return []
     if mc.nodeType(ml[0].mNode) != 'joint':
         return ml
-    ml_walk = _ordered_joint_chain_from_root(ml[0])
-    if len(ml_walk) >= len(ml):
-        return ml_walk
-    return ml
+    _ordered = _hair_order_sim_joint_chain(ml)
+    if len(_ordered) == len(ml):
+        return _ordered
+    ml_walk = _ordered_joint_chain_from_root(_ordered[0] if _ordered else ml[0])
+    _ml_set = {m.mNode for m in ml}
+    _filtered = [m for m in ml_walk if m.mNode in _ml_set]
+    if len(_filtered) == len(ml):
+        return _filtered
+    return _ordered if _ordered else ml
 
 
 def _hair_build_sim_joint_chain_from_targets(ml_baseTargets, name):
@@ -2149,6 +2324,7 @@ class cgmDynFK(cgmMeta.cgmObject):
     hairFollowMode = HAIR_FOLLOW_MODE_SPLINE
     inCurveDegree = 1
     outCurveDegree = 2
+    advancedTwist = False
     
     def __init__(self,node = None, name = None,
                  objs = None, fwd = 'z+', up = 'y+',
@@ -2169,6 +2345,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                  inCurveDegree = None,
                  outCurveDegree = None,
                  requireAddEndJoint = False,
+                 advancedTwist = None,
                  *args,**kws):
         """ 
         
@@ -2228,6 +2405,7 @@ class cgmDynFK(cgmMeta.cgmObject):
         self.inCurveDegree = MATHUTILS.Clamp(int(inCurveDegree if inCurveDegree is not None else 1), 1, 3)
         self.outCurveDegree = MATHUTILS.Clamp(int(outCurveDegree if outCurveDegree is not None else 2), 1, 3)
         self.requireAddEndJoint = bool(requireAddEndJoint)
+        self.advancedTwist = bool(advancedTwist) if advancedTwist is not None else False
        
         if not node:
             self.rename("{0}_dynFK".format(self.baseName))
@@ -2484,6 +2662,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         # Moving skinned joints while spline IK / hair is live can hang Maya DG.
         _tear_down_hair_chain_follow_spline(mGrp)
         _delete_hair_incurve_skincluster(mInCrv)
+        _hair_delete_stray_joints_under_sim(ml_sim)
+        ml_sim = _hair_rename_sim_joint_chain(ml_sim, _name)
 
         _suspend = False
         try:
@@ -2497,6 +2677,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 _settings.get('upSetup'), fwdAxis, _name,
                 extendStart=_settings.get('extendStart'),
                 extendEnd=_settings.get('extendEnd'))
+            ml_sim = _hair_rename_sim_joint_chain(ml_sim, _name)
             _hair_validate_add_end_joint_count(
                 ml_sim, ml_baseTargets, _settings.get('addEndJoint'), l_pos=l_pos,
                 context='{0} | after rebuild sim chain'.format(mGrp.p_nameBase))
@@ -2527,7 +2708,8 @@ class cgmDynFK(cgmMeta.cgmObject):
 
             _build_hair_chain_follow_spline(
                 mGrp, mOutCrv, ml, ml_sim, _name, fwdAxis=fwdAxis, upAxis=upAxis,
-                mFollicle=mFollicle)
+                mFollicle=mFollicle, ml_baseTargets=ml_baseTargets,
+                advancedTwist=_settings.get('advancedTwist'))
         finally:
             try:
                 mc.refresh(suspend=_suspend)
@@ -2675,6 +2857,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                      follicleSegmentLength = None,
                      follicleSampleDensity = None,
                      requireAddEndJoint = False,
+                     advancedTwist = None,
                      **kws):
         
         _str_func = 'chain_create_hair'
@@ -2720,6 +2903,8 @@ class cgmDynFK(cgmMeta.cgmObject):
             addEndJoint = getattr(self, 'addEndJoint', False)
         if extendEnd is None:
             extendEnd = getattr(self, 'extendEnd', False)
+        if advancedTwist is None:
+            advancedTwist = getattr(self, 'advancedTwist', False)
         if _requireAddEndJoint and not _hair_add_end_joint_active(addEndJoint):
             try:
                 addEndJoint = float(getattr(self, 'addEndJoint', None) or 2.0)
@@ -2800,6 +2985,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             mGrp, ml_sim, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
             extendEnd=extendEnd, extendStart=extendStart)
 
+        ml_sim = _hair_rename_sim_joint_chain(ml_sim, name)
         ml_sim = _hair_reparent_sim_chain_ordered(ml_sim)
 
         log.info(cgmGEN.logString_msg(
@@ -2996,7 +3182,8 @@ class cgmDynFK(cgmMeta.cgmObject):
         else:
             _build_hair_chain_follow_spline(
                 mGrp, mCrv, ml, ml_sim, name, fwdAxis=fwdAxis, upAxis=upAxis,
-                mFollicle=mFollicle)
+                mFollicle=mFollicle, ml_baseTargets=ml_baseTargets,
+                advancedTwist=advancedTwist)
             mCrv.rename("{0}_outCrv".format(name))
         
         mGrp.msgList_connect('mTargets',ml)
@@ -3014,7 +3201,8 @@ class cgmDynFK(cgmMeta.cgmObject):
             mGrp.doStore('follicleSampleDensity', follicleSampleDensity)
         self.follicleSampleDensity = follicleSampleDensity
         _store_hair_chain_follow_metadata(
-            mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=extendEnd)
+            mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=extendEnd,
+            advancedTwist=advancedTwist)
 
         _hair_validate_add_end_joint_count(
             ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,

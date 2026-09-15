@@ -243,6 +243,8 @@ class ui(cgmUI.cgmGUI):
         self.var_SimChainExtendEndDistance.setType('string')
         self.create_guiOptionVar('SimChainExtendEndEnabled', defaultValue='0')
         self.var_SimChainExtendEndEnabled.setType('string')
+        self.create_guiOptionVar('SimChainAdvancedTwistEnabled', defaultValue='0')
+        self.var_SimChainAdvancedTwistEnabled.setType('string')
         self.create_guiOptionVar('SimChainFollicleSampleDensity', defaultValue='1.0')
         self.var_SimChainFollicleSampleDensity.setType('string')
         self._d_chainHairBuildMenus = {}
@@ -678,6 +680,18 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
     uiFunc_sync_curve_extend_end_options(self)
+
+    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Advanced twist:')
+    self.options_advancedTwistCB = mUI.MelCheckBox(
+        _row, v=False, label='',
+        ann='Spline IK: Object Rotation Up (Start/End) on out-curve handle; sim joints at chain ends. Rebuild Chain to update existing chains.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+
     uiFunc_restore_simchain_create_optionvars(self)
 
     cgmUI.add_LineSubBreak()
@@ -2083,6 +2097,9 @@ def uiFunc_persist_simchain_create_optionvars(self):
     if hasattr(self, 'options_curveExtendEndCB'):
         self.var_SimChainExtendEndEnabled.setValue(
             '1' if bool(self.options_curveExtendEndCB.getValue()) else '0')
+    if hasattr(self, 'options_advancedTwistCB'):
+        self.var_SimChainAdvancedTwistEnabled.setValue(
+            '1' if bool(self.options_advancedTwistCB.getValue()) else '0')
     if hasattr(self, 'options_follicleSampleDensity'):
         self.var_SimChainFollicleSampleDensity.setValue(self.options_follicleSampleDensity.getValue())
     uiFunc_sync_add_end_joint_options(self)
@@ -2116,6 +2133,10 @@ def uiFunc_restore_simchain_create_optionvars(self):
     if hasattr(self, 'options_curveExtendEndDistance'):
         self.options_curveExtendEndDistance.setValue(str(_cvex))
         uiFunc_sync_curve_extend_end_options(self)
+    if hasattr(self, 'options_advancedTwistCB'):
+        _atw = str(self.var_SimChainAdvancedTwistEnabled.value or '0').strip().lower() in (
+            '1', 'true', 'yes', 'on')
+        self.options_advancedTwistCB.setValue(_atw)
     if hasattr(self, 'options_follicleSampleDensity'):
         self.options_follicleSampleDensity.setValue(
             str(self.var_SimChainFollicleSampleDensity.value or '1.0'))
@@ -2163,6 +2184,13 @@ def uiFunc_hair_curve_extend_end_required(self):
         return bool(int(self.options_curveExtendEndCB.getValue()))
     except (TypeError, ValueError):
         return bool(self.options_curveExtendEndCB.getValue())
+
+def uiFunc_hair_advanced_twist_options(self):
+    """Return advancedTwist bool for chain_create (spline IK only in backend)."""
+    if hasattr(self, 'options_advancedTwistCB'):
+        return bool(self.options_advancedTwistCB.getValue())
+    return str(self.var_SimChainAdvancedTwistEnabled.value or '0').strip().lower() in (
+        '1', 'true', 'yes', 'on')
 
 def uiFunc_hair_curve_extend_end_options(self):
     """Return extendEnd for chain_create: False or numeric curve tip offset."""
@@ -2219,6 +2247,22 @@ def uiFunc_chain_curve_extend_end_apply(mGrp, extendCB, extendField):
     else:
         mGrp.doStore('extendEnd', False)
 
+def uiFunc_chain_advanced_twist_row(self, parent, chain):
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Advanced twist:')
+    advancedTwistCB = mUI.MelCheckBox(
+        _row, v=RIGDYN._hair_advanced_twist_from_grp(chain), label='',
+        ann='Spline IK advanced twist (Object Rotation Up Start/End). Rebuild Chain to apply.')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+    return advancedTwistCB
+
+def uiFunc_chain_advanced_twist_apply(mGrp, advancedTwistCB):
+    mGrp = cgmMeta.asMeta(mGrp)
+    mGrp.doStore('advancedTwist', bool(advancedTwistCB.getValue()))
+
 def uiFunc_chain_push_build_to_create_options(self, chainIdx):
     """Copy per-chain hair build settings into Create panel + optionVars."""
     _str_func = 'uiFunc_chain_push_build_to_create_options'
@@ -2235,10 +2279,10 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
 
     _menus = getattr(self, '_d_chainHairBuildMenus', {}).get(chainIdx)
     if _menus:
-        followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider = _menus
+        followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider, advancedTwistCB = _menus
         uiFunc_chain_hair_build_opts_apply(
             self, chain, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
-            densityField, densitySlider)
+            densityField, densitySlider, advancedTwistCB)
         self.options_hairFollowMode.setValue(followMenu.getValue())
         self.options_inCurveDegree.setValue(inMenu.getValue())
         self.options_outCurveDegree.setValue(outMenu.getValue())
@@ -2248,6 +2292,8 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
         if curveExtCB is not None and curveExtField is not None:
             self.options_curveExtendEndCB.setValue(bool(curveExtCB.getValue()))
             self.options_curveExtendEndDistance.setValue(curveExtField.getValue())
+        if advancedTwistCB is not None and hasattr(self, 'options_advancedTwistCB'):
+            self.options_advancedTwistCB.setValue(bool(advancedTwistCB.getValue()))
         if densityField is not None and not bool(getattr(chain, 'fixedSegmentLength', False)):
             self.options_follicleSampleDensity.setValue(str(densityField.getValue()))
     else:
@@ -2267,6 +2313,8 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
             self.options_curveExtendEndCB.setValue(_cvex_on)
         if hasattr(self, 'options_curveExtendEndDistance'):
             self.options_curveExtendEndDistance.setValue(str(_cvex_dist))
+        if hasattr(self, 'options_advancedTwistCB'):
+            self.options_advancedTwistCB.setValue(RIGDYN._hair_advanced_twist_from_grp(chain))
         if hasattr(self, 'options_follicleSampleDensity'):
             _sd = RIGDYN._resolve_follicle_sample_density(chain, self._mDynFK)
             self.options_follicleSampleDensity.setValue(str(_sd))
@@ -2287,7 +2335,7 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
 
 def uiFunc_chain_hair_build_opts_apply(self, mGrp, followMenu, inMenu, outMenu, extendCB=None, extendField=None,
                                        curveExtCB=None, curveExtField=None,
-                                       densityField=None, densitySlider=None):
+                                       densityField=None, densitySlider=None, advancedTwistCB=None):
     """Write per-chain build menus onto chain grp attrs (used before rebuild)."""
     mGrp = cgmMeta.asMeta(mGrp)
     _mode = _HAIR_FOLLOW_UI_TO_MODE.get(followMenu.getValue(), RIGDYN.HAIR_FOLLOW_MODE_SPLINE)
@@ -2306,6 +2354,8 @@ def uiFunc_chain_hair_build_opts_apply(self, mGrp, followMenu, inMenu, outMenu, 
         uiFunc_chain_add_end_joint_apply(mGrp, extendCB, extendField)
     if curveExtCB is not None and curveExtField is not None:
         uiFunc_chain_curve_extend_end_apply(mGrp, curveExtCB, curveExtField)
+    if advancedTwistCB is not None:
+        uiFunc_chain_advanced_twist_apply(mGrp, advancedTwistCB)
     if densitySlider is not None:
         uiFunc_chain_follicle_sample_density_apply(self, mGrp, densitySlider.getValue())
     elif densityField is not None:
@@ -2313,10 +2363,10 @@ def uiFunc_chain_hair_build_opts_apply(self, mGrp, followMenu, inMenu, outMenu, 
 
 def uiFunc_chain_hair_build_opts_changed(self, mGrp, followMenu, inMenu, outMenu, extendCB=None, extendField=None,
                                          curveExtCB=None, curveExtField=None,
-                                         densityField=None, densitySlider=None):
+                                         densityField=None, densitySlider=None, advancedTwistCB=None):
     uiFunc_chain_hair_build_opts_apply(
         self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
-        densityField, densitySlider)
+        densityField, densitySlider, advancedTwistCB)
     self.var_SimChainHairFollowMode.setValue(followMenu.getValue())
     self.var_SimChainInCurveDegree.setValue(inMenu.getValue())
     self.var_SimChainOutCurveDegree.setValue(outMenu.getValue())
@@ -2405,6 +2455,7 @@ def uiFunc_chain_hair_build_opts_row(self, parent, chain):
 
     extendCB, extendField = uiFunc_chain_add_end_joint_row(self, parent, chain)
     curveExtCB, curveExtField = uiFunc_chain_curve_extend_end_row(self, parent, chain)
+    advancedTwistCB = uiFunc_chain_advanced_twist_row(self, parent, chain)
 
     _sdVal = RIGDYN._resolve_follicle_sample_density(chain, getattr(self, '_mDynFK', None))
     _sdFixed = bool(getattr(chain, 'fixedSegmentLength', False))
@@ -2433,7 +2484,7 @@ def uiFunc_chain_hair_build_opts_row(self, parent, chain):
     _cb = cgmGEN.Callback(
         uiFunc_chain_hair_build_opts_ui_changed,
         self, chain, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
-        densityField, densitySlider)
+        densityField, densitySlider, advancedTwistCB)
     followMenu(edit=True, changeCommand=_cb)
     inMenu(edit=True, changeCommand=_cb)
     outMenu(edit=True, changeCommand=_cb)
@@ -2441,11 +2492,12 @@ def uiFunc_chain_hair_build_opts_row(self, parent, chain):
     extendField(edit=True, changeCommand=_cb)
     curveExtCB(edit=True, changeCommand=_cb)
     curveExtField(edit=True, changeCommand=_cb)
-    return followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider
+    advancedTwistCB(edit=True, changeCommand=_cb)
+    return followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider, advancedTwistCB
 
 def uiFunc_chain_hair_build_opts_ui_changed(self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField,
                                             curveExtCB=None, curveExtField=None,
-                                            densityField=None, densitySlider=None):
+                                            densityField=None, densitySlider=None, advancedTwistCB=None):
     _on = bool(extendCB.getValue())
     extendField(edit=True, editable=_on)
     extendField(edit=True, bgc=SHARED._d_gui_state_colors.get('normal' if _on else 'help'))
@@ -2455,7 +2507,7 @@ def uiFunc_chain_hair_build_opts_ui_changed(self, mGrp, followMenu, inMenu, outM
         curveExtField(edit=True, bgc=SHARED._d_gui_state_colors.get('normal' if _cex else 'help'))
     uiFunc_chain_hair_build_opts_changed(
         self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
-        densityField, densitySlider)
+        densityField, densitySlider, advancedTwistCB)
 
 def uiFunc_hair_follow_options(self):
     """Create Options: hair follow mode and in/out curve degrees."""
@@ -2500,6 +2552,7 @@ def uiFunc_make_dynamic_chain(self):
     _followMode, _inDeg, _outDeg = uiFunc_hair_follow_options(self)
     _addEndJoint = uiFunc_hair_add_end_joint_options(self)
     _extendEnd = uiFunc_hair_curve_extend_end_options(self)
+    _advancedTwist = uiFunc_hair_advanced_twist_options(self)
     _requireAddEndJoint = uiFunc_hair_add_end_joint_required(self)
     _cb_raw = None
     if hasattr(self, 'options_addEndJointCB'):
@@ -2528,7 +2581,8 @@ def uiFunc_make_dynamic_chain(self):
             outCurveDegree=_outDeg,
             addEndJoint=_addEndJoint,
             extendEnd=_extendEnd,
-            requireAddEndJoint=_requireAddEndJoint)
+            requireAddEndJoint=_requireAddEndJoint,
+            advancedTwist=_advancedTwist)
         mDynFK.profile_load('base')
         uiFunc_load_dyn_chain(self, mDynFK.p_nameBase)
     else:
@@ -2545,7 +2599,8 @@ def uiFunc_make_dynamic_chain(self):
             outCurveDegree=_outDeg,
             addEndJoint=_addEndJoint,
             extendEnd=_extendEnd,
-            requireAddEndJoint=_requireAddEndJoint)
+            requireAddEndJoint=_requireAddEndJoint,
+            advancedTwist=_advancedTwist)
         uiFunc_update_details(self)
 
     uiFunc_persist_simchain_create_optionvars(self)

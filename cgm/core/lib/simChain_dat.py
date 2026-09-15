@@ -545,6 +545,7 @@ class SimChainSetup(CGMDAT.data):
                 'extendStart': None,
                 'addEndJoint': False,
                 'extendEnd': False,
+                'advancedTwist': False,
                 'aimUpMode': 'joint',
                 'fixedSegmentLength': False,
                 'follicleSegmentLength': 1.0,
@@ -584,6 +585,7 @@ class SimChainSetup(CGMDAT.data):
             'extendStart': mSetup.extendStart,
             'addEndJoint': getattr(mSetup, 'addEndJoint', False),
             'extendEnd': getattr(mSetup, 'extendEnd', False),
+            'advancedTwist': getattr(mSetup, 'advancedTwist', False),
             'aimUpMode': mSetup.aimUpMode or 'joint',
             'fixedSegmentLength': getattr(mSetup, 'fixedSegmentLength', False),
             'follicleSegmentLength': getattr(mSetup, 'follicleSegmentLength', 1.0),
@@ -632,6 +634,7 @@ class SimChainSetup(CGMDAT.data):
                     'hairFollowMode': RIGDYN._get_chain_hair_follow_mode(mGrp),
                     'inCurveDegree': int(getattr(mGrp, 'inCurveDegree', getattr(mSetup, 'inCurveDegree', 1))),
                     'outCurveDegree': int(getattr(mGrp, 'outCurveDegree', getattr(mSetup, 'outCurveDegree', 2))),
+                    'advancedTwist': RIGDYN._hair_advanced_twist_from_grp(mGrp),
                 }
             _chains.append(_entry)
 
@@ -761,6 +764,7 @@ class SimChainSetup(CGMDAT.data):
                 hairFollowMode=_copts.get('hairFollowMode', _setupOpts.get('hairFollowMode')),
                 inCurveDegree=_copts.get('inCurveDegree', _setupOpts.get('inCurveDegree', 1)),
                 outCurveDegree=_copts.get('outCurveDegree', _setupOpts.get('outCurveDegree', 2)),
+                advancedTwist=_copts.get('advancedTwist', _setupOpts.get('advancedTwist', False)),
             )
         return True
 

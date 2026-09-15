@@ -220,6 +220,21 @@ _d_axis_string_to_vector = {'x+':(1,0,0),
                             'z+':(0,0,1),
                             'z-':(0,0,-1)}
 
+# ikSplineSolver dForwardAxis (positive x=0 … negative z=5)
+_d_simple_axis_to_ikSpline_forward_axis_enum = {
+    'x+': 0, 'x-': 1, 'y+': 2, 'y-': 3, 'z+': 4, 'z-': 5,
+}
+# dWorldUpAxis — not the same enum order (includes closest*); use listEnum when possible.
+# Typical: positiveY=0, negativeY=1, closestY=2, positiveZ=3, … (varies by Maya version).
+_d_simple_axis_to_ikSpline_worldUp_axis_enum = {
+    'y+': 0, 'y-': 1, 'z+': 3, 'z-': 4,
+    'x+': 0, 'x-': 1,
+}
+# Back-compat alias (forward only — do not use for dWorldUpAxis)
+_d_simple_axis_to_ikSpline_twist_axis_enum = _d_simple_axis_to_ikSpline_forward_axis_enum
+# dWorldUpType enum: 4 = Object Rotation Up (Start/End) — see Maya ikHandle node docs
+_ikSpline_worldUpType_objectRotationUpStartEnd = 4
+
 _d_axis_vector_to_string = {'(1,0,0)':'x+',
                            '(-1,0,0)':'x-',
                            '(0,1,0)':'y+',
