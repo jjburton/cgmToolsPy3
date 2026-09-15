@@ -534,7 +534,7 @@ def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, ml_s
     MCD often leaves the cgm *_inCrv transform as an empty shell (or with a non-driving
     shape) while follicle.startPosition uses a different curve — CVs and skin diverge.
     Replace the dynamic input with a fresh curve, wire startPosition, and rebind skin.
-    Caller `l_pos` is ignored; positions come from ordered sim joints via `_create_hair_incurve`.
+    Caller `l_pos` is ignored; positions from `_hair_incurve_l_pos_for_chain` (sim joints + curve extendEnd).
     """
     _str_func = '_consolidate_hair_incurve_after_mcd'
     _follicleShape = mFollicleShape.mNode if hasattr(mFollicleShape, 'mNode') else mFollicleShape
@@ -561,7 +561,20 @@ def _consolidate_hair_incurve_after_mcd(mInCrv, mFollicleShape, mGrp, name, ml_s
         except Exception:
             pass
 
-    l_pos = _resolve_hair_chain_l_pos(mGrp, ml_sim, None)
+    mGrp = cgmMeta.asMeta(mGrp)
+    ml_baseTargets = mGrp.msgList_get('mBaseTargets') or mGrp.msgList_get('mTargets')
+    _settings = _get_hair_chain_follow_settings(mGrp)
+    if mGrp.hasAttr('fwd'):
+        fwdAxis = simpleAxis(mGrp.fwd)
+    else:
+        fwdAxis = None
+    l_pos = _hair_incurve_l_pos_for_chain(
+        mGrp, ml_sim, ml_baseTargets,
+        extendStart=_settings.get('extendStart'),
+        extendEnd=_settings.get('extendEnd'),
+        upSetup=_settings.get('upSetup'),
+        fwdAxis=fwdAxis,
+        addEndJoint=_settings.get('addEndJoint'))
     crv = _create_hair_incurve(l_pos, name, inCurveDegree)
     mInCrv = cgmMeta.asMeta(crv)
     mInCrv.rename('{0}_inCrv'.format(name))
@@ -655,7 +668,6 @@ def _finalize_hair_outcurve_rest(follicleShape, hairSystemShape, inCurveShape, o
 
 def _store_hair_chain_follow_metadata(mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=None):
     """Persist follow-rig settings on chain grp for rebuild."""
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     mGrp.doStore('aimUpMode', aimUpMode)
     if not _hair_add_end_joint_active(addEndJoint):
         mGrp.doStore('addEndJoint', False)
@@ -666,6 +678,15 @@ def _store_hair_chain_follow_metadata(mGrp, aimUpMode, addEndJoint, extendStart,
             mGrp.doStore('addEndJoint', float(addEndJoint))
         except (TypeError, ValueError):
             mGrp.doStore('addEndJoint', False)
+    if not _hair_curve_extend_end_active(extendEnd):
+        mGrp.doStore('extendEnd', False)
+    elif isinstance(extendEnd, bool):
+        mGrp.doStore('extendEnd', True)
+    else:
+        try:
+            mGrp.doStore('extendEnd', float(extendEnd))
+        except (TypeError, ValueError):
+            mGrp.doStore('extendEnd', False)
     if extendStart is not None:
         mGrp.doStore('extendStart', extendStart)
     mGrp.doStore('upControl', bool(upControl))
@@ -678,6 +699,7 @@ def _get_hair_chain_follow_settings(mGrp):
     _settings = {
         'aimUpMode': 'joint',
         'addEndJoint': _hair_add_end_joint_from_grp(mGrp),
+        'extendEnd': _hair_curve_extend_end_from_grp(mGrp),
         'extendStart': None,
         'upControl': False,
         'upSetup': 'guess',
@@ -902,13 +924,12 @@ def chain_set_name(mDynFK, idx, name):
 def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, name,
                              fwdAxis, upAxis, _l_paramFrac=None,
                              upSetup='guess', upControl=False, aimUpMode='joint',
-                             addEndJoint=False, extendEnd=None):
+                             addEndJoint=False, extendEnd=False):
     """
     Build POC + aim locator follow rig on outCurve.
 
     Returns (ml_locs, ml_aims, ml_prts).
     """
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     _str_func = '_build_hair_chain_follow'
     mGrp = cgmMeta.asMeta(mGrp)
     mOutShape = cgmMeta.asMeta(outCurveShape, noneValid=True)
@@ -978,7 +999,7 @@ def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, na
         _aimVector = fwdAxis.p_vector
         if i < len(ml) - 1:
             _aimParam = _l_paramFrac[i + 1]
-        elif addEndJoint:
+        elif addEndJoint or _hair_curve_extend_end_active(extendEnd):
             _aimParam = 1.0
         else:
             _aimParam = None
@@ -1379,8 +1400,9 @@ def _hair_add_end_joint_active(addEndJoint):
     return True
 
 
-# Legacy name (other cgm tools use extendEnd for unrelated curve ops)
-_hair_extend_end_active = _hair_add_end_joint_active
+def _hair_curve_extend_end_active(extendEnd):
+    """True when curve extendEnd overshoot is enabled (same truthiness as addEndJoint distance)."""
+    return _hair_add_end_joint_active(extendEnd)
 
 
 def _hair_add_end_joint_from_grp(mGrp):
@@ -1393,8 +1415,28 @@ def _hair_add_end_joint_from_grp(mGrp):
     return False
 
 
+def _hair_curve_extend_end_from_grp(mGrp):
+    """Read curve extendEnd from chain grp (pre-split chains: extendEnd attr is joint-only)."""
+    mGrp = cgmMeta.asMeta(mGrp)
+    if not mGrp.hasAttr('addEndJoint'):
+        return False
+    if mGrp.hasAttr('extendEnd'):
+        return getattr(mGrp, 'extendEnd', False)
+    return False
+
+
+def _hair_resolve_create_extend_kws(addEndJoint=None, extendEnd=None):
+    """
+    chain_create / chain_create_hair entry: legacy callers used extendEnd for addEndJoint.
+    Returns (addEndJoint, curve_extendEnd).
+    """
+    if addEndJoint is None and extendEnd is not None:
+        return extendEnd, False
+    return addEndJoint, extendEnd
+
+
 def _hair_coerce_add_end_joint_kw(addEndJoint=None, extendEnd=None):
-    """Resolve addEndJoint kw; extendEnd accepted for legacy callers/dat."""
+    """Deprecated — use _hair_resolve_create_extend_kws at API entry only."""
     if addEndJoint is not None:
         return addEndJoint
     return extendEnd
@@ -1453,9 +1495,58 @@ def _hair_add_end_joint_tip_to_l_pos(l_pos, addEndJoint, upSetup='guess', fwdAxi
 _hair_apply_extend_end_to_l_pos = _hair_add_end_joint_tip_to_l_pos
 
 
-def _hair_incurve_l_pos_for_chain(mGrp, ml_sim, ml_baseTargets, extendStart=None, upSetup='guess', fwdAxis=None):
-    """Ordered sim joint ws positions for _create_hair_incurve (no aim / extend on the curve)."""
-    return _resolve_hair_chain_l_pos(mGrp, ml_sim, ml_baseTargets)
+def _hair_append_distance_along_segment(l_pos, pLast, pPrev, distance_kw, upSetup='guess', fwdAxis=None):
+    """Append one ws point past pLast along (pPrev -> pLast) or manual fwd."""
+    l_pos = list(l_pos)
+    _dist = _hair_resolve_add_end_distance_from_positions(
+        pLast, pPrev, distance_kw, upSetup, fwdAxis)
+    if _dist is None:
+        return l_pos
+    if upSetup == 'manual' and fwdAxis is not None:
+        l_pos.append(DIST.get_pos_by_vec_dist(pLast, fwdAxis.p_vector, _dist))
+    else:
+        _vecEnd = MATHUTILS.get_vector_of_two_points(pPrev, pLast)
+        l_pos.append(DIST.get_pos_by_vec_dist(pLast, _vecEnd, _dist))
+    return l_pos
+
+
+def _hair_incurve_l_pos_for_chain(mGrp, ml_sim, ml_baseTargets, extendStart=None, extendEnd=None,
+                                  upSetup='guess', fwdAxis=None, addEndJoint=None):
+    """Sim joint ws positions for inCurve; optional curve extendEnd CV past chain end."""
+    l_pos = _resolve_hair_chain_l_pos(mGrp, ml_sim, ml_baseTargets)
+    if not _hair_curve_extend_end_active(extendEnd):
+        return l_pos
+    ml_sim = _hair_normalize_sim_chain(ml_sim)
+    ml_baseTargets = ml_baseTargets or []
+    if _hair_add_end_joint_active(addEndJoint) and len(ml_sim) >= 2:
+        pLast = ml_sim[-1].p_position
+        pPrev = ml_sim[-2].p_position
+    elif len(ml_baseTargets) >= 2:
+        pLast = ml_baseTargets[-1].p_position
+        pPrev = ml_baseTargets[-2].p_position
+    elif len(l_pos) >= 2:
+        pLast = l_pos[-1]
+        pPrev = l_pos[-2]
+    else:
+        return l_pos
+    return _hair_append_distance_along_segment(
+        l_pos, pLast, pPrev, extendEnd, upSetup=upSetup, fwdAxis=fwdAxis)
+
+
+def _delete_hair_incurve_skincluster(mInCrv):
+    """Remove skinCluster on inCurve so sim joint moves do not deform dynamic hair mid-rebuild."""
+    mInCrv = cgmMeta.asMeta(mInCrv, noneValid=True)
+    if not mInCrv:
+        return
+    _inCrv = VALID.mNodeString(mInCrv)
+    _hist = []
+    for _dag in ([_inCrv] + (mc.listRelatives(_inCrv, shapes=True, fullPath=True) or [])):
+        _hist.extend(mc.listHistory(_dag, pdo=True) or [])
+    for _sc in mc.ls(_hist, type='skinCluster') or []:
+        try:
+            mc.delete(_sc)
+        except Exception:
+            pass
 
 
 def _hair_incurve_skin_bind(ml_sim, mInCrv, skinClusterName, l_pos=None):
@@ -1492,9 +1583,8 @@ def _hair_incurve_skin_bind(ml_sim, mInCrv, skinClusterName, l_pos=None):
     return mSkinCluster, ml_sim
 
 
-def _hair_trim_add_end_joints(chain, num_base_joints, addEndJoint=None, extendEnd=None):
+def _hair_trim_add_end_joints(chain, num_base_joints, addEndJoint=None):
     """Remove tip add-end sim joints; keep base targets + one addEnd joint when enabled."""
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     _max = num_base_joints + (1 if _hair_add_end_joint_active(addEndJoint) else 0)
     ml = _hair_normalize_sim_chain(chain)
     while len(ml) > _max:
@@ -1509,13 +1599,12 @@ def _hair_trim_add_end_joints(chain, num_base_joints, addEndJoint=None, extendEn
 _hair_trim_extend_end_joints = _hair_trim_add_end_joints
 
 
-def _hair_sync_add_end_sim_joint(ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=None):
+def _hair_sync_add_end_sim_joint(ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name):
     """
     Add-end sim joint: duplicate last base joint (po, no inputs), parent under it,
     tip at last-base.getPositionByAxisDistance(fwd, distance). Rebuild moves tip the same way.
     """
     ml_sim = _hair_normalize_sim_chain(ml_sim)
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     _num_base = len(ml_baseTargets or [])
     ml_joints = _hair_trim_add_end_joints(ml_sim, _num_base, addEndJoint=addEndJoint)
     if not _hair_add_end_joint_active(addEndJoint) or _num_base < 2:
@@ -1563,7 +1652,6 @@ def _hair_append_add_end_joint(ml_sim, *args, **kws):
     Stale callers (3 args): (ml_sim, ml_baseTargets, addEndJoint) — resolve aim/name.
     """
     ml_sim = _hair_normalize_sim_chain(ml_sim)
-    extendEnd = kws.pop('extendEnd', None)
     if len(args) == 2:
         if isinstance(args[1], str):
             _tip = args[0]
@@ -1585,10 +1673,10 @@ def _hair_append_add_end_joint(ml_sim, *args, **kws):
             if len(ml_baseTargets or []) >= 2:
                 _fwd = TRANS.closestAxisTowardObj_get(ml_baseTargets[0], ml_baseTargets[1])
             return _hair_sync_add_end_sim_joint(
-                ml_sim, ml_baseTargets, addEndJoint, 'guess', _fwd, _name, extendEnd=extendEnd)
+                ml_sim, ml_baseTargets, addEndJoint, 'guess', _fwd, _name)
     if len(args) >= 5:
         return _hair_sync_add_end_sim_joint(
-            ml_sim, args[0], args[1], args[2], args[3], args[4], extendEnd=extendEnd)
+            ml_sim, args[0], args[1], args[2], args[3], args[4])
     raise TypeError(
         '_hair_append_add_end_joint expected (ml_sim, tip_pos, name), '
         '(ml_sim, ml_baseTargets, addEndJoint), or 5 sync args; got {0}'.format(len(args)))
@@ -1598,37 +1686,39 @@ _hair_append_extend_end_joint = _hair_append_add_end_joint
 
 
 def _hair_rebuild_sim_chain_for_incurve(mGrp, ml_sim, ml_baseTargets, tip_pos, name, addEndJoint=None,
-                                        extendEnd=None, upSetup='guess', fwdAxis=None):
+                                        upSetup='guess', fwdAxis=None):
     """Trim / sync add-end sim joint; tip_pos ignored (distance from chain + addEndJoint)."""
     return _hair_sync_add_end_sim_joint(
-        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=extendEnd)
+        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name)
 
 
 def _hair_ensure_add_end_joint_chain(mGrp, ml_sim, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
                                      extendEnd=None, extendStart=None):
     """
     When addEndJoint is on: one sim joint past last target at add-end distance.
-    Returns (inCurve l_pos from sim joints, ml_sim).
+    Returns (inCurve l_pos from sim joints + optional curve extendEnd, ml_sim).
     """
     ml_sim = _hair_normalize_sim_chain(ml_sim)
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     if not _hair_add_end_joint_active(addEndJoint):
         return _hair_incurve_l_pos_for_chain(
-            mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis), ml_sim
+            mGrp, ml_sim, ml_baseTargets, extendStart=extendStart, extendEnd=extendEnd,
+            upSetup=upSetup, fwdAxis=fwdAxis, addEndJoint=addEndJoint), ml_sim
     _num_base = len(ml_baseTargets or [])
     if _num_base < 2 or len(ml_sim) < 2:
         _hair_validate_add_end_joint_count(
             ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos,
             context='addEndJoint on but fewer than 2 base positions')
         return _hair_incurve_l_pos_for_chain(
-            mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis), ml_sim
+            mGrp, ml_sim, ml_baseTargets, extendStart=extendStart, extendEnd=extendEnd,
+            upSetup=upSetup, fwdAxis=fwdAxis, addEndJoint=addEndJoint), ml_sim
     ml_sim = _hair_sync_add_end_sim_joint(
-        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name, extendEnd=extendEnd)
+        ml_sim, ml_baseTargets, addEndJoint, upSetup, fwdAxis, name)
     _hair_validate_add_end_joint_count(
         ml_sim, ml_baseTargets, addEndJoint, context='ensure addEndJoint sim chain',
-        required=False, extendEnd=extendEnd)
+        required=False)
     l_pos = _hair_incurve_l_pos_for_chain(
-        mGrp, ml_sim, ml_baseTargets, extendStart, upSetup, fwdAxis)
+        mGrp, ml_sim, ml_baseTargets, extendStart=extendStart, extendEnd=extendEnd,
+        upSetup=upSetup, fwdAxis=fwdAxis, addEndJoint=addEndJoint)
     return l_pos, ml_sim
 
 
@@ -1636,9 +1726,8 @@ _hair_ensure_extend_end_sim_chain = _hair_ensure_add_end_joint_chain
 
 
 def _hair_validate_add_end_joint_count(ml_sim, ml_baseTargets, addEndJoint, l_pos=None, context='',
-                                     extendEnd=None, required=False):
+                                     required=False):
     """Raise if addEndJoint is on (or required) but sim joint count is not base targets + 1."""
-    addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
     if not (_hair_add_end_joint_active(addEndJoint) or required):
         return
     _num_base = len(ml_baseTargets or [])
@@ -2121,8 +2210,9 @@ class cgmDynFK(cgmMeta.cgmObject):
             self.baseName = baseName
         self.useExistingNucleus = useExistingNucleus
         self.upSetup = upSetup
-        self.addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
-        self.extendEnd = self.addEndJoint
+        addEndJoint, extendEnd = _hair_resolve_create_extend_kws(addEndJoint, extendEnd)
+        self.addEndJoint = addEndJoint if addEndJoint is not None else False
+        self.extendEnd = extendEnd if extendEnd is not None else False
         self.extendStart = extendStart
         self.aimUpMode = aimUpMode
         self.upControl = upControl
@@ -2149,6 +2239,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 upSetup=self.upSetup,
                 extendStart=self.extendStart,
                 addEndJoint=self.addEndJoint,
+                extendEnd=self.extendEnd,
                 upControl=self.upControl,
                 aimUpMode=self.aimUpMode,
                 fixedSegmentLength=self.fixedSegmentLength,
@@ -2389,44 +2480,59 @@ class cgmDynFK(cgmMeta.cgmObject):
             fwdAxis = TRANS.closestAxisTowardObj_get(ml_baseTargets[0], ml_baseTargets[1])
             upAxis = TRANS.crossAxis_get(fwdAxis)
 
-        _num_base = len(ml_baseTargets)
-        l_pos, ml_sim = _hair_ensure_add_end_joint_chain(
-            mGrp, ml_sim, ml_baseTargets, None, _settings.get('addEndJoint'),
-            _settings.get('upSetup'), fwdAxis, _name,
-            extendStart=_settings.get('extendStart'))
-        _hair_validate_add_end_joint_count(
-            ml_sim, ml_baseTargets, _settings.get('addEndJoint'), l_pos=l_pos,
-            context='{0} | after rebuild sim chain'.format(mGrp.p_nameBase))
-        mGrp.msgList_connect('mObjJointChain', ml_sim)
-
+        # Tear down follow + inCurve skin before moving sim joints (add-end distance).
+        # Moving skinned joints while spline IK / hair is live can hang Maya DG.
         _tear_down_hair_chain_follow_spline(mGrp)
+        _delete_hair_incurve_skincluster(mInCrv)
 
-        mInCrv = _consolidate_hair_incurve_after_mcd(
-            mInCrv, mFollicleShape, mGrp, _name, ml_sim, l_pos, _skinName,
-            fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
-            follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
-            inCurveDegree=_inDeg,
-            use_follicle_input_curve=True,
-            sampleDensity=_resolve_follicle_sample_density(mGrp, self))
+        _suspend = False
+        try:
+            _suspend = mc.refresh(q=True, suspend=True)
+        except Exception:
+            pass
+        cgmGEN.playback_stop()
+        try:
+            l_pos, ml_sim = _hair_ensure_add_end_joint_chain(
+                mGrp, ml_sim, ml_baseTargets, None, _settings.get('addEndJoint'),
+                _settings.get('upSetup'), fwdAxis, _name,
+                extendStart=_settings.get('extendStart'),
+                extendEnd=_settings.get('extendEnd'))
+            _hair_validate_add_end_joint_count(
+                ml_sim, ml_baseTargets, _settings.get('addEndJoint'), l_pos=l_pos,
+                context='{0} | after rebuild sim chain'.format(mGrp.p_nameBase))
+            mGrp.msgList_connect('mObjJointChain', ml_sim)
 
-        mOutCrv, _outCurveShape = _prepare_spline_hair_outcurve(
-            mFollicle, mFollicleShape, mHairSys, _name, _outDeg)
-        mOutCrv.p_parent = mGrp
-        mOutCrv = _follicle_outcurve_meta(mFollicle) or mOutCrv
-        _inShape = mc.listRelatives(
-            mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
-        _finalize_hair_outcurve_rest(
-            _follicleShape, _hairSystem, _inShape, _outCurveShape,
-            fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
-            follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
-            l_positions=l_pos,
-            sampleDensity=_resolve_follicle_sample_density(mGrp, self))
+            mInCrv = _consolidate_hair_incurve_after_mcd(
+                mInCrv, mFollicleShape, mGrp, _name, ml_sim, l_pos, _skinName,
+                fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
+                follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
+                inCurveDegree=_inDeg,
+                use_follicle_input_curve=True,
+                sampleDensity=_resolve_follicle_sample_density(mGrp, self))
 
-        mGrp.connectChildNode(mOutCrv.mNode, 'mOutCrv', 'group')
+            mOutCrv, _outCurveShape = _prepare_spline_hair_outcurve(
+                mFollicle, mFollicleShape, mHairSys, _name, _outDeg)
+            mOutCrv.p_parent = mGrp
+            mOutCrv = _follicle_outcurve_meta(mFollicle) or mOutCrv
+            _inShape = mc.listRelatives(
+                mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
+            _finalize_hair_outcurve_rest(
+                _follicleShape, _hairSystem, _inShape, _outCurveShape,
+                fixedSegmentLength=bool(getattr(mGrp, 'fixedSegmentLength', self.fixedSegmentLength)),
+                follicleSegmentLength=getattr(mGrp, 'follicleSegmentLength', self.follicleSegmentLength),
+                l_positions=l_pos,
+                sampleDensity=_resolve_follicle_sample_density(mGrp, self))
 
-        _build_hair_chain_follow_spline(
-            mGrp, mOutCrv, ml, ml_sim, _name, fwdAxis=fwdAxis, upAxis=upAxis,
-            mFollicle=mFollicle)
+            mGrp.connectChildNode(mOutCrv.mNode, 'mOutCrv', 'group')
+
+            _build_hair_chain_follow_spline(
+                mGrp, mOutCrv, ml, ml_sim, _name, fwdAxis=fwdAxis, upAxis=upAxis,
+                mFollicle=mFollicle)
+        finally:
+            try:
+                mc.refresh(suspend=_suspend)
+            except Exception:
+                pass
 
         mc.currentTime(_savedTime, edit=True)
         if _b_connected:
@@ -2513,7 +2619,8 @@ class cgmDynFK(cgmMeta.cgmObject):
             upSetup=_settings['upSetup'],
             upControl=_settings['upControl'],
             aimUpMode=_settings['aimUpMode'],
-            addEndJoint=_settings['addEndJoint'])
+            addEndJoint=_settings['addEndJoint'],
+            extendEnd=_settings.get('extendEnd'))
 
         mc.currentTime(_savedTime, edit=True)
 
@@ -2542,12 +2649,12 @@ class cgmDynFK(cgmMeta.cgmObject):
         _chainMode = chainMode or kws.pop('chainMode', 'hair')
         if kws.pop('requireAddEndJoint', None):
             requireAddEndJoint = True
-        addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
+        addEndJoint, extendEnd = _hair_resolve_create_extend_kws(addEndJoint, extendEnd)
         if _chainMode == 'clothAttach':
             return attach_to_cloth_dynFK(self, objs=objs, name=name, **kws)
         return self.chain_create_hair(
             objs=objs, fwd=fwd, up=up, name=name, upSetup=upSetup,
-            extendStart=extendStart, addEndJoint=addEndJoint, mNucleus=mNucleus,
+            extendStart=extendStart, addEndJoint=addEndJoint, extendEnd=extendEnd, mNucleus=mNucleus,
             upControl=upControl, aimUpMode=aimUpMode,
             fixedSegmentLength=fixedSegmentLength,
             follicleSegmentLength=follicleSegmentLength,
@@ -2608,23 +2715,24 @@ class cgmDynFK(cgmMeta.cgmObject):
         upSetup = upSetup or self.upSetup
         if extendStart is None:
             extendStart = self.extendStart
-        addEndJoint = _hair_coerce_add_end_joint_kw(addEndJoint, extendEnd)
+        addEndJoint, extendEnd = _hair_resolve_create_extend_kws(addEndJoint, extendEnd)
         if addEndJoint is None:
-            addEndJoint = getattr(self, 'addEndJoint', None)
-        if addEndJoint is None:
-            addEndJoint = self.extendEnd
+            addEndJoint = getattr(self, 'addEndJoint', False)
+        if extendEnd is None:
+            extendEnd = getattr(self, 'extendEnd', False)
         if _requireAddEndJoint and not _hair_add_end_joint_active(addEndJoint):
             try:
-                addEndJoint = float(getattr(self, 'addEndJoint', None) or self.extendEnd or 2.0)
+                addEndJoint = float(getattr(self, 'addEndJoint', None) or 2.0)
             except (TypeError, ValueError):
                 addEndJoint = 2.0
         log.info(cgmGEN.logString_msg(
             _str_func,
-            'addEndJoint={0!r} active={1} requireAddEndJoint={2} setup.addEndJoint={3!r} targets={4}'.format(
+            'addEndJoint={0!r} active={1} extendEnd={2!r} curveActive={3} requireAddEndJoint={4} targets={5}'.format(
                 addEndJoint,
                 _hair_add_end_joint_active(addEndJoint),
+                extendEnd,
+                _hair_curve_extend_end_active(extendEnd),
                 _requireAddEndJoint,
-                getattr(self, 'addEndJoint', None),
                 len(ml_baseTargets))))
         upControl = upControl or self.upControl
         aimUpMode = aimUpMode or self.aimUpMode
@@ -2690,15 +2798,14 @@ class cgmDynFK(cgmMeta.cgmObject):
 
         l_pos, ml_sim = _hair_ensure_add_end_joint_chain(
             mGrp, ml_sim, ml_baseTargets, l_pos, addEndJoint, upSetup, fwdAxis, name,
-            extendEnd=None, extendStart=extendStart)
+            extendEnd=extendEnd, extendStart=extendStart)
 
         ml_sim = _hair_reparent_sim_chain_ordered(ml_sim)
 
         log.info(cgmGEN.logString_msg(
             _str_func,
-            'after ensure: simJoints={0} l_pos={1} addEndJoint={2!r} active={3}'.format(
-                len(_hair_normalize_sim_chain(ml_sim)), len(l_pos), addEndJoint,
-                _hair_add_end_joint_active(addEndJoint))))
+            'after ensure: simJoints={0} l_pos CVs={1} addEndJoint={2!r} extendEnd={3!r}'.format(
+                len(_hair_normalize_sim_chain(ml_sim)), len(l_pos), addEndJoint, extendEnd)))
 
         _hair_validate_add_end_joint_count(
             ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
@@ -2882,7 +2989,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, name,
                 fwdAxis, upAxis, _l_paramFrac=_l_paramFrac,
                 upSetup=upSetup, upControl=upControl, aimUpMode=aimUpMode,
-                addEndJoint=addEndJoint)
+                addEndJoint=addEndJoint, extendEnd=extendEnd)
             mCrv.rename("{0}_outCrv".format(name))
             mCrvParent = mCrv.getParent(asMeta=1)
             mCrvParent.p_parent = mGrp
@@ -2907,7 +3014,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             mGrp.doStore('follicleSampleDensity', follicleSampleDensity)
         self.follicleSampleDensity = follicleSampleDensity
         _store_hair_chain_follow_metadata(
-            mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup)
+            mGrp, aimUpMode, addEndJoint, extendStart, upControl, upSetup, extendEnd=extendEnd)
 
         _hair_validate_add_end_joint_count(
             ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,

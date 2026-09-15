@@ -582,8 +582,8 @@ class SimChainSetup(CGMDAT.data):
             'startFrame': mSetup.startFrame,
             'upSetup': mSetup.upSetup or 'guess',
             'extendStart': mSetup.extendStart,
-            'addEndJoint': getattr(mSetup, 'addEndJoint', mSetup.extendEnd),
-            'extendEnd': getattr(mSetup, 'addEndJoint', mSetup.extendEnd),
+            'addEndJoint': getattr(mSetup, 'addEndJoint', False),
+            'extendEnd': getattr(mSetup, 'extendEnd', False),
             'aimUpMode': mSetup.aimUpMode or 'joint',
             'fixedSegmentLength': getattr(mSetup, 'fixedSegmentLength', False),
             'follicleSegmentLength': getattr(mSetup, 'follicleSegmentLength', 1.0),
@@ -622,7 +622,7 @@ class SimChainSetup(CGMDAT.data):
                     'upSetup': mSetup.upSetup,
                     'extendStart': mSetup.extendStart,
                     'addEndJoint': RIGDYN._hair_add_end_joint_from_grp(mGrp),
-                    'extendEnd': RIGDYN._hair_add_end_joint_from_grp(mGrp),
+                    'extendEnd': RIGDYN._hair_curve_extend_end_from_grp(mGrp),
                     'aimUpMode': mSetup.aimUpMode,
                     'fixedSegmentLength': getattr(mGrp, 'fixedSegmentLength', getattr(mSetup, 'fixedSegmentLength', False)),
                     'follicleSegmentLength': getattr(
@@ -749,9 +749,8 @@ class SimChainSetup(CGMDAT.data):
                 up=_copts.get('up') or _setupOpts.get('up'),
                 upSetup=_copts.get('upSetup') or _setupOpts.get('upSetup'),
                 extendStart=_copts.get('extendStart', _setupOpts.get('extendStart')),
-                addEndJoint=_copts.get(
-                    'addEndJoint',
-                    _setupOpts.get('addEndJoint', _copts.get('extendEnd', _setupOpts.get('extendEnd')))),
+                addEndJoint=_copts.get('addEndJoint', _setupOpts.get('addEndJoint')),
+                extendEnd=_copts.get('extendEnd', _setupOpts.get('extendEnd')),
                 aimUpMode=_copts.get('aimUpMode') or _setupOpts.get('aimUpMode'),
                 fixedSegmentLength=_copts.get(
                     'fixedSegmentLength', _setupOpts.get('fixedSegmentLength', False)),

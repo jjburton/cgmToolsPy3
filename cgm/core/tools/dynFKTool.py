@@ -239,6 +239,10 @@ class ui(cgmUI.cgmGUI):
         self.var_SimChainAddEndJointDistance.setType('string')
         self.create_guiOptionVar('SimChainAddEndJointEnabled', defaultValue='0')
         self.var_SimChainAddEndJointEnabled.setType('string')
+        self.create_guiOptionVar('SimChainExtendEndDistance', defaultValue='1.0')
+        self.var_SimChainExtendEndDistance.setType('string')
+        self.create_guiOptionVar('SimChainExtendEndEnabled', defaultValue='0')
+        self.var_SimChainExtendEndEnabled.setType('string')
         self.create_guiOptionVar('SimChainFollicleSampleDensity', defaultValue='1.0')
         self.var_SimChainFollicleSampleDensity.setType('string')
         self._d_chainHairBuildMenus = {}
@@ -646,7 +650,7 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelLabel(_row, l='Add end joint:')
     self.options_addEndJointCB = mUI.MelCheckBox(
         _row, v=False, label='',
-        ann='Extra sim joint past the last target (+ inCurve tip CV) so the last segment can bend.',
+        ann='Extra sim joint past the last target so the last segment can bend (not an inCurve CV).',
         changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
     self.options_addEndJointDistance = mUI.MelTextField(
         _row, w=50, text='2.0', editable=False,
@@ -657,6 +661,23 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
     uiFunc_sync_add_end_joint_options(self)
+
+    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Extend end:')
+    self.options_curveExtendEndCB = mUI.MelCheckBox(
+        _row, v=False, label='',
+        ann='Extra inCurve CV past chain end (after add-end sim joint when that is on). Ponytail overshoot.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    self.options_curveExtendEndDistance = mUI.MelTextField(
+        _row, w=50, text='1.0', editable=False,
+        bgc=SHARED._d_gui_state_colors.get('help'),
+        ann='Curve extension distance (scene units) along last segment when Extend end is on.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+    uiFunc_sync_curve_extend_end_options(self)
     uiFunc_restore_simchain_create_optionvars(self)
 
     cgmUI.add_LineSubBreak()
@@ -1622,9 +1643,8 @@ def uiFunc_update_details(self):
             _row.layout()
 
         if _chainMode != 'clothAttach' and not _b_broken:
-            _fMenu, _inMenu, _outMenu, _extCB, _extField, _sdField, _sdSlider = uiFunc_chain_hair_build_opts_row(
-                self, _chainColumn, chain)
-            self._d_chainHairBuildMenus[i] = (_fMenu, _inMenu, _outMenu, _extCB, _extField, _sdField, _sdSlider)
+            _menus = uiFunc_chain_hair_build_opts_row(self, _chainColumn, chain)
+            self._d_chainHairBuildMenus[i] = _menus
             mc.setParent(_chainColumn)
             _pushRow = mUI.MelHLayout(_chainColumn, ut='cgmUISubTemplate', padding=_padding)
             cgmUI.add_Button(
@@ -2058,9 +2078,15 @@ def uiFunc_persist_simchain_create_optionvars(self):
     if hasattr(self, 'options_addEndJointCB'):
         self.var_SimChainAddEndJointEnabled.setValue(
             '1' if bool(self.options_addEndJointCB.getValue()) else '0')
+    if hasattr(self, 'options_curveExtendEndDistance'):
+        self.var_SimChainExtendEndDistance.setValue(self.options_curveExtendEndDistance.getValue())
+    if hasattr(self, 'options_curveExtendEndCB'):
+        self.var_SimChainExtendEndEnabled.setValue(
+            '1' if bool(self.options_curveExtendEndCB.getValue()) else '0')
     if hasattr(self, 'options_follicleSampleDensity'):
         self.var_SimChainFollicleSampleDensity.setValue(self.options_follicleSampleDensity.getValue())
     uiFunc_sync_add_end_joint_options(self)
+    uiFunc_sync_curve_extend_end_options(self)
 
 def uiFunc_restore_simchain_create_optionvars(self):
     if not hasattr(self, 'options_hairFollowMode'):
@@ -2082,6 +2108,14 @@ def uiFunc_restore_simchain_create_optionvars(self):
     if hasattr(self, 'options_addEndJointDistance'):
         self.options_addEndJointDistance.setValue(str(_ext))
         uiFunc_sync_add_end_joint_options(self)
+    if hasattr(self, 'options_curveExtendEndCB'):
+        _cvex_on = str(self.var_SimChainExtendEndEnabled.value or '0').strip().lower() in (
+            '1', 'true', 'yes', 'on')
+        self.options_curveExtendEndCB.setValue(_cvex_on)
+    _cvex = self.var_SimChainExtendEndDistance.value or '1.0'
+    if hasattr(self, 'options_curveExtendEndDistance'):
+        self.options_curveExtendEndDistance.setValue(str(_cvex))
+        uiFunc_sync_curve_extend_end_options(self)
     if hasattr(self, 'options_follicleSampleDensity'):
         self.options_follicleSampleDensity.setValue(
             str(self.var_SimChainFollicleSampleDensity.value or '1.0'))
@@ -2115,8 +2149,32 @@ def uiFunc_hair_add_end_joint_options(self):
         except (TypeError, ValueError):
             return 2.0
 
-uiFunc_hair_extend_end_options = uiFunc_hair_add_end_joint_options
-uiFunc_sync_extend_end_options = uiFunc_sync_add_end_joint_options
+def uiFunc_sync_curve_extend_end_options(self):
+    if not hasattr(self, 'options_curveExtendEndCB'):
+        return
+    _on = bool(self.options_curveExtendEndCB.getValue())
+    self.options_curveExtendEndDistance(edit=True, editable=_on)
+    self.options_curveExtendEndDistance(edit=True, bgc=SHARED._d_gui_state_colors.get('normal' if _on else 'help'))
+
+def uiFunc_hair_curve_extend_end_required(self):
+    if not hasattr(self, 'options_curveExtendEndCB'):
+        return False
+    try:
+        return bool(int(self.options_curveExtendEndCB.getValue()))
+    except (TypeError, ValueError):
+        return bool(self.options_curveExtendEndCB.getValue())
+
+def uiFunc_hair_curve_extend_end_options(self):
+    """Return extendEnd for chain_create: False or numeric curve tip offset."""
+    if not uiFunc_hair_curve_extend_end_required(self):
+        return False
+    try:
+        return float(self.options_curveExtendEndDistance.getValue())
+    except (TypeError, ValueError):
+        try:
+            return float(self.var_SimChainExtendEndDistance.value or 1.0)
+        except (TypeError, ValueError):
+            return 1.0
 
 def uiFunc_chain_add_end_joint_from_grp(chain):
     """Read addEndJoint enabled + distance from chain grp attrs."""
@@ -2140,8 +2198,26 @@ def uiFunc_chain_add_end_joint_apply(mGrp, extendCB, extendField):
     else:
         mGrp.doStore('addEndJoint', False)
 
-uiFunc_chain_extend_end_from_grp = uiFunc_chain_add_end_joint_from_grp
-uiFunc_chain_extend_end_apply = uiFunc_chain_add_end_joint_apply
+def uiFunc_chain_curve_extend_end_from_grp(chain):
+    _v = RIGDYN._hair_curve_extend_end_from_grp(chain)
+    if not RIGDYN._hair_curve_extend_end_active(_v):
+        return False, 1.0
+    if isinstance(_v, bool):
+        return True, 1.0
+    try:
+        return True, float(_v)
+    except (TypeError, ValueError):
+        return True, 1.0
+
+def uiFunc_chain_curve_extend_end_apply(mGrp, extendCB, extendField):
+    mGrp = cgmMeta.asMeta(mGrp)
+    if extendCB.getValue():
+        try:
+            mGrp.doStore('extendEnd', float(extendField.getValue()))
+        except (TypeError, ValueError):
+            mGrp.doStore('extendEnd', 1.0)
+    else:
+        mGrp.doStore('extendEnd', False)
 
 def uiFunc_chain_push_build_to_create_options(self, chainIdx):
     """Copy per-chain hair build settings into Create panel + optionVars."""
@@ -2159,15 +2235,19 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
 
     _menus = getattr(self, '_d_chainHairBuildMenus', {}).get(chainIdx)
     if _menus:
-        followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider = _menus
+        followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider = _menus
         uiFunc_chain_hair_build_opts_apply(
-            self, chain, followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider)
+            self, chain, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
+            densityField, densitySlider)
         self.options_hairFollowMode.setValue(followMenu.getValue())
         self.options_inCurveDegree.setValue(inMenu.getValue())
         self.options_outCurveDegree.setValue(outMenu.getValue())
         if extendCB is not None and extendField is not None:
             self.options_addEndJointCB.setValue(bool(extendCB.getValue()))
             self.options_addEndJointDistance.setValue(extendField.getValue())
+        if curveExtCB is not None and curveExtField is not None:
+            self.options_curveExtendEndCB.setValue(bool(curveExtCB.getValue()))
+            self.options_curveExtendEndDistance.setValue(curveExtField.getValue())
         if densityField is not None and not bool(getattr(chain, 'fixedSegmentLength', False)):
             self.options_follicleSampleDensity.setValue(str(densityField.getValue()))
     else:
@@ -2182,6 +2262,11 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
             self.options_addEndJointCB.setValue(_enabled)
         if hasattr(self, 'options_addEndJointDistance'):
             self.options_addEndJointDistance.setValue(str(_dist))
+        _cvex_on, _cvex_dist = uiFunc_chain_curve_extend_end_from_grp(chain)
+        if hasattr(self, 'options_curveExtendEndCB'):
+            self.options_curveExtendEndCB.setValue(_cvex_on)
+        if hasattr(self, 'options_curveExtendEndDistance'):
+            self.options_curveExtendEndDistance.setValue(str(_cvex_dist))
         if hasattr(self, 'options_follicleSampleDensity'):
             _sd = RIGDYN._resolve_follicle_sample_density(chain, self._mDynFK)
             self.options_follicleSampleDensity.setValue(str(_sd))
@@ -2194,12 +2279,14 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
         uiFunc_sync_follicle_segment_options(self)
 
     uiFunc_sync_add_end_joint_options(self)
+    uiFunc_sync_curve_extend_end_options(self)
     uiFunc_persist_simchain_create_optionvars(self)
     log.info(cgmGEN.logString_msg(
         _str_func, 'Create options updated from chain {0}'.format(chain.p_nameBase)))
 
 
 def uiFunc_chain_hair_build_opts_apply(self, mGrp, followMenu, inMenu, outMenu, extendCB=None, extendField=None,
+                                       curveExtCB=None, curveExtField=None,
                                        densityField=None, densitySlider=None):
     """Write per-chain build menus onto chain grp attrs (used before rebuild)."""
     mGrp = cgmMeta.asMeta(mGrp)
@@ -2217,15 +2304,19 @@ def uiFunc_chain_hair_build_opts_apply(self, mGrp, followMenu, inMenu, outMenu, 
     mGrp.doStore('outCurveDegree', MATH.Clamp(_out, 1, 3))
     if extendCB is not None and extendField is not None:
         uiFunc_chain_add_end_joint_apply(mGrp, extendCB, extendField)
+    if curveExtCB is not None and curveExtField is not None:
+        uiFunc_chain_curve_extend_end_apply(mGrp, curveExtCB, curveExtField)
     if densitySlider is not None:
         uiFunc_chain_follicle_sample_density_apply(self, mGrp, densitySlider.getValue())
     elif densityField is not None:
         uiFunc_chain_follicle_sample_density_apply(self, mGrp, densityField.getValue())
 
 def uiFunc_chain_hair_build_opts_changed(self, mGrp, followMenu, inMenu, outMenu, extendCB=None, extendField=None,
+                                         curveExtCB=None, curveExtField=None,
                                          densityField=None, densitySlider=None):
     uiFunc_chain_hair_build_opts_apply(
-        self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider)
+        self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
+        densityField, densitySlider)
     self.var_SimChainHairFollowMode.setValue(followMenu.getValue())
     self.var_SimChainInCurveDegree.setValue(inMenu.getValue())
     self.var_SimChainOutCurveDegree.setValue(outMenu.getValue())
@@ -2239,6 +2330,10 @@ def uiFunc_chain_hair_build_opts_changed(self, mGrp, followMenu, inMenu, outMenu
         self.var_SimChainAddEndJointDistance.setValue(extendField.getValue())
         if hasattr(self, 'options_addEndJointDistance'):
             self.options_addEndJointDistance.setValue(extendField.getValue())
+    if curveExtField is not None:
+        self.var_SimChainExtendEndDistance.setValue(curveExtField.getValue())
+        if hasattr(self, 'options_curveExtendEndDistance'):
+            self.options_curveExtendEndDistance.setValue(curveExtField.getValue())
 
 def uiFunc_chain_add_end_joint_row(self, parent, chain):
     _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
@@ -2247,7 +2342,7 @@ def uiFunc_chain_add_end_joint_row(self, parent, chain):
     _enabled, _dist = uiFunc_chain_add_end_joint_from_grp(chain)
     extendCB = mUI.MelCheckBox(
         _row, v=_enabled, label='',
-        ann='Tip joint + inCurve CV past last target along aim vector (last segment bend).')
+        ann='Tip sim joint past last target along last segment (last segment bend).')
     extendField = mUI.MelTextField(_row, w=50, text=str(_dist),
         editable=_enabled,
         bgc=SHARED._d_gui_state_colors.get('normal' if _enabled else 'help'))
@@ -2255,6 +2350,22 @@ def uiFunc_chain_add_end_joint_row(self, parent, chain):
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
     return extendCB, extendField
+
+def uiFunc_chain_curve_extend_end_row(self, parent, chain):
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Extend end:')
+    _enabled, _dist = uiFunc_chain_curve_extend_end_from_grp(chain)
+    curveExtCB = mUI.MelCheckBox(
+        _row, v=_enabled, label='',
+        ann='Extra inCurve CV past chain end (after add-end joint when on).')
+    curveExtField = mUI.MelTextField(_row, w=50, text=str(_dist),
+        editable=_enabled,
+        bgc=SHARED._d_gui_state_colors.get('normal' if _enabled else 'help'))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+    return curveExtCB, curveExtField
 
 def uiFunc_chain_hair_build_opts_row(self, parent, chain):
     """Per-chain build / rebuild options (stored on chain grp)."""
@@ -2293,6 +2404,7 @@ def uiFunc_chain_hair_build_opts_row(self, parent, chain):
     _row.layout()
 
     extendCB, extendField = uiFunc_chain_add_end_joint_row(self, parent, chain)
+    curveExtCB, curveExtField = uiFunc_chain_curve_extend_end_row(self, parent, chain)
 
     _sdVal = RIGDYN._resolve_follicle_sample_density(chain, getattr(self, '_mDynFK', None))
     _sdFixed = bool(getattr(chain, 'fixedSegmentLength', False))
@@ -2320,21 +2432,30 @@ def uiFunc_chain_hair_build_opts_row(self, parent, chain):
 
     _cb = cgmGEN.Callback(
         uiFunc_chain_hair_build_opts_ui_changed,
-        self, chain, followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider)
+        self, chain, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
+        densityField, densitySlider)
     followMenu(edit=True, changeCommand=_cb)
     inMenu(edit=True, changeCommand=_cb)
     outMenu(edit=True, changeCommand=_cb)
     extendCB(edit=True, changeCommand=_cb)
     extendField(edit=True, changeCommand=_cb)
-    return followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider
+    curveExtCB(edit=True, changeCommand=_cb)
+    curveExtField(edit=True, changeCommand=_cb)
+    return followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField, densityField, densitySlider
 
 def uiFunc_chain_hair_build_opts_ui_changed(self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField,
+                                            curveExtCB=None, curveExtField=None,
                                             densityField=None, densitySlider=None):
     _on = bool(extendCB.getValue())
     extendField(edit=True, editable=_on)
     extendField(edit=True, bgc=SHARED._d_gui_state_colors.get('normal' if _on else 'help'))
+    if curveExtCB is not None and curveExtField is not None:
+        _cex = bool(curveExtCB.getValue())
+        curveExtField(edit=True, editable=_cex)
+        curveExtField(edit=True, bgc=SHARED._d_gui_state_colors.get('normal' if _cex else 'help'))
     uiFunc_chain_hair_build_opts_changed(
-        self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, densityField, densitySlider)
+        self, mGrp, followMenu, inMenu, outMenu, extendCB, extendField, curveExtCB, curveExtField,
+        densityField, densitySlider)
 
 def uiFunc_hair_follow_options(self):
     """Create Options: hair follow mode and in/out curve degrees."""
@@ -2378,6 +2499,7 @@ def uiFunc_make_dynamic_chain(self):
     _sampleDensity = uiFunc_hair_create_sample_density_options(self)
     _followMode, _inDeg, _outDeg = uiFunc_hair_follow_options(self)
     _addEndJoint = uiFunc_hair_add_end_joint_options(self)
+    _extendEnd = uiFunc_hair_curve_extend_end_options(self)
     _requireAddEndJoint = uiFunc_hair_add_end_joint_required(self)
     _cb_raw = None
     if hasattr(self, 'options_addEndJointCB'):
@@ -2387,8 +2509,8 @@ def uiFunc_make_dynamic_chain(self):
         _dist_raw = self.options_addEndJointDistance.getValue()
     log.info(cgmGEN.logString_msg(
         'uiFunc_make_dynamic_chain',
-        'UI addEndJoint CB raw={0!r} required={1} distance raw={2!r} -> addEndJoint={3!r}'.format(
-            _cb_raw, _requireAddEndJoint, _dist_raw, _addEndJoint)))
+        'UI addEndJoint CB raw={0!r} required={1} distance raw={2!r} -> addEndJoint={3!r} extendEnd={4!r}'.format(
+            _cb_raw, _requireAddEndJoint, _dist_raw, _addEndJoint, _extendEnd)))
     ml_targets = uiFunc_create_chain_target_metas(self)
     if not self._mDynFK:
         mDynFK = RIGDYN.cgmDynFK(
@@ -2405,6 +2527,7 @@ def uiFunc_make_dynamic_chain(self):
             inCurveDegree=_inDeg,
             outCurveDegree=_outDeg,
             addEndJoint=_addEndJoint,
+            extendEnd=_extendEnd,
             requireAddEndJoint=_requireAddEndJoint)
         mDynFK.profile_load('base')
         uiFunc_load_dyn_chain(self, mDynFK.p_nameBase)
@@ -2421,6 +2544,7 @@ def uiFunc_make_dynamic_chain(self):
             inCurveDegree=_inDeg,
             outCurveDegree=_outDeg,
             addEndJoint=_addEndJoint,
+            extendEnd=_extendEnd,
             requireAddEndJoint=_requireAddEndJoint)
         uiFunc_update_details(self)
 
