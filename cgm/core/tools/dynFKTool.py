@@ -46,12 +46,29 @@ __toolname__ ='cgmSimChain'
 
 _padding = 5
 
+
+def _ui_compact_hstretch_row(row, row_height=20):
+    """Pin MelHSingleStretchLayout row height (icon rows otherwise leave slack under widgets)."""
+    row.layout(expand=False)
+    try:
+        row(edit=True, height=row_height)
+    except Exception:
+        pass
+    for _ch in row.getChildren():
+        try:
+            row(edit=True, af=((_ch, 'top', 0), (_ch, 'bottom', 0)))
+        except Exception:
+            pass
+
+
 def reload_dependencies():
     """
     Reload cgmSimChain backend modules via cgmGEN._reloadMod.
 
     Leaf lib modules first, then ik/constraint rig libs, then dynamic_utils last so
-    re-imported helpers (addEndJoint, spline follow, inCurve) are not stale.
+    re-imported helpers are not stale. Does **not** reload Red9 / ``cgm_Meta`` / mClass
+    registry — after **``cgmDynFK``** or other subclass edits, run **cgm core reload**
+    (``import cgm.core as CGM; CGM._reload()``) so meta classes initialize in order.
     """
     import cgm.core.lib.attribute_utils as ATTR
     import cgm.core.lib.distance_utils as DIST
@@ -95,12 +112,16 @@ def reload_dependencies():
     TRANS = TRANSUTIL
 
     log.info(cgmGEN.logString_msg('reload_dependencies', 'cgmSimChain backend done'))
+    log.info(cgmGEN.logString_msg(
+        'reload_dependencies',
+        'mClass / meta subclass edits need cgm core reload (CGM._reload) — not done here.'))
     log.info(cgmGEN._str_subLine)
 
 
 _RELOAD_DEPS_ANN = (
     'Reload simChain backend libs (curve/rigging/snap/loc/dist/ik, nCloth, simChain_dat, '
     'presets, dynamic_utils last) and rebind loaded setup meta. '
+    'After cgmDynFK / mClass code changes, run cgm core reload separately. '
     'Relaunch cgmSimChain from the shelf/menu for tool UI code changes.')
 
 
@@ -132,6 +153,29 @@ def uiFunc_relaunch_tool(self):
 def uiFunc_reload_dependencies(self):
     """Setup → Reload Dependencies — backend libs only."""
     mc.evalDeferred(cgmGEN.Callback(_reload_dynfk_backend, self), lp=True)
+
+
+def uiFunc_refresh_loaded_setup(self):
+    """Re-read the loaded cgmDynFK setup from the scene without changing selection."""
+    _str_func = 'uiFunc_refresh_loaded_setup'
+    m = getattr(self, '_mDynFK', None)
+    if not m:
+        return
+    try:
+        _node = m.mNode
+    except Exception:
+        return
+    if not _node or not mc.objExists(_node):
+        log.warning(cgmGEN.logString_msg(_str_func, 'Loaded setup no longer exists'))
+        uiFunc_clear_loaded(self)
+        return
+    try:
+        cgmMeta.reinitializeMetaClass(m)
+    except Exception:
+        pass
+    self._mDynFK = RIGDYN.cgmDynFK(_node)
+    log.info(cgmGEN.logString_msg(_str_func, 'refreshed: {0}'.format(self._mDynFK.p_nameBase)))
+    uiFunc_updateTargetDisplay(self)
 
 
 def _dynfk_rebind_loaded_mDynFK(self, rigdyn_module=None):
@@ -386,39 +430,54 @@ def buildColumn_main(self,parent, asScroll = False):
     Trying to put all this in here so it's insertable in other uis
     
     """   
+    _scroll = None
     if asScroll:
-        _inside = mUI.MelScrollLayout(parent,useTemplate = 'cgmUIHeaderTemplate') 
+        _scroll = mUI.MelScrollLayout(parent, useTemplate='cgmUIHeaderTemplate')
+        _inside = mUI.MelColumnLayout(
+            _scroll,
+            useTemplate='cgmUIHeaderTemplate',
+            adj=True,
+            rowSpacing=0,
+            columnAttach=('both', 0))
     else:
-        _inside = mUI.MelColumnLayout(parent,useTemplate = 'cgmUIHeaderTemplate') 
-    
+        _inside = mUI.MelColumnLayout(
+            parent, useTemplate='cgmUIHeaderTemplate', rowSpacing=0, columnAttach=('both', 0))
 
     #>>>Objects Load Row ---------------------------------------------------------------------------------------
-    
-    mUI.MelSeparator(_inside,ut='cgmUISubTemplate',h=3)
 
-    _row = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)        
+    _row = mUI.MelHSingleStretchLayout(_inside, ut='cgmUITemplate', padding=_padding, expand=False)
 
-    mUI.MelSpacer(_row,w=_padding)
+    mUI.MelSpacer(_row, w=_padding)
 
-    mUI.MelLabel(_row, 
-                 l='Dynamic Chain System:')
+    mUI.MelLabel(_row, l='Dynamic Chain System:', h=20)
 
-    uiTF_objLoad = mUI.MelLabel(_row,ut='cgmUIInstructionsTemplate',l='',
-                                en=True)
+    uiTF_objLoad = mUI.MelLabel(
+        _row, ut='cgmUIInstructionsTemplate', l='', en=True, h=20)
 
     self.uiTF_objLoad = uiTF_objLoad
+    self.uiBtn_refreshLoaded = mUI.MelIconButton(
+        _row,
+        ut='cgmUITemplate',
+        style='iconOnly',
+        image=os.path.join(cgmUI._path_imageFolder, 'refresh.png'),
+        w=20,
+        h=20,
+        marginWidth=0,
+        marginHeight=0,
+        ann='Refresh loaded cgmDynFK from scene (re-read messages and Details).',
+        en=False,
+        c=cgmGEN.Callback(uiFunc_refresh_loaded_setup, self))
     cgmUI.add_Button(_row,'<<',
                      cgmGEN.Callback(uiFunc_load_selected,self),
                      "Load first selected object.")
     _row.setStretchWidget(uiTF_objLoad)
     mUI.MelSpacer(_row,w=_padding)
 
-    _row.layout()
+    _ui_compact_hstretch_row(_row)
 
-    mc.setParent(_inside)
-    cgmUI.add_LineSubBreak()
-
-    self.detailsFrame = mUI.MelFrameLayout(_inside, label="Details", collapsable=True, collapse=True,useTemplate = 'cgmUIHeaderTemplate')
+    self.detailsFrame = mUI.MelFrameLayout(
+        _inside, label="Details", collapsable=True, collapse=True,
+        useTemplate='cgmUIHeaderTemplate', marginHeight=0)
 
     uiFunc_update_details(self)
 
@@ -669,7 +728,7 @@ def buildColumn_main(self,parent, asScroll = False):
                                        h=20)
     _row_report.layout() """
 
-    return _inside
+    return _scroll if _scroll else _inside
 
 def uiFunc_is_profile_dict(v):
     return isinstance(v, dict) and ('n' in v or 'hs' in v)
@@ -1449,21 +1508,15 @@ def uiFunc_update_details(self):
 
     # Chains
     self._d_chainHairBuildMenus = {}
+    self._d_chainNameFields = {}
+    _chainsColumn = mUI.MelColumnLayout(_details, useTemplate='cgmUIHeaderTemplate', adj=True)
     for i,chain in enumerate(self._mDynFK.msgList_get('chain')):
-        _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = _padding)        
-
-        mUI.MelSpacer(_row,w=_padding)
-
-        _subChainColumn = mUI.MelColumnLayout(_row,useTemplate = 'cgmUIHeaderTemplate') 
-
-        chainFrame = mUI.MelFrameLayout(_subChainColumn, label=chain.p_nameBase, collapsable=True, collapse=True,useTemplate = 'cgmUIHeaderTemplate')
+        _chainLabel = RIGDYN.chain_cgm_name(chain)
+        chainFrame = mUI.MelFrameLayout(
+            _chainsColumn, label=_chainLabel, collapsable=True, collapse=True,
+            useTemplate='cgmUIHeaderTemplate')
         
-        _chainColumn = mUI.MelColumnLayout(chainFrame,useTemplate = 'cgmUIHeaderTemplate') 
-
-        _row.setStretchWidget(_subChainColumn)
-
-        #mUI.MelSpacer(_row,w=_padding)
-        _row.layout()
+        _chainColumn = mUI.MelColumnLayout(chainFrame, useTemplate='cgmUIHeaderTemplate')
 
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -1476,7 +1529,7 @@ def uiFunc_update_details(self):
                 'uiFunc_update_details',
                 'Broken chain {0} — missing {1}'.format(
                     chain.p_nameBase, ', '.join(_missing_integrity))))
-            chainFrame(edit=True, label='{0}  [BROKEN — incomplete build]'.format(chain.p_nameBase),
+            chainFrame(edit=True, label='{0}  [BROKEN — incomplete build]'.format(_chainLabel),
                        collapse=False)
 
         mc.setParent(_chainColumn)
@@ -1518,7 +1571,25 @@ def uiFunc_update_details(self):
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
 
-        uiFunc_make_display_line(_chainColumn, label='Group:', text=chain.p_nameShort, button=True, buttonLabel = ">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item,chain.p_nameBase), buttonInfo="Select group transform.")
+        _row = mUI.MelHSingleStretchLayout(_chainColumn, ut='cgmUISubTemplate', padding=5)
+        mUI.MelSpacer(_row, w=_padding)
+        mUI.MelLabel(_row, l='Name:')
+        _nameIF = mUI.MelTextField(
+            _row,
+            ann='Per-chain name token. Edit then click Apply (does not rename on every keystroke).',
+            text=RIGDYN.chain_cgm_name(chain))
+        self._d_chainNameFields[i] = _nameIF
+        cgmUI.add_Button(
+            _row, 'Apply',
+            cgmGEN.Callback(uiFunc_set_chain_name, self, i),
+            'Rename chain group and hair infrastructure to this name.')
+        cgmUI.add_Button(
+            _row, 'sel',
+            cgmGEN.Callback(uiFunc_select_item, chain.p_nameBase),
+            'Select chain group transform.')
+        _row.setStretchWidget(_nameIF)
+        mUI.MelSpacer(_row, w=_padding)
+        _row.layout()
 
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -1630,16 +1701,23 @@ def uiFunc_update_details(self):
                 frameDat.extend([['Aims', 'mAims'],
                                  ['Parents', 'mParents']])
 
-        for dat in frameDat:
-            frame = mUI.MelFrameLayout(_chainColumn, label=dat[0], collapsable=True, collapse=True,useTemplate = 'cgmUIHeaderTemplate')
-            column = mUI.MelColumnLayout(frame,useTemplate = 'cgmUITemplate',height=75) 
-            row = mUI.MelHSingleStretchLayout(column,ut='cgmUIHeaderTemplate',padding = _padding)
+        mc.setParent(_chainColumn)
+        _listColumn = mUI.MelColumnLayout(_chainColumn, useTemplate='cgmUIHeaderTemplate', adj=True)
+        _listBgc = cgmUI.guiBackgroundColor
+        for _fi, dat in enumerate(frameDat):
+            _headerBgc = cgmUI.guiButtonColor if MATH.is_even(_fi) else cgmUI.guiBackgroundColor
+            frame = mUI.MelFrameLayout(
+                _listColumn, label=dat[0], collapsable=True, collapse=True,
+                enable=True, bgc=_headerBgc)
+            column = mUI.MelColumnLayout(frame, bgc=_listBgc, adj=True, height=75)
+            row = mUI.MelHSingleStretchLayout(column, ut='cgmUITemplate', padding=_padding)
 
-            mUI.MelSpacer(row,w=_padding)
+            mUI.MelSpacer(row, w=_padding)
 
-            itemList = uiFunc_create_selection_list(row, [x.p_nameShort for x in chain.msgList_get(dat[1])] )
+            itemList = uiFunc_create_selection_list(
+                row, [x.p_nameShort for x in chain.msgList_get(dat[1])])
 
-            mUI.MelSpacer(row,w=_padding)
+            mUI.MelSpacer(row, w=_padding)
 
             row.setStretchWidget(itemList)
 
@@ -1751,6 +1829,35 @@ def uiFunc_set_base_name(self, *args):
     if len(_short) > 20:
         _short = _short[:20] + '...'
     self.uiTF_objLoad(edit=True, l=_short, ann=self._mDynFK.p_nameBase)
+
+
+def uiFunc_set_chain_name(self, idx, *args):
+    if not self._mDynFK:
+        return
+    _field = (getattr(self, '_d_chainNameFields', None) or {}).get(idx)
+    _val = ''
+    if _field:
+        try:
+            _val = _field.getValue()
+        except Exception:
+            pass
+    _val = (_val or '').strip()
+    ml = self._mDynFK.msgList_get('chain') or []
+    if idx >= len(ml):
+        return
+    mGrp = ml[idx]
+    _current = RIGDYN.chain_cgm_name(mGrp)
+    if not _val:
+        if _field:
+            _field.setValue(_current)
+        return
+    if _val == _current:
+        return
+    if not RIGDYN.chain_set_name(self._mDynFK, idx, _val):
+        if _field:
+            _field.setValue(_current)
+        return
+    mc.evalDeferred(cgmGEN.Callback(uiFunc_update_details, self), lp=True)
 
 
 def uiFunc_set_chain_up(self, idx, upMenu):
@@ -2397,6 +2504,8 @@ def uiFunc_updateTargetDisplay(self):
             #o(e=True, en=False)
 
         self.options_baseName(e=True, enable=True)
+        if getattr(self, 'uiBtn_refreshLoaded', None):
+            self.uiBtn_refreshLoaded(edit=True, en=False)
 
         return
     
@@ -2411,6 +2520,8 @@ def uiFunc_updateTargetDisplay(self):
     self.uiTF_objLoad(edit=True, l=_short)   
     
     self.uiTF_objLoad(edit=True, en=True)
+    if getattr(self, 'uiBtn_refreshLoaded', None):
+        self.uiBtn_refreshLoaded(edit=True, en=True)
 
     uiFunc_update_details(self)
     uiFunc_update_create_panel_state(self)

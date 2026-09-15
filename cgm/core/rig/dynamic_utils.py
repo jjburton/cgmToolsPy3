@@ -757,6 +757,148 @@ def _tear_down_hair_chain_follow(mGrp):
     log.info(cgmGEN.logString_msg(_str_func, mGrp.p_nameBase))
 
 
+def chain_cgm_name(mGrp):
+    """Resolved per-chain name token from grp ``cgmName`` or ``chain_{name}_grp``."""
+    mGrp = cgmMeta.asMeta(mGrp)
+    if mGrp.hasAttr('cgmName') and mGrp.cgmName:
+        return str(mGrp.cgmName)
+    _base = mGrp.p_nameBase or ''
+    if _base.startswith('chain_') and _base.endswith('_grp'):
+        return _base[6:-4]
+    return _base
+
+
+def _chain_rename_meta_short(mObj, new_short):
+    if not mObj or not mc.objExists(_dag_str(mObj)):
+        return
+    if mObj.p_nameBase == new_short:
+        return
+    try:
+        mObj.rename(new_short)
+    except Exception as err:
+        log.warning(cgmGEN.logString_msg(
+            '_chain_rename_meta_short', '{0} -> {1}: {2}'.format(mObj.p_nameBase, new_short, err)))
+
+
+def _chain_rename_hair_infrastructure(mGrp, old_name, new_name):
+    """Rename hair chain nodes that embed the chain name token (not rig targets)."""
+    if not old_name or old_name == new_name:
+        return
+
+    _suspend = False
+    try:
+        _suspend = mc.refresh(q=True, suspend=True)
+    except Exception:
+        pass
+
+    try:
+        for mJ in mGrp.msgList_get('mObjJointChain') or []:
+            _base = mJ.p_nameBase
+            _prefix = '{0}_sim_'.format(old_name)
+            if _base.startswith(_prefix):
+                _chain_rename_meta_short(mJ, '{0}_sim_{1}'.format(new_name, _base[len(_prefix):]))
+
+        for mJ in mGrp.msgList_get('mDrivenJointChain') or []:
+            _base = mJ.p_nameBase
+            _prefix = '{0}_driven_'.format(old_name)
+            if _base.startswith(_prefix):
+                _chain_rename_meta_short(mJ, '{0}_driven_{1}'.format(new_name, _base[len(_prefix):]))
+
+        for mChild in mGrp.getChildren(asMeta=True) or []:
+            _base = mChild.p_nameBase
+            if _base == 'chain_{0}_up'.format(old_name):
+                _chain_rename_meta_short(mChild, 'chain_{0}_up'.format(new_name))
+            elif _base == 'chain_{0}_end_loc'.format(old_name):
+                _chain_rename_meta_short(mChild, 'chain_{0}_end_loc'.format(new_name))
+
+        mInCrv = mGrp.getMessageAsMeta('mInCrv')
+        mOutCrv = mGrp.getMessageAsMeta('mOutCrv')
+        mFollicle = mGrp.getMessageAsMeta('mFollicle')
+        if mInCrv:
+            _chain_rename_meta_short(mInCrv, '{0}_inCrv'.format(new_name))
+        if mOutCrv:
+            _chain_rename_meta_short(mOutCrv, '{0}_outCrv'.format(new_name))
+        if mFollicle:
+            _chain_rename_meta_short(mFollicle, '{0}_foll'.format(new_name))
+
+        _old_prefix = '{0}_'.format(old_name)
+        for _msg in ('mLocs', 'mAims', 'mParents'):
+            for mObj in mGrp.msgList_get(_msg) or []:
+                _base = mObj.p_nameBase
+                if _base.startswith(_old_prefix):
+                    _chain_rename_meta_short(
+                        mObj, '{0}{1}'.format(new_name, _base[len(old_name):]))
+    finally:
+        try:
+            mc.refresh(suspend=_suspend)
+        except Exception:
+            pass
+
+
+def chain_set_name(mDynFK, idx, name):
+    """
+    Rename a setup chain grp and hair infrastructure; updates chain grp ``cgmName`` (not rig targets).
+
+    :param mDynFK: cgmDynFK setup meta
+    :param idx: chain msgList index
+    :param name: new chain name token
+    """
+    _str_func = 'chain_set_name'
+    mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
+    if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Owner is not a cgmDynFK setup'))
+
+    ml = mSetup.msgList_get('chain') or []
+    if idx is None or idx >= len(ml):
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No chain at idx {0}'.format(idx)))
+
+    mGrp = ml[idx]
+    _new = VALID.stringArg(name, noneValid=True)
+    if not _new:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
+    _new = _new.strip()
+    if not _new:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
+    _new = NAMES.clean(_new, replaceChar='_', stripTailing=True)
+    if not _new:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Invalid name after clean'))
+
+    _old = chain_cgm_name(mGrp)
+    if _new == _old:
+        return True
+
+    for _i, mOther in enumerate(ml):
+        if _i == idx:
+            continue
+        if chain_cgm_name(mOther) == _new:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'Chain name already in use: {0}'.format(_new)))
+
+    _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
+    mc.undoInfo(openChunk=True, chunkName='cgmSimChain chain rename')
+    try:
+        try:
+            mGrp.dagLock(False)
+        except Exception:
+            pass
+
+        if _chainMode != 'clothAttach':
+            _chain_rename_hair_infrastructure(mGrp, _old, _new)
+
+        _chain_rename_meta_short(mGrp, 'chain_{0}_grp'.format(_new))
+        mGrp.doStore('cgmName', _new)
+
+        try:
+            mGrp.dagLock()
+        except Exception:
+            pass
+    finally:
+        mc.undoInfo(closeChunk=True)
+
+    log.info(cgmGEN.logString_msg(_str_func, '{0} -> {1} ({2})'.format(_old, _new, mGrp.p_nameBase)))
+    return True
+
+
 def _build_hair_chain_follow(mGrp, outCurveShape, ml, ml_baseTargets, ml_sim, name,
                              fwdAxis, upAxis, _l_paramFrac=None,
                              upSetup='guess', upControl=False, aimUpMode='joint',

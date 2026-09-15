@@ -160,7 +160,7 @@ def clean(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?><., """, noN
                     str_Clean = str_Clean[ 1: ]	
         if cleanDoubles and replaceChar:
             doubleChar = replaceChar + replaceChar
-            while doubleChar in cleanStr:
+            while doubleChar in str_Clean:
                 str_Clean = str_Clean.replace( doubleChar, replaceChar )
 
         if stripTailing:
