@@ -725,8 +725,12 @@ def _chain_targets_connected(mGrp):
     return False
 
 
-def _resolve_hair_start_frame(mDynFK):
-    """Resolve sim rest frame for hair chain rebuild."""
+def _resolve_hair_start_frame(mDynFK, mGrp=None):
+    """Resolve sim rest frame for hair chain rebuild / connect."""
+    if mGrp is not None and (getattr(mGrp, 'chainMode', None) or 'hair') == 'hair':
+        mHairSys = hair_system_resolve_for_chain(mGrp, mDynFK, backfill=False)
+        if mHairSys and mc.attributeQuery('startFrame', node=mHairSys.mNode, exists=True):
+            return mc.getAttr('{0}.startFrame'.format(mHairSys.mNode))
     mHairSys = mDynFK.getMessageAsMeta('mHairSysShape')
     if mHairSys and mc.attributeQuery('startFrame', node=mHairSys.mNode, exists=True):
         return mc.getAttr('{0}.startFrame'.format(mHairSys.mNode))
@@ -740,7 +744,7 @@ def _tear_down_hair_chain_follow(mGrp):
     """Remove POC/aim locator follow rig from a hair chain grp (keeps sim + curves)."""
     _str_func = '_tear_down_hair_chain_follow'
     mGrp = cgmMeta.asMeta(mGrp)
-    _name = mGrp.cgmName if mGrp.hasAttr('cgmName') else mGrp.p_nameBase
+    _name = chain_cgm_name(mGrp)
 
     _l_delete = []
     for _msg in ('mParents', 'mAims', 'mLocs'):
@@ -793,6 +797,164 @@ def chain_cgm_name(mGrp):
     if _base.startswith('chain_') and _base.endswith('_grp'):
         return _base[6:-4]
     return _base
+
+
+def chain_setup_index(mSetup, mGrp):
+    """Index of a chain grp on the cgmDynFK setup ``chain`` msgList (None if not linked)."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    if not mSetup or not mGrp:
+        return None
+    try:
+        _idx = mSetup.msgList_index('chain', mGrp.mNode)
+        if _idx is not None:
+            return _idx
+    except ValueError:
+        pass
+    _grp_long = NAMES.get_long(mGrp.mNode)
+    for _i, mChain in enumerate(mSetup.msgList_get('chain') or []):
+        if not mChain:
+            continue
+        if mChain.mNode == mGrp.mNode:
+            return _i
+        try:
+            if NAMES.get_long(mChain.mNode) == _grp_long:
+                return _i
+        except Exception:
+            pass
+    return None
+
+
+def chain_connect_to_setup(mSetup, mGrp):
+    """
+    Register a chain grp on the setup via ``chain`` msgList (``chain_0``, ``chain_1``, … + ``owner``).
+
+    Discovery is by message index, not DAG name. Stores ``chainIndex`` on the grp when possible.
+    """
+    _str_func = 'chain_connect_to_setup'
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    if not mSetup or not mGrp:
+        return None
+    _existing = chain_setup_index(mSetup, mGrp)
+    if _existing is not None:
+        try:
+            mGrp.doStore('chainIndex', int(_existing))
+        except Exception:
+            pass
+        return _existing
+    try:
+        ATTR.msgList_clean(mSetup.mNode, 'chain')
+    except Exception as err:
+        log.debug(cgmGEN.logString_msg(_str_func, 'msgList_clean chain: {0}'.format(err)))
+    _idx = mSetup.msgList_append('chain', mGrp.mNode, connectBack='owner')
+    try:
+        mGrp.doStore('chainIndex', int(_idx))
+    except Exception:
+        pass
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'chain[{0}] msgList -> {1}'.format(_idx, mGrp.p_nameShort)))
+    return _idx
+
+
+def chain_sync_chain_index_attrs(mSetup):
+    """Align ``chainIndex`` on each chain grp with its setup msgList order."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return 0
+    _n = 0
+    for _i, mGrp in enumerate(mSetup.msgList_get('chain') or []):
+        if not mGrp:
+            continue
+        try:
+            if not mGrp.hasAttr('chainIndex') or int(mGrp.chainIndex) != _i:
+                mGrp.doStore('chainIndex', _i)
+                _n += 1
+        except Exception:
+            try:
+                mGrp.doStore('chainIndex', _i)
+                _n += 1
+            except Exception:
+                pass
+    return _n
+
+
+def _chain_clean_name_token(name):
+    """Normalize a chain name token (same rules as ``chain_set_name``)."""
+    _s = VALID.stringArg(name, noneValid=True)
+    if not _s:
+        return None
+    _s = str(_s).strip()
+    if not _s:
+        return None
+    _s = NAMES.clean(_s, replaceChar='_', stripTailing=True)
+    return _s or None
+
+
+def chain_names_in_use(mSetup, exclude_idx=None):
+    """Set of ``chain_cgm_name`` tokens already on a cgmDynFK setup."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return set()
+    _used = set()
+    for _i, mGrp in enumerate(mSetup.msgList_get('chain') or []):
+        if exclude_idx is not None and _i == exclude_idx:
+            continue
+        if mGrp:
+            _used.add(chain_cgm_name(mGrp))
+    return _used
+
+
+def chain_resolve_unique_name(mSetup, name, exclude_idx=None):
+    """
+    Return a chain name token unique among setup chains.
+
+    When ``name`` is taken, appends ``_02``, ``_03``, … (logs once when adjusted).
+    """
+    _str_func = 'chain_resolve_unique_name'
+    _base = _chain_clean_name_token(name)
+    if not _base:
+        _base = 'chain'
+    _used = chain_names_in_use(mSetup, exclude_idx=exclude_idx)
+    if _base not in _used:
+        return _base
+    for _n in range(2, 1000):
+        _candidate = '{0}_{1:02d}'.format(_base, _n)
+        if _candidate not in _used:
+            log.info(cgmGEN.logString_msg(
+                _str_func, "Chain name '{0}' already used — using '{1}'".format(_base, _candidate)))
+            return _candidate
+    return '{0}_dup'.format(_base)
+
+
+def chain_fixup_duplicate_names(mDynFK):
+    """
+    Rename later chains when multiple chains share the same ``cgmName`` / grp token.
+
+    Uses ``chain_set_name`` so hair infrastructure renames with the chain.
+    """
+    _str_func = 'chain_fixup_duplicate_names'
+    mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
+    if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+        return 0
+    ml = mSetup.msgList_get('chain') or []
+    _seen = set()
+    _fixed = 0
+    for _i, mGrp in enumerate(ml):
+        if not mGrp:
+            continue
+        _n = chain_cgm_name(mGrp)
+        if _n not in _seen:
+            _seen.add(_n)
+            continue
+        _new = chain_resolve_unique_name(mSetup, _n)
+        if chain_set_name(mSetup, _i, _new):
+            _seen.add(_new)
+            _fixed += 1
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'Chain [{0}] renamed {1} -> {2}'.format(_i, _n, _new)))
+    chain_sync_chain_index_attrs(mSetup)
+    return _fixed
 
 
 def _chain_rename_meta_short(mObj, new_short):
@@ -880,15 +1042,9 @@ def chain_set_name(mDynFK, idx, name):
         return log.warning(cgmGEN.logString_msg(_str_func, 'No chain at idx {0}'.format(idx)))
 
     mGrp = ml[idx]
-    _new = VALID.stringArg(name, noneValid=True)
+    _new = _chain_clean_name_token(name)
     if not _new:
-        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
-    _new = _new.strip()
-    if not _new:
-        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
-    _new = NAMES.clean(_new, replaceChar='_', stripTailing=True)
-    if not _new:
-        return log.warning(cgmGEN.logString_msg(_str_func, 'Invalid name after clean'))
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty or invalid name'))
 
     _old = chain_cgm_name(mGrp)
     if _new == _old:
@@ -1952,23 +2108,86 @@ def _wire_time1_current_time(node):
     return False
 
 
+def _scene_node_long(node):
+    """Canonical long DAG name for nucleus / hairSystem identity checks."""
+    if not node or not mc.objExists(node):
+        return None
+    _res = mc.ls(node, long=True) or []
+    return _res[0] if _res else VALID.mNodeString(node)
+
+
 def _nucleus_for_dyn_sim(sim_shape):
+    """Nucleus node this sim shape feeds via ``currentState`` → ``inputActive``."""
     _sim = VALID.mNodeString(sim_shape)
-    _con = mc.listConnections('{0}.currentState'.format(_sim), type='nucleus') or []
-    return _con[0] if _con else None
+    _con = mc.listConnections(
+        '{0}.currentState'.format(_sim), type='nucleus', destination=True) or []
+    if _con:
+        return _con[0]
+    for _plug in mc.listConnections(
+            '{0}.currentState'.format(_sim), destination=True, plugs=True) or []:
+        _node = _plug.split('.')[0]
+        if mc.objExists(_node) and mc.objectType(_node) == 'nucleus':
+            return _node
+    return None
+
+
+def _nucleus_dyn_sim_slot_index(nucleus, sim_shape):
+    """``outputObjects`` index wiring ``sim_shape.nextState``, or None."""
+    import re
+    _sim = VALID.mNodeString(sim_shape)
+    _nuc = _scene_node_long(nucleus)
+    if not _nuc:
+        return None
+    _src = mc.listConnections('{0}.nextState'.format(_sim), source=True, plugs=True) or []
+    if not _src:
+        return None
+    _plug = _src[0]
+    if _scene_node_long(_plug.split('.')[0]) != _nuc or 'outputObjects[' not in _plug:
+        return None
+    _m = re.search(r'outputObjects\[(\d+)\]', _plug)
+    return int(_m.group(1)) if _m else None
+
+
+def _dedupe_nucleus_sim_plugs(sim_shape, nucleus, keep_idx):
+    """Drop duplicate ``currentState`` / ``startState`` links to nucleus except ``keep_idx``."""
+    _sim = VALID.mNodeString(sim_shape)
+    _nuc = _scene_node_long(nucleus)
+    if _nuc is None or keep_idx is None:
+        return 0
+    _removed = 0
+    for _sim_attr, _nuc_attr in (('currentState', 'inputActive'), ('startState', 'inputActiveStart')):
+        _sim_plug = '{0}.{1}'.format(_sim, _sim_attr)
+        _keep = '{0}.{1}[{2}]'.format(_nuc, _nuc_attr, keep_idx)
+        for _dst in mc.listConnections(_sim_plug, destination=True, plugs=True) or []:
+            if not _dst.startswith(_nuc) or '.{0}['.format(_nuc_attr) not in _dst:
+                continue
+            if _dst == _keep:
+                continue
+            try:
+                mc.disconnectAttr(_sim_plug, _dst)
+                _removed += 1
+            except Exception:
+                pass
+    return _removed
 
 
 def _disconnect_dyn_sim_from_nucleus(sim_shape):
     _sim = VALID.mNodeString(sim_shape)
     for _plug in ('currentState', 'startState'):
-        for _src in mc.listConnections('{0}.{1}'.format(_sim, _plug), source=True, plugs=True) or []:
+        _sim_plug = '{0}.{1}'.format(_sim, _plug)
+        for _dst in mc.listConnections(_sim_plug, destination=True, plugs=True) or []:
             try:
-                mc.disconnectAttr(_src, '{0}.{1}'.format(_sim, _plug))
+                mc.disconnectAttr(_sim_plug, _dst)
             except Exception:
                 pass
-    for _dst in mc.listConnections('{0}.nextState'.format(_sim), destination=True, plugs=True) or []:
+        for _src in mc.listConnections(_sim_plug, source=True, plugs=True) or []:
+            try:
+                mc.disconnectAttr(_src, _sim_plug)
+            except Exception:
+                pass
+    for _src in mc.listConnections('{0}.nextState'.format(_sim), source=True, plugs=True) or []:
         try:
-            mc.disconnectAttr('{0}.nextState'.format(_sim), _dst)
+            mc.disconnectAttr(_src, '{0}.nextState'.format(_sim))
         except Exception:
             pass
 
@@ -1978,18 +2197,22 @@ def _connect_dyn_sim_to_nucleus(sim_shape, nucleus):
     Wire hairSystem / nClothShape to nucleus outputObjects (same pattern as makeCurvesDynamic).
     """
     _str_func = '_connect_dyn_sim_to_nucleus'
-    _nuc = VALID.mNodeString(nucleus)
+    _nuc = _scene_node_long(nucleus)
     _sim = VALID.mNodeString(sim_shape)
 
     _existing = _nucleus_for_dyn_sim(_sim)
-    if _existing == _nuc:
+    _existing_long = _scene_node_long(_existing)
+    if _existing_long and _existing_long == _nuc:
+        _idx = _nucleus_dyn_sim_slot_index(_nuc, _sim)
+        if _idx is not None:
+            _dedupe_nucleus_sim_plugs(_sim, _nuc, _idx)
         _wire_time1_current_time(_nuc)
         _wire_time1_current_time(_sim)
         return True
 
-    if _existing and _existing != _nuc:
+    if _existing_long and _existing_long != _nuc:
         log.info("|{0}| >> Moving {1} from nucleus {2} to {3}".format(
-            _str_func, _sim, _existing, _nuc))
+            _str_func, _sim, _existing_long, _nuc))
         _disconnect_dyn_sim_from_nucleus(_sim)
 
     _idx = ATTR.get_nextCompoundIndex(_nuc, 'outputObjects')
@@ -2116,6 +2339,336 @@ def _resolve_hair_system_shape(node):
     return con[0] if con else None
 
 
+def _follicle_hair_system_shape_from_follicle(follicle_shape):
+    """Resolve hairSystem shape wired to a follicle shape (post-MCD graph)."""
+    follicle_shape = VALID.mNodeString(follicle_shape)
+    if not follicle_shape or not mc.objExists(follicle_shape):
+        return None
+    _con = mc.listConnections('{0}.currentPosition'.format(follicle_shape), s=False, d=True) or []
+    if not _con:
+        _con = mc.listConnections(follicle_shape, type='hairSystem', shapes=True) or []
+        return _con[0] if _con else None
+    _node = _con[0]
+    if mc.objectType(_node) == 'hairSystem':
+        return _node
+    _shapes = mc.listRelatives(_node, shapes=True, type='hairSystem', fullPath=True) or []
+    if _shapes:
+        return _shapes[0]
+    _hs = mc.listConnections(_node, type='hairSystem', shapes=True) or []
+    return _hs[0] if _hs else None
+
+
+def hair_system_list_registered(mSetup):
+    """All hairSystem shapes registered on a cgmDynFK setup."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return []
+    ml = mSetup.msgList_get('mHairSystems') or []
+    if ml:
+        return ml
+    mDefault = mSetup.getMessageAsMeta('mHairSysShape')
+    return [mDefault] if mDefault else []
+
+
+def hair_system_get_default(mSetup):
+    """Setup default hairSystem shape meta (Presets → Hair menu target)."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return None
+    return mSetup.getMessageAsMeta('mHairSysShape')
+
+
+def hair_system_set_default(mSetup, mHairSysShape):
+    """Set setup default hairSystem messages (does not register)."""
+    _str_func = 'hair_system_set_default'
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mHair = cgmMeta.validateObjArg(mHairSysShape, noneValid=True)
+    if not mSetup or not mHair:
+        return None
+    _hs = _resolve_hair_system_shape(mHair.mNode)
+    if not _hs:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Not a hairSystem'))
+    mHair = cgmMeta.asMeta(_hs)
+    mDag = mHair.getTransform(asMeta=True)
+    mSetup.connectChildNode(mDag.mNode, 'mHairSysDag', 'owner')
+    mSetup.connectChildNode(mHair.mNode, 'mHairSysShape', 'owner')
+    return mHair
+
+
+def hair_system_register(mSetup, mHairSysShape, setDefault=False):
+    """
+    Register a hairSystem on setup msgList ``mHairSystems``; parent DAG under setup.
+
+    :param setDefault: When True or setup has no default, also set mHairSysShape / mHairSysDag.
+    """
+    _str_func = 'hair_system_register'
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mHair = cgmMeta.validateObjArg(mHairSysShape, noneValid=True)
+    if not mSetup or not mHair:
+        return None
+    _hs = _resolve_hair_system_shape(mHair.mNode)
+    if not _hs:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Not a hairSystem'))
+    mHair = cgmMeta.asMeta(_hs)
+
+    ml_reg = mSetup.msgList_get('mHairSystems') or []
+    _known = {m.mNode for m in ml_reg}
+    if mHair.mNode not in _known:
+        ml_reg.append(mHair)
+        mSetup.msgList_connect('mHairSystems', ml_reg)
+
+    mDag = mHair.getTransform(asMeta=True)
+    try:
+        if mDag.getParent(asMeta=True) != mSetup:
+            mDag.p_parent = mSetup
+    except Exception as err:
+        log.debug("|{0}| >> Parent hair dag skipped: {1}".format(_str_func, err))
+
+    mNucleus = mSetup.getMessageAsMeta('mNucleus')
+    if mNucleus:
+        _nuc_long = _scene_node_long(mNucleus.mNode)
+        _on_nuc = _scene_node_long(_nucleus_for_dyn_sim(mHair.mNode))
+        if _on_nuc == _nuc_long:
+            _idx = _nucleus_dyn_sim_slot_index(mNucleus.mNode, mHair.mNode)
+            if _idx is not None:
+                _n = _dedupe_nucleus_sim_plugs(mHair.mNode, mNucleus.mNode, _idx)
+                if _n:
+                    log.info(cgmGEN.logString_msg(
+                        _str_func, 'Removed {0} duplicate nucleus plug(s) on {1}'.format(
+                            _n, mHair.p_nameShort)))
+        elif _on_nuc != _nuc_long:
+            _connect_dyn_sim_to_nucleus(mHair.mNode, mNucleus.mNode)
+
+    if setDefault or not mSetup.getMessageAsMeta('mHairSysShape'):
+        hair_system_set_default(mSetup, mHair)
+
+    log.info(cgmGEN.logString_msg(_str_func, mHair.p_nameShort))
+    return mHair
+
+
+def hair_system_backfill_chain(mGrp, mSetup):
+    """Ensure chain mHairSysShape message and setup registry from follicle DG."""
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mGrp or not mSetup:
+        return None
+    if (getattr(mGrp, 'chainMode', None) or 'hair') != 'hair':
+        return None
+    mHair = mGrp.getMessageAsMeta('mHairSysShape')
+    if mHair and mc.objExists(mHair.mNode):
+        ml_reg = mSetup.msgList_get('mHairSystems') or []
+        if mHair.mNode not in {m.mNode for m in ml_reg}:
+            hair_system_register(mSetup, mHair, setDefault=False)
+        return mHair
+    mFollicle = mGrp.getMessageAsMeta('mFollicle')
+    if not mFollicle:
+        return None
+    _fshape = mFollicle.getShapes(asMeta=False)
+    if not _fshape:
+        return None
+    _hs = _follicle_hair_system_shape_from_follicle(_fshape[0])
+    if not _hs:
+        return None
+    mHair = cgmMeta.asMeta(_hs)
+    mGrp.connectChildNode(mHair.mNode, 'mHairSysShape', 'group')
+    hair_system_register(mSetup, mHair, setDefault=False)
+    return mHair
+
+
+def hair_system_resolve_for_chain(mGrp, mSetup, backfill=True):
+    """HairSystem meta for a hair chain grp."""
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mGrp or not mSetup:
+        return None
+    if backfill:
+        hair_system_backfill_chain(mGrp, mSetup)
+    mHair = mGrp.getMessageAsMeta('mHairSysShape')
+    if mHair and mc.objExists(mHair.mNode):
+        return mHair
+    mHair = hair_system_get_default(mSetup)
+    if mHair:
+        return mHair
+    mFollicle = mGrp.getMessageAsMeta('mFollicle')
+    if mFollicle:
+        _fshape = mFollicle.getShapes(asMeta=False)
+        if _fshape:
+            _hs = _follicle_hair_system_shape_from_follicle(_fshape[0])
+            if _hs:
+                return cgmMeta.asMeta(_hs)
+    return None
+
+
+def _hair_system_create_empty(mSetup, dag_name):
+    """
+    Create an empty hairSystem transform + shape on the setup, wired to setup nucleus.
+
+    Used before makeCurvesDynamic when ``hairSystemMode=new`` but a hairSystem already
+    exists on the nucleus (MCD would otherwise add the curve to the existing system).
+    """
+    _str_func = '_hair_system_create_empty'
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return None
+    _dag_name = VALID.stringArg(dag_name, noneValid=True) or '{0}_hairSys'.format(mSetup.baseName)
+    mDag = mSetup.doCreateAt()
+    mDag.rename(_dag_name)
+    _shape = mc.createNode('hairSystem', name='{0}Shape'.format(_dag_name), parent=mDag.mNode)
+    mHair = cgmMeta.asMeta(_shape)
+
+    mNucleus = mSetup.getMessageAsMeta('mNucleus')
+    if not mNucleus:
+        mNucleus = cgmMeta.validateObjArg('cgmDynFK_nucleus', noneValid=True)
+    if mNucleus:
+        _connect_dyn_sim_to_nucleus(mHair.mNode, mNucleus.mNode)
+        if mSetup.startFrame is not None and mc.attributeQuery('startFrame', node=mHair.mNode, exists=True):
+            try:
+                mc.setAttr('{0}.startFrame'.format(mHair.mNode), mSetup.startFrame)
+            except Exception:
+                pass
+
+    mDag.p_parent = mSetup
+    hair_system_register(mSetup, mHair, setDefault=False)
+    log.info(cgmGEN.logString_msg(_str_func, '{0} | {1}'.format(_dag_name, mHair.mNode)))
+    return mHair
+
+
+def _setup_has_existing_hair_sim(mSetup):
+    """True when setup already has a hairSystem or hair chain (shared nucleus MCD would merge)."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return False
+    if hair_system_list_registered(mSetup):
+        return True
+    if hair_system_get_default(mSetup):
+        return True
+    for mGrp in mSetup.msgList_get('chain') or []:
+        if (getattr(mGrp, 'chainMode', None) or 'hair') != 'hair':
+            continue
+        if mGrp.getMessageAsMeta('mFollicle') or mGrp.getMessageAsMeta('mHairSysShape'):
+            return True
+    return False
+
+
+def hair_system_resolve_for_create(mSetup, mode=None, chainName=None):
+    """
+    Resolve hairSystem for Make Dynamic Chain.
+
+    :param mode: ``new`` | ``default`` | registered short name / index string
+    :returns: ``(mHairSysShape or None, b_join_existing_for_mcd)``
+    """
+    mode = (mode or 'default').strip()
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mSetup:
+        return None, False
+
+    if mode.lower() in ('new', 'create'):
+        return None, False
+
+    ml_reg = hair_system_list_registered(mSetup)
+    if mode.lower() in ('default', 'setup'):
+        mHair = hair_system_get_default(mSetup)
+        if mHair:
+            return mHair, True
+        if ml_reg:
+            return ml_reg[0], True
+        return None, False
+
+    if mode.isdigit():
+        _idx = int(mode)
+        if 0 <= _idx < len(ml_reg):
+            return ml_reg[_idx], True
+        return None, False
+
+    _mode_low = mode.lower()
+    for mHair in ml_reg:
+        if mHair.p_nameBase.lower() == _mode_low or mHair.p_nameShort.lower() == _mode_low:
+            return mHair, True
+        mDag = mHair.getTransform(asMeta=True)
+        if mDag.p_nameBase.lower() == _mode_low or mDag.p_nameShort.lower() == _mode_low:
+            return mHair, True
+
+    mHair = hair_system_get_default(mSetup)
+    if mHair:
+        return mHair, True
+    return None, False
+
+
+def _rewire_follicle_hair_system(follicle_shape, target_hair_system_shape):
+    """Move follicle sim hookup to another hairSystem (Maya assignHairSystem)."""
+    _str_func = '_rewire_follicle_hair_system'
+    follicle_shape = VALID.mNodeString(follicle_shape)
+    target_hair_system_shape = VALID.mNodeString(target_hair_system_shape)
+    if not follicle_shape or not target_hair_system_shape:
+        return False
+    _follicle_xform = (mc.listRelatives(follicle_shape, parent=True, fullPath=True) or [None])[0]
+    _hs_xform = (mc.listRelatives(target_hair_system_shape, parent=True, fullPath=True) or [None])[0]
+    if not _follicle_xform or not _hs_xform:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Missing follicle or hairSystem transform'))
+
+    _current = _follicle_hair_system_shape_from_follicle(follicle_shape)
+    if _current == target_hair_system_shape:
+        return True
+
+    try:
+        mc.select(_hs_xform, _follicle_xform, replace=True)
+        mel.eval('assignHairSystem;')
+        mc.select(cl=True)
+        _after = _follicle_hair_system_shape_from_follicle(follicle_shape)
+        if _after == target_hair_system_shape:
+            log.info(cgmGEN.logString_msg(_str_func, 'Rewired follicle to {0}'.format(target_hair_system_shape)))
+            return True
+    except Exception as err:
+        log.warning(cgmGEN.logString_msg(_str_func, 'assignHairSystem failed: {0}'.format(err)))
+
+    log.warning(cgmGEN.logString_msg(
+        _str_func, 'Rewire may have failed — try Rebuild Chain on this hair chain'))
+    return False
+
+
+def chain_map_hair_system(mGrp, mSetup, node=None):
+    """Map selection hairSystem to a hair chain (rewire follicle + messages)."""
+    _str_func = 'chain_map_hair_system'
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    if not mGrp or not mSetup:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Invalid chain or setup'))
+    if (getattr(mGrp, 'chainMode', None) or 'hair') != 'hair':
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Not a hair chain'))
+
+    if node is None:
+        _sel = mc.ls(sl=True, long=True) or []
+        if not _sel:
+            return log.error("|{0}| >> Nothing selected".format(_str_func))
+        node = _sel[0]
+
+    _hs = _resolve_hair_system_shape(node)
+    if not _hs:
+        return log.error("|{0}| >> Selection is not a hairSystem".format(_str_func))
+
+    mHair = cgmMeta.asMeta(_hs)
+    hair_system_register(mSetup, mHair, setDefault=False)
+
+    mFollicle = mGrp.getMessageAsMeta('mFollicle')
+    if mFollicle:
+        _fshape = mFollicle.getShapes(asMeta=False)
+        if _fshape:
+            _rewire_follicle_hair_system(_fshape[0], mHair.mNode)
+
+    mGrp.connectChildNode(mHair.mNode, 'mHairSysShape', 'group')
+
+    _old_start = _resolve_hair_start_frame(mSetup, mGrp=mGrp)
+    _new_start = mc.getAttr('{0}.startFrame'.format(mHair.mNode)) if mc.attributeQuery(
+        'startFrame', node=mHair.mNode, exists=True) else None
+    if _new_start is not None and _old_start != _new_start:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'hairSystem startFrame {0} differs from connect frame basis {1}'.format(
+                _new_start, _old_start)))
+
+    log.info(cgmGEN.logString_msg(_str_func, '{0} -> chain {1}'.format(mHair.p_nameShort, mGrp.p_nameBase)))
+    return mHair
+
+
 def map_nucleus(mOwner, node=None):
     """
     Link a nucleus to setup ``mNucleus`` (from selection or arg).
@@ -2145,8 +2698,7 @@ def map_nucleus(mOwner, node=None):
         if nc:
             _connect_dyn_sim_to_nucleus(nc, nucleus)
 
-    mHair = mOwner.getMessageAsMeta('mHairSysShape')
-    if mHair:
+    for mHair in hair_system_list_registered(mOwner):
         _connect_dyn_sim_to_nucleus(mHair.mNode, nucleus)
 
     return mOwner.getMessageAsMeta('mNucleus')
@@ -2154,9 +2706,9 @@ def map_nucleus(mOwner, node=None):
 
 def map_hair_system(mOwner, node=None):
     """
-    Link a hairSystem to setup ``mHairSysShape`` / ``mHairSysDag``.
+    Link a hairSystem as setup default ``mHairSysShape`` / ``mHairSysDag``.
 
-    Rewires hair to setup nucleus when one is mapped.
+    Registers on ``mHairSystems`` and rewires to setup nucleus when mapped.
     """
     _str_func = 'map_hair_system'
 
@@ -2170,27 +2722,9 @@ def map_hair_system(mOwner, node=None):
     if not hs:
         return log.error("|{0}| >> Selection is not a hairSystem".format(_str_func))
 
-    parents = mc.listRelatives(hs, parent=True, fullPath=True) or []
-    if not parents:
-        return log.error("|{0}| >> hairSystem has no transform".format(_str_func))
-    dag = parents[0]
-
-    mOwner.connectChildNode(dag, 'mHairSysDag', 'owner')
-    mOwner.connectChildNode(hs, 'mHairSysShape', 'owner')
-    try:
-        mDag = cgmMeta.asMeta(dag)
-        if mDag.getParent(asMeta=True) != mOwner:
-            mDag.p_parent = mOwner
-    except Exception as err:
-        log.debug("|{0}| >> Parent hair dag skipped: {1}".format(_str_func, err))
-
-    log.info("|{0}| >> Mapped hairSystem: {1}".format(_str_func, hs))
-
-    mNucleus = mOwner.getMessageAsMeta('mNucleus')
-    if mNucleus:
-        _connect_dyn_sim_to_nucleus(hs, mNucleus.mNode)
-
-    return mOwner.getMessageAsMeta('mHairSysShape')
+    mHair = hair_system_register(mOwner, hs, setDefault=True)
+    log.info("|{0}| >> Mapped hairSystem (default): {1}".format(_str_func, hs))
+    return mHair
 
 
 def attach_to_cloth_dynFK(mOwner, objs=None, name=None, surfaceTrack='follicle', **kws):
@@ -2229,14 +2763,13 @@ def attach_to_cloth_dynFK(mOwner, objs=None, name=None, surfaceTrack='follicle',
 
     if not name:
         name = ml[-1].p_nameBase
-
-    _idx = mOwner.get_nextIdx()
+    name = chain_resolve_unique_name(mOwner, name)
 
     mGrp = mOwner.doCreateAt(setClass=1)
     mGrp.p_parent = mOwner
     mGrp.rename("chain_{0}_grp".format(name))
     mGrp.dagLock()
-    mOwner.connectChildNode(mGrp.mNode, 'chain_{0}'.format(_idx), 'owner')
+    chain_connect_to_setup(mOwner, mGrp)
     mGrp.doStore('chainMode', 'clothAttach')
     mGrp.doStore('cgmName', name)
     mGrp.doStore('surfaceTrack', surfaceTrack)
@@ -2287,6 +2820,7 @@ def attach_to_cloth_dynFK(mOwner, objs=None, name=None, surfaceTrack='follicle',
     mGrp.msgList_connect('mTargets', ml)
     mGrp.msgList_connect('mBaseTargets', ml_baseTargets)
 
+    _idx = chain_setup_index(mOwner, mGrp)
     log.info(cgmGEN.logString_msg(_str_func, 'chain {0} attached ({1} {2} trackers)'.format(
         _idx, len(ml_locs), surfaceTrack)))
     return mGrp
@@ -2412,6 +2946,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             self.doStore('cgmName', self.baseName)
             
         if objs:
+            _hairSystemMode = kws.pop('hairSystemMode', 'default')
             self.chain_create(
                 objs, fwd, up, name=name,
                 upSetup=self.upSetup,
@@ -2427,6 +2962,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 inCurveDegree=self.inCurveDegree,
                 outCurveDegree=self.outCurveDegree,
                 requireAddEndJoint=self.requireAddEndJoint,
+                hairSystemMode=_hairSystemMode,
             )
         
         self.report()
@@ -2453,14 +2989,8 @@ class cgmDynFK(cgmMeta.cgmObject):
             mc.select(_sel)
     
     def get_nextIdx(self):
-        mDat = self.get_dat()
-        dChains = mDat.get('chains')
-        _exists = False
-        _i = 0
-        while dChains.get(_i):
-            _i+=1
-        return _i
-        return ATTR.get_nextAvailableSequentialAttrIndex(self.mNode, "chain")
+        """Next free ``chain`` msgList slot (does not call ``get_dat``)."""
+        return ATTR.get_nextAvailableSequentialAttrIndex(self.mNode, 'chain')
         
     def chain_rebuild(self, idx = None, objs = None, **kws):
         _str_func = 'chain_rebuild'
@@ -2632,12 +3162,12 @@ class cgmDynFK(cgmMeta.cgmObject):
         _name = mGrp.cgmName if mGrp.hasAttr('cgmName') else mGrp.p_nameBase
         mFollicleShape = mFollicle.getShapes(asMeta=True)[0]
         _follicleShape = mFollicleShape.mNode
-        mHairSys = self.getMessageAsMeta('mHairSysShape')
+        mHairSys = hair_system_resolve_for_chain(mGrp, self)
         _hairSystem = mHairSys.mNode if mHairSys else None
         if not _hairSystem:
-            _hairSystem = mc.listRelatives(
-                mc.listConnections('{0}.currentPosition'.format(_follicleShape))[0],
-                shapes=True)[0]
+            _hairSystem = _follicle_hair_system_shape_from_follicle(_follicleShape)
+            if _hairSystem:
+                mHairSys = cgmMeta.asMeta(_hairSystem)
 
         _inDeg, _outDeg = _resolve_hair_curve_degrees(mGrp, self)
         _skinName = '{0}_skinCluster'.format(_name)
@@ -2646,7 +3176,7 @@ class cgmDynFK(cgmMeta.cgmObject):
             self.targets_disconnect(idx)
 
         _savedTime = mc.currentTime(q=True)
-        _startFrame = _resolve_hair_start_frame(self)
+        _startFrame = _resolve_hair_start_frame(self, mGrp=mGrp)
         _rebuildFrame = _startFrame - 1
         mc.currentTime(_rebuildFrame, edit=True)
 
@@ -2763,19 +3293,19 @@ class cgmDynFK(cgmMeta.cgmObject):
             mInCrv.mNode, shapes=True, type='nurbsCurve', fullPath=True)[0]
         outCurveShape = mc.listRelatives(mOutCrv.mNode, shapes=True)[0]
 
-        mHairSys = self.getMessageAsMeta('mHairSysShape')
+        mHairSys = hair_system_resolve_for_chain(mGrp, self)
         _hairSystem = mHairSys.mNode if mHairSys else None
         if not _hairSystem:
-            _hairSystem = mc.listRelatives(
-                mc.listConnections('{0}.currentPosition'.format(_follicleShape))[0],
-                shapes=True)[0]
+            _hairSystem = _follicle_hair_system_shape_from_follicle(_follicleShape)
+            if _hairSystem:
+                mHairSys = cgmMeta.asMeta(_hairSystem)
 
         _b_connected = _chain_targets_connected(mGrp)
         if _b_connected:
             self.targets_disconnect(idx)
 
         _savedTime = mc.currentTime(q=True)
-        _startFrame = _resolve_hair_start_frame(self)
+        _startFrame = _resolve_hair_start_frame(self, mGrp=mGrp)
         if abs(_savedTime - _startFrame) > 0.001:
             log.warning(cgmGEN.logString_msg(
                 _str_func,
@@ -2834,6 +3364,7 @@ class cgmDynFK(cgmMeta.cgmObject):
         addEndJoint, extendEnd = _hair_resolve_create_extend_kws(addEndJoint, extendEnd)
         if _chainMode == 'clothAttach':
             return attach_to_cloth_dynFK(self, objs=objs, name=name, **kws)
+        _hairSystemMode = kws.pop('hairSystemMode', None)
         return self.chain_create_hair(
             objs=objs, fwd=fwd, up=up, name=name, upSetup=upSetup,
             extendStart=extendStart, addEndJoint=addEndJoint, extendEnd=extendEnd, mNucleus=mNucleus,
@@ -2841,7 +3372,9 @@ class cgmDynFK(cgmMeta.cgmObject):
             fixedSegmentLength=fixedSegmentLength,
             follicleSegmentLength=follicleSegmentLength,
             follicleSampleDensity=follicleSampleDensity,
-            requireAddEndJoint=requireAddEndJoint, **kws)
+            requireAddEndJoint=requireAddEndJoint,
+            hairSystemMode=_hairSystemMode,
+            **kws)
 
     def chain_create_hair(self, objs = None,
                      fwd = None, up=None,
@@ -2858,9 +3391,14 @@ class cgmDynFK(cgmMeta.cgmObject):
                      follicleSampleDensity = None,
                      requireAddEndJoint = False,
                      advancedTwist = None,
+                     hairSystemMode = None,
                      **kws):
         
         _str_func = 'chain_create_hair'
+        _hairSystemMode = hairSystemMode if hairSystemMode is not None else kws.pop('hairSystemMode', 'default')
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'entry hairSystemMode={0!r} (reload dynamic_utils if missing multi-hair logs)'.format(
+                _hairSystemMode)))
         
         if not objs:
             _sel = mc.ls(sl=1)
@@ -2874,18 +3412,15 @@ class cgmDynFK(cgmMeta.cgmObject):
             
         if not name:
             name = ml[-1].p_nameBase
-                    
-        _idx = self.get_nextIdx()
-        
+        name = chain_resolve_unique_name(self, name)
 
         #Make our sub group...
         mGrp = self.doCreateAt(setClass=1)
         mGrp.p_parent = self
         mGrp.rename("chain_{0}_grp".format(name))
         mGrp.dagLock()
-        self.connectChildNode(mGrp.mNode,'chain_{0}'.format(_idx),'owner')
-        
-        
+        chain_connect_to_setup(self, mGrp)
+
         #holders and dat...
         ml_targets = []
         ml_posLocs = []
@@ -3020,21 +3555,46 @@ class cgmDynFK(cgmMeta.cgmObject):
         log.debug(cgmGEN.logString_sub(_str_func,'dyn setup'))
         b_existing = False
         b_existing_nucleus = False
-        
-        mHairSys = self.getMessageAsMeta('mHairSysShape')
-        if mHairSys:
-            mHairSysDag = mHairSys.getTransform(asMeta=1)
-            log.info(cgmGEN.logString_msg(_str_func,'Using existing system: {0}'.format(mHairSys.mNode)))
-            mc.select(mHairSysDag.mNode, add=True)
-            b_existing = True
-            
+        _b_precreated_hair_system = False
+
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'hairSystemMode={0!r} registered={1}'.format(
+                _hairSystemMode, len(hair_system_list_registered(self)))))
+
         if self.useExistingNucleus or mNucleus:
             mNucleus = self.get_nucleus(mNucleus)
             if mNucleus:
-                #mc.select(mNucleus.mNode,add=1)
                 b_existing_nucleus = True
                 log.info(cgmGEN.logString_msg(_str_func,'Using existing nucleus: {0}'.format(mNucleus.mNode)))
                 self.connectChildNode(mNucleus.mNode,'mNucleus')
+
+        _mode_low = (_hairSystemMode or 'default').strip().lower()
+        _wants_new_hair_system = _mode_low in ('new', 'create')
+        if _wants_new_hair_system and _setup_has_existing_hair_sim(self):
+            _dag_name = '{0}_{1}_hairSys'.format(self.baseName, name)
+            mHairSys = _hair_system_create_empty(self, _dag_name)
+            if mHairSys:
+                b_existing = True
+                _b_precreated_hair_system = True
+                log.info(cgmGEN.logString_msg(
+                    _str_func, 'pre-created empty hairSystem for MCD: {0}'.format(mHairSys.mNode)))
+            else:
+                log.warning(cgmGEN.logString_msg(
+                    _str_func, 'pre-create hairSystem failed — falling back to resolve_for_create'))
+                mHairSys, b_existing = hair_system_resolve_for_create(self, _hairSystemMode, chainName=name)
+        elif _wants_new_hair_system:
+            mHairSys, b_existing = None, False
+        else:
+            mHairSys, b_existing = hair_system_resolve_for_create(self, _hairSystemMode, chainName=name)
+
+        if mHairSys and b_existing:
+            mHairSysDag = mHairSys.getTransform(asMeta=1)
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'Using hairSystem for MCD: {0} (mode={1!r} precreated={2})'.format(
+                    mHairSys.mNode, _hairSystemMode, _b_precreated_hair_system)))
+            mc.select(mHairSysDag.mNode, add=True)
+        else:
+            mHairSys = None
         
         mc.select(mInCrv.mNode, add=True)
         mel.eval('makeCurvesDynamic 2 { "0", "0", "1", "1", "0" }')
@@ -3059,6 +3619,14 @@ class cgmDynFK(cgmMeta.cgmObject):
         
         follicleShape = mFollicleShape.mNode#mc.listRelatives(mFollicle.mNode, shapes=True)[0]
 
+        if _b_precreated_hair_system and mHairSys:
+            _wired_hs = _follicle_hair_system_shape_from_follicle(follicleShape)
+            if _wired_hs != mHairSys.mNode:
+                log.info(cgmGEN.logString_msg(
+                    _str_func, 'MCD used {0} — rewire follicle to {1}'.format(
+                        _wired_hs, mHairSys.mNode)))
+                _rewire_follicle_hair_system(follicleShape, mHairSys.mNode)
+
         mInCrv = _consolidate_hair_incurve_after_mcd(
             mInCrv, mFollicleShape, mGrp, name, ml_sim, l_pos, mSkinCluster,
             fixedSegmentLength=fixedSegmentLength,
@@ -3069,17 +3637,25 @@ class cgmDynFK(cgmMeta.cgmObject):
 
         _hairSystem = mc.listRelatives( mc.listConnections('%s.currentPosition' % follicleShape)[0],
                                         shapes=True)[0]
+        _follicle_hs = _follicle_hair_system_shape_from_follicle(follicleShape) or _hairSystem
+        if _b_precreated_hair_system and mHairSys and _follicle_hs != mHairSys.mNode:
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                'Follicle wired to {0} not pre-created {1} — try Rebuild Chain'.format(
+                    _follicle_hs, mHairSys.mNode)))
         if not b_existing:
             mHairSys = cgmMeta.asMeta(_hairSystem)
             mHairSysDag = mHairSys.getTransform(asMeta=1)
-            
-            mHairSysDag.rename("{0}_hairSys".format(self.baseName))
-            self.connectChildNode(mHairSysDag.mNode,'mHairSysDag','owner')
-            self.connectChildNode(mHairSys.mNode,'mHairSysShape','owner')
-            
-            mHairSysDag.p_parent = self
+            mHairSysDag.rename('{0}_{1}_hairSys'.format(self.baseName, name))
+            hair_system_register(
+                self, mHairSys, setDefault=hair_system_get_default(self) is None)
             _hairSystem = mHairSys.mNode
-            
+        elif not mHairSys:
+            mHairSys = cgmMeta.asMeta(_hairSystem)
+        elif _follicle_hs:
+            mHairSys = cgmMeta.asMeta(_follicle_hs)
+            _hairSystem = mHairSys.mNode
+
         if _hairFollowMode == HAIR_FOLLOW_MODE_LEGACY:
             outCurve = mc.listConnections('%s.outCurve' % _follicle)[0]
             mCrv = cgmMeta.asMeta(outCurve)
@@ -3208,6 +3784,9 @@ class cgmDynFK(cgmMeta.cgmObject):
             ml_sim, ml_baseTargets, addEndJoint, l_pos=l_pos, required=_requireAddEndJoint,
             context='chain_create_hair {0}'.format(mGrp.p_nameBase))
 
+        mGrp.connectChildNode(mHairSys.mNode, 'mHairSysShape', 'group')
+        hair_system_register(self, mHairSys, setDefault=False)
+
         mNucleus.doConnectOut('startFrame',"{0}.startFrame".format(mHairSys.mNode))
         
     def report(self):
@@ -3228,9 +3807,13 @@ class cgmDynFK(cgmMeta.cgmObject):
             if _outXform:
                 mClothOutMesh = cgmMeta.asMeta(_outXform)
 
+        for mGrp in self.msgList_get('chain') or []:
+            hair_system_backfill_chain(mGrp, self)
+
         _res = {'mNucleus':self.getMessageAsMeta('mNucleus'),
                 'mHairSysDag':self.getMessageAsMeta('mHairSysDag'),
                 'mHairSysShape':self.getMessageAsMeta('mHairSysShape'),
+                'mHairSystems': hair_system_list_registered(self),
                 'mCloth': mCloth,
                 'mClothOutMesh': mClothOutMesh,
                 'chains':{},
@@ -3255,6 +3838,7 @@ class cgmDynFK(cgmMeta.cgmObject):
                 _d[lnk] = mGrp.msgList_get(lnk)
             _d['mIkHandle'] = mGrp.getMessageAsMeta('mIkHandle')
             if _chainMode == 'hair':
+                _d['mHairSysShape'] = hair_system_resolve_for_chain(mGrp, self, backfill=False)
                 _d['hairFollowMode'] = _get_chain_hair_follow_mode(mGrp)
                 if mGrp.hasAttr('inCurveDegree'):
                     _d['inCurveDegree'] = mGrp.inCurveDegree
@@ -3278,8 +3862,14 @@ class cgmDynFK(cgmMeta.cgmObject):
         if mNucleus:
             mNucleus.enable = arg
             
-        mHairSysShape=self.getMessageAsMeta('mHairSysShape')
-        if mHairSysShape:
+        ml_hair = hair_system_list_registered(self)
+        if not ml_hair:
+            mHairSysShape = self.getMessageAsMeta('mHairSysShape')
+            if mHairSysShape:
+                ml_hair = [mHairSysShape]
+        for mHairSysShape in ml_hair:
+            if not mHairSysShape:
+                continue
             if arg:
                 mHairSysShape.simulationMethod = 3
             else:
@@ -3345,11 +3935,15 @@ class cgmDynFK(cgmMeta.cgmObject):
         """
         _str_func = 'targets_connect'
         _savedTime = mc.currentTime(q=True)
-        _startFrame = _resolve_hair_start_frame(self)
-        _connectFrame = _startFrame - 1
-        mc.currentTime(_connectFrame, edit=True)
         try:
             for chain in self.get_chains(idx):
+                _chainMode = getattr(chain, 'chainMode', None) or 'hair'
+                if _chainMode == 'hair':
+                    _startFrame = _resolve_hair_start_frame(self, mGrp=chain)
+                else:
+                    _startFrame = _resolve_hair_start_frame(self)
+                _connectFrame = _startFrame - 1
+                mc.currentTime(_connectFrame, edit=True)
                 ml_locs = chain.msgList_get('mLocs') or []
                 ml_targets = chain.msgList_get('mTargets') or []
                 for i, mObj in enumerate(ml_targets):
@@ -3362,10 +3956,11 @@ class cgmDynFK(cgmMeta.cgmObject):
                     SNAP.go(mLoc.mNode, mObj.mNode, True, True)
                     SNAP.matchTarget_set(mObj.mNode, mLoc.mNode)
                     mc.parentConstraint(mLoc.mNode, mObj.mNode)
+                log.info(cgmGEN.logString_msg(
+                    _str_func, 'chain {0} frame {1} (startFrame {2} - 1)'.format(
+                        chain.p_nameBase, _connectFrame, _startFrame)))
         finally:
             mc.currentTime(_savedTime, edit=True)
-        log.info(cgmGEN.logString_msg(
-            _str_func, 'frame {0} (startFrame {1} - 1)'.format(_connectFrame, _startFrame)))
     def targets_disconnect(self,idx=None):
         for chain in self.get_chains(idx):
             for i,mObj in enumerate(chain.msgList_get('mTargets')):
@@ -3444,9 +4039,9 @@ d_attrMap = {'n':{'gravity':['gravity','gravityDirection',],
                                  'maxSelfCollideIterations','collideWidthOffset','selfCollideWidthScale',
                                  'solverDisplay','bounce','friction','stickiness','staticCling'],
                    'dynamicProperties':['stretchResistance','compressionResistance','bendResistance',
-                                        'twistResistance', 'extraBendLinks', 'restLengthScale',
+                                        'bendModel', 'twistResistance', 'extraBendLinks', 'restLengthScale',
                                         'stiffnessScale', 'startCurveAttract', 'attractionDamp',
-                                        'attractionScale','bend','bendAnisotropy'],
+                                        'attractionScale', 'bendAnisotropy'],
                    'forces':['mass','drag','tangentialDrag','motionDrag','damp','stretchDamp', 'dynamicsWeight'],
                    'turbulance':['turbulenceStrength','turbulenceFrequency','turbulenceSpeed'],
                    'others':['detailNoise','noStretch','diffuseRand','displacementScale','groundHeight',
@@ -3472,15 +4067,18 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
         for a in l:
             if a in l_ignore:
                 continue
+            if not mc.attributeQuery(a, node=_tar, exists=True):
+                continue
+            _v = None
             try:
-                _v = ATTR.get(_tar,a)
-                log.debug(cgmGEN.logString_msg(_str_func,"{0} | {1}".format(a,_v)))        
-                
+                _v = ATTR.get(_tar, a)
+                log.debug(cgmGEN.logString_msg(_str_func, "{0} | {1}".format(a, _v)))
             except Exception as err:
                 log.error("Failed to query: {0} | {1} | {2}".format(_tar, a, err))
-            if _v is not None:
-                _res[str(a)] = _v
-            
+            if _v is None or _v is False:
+                continue
+            _res[str(a)] = _v
+
     if differential:
         log.debug(cgmGEN.logString_msg(_str_func,"Getting differential"))
         _d_base = profile_get('base')
@@ -3488,9 +4086,10 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
         if _d_baseSet:
             log.debug(cgmGEN.logString_msg(_str_func,"Found base set..."))
             _res_use = {}
-            for k,v in  list(_res.items()):
-                if v != _d_baseSet[k]:
-                    log.debug(cgmGEN.logString_msg(_str_func,"Storing: {0} | {1}".format(k,v)))                    
+            for k, v in list(_res.items()):
+                _base_v = _d_baseSet.get(k)
+                if _base_v is None or v != _base_v:
+                    log.debug(cgmGEN.logString_msg(_str_func,"Storing: {0} | {1}".format(k,v)))
                     _res_use[k] = v
                 #else:
                 #    log.debug(cgmGEN.logString_msg(_str_func,"Same: {0} | {1}".format(k,v)))

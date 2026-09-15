@@ -131,25 +131,36 @@ def _resolve_ncloth_for_capture(nodes=None, mDynFK=None):
     return None
 
 
-def _resolve_hairsystem_for_capture(nodes=None, mDynFK=None):
-    """Resolve hairSystem from loaded setup, selection, or cgmDynFK root."""
-    if mDynFK:
-        mHair = mDynFK.getMessageAsMeta('mHairSysShape')
+def _resolve_hairsystem_for_capture(nodes=None, mDynFK=None, mGrp=None):
+    """Resolve hairSystem from selection, chain, setup default, or registry."""
+    if mGrp and mDynFK:
+        mHair = RIGDYN.hair_system_resolve_for_chain(mGrp, mDynFK)
         if mHair:
             return mHair.mNode
 
     nodes = VALID.listArg(nodes) if nodes else (mc.ls(sl=True, long=True) or [])
     for n in nodes:
-        if mc.objectType(n, isType='hairSystem'):
-            return n
-        mObj = cgmMeta.validateObjArg(n, noneValid=True)
-        if mObj and mObj.getMayaType() == 'hairSystem':
-            return mObj.mNode
+        _hs = RIGDYN._resolve_hair_system_shape(n)
+        if _hs:
+            return _hs
         mSetup = _dynfk_from_node(n)
         if mSetup:
-            mHair = mSetup.getMessageAsMeta('mHairSysShape')
+            mHair = RIGDYN.hair_system_get_default(mSetup)
             if mHair:
                 return mHair.mNode
+            ml_reg = RIGDYN.hair_system_list_registered(mSetup)
+            if ml_reg:
+                return ml_reg[0].mNode
+        mObj = cgmMeta.validateObjArg(n, noneValid=True)
+        if mObj and getattr(mObj, 'mClass', None) == 'cgmDynFK':
+            mHair = RIGDYN.hair_system_get_default(mObj)
+            if mHair:
+                return mHair.mNode
+
+    if mDynFK:
+        mHair = RIGDYN.hair_system_get_default(mDynFK)
+        if mHair:
+            return mHair.mNode
     return None
 
 
@@ -220,14 +231,14 @@ class SimPresetDatBase(CGMDAT.data):
         _str_func = 'SimPresetDatBase.capture'
         raise NotImplementedError(cgmGEN.logString_msg(_str_func, 'Subclass must implement'))
 
-    def apply(self, target=None, clean=True, mDynFK=None):
+    def apply(self, target=None, clean=True, mDynFK=None, mGrp=None):
         _str_func = '{0}.apply'.format(self.__class__.__name__)
         profile = self.dat.get('profile') or {}
         if not profile:
             return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
 
         _profileKind = self.dat.get('profileKind') or self.defaultProfileKind
-        _target = self._resolve_apply_target(target, mDynFK=mDynFK)
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
         if not _target:
             return log.warning(cgmGEN.logString_msg(
                 _str_func, 'No apply target for {0}'.format(self.datKind)))
@@ -239,7 +250,7 @@ class SimPresetDatBase(CGMDAT.data):
             _target, profile, section=self.section, clean=clean,
             profileKind=_profileKind, module=nClothPresets)
 
-    def _resolve_apply_target(self, target=None, mDynFK=None):
+    def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         raise NotImplementedError
 
     @classmethod
@@ -319,17 +330,23 @@ class SimHairDat(SimPresetDatBase):
             profileKind=profileKind or 'hair',
         )
 
-    def _resolve_apply_target(self, target=None, mDynFK=None):
+    def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:
-            return VALID.mNodeString(target)
+            _hs = RIGDYN._resolve_hair_system_shape(target)
+            return _hs or VALID.mNodeString(target)
+        if mGrp and mDynFK:
+            mHair = RIGDYN.hair_system_resolve_for_chain(mGrp, mDynFK)
+            if mHair:
+                return mHair.mNode
         if mDynFK:
-            mHair = mDynFK.getMessageAsMeta('mHairSysShape')
+            mHair = RIGDYN.hair_system_get_default(mDynFK)
             if mHair:
                 return mHair.mNode
         nodes = mc.ls(sl=True, long=True) or []
         for n in nodes:
-            if mc.objectType(n, isType='hairSystem'):
-                return n
+            _hs = RIGDYN._resolve_hair_system_shape(n)
+            if _hs:
+                return _hs
         return None
 
 
@@ -361,7 +378,7 @@ class SimClothDat(SimPresetDatBase):
             profileKind=profileKind or 'fabric',
         )
 
-    def _resolve_apply_target(self, target=None, mDynFK=None):
+    def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:
             _nc = NCLOTH.get_nCloth(target, noneValid=True)
             return _nc or VALID.mNodeString(target)
@@ -409,7 +426,7 @@ class SimNucleusDat(SimPresetDatBase):
             profileKind=_kind,
         )
 
-    def _resolve_apply_target(self, target=None, mDynFK=None):
+    def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:
             if mc.objectType(target) == 'nucleus':
                 return VALID.mNodeString(target)
@@ -599,6 +616,9 @@ class SimChainSetup(CGMDAT.data):
             _mapped['cloth'] = _node_ref(_runtime['mCloth'])
         if _runtime.get('mHairSysShape'):
             _mapped['hairSystem'] = _node_ref(_runtime['mHairSysShape'])
+        _ml_hs = _runtime.get('mHairSystems') or []
+        if _ml_hs:
+            _mapped['hairSystems'] = [_node_ref(h) for h in _ml_hs if h]
         if _runtime.get('mClothOutMesh'):
             _mapped['clothOutMesh'] = _node_ref(_runtime['mClothOutMesh'])
         self.dat['mapped'] = _mapped
@@ -618,6 +638,9 @@ class SimChainSetup(CGMDAT.data):
             if _entry['chainMode'] == 'clothAttach':
                 _entry['surfaceTrack'] = _d.get('surfaceTrack') or 'follicle'
             if _entry['chainMode'] == 'hair':
+                _mhs = _d.get('mHairSysShape')
+                if _mhs:
+                    _entry['hairSystem'] = _node_ref(_mhs)
                 _entry['options'] = {
                     'fwd': getattr(mGrp, 'fwd', None) or mSetup.fwd,
                     'up': getattr(mGrp, 'up', None) or mSetup.up,
@@ -682,6 +705,10 @@ class SimChainSetup(CGMDAT.data):
         _hair = _resolve_node_ref(_mapped.get('hairSystem'), typeFilter='hairSystem')
         if _hair:
             RIGDYN.map_hair_system(mSetup, _hair)
+        for _href in _mapped.get('hairSystems') or []:
+            _hn = _resolve_node_ref(_href, typeFilter='hairSystem')
+            if _hn:
+                RIGDYN.hair_system_register(mSetup, _hn, setDefault=False)
 
         for _chainDat in _dat.get('chains') or []:
             self._apply_chain(mSetup, _chainDat, recreateChains=recreateChains)
@@ -745,9 +772,19 @@ class SimChainSetup(CGMDAT.data):
         else:
             _copts = chainDat.get('options') or {}
             _setupOpts = self.dat.get('options') or {}
+            _hair_mode = 'default'
+            _hair_ref = chainDat.get('hairSystem')
+            if _hair_ref:
+                _hn = _resolve_node_ref(_hair_ref, typeFilter='hairSystem')
+                if _hn and mc.objExists(_hn):
+                    RIGDYN.hair_system_register(mSetup, _hn, setDefault=False)
+                    _hair_mode = cgmMeta.asMeta(_hn).p_nameBase
+                else:
+                    _hair_mode = 'new'
             mSetup.chain_create_hair(
                 objs=ml_targets,
                 name=_name,
+                hairSystemMode=_hair_mode,
                 fwd=_copts.get('fwd') or _setupOpts.get('fwd'),
                 up=_copts.get('up') or _setupOpts.get('up'),
                 upSetup=_copts.get('upSetup') or _setupOpts.get('upSetup'),

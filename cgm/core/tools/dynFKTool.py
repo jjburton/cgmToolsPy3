@@ -118,11 +118,11 @@ def reload_dependencies():
     log.info(cgmGEN._str_subLine)
 
 
-_RELOAD_DEPS_ANN = (
-    'Reload simChain backend libs (curve/rigging/snap/loc/dist/ik, nCloth, simChain_dat, '
-    'presets, dynamic_utils last) and rebind loaded setup meta. '
-    'After cgmDynFK / mClass code changes, run cgm core reload separately. '
-    'Relaunch cgmSimChain from the shelf/menu for tool UI code changes.')
+_RELAUNCH_TOOL_ANN = (
+    'Reload cgmSimChain backend libs + dynFKTool UI (same as shelf). Rebinds loaded setup meta. '
+    'Use after editing dynamic_utils, dynFKTool, simChain_dat, or presets. '
+    'If you changed cgmDynFK / cgm_Meta / mClass subclasses, run cgm core reload '
+    '(import cgm.core as CGM; CGM._reload()) before relaunching.')
 
 
 def _reload_dynfk_backend(self):
@@ -135,8 +135,8 @@ def _reload_dynfk_backend(self):
         except Exception:
             pass
     log.info(cgmGEN.logString_msg(
-        'uiFunc_reload_dependencies',
-        'Backend reloaded — relaunch cgmSimChain from shelf/menu for tool UI updates.'))
+        '_reload_dynfk_backend',
+        'Backend reloaded + setup meta rebound.'))
     log.info(cgmGEN._str_subLine)
 
 
@@ -148,11 +148,6 @@ def uiFunc_relaunch_tool(self):
     cgmGEN._reloadMod(DYNFKTOOL)
     DYNFKTOOL.ui()
     log.info(cgmGEN._str_subLine)
-
-
-def uiFunc_reload_dependencies(self):
-    """Setup → Reload Dependencies — backend libs only."""
-    mc.evalDeferred(cgmGEN.Callback(_reload_dynfk_backend, self), lp=True)
 
 
 def uiFunc_refresh_loaded_setup(self):
@@ -176,6 +171,7 @@ def uiFunc_refresh_loaded_setup(self):
     self._mDynFK = RIGDYN.cgmDynFK(_node)
     log.info(cgmGEN.logString_msg(_str_func, 'refreshed: {0}'.format(self._mDynFK.p_nameBase)))
     uiFunc_updateTargetDisplay(self)
+    uiFunc_refresh_hair_system_create_menu(self)
 
 
 def _dynfk_rebind_loaded_mDynFK(self, rigdyn_module=None):
@@ -247,6 +243,8 @@ class ui(cgmUI.cgmGUI):
         self.var_SimChainAdvancedTwistEnabled.setType('string')
         self.create_guiOptionVar('SimChainFollicleSampleDensity', defaultValue='1.0')
         self.var_SimChainFollicleSampleDensity.setType('string')
+        self.create_guiOptionVar('SimChainHairSystemMode', defaultValue='New')
+        self.var_SimChainHairSystemMode.setType('string')
         self._d_chainHairBuildMenus = {}
 
         #self.l_allowedDockAreas = []
@@ -334,13 +332,8 @@ class ui(cgmUI.cgmGUI):
         self.uiMenu_buildDock(self.uiMenu_FirstMenu)
 
         mUI.MelMenuItem(
-            self.uiMenu_FirstMenu, l='Reload Dependencies',
-            ann=_RELOAD_DEPS_ANN,
-            c=cgmGEN.Callback(uiFunc_reload_dependencies, self))
-
-        mUI.MelMenuItem(
             self.uiMenu_FirstMenu, l='Relaunch Tool',
-            ann='Reload dynFKTool module and open cgmSimChain (same as shelf — use after editing tool UI code).',
+            ann=_RELAUNCH_TOOL_ANN,
             c=cgmGEN.Callback(uiFunc_relaunch_tool, self))
         
     def build_layoutWrapper(self,parent):
@@ -692,7 +685,18 @@ def buildColumn_main(self,parent, asScroll = False):
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
 
+    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Hair system:')
+    self.options_hairSystemMode = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
+    self.options_hairSystemMode(
+        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+
     uiFunc_restore_simchain_create_optionvars(self)
+    uiFunc_refresh_hair_system_create_menu(self)
 
     cgmUI.add_LineSubBreak()
 
@@ -895,6 +899,26 @@ def uiFunc_library_apply_by_name(self, datKind, name):
     uiFunc_library_load_apply(self, _path)
 
 
+def uiFunc_library_apply_hair_to_target(self, presetName, hairTarget, mGrp=None):
+    """Apply a hair library dat to a specific hairSystem shape."""
+    _str_func = 'uiFunc_library_apply_hair_to_target'
+    _mode = uiFunc_get_library_mode(self)
+    _path = SIMDAT.resolve_library_filepath('hair.{0}'.format(presetName), mode=_mode)
+    if not _path:
+        _path = SIMDAT.resolve_library_filepath(presetName, mode=_mode)
+    if not _path or not os.path.isfile(_path):
+        return log.warning("|{0}| >> Preset not found: hair.{1}".format(_str_func, presetName))
+    inst, _dat = SIMDAT.read_dat(_path)
+    if not inst:
+        return log.warning("|{0}| >> Failed to read: {1}".format(_str_func, _path))
+    _hs = RIGDYN._resolve_hair_system_shape(hairTarget)
+    if not _hs:
+        return log.warning("|{0}| >> Invalid hairSystem target".format(_str_func))
+    _count = inst.apply(target=_hs, mDynFK=self._mDynFK, mGrp=mGrp)
+    log.info("|{0}| >> Applied {1} to {2} ({3} attrs)".format(
+        _str_func, presetName, _hs, _count))
+
+
 def uiFunc_build_presets_menu(self, parentMenu):
     """Presets → Hair / Cloth / Nucleus from cgmDat/sim library."""
     _mode = uiFunc_get_library_mode(self)
@@ -949,14 +973,15 @@ def uiFunc_presets_reset_base(self):
     _str_func = 'uiFunc_presets_reset_base'
     if not self._mDynFK:
         return log.warning("|{0}| >> Load a cgmDynFK setup first".format(_str_func))
-    _, mNucleus, mHair = uiFunc_setup_sim_targets(self)
+    _, mNucleus, _ = uiFunc_setup_sim_targets(self)
+    ml_hair = RIGDYN.hair_system_list_registered(self._mDynFK)
     if mNucleus:
         RIGDYN.profile_load(mNucleus.mNode, 'base')
-    if mHair:
+    for mHair in ml_hair:
         RIGDYN.profile_load(mHair.mNode, 'base')
-    if not mNucleus and not mHair:
+    if not mNucleus and not ml_hair:
         return log.warning("|{0}| >> Map nucleus or hair on setup first".format(_str_func))
-    log.info("|{0}| >> Applied base reset (nucleus / hair only)".format(_str_func))
+    log.info("|{0}| >> Applied base reset (nucleus / all hair systems)".format(_str_func))
 
 
 def uiFunc_build_library_menu(self, parentMenu):
@@ -1087,6 +1112,36 @@ def uiFunc_sim_dat_capture_save(self, datClass):
     log.info("|{0}| >> Captured + saved: {1}".format(_str_func, self._simDatPath))
 
 
+def uiFunc_sim_dat_capture_save_for_target(self, datClass, targetNode):
+    """Capture from a specific scene node and save via dat dialog (Presets menu parity)."""
+    _str_func = 'uiFunc_sim_dat_capture_save_for_target'
+    inst = datClass()
+    _mDynFK = self._mDynFK or None
+    _node = VALID.mNodeString(targetNode)
+    if not _node:
+        return log.warning("|{0}| >> Invalid capture target".format(_str_func))
+    if not inst.capture(nodes=_node, mDynFK=_mDynFK):
+        return log.warning("|{0}| >> Capture failed for {1}".format(_str_func, datClass.__name__))
+    self._simDatInst = inst
+    if not inst.write(forcePrompt=True, startDirMode='dev'):
+        return log.warning("|{0}| >> Save cancelled".format(_str_func))
+    self._simDatPath = inst.str_filepath
+    log.info("|{0}| >> Captured + saved: {1}".format(_str_func, self._simDatPath))
+    return True
+
+
+_SIM_PROFILE_DAT_CLASS = {
+    'hs': SIMDAT.SimHairDat,
+    'nc': SIMDAT.SimClothDat,
+    'n': SIMDAT.SimNucleusDat,
+}
+
+_SIM_DAT_MENU_LOAD = 'Load Dat'
+_SIM_DAT_MENU_SAVE_HAIR = 'Save Hair Dat…'
+_SIM_DAT_MENU_SAVE_CLOTH = 'Save Cloth Dat…'
+_SIM_DAT_MENU_SAVE_NUCLEUS = 'Save Nucleus Dat…'
+
+
 def uiFunc_sim_dat_apply_loaded(self, inst=None):
     _str_func = 'uiFunc_sim_dat_apply_loaded'
     inst = inst or self._simDatInst
@@ -1128,6 +1183,92 @@ def uiFunc_presets_load_hair(self, presetName):
 def uiFunc_presets_load_nucleus(self, presetName, source='ncloth'):
     """Apply nucleus dat preset by library name (source arg ignored — library only)."""
     uiFunc_library_apply_by_name(self, 'nucleus', presetName)
+
+
+def uiFunc_chain_section_label(chain_idx, chain):
+    """Details chain frame title: ``[index] - name``."""
+    return '[{0}] - {1}'.format(chain_idx, RIGDYN.chain_cgm_name(chain))
+
+
+def uiFunc_rebuild_hair_system_preset_menu(optionMenu, mHairShape=None, selfRef=None):
+    """Hair system row menu — cgmDat/sim hair library only (matches Presets top menu)."""
+    _mode = uiFunc_get_library_mode(selfRef)
+    optionMenu.clear()
+    optionMenu.append(_SIM_DAT_MENU_LOAD)
+    for _name in uiFunc_library_preset_names('hair', mode=_mode):
+        optionMenu.append(_name)
+    optionMenu.append('---')
+    optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR)
+    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+
+
+def uiFunc_process_hair_system_preset_change(self, mHairShape, optionMenu):
+    """Apply hair library dat to one hairSystem shape, or capture + save dat."""
+    val = optionMenu.getValue()
+    _mHair = cgmMeta.asMeta(mHairShape, noneValid=True)
+    _presetNode = _mHair.mNode if _mHair else VALID.mNodeString(mHairShape)
+    if val in (_SIM_DAT_MENU_LOAD, '---'):
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+        return
+    if val == _SIM_DAT_MENU_SAVE_HAIR:
+        uiFunc_sim_dat_capture_save_for_target(self, SIMDAT.SimHairDat, _presetNode)
+        uiFunc_rebuild_hair_system_preset_menu(optionMenu, _presetNode, selfRef=self)
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+        return
+    if uiFunc_library_dat_kind_for_name(val) == 'hair':
+        uiFunc_library_apply_hair_to_target(self, val, _presetNode, mGrp=None)
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+        return
+    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+
+
+def uiFunc_set_setup_default_hair_system(self):
+    """Details Default menu — set setup ``mHairSysShape`` from registered list."""
+    _str_func = 'uiFunc_set_setup_default_hair_system'
+    if not self._mDynFK or not hasattr(self, 'details_defaultHairSystemMenu'):
+        return
+    _val = (self.details_defaultHairSystemMenu.getValue() or '').strip()
+    _match = re.match(r'^Hair system (\d+)$', _val)
+    if not _match:
+        return
+    _hi = int(_match.group(1))
+    _ml = RIGDYN.hair_system_list_registered(self._mDynFK) or []
+    if _hi < 1 or _hi > len(_ml):
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Invalid hair system index: {0}'.format(_hi)))
+    mHair = _ml[_hi - 1]
+    if not mHair:
+        return
+    RIGDYN.hair_system_set_default(self._mDynFK, mHair)
+    log.info(cgmGEN.logString_msg(_str_func, mHair.p_nameShort))
+    uiFunc_refresh_hair_system_create_menu(self)
+    mc.evalDeferred(cgmGEN.Callback(uiFunc_update_details, self), lp=True)
+
+
+def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=None):
+    """Details row: numbered hair system label, DAG name in data column, preset menu."""
+    _mHair = cgmMeta.asMeta(mHair, noneValid=True)
+    if not _mHair:
+        return None
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=_padding)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Hair system {0}:'.format(hair_idx))
+    _status_text = _mHair.p_nameBase
+    if mDefault and mDefault.mNode == _mHair.mNode:
+        _status_text = '{0} (default)'.format(_status_text)
+    _status = mUI.MelLabel(_row, ut='cgmUIInstructionsTemplate', l=_status_text, en=True)
+    cgmUI.add_Button(
+        _row, '>>',
+        cgmGEN.Callback(uiFunc_select_item, _mHair.getTransform(asMeta=True)),
+        'Select hairSystem transform.')
+    _row.setStretchWidget(_status)
+    _presetMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
+    uiFunc_rebuild_hair_system_preset_menu(_presetMenu, _mHair.mNode, selfRef=self)
+    _presetMenu(
+        edit=True,
+        cc=cgmGEN.Callback(uiFunc_process_hair_system_preset_change, self, _mHair.mNode, _presetMenu))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+    return _status
 
 
 def uiFunc_make_load_row(parent, label, text, loadCommand, loadAnn, selfRef=None, statusAttr=None):
@@ -1214,10 +1355,128 @@ def uiFunc_map_nucleus(self):
         return
 
 
+_HAIR_SYSTEM_MENU_DEFAULT_SUFFIX = ' (default)'
+
+
+def uiFunc_hair_system_default_menu_label(mHair=None):
+    """Menu label for setup default hairSystem (always includes `` (default)``)."""
+    if mHair:
+        return '{0}{1}'.format(mHair.p_nameShort, _HAIR_SYSTEM_MENU_DEFAULT_SUFFIX)
+    return 'Default{0}'.format(_HAIR_SYSTEM_MENU_DEFAULT_SUFFIX)
+
+
+def uiFunc_hair_system_menu_value_to_mode(menu_val):
+    """Map Create panel menu label → ``chain_create_hair`` hairSystemMode string."""
+    _val = (menu_val or '').strip()
+    if _val == 'New':
+        return 'new'
+    if _val.endswith(_HAIR_SYSTEM_MENU_DEFAULT_SUFFIX):
+        return 'default'
+    if _val == 'Default':
+        return 'default'
+    return _val
+
+
+def uiFunc_refresh_hair_system_create_menu(self):
+    """Rebuild Create → Hair system menu: New, then default (+ suffix), then other registered systems."""
+    if not hasattr(self, 'options_hairSystemMode'):
+        return
+    _menu = self.options_hairSystemMode
+    _current = (_menu.getValue() or '').strip()
+    if _current == 'Default':
+        _current = uiFunc_hair_system_default_menu_label(
+            RIGDYN.hair_system_get_default(self._mDynFK) if self._mDynFK else None)
+
+    _menu.clear()
+    _menu.append('New')
+
+    mDefault = RIGDYN.hair_system_get_default(self._mDynFK) if self._mDynFK else None
+    _default_label = uiFunc_hair_system_default_menu_label(mDefault)
+    _menu.append(_default_label)
+
+    if self._mDynFK:
+        for mHair in RIGDYN.hair_system_list_registered(self._mDynFK):
+            if mDefault and mHair.mNode == mDefault.mNode:
+                continue
+            _menu.append(mHair.p_nameShort)
+
+    try:
+        _items = _menu.getItems()
+    except Exception:
+        _items = ['New', _default_label]
+
+    _pick = None
+    if _current in _items:
+        _pick = _current
+    else:
+        _saved = (self.var_SimChainHairSystemMode.value or 'New').strip()
+        if _saved == 'Default':
+            _saved = _default_label
+        if _saved in _items:
+            _pick = _saved
+        elif uiFunc_hair_system_menu_value_to_mode(_saved) == 'default':
+            _pick = _default_label
+    _menu.setValue(_pick if _pick else 'New')
+
+
+def uiFunc_hair_system_create_mode(self):
+    """Create panel hairSystemMode kw for chain_create_hair."""
+    if not hasattr(self, 'options_hairSystemMode'):
+        return 'default'
+    return uiFunc_hair_system_menu_value_to_mode(self.options_hairSystemMode.getValue())
+
+
+def uiFunc_hair_system_create_menu_label_for_chain(mSetup, mGrp):
+    """Create panel Hair system menu label for a chain's mapped hairSystem."""
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    if not mSetup or not mGrp:
+        return 'New'
+    mHair = RIGDYN.hair_system_resolve_for_chain(mGrp, mSetup, backfill=True)
+    if not mHair:
+        return 'New'
+    mDefault = RIGDYN.hair_system_get_default(mSetup)
+    if mDefault and mHair.mNode == mDefault.mNode:
+        return uiFunc_hair_system_default_menu_label(mDefault)
+    return mHair.p_nameShort
+
+
+def uiFunc_set_hair_system_create_menu_from_chain(self, mGrp):
+    """Sync Create → Hair system enum to match a chain grp's hairSystem wiring."""
+    if not hasattr(self, 'options_hairSystemMode'):
+        return False
+    uiFunc_refresh_hair_system_create_menu(self)
+    _label = uiFunc_hair_system_create_menu_label_for_chain(self._mDynFK, mGrp)
+    try:
+        _items = self.options_hairSystemMode.getItems()
+    except Exception:
+        _items = []
+    if _label not in _items:
+        log.warning(cgmGEN.logString_msg(
+            'uiFunc_set_hair_system_create_menu_from_chain',
+            'Hair system menu missing {0!r} — refresh setup hair registry'.format(_label)))
+        return False
+    self.options_hairSystemMode.setValue(_label)
+    return True
+
+
+def uiFunc_map_chain_hair(self, chain):
+    """Map selected hairSystem onto a hair chain (rewire follicle)."""
+    if not self._mDynFK:
+        return log.warning('Load a cgmDynFK setup first')
+    mGrp = cgmMeta.asMeta(chain, noneValid=True)
+    if not mGrp:
+        return log.warning('Invalid chain')
+    RIGDYN.chain_map_hair_system(mGrp, self._mDynFK)
+    uiFunc_refresh_hair_system_create_menu(self)
+    uiFunc_update_details(self)
+
+
 def uiFunc_map_hair(self):
     if not self._mDynFK:
         return log.warning("Tools → Init Sim Setup or load a cgmDynFK setup first")
     result = RIGDYN.map_hair_system(self._mDynFK)
+    uiFunc_refresh_hair_system_create_menu(self)
     uiFunc_update_details(self)
     uiFunc_update_create_panel_state(self)
     if not result:
@@ -1239,13 +1498,21 @@ def uiFunc_attach_to_cloth(self):
     self.itemList.rebuild()
 
 
-def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
-    """Details Load Preset — lists cgmDat/sim library presets for the target type."""
-    optionMenu.clear()
-    optionMenu.append("Load Preset")
+def _uiFunc_sim_dat_save_label_for_profile(profileKey):
+    if profileKey == 'hs':
+        return _SIM_DAT_MENU_SAVE_HAIR
+    if profileKey == 'nc':
+        return _SIM_DAT_MENU_SAVE_CLOTH
+    if profileKey == 'n':
+        return _SIM_DAT_MENU_SAVE_NUCLEUS
+    return None
 
-    _mPreset = cgmMeta.asMeta(presetObj, noneValid=True)
-    _presetNode = _mPreset.mNode if _mPreset else presetObj
+
+def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
+    """Details dat menu — cgmDat/sim library for nucleus / hair / cloth targets."""
+    _mode = uiFunc_get_library_mode(selfRef)
+    optionMenu.clear()
+    optionMenu.append(_SIM_DAT_MENU_LOAD)
 
     profileKey = uiFunc_get_profile_key_for_obj(presetObj)
     if not profileKey and selfRef is not None:
@@ -1253,68 +1520,58 @@ def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
 
     l_profiles = []
     if profileKey == 'hs':
-        l_profiles = uiFunc_library_preset_names('hair')
+        l_profiles = uiFunc_library_preset_names('hair', mode=_mode)
     elif profileKey == 'n':
-        l_profiles = uiFunc_library_preset_names('nucleus')
+        l_profiles = uiFunc_library_preset_names('nucleus', mode=_mode)
     elif profileKey == 'nc':
-        l_profiles = uiFunc_library_preset_names('cloth')
+        l_profiles = uiFunc_library_preset_names('cloth', mode=_mode)
 
-    if l_profiles:
-        for a in l_profiles:
-            optionMenu.append(a)
-        optionMenu.append("---")
-
-    for a in mc.nodePreset(list=_presetNode) or []:
+    for a in l_profiles:
         optionMenu.append(a)
-    optionMenu.append("---")
-    optionMenu.append("Save Preset")
-    optionMenu.setValue("Load Preset")
+    _saveLabel = _uiFunc_sim_dat_save_label_for_profile(profileKey)
+    if _saveLabel:
+        optionMenu.append('---')
+        optionMenu.append(_saveLabel)
+    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
 
 
-def uiFunc_process_preset_change(self, obj, optionMenu):
+def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
     val = optionMenu.getValue()
     _mObj = cgmMeta.asMeta(obj, noneValid=True)
     _presetNode = _mObj.mNode if _mObj else obj
+    mChain = cgmMeta.asMeta(presetChain, noneValid=True) if presetChain else None
+    profileKey = uiFunc_get_profile_key_for_obj(obj)
 
-    if val in ("Load Preset", "---"):
-        optionMenu.setValue("Load Preset")
+    if val in (_SIM_DAT_MENU_LOAD, '---'):
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
 
-    if val == "Save Preset":
-        result = mc.promptDialog(
-                title='Save Preset',
-                message='Preset Name:',
-                button=['OK', 'Cancel'],
-                defaultButton='OK',
-                cancelButton='Cancel',
-                dismissString='Cancel')
-
-        if result == 'OK':
-            text = mc.promptDialog(query=True, text=True)
-            if mc.nodePreset(isValidName=text):
-                mc.nodePreset(save=(_presetNode, text))
-                uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
-                optionMenu.setValue(text)
-            else:
-                print("Invalid name, try again")
-                optionMenu.setValue("Load Preset")
-        else:
-            optionMenu.setValue("Load Preset")
+    _saveLabel = _uiFunc_sim_dat_save_label_for_profile(profileKey)
+    if _saveLabel and val == _saveLabel:
+        _datClass = _SIM_PROFILE_DAT_CLASS.get(profileKey)
+        if _datClass:
+            uiFunc_sim_dat_capture_save_for_target(self, _datClass, _presetNode)
+            uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
 
     _datKind = uiFunc_library_dat_kind_for_name(val)
     if _datKind:
-        uiFunc_library_apply_by_name(self, _datKind, val)
-        optionMenu.setValue("Load Preset")
+        if _datKind == 'hair' and mChain and self._mDynFK:
+            mHair = RIGDYN.hair_system_resolve_for_chain(mChain, self._mDynFK)
+            if mHair:
+                uiFunc_library_apply_hair_to_target(self, val, mHair.mNode, mGrp=mChain)
+            else:
+                uiFunc_library_apply_by_name(self, _datKind, val)
+        else:
+            uiFunc_library_apply_by_name(self, _datKind, val)
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
 
-    if mc.nodePreset(isValidName=val):
-        if mc.nodePreset(exists=(_presetNode, val)):
-            mc.nodePreset(load=(_presetNode, optionMenu.getValue()))
-        optionMenu.setValue("Load Preset")
+    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
 
 
-def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabel = ">>", buttonCommand=None, buttonInfo="", presetOptions=False, presetObj=None, selfRef=None):
+def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabel = ">>", buttonCommand=None, buttonInfo="", presetOptions=False, presetObj=None, selfRef=None, presetChain=None):
     _row = mUI.MelHSingleStretchLayout(parent,ut='cgmUISubTemplate',padding = _padding)        
 
     mUI.MelSpacer(_row,w=_padding)
@@ -1335,7 +1592,7 @@ def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabe
         presetMenu = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
         uiFunc_rebuild_preset_menu(presetMenu, presetObj, selfRef=selfRef)
         presetMenu(edit=True,
-            cc = cgmGEN.Callback(uiFunc_process_preset_change, selfRef, presetObj, presetMenu) )
+            cc=cgmGEN.Callback(uiFunc_process_preset_change, selfRef, presetObj, presetMenu, presetChain))
         
     mUI.MelSpacer(_row,w=_padding)
 
@@ -1346,6 +1603,10 @@ def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabe
 def uiFunc_update_details(self):
     if not self._mDynFK:
         return
+
+    RIGDYN.chain_fixup_duplicate_names(self._mDynFK)
+    RIGDYN.chain_sync_chain_index_attrs(self._mDynFK)
+    uiFunc_refresh_hair_system_create_menu(self)
 
     self.detailsFrame.clear()
 
@@ -1414,13 +1675,53 @@ def uiFunc_update_details(self):
         selfRef=self, statusAttr='uiClothDetailsLabel',
     )
 
-    mHairSysShape = dat.get('mHairSysShape')
-    uiFunc_make_load_row(
-        _details, 'Hair System:',
-        mHairSysShape.p_nameBase if mHairSysShape else 'Not mapped',
-        cgmGEN.Callback(uiFunc_map_hair, self),
-        "Map selected hairSystem to this setup. Apply hair feel via Presets → Hair.",
-    )
+    mc.setParent(_details)
+    cgmUI.add_HeaderBreak()
+    cgmUI.add_Header('Hair systems')
+    cgmUI.add_LineSubBreak()
+
+    mDefaultHair = dat.get('mHairSysShape')
+    _ml_hs = dat.get('mHairSystems') or RIGDYN.hair_system_list_registered(self._mDynFK)
+    if _ml_hs:
+        for _hi, mHair in enumerate(_ml_hs, start=1):
+            if mHair:
+                uiFunc_make_hair_system_preset_row(self, _details, _hi, mHair, mDefaultHair)
+        _defRow = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=_padding)
+        mUI.MelSpacer(_defRow, w=_padding)
+        mUI.MelLabel(_defRow, l='Default:')
+        self.details_defaultHairSystemMenu = mUI.MelOptionMenu(_defRow, useTemplate='cgmUITemplate')
+        _def_pick = 'Hair system 1'
+        for _hi, mHair in enumerate(_ml_hs, start=1):
+            if not mHair:
+                continue
+            _label = 'Hair system {0}'.format(_hi)
+            self.details_defaultHairSystemMenu.append(_label)
+            if mDefaultHair and mHair.mNode == mDefaultHair.mNode:
+                _def_pick = _label
+        self.details_defaultHairSystemMenu.setValue(_def_pick)
+        self.details_defaultHairSystemMenu(
+            edit=True,
+            changeCommand=cgmGEN.Callback(uiFunc_set_setup_default_hair_system, self),
+            ann='Setup default hairSystem (Presets → Hair and Create menu default).')
+        _defRow.setStretchWidget(mUI.MelSeparator(_defRow))
+        mUI.MelSpacer(_defRow, w=_padding)
+        _defRow.layout()
+        uiFunc_make_load_row(
+            _details, 'Register:',
+            'Selection → setup',
+            cgmGEN.Callback(uiFunc_map_hair, self),
+            'Map selected hairSystem onto setup (register + set default).',
+        )
+    else:
+        uiFunc_make_load_row(
+            _details, 'Hair:',
+            'None registered',
+            cgmGEN.Callback(uiFunc_map_hair, self),
+            'Map selected hairSystem on setup (registers + default).',
+        )
+
+    mc.setParent(_details)
+    cgmUI.add_LineSubBreak()
 
     _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = 5)        
 
@@ -1442,14 +1743,15 @@ def uiFunc_update_details(self):
     _row.layout()
 
     # Baking -----------------------------------------------------------------
-    mc.setParent(_details)
-    cgmUI.add_HeaderBreak()
-    cgmUI.add_Header('Baking')
+    _bakingFrame = mUI.MelFrameLayout(
+        _details, label='Baking', collapsable=True, collapse=True, useTemplate='cgmUIHeaderTemplate')
+    _bakingColumn = mUI.MelColumnLayout(_bakingFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
+    mc.setParent(_bakingColumn)
     cgmUI.add_LineSubBreak()
 
     # Start Times
 
-    _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = 5)        
+    _row = mUI.MelHSingleStretchLayout(_bakingColumn, ut='cgmUISubTemplate', padding=5)        
 
     mUI.MelSpacer(_row,w=_padding)
 
@@ -1472,7 +1774,7 @@ def uiFunc_update_details(self):
 
 
     # TimeInput Row ----------------------------------------------------------------------------------
-    _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate')
+    _row = mUI.MelHSingleStretchLayout(_bakingColumn, ut='cgmUISubTemplate')
     mUI.MelSpacer(_row, w=_padding)
 
     mUI.MelLabel(_row,l='Bake Time:')
@@ -1505,7 +1807,7 @@ def uiFunc_update_details(self):
 
     _row.layout()   
 
-    mc.setParent(_details)
+    mc.setParent(_bakingColumn)
     cgmUI.add_LineSubBreak()
 
     allChains = []
@@ -1516,8 +1818,8 @@ def uiFunc_update_details(self):
     for idx in dat['chains']:
         allTargets += dat['chains'][idx]['mTargets']
 
-    _row = mUI.MelHLayout(_details,ut='cgmUISubTemplate',padding = _padding*2)
-    
+    _row = mUI.MelHLayout(_bakingColumn, ut='cgmUISubTemplate', padding=_padding * 2)
+
     cgmUI.add_Button(_row,'Bake All Joints',
         cgmGEN.Callback(uiFunc_bake,self,'chain', allChains),                         
         #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
@@ -1529,8 +1831,8 @@ def uiFunc_update_details(self):
     _row.layout()    
 
 
-    _row = mUI.MelHLayout(_details,ut='cgmUISubTemplate',padding = _padding*2)
-    
+    _row = mUI.MelHLayout(_bakingColumn, ut='cgmUISubTemplate', padding=_padding * 2)
+
     cgmUI.add_Button(_row,'Connect All Targets',
         cgmGEN.Callback(uiFunc_connect_targets, self),                         
         #lambda *a: attrToolsLib.doAddAttributesToSelected(self),
@@ -1539,19 +1841,26 @@ def uiFunc_update_details(self):
         cgmGEN.Callback(uiFunc_disconnect_targets, self),                         
         'Disconnect All Targets') 
 
-    _row.layout()   
+    _row.layout()
+
+    mc.setParent(_details)
+    cgmUI.add_LineSubBreak()
 
     # Chains
     self._d_chainHairBuildMenus = {}
     self._d_chainNameFields = {}
-    _chainsColumn = mUI.MelColumnLayout(_details, useTemplate='cgmUIHeaderTemplate', adj=True)
+    _chainsFrame = mUI.MelFrameLayout(
+        _details, label='Chains', collapsable=True, collapse=False, useTemplate='cgmUIHeaderTemplate')
+    _chainsColumn = mUI.MelColumnLayout(_chainsFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
     for i,chain in enumerate(self._mDynFK.msgList_get('chain')):
-        _chainLabel = RIGDYN.chain_cgm_name(chain)
+        _chainLabel = uiFunc_chain_section_label(i, chain)
+        _chainHeaderBgc = cgmUI.guiButtonColor if MATH.is_even(i) else cgmUI.guiBackgroundColor
         chainFrame = mUI.MelFrameLayout(
             _chainsColumn, label=_chainLabel, collapsable=True, collapse=True,
-            useTemplate='cgmUIHeaderTemplate')
+            useTemplate='cgmUIHeaderTemplate', bgc=_chainHeaderBgc)
         
-        _chainColumn = mUI.MelColumnLayout(chainFrame, useTemplate='cgmUIHeaderTemplate')
+        _chainColumn = mUI.MelColumnLayout(
+            chainFrame, useTemplate='cgmUIHeaderTemplate', bgc=cgmUI.guiBackgroundColor)
 
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -1594,14 +1903,21 @@ def uiFunc_update_details(self):
             uiFunc_make_display_line(_chainColumn, label='Surface track:', text=_surfaceTrack, button=False)
             uiFunc_make_display_line(_chainColumn, label='Mode:', text='clothAttach', button=False)
         else:
+            mHairChain = RIGDYN.hair_system_resolve_for_chain(chain, self._mDynFK)
+            _hs_label = mHairChain.p_nameShort if mHairChain else '—'
+            uiFunc_make_load_row(
+                _chainColumn, 'Hair system:',
+                _hs_label,
+                cgmGEN.Callback(uiFunc_map_chain_hair, self, chain),
+                'Map selected hairSystem to this chain (rewire follicle).',
+            )
             mFollicle = chain.getMessageAsMeta('mFollicle')
             if mFollicle:
                 uiFunc_make_display_line(
                     _chainColumn, label='Follicle:', text=mFollicle.p_nameBase, button=True,
                     buttonLabel=">>",
                     buttonCommand=cgmGEN.Callback(uiFunc_select_item, mFollicle),
-                    buttonInfo="Select follicle transform.",
-                    presetOptions=True, presetObj=mFollicle, selfRef=self)
+                    buttonInfo="Select follicle transform.")
         
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -2102,6 +2418,8 @@ def uiFunc_persist_simchain_create_optionvars(self):
             '1' if bool(self.options_advancedTwistCB.getValue()) else '0')
     if hasattr(self, 'options_follicleSampleDensity'):
         self.var_SimChainFollicleSampleDensity.setValue(self.options_follicleSampleDensity.getValue())
+    if hasattr(self, 'options_hairSystemMode'):
+        self.var_SimChainHairSystemMode.setValue(self.options_hairSystemMode.getValue())
     uiFunc_sync_add_end_joint_options(self)
     uiFunc_sync_curve_extend_end_options(self)
 
@@ -2140,6 +2458,18 @@ def uiFunc_restore_simchain_create_optionvars(self):
     if hasattr(self, 'options_follicleSampleDensity'):
         self.options_follicleSampleDensity.setValue(
             str(self.var_SimChainFollicleSampleDensity.value or '1.0'))
+    if hasattr(self, 'options_hairSystemMode'):
+        uiFunc_refresh_hair_system_create_menu(self)
+        _hs_mode = (self.var_SimChainHairSystemMode.value or 'New').strip()
+        try:
+            _items = self.options_hairSystemMode.getItems()
+        except Exception:
+            _items = ['New']
+        if _hs_mode == 'Default':
+            _hs_mode = uiFunc_hair_system_default_menu_label(
+                RIGDYN.hair_system_get_default(self._mDynFK) if self._mDynFK else None)
+        if _hs_mode in _items:
+            self.options_hairSystemMode.setValue(_hs_mode)
     uiFunc_sync_follicle_segment_options(self)
 
 def uiFunc_sync_add_end_joint_options(self):
@@ -2328,6 +2658,7 @@ def uiFunc_chain_push_build_to_create_options(self, chainIdx):
 
     uiFunc_sync_add_end_joint_options(self)
     uiFunc_sync_curve_extend_end_options(self)
+    uiFunc_set_hair_system_create_menu_from_chain(self, chain)
     uiFunc_persist_simchain_create_optionvars(self)
     log.info(cgmGEN.logString_msg(
         _str_func, 'Create options updated from chain {0}'.format(chain.p_nameBase)))
@@ -2560,6 +2891,11 @@ def uiFunc_make_dynamic_chain(self):
     _dist_raw = None
     if hasattr(self, 'options_addEndJointDistance'):
         _dist_raw = self.options_addEndJointDistance.getValue()
+    _hair_sys_mode = uiFunc_hair_system_create_mode(self)
+    log.info(cgmGEN.logString_msg(
+        'uiFunc_make_dynamic_chain',
+        'hairSystemMode={0!r} addEndJoint={1!r} extendEnd={2!r}'.format(
+            _hair_sys_mode, _addEndJoint, _extendEnd)))
     log.info(cgmGEN.logString_msg(
         'uiFunc_make_dynamic_chain',
         'UI addEndJoint CB raw={0!r} required={1} distance raw={2!r} -> addEndJoint={3!r} extendEnd={4!r}'.format(
@@ -2582,9 +2918,11 @@ def uiFunc_make_dynamic_chain(self):
             addEndJoint=_addEndJoint,
             extendEnd=_extendEnd,
             requireAddEndJoint=_requireAddEndJoint,
-            advancedTwist=_advancedTwist)
+            advancedTwist=_advancedTwist,
+            hairSystemMode=_hair_sys_mode)
         mDynFK.profile_load('base')
         uiFunc_load_dyn_chain(self, mDynFK.p_nameBase)
+        uiFunc_refresh_hair_system_create_menu(self)
     else:
         self._mDynFK.chain_create(
             name=self.options_name.getValue(),
@@ -2600,8 +2938,15 @@ def uiFunc_make_dynamic_chain(self):
             addEndJoint=_addEndJoint,
             extendEnd=_extendEnd,
             requireAddEndJoint=_requireAddEndJoint,
-            advancedTwist=_advancedTwist)
+            advancedTwist=_advancedTwist,
+            hairSystemMode=_hair_sys_mode)
         uiFunc_update_details(self)
+        uiFunc_refresh_hair_system_create_menu(self)
+
+    if self._mDynFK and hasattr(self, 'options_name'):
+        _ml = self._mDynFK.msgList_get('chain') or []
+        if _ml:
+            self.options_name.setValue(RIGDYN.chain_cgm_name(_ml[-1]))
 
     uiFunc_persist_simchain_create_optionvars(self)
     self.itemList.rebuild()
@@ -2646,6 +2991,7 @@ def uiFunc_load_dyn_chain(self, chain):
     if self._mDynFK:
         uiFunc_updateTargetDisplay(self)
         uiFunc_last_dynfk_store(self, self._mDynFK)
+        uiFunc_refresh_hair_system_create_menu(self)
 
     #uiFunc_updateFields(self)
     #self.uiReport_do()

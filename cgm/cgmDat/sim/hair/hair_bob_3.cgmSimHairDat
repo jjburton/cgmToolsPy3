@@ -1,0 +1,77 @@
+{
+    "datKind": "hair",
+    "differential": true,
+    "meta": {
+        "date": "2026-09-15 17:17",
+        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_04.mb",
+        "sourceNode": "|DynamicChain_dynFK|DynamicChain_R_hair_1_3_fk_anim_hairSys|DynamicChain_R_hair_1_3_fk_anim_hairSysShape",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain_R_hair_1_3_fk_anim_hairSysShape",
+    "profile": {
+        "attractionScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "2": [
+                0.582608699798584,
+                0.699999988079071,
+                3.0
+            ],
+            "3": [
+                1.0,
+                0.20000000298023224,
+                0.0
+            ],
+            "4": [
+                0.843478262424469,
+                0.47999998927116394,
+                3.0
+            ],
+            "5": [
+                0.0,
+                0.9399999976158142,
+                1.0
+            ]
+        },
+        "bendModel": 1,
+        "bendResistance": 0.10000000149011612,
+        "compressionResistance": 50.0,
+        "damp": 0.07,
+        "drag": 0.42,
+        "mass": 8.5,
+        "motionDrag": 0.28,
+        "startCurveAttract": 1.5,
+        "stiffnessScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.20000000298023224,
+                1.0,
+                3.0
+            ],
+            "2": [
+                1.0,
+                0.1599999964237213,
+                3.0
+            ],
+            "3": [
+                0.7739130258560181,
+                0.5400000214576721,
+                3.0
+            ]
+        },
+        "stretchDamp": 0.05000000074505806,
+        "stretchResistance": 175.0,
+        "tangentialDrag": 0.1599999964237213,
+        "twistResistance": 100.0
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

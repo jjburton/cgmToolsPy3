@@ -154,7 +154,11 @@ class Test_simChainSetupDat(unittest.TestCase):
     def test_setup_json_roundtrip(self):
         inst = SIMDAT.SimChainSetup()
         inst.dat = SIMDAT.SimChainSetup._empty_setup_dat('test_setup')
-        inst.dat['mapped'] = {'nucleus': '|test_nucleus'}
+        inst.dat['mapped'] = {
+            'nucleus': '|test_nucleus',
+            'hairSystem': '|hairSystemShape_bob',
+            'hairSystems': ['|hairSystemShape_bangs', '|hairSystemShape_bob'],
+        }
         inst.dat['chains'] = [{
             'index': 0,
             'name': 'test_chain',
@@ -162,6 +166,13 @@ class Test_simChainSetupDat(unittest.TestCase):
             'surfaceTrack': 'follicle',
             'targets': ['|jnt1', '|jnt2'],
             'presetRefs': {'cloth': 'cloth/cotton', 'nucleus': 'nucleus/solver_balanced'},
+        }, {
+            'index': 1,
+            'name': 'bangs',
+            'chainMode': 'hair',
+            'hairSystem': '|hairSystemShape_bangs',
+            'targets': ['|bang_jnt1'],
+            'options': {'hairFollowMode': 'splineIk'},
         }]
         fd, path = tempfile.mkstemp(suffix='.cgmSimChainSetup')
         os.close(fd)
@@ -170,7 +181,9 @@ class Test_simChainSetupDat(unittest.TestCase):
             loaded = SIMDAT.SimChainSetup()
             self.assertTrue(loaded.read(path))
             self.assertEqual(loaded.dat.get('baseName'), 'test_setup')
-            self.assertEqual(len(loaded.dat.get('chains') or []), 1)
+            self.assertEqual(len(loaded.dat.get('chains') or []), 2)
+            self.assertEqual(len(loaded.dat['mapped'].get('hairSystems') or []), 2)
+            self.assertEqual(loaded.dat['chains'][1].get('hairSystem'), '|hairSystemShape_bangs')
         finally:
             if os.path.exists(path):
                 os.remove(path)
