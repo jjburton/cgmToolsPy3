@@ -1,0 +1,57 @@
+{
+    "datKind": "hair",
+    "differential": true,
+    "meta": {
+        "date": "2026-09-16 13:35",
+        "scene": "D:/p4/SourceArt-DDE/DDE_Sparrow/Character/Blurrg/Animations/Run_Forward/Blurrg_Run_Forward_tailSimTest_onlySim.ma",
+        "sourceNode": "|DynamicChain_dynFK|DynamicChain_tailTip_fk_anim_hairSys|DynamicChain_tailTip_fk_anim_hairSysShape",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain_tailTip_fk_anim_hairSysShape",
+    "profile": {
+        "attractionDamp": 0.18681318720209075,
+        "attractionScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "3": [
+                1.0,
+                0.14000000059604645,
+                1.0
+            ],
+            "4": [
+                0.643478274345398,
+                1.0,
+                3.0
+            ]
+        },
+        "bendModel": 1,
+        "bendResistance": 15.789473533630371,
+        "compressionResistance": 35.78947448730469,
+        "damp": 0.6593406585219143,
+        "drag": 0.6813186810935264,
+        "mass": 18.0,
+        "motionDrag": 0.010989011285806096,
+        "startCurveAttract": 1.0,
+        "stiffnessScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "3": [
+                1.0,
+                0.18000000715255737,
+                1.0
+            ]
+        },
+        "stretchDamp": 0.05999999865889549,
+        "stretchResistance": 185.0,
+        "tangentialDrag": 0.08791209012269974
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

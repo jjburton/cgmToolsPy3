@@ -3,7 +3,7 @@ simChain_dat
 Josh Burton
 www.cgmonastery.com
 
-cgmSimChain preset + setup dat files — hair / cloth / nucleus presets (Phase 1), setup re-wire (Phase 2).
+cgmSimChain preset + setup dat files — hair / hairShape / cloth / nucleus presets (Phase 1), setup re-wire (Phase 2).
 """
 __MAYALOCAL = 'SIMCHAINDAT'
 
@@ -27,7 +27,8 @@ import cgm.core.presets.cgmNCloth_presets as nClothPresets
 log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
-DAT_EXTENSIONS = ('cgmSimHairDat', 'cgmSimClothDat', 'cgmSimNucleusDat')
+DAT_EXTENSIONS = (
+    'cgmSimHairDat', 'cgmSimHairShapeDat', 'cgmSimClothDat', 'cgmSimNucleusDat')
 SETUP_EXTENSION = 'cgmSimChainSetup'
 ALL_SIM_EXTENSIONS = DAT_EXTENSIONS + (SETUP_EXTENSION,)
 
@@ -238,12 +239,14 @@ class SimPresetDatBase(CGMDAT.data):
             return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
 
         _profileKind = self.dat.get('profileKind') or self.defaultProfileKind
+        _section = self.dat.get('section') or self.section
+
         _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
         if not _target:
             return log.warning(cgmGEN.logString_msg(
                 _str_func, 'No apply target for {0}'.format(self.datKind)))
 
-        if self.section == 'hs':
+        if _section == 'hs':
             return RIGDYN.profile_apply_section(
                 _target, profile, section='hs', clean=clean, profileKind=_profileKind)
         return NCLOTH.profile_apply_section(
@@ -314,7 +317,7 @@ class SimHairDat(SimPresetDatBase):
                 _str_func, 'Select hairSystem or load cgmDynFK with hair mapped'))
             return None
 
-        _prof = RIGDYN.get_dat(_node, differential=differential)
+        _prof = RIGDYN.get_dat(_node, differential=differential, hs_profile_scope='dynamic')
         _profile = {}
         if isinstance(_prof, dict):
             _profile = _prof.get('hs') or _prof.get('hairSystem') or {}
@@ -329,6 +332,119 @@ class SimHairDat(SimPresetDatBase):
             differential=differential,
             profileKind=profileKind or 'hair',
         )
+
+    def apply(self, target=None, clean=True, mDynFK=None, mGrp=None):
+        _str_func = 'SimHairDat.apply'
+        profile = copy.deepcopy(self.dat.get('profile') or {})
+        if not profile:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        _name = self.dat.get('name') or 'preset'
+        _section = self.dat.get('section') or self.section
+        _profileKind = self.dat.get('profileKind') or self.defaultProfileKind
+
+        if _section == 'hairShape' or _profileKind == 'hairShape':
+            return log.warning(cgmGEN.logString_msg(
+                _str_func,
+                "'{0}' is a legacy HairShape preset on a hair dat — not applied. "
+                "Re-save shape as .cgmSimHairShapeDat and dynamic feel as .cgmSimHairDat.".format(
+                    _name)))
+
+        _dynamic, _removed = RIGDYN.hair_profile_partition_legacy_shape(profile)
+        if _removed:
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                "'{0}' still contains HairShape attrs ({1}) — those were not applied. "
+                "Re-save with Save Hair Dat… to store dynamic feel only.".format(
+                    _name, ', '.join(sorted(_removed)))))
+
+        if not _dynamic:
+            if _removed:
+                return log.warning(cgmGEN.logString_msg(
+                    _str_func,
+                    "'{0}' has only HairShape data — use HairShape presets instead.".format(_name)))
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
+        if not _target:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'No apply target for hair dat'))
+
+        return RIGDYN.profile_apply_section(
+            _target, _dynamic, section='hs', clean=clean, profileKind='hair')
+
+    def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
+        if target:
+            _hs = RIGDYN._resolve_hair_system_shape(target)
+            return _hs or VALID.mNodeString(target)
+        if mGrp and mDynFK:
+            mHair = RIGDYN.hair_system_resolve_for_chain(mGrp, mDynFK)
+            if mHair:
+                return mHair.mNode
+        if mDynFK:
+            mHair = RIGDYN.hair_system_get_default(mDynFK)
+            if mHair:
+                return mHair.mNode
+        nodes = mc.ls(sl=True, long=True) or []
+        for n in nodes:
+            _hs = RIGDYN._resolve_hair_system_shape(n)
+            if _hs:
+                return _hs
+        return None
+
+
+class SimHairShapeDat(SimPresetDatBase):
+    _ext = 'cgmSimHairShapeDat'
+    _startDir = ['cgmDat', 'sim', 'hairShape']
+    datKind = 'hairShape'
+    section = 'hs'
+    defaultProfileKind = 'hairShape'
+
+    def capture(self, nodes=None, differential=True, name=None, profileKind=None,
+                mDynFK=None, mGrp=None):
+        _str_func = 'SimHairShapeDat.capture'
+        mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+        if mGrp:
+            _profile = RIGDYN.get_hair_shape_profile(mGrp, mDynFK, differential=differential)
+            return self._build_dat(
+                _profile,
+                name=name or RIGDYN.chain_cgm_name(mGrp),
+                sourceNode=mGrp.mNode,
+                differential=differential,
+                profileKind=profileKind or 'hairShape',
+            )
+
+        _node = _resolve_hairsystem_for_capture(nodes=nodes, mDynFK=mDynFK)
+        if not _node:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'Select hairSystem, chain grp, or loaded cgmDynFK with hair'))
+            return None
+
+        _profile = RIGDYN.get_hair_system_shape_profile(_node, differential=differential)
+        _short = _node.split('|')[-1].split(':')[-1]
+        return self._build_dat(
+            _profile,
+            name=name or _short,
+            sourceNode=_node,
+            differential=differential,
+            profileKind=profileKind or 'hairShape',
+        )
+
+    def apply(self, target=None, clean=True, mDynFK=None, mGrp=None):
+        _str_func = '{0}.apply'.format(self.__class__.__name__)
+        profile = self.dat.get('profile') or {}
+        if not profile:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+        if mGrp:
+            return RIGDYN.apply_hair_shape_profile(mGrp, mDynFK, profile, clean=clean)
+
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
+        if not _target:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'No hairSystem apply target'))
+        return RIGDYN.apply_hair_system_shape_profile(_target, profile, clean=clean)
 
     def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:
@@ -824,7 +940,7 @@ class SimChainSetup(CGMDAT.data):
 
 def _register_classes():
     global _D_KIND_TO_CLASS, _D_EXT_TO_CLASS
-    for cls in (SimHairDat, SimClothDat, SimNucleusDat):
+    for cls in (SimHairDat, SimHairShapeDat, SimClothDat, SimNucleusDat):
         _D_KIND_TO_CLASS[cls.datKind] = cls
         _D_EXT_TO_CLASS[cls._ext] = cls
     _D_EXT_TO_CLASS[SimChainSetup._ext] = SimChainSetup

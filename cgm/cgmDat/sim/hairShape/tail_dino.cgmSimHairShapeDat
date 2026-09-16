@@ -1,0 +1,29 @@
+{
+    "datKind": "hairShape",
+    "differential": true,
+    "meta": {
+        "date": "2026-09-16 10:36",
+        "scene": "D:/p4/SourceArt-DDE/DDE_Sparrow/Character/Blurrg/Animations/Run_Forward/Blurrg_Run_Forward_tailSimTest.ma",
+        "sourceNode": "DynamicChain_tailTip_fk_anim_hairSysShape",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain_tailTip_fk_anim_hairSysShape",
+    "profile": {
+        "hairWidth": 80.0,
+        "hairWidthScale": {
+            "0": [
+                0.043478261679410934,
+                1.0,
+                1.0
+            ],
+            "1": [
+                1.0,
+                0.05999999865889549,
+                1.0
+            ]
+        }
+    },
+    "profileKind": "hairShape",
+    "schemaVersion": 1,
+    "section": "hs"
+}

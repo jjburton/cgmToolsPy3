@@ -32,7 +32,6 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
-
 def _dag_str(node):
     """Return a Maya DAG name string for mc.* (never pass meta to mc)."""
     if node is None:
@@ -3969,8 +3968,8 @@ class cgmDynFK(cgmMeta.cgmObject):
                 if _buffer:
                     mc.delete(_buffer)
 
-    def bake_nodes(self, mObjs, startFrame, endFrame):
-        """Bake simulation to keys (same pattern as bakeAndPrep / zoo dynamicChain)."""
+    def bake_nodes(self, mObjs, startFrame, endFrame, simulation=True):
+        """Bake to keys (same pattern as bakeAndPrep / zoo dynamicChain)."""
         _str_func = 'bake_nodes'
         ml = cgmMeta.asMeta(mObjs, noneValid=True)
         if not ml:
@@ -3979,10 +3978,12 @@ class cgmDynFK(cgmMeta.cgmObject):
         _nodes = [mObj.mNode for mObj in ml]
         cgmGEN.playback_stop()
 
-        log.info(cgmGEN.logString_msg(_str_func, '{0} | frames {1}-{2}'.format(_nodes, startFrame, endFrame)))
+        log.info(cgmGEN.logString_msg(
+            _str_func, '{0} | frames {1}-{2} | simulation={3}'.format(
+                _nodes, startFrame, endFrame, simulation)))
         mc.bakeResults(
             _nodes,
-            simulation=True,
+            simulation=simulation,
             t=(startFrame, endFrame),
             sampleBy=1,
             disableImplicitControl=True,
@@ -3991,11 +3992,12 @@ class cgmDynFK(cgmMeta.cgmObject):
             minimizeRotation=True,
         )
 
-        _baked = {mObj.mNode for mObj in ml}
-        for idx, chain in enumerate(self.msgList_get('chain')):
-            ml_targets = chain.msgList_get('mTargets') or []
-            if any(t.mNode in _baked for t in ml_targets):
-                self.targets_disconnect(idx)
+        if simulation:
+            _baked = {mObj.mNode for mObj in ml}
+            for idx, chain in enumerate(self.msgList_get('chain')):
+                ml_targets = chain.msgList_get('mTargets') or []
+                if any(t.mNode in _baked for t in ml_targets):
+                    self.targets_disconnect(idx)
 
         return True
     
@@ -4014,11 +4016,90 @@ class cgmDynFK(cgmMeta.cgmObject):
         pass
 
 
+def chain_bake_input_from_targets(mDynFK, startFrame, endFrame, idx=None):
+    """
+    Bake rig target motion onto input joints (mObjJointChain) for inCurve authoring.
+
+    Targets must not be connected (loc parentConstraint). Uses temporary target→input
+    parentConstraints, then bakes input joints with simulation=False.
+    """
+    _str_func = 'chain_bake_input_from_targets'
+    mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
+    if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
+        return log.error(cgmGEN.logString_msg(_str_func, 'Owner is not a cgmDynFK setup'))
+
+    ml_chains = mSetup.msgList_get('chain') or []
+    if idx is not None:
+        if idx >= len(ml_chains):
+            return log.warning(cgmGEN.logString_msg(_str_func, 'No chain at idx {0}'.format(idx)))
+        ml_chains = [ml_chains[idx]]
+
+    _chains_to_bake = []
+    for mGrp in ml_chains:
+        _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
+        if _chainMode == 'clothAttach':
+            continue
+        if _hair_chain_integrity_missing(mGrp):
+            return log.error(cgmGEN.logString_msg(
+                _str_func, 'Broken chain {0} — fix or delete before Bake Input'.format(
+                    mGrp.p_nameBase)))
+        if _chain_targets_connected(mGrp):
+            return log.error(cgmGEN.logString_msg(
+                _str_func,
+                'Targets connected on chain {0} — Disconnect Targets before Bake Input'.format(
+                    mGrp.p_nameBase)))
+        ml_driver = mGrp.msgList_get('mTargets') or []
+        ml_input = _hair_normalize_sim_chain(mGrp.msgList_get('mObjJointChain'))
+        if not ml_driver or not ml_input:
+            return log.error(cgmGEN.logString_msg(
+                _str_func, 'Chain {0} missing targets or input joints'.format(mGrp.p_nameBase)))
+        _chains_to_bake.append((mGrp, ml_driver, ml_input))
+
+    if not _chains_to_bake:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No hair chains to bake'))
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'chains={0} | frames {1}-{2}'.format(
+            len(_chains_to_bake), startFrame, endFrame)))
+
+    _ml_bake = []
+    _all_constraints = []
+    try:
+        for mGrp, ml_driver, ml_input in _chains_to_bake:
+            _pair_count = min(len(ml_driver), len(ml_input))
+            _skipped = max(0, len(ml_input) - _pair_count)
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                '{0} | pairs={1} | input joints without target={2}'.format(
+                    mGrp.p_nameBase, _pair_count, _skipped)))
+            for i in range(_pair_count):
+                _c = mc.parentConstraint(
+                    ml_driver[i].mNode, ml_input[i].mNode, maintainOffset=False)
+                if _c:
+                    if isinstance(_c, (list, tuple)):
+                        _all_constraints.extend(_c)
+                    else:
+                        _all_constraints.append(_c)
+            _ml_bake.extend(ml_input)
+
+        mSetup.bake_nodes(_ml_bake, startFrame, endFrame, simulation=False)
+    finally:
+        if _all_constraints:
+            mc.delete(_all_constraints)
+
+    return True
+
 
 #Profiles ========================================================================================
 d_shortHand = {'nucleus':'n',
                'hairSystem':'hs'}
 l_ignore = ['currentTime','startFrame']
+
+# hairSystem: dynamic feel (hs dat) vs shape attrs (per-chain HairShape dat)
+d_attrMap_hs_shape_groups = ('base', 'clumpAndHairShape')
+l_follicle_hairShape_attrs = (
+    'sampleDensity', 'fixedSegmentLength', 'segmentLength', 'degree', 'pointLock',
+)
 
 d_attrMap = {'n':{'gravity':['gravity','gravityDirection',],
                   'air':['airDensity','windSpeed','windDirection','windNoise'],
@@ -4048,7 +4129,156 @@ d_attrMap = {'n':{'gravity':['gravity','gravityDirection',],
                              'iterations','interpolationRange','lengthFlex','stiffness','repulsion',
                              'noise','noiseFrequency','noiseMethod','valRand']}}
 
-def get_dat(target = None, differential=False, module = dynFKPresets):
+def _hs_attr_groups_for_scope(hs_profile_scope):
+    """``dynamic`` = sim feel only; ``shape`` = hairSystem shape attrs; ``all`` = legacy full hs."""
+    _groups = d_attrMap.get('hs') or {}
+    if hs_profile_scope == 'all':
+        return list(_groups.keys())
+    if hs_profile_scope == 'shape':
+        return [g for g in d_attrMap_hs_shape_groups if g in _groups]
+    return [g for g in _groups if g not in d_attrMap_hs_shape_groups]
+
+
+def _hair_system_shape_attr_names():
+    _names = []
+    for _grp in d_attrMap_hs_shape_groups:
+        _names.extend(d_attrMap.get('hs', {}).get(_grp) or [])
+    return _names
+
+
+def hair_profile_partition_legacy_shape(profile):
+    """
+    Split a flat hair preset profile into dynamic attrs vs legacy HairShape keys.
+
+    Returns (dynamic_profile, removed_shape_keys) where removed keys are follicle
+    shape attrs and hairSystem shape-group attrs (not dynamic sim feel).
+    """
+    if not profile:
+        return {}, []
+    _shape_hs = set(_hair_system_shape_attr_names())
+    _follicle = set(l_follicle_hairShape_attrs)
+    _dynamic = {}
+    _removed = []
+    for k, v in list(profile.items()):
+        if k in _follicle or k in _shape_hs:
+            _removed.append(str(k))
+        else:
+            _dynamic[k] = v
+    return _dynamic, _removed
+
+
+def _query_node_attr_dict(node, attr_names, differential=False, base_section=None, module=dynFKPresets):
+    _res = {}
+    _node = VALID.mNodeString(node)
+    for a in attr_names:
+        if a in l_ignore:
+            continue
+        if not mc.attributeQuery(a, node=_node, exists=True):
+            continue
+        try:
+            _v = ATTR.get(_node, a)
+        except Exception as err:
+            log.error("Failed to query: {0} | {1} | {2}".format(_node, a, err))
+            continue
+        if _v is None or _v is False:
+            continue
+        _res[str(a)] = _v
+    if differential and base_section:
+        _d_base = profile_get('base', module) or {}
+        _d_baseSet = _d_base.get(base_section) or {}
+        _res_use = {}
+        for k, v in list(_res.items()):
+            _base_v = _d_baseSet.get(k)
+            if _base_v is None or v != _base_v:
+                _res_use[k] = v
+        return _res_use
+    return _res
+
+
+def get_hair_shape_profile(mGrp, mDynFK=None, differential=True):
+    """Follicle shape + hairSystem shape attrs for per-chain HairShape dat."""
+    _str_func = 'get_hair_shape_profile'
+    mGrp = cgmMeta.asMeta(mGrp, noneValid=True)
+    if not mGrp:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No chain grp'))
+    _profile = {}
+    mFollicle = mGrp.getMessageAsMeta('mFollicle')
+    if mFollicle:
+        for _shape in mFollicle.getShapes(asMeta=False) or []:
+            if mc.nodeType(_shape) != 'follicle':
+                continue
+            _profile.update(_query_node_attr_dict(
+                _shape, l_follicle_hairShape_attrs, differential=False))
+    mHair = hair_system_resolve_for_chain(mGrp, mDynFK) if mDynFK else None
+    if mHair:
+        _hs_shape = _query_node_attr_dict(
+            mHair.mNode, _hair_system_shape_attr_names(),
+            differential=differential, base_section='hs')
+        _profile.update(_hs_shape)
+    return _profile
+
+
+def get_hair_system_shape_profile(target, differential=True, module=dynFKPresets):
+    """hairSystem shape groups only (for SimHairShapeDat / per-system apply)."""
+    _prof = get_dat(
+        target, differential=differential, module=module, hs_profile_scope='shape')
+    if isinstance(_prof, dict):
+        return _prof.get('hs') or {}
+    return {}
+
+
+def apply_hair_system_shape_profile(target, profile=None, clean=False, module=dynFKPresets):
+    """Apply hairSystem shape attrs; ignores follicle keys if present in profile."""
+    profile = copy.deepcopy(profile or {})
+    if not profile:
+        return 0
+    _hs_profile = {
+        k: v for k, v in list(profile.items())
+        if k not in l_follicle_hairShape_attrs}
+    if not _hs_profile:
+        return 0
+    mTar = cgmMeta.asMeta(target, noneValid=True)
+    if not mTar:
+        return log.error(cgmGEN.logString_msg('apply_hair_system_shape_profile', 'No target'))
+    return profile_apply_section(
+        mTar.mNode, _hs_profile, section='hs', clean=clean, profileKind='hairShape')
+
+
+def apply_hair_shape_profile(mGrp, mDynFK=None, profile=None, clean=False):
+    """Apply HairShape dat profile to follicle shape + chain hairSystem shape attrs."""
+    _str_func = 'apply_hair_shape_profile'
+    mGrp = cgmMeta.asMeta(mGrp, noneValid=True)
+    if not mGrp:
+        return log.error(cgmGEN.logString_msg(_str_func, 'No chain grp'))
+    profile = copy.deepcopy(profile or {})
+    if not profile:
+        return 0
+
+    _count = 0
+    _follicle_keys = [k for k in list(profile.keys()) if k in l_follicle_hairShape_attrs]
+    _follicle_profile = {k: profile.pop(k) for k in _follicle_keys}
+
+    mFollicle = mGrp.getMessageAsMeta('mFollicle')
+    if mFollicle and _follicle_profile:
+        for _shape in mFollicle.getShapes(asMeta=False) or []:
+            if mc.nodeType(_shape) != 'follicle':
+                continue
+            for a, v in list(_follicle_profile.items()):
+                try:
+                    ATTR.set(_shape, a, v)
+                    _count += 1
+                except Exception as err:
+                    log.warning("{0} | follicle {1} | {2}".format(_str_func, a, err))
+
+    mHair = hair_system_resolve_for_chain(mGrp, mDynFK) if mDynFK else None
+    if mHair and profile:
+        _count += apply_hair_system_shape_profile(
+            mHair.mNode, profile, clean=clean)
+    log.info(cgmGEN.logString_msg(_str_func, '{0} | {1} attrs'.format(mGrp.p_nameBase, _count)))
+    return _count
+
+
+def get_dat(target=None, differential=False, module=dynFKPresets, hs_profile_scope='dynamic'):
     _str_func = 'get_dat'
     mTar = cgmMeta.asMeta(target, noneValid = True)
     if not mTar:
@@ -4062,7 +4292,11 @@ def get_dat(target = None, differential=False, module = dynFKPresets):
     #pprint.pprint(_d)
     _res = {}
     _tar = mTar.mNode
-    for section,l in list(d_attrMap.get(_key).items()):
+    _group_keys = list(d_attrMap.get(_key).items())
+    if _key == 'hs':
+        _allowed = set(_hs_attr_groups_for_scope(hs_profile_scope))
+        _group_keys = [(g, l) for g, l in _group_keys if g in _allowed]
+    for section, l in _group_keys:
         log.debug(cgmGEN.logString_msg(_str_func,section))        
         for a in l:
             if a in l_ignore:
@@ -4191,7 +4425,13 @@ def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
     d_use = {}
 
     if clean:
-        if profileKind == 'base' or (profileKind == 'hair' and _key == 'hs'):
+        if profileKind == 'hairShape' and _key == 'hs':
+            _base_hs = _base.get('hs') or {}
+            d_use = {
+                a: copy.deepcopy(_base_hs[a])
+                for a in _hair_system_shape_attr_names()
+                if a in _base_hs}
+        elif profileKind == 'base' or (profileKind == 'hair' and _key == 'hs'):
             d_use = copy.deepcopy(_base.get(_key) or {})
         else:
             d_use = {}

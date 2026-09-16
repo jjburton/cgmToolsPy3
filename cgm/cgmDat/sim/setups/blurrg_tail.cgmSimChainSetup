@@ -1,0 +1,67 @@
+{
+    "baseName": "DynamicChain",
+    "chains": [
+        {
+            "chainMode": "hair",
+            "hairSystem": "|DynamicChain_dynFK|DynamicChain_tailTip_fk_anim_hairSys|DynamicChain_tailTip_fk_anim_hairSysShape",
+            "index": 0,
+            "name": "tailTip_fk_anim",
+            "options": {
+                "addEndJoint": 15.0,
+                "advancedTwist": true,
+                "aimUpMode": "joint",
+                "extendEnd": 20.0,
+                "extendStart": null,
+                "fixedSegmentLength": false,
+                "follicleSampleDensity": 2.000000001769513,
+                "follicleSegmentLength": 1.0,
+                "fwd": "z+",
+                "hairFollowMode": "splineIk",
+                "inCurveDegree": 3,
+                "outCurveDegree": 3,
+                "up": "y+",
+                "upSetup": "guess"
+            },
+            "targets": [
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim|Blurrg:tail_2_fk_anim_master_grp|Blurrg:tail_2_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim|Blurrg:tail_2_fk_anim_master_grp|Blurrg:tail_2_fk_anim|Blurrg:tail_3_fk_anim_master_grp|Blurrg:tail_3_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim|Blurrg:tail_2_fk_anim_master_grp|Blurrg:tail_2_fk_anim|Blurrg:tail_3_fk_anim_master_grp|Blurrg:tail_3_fk_anim|Blurrg:tail_4_fk_anim_master_grp|Blurrg:tail_4_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim|Blurrg:tail_2_fk_anim_master_grp|Blurrg:tail_2_fk_anim|Blurrg:tail_3_fk_anim_master_grp|Blurrg:tail_3_fk_anim|Blurrg:tail_4_fk_anim_master_grp|Blurrg:tail_4_fk_anim|Blurrg:tail_5_fk_anim_master_grp|Blurrg:tail_5_fk_anim",
+                "|Blurrg:master|Blurrg:Blurrg_anim_master_grp|Blurrg:Blurrg_anim_dynParentGroup|Blurrg:Blurrg_anim|Blurrg:deform|Blurrg:tail_deform_grp|Blurrg:tail_root_anim_master_grp|Blurrg:tail_root_anim_dynParentGroup|Blurrg:tail_root_anim_worldOrient_grp|Blurrg:tail_root_anim|Blurrg:tail_root_anim_Transform_fk_grp|Blurrg:tailBase_fk_anim_master_grp|Blurrg:tailBase_fk_anim_dynParentGroup|Blurrg:tailBase_fk_anim|Blurrg:tail_1_fk_anim_master_grp|Blurrg:tail_1_fk_anim|Blurrg:tail_2_fk_anim_master_grp|Blurrg:tail_2_fk_anim|Blurrg:tail_3_fk_anim_master_grp|Blurrg:tail_3_fk_anim|Blurrg:tail_4_fk_anim_master_grp|Blurrg:tail_4_fk_anim|Blurrg:tail_5_fk_anim_master_grp|Blurrg:tail_5_fk_anim|Blurrg:tailTip_fk_anim_master_grp|Blurrg:tailTip_fk_anim"
+            ]
+        }
+    ],
+    "mapped": {
+        "hairSystem": "|DynamicChain_dynFK|DynamicChain_tailTip_fk_anim_hairSys|DynamicChain_tailTip_fk_anim_hairSysShape",
+        "hairSystems": [
+            "|DynamicChain_dynFK|DynamicChain_tailTip_fk_anim_hairSys|DynamicChain_tailTip_fk_anim_hairSysShape"
+        ],
+        "nucleus": "|cgmDynFK_nucleus"
+    },
+    "meta": {
+        "date": "2026-09-16 13:33",
+        "scene": "D:/p4/SourceArt-DDE/DDE_Sparrow/Character/Blurrg/Animations/Run_Forward/Blurrg_Run_Forward_tailSimTest_onlySim.ma",
+        "sourceNode": "|DynamicChain_dynFK",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain",
+    "options": {
+        "addEndJoint": false,
+        "advancedTwist": false,
+        "aimUpMode": "joint",
+        "extendEnd": false,
+        "extendStart": null,
+        "fixedSegmentLength": false,
+        "follicleSampleDensity": 1.0,
+        "follicleSegmentLength": 1.0,
+        "fwd": "z+",
+        "startFrame": -50,
+        "up": "y+",
+        "upSetup": "guess"
+    },
+    "presetRefs": {},
+    "schemaVersion": 1,
+    "setupRoot": "|DynamicChain_dynFK"
+}
