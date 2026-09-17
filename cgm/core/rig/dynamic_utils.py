@@ -1065,7 +1065,7 @@ def chain_set_name(mDynFK, idx, name):
                 _str_func, 'Chain name already in use: {0}'.format(_new)))
 
     _chainMode = getattr(mGrp, 'chainMode', None) or 'hair'
-    mc.undoInfo(openChunk=True, chunkName='cgmSimChain chain rename')
+    mc.undoInfo(openChunk=True, chunkName='cgmDynSimTool chain rename')
     try:
         try:
             mGrp.dagLock(False)

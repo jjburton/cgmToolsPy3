@@ -3,7 +3,7 @@ simChain_dat
 Josh Burton
 www.cgmonastery.com
 
-cgmSimChain preset + setup dat files — hair / hairShape / cloth / nucleus presets (Phase 1), setup re-wire (Phase 2).
+cgmDynSimTool preset + setup dat files — hair / hairShape / cloth / nucleus presets (Phase 1), setup re-wire (Phase 2).
 """
 __MAYALOCAL = 'SIMCHAINDAT'
 

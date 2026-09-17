@@ -299,14 +299,24 @@ def rotateOrderChangeAnimation(*a):
 
     #except Exception,err:
     #    log.warning("[mrsScene] failed to load. | {0}".format(err))
-def cgmSimChain():
+def cgmDynSimTool():
     try:
         from cgm.core.tools import dynFKTool
         dynFKTool.reload_dependencies()
         cgmGEN._reloadMod(dynFKTool)
         dynFKTool.ui()
     except Exception as err:
-        cgmGEN.cgmException(Exception,err)
+        cgmGEN.cgmException(Exception, err)
+
+
+def cgmSimChain():
+    """Legacy shelf/menu alias for :func:`cgmDynSimTool`."""
+    cgmDynSimTool()
+
+
+def cgmDynamicsTool():
+    """Legacy alias for :func:`cgmDynSimTool`."""
+    cgmDynSimTool()
 
 
 def cgmP4Tool():

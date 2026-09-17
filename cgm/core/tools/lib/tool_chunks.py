@@ -1197,9 +1197,9 @@ def uiSection_animUtils(parent):
                 ann = "Launch cgm's dynParent Tool - a tool for assisting space switching setups and more",
                 c=lambda *a: TOOLCALLS.dynParentTool())
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())    
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())    
     mc.menuItem(parent = parent,
                 l='cgmSetTools',
                 ann = "Launch cgm's setTools - a tool for managing maya selection sets",
@@ -1365,9 +1365,9 @@ def uiSection_mrsDynamics(parent):
     
     
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())
 
     mc.menuItem(parent = parent,
                 l='cgmAnimFilterTool',
@@ -1536,9 +1536,9 @@ def uiSection_mrs(parent):
                 c=lambda *a: TOOLCALLS.dynParentTool())
     
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())
     
     mc.menuItem(parent = parent,
                 l='cgmSnapTools',

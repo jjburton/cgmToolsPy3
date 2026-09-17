@@ -6,7 +6,7 @@ email: dbokser@cgmonks.com
 
 Website : https://github.com/jjburton/cgmTools/wiki
 ------------------------------------------
-cgmSimChain tool
+cgmDynSimTool (dynamic chains / cgmDynFK)
 ================================================================
 """
 # From Python =============================================================
@@ -42,10 +42,54 @@ import cgm.core.lib.simChain_dat as SIMDAT
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
-__toolname__ ='cgmSimChain'
+__toolname__ = 'cgmDynSimTool'
 
 _padding = 5
+_LIBRARY_DIR_MODE_OV = 'cgmDynSimTool_libraryDirMode'
+_LIBRARY_DIR_MODE_OV_LEGACY = (
+    'cgmDynamicsTool_libraryDirMode',
+    'cgmSimChain_libraryDirMode',
+)
+
+
+def _library_dir_mode_optionvar_get():
+    if mc.optionVar(exists=_LIBRARY_DIR_MODE_OV):
+        return mc.optionVar(q=_LIBRARY_DIR_MODE_OV)
+    for _legacy in _LIBRARY_DIR_MODE_OV_LEGACY:
+        if mc.optionVar(exists=_legacy):
+            return mc.optionVar(q=_legacy)
+    return 'dev'
+
+
+def _library_dir_mode_optionvar_set(mode):
+    mc.optionVar(sv=(_LIBRARY_DIR_MODE_OV, mode))
+
+
 _STATUS_ROW_HELP_BGC = SHARED._d_gui_state_colors.get('help')
+
+
+def _dynfk_build_details_empty_message(parent, message):
+    """Full-width centered placeholder inside Details frame (p4 / animClip status pattern)."""
+    _form = mUI.MelFormLayout(parent, ut='cgmUITemplate')
+    _status = mUI.MelButton(
+        _form,
+        label=message,
+        h=20,
+        align='center',
+        bgc=_STATUS_ROW_HELP_BGC,
+        ann='Use the header set icon to load a cgmDynFK setup.',
+        en=False,
+    )
+    _form(
+        edit=True,
+        af=(
+            (_status, 'top', 2),
+            (_status, 'bottom', 2),
+            (_status, 'left', 2),
+            (_status, 'right', 2),
+        ),
+    )
+    return _form
 
 
 def _dynfk_icon_btn_kw(image_name, w=25, h=25):
@@ -83,23 +127,23 @@ def uiBuild_setup_status_row(self, parent):
         ann='Loaded cgmDynFK setup (click to refresh from scene).',
         c=cgmGEN.Callback(uiFunc_refresh_loaded_setup, self),
     )
-    self.uiBtn_refreshLoaded = mUI.MelIconButton(
-        _row,
-        ann='Refresh loaded cgmDynFK from scene (re-read messages and Details).',
-        c=cgmGEN.Callback(uiFunc_refresh_loaded_setup, self),
-        **_dynfk_icon_btn_kw('refresh.png'),
-    )
     self.uiBtn_loadSelected = mUI.MelIconButton(
         _row,
         ann='Load first selected cgmDynFK setup.',
         c=cgmGEN.Callback(uiFunc_load_selected, self),
         **_dynfk_icon_btn_kw('set_25.png'),
     )
+    self.uiBtn_refreshLoaded = mUI.MelIconButton(
+        _row,
+        ann='Refresh loaded cgmDynFK from scene (re-read messages and Details).',
+        c=cgmGEN.Callback(uiFunc_refresh_loaded_setup, self),
+        **_dynfk_icon_btn_kw('refresh.png'),
+    )
     self.uiBtn_selectLoaded = mUI.MelIconButton(
         _row,
         ann='Select loaded cgmDynFK setup in the scene.',
         c=cgmGEN.Callback(uiFunc_select_loaded_setup, self),
-        **_dynfk_icon_btn_kw('select.png'),
+        **_dynfk_icon_btn_kw('select_25.png'),
     )
     self.uiBtn_clearLoaded = mUI.MelIconButton(
         _row,
@@ -116,7 +160,7 @@ def uiBuild_setup_status_row(self, parent):
 
 def reload_dependencies():
     """
-    Reload cgmSimChain backend modules via cgmGEN._reloadMod.
+    Reload cgmDynSimTool backend modules via cgmGEN._reloadMod.
 
     Leaf lib modules first, then ik/constraint rig libs, then dynamic_utils last so
     re-imported helpers are not stale. Does **not** reload Red9 / ``cgm_Meta`` / mClass
@@ -151,7 +195,7 @@ def reload_dependencies():
     _dat_mods = (NCLOTHMOD, SIMDATMOD, DYNFKPRESETS, nClothPresets)
     _reload_mods = _lib_mods + _rig_mods + _dat_mods + (RIGDYNMOD,)
 
-    log.info(cgmGEN.logString_msg('reload_dependencies', 'reloading cgmSimChain backend...'))
+    log.info(cgmGEN.logString_msg('reload_dependencies', 'reloading cgmDynSimTool backend...'))
     for _mod in _reload_mods:
         log.info(cgmGEN.logString_msg('reload_dependencies', getattr(_mod, '__name__', repr(_mod))))
         cgmGEN._reloadMod(_mod)
@@ -164,7 +208,7 @@ def reload_dependencies():
     MATH = MATHUTILS
     TRANS = TRANSUTIL
 
-    log.info(cgmGEN.logString_msg('reload_dependencies', 'cgmSimChain backend done'))
+    log.info(cgmGEN.logString_msg('reload_dependencies', 'cgmDynSimTool backend done'))
     log.info(cgmGEN.logString_msg(
         'reload_dependencies',
         'mClass / meta subclass edits need cgm core reload (CGM._reload) — not done here.'))
@@ -172,7 +216,7 @@ def reload_dependencies():
 
 
 _RELAUNCH_TOOL_ANN = (
-    'Reload cgmSimChain backend libs + dynFKTool UI (same as shelf). Rebinds loaded setup meta. '
+    'Reload cgmDynSimTool backend libs + dynFKTool UI (same as shelf). Rebinds loaded setup meta. '
     'Use after editing dynamic_utils, dynFKTool, simChain_dat, or presets. '
     'If you changed cgmDynFK / cgm_Meta / mClass subclasses, run cgm core reload '
     '(import cgm.core as CGM; CGM._reload()) before relaunching.')
@@ -194,7 +238,7 @@ def _reload_dynfk_backend(self):
 
 
 def uiFunc_relaunch_tool(self):
-    """Reload backend + dynFKTool module and open cgmSimChain (same as shelf entry)."""
+    """Reload backend + dynFKTool module and open cgmDynSimTool (same as shelf entry)."""
     reload_dependencies()
     import cgm.core.tools.dynFKTool as DYNFKTOOL
     log.info(cgmGEN.logString_msg('uiFunc_relaunch_tool', getattr(DYNFKTOOL, '__name__', 'dynFKTool')))
@@ -363,31 +407,31 @@ class ui(cgmUI.cgmGUI):
         _reload_dynfk_backend(self)
  
     def build_menus(self):
-        self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc=cgmGEN.Callback(self.buildMenu_file))
+        self.uiMenu_Setup = mUI.MelMenu(l='Setup', pmc=cgmGEN.Callback(self.buildMenu_file))
         self.uiMenu_PresetsMenu = mUI.MelMenu(l='Presets', pmc = cgmGEN.Callback(self.buildMenu_presets))
         self.uiMenu_ToolsMenu = mUI.MelMenu(l='Tools', pmc = cgmGEN.Callback(self.buildMenu_tools))
 
     def buildMenu_file(self):
-        self.uiMenu_FileMenu.clear()
+        self.uiMenu_Setup.clear()
         mUI.MelMenuItem(
-            self.uiMenu_FileMenu, l='Load Dat…',
+            self.uiMenu_Setup, l='Load Dat…',
             ann='Load cgmSim*Dat or cgmSimChainSetup and apply to the scene / setup',
             c=cgmGEN.Callback(uiFunc_sim_dat_load, self),
         )
         mUI.MelMenuItem(
-            self.uiMenu_FileMenu, l='Save Dat',
+            self.uiMenu_Setup, l='Save Dat',
             ann='Capture setup from loaded cgmDynFK or save in-memory dat to its path',
             c=cgmGEN.Callback(uiFunc_sim_dat_save, self, False),
         )
         mUI.MelMenuItem(
-            self.uiMenu_FileMenu, l='Save Dat As…',
+            self.uiMenu_Setup, l='Save Dat As…',
             ann='Capture setup or save in-memory dat to a new path',
             c=cgmGEN.Callback(uiFunc_sim_dat_save, self, True),
         )
-        mUI.MelMenuItemDiv(self.uiMenu_FileMenu, l='Tool')
-        self.uiMenu_buildDock(self.uiMenu_FileMenu)
+        mUI.MelMenuItemDiv(self.uiMenu_Setup, l='Tool')
+        self.uiMenu_buildDock(self.uiMenu_Setup)
         mUI.MelMenuItem(
-            self.uiMenu_FileMenu, l='Relaunch Tool',
+            self.uiMenu_Setup, l='Relaunch Tool',
             ann=_RELAUNCH_TOOL_ANN,
             c=cgmGEN.Callback(uiFunc_relaunch_tool, self))
 
@@ -623,9 +667,84 @@ def buildColumn_main(self,parent, asScroll = False):
     self.hairCreateFrame = mUI.MelFrameLayout(
         _create, label='Hair', collapsable=True, collapse=False,
         useTemplate='cgmUIHeaderTemplate')
-    _hair = mUI.MelColumnLayout(self.hairCreateFrame, useTemplate='cgmUISubTemplate')
+    _hair = mUI.MelColumnLayout(
+        self.hairCreateFrame,
+        useTemplate='cgmUIHeaderTemplate',
+        bgc=cgmUI.guiBackgroundColor,
+        adj=True,
+        rowSpacing=0,
+    )
 
-    mUI.MelSeparator(_hair, ut='cgmUISubTemplate', h=5)
+    cgmUI.add_LineSubBreak()
+
+    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Build:')
+    self.options_hairFollowMode = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate',
+        ann='Follow mode for new chains.')
+    for _label in ('Spline IK', 'Legacy'):
+        self.options_hairFollowMode.append(_label)
+    self.options_hairFollowMode.setValue('Spline IK')
+    self.options_hairFollowMode(
+        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='In deg:')
+    self.options_inCurveDegree = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
+    for _d in ('1', '2', '3'):
+        self.options_inCurveDegree.append(_d)
+    self.options_inCurveDegree.setValue('1')
+    self.options_inCurveDegree(
+        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Out deg:')
+    self.options_outCurveDegree = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
+    for _d in ('1', '2', '3'):
+        self.options_outCurveDegree.append(_d)
+    self.options_outCurveDegree.setValue('2')
+    self.options_outCurveDegree(
+        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelSpacer(_row, w=_padding)
+    _row.layout()
+
+    _extRow = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_extRow, w=_padding)
+    mUI.MelLabel(_extRow, l='Advanced twist:')
+    self.options_advancedTwistCB = mUI.MelCheckBox(
+        _extRow, v=False, label='',
+        ann='Spline IK: Object Rotation Up (Start/End) on out-curve handle; sim joints at chain ends. Rebuild Chain to update existing chains.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    _extRow.setStretchWidget(mUI.MelSeparator(_extRow))
+    mUI.MelLabel(_extRow, l='Add end joint:')
+    self.options_addEndJointCB = mUI.MelCheckBox(
+        _extRow, v=False, label='',
+        ann='Extra sim joint past the last target so the last segment can bend (not an inCurve CV).',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    self.options_addEndJointDistance = mUI.MelTextField(
+        _extRow, w=50, text='2.0', editable=False,
+        bgc=SHARED._d_gui_state_colors.get('help'),
+        ann='Offset distance (scene units) along last segment when Add end joint is on.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    mUI.MelSpacer(_extRow, w=_padding)
+    mUI.MelLabel(_extRow, l='Extend end:')
+    self.options_curveExtendEndCB = mUI.MelCheckBox(
+        _extRow, v=False, label='',
+        ann='Extra inCurve CV past chain end (after add-end sim joint when that is on). Ponytail overshoot.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    self.options_curveExtendEndDistance = mUI.MelTextField(
+        _extRow, w=50, text='1.0', editable=False,
+        bgc=SHARED._d_gui_state_colors.get('help'),
+        ann='Curve extension distance (scene units) along last segment when Extend end is on.',
+        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
+    mUI.MelSpacer(_extRow, w=_padding)
+    _extRow.layout()
+    uiFunc_sync_add_end_joint_options(self)
+    uiFunc_sync_curve_extend_end_options(self)
+
+    mc.setParent(_hair)
+    cgmUI.add_SectionBreak()
+    mUI.MelLabel(_hair, l='Follicle', ut='cgmUITemplate', align='center')
+    mUI.MelSeparator(_hair, ut='cgmUISubTemplate', h=2)
 
     _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
@@ -642,7 +761,6 @@ def buildColumn_main(self,parent, asScroll = False):
     _row.setStretchWidget(mUI.MelSeparator(_row))
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
-    uiFunc_sync_follicle_segment_options(self)
 
     _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
@@ -655,88 +773,13 @@ def buildColumn_main(self,parent, asScroll = False):
     _row.layout()
     uiFunc_sync_follicle_segment_options(self)
 
-    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Follow mode:')
-    self.options_hairFollowMode = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
-    for _label in ('Spline IK', 'Legacy'):
-        self.options_hairFollowMode.append(_label)
-    self.options_hairFollowMode.setValue('Spline IK')
-    self.options_hairFollowMode(
-        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    _row.setStretchWidget(mUI.MelSeparator(_row))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
+    cgmUI.add_SectionBreak()
+    mUI.MelLabel(_hair, l='Hair system', ut='cgmUITemplate', align='center')
+    mUI.MelSeparator(_hair, ut='cgmUISubTemplate', h=2)
 
     _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='In curve degree:')
-    self.options_inCurveDegree = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
-    for _d in ('1', '2', '3'):
-        self.options_inCurveDegree.append(_d)
-    self.options_inCurveDegree.setValue('1')
-    self.options_inCurveDegree(
-        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Out curve degree:')
-    self.options_outCurveDegree = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
-    for _d in ('1', '2', '3'):
-        self.options_outCurveDegree.append(_d)
-    self.options_outCurveDegree.setValue('2')
-    self.options_outCurveDegree(
-        edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    _row.setStretchWidget(mUI.MelSeparator(_row))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
-
-    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Add end joint:')
-    self.options_addEndJointCB = mUI.MelCheckBox(
-        _row, v=False, label='',
-        ann='Extra sim joint past the last target so the last segment can bend (not an inCurve CV).',
-        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    self.options_addEndJointDistance = mUI.MelTextField(
-        _row, w=50, text='2.0', editable=False,
-        bgc=SHARED._d_gui_state_colors.get('help'),
-        ann='Offset distance (scene units) along last segment when Add end joint is on.',
-        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    _row.setStretchWidget(mUI.MelSeparator(_row))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
-    uiFunc_sync_add_end_joint_options(self)
-
-    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Extend end:')
-    self.options_curveExtendEndCB = mUI.MelCheckBox(
-        _row, v=False, label='',
-        ann='Extra inCurve CV past chain end (after add-end sim joint when that is on). Ponytail overshoot.',
-        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    self.options_curveExtendEndDistance = mUI.MelTextField(
-        _row, w=50, text='1.0', editable=False,
-        bgc=SHARED._d_gui_state_colors.get('help'),
-        ann='Curve extension distance (scene units) along last segment when Extend end is on.',
-        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    _row.setStretchWidget(mUI.MelSeparator(_row))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
-    uiFunc_sync_curve_extend_end_options(self)
-
-    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Advanced twist:')
-    self.options_advancedTwistCB = mUI.MelCheckBox(
-        _row, v=False, label='',
-        ann='Spline IK: Object Rotation Up (Start/End) on out-curve handle; sim joints at chain ends. Rebuild Chain to update existing chains.',
-        changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
-    _row.setStretchWidget(mUI.MelSeparator(_row))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
-
-    _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row, w=_padding)
-    mUI.MelLabel(_row, l='Hair system:')
+    mUI.MelLabel(_row, l='Mode:')
     self.options_hairSystemMode = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
     self.options_hairSystemMode(
         edit=True, changeCommand=cgmGEN.Callback(uiFunc_persist_simchain_create_optionvars, self))
@@ -747,15 +790,17 @@ def buildColumn_main(self,parent, asScroll = False):
     uiFunc_restore_simchain_create_optionvars(self)
     uiFunc_refresh_hair_system_create_menu(self)
 
+    mc.setParent(_hair)
     cgmUI.add_LineSubBreak()
 
     _row = mUI.MelHSingleStretchLayout(_hair, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
+    mUI.MelLabel(_row, l='Chain')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
     self.btnMakeDynamicChain = cgmUI.add_Button(
         _row, 'Make Dynamic Chain',
         cgmGEN.Callback(uiFunc_make_dynamic_chain, self),
         'Make dynamic hair/curve chain (makeCurvesDynamic).')
-    _row.setStretchWidget(self.btnMakeDynamicChain)
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
 
@@ -906,9 +951,7 @@ _SIM_MENU_SHAPE_PREFIX = 'Shape: '
 
 
 def uiFunc_get_library_mode(self=None):
-    if mc.optionVar(exists='cgmSimChain_libraryDirMode'):
-        return mc.optionVar(q='cgmSimChain_libraryDirMode')
-    return 'dev'
+    return _library_dir_mode_optionvar_get()
 
 
 def uiFunc_library_items_for_kind(kind, ext, mode=None):
@@ -1069,9 +1112,7 @@ def uiFunc_build_library_menu(self, parentMenu):
 
 def uiFunc_build_setup_library_menu(self, parentMenu):
     """Presets → Setups — scan cgmDat/sim/setups for cgmSimChainSetup files."""
-    _mode = 'dev'
-    if mc.optionVar(exists='cgmSimChain_libraryDirMode'):
-        _mode = mc.optionVar(q='cgmSimChain_libraryDirMode')
+    _mode = _library_dir_mode_optionvar_get()
 
     mUI.MelMenuItemDiv(parentMenu, l='Load + Apply')
     _options, _ = SIMDAT.get_setup_library_options(force=True, mode=_mode)
@@ -1120,7 +1161,7 @@ def uiFunc_sim_setup_apply_loaded(self, inst=None):
 
 
 def uiFunc_library_dir_mode(self, mode):
-    mc.optionVar(sv=('cgmSimChain_libraryDirMode', mode))
+    _library_dir_mode_optionvar_set(mode)
     self.buildMenu_presets()
 
 
@@ -1365,21 +1406,30 @@ def uiFunc_set_setup_default_hair_system(self):
 
 
 def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=None):
-    """Details row: registered hairSystem + Hair / HairShape preset menu."""
+    """Details row: registered hairSystem + Hair / HairShape preset menu (tight stack, no separator)."""
     _mHair = cgmMeta.asMeta(mHair, noneValid=True)
     if not _mHair:
         return None
-    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=_padding)
-    mUI.MelSpacer(_row, w=_padding)
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
     mUI.MelLabel(_row, l='Hair system {0}:'.format(hair_idx))
     _status_text = _mHair.p_nameBase
     if mDefault and mDefault.mNode == _mHair.mNode:
         _status_text = '{0} (default)'.format(_status_text)
-    _status = mUI.MelLabel(_row, ut='cgmUIInstructionsTemplate', l=_status_text, en=True)
-    cgmUI.add_Button(
-        _row, '>>',
-        cgmGEN.Callback(uiFunc_select_item, _mHair.getTransform(asMeta=True)),
-        'Select hairSystem transform.')
+    _status = mUI.MelButton(
+        _row,
+        label=_status_text,
+        h=20,
+        bgc=_STATUS_ROW_HELP_BGC,
+        ann='Registered hairSystem on this setup.',
+        en=False,
+    )
+    mUI.MelIconButton(
+        _row,
+        ann='Select hairSystem transform.',
+        c=cgmGEN.Callback(uiFunc_select_item, _mHair.getTransform(asMeta=True)),
+        **_dynfk_icon_btn_kw('select_25.png'),
+    )
     _row.setStretchWidget(_status)
     _presetMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
     uiFunc_rebuild_hair_system_preset_menu(_presetMenu, _mHair.mNode, selfRef=self)
@@ -1387,7 +1437,7 @@ def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=N
         edit=True,
         ann='Hair: dynamic feel. Shape: width/clump/simulationMethod on this hairSystem.',
         cc=cgmGEN.Callback(uiFunc_process_hair_system_preset_change, self, _mHair.mNode, _presetMenu))
-    mUI.MelSpacer(_row, w=_padding)
+    mUI.MelSpacer(_row, w=5)
     _row.layout()
     return _status
 
@@ -1517,36 +1567,41 @@ def uiFunc_apply_setup_base_name(self, *args):
 
 
 def uiFunc_make_load_row(
-        parent, label, text, loadCommand, loadAnn, selfRef=None, statusAttr=None, selectCommand=None):
-    """Label + field + set icon — Project ``buildFrame_paths`` project-path row."""
-    mUI.MelSeparator(parent, ut='cgmUISubTemplate', h=3)
+        parent, label, text, loadCommand, loadAnn,
+        selfRef=None, statusAttr=None, selectCommand=None, leading_separator=True):
+    """Label + status button + set / select — Project ``buildFrame_paths`` row."""
+    if leading_separator:
+        mUI.MelSeparator(parent, ut='cgmUISubTemplate', h=3)
     _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=5)
     mUI.MelLabel(_row, l=label)
-    uiTF = mUI.MelButton(
+    uiTF = mUI.MelLabel(
         _row,
-        label=text,
-        h=20,
+        ut='cgmUIInstructionsTemplate',
+        l=text,
+        # h=20,
         bgc=_STATUS_ROW_HELP_BGC,
         ann=loadAnn,
         en=False,
     )
-    mUI.MelIconButton(
-        parent=_row,
-        ut='cgmUITemplate',
-        style='iconOnly',
-        image=os.path.join(cgmUI._path_imageFolder, 'set_25.png'),
-        ann=loadAnn,
-        bgc=cgmUI.guiButtonColor,
-        c=loadCommand,
-    )
+    if loadCommand:
+        mUI.MelIconButton(
+            parent=_row,
+            ut='cgmUITemplate',
+            style='iconOnly',
+            image=os.path.join(cgmUI._path_imageFolder, 'set_25.png'),
+            ann=loadAnn,
+            bgc=cgmUI.guiButtonColor,
+            c=loadCommand,
+        )
     if selectCommand is not None:
         mUI.MelIconButton(
             _row,
             ann='Select mapped node.',
             c=selectCommand,
-            **_dynfk_icon_btn_kw('select.png'),
+            **_dynfk_icon_btn_kw('select_25.png'),
         )
+        
     _row.setStretchWidget(uiTF)
     mUI.MelSpacer(_row, w=5)
     _row.layout()
@@ -1583,7 +1638,8 @@ def uiFunc_set_cloth_status_labels(self, mCloth=None):
         self.uiClothStatusLabel(edit=True, l=_text)
     if hasattr(self, 'uiClothDetailsLabel'):
         self.uiClothDetailsLabel(
-            edit=True, l=mCloth.p_nameBase if mCloth else 'Not mapped')
+            edit=True,
+            label=mCloth.p_nameBase if mCloth else 'Not mapped')
 
 
 def uiFunc_init_sim_setup(self):
@@ -1877,20 +1933,23 @@ def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
     optionMenu.setValue(_SIM_DAT_MENU_LOAD)
 
 
-def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabel = ">>", buttonCommand=None, buttonInfo="", presetOptions=False, presetObj=None, selfRef=None, presetChain=None):
-    _row = mUI.MelHSingleStretchLayout(parent,ut='cgmUISubTemplate',padding = _padding)        
+def uiFunc_make_display_line(
+        parent, label="", text="", button=False, buttonCommand=None, buttonInfo="",
+        presetOptions=False, presetObj=None, selfRef=None, presetChain=None):
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
 
-    mUI.MelSpacer(_row,w=_padding)
-    mUI.MelLabel(_row, 
-                 l=label)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l=label)
 
-    uiTF = mUI.MelLabel(_row,ut='cgmUIInstructionsTemplate',l=text,
-                                en=True)
+    uiTF = mUI.MelLabel(_row, ut='cgmUIInstructionsTemplate', l=text, en=True)
 
-    if button:
-        cgmUI.add_Button(_row,buttonLabel,
-                         buttonCommand,
-                         buttonInfo)
+    if button and buttonCommand:
+        mUI.MelIconButton(
+            _row,
+            ann=buttonInfo or 'Select.',
+            c=buttonCommand,
+            **_dynfk_icon_btn_kw('select_25.png'),
+        )
     
     _row.setStretchWidget(uiTF)
 
@@ -1900,7 +1959,7 @@ def uiFunc_make_display_line(parent, label="", text="", button=False, buttonLabe
         presetMenu(edit=True,
             cc=cgmGEN.Callback(uiFunc_process_preset_change, selfRef, presetObj, presetMenu, presetChain))
         
-    mUI.MelSpacer(_row,w=_padding)
+    mUI.MelSpacer(_row, w=5)
 
     _row.layout()
 
@@ -1924,14 +1983,7 @@ def uiFunc_update_details(self):
         return
     if not self._mDynFK:
         self.detailsFrame.clear()
-        _empty = mUI.MelColumnLayout(self.detailsFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
-        mUI.MelLabel(
-            _empty,
-            l='No setup loaded...',
-            ut='cgmUIInstructionsTemplate',
-            align='center',
-            h=20,
-        )
+        _dynfk_build_details_empty_message(self.detailsFrame, 'No setup loaded...')
         mc.setParent(self.detailsFrame)
         self.detailsFrame(edit=True, collapse=True)
         uiFunc_set_cloth_status_labels(self, False)
@@ -1947,11 +1999,11 @@ def uiFunc_update_details(self):
 
     self.detailsFrame(edit=True, collapse=False)
 
-    _details = mUI.MelColumnLayout(self.detailsFrame, useTemplate='cgmUIHeaderTemplate')
+    # Header column: subsection frames need this parent for white frame labels.
+    _details = mUI.MelColumnLayout(
+        self.detailsFrame, useTemplate='cgmUIHeaderTemplate', adj=True, rowSpacing=0)
 
-    _setupMapsColumn = mUI.MelColumnLayout(_details, useTemplate='cgmUISubTemplate', adj=True)
-
-    _row = mUI.MelHSingleStretchLayout(_setupMapsColumn, ut='cgmUISubTemplate', padding=2, expand=False)
+    _row = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
     mUI.MelLabel(_row, l='Name: ', h=20)
     self.details_baseNameField = mUI.MelTextField(
@@ -1968,35 +2020,38 @@ def uiFunc_update_details(self):
     )
     _row.setStretchWidget(self.details_baseNameField)
     mUI.MelSpacer(_row, w=_padding)
-    _row.layout(expand=False)
+    _row.layout()
 
-    # Nucleus / Cloth — map-from-selection rows (same sub-template column as Name)
+    mUI.MelSeparator(_details, ut='cgmUISubTemplate', h=3)
+
+    # Nucleus / Cloth — map rows (tight pair, like chain hair + follicle)
     mNucleus = dat.get('mNucleus')
     uiFunc_make_load_row(
-        _setupMapsColumn, 'Nucleus:',
+        _details, 'Nucleus:',
         mNucleus.p_nameBase if mNucleus else 'Not mapped',
         cgmGEN.Callback(uiFunc_map_nucleus, self),
         "Map selected nucleus to this setup. Apply nucleus presets via Presets → Nucleus.",
         selectCommand=cgmGEN.Callback(uiFunc_select_details_map_target, self, 'nucleus'),
+        leading_separator=False,
     )
 
     mCloth = dat.get('mCloth') or RIGDYN.get_mapped_cloth(self._mDynFK)
     uiFunc_make_load_row(
-        _setupMapsColumn, 'Cloth:',
+        _details, 'Cloth:',
         mCloth.p_nameBase if mCloth else 'Not mapped',
         cgmGEN.Callback(uiFunc_map_cloth, self),
         "Map selected nCloth to this setup. Apply cloth presets via Presets → Cloth.",
         selfRef=self, statusAttr='uiClothDetailsLabel',
         selectCommand=cgmGEN.Callback(uiFunc_select_details_map_target, self, 'cloth'),
+        leading_separator=False,
     )
 
     _hairSystemsFrame = mUI.MelFrameLayout(
         _details, label='Hair systems', collapsable=True, collapse=False,
         useTemplate='cgmUIHeaderTemplate')
     _hairSystemsColumn = mUI.MelColumnLayout(
-        _hairSystemsFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
+        _hairSystemsFrame, useTemplate='cgmUISubTemplate', adj=True, rowSpacing=0)
     mc.setParent(_hairSystemsColumn)
-    cgmUI.add_LineSubBreak()
 
     mDefaultHair = dat.get('mHairSysShape')
     _ml_hs = dat.get('mHairSystems') or RIGDYN.hair_system_list_registered(self._mDynFK)
@@ -2040,10 +2095,7 @@ def uiFunc_update_details(self):
             selectCommand=cgmGEN.Callback(uiFunc_select_details_map_target, self, 'hair'),
         )
 
-    mc.setParent(_details)
-    cgmUI.add_LineSubBreak()
-
-    _row = mUI.MelHSingleStretchLayout(_details,ut='cgmUISubTemplate',padding = 5)        
+    _row = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=5)        
 
     mUI.MelSpacer(_row,w=_padding)
 
@@ -2065,7 +2117,8 @@ def uiFunc_update_details(self):
     # Baking -----------------------------------------------------------------
     _bakingFrame = mUI.MelFrameLayout(
         _details, label='Baking', collapsable=True, collapse=True, useTemplate='cgmUIHeaderTemplate')
-    _bakingColumn = mUI.MelColumnLayout(_bakingFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
+    _bakingColumn = mUI.MelColumnLayout(
+        _bakingFrame, useTemplate='cgmUIHeaderTemplate', adj=True, rowSpacing=0)
     mc.setParent(_bakingColumn)
     cgmUI.add_LineSubBreak()
 
@@ -2174,7 +2227,8 @@ def uiFunc_update_details(self):
     self._d_chainNameFields = {}
     _chainsFrame = mUI.MelFrameLayout(
         _details, label='Chains', collapsable=True, collapse=False, useTemplate='cgmUIHeaderTemplate')
-    _chainsColumn = mUI.MelColumnLayout(_chainsFrame, useTemplate='cgmUIHeaderTemplate', adj=True)
+    _chainsColumn = mUI.MelColumnLayout(
+        _chainsFrame, useTemplate='cgmUIHeaderTemplate', adj=True, rowSpacing=0)
     for i,chain in enumerate(self._mDynFK.msgList_get('chain')):
         _chainLabel = uiFunc_chain_section_label(i, chain)
         _chainHeaderBgc = cgmUI.guiButtonColor if MATH.is_even(i) else cgmUI.guiBackgroundColor
@@ -2221,10 +2275,15 @@ def uiFunc_update_details(self):
         if _chainMode == 'clothAttach':
             mCloth = RIGDYN.get_mapped_cloth(self._mDynFK)
             clothLabel = mCloth.p_nameBase if mCloth else '—'
-            uiFunc_make_display_line(_chainColumn, label='Driver Cloth:', text=clothLabel, button=bool(mCloth), buttonLabel=">>", buttonCommand=cgmGEN.Callback(uiFunc_select_item, mCloth.p_nameBase) if mCloth else None, buttonInfo="Mapped setup cloth.")
+            uiFunc_make_display_line(
+                _chainColumn, label='Driver Cloth:', text=clothLabel, button=bool(mCloth),
+                buttonCommand=cgmGEN.Callback(uiFunc_select_item, mCloth.p_nameBase) if mCloth else None,
+                buttonInfo="Mapped setup cloth.")
             _surfaceTrack = getattr(chain, 'surfaceTrack', None) or 'follicle'
-            uiFunc_make_display_line(_chainColumn, label='Surface track:', text=_surfaceTrack, button=False)
-            uiFunc_make_display_line(_chainColumn, label='Mode:', text='clothAttach', button=False)
+            uiFunc_make_display_line(
+                _chainColumn, label='Surface track:', text=_surfaceTrack, button=False)
+            uiFunc_make_display_line(
+                _chainColumn, label='Mode:', text='clothAttach', button=False)
         else:
             mHairChain = RIGDYN.hair_system_resolve_for_chain(chain, self._mDynFK)
             _hs_label = mHairChain.p_nameShort if mHairChain else '—'
@@ -2236,11 +2295,15 @@ def uiFunc_update_details(self):
             )
             mFollicle = chain.getMessageAsMeta('mFollicle')
             if mFollicle:
-                uiFunc_make_display_line(
-                    _chainColumn, label='Follicle:', text=mFollicle.p_nameBase, button=True,
-                    buttonLabel=">>",
-                    buttonCommand=cgmGEN.Callback(uiFunc_select_item, mFollicle),
-                    buttonInfo="Select follicle transform.")
+                uiFunc_make_load_row(
+                    _chainColumn,
+                    'Follicle:',
+                    mFollicle.p_nameShort,
+                    None,
+                    'Follicle for this chain.',
+                    selectCommand=cgmGEN.Callback(uiFunc_select_item, mFollicle),
+                    leading_separator=False,
+                )
         
         mc.setParent(_chainColumn)
         cgmUI.add_LineSubBreak()
@@ -2257,10 +2320,12 @@ def uiFunc_update_details(self):
             _row, 'Apply',
             cgmGEN.Callback(uiFunc_set_chain_name, self, i),
             'Rename chain group and hair infrastructure to this name.')
-        cgmUI.add_Button(
-            _row, 'sel',
-            cgmGEN.Callback(uiFunc_select_item, chain.p_nameBase),
-            'Select chain group transform.')
+        mUI.MelIconButton(
+            _row,
+            ann='Select chain group transform.',
+            c=cgmGEN.Callback(uiFunc_select_item, chain.p_nameBase),
+            **_dynfk_icon_btn_kw('select_25.png'),
+        )
         _row.setStretchWidget(_nameIF)
         mUI.MelSpacer(_row, w=_padding)
         _row.layout()
