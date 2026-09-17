@@ -28,9 +28,17 @@ __MAYALOCAL = 'RIGDYN'
 import cgm.core.presets.cgmDynFK_presets as dynFKPresets
 
 import logging
+import time
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+import cgm.core.classes.GuiFactory as CGMUI
+
+_BAKE_INPUT_TR_ATTRS = ['translate', 'rotate']
+_bake_input_run_counter = 0
+
 
 def _dag_str(node):
     """Return a Maya DAG name string for mc.* (never pass meta to mc)."""
@@ -4016,13 +4024,91 @@ class cgmDynFK(cgmMeta.cgmObject):
         pass
 
 
+def _cut_input_joint_keys_in_range(nodes, startFrame, endFrame):
+    """Clear TR keys in bake window so re-bakes stay fast (Bake Input only)."""
+    _start = int(startFrame)
+    _end = int(endFrame)
+    for _node in nodes:
+        try:
+            mc.cutKey(
+                _node,
+                time=(_start, _end),
+                attribute=_BAKE_INPUT_TR_ATTRS,
+                option='keys',
+                clear=True)
+        except Exception:
+            pass
+
+
+def _input_bake_dg_isolate_begin(mSetup):
+    """Pause nucleus/hair solve and viewport refresh during one input bakeResults."""
+    _state = {'nucleus_enable': None, 'hair_sim_method': [], 'refresh_suspend': None}
+    mNucleus = mSetup.getMessageAsMeta('mNucleus')
+    if mNucleus and mc.objExists(mNucleus.mNode):
+        if mc.attributeQuery('enable', node=mNucleus.mNode, exists=True):
+            _state['nucleus_enable'] = (
+                mNucleus.mNode, mc.getAttr('{0}.enable'.format(mNucleus.mNode)))
+            mc.setAttr('{0}.enable'.format(mNucleus.mNode), 0)
+    ml_hair = hair_system_list_registered(mSetup)
+    if not ml_hair:
+        mHairSysShape = mSetup.getMessageAsMeta('mHairSysShape')
+        if mHairSysShape:
+            ml_hair = [mHairSysShape]
+    for mHairSysShape in ml_hair or []:
+        if not mHairSysShape or not mc.objExists(mHairSysShape.mNode):
+            continue
+        if mc.attributeQuery('simulationMethod', node=mHairSysShape.mNode, exists=True):
+            _plug = '{0}.simulationMethod'.format(mHairSysShape.mNode)
+            _state['hair_sim_method'].append((mHairSysShape.mNode, mc.getAttr(_plug)))
+            mc.setAttr(_plug, 0)
+    try:
+        _state['refresh_suspend'] = mc.refresh(query=True, suspend=True)
+        mc.refresh(suspend=True)
+    except Exception:
+        _state['refresh_suspend'] = None
+    return _state
+
+
+def _input_bake_dg_isolate_end(isolate_state):
+    if not isolate_state:
+        return
+    for _node, _val in isolate_state.get('hair_sim_method') or []:
+        try:
+            mc.setAttr('{0}.simulationMethod'.format(_node), _val)
+        except Exception:
+            pass
+    _nucleus = isolate_state.get('nucleus_enable')
+    if _nucleus:
+        try:
+            mc.setAttr('{0}.enable'.format(_nucleus[0]), _nucleus[1])
+        except Exception:
+            pass
+    _refresh_su = isolate_state.get('refresh_suspend')
+    if _refresh_su is not None:
+        try:
+            mc.refresh(suspend=_refresh_su)
+        except Exception:
+            mc.refresh(suspend=False)
+
+
+def _input_bake_progress_step(progressBar, status, step=1):
+    if not progressBar:
+        return
+    try:
+        mc.progressBar(progressBar, edit=True, status=status, step=step)
+        mc.refresh()
+    except Exception:
+        pass
+
+
 def chain_bake_input_from_targets(mDynFK, startFrame, endFrame, idx=None):
     """
     Bake rig target motion onto input joints (mObjJointChain) for inCurve authoring.
 
-    Targets must not be connected (loc parentConstraint). Uses temporary target→input
-    parentConstraints, then bakes input joints with simulation=False.
+    Auto-disconnects loc→target when needed. Temporary target→input parentConstraints,
+    one bake_nodes batch (simulation=False), then delete temps. Does not auto-reconnect.
     """
+    global _bake_input_run_counter
     _str_func = 'chain_bake_input_from_targets'
     mSetup = cgmMeta.validateObjArg(mDynFK, noneValid=True)
     if not mSetup or getattr(mSetup, 'mClass', None) != 'cgmDynFK':
@@ -4043,11 +4129,6 @@ def chain_bake_input_from_targets(mDynFK, startFrame, endFrame, idx=None):
             return log.error(cgmGEN.logString_msg(
                 _str_func, 'Broken chain {0} — fix or delete before Bake Input'.format(
                     mGrp.p_nameBase)))
-        if _chain_targets_connected(mGrp):
-            return log.error(cgmGEN.logString_msg(
-                _str_func,
-                'Targets connected on chain {0} — Disconnect Targets before Bake Input'.format(
-                    mGrp.p_nameBase)))
         ml_driver = mGrp.msgList_get('mTargets') or []
         ml_input = _hair_normalize_sim_chain(mGrp.msgList_get('mObjJointChain'))
         if not ml_driver or not ml_input:
@@ -4058,13 +4139,45 @@ def chain_bake_input_from_targets(mDynFK, startFrame, endFrame, idx=None):
     if not _chains_to_bake:
         return log.warning(cgmGEN.logString_msg(_str_func, 'No hair chains to bake'))
 
+    _bake_input_run_counter += 1
+    _start = int(startFrame)
+    _end = int(endFrame)
     log.info(cgmGEN.logString_msg(
-        _str_func, 'chains={0} | frames {1}-{2}'.format(
-            len(_chains_to_bake), startFrame, endFrame)))
+        _str_func,
+        'run={0} | chains={1} | frames {2}-{3}'.format(
+            _bake_input_run_counter, len(_chains_to_bake), _start, _end)))
+
+    _disconnected_chain_idxs = []
+    for mGrp, _ml_driver, _ml_input in _chains_to_bake:
+        if not _chain_targets_connected(mGrp):
+            continue
+        _chain_idx = mSetup.msgList_index('chain', mGrp.mNode)
+        if _chain_idx is None:
+            continue
+        mSetup.targets_disconnect(_chain_idx)
+        if _chain_idx not in _disconnected_chain_idxs:
+            _disconnected_chain_idxs.append(_chain_idx)
+    if _disconnected_chain_idxs:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'disconnected loc→target on chain idx {0}'.format(
+                _disconnected_chain_idxs)))
+
+    _progressBar = None
+    try:
+        _progressBar = CGMUI.doStartMayaProgressBar(
+            2,
+            'Bake Input | frames {0}-{1}'.format(_start, _end),
+            interruptableState=True)
+    except Exception:
+        _progressBar = None
 
     _ml_bake = []
     _all_constraints = []
+    _isolate_state = None
+    _t_constraints = 0.0
+    _t_bake = 0.0
     try:
+        _t0 = time.time()
         for mGrp, ml_driver, ml_input in _chains_to_bake:
             _pair_count = min(len(ml_driver), len(ml_input))
             _skipped = max(0, len(ml_input) - _pair_count)
@@ -4081,11 +4194,36 @@ def chain_bake_input_from_targets(mDynFK, startFrame, endFrame, idx=None):
                     else:
                         _all_constraints.append(_c)
             _ml_bake.extend(ml_input)
+        _t_constraints = time.time() - _t0
 
-        mSetup.bake_nodes(_ml_bake, startFrame, endFrame, simulation=False)
+        _nodes = [mObj.mNode for mObj in _ml_bake]
+        _cut_input_joint_keys_in_range(_nodes, _start, _end)
+
+        _input_bake_progress_step(
+            _progressBar, 'Bake Input: baking {0} joint(s)...'.format(len(_ml_bake)))
+
+        _isolate_state = _input_bake_dg_isolate_begin(mSetup)
+        _t_bake_start = time.time()
+        try:
+            mSetup.bake_nodes(_ml_bake, _start, _end, simulation=False)
+        finally:
+            _input_bake_dg_isolate_end(_isolate_state)
+            _isolate_state = None
+        _t_bake = time.time() - _t_bake_start
+
+        _input_bake_progress_step(_progressBar, 'Bake Input: done', step=1)
     finally:
+        if _isolate_state:
+            _input_bake_dg_isolate_end(_isolate_state)
         if _all_constraints:
             mc.delete(_all_constraints)
+        if _progressBar:
+            CGMUI.doEndMayaProgressBar(_progressBar)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'run={0} | constraints {1:.2f}s | bakeResults {2:.2f}s | joints={3}'.format(
+            _bake_input_run_counter, _t_constraints, _t_bake, len(_ml_bake))))
 
     return True
 
