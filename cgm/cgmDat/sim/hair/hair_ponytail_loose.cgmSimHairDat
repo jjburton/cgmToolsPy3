@@ -1,0 +1,67 @@
+{
+    "datKind": "hair",
+    "differential": true,
+    "meta": {
+        "date": "2026-09-18 15:28",
+        "scene": "D:/Dropbox/mrsMakers_share/content/RD/simChain/animation/head/base/simChain_head_base_01.mb",
+        "sourceNode": "|DynamicChain_dynFK|DynamicChain_ponytail_hairSys|DynamicChain_ponytail_hairSysShape",
+        "user": "BURTJ081"
+    },
+    "name": "DynamicChain_ponytail_hairSysShape",
+    "profile": {
+        "attractionScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.3499999940395355,
+                0.550000011920929,
+                1.0
+            ],
+            "2": [
+                0.6499999761581421,
+                0.20000000298023224,
+                1.0
+            ],
+            "3": [
+                0.949999988079071,
+                0.05999999865889549,
+                1.0
+            ]
+        },
+        "bendModel": 1,
+        "bendResistance": 0.10000000149011612,
+        "compressionResistance": 50.0,
+        "damp": 0.1639344266875357,
+        "drag": 0.20081967245940058,
+        "extraBendLinks": 1,
+        "mass": 8.5,
+        "motionDrag": 0.5819672133437679,
+        "startCurveAttract": 0.5204918031031113,
+        "stiffnessScale": {
+            "0": [
+                0.0,
+                0.699999988079071,
+                1.0
+            ],
+            "1": [
+                0.44999998807907104,
+                0.25,
+                1.0
+            ],
+            "2": [
+                1.0,
+                0.10000000149011612,
+                1.0
+            ]
+        },
+        "stretchDamp": 0.05000000074505806,
+        "stretchResistance": 175.0,
+        "tangentialDrag": 0.1599999964237213
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

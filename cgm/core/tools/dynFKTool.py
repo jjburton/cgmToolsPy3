@@ -2695,6 +2695,16 @@ def uiFunc_hair_create_sample_density_options(self):
         except (TypeError, ValueError):
             return RIGDYN.FOLLICLE_DEFAULT_SAMPLE_DENSITY
 
+def uiFunc_chain_sample_density_ensure_start_frame(self, mGrp):
+    """Timeline at hair startFrame before live sampleDensity tweaks."""
+    mDynFK = getattr(self, '_mDynFK', None)
+    if not mDynFK:
+        return
+    _startFrame = RIGDYN._resolve_hair_start_frame(mDynFK, mGrp=cgmMeta.asMeta(mGrp))
+    _cur = mc.currentTime(q=True)
+    if abs(_cur - _startFrame) > 0.001:
+        mc.currentTime(_startFrame, edit=True)
+
 def uiFunc_chain_follicle_sample_density_apply(self, mGrp, sampleDensity):
     """Live follicle.sampleDensity for one hair chain grp."""
     mGrp = cgmMeta.asMeta(mGrp)
@@ -2735,6 +2745,7 @@ def uiFunc_chain_sync_sample_density_widgets(self, densityField, densitySlider, 
 def uiFunc_chain_sample_density_from_slider(self, mGrp, densityField, densitySlider, *args):
     if not densitySlider:
         return
+    uiFunc_chain_sample_density_ensure_start_frame(self, mGrp)
     uiFunc_chain_sync_sample_density_widgets(
         self, densityField, densitySlider, densitySlider.getValue())
     uiFunc_chain_follicle_sample_density_apply(self, mGrp, densitySlider.getValue())
@@ -2742,6 +2753,7 @@ def uiFunc_chain_sample_density_from_slider(self, mGrp, densityField, densitySli
 def uiFunc_chain_sample_density_from_field(self, mGrp, densityField, densitySlider, *args):
     if not densityField:
         return
+    uiFunc_chain_sample_density_ensure_start_frame(self, mGrp)
     uiFunc_chain_sync_sample_density_widgets(
         self, densityField, densitySlider, densityField.getValue())
     uiFunc_chain_follicle_sample_density_apply(self, mGrp, densityField.getValue())
