@@ -68,6 +68,41 @@ def _library_dir_mode_optionvar_set(mode):
 _STATUS_ROW_HELP_BGC = SHARED._d_gui_state_colors.get('help')
 
 
+def _dynfk_progress_begin(status, step_max=1):
+    try:
+        return cgmUI.doStartMayaProgressBar(
+            stepMaxValue=max(int(step_max), 1),
+            statusMessage=status,
+            interruptableState=True,
+        )
+    except Exception:
+        return None
+
+
+def _dynfk_progress_step(progress_bar, status=None, step=1):
+    if not progress_bar:
+        return False
+    try:
+        if mc.progressBar(progress_bar, q=True, isCancelled=True):
+            return True
+        _kw = {'step': step}
+        if status:
+            _kw['status'] = status
+        mc.progressBar(progress_bar, e=True, **_kw)
+        mc.refresh()
+    except Exception:
+        pass
+    return False
+
+
+def _dynfk_progress_end(progress_bar):
+    if progress_bar:
+        try:
+            cgmUI.doEndMayaProgressBar(progress_bar)
+        except Exception:
+            pass
+
+
 def _dynfk_build_details_empty_message(parent, message):
     """Full-width centered placeholder inside Details frame (p4 / animClip status pattern)."""
     _form = mUI.MelFormLayout(parent, ut='cgmUITemplate')
@@ -283,8 +318,7 @@ def uiFunc_refresh_chain_after_scene_open(self):
     _str_func = 'uiFunc_refresh_chain_after_scene_open'
     _node = uiFunc_last_dynfk_resolve(self)
     if _node:
-        uiFunc_load_dyn_chain(self, _node)
-        uiFunc_update_details(self)
+        uiFunc_load_dyn_chain(self, _node, with_progress=True)
         if hasattr(self, 'itemList'):
             try:
                 self.itemList.rebuild()
@@ -1442,80 +1476,6 @@ def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=N
     return _status
 
 
-def uiFunc_rebuild_hair_shape_preset_menu(optionMenu, selfRef=None):
-    """Per-chain HairShape menu — `cgmDat/sim/hairShape/` library."""
-    _mode = uiFunc_get_library_mode(selfRef)
-    optionMenu.clear()
-    optionMenu.append(_SIM_DAT_MENU_LOAD)
-    for _name in uiFunc_library_preset_names('hairShape', mode=_mode):
-        optionMenu.append(_name)
-    optionMenu.append('---')
-    optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR_SHAPE)
-    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
-
-
-def uiFunc_process_hair_shape_preset_change(self, mGrp, optionMenu):
-    val = optionMenu.getValue()
-    mGrp = cgmMeta.asMeta(mGrp, noneValid=True)
-    if not mGrp:
-        return
-    if val in (_SIM_DAT_MENU_LOAD, '---'):
-        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
-        return
-    if val == _SIM_DAT_MENU_SAVE_HAIR_SHAPE:
-        inst = SIMDAT.SimHairShapeDat()
-        if inst.capture(mDynFK=self._mDynFK, mGrp=mGrp):
-            if inst.write(forcePrompt=True, startDirMode='dev'):
-                log.info('Saved HairShape dat: {0}'.format(inst.str_filepath))
-        uiFunc_rebuild_hair_shape_preset_menu(optionMenu, selfRef=self)
-        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
-        return
-    if val in uiFunc_library_preset_names('hairShape', mode=uiFunc_get_library_mode(self)):
-        uiFunc_library_apply_hair_shape_to_target(self, val, None, mGrp=mGrp)
-        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
-        return
-    optionMenu.setValue(_SIM_DAT_MENU_LOAD)
-
-
-def uiFunc_chain_hair_shape_display_names(chain, mDynFK):
-    """Short labels for HairShape collapsible (follicle shape + hairSystem shape)."""
-    _labels = []
-    mFollicle = chain.getMessageAsMeta('mFollicle')
-    if mFollicle:
-        for _shape in mFollicle.getShapes(asMeta=False) or []:
-            if mc.nodeType(_shape) == 'follicle':
-                _labels.append(_shape.split('|')[-1].split(':')[-1])
-    mHair = RIGDYN.hair_system_resolve_for_chain(chain, mDynFK) if mDynFK else None
-    if mHair:
-        _labels.append(mHair.p_nameShort)
-    return _labels
-
-
-def uiFunc_chain_hair_shape_collapsible(self, parent, chain, chain_idx):
-    """Per-chain HairShape: follicle + hairSystem shape attrs (not dynamic feel)."""
-    _labels = uiFunc_chain_hair_shape_display_names(chain, self._mDynFK)
-    _headerBgc = cgmUI.guiButtonColor if MATH.is_even(chain_idx) else cgmUI.guiBackgroundColor
-    _frame = mUI.MelFrameLayout(
-        parent, label='HairShape', collapsable=True, collapse=True,
-        useTemplate='cgmUIHeaderTemplate', bgc=_headerBgc)
-    _column = mUI.MelColumnLayout(_frame, bgc=cgmUI.guiBackgroundColor, adj=True)
-    _row = mUI.MelHSingleStretchLayout(_column, ut='cgmUISubTemplate', padding=_padding)
-    mUI.MelSpacer(_row, w=_padding)
-    _label = mUI.MelLabel(
-        _row, l=' | '.join(_labels) if _labels else '—',
-        ut='cgmUIInstructionsTemplate', align='left')
-    _row.setStretchWidget(_label)
-    _presetMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
-    uiFunc_rebuild_hair_shape_preset_menu(_presetMenu, selfRef=self)
-    _presetMenu(
-        edit=True,
-        ann='Load/save follicle + hairSystem shape attrs (sample density, width, …).',
-        cc=cgmGEN.Callback(uiFunc_process_hair_shape_preset_change, self, chain, _presetMenu))
-    mUI.MelSpacer(_row, w=_padding)
-    _row.layout()
-    mc.setParent(parent)
-
-
 def uiFunc_select_details_map_target(self, kind):
     """Details map row — select nucleus, cloth, or default hair from live setup."""
     _str_func = 'uiFunc_select_details_map_target'
@@ -1978,7 +1938,7 @@ def uiFunc_reset_ui_no_setup(self):
     uiFunc_refresh_hair_system_create_menu(self)
 
 
-def uiFunc_update_details(self):
+def uiFunc_update_details(self, with_progress=False):
     if not getattr(self, 'detailsFrame', None):
         return
     if not self._mDynFK:
@@ -1989,13 +1949,44 @@ def uiFunc_update_details(self):
         uiFunc_set_cloth_status_labels(self, False)
         return
 
+    ml_chains = self._mDynFK.msgList_get('chain') or []
+    _progress_bar = None
+    _cancelled = False
+
+    def _details_progress(status, step=1):
+        nonlocal _cancelled
+        if _cancelled:
+            return True
+        if _dynfk_progress_step(_progress_bar, status, step):
+            _cancelled = True
+            return True
+        return False
+
+    if with_progress:
+        _progress_bar = _dynfk_progress_begin(
+            'cgmDynSimTool | loading setup…',
+            max(3 + len(ml_chains), 1),
+        )
+
+    if _details_progress('Syncing chains…'):
+        _dynfk_progress_end(_progress_bar)
+        return
+
     RIGDYN.chain_fixup_duplicate_names(self._mDynFK)
     RIGDYN.chain_sync_chain_index_attrs(self._mDynFK)
     uiFunc_refresh_hair_system_create_menu(self)
 
+    if _details_progress('Reading setup data…'):
+        _dynfk_progress_end(_progress_bar)
+        return
+
     self.detailsFrame.clear()
 
     dat = self._mDynFK.get_dat()
+
+    if _details_progress('Building Details…'):
+        _dynfk_progress_end(_progress_bar)
+        return
 
     self.detailsFrame(edit=True, collapse=False)
 
@@ -2229,7 +2220,11 @@ def uiFunc_update_details(self):
         _details, label='Chains', collapsable=True, collapse=False, useTemplate='cgmUIHeaderTemplate')
     _chainsColumn = mUI.MelColumnLayout(
         _chainsFrame, useTemplate='cgmUIHeaderTemplate', adj=True, rowSpacing=0)
-    for i,chain in enumerate(self._mDynFK.msgList_get('chain')):
+    for i, chain in enumerate(ml_chains):
+        if _details_progress(
+                'Chain {0}: {1}'.format(i, RIGDYN.chain_cgm_name(chain) or chain.p_nameShort)):
+            _dynfk_progress_end(_progress_bar)
+            return
         _chainLabel = uiFunc_chain_section_label(i, chain)
         _chainHeaderBgc = cgmUI.guiButtonColor if MATH.is_even(i) else cgmUI.guiBackgroundColor
         chainFrame = mUI.MelFrameLayout(
@@ -2382,7 +2377,7 @@ def uiFunc_update_details(self):
 
             _row = mUI.MelHSingleStretchLayout(_chainColumn, ut='cgmUISubTemplate', padding=5)
             mUI.MelSpacer(_row, w=_padding)
-            mUI.MelLabel(_row, l='Connect')
+            mUI.MelLabel(_row, l='Targets')
             _row.setStretchWidget(mUI.MelSeparator(_row))
             cgmUI.add_Button(
                 _row, 'Bake',
@@ -2450,8 +2445,6 @@ def uiFunc_update_details(self):
         mc.setParent(_chainColumn)
         _listColumn = mUI.MelColumnLayout(_chainColumn, useTemplate='cgmUIHeaderTemplate', adj=True)
         _listBgc = cgmUI.guiBackgroundColor
-        if _chainMode != 'clothAttach':
-            uiFunc_chain_hair_shape_collapsible(self, _listColumn, chain, i)
         for _fi, dat in enumerate(frameDat):
             _headerBgc = cgmUI.guiButtonColor if MATH.is_even(_fi) else cgmUI.guiBackgroundColor
             frame = mUI.MelFrameLayout(
@@ -2475,6 +2468,7 @@ def uiFunc_update_details(self):
 
     mc.setParent(_details)
     cgmUI.add_LineSubBreak()
+    _dynfk_progress_end(_progress_bar)
 
 def uiFunc_delete_chain(self, idx, confirmIfBroken=False):
     if not self._mDynFK:
@@ -3375,7 +3369,7 @@ def uiFunc_last_dynfk_store(self, mDynFK=None):
     else:
         self.var_LastDynFK.setValue('')
 
-def uiFunc_load_dyn_chain(self, chain):
+def uiFunc_load_dyn_chain(self, chain, with_progress=False):
     _str_func = 'uiFunc_load_dyn_chain'  
 
     self._mDynFK = False
@@ -3393,7 +3387,7 @@ def uiFunc_load_dyn_chain(self, chain):
         uiFunc_clear_loaded(self)
 
     if self._mDynFK:
-        uiFunc_updateTargetDisplay(self)
+        uiFunc_updateTargetDisplay(self, with_progress=with_progress)
         uiFunc_last_dynfk_store(self, self._mDynFK)
         uiFunc_refresh_hair_system_create_menu(self)
 
@@ -3404,7 +3398,7 @@ def uiFunc_load_dyn_chain(self, chain):
 def uiFunc_load_selected(self, bypassAttrCheck = False):
     _str_func = 'uiFunc_load_selected'  
 
-    uiFunc_load_dyn_chain(self, mc.ls(sl=True)[0])
+    uiFunc_load_dyn_chain(self, mc.ls(sl=True)[0], with_progress=True)
 
 def uiFunc_select_loaded_setup(self):
     _str_func = 'uiFunc_select_loaded_setup'
@@ -3422,7 +3416,7 @@ def uiFunc_clear_loaded(self):
     uiFunc_reset_ui_no_setup(self)
 
 
-def uiFunc_updateTargetDisplay(self):
+def uiFunc_updateTargetDisplay(self, with_progress=False):
     _str_func = 'uiFunc_updateTargetDisplay'  
     #self.uiScrollList_parents.clear()
 
@@ -3443,7 +3437,7 @@ def uiFunc_updateTargetDisplay(self):
         _display = _display[:20] + '...'
     self.uiTF_objLoad(edit=True, l=_display, ann=_short, en=True)
 
-    uiFunc_update_details(self)
+    uiFunc_update_details(self, with_progress=with_progress)
     uiFunc_update_create_panel_state(self)
     
     return
