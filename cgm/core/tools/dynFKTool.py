@@ -39,30 +39,73 @@ import cgm.core.rig.dynamic_utils as RIGDYN
 import cgm.core.presets.cgmDynFK_presets as dynFKPresets
 import cgm.core.lib.nCloth_utils as NCLOTH
 import cgm.core.lib.simChain_dat as SIMDAT
+import cgm.core.cgm_Dat as CGMDAT
 
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 __toolname__ = 'cgmDynSimTool'
 
 _padding = 5
-_LIBRARY_DIR_MODE_OV = 'cgmDynSimTool_libraryDirMode'
-_LIBRARY_DIR_MODE_OV_LEGACY = (
+_LIBRARY_SAVE_DIR_OV = 'cgmDynSimTool_libraryDirMode'
+_LIBRARY_SAVE_DIR_OV_LEGACY = (
     'cgmDynamicsTool_libraryDirMode',
     'cgmSimChain_libraryDirMode',
 )
+_LIBRARY_SEARCH_DEV_OV = 'cgmDynSimTool_librarySearch_dev'
+_LIBRARY_SEARCH_WS_OV = 'cgmDynSimTool_librarySearch_workspace'
 
 
-def _library_dir_mode_optionvar_get():
-    if mc.optionVar(exists=_LIBRARY_DIR_MODE_OV):
-        return mc.optionVar(q=_LIBRARY_DIR_MODE_OV)
-    for _legacy in _LIBRARY_DIR_MODE_OV_LEGACY:
+def _library_save_mode_get():
+    if mc.optionVar(exists=_LIBRARY_SAVE_DIR_OV):
+        _v = mc.optionVar(q=_LIBRARY_SAVE_DIR_OV)
+        if _v in CGMDAT._l_libraryDirModes:
+            return _v
+    for _legacy in _LIBRARY_SAVE_DIR_OV_LEGACY:
         if mc.optionVar(exists=_legacy):
-            return mc.optionVar(q=_legacy)
+            _v = mc.optionVar(q=_legacy)
+            if _v in CGMDAT._l_libraryDirModes:
+                return _v
     return 'dev'
 
 
-def _library_dir_mode_optionvar_set(mode):
-    mc.optionVar(sv=(_LIBRARY_DIR_MODE_OV, mode))
+def _library_save_mode_set(mode):
+    if mode not in CGMDAT._l_libraryDirModes:
+        mode = 'dev'
+    mc.optionVar(sv=(_LIBRARY_SAVE_DIR_OV, mode))
+
+
+def _library_search_modes_get():
+    """Enabled SearchDir roots; default both on."""
+    _modes = []
+    for _mode, _ov in (
+        ('dev', _LIBRARY_SEARCH_DEV_OV),
+        ('workspace', _LIBRARY_SEARCH_WS_OV),
+    ):
+        if mc.optionVar(exists=_ov):
+            if int(mc.optionVar(q=_ov)):
+                _modes.append(_mode)
+        else:
+            _modes.append(_mode)
+    return CGMDAT.library_modes_normalize(_modes) or ['dev']
+
+
+def _library_search_mode_set(mode, enabled):
+    _ov = _LIBRARY_SEARCH_DEV_OV if mode == 'dev' else _LIBRARY_SEARCH_WS_OV
+    mc.optionVar(iv=(_ov, 1 if enabled else 0))
+
+
+def _library_search_mode_toggle(mode):
+    _modes = list(_library_search_modes_get())
+    if mode in _modes:
+        if len(_modes) <= 1:
+            log.warning("Keep at least one SearchDir enabled")
+            return list(_modes)
+        _modes.remove(mode)
+        _library_search_mode_set(mode, False)
+    else:
+        _modes.append(mode)
+        _library_search_mode_set(mode, True)
+    return CGMDAT.library_modes_normalize(_modes) or ['dev']
 
 
 _STATUS_ROW_HELP_BGC = SHARED._d_gui_state_colors.get('help')
@@ -985,44 +1028,77 @@ _SIM_MENU_SHAPE_PREFIX = 'Shape: '
 
 
 def uiFunc_get_library_mode(self=None):
-    return _library_dir_mode_optionvar_get()
+    """SaveDir mode (legacy name kept for callers)."""
+    return _library_save_mode_get()
 
 
-def uiFunc_library_items_for_kind(kind, ext, mode=None):
-    """Return sorted (displayName, filepath) pairs for one dat kind."""
-    mode = mode or 'dev'
-    _options, _ = SIMDAT.get_library_options(force=True, mode=mode)
-    return sorted(
-        [
-            (_key.split('.')[-1], _fpath)
-            for _key, _fpath in list(_options.items())
-            if _fpath.endswith('.{0}'.format(ext))
-        ],
-        key=lambda x: x[0],
-    )
+def uiFunc_get_library_search_modes(self=None):
+    return _library_search_modes_get()
 
 
-def uiFunc_library_preset_names(kind, mode=None):
+def uiFunc_library_register_preset_path(self, label, filepath):
+    if self is None or not label or not filepath:
+        return
+    if not getattr(self, '_md_libraryPresetPaths', None):
+        self._md_libraryPresetPaths = {}
+    self._md_libraryPresetPaths[label] = filepath
+
+
+def uiFunc_library_path_for_label(self, label):
+    if self is None or not label:
+        return None
+    return (getattr(self, '_md_libraryPresetPaths', None) or {}).get(label)
+
+
+def uiFunc_library_items_for_kind(kind, ext, modes=None):
+    """Return sorted (displayName, filepath) pairs for one dat kind (SearchDir collective)."""
+    modes = modes or _library_search_modes_get()
+    _rows = SIMDAT.get_library_rows(kind_ext=ext, modes=modes)
+    return [(_r['display'], _r['filepath']) for _r in _rows]
+
+
+def uiFunc_library_preset_names(kind, modes=None):
     _ext = {k: e for k, _l, e in _SIM_DAT_KINDS}.get(kind)
     if not _ext:
         return []
-    return [n for n, _ in uiFunc_library_items_for_kind(kind, _ext, mode=mode)]
+    return [n for n, _ in uiFunc_library_items_for_kind(kind, _ext, modes=modes)]
 
 
-def uiFunc_library_dat_kind_for_name(name, mode=None):
-    mode = mode or 'dev'
+def uiFunc_library_dat_kind_for_name(name, modes=None):
+    """Match bare or ``name [mode]`` display to a dat kind."""
+    modes = modes or _library_search_modes_get()
+    _bare = name
+    if ' [' in name and name.endswith(']'):
+        _bare = name.rsplit(' [', 1)[0]
     for kind, _label, ext in _SIM_DAT_KINDS:
-        if name in uiFunc_library_preset_names(kind, mode=mode):
-            return kind
+        for _disp, _fpath in uiFunc_library_items_for_kind(kind, ext, modes=modes):
+            if _disp == name or _disp == _bare or _disp.split(' [')[0] == _bare:
+                return kind
     return None
+
+
+def uiFunc_library_apply_by_path(self, filepath):
+    _str_func = 'uiFunc_library_apply_by_path'
+    if not filepath or not os.path.isfile(filepath):
+        return log.warning("|{0}| >> Preset not found: {1}".format(_str_func, filepath))
+    uiFunc_library_load_apply(self, filepath)
 
 
 def uiFunc_library_apply_by_name(self, datKind, name):
     _str_func = 'uiFunc_library_apply_by_name'
-    _mode = uiFunc_get_library_mode(self)
-    _path = SIMDAT.resolve_library_filepath('{0}.{1}'.format(datKind, name), mode=_mode)
+    _modes = _library_search_modes_get()
+    _path = None
+    _ext = {k: e for k, _l, e in _SIM_DAT_KINDS}.get(datKind)
+    if _ext:
+        for _disp, _fpath in uiFunc_library_items_for_kind(datKind, _ext, modes=_modes):
+            if _disp == name or _disp.split(' [')[0] == name:
+                _path = _fpath
+                break
     if not _path:
-        _path = SIMDAT.resolve_library_filepath(name, mode=_mode)
+        _path = SIMDAT.resolve_library_filepath(
+            '{0}.{1}'.format(datKind, name.split(' [')[0]), modes=_modes)
+    if not _path:
+        _path = SIMDAT.resolve_library_filepath(name.split(' [')[0], modes=_modes)
     if not _path or not os.path.isfile(_path):
         return log.warning("|{0}| >> Preset not found: {1}.{2}".format(_str_func, datKind, name))
     uiFunc_library_load_apply(self, _path)
@@ -1031,10 +1107,16 @@ def uiFunc_library_apply_by_name(self, datKind, name):
 def uiFunc_library_apply_hair_to_target(self, presetName, hairTarget, mGrp=None):
     """Apply a dynamic hair (`.cgmSimHairDat`) preset to a hairSystem shape."""
     _str_func = 'uiFunc_library_apply_hair_to_target'
-    _mode = uiFunc_get_library_mode(self)
-    _path = SIMDAT.resolve_library_filepath('hair.{0}'.format(presetName), mode=_mode)
+    _modes = _library_search_modes_get()
+    _path = uiFunc_library_path_for_label(self, _SIM_MENU_HAIR_PREFIX + presetName)
     if not _path:
-        _path = SIMDAT.resolve_library_filepath(presetName, mode=_mode)
+        for _disp, _fpath in uiFunc_library_items_for_kind('hair', 'cgmSimHairDat', modes=_modes):
+            if _disp == presetName or _disp.split(' [')[0] == presetName:
+                _path = _fpath
+                break
+    if not _path:
+        _path = SIMDAT.resolve_library_filepath(
+            'hair.{0}'.format(presetName.split(' [')[0]), modes=_modes)
     if not _path or not os.path.isfile(_path):
         return log.warning("|{0}| >> Preset not found: hair.{1}".format(_str_func, presetName))
     inst, _dat = SIMDAT.read_dat(_path)
@@ -1051,10 +1133,17 @@ def uiFunc_library_apply_hair_to_target(self, presetName, hairTarget, mGrp=None)
 def uiFunc_library_apply_hair_shape_to_target(self, presetName, hairTarget, mGrp=None):
     """Apply a HairShape (`.cgmSimHairShapeDat`) preset to a hairSystem and/or chain follicle."""
     _str_func = 'uiFunc_library_apply_hair_shape_to_target'
-    _mode = uiFunc_get_library_mode(self)
-    _path = SIMDAT.resolve_library_filepath('hairShape.{0}'.format(presetName), mode=_mode)
+    _modes = _library_search_modes_get()
+    _path = uiFunc_library_path_for_label(self, _SIM_MENU_SHAPE_PREFIX + presetName)
     if not _path:
-        _path = SIMDAT.resolve_library_filepath(presetName, mode=_mode)
+        for _disp, _fpath in uiFunc_library_items_for_kind(
+                'hairShape', 'cgmSimHairShapeDat', modes=_modes):
+            if _disp == presetName or _disp.split(' [')[0] == presetName:
+                _path = _fpath
+                break
+    if not _path:
+        _path = SIMDAT.resolve_library_filepath(
+            'hairShape.{0}'.format(presetName.split(' [')[0]), modes=_modes)
     if not _path or not os.path.isfile(_path):
         return log.warning("|{0}| >> Preset not found: hairShape.{1}".format(_str_func, presetName))
     inst, _dat = SIMDAT.read_dat(_path)
@@ -1075,16 +1164,18 @@ def uiFunc_library_apply_hair_shape_to_target(self, presetName, hairTarget, mGrp
 
 def uiFunc_build_presets_menu(self, parentMenu):
     """Presets → Hair / Cloth / Nucleus from cgmDat/sim library."""
-    _mode = uiFunc_get_library_mode(self)
+    _saveMode = _library_save_mode_get()
+    _searchModes = _library_search_modes_get()
+    if getattr(self, '_md_libraryPresetPaths', None) is None:
+        self._md_libraryPresetPaths = {}
+    else:
+        self._md_libraryPresetPaths.clear()
 
-    mUI.MelMenuItemDiv(parentMenu, l='Search')
-    _dirMenu = mUI.MelMenuItem(parentMenu, l='SearchDir', subMenu=True, tearOff=True)
-    _rc = mc.radioMenuItemCollection()
-    for item in ('dev', 'workspace'):
-        mUI.MelMenuItem(
-            _dirMenu, l=item, collection=_rc, rb=(item == _mode),
-            c=cgmGEN.Callback(uiFunc_library_dir_mode, self, item),
-        )
+    CGMDAT.uiMenu_addLibrarySaveSearchDirs(
+        parentMenu, _saveMode, _searchModes,
+        lambda mode: uiFunc_library_save_dir_mode(self, mode),
+        lambda mode: uiFunc_library_search_dir_toggle(self, mode),
+    )
 
     mUI.MelMenuItemDiv(parentMenu, l='Load + Apply')
     for _kind, _label, _ext in _SIM_DAT_KINDS:
@@ -1092,14 +1183,15 @@ def uiFunc_build_presets_menu(self, parentMenu):
             parentMenu, l=_label, subMenu=True, tearOff=True,
             ann='Apply {0} preset from cgmDat/sim/{1}/'.format(_label.lower(), _kind),
         )
-        _items = uiFunc_library_items_for_kind(_kind, _ext, mode=_mode)
+        _items = uiFunc_library_items_for_kind(_kind, _ext, modes=_searchModes)
         if not _items:
             mUI.MelMenuItem(_sub, l='(none)', en=False)
             continue
         for _name, _fpath in _items:
+            uiFunc_library_register_preset_path(self, _name, _fpath)
             mUI.MelMenuItem(
                 _sub, l=_name, ann='{0}.{1} | {2}'.format(_kind, _name, _fpath),
-                c=cgmGEN.Callback(uiFunc_library_apply_by_name, self, _kind, _name),
+                c=cgmGEN.Callback(uiFunc_library_apply_by_path, self, _fpath),
             )
 
     mUI.MelMenuItemDiv(parentMenu, l='Capture')
@@ -1146,19 +1238,18 @@ def uiFunc_build_library_menu(self, parentMenu):
 
 def uiFunc_build_setup_library_menu(self, parentMenu):
     """Presets → Setups — scan cgmDat/sim/setups for cgmSimChainSetup files."""
-    _mode = _library_dir_mode_optionvar_get()
+    _modes = _library_search_modes_get()
 
     mUI.MelMenuItemDiv(parentMenu, l='Load + Apply')
-    _options, _ = SIMDAT.get_setup_library_options(force=True, mode=_mode)
-    _items = sorted(list(_options.items()), key=lambda x: x[0])
-    if not _items:
+    _rows = SIMDAT.get_library_rows(modes=_modes, setup=True)
+    if not _rows:
         mUI.MelMenuItem(parentMenu, l='(none)', en=False)
     else:
-        for _key, _fpath in _items:
-            _name = _key.split('.')[-1]
+        for _r in _rows:
             mUI.MelMenuItem(
-                parentMenu, l=_name, ann='{0} | {1}'.format(_key, _fpath),
-                c=cgmGEN.Callback(uiFunc_setup_library_load_apply, self, _fpath),
+                parentMenu, l=_r['display'],
+                ann='{0} | {1}'.format(_r['key'], _r['filepath']),
+                c=cgmGEN.Callback(uiFunc_setup_library_load_apply, self, _r['filepath']),
             )
 
 
@@ -1194,9 +1285,19 @@ def uiFunc_sim_setup_apply_loaded(self, inst=None):
     log.info("|{0}| >> Setup applied: {1}".format(_str_func, mSetup.p_nameBase))
 
 
-def uiFunc_library_dir_mode(self, mode):
-    _library_dir_mode_optionvar_set(mode)
+def uiFunc_library_save_dir_mode(self, mode):
+    _library_save_mode_set(mode)
     self.buildMenu_presets()
+
+
+def uiFunc_library_search_dir_toggle(self, mode):
+    _library_search_mode_toggle(mode)
+    self.buildMenu_presets()
+
+
+def uiFunc_library_dir_mode(self, mode):
+    """Legacy alias — sets SaveDir."""
+    uiFunc_library_save_dir_mode(self, mode)
 
 
 def uiFunc_library_load_apply(self, filepath):
@@ -1212,7 +1313,8 @@ def uiFunc_library_load_apply(self, filepath):
 
 def uiFunc_sim_dat_load(self):
     _str_func = 'uiFunc_sim_dat_load'
-    _start = SIMDAT.get_library_path('dev')
+    _modes = _library_search_modes_get()
+    _start = SIMDAT.get_library_path(_modes[0] if _modes else 'dev')
     _result = mc.fileDialog2(
         dialogStyle=2, fileMode=1, startingDirectory=_start,
         fileFilter=(
@@ -1247,6 +1349,7 @@ def _sim_dat_capture_setup_inst(self, keep_filepath=None):
 
 def uiFunc_sim_dat_save(self, forceAs=False):
     _str_func = 'uiFunc_sim_dat_save'
+    _saveMode = _library_save_mode_get()
     inst = self._simDatInst
     if isinstance(inst, SIMDAT.SimChainSetup):
         _path = inst.str_filepath if not forceAs else None
@@ -1261,9 +1364,9 @@ def uiFunc_sim_dat_save(self, forceAs=False):
     elif not inst:
         return log.warning("|{0}| >> No sim dat loaded — load a dat or a cgmDynFK setup first".format(_str_func))
     if forceAs or not inst.str_filepath:
-        if not inst.write(forcePrompt=True, startDirMode='dev'):
+        if not inst.write(forcePrompt=True, startDirMode=_saveMode):
             return log.warning("|{0}| >> Save cancelled".format(_str_func))
-    elif not inst.write(update=True, startDirMode='dev'):
+    elif not inst.write(update=True, startDirMode=_saveMode):
         return log.warning("|{0}| >> Save failed".format(_str_func))
     self._simDatPath = inst.str_filepath
     log.info("|{0}| >> Saved: {1}".format(_str_func, self._simDatPath))
@@ -1271,6 +1374,7 @@ def uiFunc_sim_dat_save(self, forceAs=False):
 
 def uiFunc_sim_dat_capture_save(self, datClass):
     _str_func = 'uiFunc_sim_dat_capture_save'
+    _saveMode = _library_save_mode_get()
     inst = datClass()
     _mDynFK = self._mDynFK or None
     if not inst.capture(mDynFK=_mDynFK):
@@ -1281,7 +1385,7 @@ def uiFunc_sim_dat_capture_save(self, datClass):
                         _str_func))
         return log.warning("|{0}| >> Capture failed for {1}".format(_str_func, datClass.__name__))
     self._simDatInst = inst
-    if not inst.write(forcePrompt=True, startDirMode='dev'):
+    if not inst.write(forcePrompt=True, startDirMode=_saveMode):
         return log.warning("|{0}| >> Save cancelled".format(_str_func))
     self._simDatPath = inst.str_filepath
     log.info("|{0}| >> Captured + saved: {1}".format(_str_func, self._simDatPath))
@@ -1290,6 +1394,7 @@ def uiFunc_sim_dat_capture_save(self, datClass):
 def uiFunc_sim_dat_capture_save_for_target(self, datClass, targetNode):
     """Capture from a specific scene node and save via dat dialog (Presets menu parity)."""
     _str_func = 'uiFunc_sim_dat_capture_save_for_target'
+    _saveMode = _library_save_mode_get()
     inst = datClass()
     _mDynFK = self._mDynFK or None
     _node = VALID.mNodeString(targetNode)
@@ -1298,7 +1403,7 @@ def uiFunc_sim_dat_capture_save_for_target(self, datClass, targetNode):
     if not inst.capture(nodes=_node, mDynFK=_mDynFK):
         return log.warning("|{0}| >> Capture failed for {1}".format(_str_func, datClass.__name__))
     self._simDatInst = inst
-    if not inst.write(forcePrompt=True, startDirMode='dev'):
+    if not inst.write(forcePrompt=True, startDirMode=_saveMode):
         return log.warning("|{0}| >> Save cancelled".format(_str_func))
     self._simDatPath = inst.str_filepath
     log.info("|{0}| >> Captured + saved: {1}".format(_str_func, self._simDatPath))
@@ -1372,14 +1477,19 @@ def uiFunc_chain_section_label(chain_idx, chain):
 
 def uiFunc_rebuild_hair_system_preset_menu(optionMenu, mHairShape=None, selfRef=None):
     """Hair system row — dynamic Hair + HairShape libraries (separate dat kinds)."""
-    _mode = uiFunc_get_library_mode(selfRef)
+    _modes = _library_search_modes_get()
     optionMenu.clear()
     optionMenu.append(_SIM_DAT_MENU_LOAD)
-    for _name in uiFunc_library_preset_names('hair', mode=_mode):
-        optionMenu.append(_SIM_MENU_HAIR_PREFIX + _name)
+    for _name, _fpath in uiFunc_library_items_for_kind('hair', 'cgmSimHairDat', modes=_modes):
+        _label = _SIM_MENU_HAIR_PREFIX + _name
+        uiFunc_library_register_preset_path(selfRef, _label, _fpath)
+        optionMenu.append(_label)
     optionMenu.append('---')
-    for _name in uiFunc_library_preset_names('hairShape', mode=_mode):
-        optionMenu.append(_SIM_MENU_SHAPE_PREFIX + _name)
+    for _name, _fpath in uiFunc_library_items_for_kind(
+            'hairShape', 'cgmSimHairShapeDat', modes=_modes):
+        _label = _SIM_MENU_SHAPE_PREFIX + _name
+        uiFunc_library_register_preset_path(selfRef, _label, _fpath)
+        optionMenu.append(_label)
     optionMenu.append('---')
     optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR)
     optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR_SHAPE)
@@ -1796,7 +1906,7 @@ def _uiFunc_sim_dat_save_label_for_profile(profileKey):
 
 def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
     """Details dat menu — cgmDat/sim library for nucleus / hair / cloth targets."""
-    _mode = uiFunc_get_library_mode(selfRef)
+    _modes = _library_search_modes_get()
     optionMenu.clear()
     optionMenu.append(_SIM_DAT_MENU_LOAD)
 
@@ -1805,22 +1915,31 @@ def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
         profileKey = 'hs'
 
     if profileKey == 'hs':
-        for _name in uiFunc_library_preset_names('hair', mode=_mode):
-            optionMenu.append(_SIM_MENU_HAIR_PREFIX + _name)
+        for _name, _fpath in uiFunc_library_items_for_kind('hair', 'cgmSimHairDat', modes=_modes):
+            _label = _SIM_MENU_HAIR_PREFIX + _name
+            uiFunc_library_register_preset_path(selfRef, _label, _fpath)
+            optionMenu.append(_label)
         optionMenu.append('---')
-        for _name in uiFunc_library_preset_names('hairShape', mode=_mode):
-            optionMenu.append(_SIM_MENU_SHAPE_PREFIX + _name)
+        for _name, _fpath in uiFunc_library_items_for_kind(
+                'hairShape', 'cgmSimHairShapeDat', modes=_modes):
+            _label = _SIM_MENU_SHAPE_PREFIX + _name
+            uiFunc_library_register_preset_path(selfRef, _label, _fpath)
+            optionMenu.append(_label)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR)
         optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR_SHAPE)
     elif profileKey == 'n':
-        for a in uiFunc_library_preset_names('nucleus', mode=_mode):
-            optionMenu.append(a)
+        for _name, _fpath in uiFunc_library_items_for_kind(
+                'nucleus', 'cgmSimNucleusDat', modes=_modes):
+            uiFunc_library_register_preset_path(selfRef, _name, _fpath)
+            optionMenu.append(_name)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_NUCLEUS)
     elif profileKey == 'nc':
-        for a in uiFunc_library_preset_names('cloth', mode=_mode):
-            optionMenu.append(a)
+        for _name, _fpath in uiFunc_library_items_for_kind(
+                'cloth', 'cgmSimClothDat', modes=_modes):
+            uiFunc_library_register_preset_path(selfRef, _name, _fpath)
+            optionMenu.append(_name)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_CLOTH)
     optionMenu.setValue(_SIM_DAT_MENU_LOAD)
@@ -1846,7 +1965,7 @@ def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
         if mChain:
             inst = SIMDAT.SimHairShapeDat()
             if inst.capture(mDynFK=self._mDynFK, mGrp=mChain):
-                if inst.write(forcePrompt=True, startDirMode='dev'):
+                if inst.write(forcePrompt=True, startDirMode=_library_save_mode_get()):
                     log.info('Saved HairShape dat: {0}'.format(inst.str_filepath))
         else:
             uiFunc_sim_dat_capture_save_for_target(self, SIMDAT.SimHairShapeDat, _presetNode)
@@ -1874,6 +1993,12 @@ def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
                 self, val[len(_SIM_MENU_SHAPE_PREFIX):], mHair.mNode if mHair else None, mGrp=mChain)
             optionMenu.setValue(_SIM_DAT_MENU_LOAD)
             return
+
+    _path = uiFunc_library_path_for_label(self, val)
+    if _path:
+        uiFunc_library_apply_by_path(self, _path)
+        optionMenu.setValue(_SIM_DAT_MENU_LOAD)
+        return
 
     _datKind = uiFunc_library_dat_kind_for_name(val)
     if _datKind:

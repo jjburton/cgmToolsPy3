@@ -651,13 +651,25 @@ def _find_dynfk_setup(baseName=None, setupRoot=None):
     return None
 
 
-def resolve_library_filepath(key, mode='dev', extensions=None):
+def resolve_library_filepath(key, mode='dev', modes=None, extensions=None):
     """Resolve library key (hair.bob or hair/bob) to an on-disk dat path."""
     if not key:
         return None
     key = key.replace('/', '.')
     if extensions is None:
         extensions = list(DAT_EXTENSIONS)
+    if modes is None and isinstance(mode, (list, tuple)):
+        modes = mode
+    if modes is not None:
+        _rows = get_library_rows(modes=modes, force=True)
+        for r in _rows:
+            if r.get('key') == key:
+                return r.get('filepath')
+        for r in _rows:
+            k = r.get('key') or ''
+            if k.endswith('.{0}'.format(key)) or k.split('.')[-1] == key.split('.')[-1]:
+                return r.get('filepath')
+        return None
     _options, _ = get_library_options(force=True, mode=mode, extensions=extensions)
     if key in _options:
         return _options[key]
@@ -665,7 +677,6 @@ def resolve_library_filepath(key, mode='dev', extensions=None):
         if k.endswith('.{0}'.format(key)) or k.split('.')[-1] == key.split('.')[-1]:
             return v
     return None
-
 
 def apply_preset_ref(ref, mDynFK=None, mode='dev', clean=True):
     """Load and apply a preset dat from a library key."""
@@ -1039,20 +1050,57 @@ def get_setups_library_path(mode='dev'):
     return os.path.join(base, 'cgmDat', 'sim', 'setups')
 
 
-def get_library_options(force=False, path=None, mode='dev', extensions=None):
-    """Scan cgmDat/sim for shipped preset and/or setup files."""
+def get_library_options(force=False, path=None, mode='dev', modes=None, extensions=None):
+    """
+    Scan cgmDat/sim for shipped preset and/or setup files.
+
+    mode: single root (legacy). modes: list of roots for collective scan.
+    When modes is set (or mode is a list), returns (rows, by_mode) where rows
+    are CGMDAT.library_options_merge entries. Otherwise returns (options, types).
+    """
     if extensions is None:
         extensions = list(DAT_EXTENSIONS)
+    if modes is None and isinstance(mode, (list, tuple)):
+        modes = mode
+    if modes is not None:
+        return CGMDAT.get_ext_options_multi(
+            modes=modes, path_join=['cgmDat', 'sim'],
+            force=force, extensions=list(extensions))
     if path is None:
         path = get_library_path(mode)
     return CGMDAT.get_ext_options(force, path=path, extensions=list(extensions))
 
 
-def get_setup_library_options(force=False, path=None, mode='dev'):
-    """Scan cgmDat/sim/setups for setup dat files."""
+def get_setup_library_options(force=False, path=None, mode='dev', modes=None):
+    """Scan cgmDat/sim/setups for setup dat files. See get_library_options for modes."""
+    if modes is None and isinstance(mode, (list, tuple)):
+        modes = mode
+    if modes is not None:
+        return CGMDAT.get_ext_options_multi(
+            modes=modes, path_join=['cgmDat', 'sim', 'setups'],
+            force=force, extensions=[SETUP_EXTENSION])
     if path is None:
         path = get_setups_library_path(mode)
     return CGMDAT.get_ext_options(force, path=path, extensions=[SETUP_EXTENSION])
+
+
+def get_library_rows(kind_ext=None, modes=None, force=True, setup=False):
+    """
+    Collective library menu rows for enabled SearchDir modes.
+
+    kind_ext: if set, filter rows whose filepath ends with that extension.
+    setup: scan setups instead of sim presets.
+    Returns list of {key, filepath, mode, display}.
+    """
+    modes = CGMDAT.library_modes_normalize(modes)
+    if setup:
+        _rows, _ = get_setup_library_options(force=force, modes=modes)
+    else:
+        _rows, _ = get_library_options(force=force, modes=modes)
+    if kind_ext:
+        _suf = '.{0}'.format(kind_ext)
+        _rows = [r for r in _rows if (r.get('filepath') or '').endswith(_suf)]
+    return _rows
 
 
 def seed_module_profile_to_file(profileName, datKind, outDir=None, differential=True):

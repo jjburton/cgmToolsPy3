@@ -1397,22 +1397,50 @@ class ui(CGMDAT.ui):
     def insert_init(self, *args, **kws):
         CGMDAT.ui.insert_init(self,*args,**kws)
         
-        self.create_guiOptionVar('libraryDirMode',defaultValue = 'dev') 
+        self.create_guiOptionVar('libraryDirMode',defaultValue = 'dev')
+        self.create_guiOptionVar('librarySearch_dev',defaultValue = 1)
+        self.create_guiOptionVar('librarySearch_workspace',defaultValue = 1)
         
     def build_menus(self):
         self.uiMenu_FileMenu = mUI.MelMenu(l='File', pmc = cgmGEN.Callback(self.buildMenu_file))
         self.uiMenu_library = mUI.MelMenu(l='Library', pmc = cgmGEN.Callback(self.buildMenu_library), pmo=True, tearOff=True)
         self.uiMenu_SetupMenu = mUI.MelMenu(l='Dev', pmc = cgmGEN.Callback(self.buildMenu_dev))
         
-    def uiFunc_libraryDirMode(self,v):
-        _str_func = 'uiFunc_libraryDirMode[{0}]'.format(self.__class__.TOOLNAME)            
+    def uiFunc_library_search_modes(self):
+        _modes = []
+        if self.var_librarySearch_dev.value:
+            _modes.append('dev')
+        if self.var_librarySearch_workspace.value:
+            _modes.append('workspace')
+        return CGMDAT.library_modes_normalize(_modes) or ['dev']
+
+    def uiFunc_librarySaveDirMode(self, v):
+        _str_func = 'uiFunc_librarySaveDirMode[{0}]'.format(self.__class__.TOOLNAME)
         log.debug("|{0}| >>...".format(_str_func))
-        
         _path = CGMDAT.startDir_getBase(v)
         if _path:
             self.var_libraryDirMode.setValue(v)
             print(_path)
-            self.buildMenu_library(True)#...force
+            self.buildMenu_library(True)
+
+    def uiFunc_librarySearchDirToggle(self, mode):
+        _str_func = 'uiFunc_librarySearchDirToggle[{0}]'.format(self.__class__.TOOLNAME)
+        log.debug("|{0}| >>...".format(_str_func))
+        _var = self.var_librarySearch_dev if mode == 'dev' else self.var_librarySearch_workspace
+        _modes = self.uiFunc_library_search_modes()
+        if mode in _modes:
+            if len(_modes) <= 1:
+                log.warning("Keep at least one SearchDir enabled")
+                self.buildMenu_library(True)
+                return
+            _var.setValue(0)
+        else:
+            _var.setValue(1)
+        self.buildMenu_library(True)
+
+    def uiFunc_libraryDirMode(self, v):
+        """Legacy alias — sets SaveDir."""
+        self.uiFunc_librarySaveDirMode(v)
             
     def buildMenu_library( self, force=True, *args, **kws):
         if self.uiMenu_library and force is not True:
@@ -1423,85 +1451,49 @@ class ui(CGMDAT.ui):
         
         _menu = self.uiMenu_library
         mUI.MelMenuItemDiv(self.uiMenu_library, l="Options")
-        
-        #Context ...---------------------------------------------------------------------------------
-        _starDir = mUI.MelMenuItem(_menu, l="SearchDir",tearOff=True,
-                                   subMenu = True)
-        
-        uiRC = mc.radioMenuItemCollection()
-        
-        #self._l_contextModes = ['self','below','root','scene']
-        _d_ann = {'self':'Context is only of the active/sel block',
-                  'below':'Context is active/sel block and below',
-                  'root':'Context is active/sel root and below',
-                  'scene':'Context is all blocks in the scene. Careful skippy!',}
-        
-        _on = self.var_libraryDirMode.value
-        
-        for i,item in enumerate(['workspace','dev']):
-            if item == _on:_rb = True
-            else:_rb = False
-            mUI.MelMenuItem(_starDir,label=item,
-                            collection = uiRC,
-                            ann = _d_ann.get(item),
-                            c = cgmGEN.Callback(self.uiFunc_libraryDirMode,item),                                  
-                            rb = _rb)                
+
+        _saveMode = self.var_libraryDirMode.value
+        if _saveMode not in CGMDAT._l_libraryDirModes:
+            _saveMode = 'dev'
+        _searchModes = self.uiFunc_library_search_modes()
+
+        CGMDAT.uiMenu_addLibrarySaveSearchDirs(
+            _menu, _saveMode, _searchModes,
+            lambda mode: self.uiFunc_librarySaveDirMode(mode),
+            lambda mode: self.uiFunc_librarySearchDirToggle(mode),
+        )
+
         mUI.MelMenuItemDiv(_menu, l="Found")
-                
-        
-        if force:
-            path = CGMDAT.startDir_getBase(_on)
-            
-            #if _on == 'dev':
-            path = os.path.join(path, 'cgmDat','mrs')
-            get_ext_options(True,path=path)
-            
-        _options, _categories = get_ext_options(extensions=self._datTypes)
-        
-        
+
+        _rows, _ = CGMDAT.get_ext_options_multi(
+            modes=_searchModes,
+            path_join=['cgmDat', 'mrs'],
+            force=True,
+            extensions=self._datTypes,
+        )
+
         md_menus = {}
-        for k in _categories.get(self._datTypes[0],[]):
-            f = _options.get(k)
-            #print("{} | {}".format(k,f))
+        for _r in _rows:
+            k = _r.get('key') or ''
+            f = _r.get('filepath')
+            _keyUse = _r.get('display') or (k.split('.')[-1] if k else k)
             _useMenu = self.uiMenu_library
             if '.' in k:
                 _split = k.split('.')[:-1]
-                _keyUse = k.split('.')[-1]
-                #pprint.pprint(_split)
-                
-                for i,sub in enumerate(_split):
-                    _parentKey = '.'.join(_split[:i+1])
-                    #print ("parentKey: {}".format(_parentKey))
-                    
+                for i, sub in enumerate(_split):
+                    _parentKey = '.'.join(_split[:i + 1])
                     if not i:
                         _parent = self.uiMenu_library
                     if not md_menus.get(_parentKey):
-                        _sub = mUI.MelMenuItem( _parent, subMenu=True, l=sub, tearOff=True)
-                        md_menus[_parentKey]  = _sub
-                    _parent = md_menus[_parentKey] 
-                _useMenu = md_menus[_parentKey]                 
-            else:
-                _keyUse = k
-            """
-            if '.' in k:
-                _split = k.split('.')[:-1]
-                _keyUse = k.split('.')[-1]
-                for i,sub in enumerate(_split):
-                    _splitKey = '.'.join(_split[i:])
-                    print _splitKey
-                    if not i:
-                        _parent = self.uiMenu_library
-                    if not md_menus.get(_splitKey):
-                        _sub = mUI.MelMenuItem( _parent, subMenu=True, l=sub, tearOff=True)
-                        md_menus[_splitKey]  = _sub
-                        
-                    _parent = md_menus[_splitKey] 
-                    _useMenu = md_menus[_splitKey] """
-                            
-            mUI.MelMenuItem(_useMenu, l=_keyUse,
-                            c=cgmGEN.Callback(self.uiFunc_dat_load,**{'filepath':f}),
-                            ann="{} | {}".format(_keyUse, f))                
+                        _sub = mUI.MelMenuItem(_parent, subMenu=True, l=sub, tearOff=True)
+                        md_menus[_parentKey] = _sub
+                    _parent = md_menus[_parentKey]
+                _useMenu = md_menus[_parentKey]
 
+            mUI.MelMenuItem(
+                _useMenu, l=_keyUse,
+                c=cgmGEN.Callback(self.uiFunc_dat_load, **{'filepath': f}),
+                ann="{} | {}".format(_keyUse, f))
 
         mUI.MelMenuItemDiv(self.uiMenu_library)
         mUI.MelMenuItem(self.uiMenu_library, l='Rebuild',

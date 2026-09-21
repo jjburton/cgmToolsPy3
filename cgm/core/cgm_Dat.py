@@ -70,6 +70,7 @@ log_start = cgmGEN.logString_start
 
 
 _l_startDirModes = ('workspace','file','dev')
+_l_libraryDirModes = ('dev', 'workspace')
 
 
 def startDir_getBase(mode = 'workspace', devList = []):
@@ -96,6 +97,116 @@ def startDir_getBase(mode = 'workspace', devList = []):
         
     else:
         raise ValueError("Unknown mode: {}".format(mode))
+
+
+def library_modes_normalize(modes=None, default=('dev',)):
+    """Return ordered unique library modes from modes (str or sequence)."""
+    if modes is None:
+        modes = default
+    if isinstance(modes, str):
+        modes = [modes]
+    _out = []
+    for m in modes:
+        if m in _l_libraryDirModes and m not in _out:
+            _out.append(m)
+    return _out or list(default)
+
+
+def library_options_merge(mode_to_options):
+    """
+    Merge per-mode option dicts into menu rows.
+
+    mode_to_options: {mode: {key: filepath}}
+    Returns list of dicts:
+      key, filepath, mode, display (leaf name; ``name [mode]`` on key collisions)
+    Ordered by key, then mode order in _l_libraryDirModes.
+    """
+    _entries = []
+    _key_counts = {}
+    for mode in _l_libraryDirModes:
+        _opts = mode_to_options.get(mode) or {}
+        for key, fpath in list(_opts.items()):
+            _key_counts[key] = _key_counts.get(key, 0) + 1
+            _entries.append((key, fpath, mode))
+
+    _rows = []
+    for key, fpath, mode in _entries:
+        _leaf = key.split('.')[-1] if key else key
+        _display = _leaf if _key_counts.get(key, 0) <= 1 else '{0} [{1}]'.format(_leaf, mode)
+        _rows.append({
+            'key': key,
+            'filepath': fpath,
+            'mode': mode,
+            'display': _display,
+        })
+    _mode_rank = {m: i for i, m in enumerate(_l_libraryDirModes)}
+    _rows.sort(key=lambda r: (r['key'], _mode_rank.get(r['mode'], 99)))
+    return _rows
+
+
+def get_ext_options_multi(modes=None, path_join=None, force=False, extensions=None, skipRoot=True):
+    """
+    Scan multiple library roots and return merged menu rows.
+
+    path_join: path parts under each mode base (e.g. ['cgmDat','mrs'] or ['cgmDat','sim']).
+    Returns (rows, by_mode) where rows is library_options_merge output and
+    by_mode is {mode: (options_dict, types_dict)}.
+    """
+    if extensions is None:
+        extensions = ['cgmBlockConfig', 'cgmBlockDat', 'cgmShapeDat']
+    if path_join is None:
+        path_join = ['cgmDat', 'mrs']
+    modes = library_modes_normalize(modes)
+    _by_mode = {}
+    _mode_to_options = {}
+    for mode in modes:
+        _base = startDir_getBase(mode)
+        if not _base:
+            continue
+        _path = os.path.join(_base, *path_join)
+        if not os.path.isdir(_path):
+            _by_mode[mode] = ({}, {})
+            _mode_to_options[mode] = {}
+            continue
+        _opts, _types = get_ext_options(
+            force, path=_path, skipRoot=skipRoot, extensions=list(extensions))
+        _by_mode[mode] = (_opts, _types)
+        _mode_to_options[mode] = _opts or {}
+    return library_options_merge(_mode_to_options), _by_mode
+
+
+def uiMenu_addLibrarySaveSearchDirs(
+        parentMenu, saveMode, searchModes, saveCallback, searchToggleCallback,
+        modes=None):
+    """
+    Build SaveDir (radio) + SearchDir (checkboxes) under a library/presets menu.
+
+    saveCallback(mode), searchToggleCallback(mode) — callers own optionVars;
+    searchToggleCallback toggles one mode and must keep >=1 SearchDir on.
+    """
+    if modes is None:
+        modes = _l_libraryDirModes
+    searchModes = library_modes_normalize(searchModes, default=list(modes))
+    if saveMode not in modes:
+        saveMode = modes[0]
+
+    mUI.MelMenuItemDiv(parentMenu, l='Dirs')
+    _saveMenu = mUI.MelMenuItem(parentMenu, l='SaveDir', subMenu=True, tearOff=True)
+    _rc = mc.radioMenuItemCollection()
+    for item in modes:
+        mUI.MelMenuItem(
+            _saveMenu, l=item, collection=_rc, rb=(item == saveMode),
+            ann='Save / capture dialogs open under this root',
+            c=cgmGEN.Callback(saveCallback, item),
+        )
+
+    _searchMenu = mUI.MelMenuItem(parentMenu, l='SearchDir', subMenu=True, tearOff=True)
+    for item in modes:
+        mUI.MelMenuItem(
+            _searchMenu, l=item, checkBox=(item in searchModes),
+            ann='Include this root when listing library presets',
+            c=cgmGEN.Callback(searchToggleCallback, item),
+        )
 
 class batch(object):
     def __init__(self, mNodes, dataClass = None, mode = None):
