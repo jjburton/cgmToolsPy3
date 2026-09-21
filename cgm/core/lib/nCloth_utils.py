@@ -447,23 +447,105 @@ def _filter_preset_dict(d):
     return {k: v for k, v in list(d.items()) if k not in l_skipPresetAttrs}
 
 
+def _format_attr_value_for_log(value):
+    """Compact value for Script Editor change lines."""
+    if isinstance(value, dict):
+        try:
+            _items = []
+            for k in sorted(value.keys(), key=lambda x: (str(type(x)), x)):
+                _v = value[k]
+                if isinstance(_v, (list, tuple)):
+                    _v = '({0})'.format(', '.join(
+                        '{0:g}'.format(float(x)) if isinstance(x, (int, float)) else repr(x)
+                        for x in _v))
+                _items.append('{0}:{1}'.format(k, _v))
+            return '{' + ', '.join(_items) + '}'
+        except Exception:
+            return repr(value)
+    if isinstance(value, float):
+        return '{0:g}'.format(value)
+    if isinstance(value, (list, tuple)):
+        try:
+            return '({0})'.format(', '.join(
+                '{0:g}'.format(float(x)) if isinstance(x, (int, float)) else repr(x)
+                for x in value))
+        except Exception:
+            return repr(value)
+    return repr(value)
+
+
+def _attr_values_equal(a, b):
+    if a is b:
+        return True
+    if a is None or b is None:
+        return a == b
+    if isinstance(a, dict) and isinstance(b, dict):
+        try:
+            if set(a.keys()) != set(b.keys()):
+                _na = {int(k) if str(k).isdigit() else k: v for k, v in a.items()}
+                _nb = {int(k) if str(k).isdigit() else k: v for k, v in b.items()}
+                if set(_na.keys()) != set(_nb.keys()):
+                    return False
+                return all(_attr_values_equal(_na[k], _nb[k]) for k in _na)
+        except Exception:
+            return False
+        return all(_attr_values_equal(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if len(a) != len(b):
+            return False
+        return all(_attr_values_equal(x, y) for x, y in zip(a, b))
+    try:
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return abs(float(a) - float(b)) < 1e-6
+    except Exception:
+        pass
+    return a == b
+
+
 def _apply_attr_dict(node, d):
-    """Set attrs on node; skip missing / failed quietly with warnings."""
+    """Set attrs on node; log ``attr: old >> new`` for each change."""
+    _str_func = 'profile_apply_section'
     if not node or not d:
         return 0
     _count = 0
-    for a, v in list(d.items()):
+    _changed = 0
+    for a in sorted(d.keys(), key=lambda x: str(x)):
+        v = d[a]
         if a in l_skipPresetAttrs:
             continue
         attr = _resolve_attr(node, a)
         if not attr:
             log.debug("Skip attr: {0}.{1}".format(node, a))
             continue
+        _old = None
+        _old_ok = False
+        try:
+            _old = ATTR.get(node, attr)
+            _old_ok = True
+        except Exception:
+            _old_ok = False
         try:
             ATTR.set(node, attr, v)
             _count += 1
         except Exception as err:
             log.warning("Failed to set {0}.{1} = {2} | {3}".format(node, attr, v, err))
+            continue
+        if not _old_ok:
+            log.info(cgmGEN.logString_msg(
+                _str_func, '{0}: <missing> >> {1}'.format(
+                    attr, _format_attr_value_for_log(v))))
+            _changed += 1
+        elif not _attr_values_equal(_old, v):
+            log.info(cgmGEN.logString_msg(
+                _str_func, '{0}: {1} >> {2}'.format(
+                    attr,
+                    _format_attr_value_for_log(_old),
+                    _format_attr_value_for_log(v))))
+            _changed += 1
+        else:
+            log.debug(cgmGEN.logString_msg(
+                _str_func, '{0}: unchanged ({1})'.format(
+                    attr, _format_attr_value_for_log(v))))
     return _count
 
 
@@ -508,7 +590,7 @@ def profile_apply_section(node, attrs, section='nc', clean=True, profileKind='fa
     d_use = _filter_preset_dict(d_use)
     _count = _apply_attr_dict(node, d_use)
     log.info(cgmGEN.logString_msg(
-        _str_func, "{0} | section={1} kind={2} | {3} attrs".format(
+        _str_func, "{0} | section={1} kind={2} | {3} attrs applied".format(
             node, section, profileKind, _count)))
     return _count
 

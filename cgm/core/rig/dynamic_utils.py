@@ -4502,12 +4502,10 @@ def apply_hair_shape_profile(mGrp, mDynFK=None, profile=None, clean=False):
         for _shape in mFollicle.getShapes(asMeta=False) or []:
             if mc.nodeType(_shape) != 'follicle':
                 continue
-            for a, v in list(_follicle_profile.items()):
-                try:
-                    ATTR.set(_shape, a, v)
-                    _count += 1
-                except Exception as err:
-                    log.warning("{0} | follicle {1} | {2}".format(_str_func, a, err))
+            _c, _ch = _apply_profile_attr_dict(
+                _shape, _follicle_profile,
+                log_name=_str_func, node_type='follicle')
+            _count += _c
 
     mHair = hair_system_resolve_for_chain(mGrp, mDynFK) if mDynFK else None
     if mHair and profile:
@@ -4639,6 +4637,109 @@ def profile_get(arg = None, module = dynFKPresets ):
         return d_chain.get(arg)
     return None
 
+def _format_profile_attr_value(value):
+    """Compact value string for Script Editor attr-change lines."""
+    if isinstance(value, dict):
+        try:
+            _items = []
+            for k in sorted(value.keys(), key=lambda x: (str(type(x)), x)):
+                _v = value[k]
+                if isinstance(_v, (list, tuple)):
+                    _v = '({0})'.format(', '.join('{0:g}'.format(float(x))
+                                                   if isinstance(x, (int, float)) else repr(x)
+                                                   for x in _v))
+                _items.append('{0}:{1}'.format(k, _v))
+            return '{' + ', '.join(_items) + '}'
+        except Exception:
+            return repr(value)
+    if isinstance(value, float):
+        return '{0:g}'.format(value)
+    if isinstance(value, (list, tuple)):
+        try:
+            return '({0})'.format(', '.join(
+                '{0:g}'.format(float(x)) if isinstance(x, (int, float)) else repr(x)
+                for x in value))
+        except Exception:
+            return repr(value)
+    return repr(value)
+
+
+def _profile_values_equal(a, b):
+    """Loose equality for preset apply change logging (ramps / float noise)."""
+    if a is b:
+        return True
+    if a is None or b is None:
+        return a == b
+    if isinstance(a, dict) and isinstance(b, dict):
+        if set(a.keys()) != set(b.keys()):
+            # JSON may use str keys vs int
+            try:
+                _na = _normalize_compound_profile_value(a)
+                _nb = _normalize_compound_profile_value(b)
+                if set(_na.keys()) != set(_nb.keys()):
+                    return False
+                return all(_profile_values_equal(_na[k], _nb[k]) for k in _na)
+            except Exception:
+                return False
+        return all(_profile_values_equal(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if len(a) != len(b):
+            return False
+        return all(_profile_values_equal(x, y) for x, y in zip(a, b))
+    try:
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return abs(float(a) - float(b)) < 1e-6
+    except Exception:
+        pass
+    return a == b
+
+
+def _apply_profile_attr_dict(node, d_use, log_name='profile_apply_section', node_type=''):
+    """
+    Set attrs on node; log each change as ``attr: old >> new``.
+
+    :returns: (set_count, changed_count)
+    """
+    if not node or not d_use:
+        return 0, 0
+    _set = 0
+    _changed = 0
+    for a in sorted(d_use.keys(), key=lambda x: str(x)):
+        v = d_use[a]
+        _old = None
+        _old_ok = False
+        try:
+            if mc.attributeQuery(a, node=node, exists=True):
+                _old = ATTR.get(node, a)
+                _old_ok = True
+        except Exception:
+            _old_ok = False
+        try:
+            ATTR.set(node, a, v)
+            _set += 1
+        except Exception as err:
+            log.warning("{0} | Failed to set: {1} | {2} | {3}".format(
+                node_type or log_name, a, v, err))
+            continue
+        if not _old_ok:
+            log.info(cgmGEN.logString_msg(
+                log_name, '{0}: <missing> >> {1}'.format(
+                    a, _format_profile_attr_value(v))))
+            _changed += 1
+        elif not _profile_values_equal(_old, v):
+            log.info(cgmGEN.logString_msg(
+                log_name, '{0}: {1} >> {2}'.format(
+                    a,
+                    _format_profile_attr_value(_old),
+                    _format_profile_attr_value(v))))
+            _changed += 1
+        else:
+            log.debug(cgmGEN.logString_msg(
+                log_name, '{0}: unchanged ({1})'.format(
+                    a, _format_profile_attr_value(v))))
+    return _set, _changed
+
+
 def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
                           profileKind='hair', module=dynFKPresets):
     """
@@ -4709,17 +4810,12 @@ def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
                 NCLOTH.scene_up_get(), d_use.get('gravityDirection'))))
 
     _node = mTar.mNode
-    _count = 0
-    for a, v in list(d_use.items()):
-        try:
-            ATTR.set(_node, a, v)
-            _count += 1
-        except Exception as err:
-            log.warning("{3} | Failed to set: {0} | {1} | {2}".format(a, v, err, _type))
+    _count, _changed = _apply_profile_attr_dict(
+        _node, d_use, log_name=_str_func, node_type=_type)
 
     log.info(cgmGEN.logString_msg(
-        _str_func, "{0} | section={1} kind={2} | {3} attrs".format(
-            _node, _key, profileKind, _count)))
+        _str_func, "{0} | section={1} kind={2} | {3} set | {4} changed".format(
+            _node, _key, profileKind, _count, _changed)))
     return _count
 
 
@@ -4778,13 +4874,11 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
                 NCLOTH.scene_up_get(), d_use.get('gravityDirection'))))
     
     _node = mTar.mNode
-    for a,v in list(d_use.items()):
-        log.debug("{0} || {1} | {2}".format(_type, a,v))
-        try:
-            ATTR.set(_node, a, v)
-            #mNucleus.__setattr__(a,v)
-        except Exception as err:
-            log.warning("{3} | Failed to set: {0} | {1} | {2}".format(a,v,err, _type))    
+    _count, _changed = _apply_profile_attr_dict(
+        _node, d_use, log_name=_str_func, node_type=_type)
+    log.info(cgmGEN.logString_msg(
+        _str_func, "{0} | profile={1} | {2} set | {3} changed".format(
+            _node, arg, _count, _changed)))
     
     
 #=========================================================================      
