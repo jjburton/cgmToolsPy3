@@ -8,9 +8,7 @@ cgmDynSimTool preset + setup dat files — hair / hairShape / cloth / nucleus pr
 __MAYALOCAL = 'SIMCHAINDAT'
 
 import copy
-import getpass
 import os
-import time
 import logging
 
 import maya.cmds as mc
@@ -36,15 +34,6 @@ _D_KIND_TO_CLASS = {}
 _D_EXT_TO_CLASS = {}
 
 
-def _meta_block(sourceNode=None):
-    return {
-        'user': getpass.getuser(),
-        'date': time.strftime('%Y-%m-%d %H:%M'),
-        'scene': mc.file(q=True, sn=True) or '',
-        'sourceNode': VALID.mNodeString(sourceNode) if sourceNode else '',
-    }
-
-
 def _empty_dat(name='', datKind='', section='', profileKind='', differential=True):
     return {
         'schemaVersion': SCHEMA_VERSION,
@@ -54,7 +43,6 @@ def _empty_dat(name='', datKind='', section='', profileKind='', differential=Tru
         'profileKind': profileKind,
         'differential': differential,
         'profile': {},
-        'meta': _meta_block(),
     }
 
 
@@ -210,12 +198,16 @@ class SimPresetDatBase(CGMDAT.data):
 
     def read(self, filepath=None, decode=True, report=False, startDirMode=None):
         _result = super().read(filepath, decode=decode, report=report, startDirMode=startDirMode)
-        if _result and self.dat.get('profile'):
-            self.dat['profile'] = _normalize_profile_keys(self.dat['profile'])
+        if _result and self.dat:
+            # Legacy files may still carry meta — ignore; do not re-persist
+            self.dat.pop('meta', None)
+            if self.dat.get('profile'):
+                self.dat['profile'] = _normalize_profile_keys(self.dat['profile'])
         return _result
 
-    def _build_dat(self, profile, name=None, sourceNode=None, differential=True,
-                   profileKind=None):
+    def _build_dat(self, profile, name=None, differential=True, profileKind=None,
+                   **_unused):
+        """Build preset dat. ``sourceNode`` kw ignored (legacy; meta no longer stored)."""
         _name = name or self.dat.get('name') or 'preset'
         self.dat = _empty_dat(
             name=_name,
@@ -225,8 +217,14 @@ class SimPresetDatBase(CGMDAT.data):
             differential=differential,
         )
         self.dat['profile'] = copy.deepcopy(profile or {})
-        self.dat['meta'] = _meta_block(sourceNode)
         return self.dat
+
+    def write(self, filepath=None, update=False, startDirMode=None, forcePrompt=False):
+        if isinstance(self.dat, dict):
+            self.dat.pop('meta', None)
+        return super().write(
+            filepath=filepath, update=update,
+            startDirMode=startDirMode, forcePrompt=forcePrompt)
 
     def capture(self, nodes=None, differential=True, name=None, profileKind=None):
         _str_func = 'SimPresetDatBase.capture'
@@ -328,7 +326,6 @@ class SimHairDat(SimPresetDatBase):
         return self._build_dat(
             _profile,
             name=name or _short,
-            sourceNode=_node,
             differential=differential,
             profileKind=profileKind or 'hair',
         )
@@ -409,7 +406,6 @@ class SimHairShapeDat(SimPresetDatBase):
             return self._build_dat(
                 _profile,
                 name=name or RIGDYN.chain_cgm_name(mGrp),
-                sourceNode=mGrp.mNode,
                 differential=differential,
                 profileKind=profileKind or 'hairShape',
             )
@@ -425,7 +421,6 @@ class SimHairShapeDat(SimPresetDatBase):
         return self._build_dat(
             _profile,
             name=name or _short,
-            sourceNode=_node,
             differential=differential,
             profileKind=profileKind or 'hairShape',
         )
@@ -489,7 +484,6 @@ class SimClothDat(SimPresetDatBase):
         return self._build_dat(
             _profile,
             name=_name,
-            sourceNode=_src,
             differential=differential,
             profileKind=profileKind or 'fabric',
         )
@@ -553,7 +547,6 @@ class SimNucleusDat(SimPresetDatBase):
         return self._build_dat(
             _profile,
             name=name or _short,
-            sourceNode=_nucleus,
             differential=differential,
             profileKind=_kind,
         )
@@ -703,6 +696,19 @@ class SimChainSetup(CGMDAT.data):
         elif not self.dat:
             self.dat = self._empty_setup_dat()
 
+    def read(self, filepath=None, decode=True, report=False, startDirMode=None):
+        _result = super().read(filepath, decode=decode, report=report, startDirMode=startDirMode)
+        if _result and isinstance(self.dat, dict):
+            self.dat.pop('meta', None)
+        return _result
+
+    def write(self, filepath=None, update=False, startDirMode=None, forcePrompt=False):
+        if isinstance(self.dat, dict):
+            self.dat.pop('meta', None)
+        return super().write(
+            filepath=filepath, update=update,
+            startDirMode=startDirMode, forcePrompt=forcePrompt)
+
     @staticmethod
     def _empty_setup_dat(name='setup'):
         return {
@@ -727,7 +733,6 @@ class SimChainSetup(CGMDAT.data):
             'mapped': {},
             'chains': [],
             'presetRefs': {},
-            'meta': _meta_block(),
         }
 
     def capture(self, mDynFK=None, name=None):
@@ -818,7 +823,7 @@ class SimChainSetup(CGMDAT.data):
             _chains.append(_entry)
 
         self.dat['chains'] = _chains
-        self.dat['meta'] = _meta_block(mSetup.mNode)
+        self.dat.pop('meta', None)
         log.info(cgmGEN.logString_msg(
             _str_func, '{0} | chains: {1}'.format(_name, len(_chains))))
         return self.dat

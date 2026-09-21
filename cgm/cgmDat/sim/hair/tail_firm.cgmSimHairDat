@@ -1,12 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "meta": {
-        "date": "2026-09-16 09:44",
-        "scene": "D:/p4/SourceArt-DDE/DDE_Sparrow/Character/Blurrg/Animations/Run_Forward/Blurrg_Run_Forward_tailSimTest.ma",
-        "sourceNode": "DynamicChain_tailTip_fk_anim_hairSysShape",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain_tailTip_fk_anim_hairSysShape",
     "profile": {
         "attractionScale": {

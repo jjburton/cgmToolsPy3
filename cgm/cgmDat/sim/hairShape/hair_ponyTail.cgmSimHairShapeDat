@@ -1,12 +1,6 @@
 {
     "datKind": "hairShape",
     "differential": true,
-    "meta": {
-        "date": "2026-09-18 15:23",
-        "scene": "D:/Dropbox/mrsMakers_share/content/RD/simChain/animation/head/base/simChain_head_base_01.mb",
-        "sourceNode": "|DynamicChain_dynFK|DynamicChain_ponytail_hairSys|DynamicChain_ponytail_hairSysShape",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain_ponytail_hairSysShape",
     "profile": {
         "hairWidth": 16.98412699063146,

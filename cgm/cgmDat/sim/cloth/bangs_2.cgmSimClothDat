@@ -1,12 +1,6 @@
 {
     "datKind": "cloth",
     "differential": true,
-    "meta": {
-        "date": "2026-09-10 14:20",
-        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/cloth/Edna_testHair_cloth_01.mb",
-        "sourceNode": "|nCloth1|nClothShape1",
-        "user": "BURTJ081"
-    },
     "name": "nCloth1",
     "profile": {
         "bendAngleDropoff": 0.4000000059604645,

@@ -1,12 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "meta": {
-        "date": "2026-09-15 17:16",
-        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_04.mb",
-        "sourceNode": "|DynamicChain_dynFK|DynamicChain_bangs_hairSys|DynamicChain_bangs_hairSysShape",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain_bangs_hairSysShape",
     "profile": {
         "attractionScale": {

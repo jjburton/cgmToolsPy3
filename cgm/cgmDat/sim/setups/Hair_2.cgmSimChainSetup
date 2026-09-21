@@ -120,12 +120,6 @@
         "hairSystem": "|DynamicChain_dynFK|DynamicChain_hairSys|DynamicChain_hairSysShape",
         "nucleus": "|DynamicChain_dynFK|cgmDynFK_nucleus"
     },
-    "meta": {
-        "date": "2026-09-11 14:10",
-        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_02.mb",
-        "sourceNode": "|DynamicChain_dynFK",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain",
     "options": {
         "aimUpMode": "joint",

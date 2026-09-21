@@ -1,12 +1,6 @@
 {
     "datKind": "nucleus",
     "differential": false,
-    "meta": {
-        "date": "2026-09-10 00:00",
-        "scene": "",
-        "sourceNode": "",
-        "user": "cgm-seed"
-    },
     "name": "solver_quality",
     "profile": {
         "maxCollisionIterations": 12,

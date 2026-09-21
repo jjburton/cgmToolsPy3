@@ -1,12 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "meta": {
-        "date": "2026-09-10 00:00",
-        "scene": "",
-        "sourceNode": "",
-        "user": "autodesk-seed"
-    },
     "name": "leather",
     "profile": {
         "bendAngleDropoff": 0.727,

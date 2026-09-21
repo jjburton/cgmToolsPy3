@@ -1,12 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "meta": {
-        "date": "2026-09-21 15:36",
-        "scene": "D:/Dropbox/mrsMakers_share/content/RD/simChain/scen/horizontal_move/simChain_horizontal_move_long_01.mb",
-        "sourceNode": "|DynamicChain_dynFK|DynamicChain_slow_hairSys|DynamicChain_slow_hairSysShape",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain_slow_hairSysShape",
     "profile": {
         "attractionScale": {

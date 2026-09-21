@@ -1,12 +1,6 @@
 {
     "datKind": "nucleus",
     "differential": false,
-    "meta": {
-        "date": "2026-09-09 00:00",
-        "scene": "",
-        "sourceNode": "",
-        "user": "seed"
-    },
     "name": "wind_calm",
     "profile": {
         "airDensity": 1.0,

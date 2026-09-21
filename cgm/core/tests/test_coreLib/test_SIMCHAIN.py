@@ -150,6 +150,13 @@ class Test_simChainSetupDat(unittest.TestCase):
         self.assertEqual(inst.dat.get('schemaVersion'), 1)
         self.assertIn('mapped', inst.dat)
         self.assertIn('chains', inst.dat)
+        self.assertNotIn('meta', inst.dat)
+
+    def test_preset_empty_schema_has_no_meta(self):
+        for cls in (SIMDAT.SimHairDat, SIMDAT.SimHairShapeDat,
+                    SIMDAT.SimClothDat, SIMDAT.SimNucleusDat):
+            inst = cls()
+            self.assertNotIn('meta', inst.dat)
 
     def test_setup_json_roundtrip(self):
         inst = SIMDAT.SimChainSetup()

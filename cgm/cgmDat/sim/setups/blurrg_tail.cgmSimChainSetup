@@ -40,12 +40,6 @@
         ],
         "nucleus": "|cgmDynFK_nucleus"
     },
-    "meta": {
-        "date": "2026-09-16 13:33",
-        "scene": "D:/p4/SourceArt-DDE/DDE_Sparrow/Character/Blurrg/Animations/Run_Forward/Blurrg_Run_Forward_tailSimTest_onlySim.ma",
-        "sourceNode": "|DynamicChain_dynFK",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain",
     "options": {
         "addEndJoint": false,
