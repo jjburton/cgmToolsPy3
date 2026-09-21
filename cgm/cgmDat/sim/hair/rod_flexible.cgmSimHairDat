@@ -11,53 +11,53 @@
             ],
             "1": [
                 0.20000000298023224,
-                0.699999988079071,
+                0.949999988079071,
                 1.0
             ],
             "2": [
-                0.5,
-                0.4000000059604645,
+                0.6000000238418579,
+                0.699999988079071,
                 1.0
             ],
             "3": [
-                0.800000011920929,
-                0.18000000715255737,
+                0.8500000238418579,
+                0.30000001192092896,
                 1.0
             ]
         },
-        "bendResistance": 1.2,
-        "compressionResistance": 55.0,
-        "damp": 0.12,
-        "drag": 0.1,
-        "extraBendLinks": 2,
-        "mass": 2.75,
-        "motionDrag": 0.07,
-        "startCurveAttract": 0.55,
+        "bendResistance": 24.0,
+        "compressionResistance": 135.0,
+        "damp": 0.07,
+        "drag": 0.05,
+        "extraBendLinks": 3,
+        "mass": 1.1,
+        "motionDrag": 0.04,
+        "startCurveAttract": 3.25,
         "stiffnessScale": {
             "0": [
                 0.0,
-                0.8500000238418579,
+                1.0,
                 1.0
             ],
             "1": [
-                0.30000001192092896,
-                0.6000000238418579,
+                0.5,
+                0.8999999761581421,
                 1.0
             ],
             "2": [
-                0.699999988079071,
-                0.2800000011920929,
+                0.800000011920929,
+                0.5,
                 1.0
             ],
             "3": [
                 1.0,
-                0.11999999731779099,
+                0.20000000298023224,
                 1.0
             ]
         },
-        "stretchDamp": 0.08,
-        "stretchResistance": 260.0,
-        "tangentialDrag": 0.1
+        "stretchDamp": 0.04,
+        "stretchResistance": 300.0,
+        "tangentialDrag": 0.05
     },
     "profileKind": "hair",
     "schemaVersion": 1,

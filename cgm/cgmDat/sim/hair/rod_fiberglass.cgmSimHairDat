@@ -2,13 +2,14 @@
     "datKind": "hair",
     "differential": true,
     "meta": {
-        "date": "2026-09-21 15:36",
+        "date": "2026-09-21 15:29",
         "scene": "D:/Dropbox/mrsMakers_share/content/RD/simChain/scen/horizontal_move/simChain_horizontal_move_long_01.mb",
         "sourceNode": "|DynamicChain_dynFK|DynamicChain_slow_hairSys|DynamicChain_slow_hairSysShape",
         "user": "BURTJ081"
     },
     "name": "DynamicChain_slow_hairSysShape",
     "profile": {
+        "attractionDamp": 0.07692307713799752,
         "attractionScale": {
             "0": [
                 0.0,
@@ -16,29 +17,29 @@
                 1.0
             ],
             "1": [
-                0.365217387676239,
-                0.8999999761581421,
-                3.0
+                0.20000000298023224,
+                0.949999988079071,
+                1.0
             ],
             "2": [
-                0.8695651888847351,
-                0.2199999988079071,
-                3.0
+                0.800000011920929,
+                0.8799999952316284,
+                1.0
             ],
             "3": [
                 1.0,
-                0.18000000715255737,
+                0.8600000143051147,
                 1.0
             ]
         },
-        "bendResistance": 0.2199999988079071,
-        "compressionResistance": 55.0,
-        "damp": 0.08,
-        "drag": 0.2747252746945718,
-        "extraBendLinks": 1,
-        "mass": 18.0,
-        "motionDrag": 0.09340659360104538,
-        "startCurveAttract": 0.58,
+        "bendResistance": 70.0,
+        "compressionResistance": 175.0,
+        "damp": 0.06,
+        "drag": 0.04,
+        "extraBendLinks": 4,
+        "mass": 1.25,
+        "motionDrag": 0.03,
+        "startCurveAttract": 4.0,
         "stiffnessScale": {
             "0": [
                 0.0,
@@ -46,24 +47,19 @@
                 1.0
             ],
             "1": [
-                0.35652172565460205,
-                0.7400000095367432,
+                0.3499999940395355,
+                0.949999988079071,
                 1.0
             ],
             "2": [
-                0.6695652008056641,
-                0.6600000262260437,
-                1.0
-            ],
-            "3": [
                 1.0,
-                0.7599999904632568,
+                0.800000011920929,
                 1.0
             ]
         },
-        "stretchDamp": 0.05999999865889549,
-        "stretchResistance": 185.0,
-        "tangentialDrag": 0.7637362480163574
+        "stretchDamp": 0.03999999910593033,
+        "stretchResistance": 325.0,
+        "tangentialDrag": 0.03999999910593033
     },
     "profileKind": "hair",
     "schemaVersion": 1,

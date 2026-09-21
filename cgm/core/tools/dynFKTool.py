@@ -1089,7 +1089,7 @@ def uiFunc_build_presets_menu(self, parentMenu):
     mUI.MelMenuItemDiv(parentMenu, l='Load + Apply')
     for _kind, _label, _ext in _SIM_DAT_KINDS:
         _sub = mUI.MelMenuItem(
-            parentMenu, l=_label, subMenu=True,
+            parentMenu, l=_label, subMenu=True, tearOff=True,
             ann='Apply {0} preset from cgmDat/sim/{1}/'.format(_label.lower(), _kind),
         )
         _items = uiFunc_library_items_for_kind(_kind, _ext, mode=_mode)

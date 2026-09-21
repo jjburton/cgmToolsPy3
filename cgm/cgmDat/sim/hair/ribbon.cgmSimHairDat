@@ -1,38 +1,63 @@
 {
     "datKind": "hair",
-    "differential": false,
-    "meta": {
-        "date": "2026-09-10 00:00",
-        "scene": "",
-        "sourceNode": "",
-        "user": "cgm-seed"
-    },
-    "name": "ribbon",
+    "differential": true,
+    "name": "DynamicChain_hairSysShape",
     "profile": {
         "attractionScale": {
-            "0": [0.0, 0.85, 1.0],
-            "1": [0.4, 0.35, 1.0],
-            "2": [0.75, 0.12, 1.0],
-            "3": [1.0, 0.05, 1.0]
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.20000000298023224,
+                0.6000000238418579,
+                1.0
+            ],
+            "2": [
+                0.5,
+                0.30000001192092896,
+                1.0
+            ],
+            "3": [
+                0.800000011920929,
+                0.10000000149011612,
+                1.0
+            ]
         },
-        "bendResistance": 0.35,
-        "compressionResistance": 70.0,
-        "damp": 0.06,
-        "drag": 0.28,
+        "bendResistance": 0.25,
+        "compressionResistance": 25.0,
+        "damp": 0.1,
+        "drag": 0.35,
         "extraBendLinks": 1,
-        "gravity": 1.0,
-        "ignoreSolverGravity": false,
-        "mass": 12.0,
-        "motionDrag": 0.22,
-        "startCurveAttract": 0.3,
+        "mass": 0.6,
+        "motionDrag": 0.2,
+        "startCurveAttract": 0.45,
         "stiffnessScale": {
-            "0": [0.0, 0.85, 1.0],
-            "1": [0.5, 0.4, 1.0],
-            "2": [1.0, 0.12, 1.0]
+            "0": [
+                0.0,
+                0.699999988079071,
+                1.0
+            ],
+            "1": [
+                0.30000001192092896,
+                0.4000000059604645,
+                1.0
+            ],
+            "2": [
+                0.699999988079071,
+                0.15000000596046448,
+                1.0
+            ],
+            "3": [
+                1.0,
+                0.05000000074505806,
+                1.0
+            ]
         },
-        "stretchDamp": 0.05,
-        "stretchResistance": 165.0,
-        "tangentialDrag": 0.15
+        "stretchDamp": 0.08,
+        "stretchResistance": 180.0,
+        "tangentialDrag": 0.2
     },
     "profileKind": "hair",
     "schemaVersion": 1,

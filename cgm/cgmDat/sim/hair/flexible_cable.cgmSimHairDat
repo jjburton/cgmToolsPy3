@@ -1,12 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "meta": {
-        "date": "2026-09-10 15:10",
-        "scene": "D:/p4/SourceArt-DDE/TechAnimation/Maya/AnimShare/Content/Characters/Edna/Animations/testHair/simChain/Edna_testHair_simChain_01.mb",
-        "sourceNode": "|DynamicChain_dynFK|DynamicChain_hairSys|DynamicChain_hairSysShape",
-        "user": "BURTJ081"
-    },
     "name": "DynamicChain_hairSysShape",
     "profile": {
         "attractionScale": {
@@ -17,7 +11,7 @@
             ],
             "1": [
                 0.20000000298023224,
-                0.699999988079071,
+                0.6499999761581421,
                 1.0
             ],
             "2": [
@@ -27,22 +21,22 @@
             ],
             "3": [
                 0.800000011920929,
-                0.15000000596046448,
+                0.20000000298023224,
                 1.0
             ]
         },
-        "bendResistance": 0.3499999940395355,
-        "compressionResistance": 35.0,
-        "damp": 0.15,
-        "drag": 0.6,
+        "bendResistance": 3.5,
+        "compressionResistance": 80.0,
+        "damp": 0.28,
+        "drag": 0.18,
         "extraBendLinks": 2,
-        "mass": 2.0,
-        "motionDrag": 0.45,
-        "startCurveAttract": 0.75,
+        "mass": 2.75,
+        "motionDrag": 0.18,
+        "startCurveAttract": 1.0,
         "stiffnessScale": {
             "0": [
                 0.0,
-                0.8999999761581421,
+                0.800000011920929,
                 1.0
             ],
             "1": [
@@ -56,9 +50,9 @@
                 1.0
             ]
         },
-        "stretchDamp": 0.11999999731779099,
-        "stretchResistance": 210.0,
-        "tangentialDrag": 0.3499999940395355
+        "stretchDamp": 0.14,
+        "stretchResistance": 240.0,
+        "tangentialDrag": 0.18
     },
     "profileKind": "hair",
     "schemaVersion": 1,

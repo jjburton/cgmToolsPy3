@@ -11,53 +11,53 @@
             ],
             "1": [
                 0.20000000298023224,
-                0.699999988079071,
+                0.800000011920929,
                 1.0
             ],
             "2": [
                 0.5,
-                0.4000000059604645,
+                0.6000000238418579,
                 1.0
             ],
             "3": [
                 0.800000011920929,
-                0.18000000715255737,
+                0.4000000059604645,
                 1.0
             ]
         },
-        "bendResistance": 1.2,
-        "compressionResistance": 55.0,
-        "damp": 0.12,
-        "drag": 0.1,
+        "bendResistance": 7.0,
+        "compressionResistance": 100.0,
+        "damp": 0.22,
+        "drag": 0.14,
         "extraBendLinks": 2,
         "mass": 2.75,
-        "motionDrag": 0.07,
-        "startCurveAttract": 0.55,
+        "motionDrag": 0.12,
+        "startCurveAttract": 1.4,
         "stiffnessScale": {
             "0": [
                 0.0,
-                0.8500000238418579,
+                0.949999988079071,
                 1.0
             ],
             "1": [
-                0.30000001192092896,
-                0.6000000238418579,
+                0.3499999940395355,
+                0.75,
                 1.0
             ],
             "2": [
                 0.699999988079071,
-                0.2800000011920929,
+                0.5,
                 1.0
             ],
             "3": [
                 1.0,
-                0.11999999731779099,
+                0.30000001192092896,
                 1.0
             ]
         },
-        "stretchDamp": 0.08,
-        "stretchResistance": 260.0,
-        "tangentialDrag": 0.1
+        "stretchDamp": 0.12,
+        "stretchResistance": 275.0,
+        "tangentialDrag": 0.14
     },
     "profileKind": "hair",
     "schemaVersion": 1,
