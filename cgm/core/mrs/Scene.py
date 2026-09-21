@@ -2474,7 +2474,7 @@ example:
             _short = self.d_projectPathsToNames.get(os.path.normpath(p)) or _l
 
             mUI.MelMenuItem(_recent, l=_short,
-                            c = partial(self.LoadProject,p))            
+                            c = cgmGEN.Callback(self._defer_ui, self.LoadProject, p))            
         #==========================================================================================
 
 
@@ -2653,7 +2653,7 @@ example:
                 _label = l
 
             mUI.MelMenuItem( self.uiMenu_Projects, en=d['en'], l=_label,
-                             c = partial(self.LoadProject,d['path']))
+                             c = cgmGEN.Callback(self._defer_ui, self.LoadProject, d['path']))
             if d['current']:
                 mUI.MelMenuItemDiv( self.uiMenu_Projects )
 
@@ -5169,8 +5169,20 @@ example:
             return
 
         #Clear our previous data...
+        # Guard selection callbacks during ra=True — same Qt reentrancy class as
+        # popup Refresh/Delete (Projects/Recent menus must also defer LoadProject).
         for mSet in [self.assetList,self.subTypeSearchList,self.variationList,self.versionList]:
-            mSet['scrollList'].clear()
+            sl = mSet['scrollList']
+            _selOn = getattr(sl, 'b_selCommandOn', True)
+            sl.b_selCommandOn = False
+            try:
+                try:
+                    sl(e=True, deselectAll=True)
+                except Exception:
+                    pass
+                sl.clear()
+            finally:
+                sl.b_selCommandOn = _selOn
         self.pathProject = None
         self.directory = ''
         self.path_current = ''
