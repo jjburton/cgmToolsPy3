@@ -494,6 +494,22 @@ class SimClothDat(SimPresetDatBase):
             profileKind=profileKind or 'fabric',
         )
 
+    def apply(self, target=None, clean=True, mDynFK=None, mGrp=None):
+        """Apply fabric feel to nCloth only — never writes nucleus."""
+        _str_func = 'SimClothDat.apply'
+        profile = self.dat.get('profile') or {}
+        if not profile:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
+        if not _target:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'No apply target for cloth'))
+
+        return NCLOTH.profile_apply_section(
+            _target, profile, section='nc', clean=clean,
+            profileKind='fabric', module=nClothPresets)
+
     def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:
             _nc = NCLOTH.get_nCloth(target, noneValid=True)
@@ -541,6 +557,30 @@ class SimNucleusDat(SimPresetDatBase):
             differential=differential,
             profileKind=_kind,
         )
+
+    def apply(self, target=None, clean=True, mDynFK=None, mGrp=None):
+        """Apply nucleus layer only — never seeds full base.n or writes nCloth."""
+        _str_func = 'SimNucleusDat.apply'
+        profile = self.dat.get('profile') or {}
+        if not profile:
+            return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
+
+        _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
+        if not _target:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'No apply target for nucleus'))
+
+        _kind = self.dat.get('profileKind') or self.defaultProfileKind
+        # Library nucleus dats are solver/wind layers — never utility/base (would dump base.n)
+        if _kind not in ('solver', 'wind'):
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                "Nucleus dat profileKind {0!r} coerced to 'solver' (overlay only)".format(_kind)))
+            _kind = 'solver'
+
+        return NCLOTH.profile_apply_section(
+            _target, profile, section='n', clean=clean,
+            profileKind=_kind, module=nClothPresets)
 
     def _resolve_apply_target(self, target=None, mDynFK=None, mGrp=None):
         if target:

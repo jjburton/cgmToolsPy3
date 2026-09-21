@@ -489,9 +489,11 @@ def profile_apply_section(node, attrs, section='nc', clean=True, profileKind='fa
         elif profileKind == 'fabric' and section == 'nc':
             d_use = copy.deepcopy(_base.get('nc') or {})
         elif profileKind in ('solver', 'wind') and section == 'n':
+            # Overlay only — never dump full base.n (preserves wind vs solver layering)
             d_use = {}
         else:
-            d_use = copy.deepcopy(_base.get(section) or {}) if section == 'nc' else {}
+            # Unknown kind: overlay only (do not surprise-seed the other section)
+            d_use = {}
     else:
         d_use = {}
 
