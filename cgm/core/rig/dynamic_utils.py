@@ -4237,8 +4237,16 @@ d_shortHand = {'nucleus':'n',
                'hairSystem':'hs'}
 l_ignore = ['currentTime','startFrame']
 
-# hairSystem: dynamic feel (hs dat) vs shape attrs (per-chain HairShape dat)
+# hairSystem: feel (.cgmSimHairDat) vs shape (.cgmSimHairShapeDat) vs scene-structural (never in hair dats)
 d_attrMap_hs_shape_groups = ('base', 'clumpAndHairShape')
+d_attrMap_hs_feel_groups = ('dynamicProperties', 'forces')
+# Structural within feel groups — capture/apply skip (solver mode / length / master weight)
+l_skipHairFeelAttrs = frozenset([
+    'bendModel',
+    'restLengthScale',
+    'bendAnisotropy',
+    'dynamicsWeight',
+])
 l_follicle_hairShape_attrs = (
     'sampleDensity', 'fixedSegmentLength', 'segmentLength', 'degree', 'pointLock',
 )
@@ -4272,13 +4280,18 @@ d_attrMap = {'n':{'gravity':['gravity','gravityDirection',],
                              'noise','noiseFrequency','noiseMethod','valRand']}}
 
 def _hs_attr_groups_for_scope(hs_profile_scope):
-    """``dynamic`` = sim feel only; ``shape`` = hairSystem shape attrs; ``all`` = legacy full hs."""
+    """
+    ``dynamic`` / ``feel`` — hair dat feel only (resistance + forces).
+    ``shape`` — HairShape dat groups.
+    ``all`` — legacy full hs (Reset → Base / Query).
+    """
     _groups = d_attrMap.get('hs') or {}
     if hs_profile_scope == 'all':
         return list(_groups.keys())
     if hs_profile_scope == 'shape':
         return [g for g in d_attrMap_hs_shape_groups if g in _groups]
-    return [g for g in _groups if g not in d_attrMap_hs_shape_groups]
+    # default: feel (not collisions / turbulance / others — those break tuned sims on clean seed)
+    return [g for g in d_attrMap_hs_feel_groups if g in _groups]
 
 
 def _hair_system_shape_attr_names():
@@ -4289,17 +4302,35 @@ def _hair_system_shape_attr_names():
 
 
 def _hair_system_dynamic_attr_names():
+    """Hair-feel attr names (resistance + forces), excluding structural skip list."""
     _names = []
     for _grp in _hs_attr_groups_for_scope('dynamic'):
         _names.extend(d_attrMap.get('hs', {}).get(_grp) or [])
-    return _names
+    return [a for a in _names if a not in l_skipHairFeelAttrs]
+
+
+def _normalize_compound_profile_value(value):
+    """JSON compound ramps use string keys + lists — coerce for ATTR.set TdataCompound."""
+    if not isinstance(value, dict):
+        return value
+    _out = {}
+    for k, v in list(value.items()):
+        try:
+            _ik = int(k)
+        except (TypeError, ValueError):
+            _ik = k
+        if isinstance(v, list):
+            _out[_ik] = tuple(v)
+        else:
+            _out[_ik] = v
+    return _out
 
 
 def _base_hs_seed_for_kind(profileKind, module=dynFKPresets):
     """
     ``base.hs`` subset for clean seed.
 
-    - ``hair`` — dynamic feel only (does not reset clump/width/subSegments/…)
+    - ``hair`` — feel attrs only (not collide / iterations / shape)
     - ``hairShape`` — shape groups only
     - other — full ``base.hs``
     """
@@ -4312,49 +4343,60 @@ def _base_hs_seed_for_kind(profileKind, module=dynFKPresets):
         _allowed = set(_hair_system_dynamic_attr_names())
     else:
         return copy.deepcopy(_base_hs)
-    return {
-        a: copy.deepcopy(_base_hs[a])
-        for a in _allowed
-        if a in _base_hs}
+    _seed = {}
+    for a in _allowed:
+        if a not in _base_hs:
+            continue
+        _seed[a] = _normalize_compound_profile_value(
+            copy.deepcopy(_base_hs[a]))
+    return _seed
+
+
+def hair_profile_filter_feel(profile):
+    """
+    Keep hair-feel attrs only.
+
+    Drops HairShape keys, collision/solver structural keys, and ``l_skipHairFeelAttrs``.
+    Returns (feel_profile, removed_keys).
+    """
+    if not profile:
+        return {}, []
+    _feel = set(_hair_system_dynamic_attr_names())
+    _kept = {}
+    _removed = []
+    for k, v in list(profile.items()):
+        if k in _feel:
+            _kept[k] = _normalize_compound_profile_value(v)
+        else:
+            _removed.append(str(k))
+    return _kept, _removed
 
 
 def hair_profile_partition_legacy_shape(profile):
     """
-    Split a flat hair preset profile into dynamic attrs vs legacy HairShape keys.
+    Legacy helper — prefer ``hair_profile_filter_feel`` for hair dat apply.
 
-    Returns (dynamic_profile, removed_shape_keys) where removed keys are follicle
-    shape attrs and hairSystem shape-group attrs (not dynamic sim feel).
+    Returns (feel_profile, removed_keys) via feel allowlist.
     """
-    if not profile:
-        return {}, []
-    _shape_hs = set(_hair_system_shape_attr_names())
-    _follicle = set(l_follicle_hairShape_attrs)
-    _dynamic = {}
-    _removed = []
-    for k, v in list(profile.items()):
-        if k in _follicle or k in _shape_hs:
-            _removed.append(str(k))
-        else:
-            _dynamic[k] = v
-    return _dynamic, _removed
+    return hair_profile_filter_feel(profile)
 
 
 def hair_profile_partition_shape_only(profile):
     """
-    Keep HairShape keys (follicle + hairSystem shape groups); drop dynamic feel.
+    Keep HairShape keys (follicle + hairSystem shape groups); drop everything else.
 
-    Returns (shape_profile, removed_dynamic_keys).
+    Returns (shape_profile, removed_keys).
     """
     if not profile:
         return {}, []
-    _dynamic_hs = set(_hair_system_dynamic_attr_names())
+    _allowed = set(_hair_system_shape_attr_names()) | set(l_follicle_hairShape_attrs)
     _shape = {}
     _removed = []
     for k, v in list(profile.items()):
-        if k in _dynamic_hs:
-            _removed.append(str(k))
+        if k in _allowed:
+            _shape[k] = _normalize_compound_profile_value(v)
         else:
-            _shape[k] = v
+            _removed.append(str(k))
     return _shape, _removed
 
 
@@ -4498,6 +4540,8 @@ def get_dat(target=None, differential=False, module=dynFKPresets, hs_profile_sco
         for a in l:
             if a in l_ignore:
                 continue
+            if _key == 'hs' and a in l_skipHairFeelAttrs:
+                continue
             if not mc.attributeQuery(a, node=_tar, exists=True):
                 continue
             _v = None
@@ -4512,18 +4556,18 @@ def get_dat(target=None, differential=False, module=dynFKPresets, hs_profile_sco
 
     if differential:
         log.debug(cgmGEN.logString_msg(_str_func,"Getting differential"))
-        _d_base = profile_get('base')
-        _d_baseSet = _d_base.get(_key,module)
+        _d_base = profile_get('base', module) or {}
+        _d_baseSet = _d_base.get(_key) or {}
         if _d_baseSet:
             log.debug(cgmGEN.logString_msg(_str_func,"Found base set..."))
             _res_use = {}
             for k, v in list(_res.items()):
+                if k in l_skipHairFeelAttrs:
+                    continue
                 _base_v = _d_baseSet.get(k)
                 if _base_v is None or v != _base_v:
                     log.debug(cgmGEN.logString_msg(_str_func,"Storing: {0} | {1}".format(k,v)))
                     _res_use[k] = v
-                #else:
-                #    log.debug(cgmGEN.logString_msg(_str_func,"Same: {0} | {1}".format(k,v)))
             return {_key:_res_use}
         
     #pprint.pprint(_res)
@@ -4623,12 +4667,12 @@ def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
 
     attrs = copy.deepcopy(attrs)
     if profileKind == 'hair' and _key == 'hs':
-        attrs, _removed_shape = hair_profile_partition_legacy_shape(attrs)
-        if _removed_shape:
+        attrs, _removed = hair_profile_filter_feel(attrs)
+        if _removed:
             log.warning(cgmGEN.logString_msg(
                 _str_func,
-                "Dropped HairShape attrs from hair apply: {0}".format(
-                    ', '.join(sorted(_removed_shape)))))
+                "Dropped non-feel attrs from hair apply: {0}".format(
+                    ', '.join(sorted(_removed)))))
         if not attrs:
             return 0
     elif profileKind == 'hairShape' and _key == 'hs':
@@ -4636,7 +4680,7 @@ def profile_apply_section(target=None, attrs=None, section='hs', clean=True,
         if _removed_dyn:
             log.warning(cgmGEN.logString_msg(
                 _str_func,
-                "Dropped dynamic feel attrs from HairShape apply: {0}".format(
+                "Dropped non-shape attrs from HairShape apply: {0}".format(
                     ', '.join(sorted(_removed_dyn)))))
         if not attrs:
             return 0
@@ -4717,7 +4761,7 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
             d_use.update(copy.deepcopy(_d_type))
         elif _kind == 'hair' and _key == 'hs':
             d_use = _base_hs_seed_for_kind('hair', module)
-            _hs_overlay, _ = hair_profile_partition_legacy_shape(
+            _hs_overlay, _ = hair_profile_filter_feel(
                 copy.deepcopy(_d_type))
             d_use.update(_hs_overlay)
         else:
@@ -4725,7 +4769,7 @@ def profile_load(target = None, arg = None, module = dynFKPresets, clean = True)
     else:
         d_use = copy.deepcopy(_d_type)
         if _kind == 'hair' and _key == 'hs':
-            d_use, _ = hair_profile_partition_legacy_shape(d_use)
+            d_use, _ = hair_profile_filter_feel(d_use)
 
     if _key == 'n':
         NCLOTH._remap_nucleus_scene_axes(d_use)

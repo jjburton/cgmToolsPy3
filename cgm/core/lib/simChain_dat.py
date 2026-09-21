@@ -350,19 +350,19 @@ class SimHairDat(SimPresetDatBase):
                 "Re-save shape as .cgmSimHairShapeDat and dynamic feel as .cgmSimHairDat.".format(
                     _name)))
 
-        _dynamic, _removed = RIGDYN.hair_profile_partition_legacy_shape(profile)
+        _dynamic, _removed = RIGDYN.hair_profile_filter_feel(profile)
         if _removed:
             log.warning(cgmGEN.logString_msg(
                 _str_func,
-                "'{0}' still contains HairShape attrs ({1}) — those were not applied. "
-                "Re-save with Save Hair Dat… to store dynamic feel only.".format(
+                "'{0}' dropped non-feel attrs ({1}) — collide/shape/solver keys are not hair feel. "
+                "Re-save with Save Hair Dat… for a clean differential.".format(
                     _name, ', '.join(sorted(_removed)))))
 
         if not _dynamic:
             if _removed:
                 return log.warning(cgmGEN.logString_msg(
                     _str_func,
-                    "'{0}' has only HairShape data — use HairShape presets instead.".format(_name)))
+                    "'{0}' has no hair-feel attrs after filter.".format(_name)))
             return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
 
         _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
