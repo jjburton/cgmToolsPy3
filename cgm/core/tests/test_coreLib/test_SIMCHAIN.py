@@ -37,18 +37,18 @@ class Test_simChainDatSchema(unittest.TestCase):
         return os.path.join(SIMDAT.get_library_path('dev'), *parts)
 
     def test_seed_files_read(self):
+        # Shipped library after hair refresh (bob/ponytail/rope dats removed; hair_* names).
         _files = (
-            ('hair', 'bob.cgmSimHairDat'),
-            ('hair', 'bob_hold.cgmSimHairDat'),
-            ('hair', 'bangs_firm.cgmSimHairDat'),
-            ('hair', 'ponytail.cgmSimHairDat'),
+            ('hair', 'hair_bangs.cgmSimHairDat'),
+            ('hair', 'hair_ponytail.cgmSimHairDat'),
+            ('hair', 'hair_ponytail_loose.cgmSimHairDat'),
             ('hair', 'shoulder.cgmSimHairDat'),
             ('hair', 'long_flow.cgmSimHairDat'),
             ('hair', 'ribbon.cgmSimHairDat'),
             ('hair', 'tail.cgmSimHairDat'),
             ('hair', 'tail_firm.cgmSimHairDat'),
             ('hair', 'limb.cgmSimHairDat'),
-            ('hair', 'rope.cgmSimHairDat'),
+            ('hair', 'long_rope.cgmSimHairDat'),
             ('cloth', 'silk.cgmSimClothDat'),
             ('cloth', 'chiffon.cgmSimClothDat'),
             ('cloth', 'cotton.cgmSimClothDat'),
@@ -71,9 +71,9 @@ class Test_simChainDatSchema(unittest.TestCase):
 
     def test_library_scan(self):
         _options, _types = SIMDAT.get_library_options(force=True, mode='dev')
-        self.assertTrue(_library_has_key(_options, 'hair', 'bob'))
-        self.assertTrue(_library_has_key(_options, 'hair', 'bob_hold'))
-        self.assertTrue(_library_has_key(_options, 'hair', 'ponytail'))
+        self.assertTrue(_library_has_key(_options, 'hair', 'hair_ponytail'))
+        self.assertTrue(_library_has_key(_options, 'hair', 'hair_bangs'))
+        self.assertTrue(_library_has_key(_options, 'hair', 'long_rope'))
         self.assertTrue(_library_has_key(_options, 'hair', 'tail_firm'))
         self.assertTrue(_library_has_key(_options, 'cloth', 'cotton'))
         self.assertTrue(_library_has_key(_options, 'cloth', 'silk'))
@@ -97,7 +97,7 @@ class Test_simChainDatSchema(unittest.TestCase):
         self.assertIn('stretchResistance', dat.get('profile', {}))
 
     def test_normalize_ramp_keys_on_read(self):
-        path = self._seed_path('hair', 'bob.cgmSimHairDat')
+        path = self._seed_path('hair', 'hair_ponytail.cgmSimHairDat')
         inst = SIMDAT.SimHairDat()
         inst.read(path)
         _scale = inst.dat['profile'].get('attractionScale') or {}
@@ -197,10 +197,10 @@ class Test_simChainSetupDat(unittest.TestCase):
 
     def test_resolve_library_filepath_suffix(self):
         _options, _ = SIMDAT.get_library_options(force=True, mode='dev')
-        _path = SIMDAT.resolve_library_filepath('hair/bob')
+        _path = SIMDAT.resolve_library_filepath('hair/hair_ponytail')
         self.assertTrue(_path)
         self.assertTrue(os.path.isfile(_path))
-        self.assertTrue(_path.endswith('bob.cgmSimHairDat'))
+        self.assertTrue(_path.endswith('hair_ponytail.cgmSimHairDat'))
 
     def test_read_dat_setup_class(self):
         inst = SIMDAT.SimChainSetup()
