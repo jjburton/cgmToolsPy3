@@ -1,8 +1,9 @@
 {
     "datKind": "hair",
     "differential": true,
-    "name": "DynamicChain_hairSysShape",
+    "name": "DynamicChain_slow_hairSysShape",
     "profile": {
+        "attractionDamp": 1.0,
         "attractionScale": {
             "0": [
                 0.0,
@@ -10,29 +11,28 @@
                 1.0
             ],
             "1": [
-                0.20000000298023224,
-                0.699999988079071,
+                0.365217387676239,
+                0.4399999976158142,
                 1.0
             ],
             "2": [
-                0.5,
-                0.4000000059604645,
+                0.591304361820221,
+                0.23999999463558197,
                 1.0
             ],
             "3": [
-                0.800000011920929,
-                0.18000000715255737,
+                1.0,
+                0.03999999910593033,
                 1.0
             ]
         },
-        "bendResistance": 1.2,
+        "bendResistance": 1.2000000476837158,
         "compressionResistance": 55.0,
-        "damp": 0.12,
-        "drag": 0.1,
+        "damp": 0.1,
         "extraBendLinks": 2,
         "mass": 2.75,
         "motionDrag": 0.07,
-        "startCurveAttract": 0.55,
+        "startCurveAttract": 0.49450549482275824,
         "stiffnessScale": {
             "0": [
                 0.0,
@@ -55,9 +55,8 @@
                 1.0
             ]
         },
-        "stretchDamp": 0.08,
-        "stretchResistance": 260.0,
-        "tangentialDrag": 0.1
+        "stretchDamp": 0.07999999821186066,
+        "stretchResistance": 260.0
     },
     "profileKind": "hair",
     "schemaVersion": 1,

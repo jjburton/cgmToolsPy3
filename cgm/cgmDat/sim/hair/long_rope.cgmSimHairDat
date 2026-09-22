@@ -3,56 +3,43 @@
     "differential": true,
     "name": "DynamicChain_slow_hairSysShape",
     "profile": {
+        "attractionDamp": 0.032967032926095714,
         "attractionScale": {
             "0": [
                 0.0,
-                0.2800000011920929,
+                0.1599999964237213,
                 1.0
             ],
             "1": [
-                0.21739129722118378,
-                0.11999999731779099,
-                1.0
-            ],
-            "2": [
-                0.5130434632301331,
-                0.05999999865889549,
-                1.0
-            ],
-            "3": [
-                0.800000011920929,
-                0.029999999329447746,
+                0.373913049697876,
+                0.0,
                 1.0
             ]
         },
-        "bendResistance": 0.30000001192092896,
-        "compressionResistance": 65.0,
-        "damp": 0.01,
-        "drag": 0.09340659360104538,
-        "extraBendLinks": 2,
+        "bendResistance": 0.009999999776482582,
+        "compressionResistance": 0.5,
+        "damp": 0.03,
+        "drag": 0.021978021640289617,
+        "extraBendLinks": 4,
         "mass": 5.0,
         "motionDrag": 0.04945054938914357,
-        "startCurveAttract": 0.1,
+        "startCurveAttract": 0.5,
         "stiffnessScale": {
             "0": [
                 0.0,
-                0.20000000298023224,
-                1.0
-            ],
-            "1": [
-                0.30434781312942505,
-                0.10000000149011612,
+                0.03999999910593033,
                 1.0
             ],
             "3": [
-                1.0,
-                0.029999999329447746,
+                0.6173912882804871,
+                0.0,
                 1.0
             ]
         },
         "stretchDamp": 0.05000000074505806,
         "stretchResistance": 350.0,
-        "tangentialDrag": 0.14000000059604645
+        "tangentialDrag": 0.09890110045671463,
+        "twistResistance": 3.1578946917464856
     },
     "profileKind": "hair",
     "schemaVersion": 1,
