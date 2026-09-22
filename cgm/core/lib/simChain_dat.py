@@ -34,10 +34,10 @@ _D_KIND_TO_CLASS = {}
 _D_EXT_TO_CLASS = {}
 
 
-def _empty_dat(name='', datKind='', section='', profileKind='', differential=True):
+def _empty_dat(datKind='', section='', profileKind='', differential=True):
+    """Preset shell — no ``name`` (library identity is the filename). Setup dat keeps its own schema."""
     return {
         'schemaVersion': SCHEMA_VERSION,
-        'name': name,
         'datKind': datKind,
         'section': section,
         'profileKind': profileKind,
@@ -199,18 +199,24 @@ class SimPresetDatBase(CGMDAT.data):
     def read(self, filepath=None, decode=True, report=False, startDirMode=None):
         _result = super().read(filepath, decode=decode, report=report, startDirMode=startDirMode)
         if _result and self.dat:
-            # Legacy files may still carry meta — ignore; do not re-persist
+            # Legacy files may still carry meta / name — ignore; do not re-persist
             self.dat.pop('meta', None)
+            self.dat.pop('name', None)
             if self.dat.get('profile'):
                 self.dat['profile'] = _normalize_profile_keys(self.dat['profile'])
         return _result
 
-    def _build_dat(self, profile, name=None, differential=True, profileKind=None,
+    def _preset_log_label(self):
+        """Filename stem when available; else datKind."""
+        _fp = getattr(self, 'str_filepath', None) or ''
+        if _fp:
+            return os.path.splitext(os.path.basename(_fp))[0]
+        return self.datKind or 'preset'
+
+    def _build_dat(self, profile, differential=True, profileKind=None, name=None,
                    **_unused):
-        """Build preset dat. ``sourceNode`` kw ignored (legacy; meta no longer stored)."""
-        _name = name or self.dat.get('name') or 'preset'
+        """Build preset dat. ``name`` / ``sourceNode`` ignored (legacy; not stored)."""
         self.dat = _empty_dat(
-            name=_name,
             datKind=self.datKind,
             section=self.section,
             profileKind=profileKind or self.defaultProfileKind,
@@ -222,6 +228,7 @@ class SimPresetDatBase(CGMDAT.data):
     def write(self, filepath=None, update=False, startDirMode=None, forcePrompt=False):
         if isinstance(self.dat, dict):
             self.dat.pop('meta', None)
+            self.dat.pop('name', None)
         return super().write(
             filepath=filepath, update=update,
             startDirMode=startDirMode, forcePrompt=forcePrompt)
@@ -292,7 +299,6 @@ class SimPresetDatBase(CGMDAT.data):
         inst = cls()
         inst._build_dat(
             _profile,
-            name=profileName,
             differential=differential,
             profileKind=_profileKind,
         )
@@ -322,10 +328,8 @@ class SimHairDat(SimPresetDatBase):
             if not _profile and len(_prof) == 1:
                 _profile = list(_prof.values())[0]
 
-        _short = _node.split('|')[-1].split(':')[-1]
         return self._build_dat(
             _profile,
-            name=name or _short,
             differential=differential,
             profileKind=profileKind or 'hair',
         )
@@ -336,7 +340,7 @@ class SimHairDat(SimPresetDatBase):
         if not profile:
             return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
 
-        _name = self.dat.get('name') or 'preset'
+        _label = self._preset_log_label()
         _section = self.dat.get('section') or self.section
         _profileKind = self.dat.get('profileKind') or self.defaultProfileKind
 
@@ -345,7 +349,7 @@ class SimHairDat(SimPresetDatBase):
                 _str_func,
                 "'{0}' is a legacy HairShape preset on a hair dat — not applied. "
                 "Re-save shape as .cgmSimHairShapeDat and dynamic feel as .cgmSimHairDat.".format(
-                    _name)))
+                    _label)))
 
         _dynamic, _removed = RIGDYN.hair_profile_filter_feel(profile)
         if _removed:
@@ -353,13 +357,13 @@ class SimHairDat(SimPresetDatBase):
                 _str_func,
                 "'{0}' dropped non-feel attrs ({1}) — collide/shape/solver keys are not hair feel. "
                 "Re-save with Save Hair Dat… for a clean differential.".format(
-                    _name, ', '.join(sorted(_removed)))))
+                    _label, ', '.join(sorted(_removed)))))
 
         if not _dynamic:
             if _removed:
                 return log.warning(cgmGEN.logString_msg(
                     _str_func,
-                    "'{0}' has no hair-feel attrs after filter.".format(_name)))
+                    "'{0}' has no hair-feel attrs after filter.".format(_label)))
             return log.warning(cgmGEN.logString_msg(_str_func, 'Empty profile'))
 
         _target = self._resolve_apply_target(target, mDynFK=mDynFK, mGrp=mGrp)
@@ -405,7 +409,6 @@ class SimHairShapeDat(SimPresetDatBase):
             _profile = RIGDYN.get_hair_shape_profile(mGrp, mDynFK, differential=differential)
             return self._build_dat(
                 _profile,
-                name=name or RIGDYN.chain_cgm_name(mGrp),
                 differential=differential,
                 profileKind=profileKind or 'hairShape',
             )
@@ -417,10 +420,8 @@ class SimHairShapeDat(SimPresetDatBase):
             return None
 
         _profile = RIGDYN.get_hair_system_shape_profile(_node, differential=differential)
-        _short = _node.split('|')[-1].split(':')[-1]
         return self._build_dat(
             _profile,
-            name=name or _short,
             differential=differential,
             profileKind=profileKind or 'hairShape',
         )
@@ -479,11 +480,8 @@ class SimClothDat(SimPresetDatBase):
 
         _dat = NCLOTH.query_settings(_nc, differential=differential)
         _profile = (_dat.get('profile') or {}).get('nc') or {}
-        _name = name or _dat.get('suggestedPresetName') or 'cloth'
-        _src = (_dat.get('source') or {}).get('nClothShape') or _nc
         return self._build_dat(
             _profile,
-            name=_name,
             differential=differential,
             profileKind=profileKind or 'fabric',
         )
@@ -540,13 +538,11 @@ class SimNucleusDat(SimPresetDatBase):
 
         _dat = NCLOTH.query_nucleus_settings(_nucleus, differential=differential)
         _profile = (_dat.get('profile') or {}).get('n') or {}
-        _short = _nucleus.split('|')[-1].split(':')[-1]
         _kind = profileKind
         if not _kind:
             _kind = 'solver'
         return self._build_dat(
             _profile,
-            name=name or _short,
             differential=differential,
             profileKind=_kind,
         )

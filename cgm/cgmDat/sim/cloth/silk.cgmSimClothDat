@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "silk",
     "profile": {
         "bendAngleDropoff": 0.3,
         "bendResistance": 0.05,

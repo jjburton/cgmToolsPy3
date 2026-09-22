@@ -1,7 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "name": "DynamicChain_slow_hairSysShape",
     "profile": {
         "attractionScale": {
             "0": [

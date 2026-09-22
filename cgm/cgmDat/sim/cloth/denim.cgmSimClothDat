@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "denim",
     "profile": {
         "bendAngleDropoff": 0.603,
         "bendResistance": 0.4,

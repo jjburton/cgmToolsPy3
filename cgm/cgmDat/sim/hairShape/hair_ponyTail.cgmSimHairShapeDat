@@ -1,7 +1,6 @@
 {
     "datKind": "hairShape",
     "differential": true,
-    "name": "DynamicChain_ponytail_hairSysShape",
     "profile": {
         "hairWidth": 16.98412699063146,
         "hairWidthScale": {

@@ -1,7 +1,6 @@
 {
     "datKind": "nucleus",
     "differential": false,
-    "name": "solver_balanced",
     "profile": {
         "maxCollisionIterations": 8,
         "subSteps": 6,

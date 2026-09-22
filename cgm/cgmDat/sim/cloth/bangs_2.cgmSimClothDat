@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": true,
-    "name": "nCloth1",
     "profile": {
         "bendAngleDropoff": 0.4000000059604645,
         "bendResistance": 0.25,

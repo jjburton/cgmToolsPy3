@@ -85,7 +85,7 @@ class Test_simChainDatSchema(unittest.TestCase):
     def test_from_module_profile_hair(self):
         dat = SIMDAT.SimHairDat.from_module_profile('bob')
         self.assertIsNotNone(dat)
-        self.assertEqual(dat.get('name'), 'bob')
+        self.assertNotIn('name', dat)
         self.assertEqual(dat.get('datKind'), 'hair')
         self.assertEqual(dat.get('section'), 'hs')
         self.assertTrue(dat.get('profile'))
@@ -114,7 +114,7 @@ class Test_simChainDatSchema(unittest.TestCase):
             self.assertTrue(inst.write(filepath=path, startDirMode='dev'))
             loaded = SIMDAT.SimClothDat()
             self.assertTrue(loaded.read(path))
-            self.assertEqual(loaded.dat.get('name'), 'cotton')
+            self.assertNotIn('name', loaded.dat or {})
             self.assertEqual(
                 loaded.dat.get('profile', {}).get('stretchResistance'),
                 src.get('profile', {}).get('stretchResistance'),

@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "leather",
     "profile": {
         "bendAngleDropoff": 0.727,
         "bendResistance": 10.0,

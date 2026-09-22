@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "chiffon",
     "profile": {
         "bendAngleDropoff": 0.6,
         "bendResistance": 0.2,

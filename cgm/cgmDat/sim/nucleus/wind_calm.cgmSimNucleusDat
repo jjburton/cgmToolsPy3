@@ -1,7 +1,6 @@
 {
     "datKind": "nucleus",
     "differential": false,
-    "name": "wind_calm",
     "profile": {
         "airDensity": 1.0,
         "windNoise": 0.0,

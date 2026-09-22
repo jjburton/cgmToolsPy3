@@ -1,7 +1,6 @@
 {
     "datKind": "hair",
     "differential": true,
-    "name": "DynamicChain_tailTip_fk_anim_hairSysShape",
     "profile": {
         "attractionDamp": 0.18681318720209075,
         "attractionScale": {

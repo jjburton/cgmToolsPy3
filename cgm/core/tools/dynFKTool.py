@@ -467,6 +467,7 @@ class ui(cgmUI.cgmGUI):
         self.create_guiOptionVar('SimChainExtendEndEnabled', defaultValue='0')
         self.var_SimChainExtendEndEnabled.setType('string')
         self.create_guiOptionVar('SimChainAdvancedTwistEnabled', defaultValue='0')
+        self._md_lastLoadedPreset = {}
         self.var_SimChainAdvancedTwistEnabled.setType('string')
         self.create_guiOptionVar('SimChainFollicleSampleDensity', defaultValue='1.0')
         self.var_SimChainFollicleSampleDensity.setType('string')
@@ -1027,6 +1028,68 @@ _SIM_MENU_HAIR_PREFIX = 'Hair: '
 _SIM_MENU_SHAPE_PREFIX = 'Shape: '
 
 
+def _preset_menu_label_bare(label):
+    """Strip session last-loaded markers ``(…)`` from a menu label."""
+    if not label:
+        return label
+    _s = str(label).strip()
+    if len(_s) >= 2 and _s[0] == '(' and _s[-1] == ')':
+        return _s[1:-1]
+    return _s
+
+
+def _preset_menu_label_mark(label):
+    """Wrap label for last-loaded display: ``(Hair: bob)``."""
+    _bare = _preset_menu_label_bare(label)
+    if not _bare:
+        return _bare
+    return '({0})'.format(_bare)
+
+
+def _preset_menu_key_for_hair(mHairShape):
+    _hs = RIGDYN._resolve_hair_system_shape(mHairShape) if mHairShape else None
+    if not _hs:
+        _hs = VALID.mNodeString(mHairShape) if mHairShape else ''
+    return 'hs:{0}'.format(_hs or '')
+
+
+def _preset_menu_key_for_obj(presetObj, profileKey=None):
+    _key = profileKey or uiFunc_get_profile_key_for_obj(presetObj) or 'x'
+    _mObj = cgmMeta.asMeta(presetObj, noneValid=True)
+    _node = _mObj.mNode if _mObj else VALID.mNodeString(presetObj)
+    if _key == 'hs':
+        return _preset_menu_key_for_hair(_node)
+    return '{0}:{1}'.format(_key, _node or '')
+
+
+def uiFunc_preset_menu_remember(self, menuKey, label):
+    """Session memory of last loaded preset label for a Details option menu."""
+    if self is None or not menuKey:
+        return
+    if not getattr(self, '_md_lastLoadedPreset', None):
+        self._md_lastLoadedPreset = {}
+    _bare = _preset_menu_label_bare(label)
+    if _bare:
+        self._md_lastLoadedPreset[menuKey] = _bare
+
+
+def uiFunc_preset_menu_last(self, menuKey):
+    if self is None or not menuKey:
+        return None
+    return (getattr(self, '_md_lastLoadedPreset', None) or {}).get(menuKey)
+
+
+def uiFunc_preset_menu_append(optionMenu, selfRef, label, filepath=None, menuKey=None):
+    """Register path under bare label; append marked display if last-loaded for menuKey."""
+    _bare = _preset_menu_label_bare(label)
+    if filepath:
+        uiFunc_library_register_preset_path(selfRef, _bare, filepath)
+    _last = uiFunc_preset_menu_last(selfRef, menuKey) if menuKey else None
+    _display = _preset_menu_label_mark(_bare) if _last and _last == _bare else _bare
+    optionMenu.append(_display)
+    return _display
+
+
 def uiFunc_get_library_mode(self=None):
     """SaveDir mode (legacy name kept for callers)."""
     return _library_save_mode_get()
@@ -1047,7 +1110,8 @@ def uiFunc_library_register_preset_path(self, label, filepath):
 def uiFunc_library_path_for_label(self, label):
     if self is None or not label:
         return None
-    return (getattr(self, '_md_libraryPresetPaths', None) or {}).get(label)
+    _bare = _preset_menu_label_bare(label)
+    return (getattr(self, '_md_libraryPresetPaths', None) or {}).get(_bare)
 
 
 def uiFunc_library_items_for_kind(kind, ext, modes=None):
@@ -1478,18 +1542,17 @@ def uiFunc_chain_section_label(chain_idx, chain):
 def uiFunc_rebuild_hair_system_preset_menu(optionMenu, mHairShape=None, selfRef=None):
     """Hair system row — dynamic Hair + HairShape libraries (separate dat kinds)."""
     _modes = _library_search_modes_get()
+    _menuKey = _preset_menu_key_for_hair(mHairShape)
     optionMenu.clear()
     optionMenu.append(_SIM_DAT_MENU_LOAD)
     for _name, _fpath in uiFunc_library_items_for_kind('hair', 'cgmSimHairDat', modes=_modes):
-        _label = _SIM_MENU_HAIR_PREFIX + _name
-        uiFunc_library_register_preset_path(selfRef, _label, _fpath)
-        optionMenu.append(_label)
+        uiFunc_preset_menu_append(
+            optionMenu, selfRef, _SIM_MENU_HAIR_PREFIX + _name, _fpath, menuKey=_menuKey)
     optionMenu.append('---')
     for _name, _fpath in uiFunc_library_items_for_kind(
             'hairShape', 'cgmSimHairShapeDat', modes=_modes):
-        _label = _SIM_MENU_SHAPE_PREFIX + _name
-        uiFunc_library_register_preset_path(selfRef, _label, _fpath)
-        optionMenu.append(_label)
+        uiFunc_preset_menu_append(
+            optionMenu, selfRef, _SIM_MENU_SHAPE_PREFIX + _name, _fpath, menuKey=_menuKey)
     optionMenu.append('---')
     optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR)
     optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR_SHAPE)
@@ -1498,9 +1561,10 @@ def uiFunc_rebuild_hair_system_preset_menu(optionMenu, mHairShape=None, selfRef=
 
 def uiFunc_process_hair_system_preset_change(self, mHairShape, optionMenu):
     """Apply hair or HairShape dat to one hairSystem shape, or capture + save."""
-    val = optionMenu.getValue()
+    val = _preset_menu_label_bare(optionMenu.getValue())
     _mHair = cgmMeta.asMeta(mHairShape, noneValid=True)
     _presetNode = _mHair.mNode if _mHair else VALID.mNodeString(mHairShape)
+    _menuKey = _preset_menu_key_for_hair(_presetNode)
     if val in (_SIM_DAT_MENU_LOAD, '---'):
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
@@ -1517,11 +1581,15 @@ def uiFunc_process_hair_system_preset_change(self, mHairShape, optionMenu):
     if val.startswith(_SIM_MENU_HAIR_PREFIX):
         uiFunc_library_apply_hair_to_target(
             self, val[len(_SIM_MENU_HAIR_PREFIX):], _presetNode, mGrp=None)
+        uiFunc_preset_menu_remember(self, _menuKey, val)
+        uiFunc_rebuild_hair_system_preset_menu(optionMenu, _presetNode, selfRef=self)
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
     if val.startswith(_SIM_MENU_SHAPE_PREFIX):
         uiFunc_library_apply_hair_shape_to_target(
             self, val[len(_SIM_MENU_SHAPE_PREFIX):], _presetNode, mGrp=None)
+        uiFunc_preset_menu_remember(self, _menuKey, val)
+        uiFunc_rebuild_hair_system_preset_menu(optionMenu, _presetNode, selfRef=self)
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
     optionMenu.setValue(_SIM_DAT_MENU_LOAD)
@@ -1955,44 +2023,42 @@ def uiFunc_rebuild_preset_menu(optionMenu, presetObj, selfRef=None):
     profileKey = uiFunc_get_profile_key_for_obj(presetObj)
     if not profileKey and selfRef is not None:
         profileKey = 'hs'
+    _menuKey = _preset_menu_key_for_obj(presetObj, profileKey)
 
     if profileKey == 'hs':
         for _name, _fpath in uiFunc_library_items_for_kind('hair', 'cgmSimHairDat', modes=_modes):
-            _label = _SIM_MENU_HAIR_PREFIX + _name
-            uiFunc_library_register_preset_path(selfRef, _label, _fpath)
-            optionMenu.append(_label)
+            uiFunc_preset_menu_append(
+                optionMenu, selfRef, _SIM_MENU_HAIR_PREFIX + _name, _fpath, menuKey=_menuKey)
         optionMenu.append('---')
         for _name, _fpath in uiFunc_library_items_for_kind(
                 'hairShape', 'cgmSimHairShapeDat', modes=_modes):
-            _label = _SIM_MENU_SHAPE_PREFIX + _name
-            uiFunc_library_register_preset_path(selfRef, _label, _fpath)
-            optionMenu.append(_label)
+            uiFunc_preset_menu_append(
+                optionMenu, selfRef, _SIM_MENU_SHAPE_PREFIX + _name, _fpath, menuKey=_menuKey)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR)
         optionMenu.append(_SIM_DAT_MENU_SAVE_HAIR_SHAPE)
     elif profileKey == 'n':
         for _name, _fpath in uiFunc_library_items_for_kind(
                 'nucleus', 'cgmSimNucleusDat', modes=_modes):
-            uiFunc_library_register_preset_path(selfRef, _name, _fpath)
-            optionMenu.append(_name)
+            uiFunc_preset_menu_append(optionMenu, selfRef, _name, _fpath, menuKey=_menuKey)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_NUCLEUS)
     elif profileKey == 'nc':
         for _name, _fpath in uiFunc_library_items_for_kind(
                 'cloth', 'cgmSimClothDat', modes=_modes):
-            uiFunc_library_register_preset_path(selfRef, _name, _fpath)
-            optionMenu.append(_name)
+            uiFunc_preset_menu_append(optionMenu, selfRef, _name, _fpath, menuKey=_menuKey)
         optionMenu.append('---')
         optionMenu.append(_SIM_DAT_MENU_SAVE_CLOTH)
     optionMenu.setValue(_SIM_DAT_MENU_LOAD)
 
 
 def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
-    val = optionMenu.getValue()
+    val = _preset_menu_label_bare(optionMenu.getValue())
     _mObj = cgmMeta.asMeta(obj, noneValid=True)
     _presetNode = _mObj.mNode if _mObj else obj
     mChain = cgmMeta.asMeta(presetChain, noneValid=True) if presetChain else None
     profileKey = uiFunc_get_profile_key_for_obj(obj)
+    _menuKey = _preset_menu_key_for_obj(obj, profileKey)
 
     if val in (_SIM_DAT_MENU_LOAD, '---'):
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
@@ -2028,17 +2094,23 @@ def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
         if val.startswith(_SIM_MENU_HAIR_PREFIX) and mHair:
             uiFunc_library_apply_hair_to_target(
                 self, val[len(_SIM_MENU_HAIR_PREFIX):], mHair.mNode, mGrp=None)
+            uiFunc_preset_menu_remember(self, _menuKey, val)
+            uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
             optionMenu.setValue(_SIM_DAT_MENU_LOAD)
             return
         if val.startswith(_SIM_MENU_SHAPE_PREFIX):
             uiFunc_library_apply_hair_shape_to_target(
                 self, val[len(_SIM_MENU_SHAPE_PREFIX):], mHair.mNode if mHair else None, mGrp=mChain)
+            uiFunc_preset_menu_remember(self, _menuKey, val)
+            uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
             optionMenu.setValue(_SIM_DAT_MENU_LOAD)
             return
 
     _path = uiFunc_library_path_for_label(self, val)
     if _path:
         uiFunc_library_apply_by_path(self, _path)
+        uiFunc_preset_menu_remember(self, _menuKey, val)
+        uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
 
@@ -2054,6 +2126,8 @@ def uiFunc_process_preset_change(self, obj, optionMenu, presetChain=None):
             uiFunc_library_apply_hair_shape_to_target(self, val, None, mGrp=mChain)
         else:
             uiFunc_library_apply_by_name(self, _datKind, val)
+        uiFunc_preset_menu_remember(self, _menuKey, val)
+        uiFunc_rebuild_preset_menu(optionMenu, obj, selfRef=self)
         optionMenu.setValue(_SIM_DAT_MENU_LOAD)
         return
 

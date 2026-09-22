@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "burlap",
     "profile": {
         "bendAngleDropoff": 0.603,
         "bendResistance": 3.0,

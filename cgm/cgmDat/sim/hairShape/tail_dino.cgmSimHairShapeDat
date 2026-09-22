@@ -1,7 +1,6 @@
 {
     "datKind": "hairShape",
     "differential": true,
-    "name": "DynamicChain_tailTip_fk_anim_hairSysShape",
     "profile": {
         "hairWidth": 80.0,
         "hairWidthScale": {

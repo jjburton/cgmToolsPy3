@@ -1,7 +1,6 @@
 {
     "datKind": "cloth",
     "differential": false,
-    "name": "bangs_firm",
     "profile": {
         "bendAngleDropoff": 0.4,
         "bendResistance": 0.25,
