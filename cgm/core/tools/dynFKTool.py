@@ -1549,32 +1549,74 @@ def uiFunc_set_setup_default_hair_system(self):
     mc.evalDeferred(cgmGEN.Callback(uiFunc_update_details, self), lp=True)
 
 
+def uiFunc_apply_hair_system_name(self, mHairShape, *args):
+    """Rename hairSystem DAG from Details Hair systems row (Enter)."""
+    _str_func = 'uiFunc_apply_hair_system_name'
+    if not self._mDynFK:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No setup loaded'))
+    _mHair = cgmMeta.asMeta(mHairShape, noneValid=True)
+    if not _mHair:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Invalid hairSystem'))
+    _hs = RIGDYN._resolve_hair_system_shape(_mHair.mNode)
+    if not _hs:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Not a hairSystem'))
+    _key = _hs
+    _field = (getattr(self, '_md_hairSystemNameFields', None) or {}).get(_key)
+    if not _field:
+        return
+    try:
+        _val = (_field.getValue() or '').strip()
+    except Exception:
+        _val = ''
+    _current = RIGDYN.hair_system_name_token(_hs)
+    if not _val:
+        try:
+            _field.setValue(_current)
+        except Exception:
+            pass
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty name'))
+    if _val == _current or _val == '{0}_hairSys'.format(_current):
+        return
+    if not RIGDYN.hair_system_set_name(self._mDynFK, _hs, _val):
+        try:
+            _field.setValue(_current)
+        except Exception:
+            pass
+        return
+    uiFunc_refresh_hair_system_create_menu(self)
+    mc.evalDeferred(cgmGEN.Callback(uiFunc_update_details, self), lp=True)
+
+
 def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=None):
-    """Details row: registered hairSystem + Hair / HairShape preset menu (tight stack, no separator)."""
+    """Details row: registered hairSystem name field + Hair / HairShape preset menu."""
     _mHair = cgmMeta.asMeta(mHair, noneValid=True)
     if not _mHair:
         return None
+    _hs = RIGDYN._resolve_hair_system_shape(_mHair.mNode) or _mHair.mNode
+    _mHair = cgmMeta.asMeta(_hs, noneValid=True) or _mHair
+    if not getattr(self, '_md_hairSystemNameFields', None):
+        self._md_hairSystemNameFields = {}
+
     _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=5)
-    mUI.MelLabel(_row, l='Hair system {0}:'.format(hair_idx))
-    _status_text = _mHair.p_nameBase
+    _label = 'Hair system {0}:'.format(hair_idx)
     if mDefault and mDefault.mNode == _mHair.mNode:
-        _status_text = '{0} (default)'.format(_status_text)
-    _status = mUI.MelButton(
+        _label = '{0} (default)'.format(_label)
+    mUI.MelLabel(_row, l=_label)
+    _nameIF = mUI.MelTextField(
         _row,
-        label=_status_text,
-        h=20,
-        bgc=_STATUS_ROW_HELP_BGC,
-        ann='Registered hairSystem on this setup.',
-        en=False,
+        ann='HairSystem basename — renames to {name}_hairSys. Enter to apply.',
+        text=RIGDYN.hair_system_name_token(_mHair),
+        enterCommand=cgmGEN.Callback(uiFunc_apply_hair_system_name, self, _hs),
     )
+    self._md_hairSystemNameFields[_hs] = _nameIF
     mUI.MelIconButton(
         _row,
         ann='Select hairSystem transform.',
         c=cgmGEN.Callback(uiFunc_select_item, _mHair.getTransform(asMeta=True)),
         **_dynfk_icon_btn_kw('select_25.png'),
     )
-    _row.setStretchWidget(_status)
+    _row.setStretchWidget(_nameIF)
     _presetMenu = mUI.MelOptionMenu(_row, useTemplate='cgmUITemplate')
     uiFunc_rebuild_hair_system_preset_menu(_presetMenu, _mHair.mNode, selfRef=self)
     _presetMenu(
@@ -1583,7 +1625,7 @@ def uiFunc_make_hair_system_preset_row(self, parent, hair_idx, mHair, mDefault=N
         cc=cgmGEN.Callback(uiFunc_process_hair_system_preset_change, self, _mHair.mNode, _presetMenu))
     mUI.MelSpacer(_row, w=5)
     _row.layout()
-    return _status
+    return _nameIF
 
 
 def uiFunc_select_details_map_target(self, kind):
@@ -2168,6 +2210,7 @@ def uiFunc_update_details(self, with_progress=False):
     _hairSystemsColumn = mUI.MelColumnLayout(
         _hairSystemsFrame, useTemplate='cgmUISubTemplate', adj=True, rowSpacing=0)
     mc.setParent(_hairSystemsColumn)
+    self._md_hairSystemNameFields = {}
 
     mDefaultHair = dat.get('mHairSysShape')
     _ml_hs = dat.get('mHairSystems') or RIGDYN.hair_system_list_registered(self._mDynFK)

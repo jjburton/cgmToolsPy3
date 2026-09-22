@@ -2402,6 +2402,80 @@ def hair_system_set_default(mSetup, mHairSysShape):
     return mHair
 
 
+def hair_system_name_token(mHairSysShape):
+    """Basename token for a hairSystem DAG (strips trailing ``_hairSys``)."""
+    mHair = cgmMeta.validateObjArg(mHairSysShape, noneValid=True)
+    if not mHair:
+        return ''
+    _hs = _resolve_hair_system_shape(mHair.mNode)
+    if not _hs:
+        return ''
+    mHair = cgmMeta.asMeta(_hs)
+    mDag = mHair.getTransform(asMeta=True)
+    if not mDag:
+        return ''
+    _base = mDag.p_nameBase or ''
+    if _base.endswith('_hairSys'):
+        return _base[:-len('_hairSys')] or _base
+    return _base
+
+
+def hair_system_set_name(mSetup, mHairSysShape, name):
+    """
+    Rename a registered hairSystem transform to ``{token}_hairSys``.
+
+    Does not rename follicles / chains — only the hairSystem DAG (+ Maya shape).
+    """
+    _str_func = 'hair_system_set_name'
+    mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
+    mHair = cgmMeta.validateObjArg(mHairSysShape, noneValid=True)
+    if not mSetup or not mHair:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Need setup and hairSystem'))
+    _hs = _resolve_hair_system_shape(mHair.mNode)
+    if not _hs:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Not a hairSystem'))
+    mHair = cgmMeta.asMeta(_hs)
+    mDag = mHair.getTransform(asMeta=True)
+    if not mDag:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'No hairSystem transform'))
+
+    _token = _chain_clean_name_token(name)
+    if not _token:
+        return log.warning(cgmGEN.logString_msg(_str_func, 'Empty or invalid name'))
+    if _token.endswith('_hairSys'):
+        _token = _token[:-len('_hairSys')] or _token
+    _new_short = '{0}_hairSys'.format(_token)
+    _old_short = mDag.p_nameBase or ''
+    if _new_short == _old_short:
+        return True
+
+    for mOther in hair_system_list_registered(mSetup) or []:
+        if not mOther or mOther.mNode == mHair.mNode:
+            continue
+        mOtherDag = mOther.getTransform(asMeta=True)
+        if mOtherDag and mOtherDag.p_nameBase == _new_short:
+            return log.warning(cgmGEN.logString_msg(
+                _str_func, 'Hair system name already in use: {0}'.format(_new_short)))
+
+    mc.undoInfo(openChunk=True, chunkName='cgmDynSimTool hairSystem rename')
+    try:
+        try:
+            mDag.dagLock(False)
+        except Exception:
+            pass
+        _chain_rename_meta_short(mDag, _new_short)
+        try:
+            mDag.dagLock()
+        except Exception:
+            pass
+    finally:
+        mc.undoInfo(closeChunk=True)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, '{0} -> {1}'.format(_old_short, mDag.p_nameBase)))
+    return True
+
+
 def hair_system_register(mSetup, mHairSysShape, setDefault=False):
     """
     Register a hairSystem on setup msgList ``mHairSystems``; parent DAG under setup.
