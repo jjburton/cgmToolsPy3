@@ -2161,6 +2161,8 @@ def uiFunc_update_details(self, with_progress=False):
     _details = mUI.MelColumnLayout(
         self.detailsFrame, useTemplate='cgmUIHeaderTemplate', adj=True, rowSpacing=0)
 
+    mNucleus = dat.get('mNucleus')
+
     _row = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row, w=_padding)
     mUI.MelLabel(_row, l='Name: ', h=20)
@@ -2176,6 +2178,19 @@ def uiFunc_update_details(self, with_progress=False):
         cgmGEN.Callback(uiFunc_apply_setup_base_name, self),
         'Rename cgmDynFK setup transform to this base name.',
     )
+    mUI.MelLabel(_row, l='Enabled:')
+    _nucleus_on = True
+    if mNucleus and mc.objExists(mNucleus.mNode) and mc.attributeQuery(
+            'enable', node=mNucleus.mNode, exists=True):
+        try:
+            _nucleus_on = bool(mc.getAttr('{0}.enable'.format(mNucleus.mNode)))
+        except Exception:
+            pass
+    self.nucleusEnabledCB = mUI.MelCheckBox(
+        _row, en=True, v=_nucleus_on, label='',
+        ann='Enable Nucleus')
+    self.nucleusEnabledCB(
+        edit=True, changeCommand=cgmGEN.Callback(uiFunc_set_nucleus_enabled, self))
     _row.setStretchWidget(self.details_baseNameField)
     mUI.MelSpacer(_row, w=_padding)
     _row.layout()
@@ -2183,7 +2198,6 @@ def uiFunc_update_details(self, with_progress=False):
     mUI.MelSeparator(_details, ut='cgmUISubTemplate', h=3)
 
     # Nucleus / Cloth — map rows (tight pair, like chain hair + follicle)
-    mNucleus = dat.get('mNucleus')
     uiFunc_make_load_row(
         _details, 'Nucleus:',
         mNucleus.p_nameBase if mNucleus else 'Not mapped',
@@ -2253,25 +2267,6 @@ def uiFunc_update_details(self, with_progress=False):
             'Map selected hairSystem on setup (registers + default).',
             selectCommand=cgmGEN.Callback(uiFunc_select_details_map_target, self, 'hair'),
         )
-
-    _row = mUI.MelHSingleStretchLayout(_details, ut='cgmUISubTemplate', padding=5)        
-
-    mUI.MelSpacer(_row,w=_padding)
-
-    mUI.MelLabel(_row, 
-                 l='Enabled:')
-
-    _row.setStretchWidget( mUI.MelSeparator(_row) )
-
-    self.nucleusEnabledCB = mUI.MelCheckBox(_row,en=True,
-                               v = True,
-                               label = '',
-                               ann='Enable Nucleus') 
-    self.nucleusEnabledCB(edit=True, changeCommand=cgmGEN.Callback(uiFunc_set_nucleus_enabled,self))
-    
-    mUI.MelSpacer(_row,w=_padding)
-    
-    _row.layout()
 
     # Baking -----------------------------------------------------------------
     _bakingFrame = mUI.MelFrameLayout(
