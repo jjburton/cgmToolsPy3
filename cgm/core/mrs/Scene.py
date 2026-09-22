@@ -3714,7 +3714,10 @@ example:
             #    b_extra = True
 
 
-            self.categoryMenuItemList.append( mUI.MelMenuItem(self.categoryMenu, label=category, c=partial(self.SetCategory,i)) )
+            self.categoryMenuItemList.append( mUI.MelMenuItem(
+                self.categoryMenu,
+                label=category,
+                c=cgmGEN.Callback(self._defer_ui, self.SetCategory, i)))
             if i == self.categoryIndex:
                 self.categoryMenuItemList[i]( e=True, enable=False)
             l_cats.append(category)
@@ -3740,12 +3743,26 @@ example:
             if subType not in self.l_subTypesBase and not b_extra:
                 mUI.MelMenuItemDiv( self.subTypeMenu, label='Extras..' )
                 b_extra = True
-            self.subTypeMenuItemList.append( mc.menuItem(label=subType, enable=i!=self.subTypeIndex, c=cgmGEN.Callback(self.SetSubType,i)) ) #mUI.MelMenuItem(self.subTypeMenu, label=subType, c=partial(self.SetSubType,i)) )
+            self.subTypeMenuItemList.append( mc.menuItem(
+                label=subType,
+                enable=i != self.subTypeIndex,
+                c=cgmGEN.Callback(self._defer_ui, self.SetSubType, i)))
 
         mUI.MelMenuItemDiv( self.subTypeMenu, label='Utils..' )
-        mUI.MelMenuItem(self.subTypeMenu, label = 'Create Subtype', c=partial(self.CreateSubType) )
-        try:mUI.MelMenuItem(self.subTypeMenu, label="Rename '{}'".format(self.subTypes[self.subTypeIndex]), command= partial(self.rename_below,'subtype') )
-        except:mUI.MelMenuItem(self.subTypeMenu, label="Rename subtype", command= partial(self.rename_below,'subtype') )
+        mUI.MelMenuItem(
+            self.subTypeMenu,
+            label='Create Subtype',
+            c=cgmGEN.Callback(self._defer_ui, self.CreateSubType))
+        try:
+            mUI.MelMenuItem(
+                self.subTypeMenu,
+                label="Rename '{}'".format(self.subTypes[self.subTypeIndex]),
+                command=cgmGEN.Callback(self._defer_ui, self.rename_below, 'subtype'))
+        except Exception:
+            mUI.MelMenuItem(
+                self.subTypeMenu,
+                label='Rename subtype',
+                command=cgmGEN.Callback(self._defer_ui, self.rename_below, 'subtype'))
 
 
     #####
