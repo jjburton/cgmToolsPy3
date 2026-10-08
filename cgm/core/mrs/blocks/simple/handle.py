@@ -98,7 +98,7 @@ d_attrStateMask = {'define':[],
                    'form':['loftList','basicShape','proxyShape','proxyType','shapersAim'],
                    'prerig':['addScalePivot','addPivot','pivotDriverSetup'],
                    'skeleton':['hasJoint'],
-                   'proxySurface':['proxy'],
+                   'proxySurface':['proxy','proxySetColorAdded'],
                    'rig':['rotPivotPlace','dynParentMode','dynParentScaleMode','mirrorSetup'],
                    'vis':[]}
 
@@ -189,6 +189,7 @@ l_attrsStandard = ['side',
                    'addScalePivot',
                    'proxy',
                    'proxyType',
+                   'proxySetColorAdded',
                    'buildSDK',
                    'numShapers',
                    'numSubShapers',
@@ -224,6 +225,7 @@ d_attrsToMake = {'axisAim':":".join(CORESHARE._l_axis_by_string),
                  'pivotDriverSetup':'default:dynParent',
                  
                  'parentVisAttr':'bool',
+                 'proxySetColorAdded':'bool',
                  'proxyShape':'cube:sphere:cylinder:cone:torus:shapers:geoOnly',
                  #'pivotSetup':'simple:wobble',
                  'targetJoint':'messageSimple',
@@ -266,6 +268,7 @@ d_defaultSettings = {'version':__version__,
                      'loftList':['square','circle','square'],
                      'baseDat':{'lever':[0,0,-1],'aim':[0,0,1],'up':[0,1,0],'end':[0,0,1]},
                      'proxyType':1,
+                     'proxySetColorAdded':True,
                      'formAim':'simple',
                      'shapersAim':'chain',
                      'shapersAimUp':'handle'}
@@ -313,6 +316,44 @@ def proxyGeo_getGroup(self,select=False):
         mc.select(mGroup.mNode)
     return mGroup
 
+_PROXY_GEO_OVERRIDE_PLUGS = (
+    'overrideEnabled', 'overrideVisibility', 'overrideDisplayType',
+    'overrideColor', 'overrideRGBColors',
+)
+
+def _proxy_geo_unlock_for_edit(mObj):
+    """Unlock / disconnect override attrs on imported geo before proxy coloring."""
+    _node = mObj.mNode
+    try:
+        mObj.dagLock(False)
+    except Exception:
+        pass
+    for _plug in _PROXY_GEO_OVERRIDE_PLUGS:
+        _full = '{0}.{1}'.format(_node, _plug)
+        if not mc.objExists(_full):
+            continue
+        try:
+            ATTR.break_connection(_node, _plug)
+        except Exception:
+            pass
+        try:
+            mc.setAttr(_full, lock=False)
+        except Exception:
+            pass
+    for _shape in TRANS.shapes_get(_node, True) or []:
+        for _plug in _PROXY_GEO_OVERRIDE_PLUGS:
+            _full = '{0}.{1}'.format(_shape, _plug)
+            if not mc.objExists(_full):
+                continue
+            try:
+                ATTR.break_connection(_shape, _plug)
+            except Exception:
+                pass
+            try:
+                mc.setAttr(_full, lock=False)
+            except Exception:
+                pass
+
 def proxyGeo_add(self,arg = None):
     _str_func = 'proxyGeo_add'
     if not arg:
@@ -327,9 +368,11 @@ def proxyGeo_add(self,arg = None):
     for mObj in ml_stuff:
         mProxy = mObj.doDuplicate(po=False)
         mProxy = cgmMeta.validateObjArg(mProxy,'cgmObject',setClass=True)
+        _proxy_geo_unlock_for_edit(mProxy)
         ml_proxies.append(mProxy)
         #TRANS.scale_to_boundingBox(mProxy.mNode,_bb_axisBox)
-        CORERIG.colorControl(mProxy.mNode,_side,'main',transparent = True)
+        if not BLOCKUTILS.block_proxy_skip_shader_assignment(self):
+            CORERIG.colorControl(mProxy.mNode,_side,'main',transparent = True)
         mProxy.p_parent = mProxyGeoGrp
         self.msgList_append('proxyMeshGeo',mProxy,'block')
         mProxy.rename("{0}_proxyGeo".format(mProxy.p_nameBase))
@@ -853,7 +896,8 @@ def form(self):
                              baseName = self.cgmName )
         mMesh.connectParentNode(self.mNode,'handle','proxyHelper')
         self.msgList_connect('proxyMeshGeo',[mMesh])
-        mHandleFactory.color(mMesh.mNode,_side,'sub',transparent=True)
+        if not BLOCKUTILS.block_proxy_skip_shader_assignment(self):
+            mHandleFactory.color(mMesh.mNode,_side,'sub',transparent=True)
     
         mNoTransformNull.v = False
         
@@ -956,7 +1000,8 @@ def form(self):
     
     
         #CORERIG.colorControl(mProxy.mNode,_side,'sub',transparent=True)
-        mHandleFactory.color(mProxy.mNode,_side,'sub',transparent=True)
+        if not BLOCKUTILS.block_proxy_skip_shader_assignment(self):
+            mHandleFactory.color(mProxy.mNode,_side,'sub',transparent=True)
     
         mProxy.connectParentNode(mHandle.mNode,'handle','proxyHelper')        
         mProxy.connectParentNode(self.mNode,'proxyHelper')        
@@ -1420,6 +1465,8 @@ def rig_dataBuffer(self):
         
         self.d_blockNameDict = mBlock.atUtils('get_baseNameDict')
 
+        self.b_scaleSetup = mBlock.scaleSetup
+        
         #DynParents =============================================================================
         self.UTILS.get_dynParentTargetsDat(self)
         
@@ -1938,11 +1985,12 @@ def rig_frame(self):
             log.info("|{0}| >> Pivot setup...".format(_str_func))
             
             mPivotResultDriver = mHandle.doCreateAt()
-            mPivotResultDriver.addAttr('cgmName','pivotResult')
+            _part = self.d_module['partName']
+            mPivotResultDriver.addAttr('cgmName','{0}_pivotResult'.format(_part))
             mPivotResultDriver.addAttr('cgmType','driver')
             mPivotResultDriver.doName()
             
-            mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
+            mPivotResultDriver.addAttr('cgmAlias', '{0}_PivotResult'.format(_part))
             
             mDirectDriver = mPivotResultDriver
             mAimDriver = mPivotResultDriver
@@ -2099,16 +2147,27 @@ def rig_cleanUp(self):
         
         mRoot = mRigNull.getMessageAsMeta('rigRoot')
         if mRoot:
-            mDynGroup = mRoot.getMessageAsMeta('dynParentGroup')
-            mDynGroup.dynMode = 0
+            mRootDynGroup = mRoot.getMessageAsMeta('dynParentGroup')
+            mRootDynGroup.dynMode = mBlock.dynParentMode
+            mRootDynGroup.scaleMode = mBlock.dynParentScaleMode
             for o in ml_targetDynParents:
-                mDynGroup.addDynParent(o)
-            mDynGroup.rebuild()
+                mRootDynGroup.addDynParent(o)
+            mRootDynGroup.rebuild()
+            if self.b_scaleSetup:
+                BUILDERUTILS.scaleSetup_dynParentDefaultIndex(
+                    self, mRoot, mRootDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
+            BUILDERUTILS.scaleSetup_scaleSpacePuppetDefault(
+                self, mRoot, mBlock, scaleModeAttr='dynParentScaleMode')
             
             ml_targetDynParents.insert(0,mRoot)
+            if self.b_scaleSetup:
+                ml_baseDynParents.append(mRoot)
         
         #...don't add space pivots till here    
         ml_targetDynParents.extend(mHandle.msgList_get('spacePivots',asMeta = True))
+        
+        if self.b_scaleSetup:
+            ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
         
         #Add our parents
         mDynGroup = mHandle.getMessageAsMeta('dynParentGroup')
@@ -2122,13 +2181,18 @@ def rig_cleanUp(self):
             for o in ml_targetDynParents:
                 mDynGroup.addDynParent(o)
             mDynGroup.rebuild()
+            if self.b_scaleSetup:
+                BUILDERUTILS.scaleSetup_dynParentDefaultIndex(
+                    self, mHandle, mDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
+            BUILDERUTILS.scaleSetup_scaleSpacePuppetDefault(
+                self, mHandle, mBlock, scaleModeAttr='dynParentScaleMode')
         else:
             mc.parentConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
                                 mHandle.masterGroup.mNode,maintainOffset = True)
             mc.scaleConstraint(self.md_dynTargetsParent['attachDriver'].mNode,
                                 mHandle.masterGroup.mNode,maintainOffset = True)
         
-        if mDynGroup.getMessage('dynFollow'):
+        if mDynGroup and mDynGroup.getMessage('dynFollow'):
             mDynGroup.dynFollow.parent = mMasterDeformGroup
     
     
@@ -2205,6 +2269,250 @@ def rig_cleanUp(self):
     self.UTILS.rigNodes_store(self)
 
 
+def _proxy_geo_cap_enabled(mBlock, default=True):
+    if not mBlock.hasAttr('proxyGeoCap'):
+        return default
+    return mBlock.getEnumValueString('proxyGeoCap') == 'both'
+
+def _proxy_loft_shaper_curves(mBlock):
+    """Same loft targets as form create_prerigLoftMesh (shapers only — not subShaper rings)."""
+    if mBlock.getMayaAttr('numShapers'):
+        ml_handles = mBlock.msgList_get('shaperHandles')
+    else:
+        ml_handles = mBlock.msgList_get('formHandles')
+    ml_loft = []
+    for mH in (ml_handles or []):
+        mCrv = mH.getMessageAsMeta('loftCurve')
+        if mCrv:
+            ml_loft.append(mCrv)
+    return ml_loft
+
+def _proxy_loft_all_form_curves(mBlock):
+    """All form + subShaper loft curves (create_simpleLoftMesh-style — for log compare only)."""
+    ml_loft = []
+    for mH in (mBlock.msgList_get('formHandles') or []):
+        mCrv = mH.getMessageAsMeta('loftCurve')
+        if mCrv:
+            ml_loft.append(mCrv)
+        for mSub in (mH.msgList_get('subShapers') or []):
+            mCrv = mSub.getMessageAsMeta('loftCurve')
+            if mCrv:
+                ml_loft.append(mCrv)
+    return ml_loft
+
+def _log_handle_proxy_mesh_plan(mBlock, _str_func, str_proxyType, ml_geo, cap_enabled, skin=False):
+    _capStr = mBlock.getEnumValueString('proxyGeoCap') if mBlock.hasAttr('proxyGeoCap') else 'n/a'
+    ml_shaper = _proxy_loft_shaper_curves(mBlock)
+    ml_all = _proxy_loft_all_form_curves(mBlock)
+    _geoTypes = [mG.getMayaType() for mG in (ml_geo or [])]
+    log.info(cgmGEN.logString_sub(_str_func, 'proxy mesh plan'))
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'block={0} | proxyType={1} | proxyGeoCap={2} ({3}) | proxyShape={4} | skin={5}'.format(
+            mBlock.p_nameShort,
+            str_proxyType,
+            _capStr,
+            cap_enabled,
+            mBlock.getEnumValueString('proxyShape') if mBlock.hasAttr('proxyShape') else 'n/a',
+            skin)))
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'numShapers={0} | numSubShapers={1} | shaperHandle lofts={2} | form+sub lofts={3}'.format(
+            mBlock.getMayaAttr('numShapers'),
+            mBlock.getMayaAttr('numSubShapers') if mBlock.hasAttr('numSubShapers') else 'n/a',
+            len(ml_shaper),
+            len(ml_all))))
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'proxyMeshGeo count={0} types={1}'.format(len(ml_geo or []), _geoTypes)))
+    if ml_shaper:
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'shaper loft curves: {0}'.format([mC.p_nameShort for mC in ml_shaper])))
+    if len(ml_all) != len(ml_shaper):
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'extra form+sub curves (not used for castMesh): {0}'.format(
+                [mC.p_nameShort for mC in ml_all if mC not in ml_shaper])))
+
+def _handle_proxy_finalize_mesh(mMesh, mBlock, cap_enabled, _str_func, path_label):
+    """One cap pass: polyCloseBorder on open tube ends (not create_loftMesh collapse rings)."""
+    if cap_enabled:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'path=polyCloseBorder | after={0}'.format(path_label)))
+        mc.polyCloseBorder(mMesh.mNode, ch=False)
+    else:
+        log.info(cgmGEN.logString_msg(_str_func, 'cap off — open ends (no polyCloseBorder)'))
+    _node = mc.rename(mMesh.mNode, '{0}_0_geo'.format(mBlock.p_nameBase))
+    mMesh = cgmMeta.validateObjArg(_node, 'cgmObject', setClass=True)
+    log.info(cgmGEN.logString_msg(_str_func, 'result={0}'.format(mMesh.p_nameShort)))
+    return mMesh
+
+def _handle_cast_proxy_mesh(mBlock, cap_enabled, ml_geo, _str_func='handle_cast_proxy_mesh'):
+    """
+    castMesh proxy/puppet mesh from prerig nurbs or shaper lofts.
+    End caps use polyCloseBorder only — create_loftMesh cap=False (start/end shapers are already end sections).
+    """
+    mMesh = None
+    _path = None
+
+    if ml_geo and ml_geo[0].getMayaType() == 'nurbsSurface':
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'path=nurbsTessellate | source={0} | u={1} v={2}'.format(
+                ml_geo[0].p_nameShort, mBlock.loftSplit, mBlock.loftSides)))
+        _mesh = RIGCREATE.get_meshFromNurbs(
+            ml_geo[0],
+            mode='general',
+            uNumber=mBlock.loftSplit,
+            vNumber=mBlock.loftSides)
+        mMesh = cgmMeta.validateObjArg(_mesh, 'cgmObject', setClass=True)
+        _path = 'nurbsTessellate'
+    else:
+        ml_loft = _proxy_loft_shaper_curves(mBlock)
+        if len(ml_loft) >= 2:
+            _degree = 1 + mBlock.loftDegree
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'path=shaperLoft (open) | curves={0} | degree={1} | uSplit={2} | vSplit={3}'.format(
+                    len(ml_loft), _degree, mBlock.loftSides, mBlock.loftSplit)))
+            _mesh = BUILDUTILS.create_loftMesh(
+                [m.mNode for m in ml_loft],
+                name='{0}_0_geo'.format(mBlock.p_nameBase),
+                degree=_degree,
+                uSplit=mBlock.loftSides,
+                vSplit=mBlock.loftSplit,
+                cap=False,
+                deleteHistory=True)
+            mMesh = cgmMeta.validateObjArg(_mesh, 'cgmObject', setClass=True)
+            _path = 'shaperLoft'
+
+    if not mMesh:
+        log.warning(cgmGEN.logString_msg(
+            _str_func,
+            'castMesh failed | shaper lofts={0} | proxyMeshGeo={1}'.format(
+                len(_proxy_loft_shaper_curves(mBlock)), len(ml_geo or []))))
+        return None
+
+    return _handle_proxy_finalize_mesh(mMesh, mBlock, cap_enabled, _str_func, _path)
+
+
+def _handle_proxy_mesh_geo_user_only(mBlock, ml_geo, _str_func):
+    """
+    geoOnly uses proxyMeshGeo from Proxy Geo add (proxyGeoGroup / *_proxyGeo).
+    Skips form prerig loft, proxyHelper cube, and other block-generated entries still on the msgList.
+    """
+    mProxyGrp = proxyGeo_getGroup(mBlock)
+    mBlockProxyHelper = mBlock.getMessageAsMeta('proxyHelper')
+    ml_user = []
+    for mGeo in ml_geo or []:
+        _short = mGeo.p_nameShort
+        if mBlockProxyHelper and mGeo.mNode == mBlockProxyHelper.mNode:
+            log.info(cgmGEN.logString_msg(_str_func, 'geoOnly skip block proxyHelper | {0}'.format(_short)))
+            continue
+        if mGeo.getMayaAttr('cgmType') == 'proxyHelper':
+            log.info(cgmGEN.logString_msg(_str_func, 'geoOnly skip cgmType=proxyHelper | {0}'.format(_short)))
+            continue
+        if mProxyGrp and mGeo.getParent(asMeta=True) == mProxyGrp:
+            ml_user.append(mGeo)
+            continue
+        if _short.endswith('_proxyGeo'):
+            ml_user.append(mGeo)
+            continue
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'geoOnly skip (not user proxy geo) | {0} | parent={1}'.format(
+                _short, mGeo.getParent(asMeta=False))))
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'geoOnly user proxyMeshGeo | kept={0}/{1}'.format(len(ml_user), len(ml_geo or []))))
+    return ml_user
+
+
+def _handle_unite_proxy_pieces(ml_proxy, _str_func):
+    if len(ml_proxy) <= 1:
+        return ml_proxy
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'polyUnite proxy pieces | count={0}'.format(len(ml_proxy))))
+    _mesh = mc.polyUnite([mObj.mNode for mObj in ml_proxy], ch=False)[0]
+    mMesh = cgmMeta.asMeta(_mesh)
+    for mObj in ml_proxy[1:]:
+        try:
+            mObj.delete()
+        except Exception:
+            pass
+    return [mMesh]
+
+
+def _handle_normalize_proxy_type(str_proxyType, _str_func):
+    """comboMesh renamed to geoAdd (cast proxy + user Proxy Geo)."""
+    if str_proxyType == 'comboMesh':
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'proxyType comboMesh is geoAdd (legacy enum)'))
+        return 'geoAdd'
+    return str_proxyType
+
+
+def _handle_build_proxy_meshes(mBlock, str_proxyType, ml_geo, cap_enabled, _str_func):
+    """
+    Build handle proxy/puppet mesh pieces per proxyType.
+    geoOnly: user Proxy Geo duplicates only.
+    geoAdd: castMesh proxy + user Proxy Geo (formerly comboMesh).
+    """
+    str_proxyType = _handle_normalize_proxy_type(str_proxyType, _str_func)
+    ml_proxy = []
+    if str_proxyType == 'geoOnly':
+        ml_geo = _handle_proxy_mesh_geo_user_only(mBlock, ml_geo, _str_func)
+        if not ml_geo:
+            raise ValueError(
+                "geoOnly requires proxy mesh geo added via Proxy Geo (proxyGeo_add); none found after filter.")
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'path=geoOnly | proxyMeshGeo duplicates only | count={0}'.format(len(ml_geo))))
+        for mGeo in ml_geo:
+            mMesh = mGeo.doDuplicate(po=False)
+            mMesh.p_parent = False
+            ml_proxy.append(mMesh)
+        return ml_proxy
+
+    if str_proxyType == 'geoAdd':
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'path=geoAdd | castMesh proxy + user proxyMeshGeo (comboMesh)'))
+        mMesh = _handle_cast_proxy_mesh(mBlock, cap_enabled, [], _str_func)
+        if mMesh:
+            ml_proxy.append(mMesh)
+        ml_user = _handle_proxy_mesh_geo_user_only(mBlock, ml_geo, _str_func)
+        for mGeo in ml_user:
+            mDup = mGeo.doDuplicate(po=False)
+            mDup.p_parent = False
+            ml_proxy.append(mDup)
+        if not ml_proxy:
+            raise ValueError("geoAdd needs castMesh proxy and/or Proxy Geo add entries; nothing built.")
+        return ml_proxy
+
+    _builtLoft = False
+    if str_proxyType == 'castMesh':
+        mMesh = _handle_cast_proxy_mesh(mBlock, cap_enabled, ml_geo, _str_func)
+        if mMesh:
+            ml_proxy = [mMesh]
+            _builtLoft = True
+    if ml_geo:
+        if _builtLoft and str_proxyType == 'castMesh':
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'skip prerig nurbs dup ({0})'.format(str_proxyType)))
+        else:
+            for mGeo in ml_geo:
+                log.debug("|{0}| >> proxyMesh from proxyMeshGeo: {1}".format(_str_func, mGeo))
+                if mGeo.getMayaType() == 'nurbsSurface':
+                    log.debug("|{0}| >> nurbs tessellate from: {1}".format(_str_func, mGeo))
+                    mMesh = RIGCREATE.get_meshFromNurbs(
+                        mGeo,
+                        mode='general',
+                        uNumber=mBlock.loftSplit,
+                        vNumber=mBlock.loftSides)
+                else:
+                    mMesh = mGeo.doDuplicate(po=False)
+                mMesh.p_parent = False
+                ml_proxy.append(mMesh)
+    return ml_proxy
 
 
 def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent=False):
@@ -2232,52 +2540,23 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
         ml_geo = self.msgList_get('proxyMeshGeo')
         ml_proxy = []
         str_setup = self.getEnumValueString('proxyShape')
-        str_proxyType = self.getEnumValueString('proxyType')
-        
+        str_proxyType = _handle_normalize_proxy_type(self.getEnumValueString('proxyType'), _str_func)
+        if str_setup == 'geoOnly' and str_proxyType not in ('geoAdd',):
+            str_proxyType = 'geoOnly'
 
-            
-        if str_proxyType == 'geoOnly' and not ml_geo:
-            raise ValueError("No geo found and proxyShape is 'geoOnly'.")
-        
-        if str_proxyType in ['shapers','comboMesh']:# and not ml_geo:
-            log.info("|{0}| >> creating shaper proxy mesh...".format(_str_func))
-            mMesh = self.UTILS.create_simpleLoftMesh(self,divisions=5,cap= self.proxyGeoCap)[0]
-            ml_proxy = [mMesh]
-            
-        if ml_geo:
-            for i,mGeo in enumerate(ml_geo):
-                log.debug("|{0}| >> proxyMesh creation from: {1}".format(_str_func,mGeo))                        
-                if mGeo.getMayaType() == 'nurbsSurface':
-                    if str_proxyType == 'geoOnly':
-                        continue
-                    else:
-                        log.debug("|{0}| >> nurbs creation from: {1}".format(_str_func,mGeo))
-                        mMesh = RIGCREATE.get_meshFromNurbs(mGeo,
-                                                            mode = 'general',
-                                                            uNumber = self.loftSplit, vNumber=self.loftSides)
-                else:
-                    mMesh = mGeo.doDuplicate(po=False)
-                    #mMesh.p_parent = False
-                    #mDup = mBlock.proxyHelper.doDuplicate(po=False)
-                
-                mMesh.p_parent = False
-                ml_proxy.append(mMesh)
-        else:
-            log.debug("|{0}| >> no ml_geo".format(_str_func))          
+        _cap = _proxy_geo_cap_enabled(self)
+        _log_handle_proxy_mesh_plan(self, _str_func, str_proxyType, ml_geo, _cap, skin=skin)
+        ml_proxy = _handle_build_proxy_meshes(self, str_proxyType, ml_geo, _cap, _str_func)
+        if not ml_proxy and str_proxyType not in ('geoOnly', 'geoAdd'):
+            log.debug("|{0}| >> no proxy mesh built".format(_str_func))
         
         
-        for mGeo in ml_proxy:
-            log.debug("|{0}| >> color_mesh: {1}".format(_str_func,mGeo))
-            CORERIG.color_mesh(mGeo.mNode)
+        if not BLOCKUTILS.block_proxy_skip_shader_assignment(self):
+            for mGeo in ml_proxy:
+                log.debug("|{0}| >> color_mesh: {1}".format(_str_func,mGeo))
+                CORERIG.color_mesh(mGeo.mNode)
         
-        if len(ml_proxy) > 1:
-            log.info(f"|{0}| >> uniting proxy meshes...{1}".format(_str_func,ml_proxy))
-            _mesh = mc.polyUnite([mObj.mNode for mObj in ml_proxy], ch=False )[0]
-            mMesh = cgmMeta.asMeta(_mesh)
-            for mObj in ml_proxy[1:]:
-                try:mObj.delete()
-                except:pass
-            ml_proxy = [mMesh]
+        ml_proxy = _handle_unite_proxy_pieces(ml_proxy, _str_func)
 
         for i,mMesh in enumerate(ml_proxy):
             if parent and skin:
@@ -2362,7 +2641,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
     ml_proxy = []
     ml_rigJoints = mRigNull.msgList_get('rigJoints')
     str_setup = self.getEnumValueString('proxyShape')
-    str_proxyType = self.getEnumValueString('proxyType')
+    str_proxyType = _handle_normalize_proxy_type(self.getEnumValueString('proxyType'), _str_func)
+    if str_setup == 'geoOnly' and str_proxyType not in ('geoAdd',):
+        str_proxyType = 'geoOnly'
 
     #Mesh build logic...
     _buildMesh = True
@@ -2373,40 +2654,15 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
     if _buildMesh:
         log.warning("|{0}| >> building mesh...".format(_str_func))            
         
-        if str_proxyType == 'geoOnly' and not ml_geo:
-            raise ValueError("No geo found and proxyShape is 'geoOnly'.")
-        
-        # if str_proxyType in ['shapers','comboMesh']:# and not ml_geo:
-        #     d_kws = {}
-        #     mMesh = self.UTILS.create_simpleLoftMesh(self,divisions=5, cap= self.proxyGeoCap)[0]
-        #     ml_proxy = [mMesh]
+        _cap = _proxy_geo_cap_enabled(mBlock)
+        _log_handle_proxy_mesh_plan(mBlock, _str_func, str_proxyType, ml_geo, _cap, skin=skin)
+        ml_proxy = _handle_build_proxy_meshes(mBlock, str_proxyType, ml_geo, _cap, _str_func)
+        if not ml_proxy and str_proxyType not in ('geoOnly', 'geoAdd'):
+            log.debug("|{0}| >> no proxy mesh built".format(_str_func))
 
+    if not puppetMeshMode:
+        ml_proxy = _handle_unite_proxy_pieces(ml_proxy, _str_func)
 
-        if ml_geo:
-            for i,mGeo in enumerate(ml_geo):
-                #if mGeo == mMeshCheck:
-                #    continue
-                log.debug("|{0}| >> proxyMesh creation from: {1}".format(_str_func,mGeo))  
-
-                if mGeo.getMayaType() == 'nurbsSurface':
-                    if str_proxyType == 'geoOnly':
-                        continue
-                    else:   
-                        mMesh = RIGCREATE.get_meshFromNurbs(mGeo,
-                                                            mode = 'general',
-                                                            uNumber = mBlock.loftSplit,
-                                                            vNumber=mBlock.loftSides)
-                else:
-                    log.info("|{0}| >> proxyMesh creation from: {1}".format(_str_func,mGeo))
-                    mMesh = mGeo.doDuplicate(po=False)
-                    #mMesh.p_parent = False
-                    #mDup = mBlock.proxyHelper.doDuplicate(po=False)
-                mMesh.p_parent = False
-                ml_proxy.append(mMesh)
-        else:
-            log.debug("|{0}| >> no ml_geo".format(_str_func))
-        
-        
     #Connect to setup ------------------------------------------------------------------------------------
     _side = BLOCKUTILS.get_side(self)
     ml_united = []
@@ -2436,7 +2692,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
                 mGeo.doName()            
                 mc.makeIdentity(mGeo.mNode, apply = True, t=1, r=1,s=1,n=0,pn=1)
             
-            CORERIG.color_mesh(mGeo.mNode,_side,'main',transparent=False,proxy=True)
+            if not BLOCKUTILS.block_proxy_skip_shader_assignment(mBlock):
+                CORERIG.color_mesh(mGeo.mNode,_side,'main',transparent=False,proxy=True)
             
         if skin:
             if len(ml_united) > 1:
@@ -2461,7 +2718,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
         mMesh.rename("{0}_{1}_mesh".format(mBlock.p_nameBase,i))    
     
     for mProxy in ml_proxy:
-        CORERIG.colorControl(mProxy.mNode,_side,'main',transparent=False,proxy=True)
+        if not BLOCKUTILS.block_proxy_skip_shader_assignment(mBlock):
+            CORERIG.colorControl(mProxy.mNode,_side,'main',transparent=False,proxy=True)
         mc.makeIdentity(mProxy.mNode, apply = True, t=1, r=1,s=1,n=0,pn=1)
         
         
@@ -2476,6 +2734,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
             ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
         
     mRigNull.msgList_connect('proxyMesh', ml_proxy)
+    return ml_proxy
 
 
 

@@ -54,8 +54,7 @@ def mrsBlockEditor():
     
 def mrsBlockCreate():
     import cgm.core.mrs.Builder as MRSBUILDER
-    cgmGEN._reloadMod(MRSBUILDER)
-    MRSBUILDER.ui_createBlock()
+    MRSBUILDER.blockCreate_open()
     
 def mrsBlockPicker():
     import cgm.core.mrs.Builder as MRSBUILDER

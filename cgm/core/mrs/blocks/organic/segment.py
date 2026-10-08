@@ -50,7 +50,7 @@ import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
 import cgm.core.classes.NodeFactory as NODEFACTORY
 from cgm.core import cgm_RigMeta as cgmRigMeta
-#import cgm.core.lib.list_utils as LISTS
+import cgm.core.lib.list_utils as LISTS
 import cgm.core.lib.nameTools as NAMETOOLS
 #import cgm.core.lib.name_utils as CORENAMES
 from cgm.core.lib import string_utils as CORESTRING
@@ -3423,12 +3423,13 @@ def rig_frame(self):
                 mPivotResultDriver = ml_fkJoints[0].doCreateAt()
 
             mPivotResultDriver = ml_fkJoints[0].doCreateAt()
-            mPivotResultDriver.addAttr('cgmName','pivotResult')
+            _part = self.d_module['partName']
+            mPivotResultDriver.addAttr('cgmName','{0}_pivotResult'.format(_part))
             mPivotResultDriver.addAttr('cgmType','driver')
             mPivotResultDriver.doName()
 
             
-            mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
+            mPivotResultDriver.addAttr('cgmAlias', '{0}_PivotResult'.format(_part))
             
             mRigNull.connectChildNode(mPivotResultDriver,'pivotResultDriver','rigNull')#Connect    
             
@@ -4180,11 +4181,15 @@ def rig_cleanUp(self):
         mDynGroup.rebuild()
         #mDynGroup.dynFollow.p_parent = self.mConstrainNull
         
-        if mBlock.root_dynParentScaleMode == 2:
-            mRoot.scaleSpace = 'puppet'
-            ATTR.set_default(mRoot.mNode, 'scaleSpace', 'puppet')        
+        if self.b_scaleSetup:
+            BUILDUTILS.scaleSetup_dynParentDefaultIndex(
+                self, mRoot, mDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
         
-        ml_baseDynParents.append(mRoot)
+        BUILDUTILS.scaleSetup_scaleSpacePuppetDefault(self, mRoot, mBlock)
+        
+        ml_endDynParents.insert(0, mRoot)
+        if self.b_scaleSetup:
+            ml_baseDynParents.append(mRoot)
         
         if mScaleRoot:
             mScaleRoot.addAttr('cgmAlias','{0}_scaleRoot'.format(self.d_module['partName']))            
@@ -4227,6 +4232,9 @@ def rig_cleanUp(self):
             
             if mPivotResultDriver:# and mControlIKBase == mHandle:
                 ml_targetDynParents.insert(0, mPivotResultDriver)                        
+        
+            if self.b_scaleSetup:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
         
             #if mModuleParent:
             #    mDynGroup.dynMode = 2
@@ -4276,6 +4284,9 @@ def rig_cleanUp(self):
                 mMainDriver = mHandle.getMessageAsMeta('mainDriver')
                 if mMainDriver:
                     ml_targetDynParents.insert(0,mMainDriver)
+                
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
                 
                 mDynGroup = cgmRigMeta.cgmDynParentGroup(dynChild=mHandle,dynMode=0)
                 
@@ -4393,6 +4404,8 @@ def rig_cleanUp(self):
                 ml_targetDynParents.extend(ml_endDynParents)
                 ml_targetDynParents.extend(mObj.msgList_get('spacePivots',asMeta = True))
                 
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
             
             
                 mDynGroup = cgmRigMeta.cgmDynParentGroup(dynChild=mObj.mNode, dynMode=_mode)# dynParents=ml_targetDynParents)
@@ -4571,14 +4584,20 @@ def build_proxyMesh(self, forceNew = True,  puppetMeshMode = False, skin = False
         if mBlock.proxyGeoRoot:
             _ballMode = mBlock.getEnumValueString('proxyGeoRoot')
             _ballBase=True
-            
-        """
-        _ballMode = 'sdf'#loft
-        _ballBase = True
-        if _blockProfile in ['finger','thumb']:
-            _ballMode = 'loft'
-        if _blockProfile in ['wingBase']:
-            _ballBase = False"""
+
+        log.info(cgmGEN.logString_sub(_str_func, 'proxy mesh plan'))
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'block={0} | profile={1} | proxyGeoCap={2} | proxyGeoRoot={3} | '
+            'rigJoints={4} | extendToStart={5} | ballBase={6} ballMode={7}'.format(
+                mBlock.p_nameShort,
+                mBlock.blockProfile,
+                mBlock.getEnumValueString('proxyGeoCap') if mBlock.hasAttr('proxyGeoCap') else 'n/a',
+                _ballMode if mBlock.proxyGeoRoot else 'off',
+                len(ml_rigJoints),
+                _extendToStart,
+                _ballBase,
+                _ballMode)))
             
         ml_segProxy = cgmMeta.validateObjListArg(self.atUtils('mesh_proxyCreate',
                                                               ml_rigJoints,
@@ -4663,6 +4682,7 @@ def build_proxyMesh(self, forceNew = True,  puppetMeshMode = False, skin = False
             mShape.overrideEnabled = 0
             ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
         
+    BLOCKUTILS.puppetMesh_normalCheck(ml_segProxy)
     mRigNull.msgList_connect('proxyMesh', ml_segProxy)
     
     #l_args = [self.d_module['mPuppet'].displayLayer.mNode] + [mObj.mNode for mObj in ml_segProxy]

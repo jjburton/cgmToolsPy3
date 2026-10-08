@@ -1828,7 +1828,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
             #vert = iter.position(OM.MSpace.kWorld)
             #mNormal = fnMesh.getClosestNormal(vert,OM.MSpace.kWorld)
             pos = mc.pointPosition("{0}.vtx[{1}]".format(mesh,v),world=True)
-            mPoint_hit = OM2.MPoint( pos ) 
+            mPoint_hit = OM2.MPoint(pos)
 
             try:
                 mNormal = fnMesh.getClosestNormal(mPoint_hit,OM2.MSpace.kWorld)
@@ -1837,10 +1837,14 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
                 print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
                 raise err 
             
-            _vec = [v for v in mNormal[0]]
-            #_vec = MATH.normalizeList(_vec)
-            
-            d = cgmRAYS.cast(mesh,startPoint=pos,vector= _vec,firstHit=False)
+            _vec = [float(v) for v in mNormal[0]]
+            _mag = MATH.mag(_vec)
+            if _mag < 1e-8:
+                continue
+            _vec = [v / _mag for v in _vec]
+            # Offset ray origin along the normal so thin proxy tubes do not self-hit at the vtx.
+            _rayStart = [pos[i] + (_vec[i] * 0.005) for i in range(3)]
+            d = cgmRAYS.cast(mesh, startPoint=_rayStart, vector=_vec, firstHit=False)
             _hits = d.get('hits')
             if _hits:
                 if method == 'bokser':

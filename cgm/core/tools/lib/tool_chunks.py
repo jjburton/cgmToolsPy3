@@ -818,20 +818,21 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
                      ann = 'Get info on distance',
                      l = 'Distance')
     
+    _distReport = {'resultWarning': True}
     mc.menuItem(parent=_p, 
                 l = 'Sum',
                 ann = "Get the sum distance between selected targets",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'all','Measure sum',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'all','Measure sum',True,**_distReport),                                                                      
                 )
     mc.menuItem(parent=_p, 
                 l = 'Ordered',
                 ann = "Get the distance between selected targets",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'eachToNextSet','Measure Each To Next',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'eachToNextSet','Measure Each To Next',True,**_distReport),                                                                      
                 )    
     mc.menuItem(parent=_p, 
                 l = 'Arc length',
                 ann = "Length of a curve",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_arcLen, selection,'each','Arc length',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_arcLen, selection,'each','Arc length',True,**_distReport),                                                                      
                 )    
 
     #if pairSelected:     
@@ -843,22 +844,22 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
     mc.menuItem(parent=_n, 
                 l = 'Target',
                 ann = "Find nearest target in from:to selection list",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object','resultWarning':True}),                                                                      
                 )   
     mc.menuItem(parent=_n, 
                 l = 'Shape',
                 ann = "Find nearest shape in  from:to selection list",                    
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape','resultWarning':True}),                                                                      
                 )               
     mc.menuItem(parent=_n, 
                 l = 'Surface Point',
                 ann = "Find nearest surface point in from:to selection list",                    
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface','resultWarning':True}),                                                                      
                 )     
     mc.menuItem(parent=_n, 
                 l = 'Surface Loc',
                 ann = "Find nearest surface point in from:to selection list. And loc it.",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc','resultWarning':True}),                                                                      
                 )               
     mc.menuItem(parent=_n,
                 l = 'Surface Nodes',
@@ -871,12 +872,12 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
     mc.menuItem(parent=_f, 
                 l = 'Target',
                 ann = "Find furthest taregt in from:to selection list",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object','resultWarning':True}),                                                                      
                 )                  
     mc.menuItem(parent=_f, 
                 l = 'Shape',
                 ann = "Find furthest shape in from:to selection list",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape','resultWarning':True}),                                                                      
                 )      
     return _p
 
@@ -1986,6 +1987,10 @@ def uiSection_riggingUtils(parent, selection = None):
                         l='Group',
                         ann = 'Grouping functions....',                        
                         )
+    _flags = mc.menuItem(parent=_p,subMenu=True,
+                        l='Flags',
+                        ann='DAG lock and standard transform attribute visibility',
+                        )
     _attach = mc.menuItem(parent=_p,subMenu=True,tearOff = True,
                         l='Attach by',
                         ann = 'Attach to target functions',                        
@@ -2009,6 +2014,23 @@ def uiSection_riggingUtils(parent, selection = None):
                 l = 'In Place',
                 ann = 'Group me while maintaining heirarchal position',                                                        
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group In Place',**{'parent':True,'maintainParent':True}))     
+
+    mc.menuItem(parent=_flags,
+                l='dagLock',
+                ann='Lock standard transform attrs (tx–sz, v) on selection',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagLock',True,**{'state':True}))
+    mc.menuItem(parent=_flags,
+                l='dagUnlock',
+                ann='Unlock standard transform attrs on selection',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagUnlock',True,**{'state':False}))
+    mc.menuItem(parent=_flags,
+                l='Hide Std',
+                ann='Lock and hide standard transform attrs (setAttrFlags defaults)',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_hide, None,'each','Hide Std Attrs',True))
+    mc.menuItem(parent=_flags,
+                l='Unhide Std',
+                ann='Unlock and unhide standard transform attrs in the channel box',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_unhide, None,'each','Unhide Std Attrs',True))
     
     #Copy stuff -------------------------------------------------------------------------------------------
     mc.menuItem(parent=_copy,

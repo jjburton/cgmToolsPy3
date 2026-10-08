@@ -2323,10 +2323,21 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             log.debug("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
             continue
         
-        _blockProxyFlow = proxy and BLOCKUTILS.block_proxy_mesh_flow(mBlock) and not _skinUnify
-        
+        _blockProxyFlow = BLOCKUTILS.puppet_mesh_use_proxy_pipeline(mBlock, proxy, _skinUnify)
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'block={0} type={1} | path={2} | proxy={3} skinUnify={4}'.format(
+                mBlock.p_nameShort,
+                mBlock.blockType,
+                'verify_proxyMesh' if _blockProxyFlow else 'create_simpleMesh',
+                proxy,
+                _skinUnify)))
+
         if _blockProxyFlow:
-            _res = mBlock.verify_proxyMesh(forceNew = True, puppetMeshMode=True)
+            _res = mBlock.verify_proxyMesh(
+                forceNew=True,
+                puppetMeshMode=True,
+                skin=bool(_skinUnify))
             if _res:
                 ml_proxy.extend(_res)
         else:
@@ -2351,22 +2362,25 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         
     ml_mesh = []
     if unified:
-        if _skinUnify and ml_skinned:
-            ml_skinned = BLOCKUTILS.puppet_mesh_filter_nodes(mPuppet, ml_skinned)
-            if not ml_skinned:
+        if _skinUnify and (ml_skinned or ml_proxy):
+            ml_parts = BLOCKUTILS.puppet_mesh_filter_nodes(mPuppet, (ml_skinned or []) + (ml_proxy or []))
+            if not ml_parts:
                 return log.error("|{0}| >> No valid skinned mesh nodes to unify".format(_str_func))
-            BLOCKUTILS.puppetMesh_normalCheck(ml_skinned)
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'polyUniteSkinned | parts={0}'.format([m.p_nameShort for m in ml_parts])))
+            if ml_skinned:
+                BLOCKUTILS.puppetMesh_normalCheck(ml_skinned)
             mMesh = None
-            for mObj in ml_skinned:
+            for mObj in ml_parts:
                 TRANS.pivots_zeroTransform(mObj)
                 mObj.dagLock(False)
                 mObj.p_parent = False
-            if len(ml_skinned)>1:
-                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_skinned],ch=0))
+            if len(ml_parts) > 1:
+                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_parts], ch=0))
                 mMesh = mMesh[0]
-            elif ml_skinned:
-                mMesh = ml_skinned[0]
-            
+            elif ml_parts:
+                mMesh = ml_parts[0]
+
             if mMesh:
                 mMesh.dagLock(False)
                 mMesh.rename('{0}_unified_geo'.format(mPuppet.p_nameBase))
@@ -2375,10 +2389,12 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 mMesh.dagLock(True)
         elif ml_skinned:
             ml_mesh.extend(ml_skinned)
-        
-        if ml_proxy:
+
+        if ml_proxy and not _skinUnify:
             if len(ml_proxy)>1:
-                ml_mesh.extend(cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_proxy],ch=False)))
+                _united = mc.polyUnite([mObj.mNode for mObj in ml_proxy], ch=False)[0]
+                _ml_united = cgmMeta.validateObjListArg(_united, 'cgmObject', setClass=True)
+                ml_mesh.extend(_ml_united)
             else:
                 ml_mesh.extend(ml_proxy)
         

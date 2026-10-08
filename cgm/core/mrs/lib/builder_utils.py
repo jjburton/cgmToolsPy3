@@ -1515,6 +1515,219 @@ def get_dynParentTargetsDat(self,allParents=True):
     log.debug(cgmGEN._str_subLine)    
 
 
+def scaleSetup_scaleSpacePuppetDefault(self, mChild, mBlock, scaleModeAttr='root_dynParentScaleMode', allow=True):
+    """
+    scaleSetup + dyn parent scale mode 'space' (enum 2): set scaleSpace to puppet on mChild.
+    Skipped when parentToDriver is on or allow is False (e.g. limb digit).
+    """
+    if not allow:
+        return
+    if not getattr(self, 'b_scaleSetup', False):
+        return
+    if not mChild or not mBlock:
+        return
+    if getattr(mBlock, 'parentToDriver', False):
+        return
+    if getattr(mBlock, scaleModeAttr, 0) != 2:
+        return
+    if not mChild.hasAttr('scaleSpace'):
+        return
+    mChild.scaleSpace = 'puppet'
+    ATTR.set_default(mChild.mNode, 'scaleSpace', 'puppet')
+
+
+def _scaleSetup_dynParentModeInt(mDynGroup, mBlock=None):
+    _d_mode = {'space': 0, 'orient': 1, 'follow': 2, 'point': 3}
+    # Block attrs are authoritative at rig build (dyn group may still read default 'space').
+    if mBlock:
+        for _attr in ('root_dynParentMode', 'dynParentMode'):
+            if not getattr(mBlock, 'hasAttr', None) or not mBlock.hasAttr(_attr):
+                continue
+            try:
+                _s = mBlock.getEnumValueString(_attr)
+                if _s in _d_mode:
+                    return _d_mode[_s]
+            except Exception:
+                pass
+    if mDynGroup and hasattr(mDynGroup, 'getEnumValueString'):
+        try:
+            _s = mDynGroup.getEnumValueString('dynMode')
+            if _s in _d_mode:
+                return _d_mode[_s]
+        except Exception:
+            pass
+    _raw = mDynGroup.dynMode if mDynGroup else 0
+    if isinstance(_raw, str):
+        return _d_mode.get(_raw, 2)
+    try:
+        return int(_raw)
+    except (TypeError, ValueError):
+        return 2
+
+
+def _scaleSetup_joint_to_dyn_parent_target(mJnt):
+    if not mJnt:
+        return None
+    _mg = mJnt.getMessage('masterGroup')
+    if _mg:
+        return cgmMeta.asMeta(_mg[0])
+    _dg = mJnt.getMessage('dynParentGroup')
+    if _dg:
+        return cgmMeta.asMeta(_dg[0])
+    return mJnt
+
+
+def _scaleSetup_index_in_dyn_parents(mTar, ml_parents):
+    if not mTar or not ml_parents:
+        return None
+
+    def _node_str(mObj):
+        if not mObj:
+            return None
+        return mObj.mNode if hasattr(mObj, 'mNode') else mObj
+
+    _want = _node_str(mTar)
+    if not _want:
+        return None
+    for i, mO in enumerate(ml_parents):
+        if mO == mTar or _node_str(mO) == _want:
+            return i
+    try:
+        _alias = mTar.getNameAlias()
+        if _alias:
+            for i, mO in enumerate(ml_parents):
+                if hasattr(mO, 'getNameAlias') and mO.getNameAlias() == _alias:
+                    return i
+    except Exception:
+        pass
+    return None
+
+
+def _scaleSetup_walk_parent_nondigit_driver_point(mModule, attach_mode):
+    """Digit/finger under hand/arm: driver from first ancestor whose rigSetup is not digit."""
+    if attach_mode not in ('base', 'end'):
+        return None
+    mP = mModule.getMessageAsMeta('moduleParent')
+    while mP:
+        mBlk = mP.getMessageAsMeta('rigBlock')
+        _setup = ''
+        if mBlk and getattr(mBlk, 'hasAttr', None) and mBlk.hasAttr('rigSetup'):
+            _setup = mBlk.getEnumValueString('rigSetup') or ''
+        if _setup != 'digit':
+            try:
+                return mP.atUtils('get_driverPoint', attach_mode)
+            except Exception:
+                pass
+        mP = mP.getMessageAsMeta('moduleParent')
+    return None
+
+
+def _scaleSetup_attach_driver_target(self, mChild, mBlock, attach_mode):
+    """Dyn-parent list entry for block attachPoint (parent IK drivers vs own limb rigJoints on rigRoot)."""
+    mModule = getattr(self, 'mModule', None)
+    mRigNull = getattr(self, 'mRigNull', None)
+    if not mModule or not mBlock:
+        return None
+    if attach_mode not in ('base', 'end', 'closest', 'index'):
+        return None
+
+    str_rig_setup = getattr(self, 'str_rigSetup', None)
+    if not str_rig_setup and mBlock and getattr(mBlock, 'hasAttr', None) and mBlock.hasAttr('rigSetup'):
+        try:
+            str_rig_setup = mBlock.getEnumValueString('rigSetup')
+        except Exception:
+            str_rig_setup = None
+    mRoot = mRigNull.getMessageAsMeta('rigRoot') if mRigNull else None
+
+    if str_rig_setup == 'digit' and attach_mode in ('base', 'end'):
+        mDigit = _scaleSetup_walk_parent_nondigit_driver_point(mModule, attach_mode)
+        if mDigit:
+            return mDigit
+
+    try:
+        if attach_mode == 'index' and mBlock.hasAttr('attachIndex'):
+            return mModule.atUtils('get_driverPoint', 'index', mBlock.attachIndex)
+        if attach_mode in ('base', 'end', 'closest'):
+            return mModule.atUtils('get_driverPoint', attach_mode)
+    except Exception:
+        pass
+
+    if mChild and mRoot and mChild == mRoot and str_rig_setup != 'digit':
+        ml_j = mRigNull.msgList_get('rigJoints', asMeta=True, cull=True) if mRigNull else []
+        if ml_j and attach_mode == 'base':
+            return _scaleSetup_joint_to_dyn_parent_target(ml_j[0])
+        if ml_j and attach_mode == 'end':
+            return _scaleSetup_joint_to_dyn_parent_target(ml_j[-1])
+    return None
+
+
+def scaleSetup_dynParentDefaultIndexFromAttach(self, mDynGroup, mChild=None, mBlock=None, fallbackIdx=1):
+    """
+    scaleSetup: dyn parent enum index from block attachPoint on the rebuilt dynParents list.
+    """
+    if not mDynGroup:
+        return fallbackIdx
+    ml_parents = mDynGroup.msgList_get('dynParents', cull=True, asMeta=True) or []
+    if len(ml_parents) < 2:
+        return fallbackIdx
+    if mBlock is None:
+        mBlock = getattr(self, 'mBlock', None)
+    ml_above = getattr(self, 'ml_dynParentsAbove', []) or []
+
+    _attach = 'end'
+    if mBlock and getattr(mBlock, 'hasAttr', None) and mBlock.hasAttr('attachPoint'):
+        _attach = mBlock.getEnumValueString('attachPoint') or 'end'
+
+    _mTar = _scaleSetup_attach_driver_target(self, mChild, mBlock, _attach)
+    _idx = _scaleSetup_index_in_dyn_parents(_mTar, ml_parents)
+
+    if _idx is None and ml_above and _attach in ('base', 'end'):
+        _idxs = []
+        for mA in ml_above:
+            _ix = _scaleSetup_index_in_dyn_parents(mA, ml_parents)
+            if _ix is not None:
+                _idxs.append(_ix)
+        if _idxs:
+            if _attach == 'base':
+                _idx = _idxs[0]
+            elif len(_idxs) >= 2:
+                # shoulder, wrist, … — attach end is wrist (second parent driver), not limb root last
+                _idx = _idxs[1]
+            else:
+                _idx = _idxs[-1]
+
+    if _idx is None:
+        return fallbackIdx
+    return _idx
+
+
+def scaleSetup_dynParentDefaultIndex(self, mChild, mDynGroup, idx=1, mBlock=None, ml_targetDynParents=None):
+    """scaleSetup: default dyn parent enum (rigRoot, handle main, …) without reordering the parent list."""
+    if not getattr(self, 'b_scaleSetup', False):
+        return
+    if not (mChild and mDynGroup):
+        return
+    if mBlock is None and getattr(self, 'mBlock', None):
+        mBlock = self.mBlock
+    idx = scaleSetup_dynParentDefaultIndexFromAttach(
+        self, mDynGroup, mChild=mChild, mBlock=mBlock, fallbackIdx=idx)
+    mDynChild = mDynGroup.getMessageAsMeta('dynChild') or mChild
+    _mode = _scaleSetup_dynParentModeInt(mDynGroup, mBlock)
+    if _mode == 2:
+        _attrs = ['orientTo', 'follow']
+    else:
+        _attrs = cgmRIGMETA.d_DynParentGroupModeAttrs.get(_mode, ['space'])
+    for _a in _attrs:
+        if not mDynChild.hasAttr(_a):
+            continue
+        _l = ATTR.get_enum(mDynChild.mNode, _a).split(':')
+        if idx >= len(_l):
+            continue
+        _label = _l[idx]
+        ATTR.set_default(mDynChild.mNode, _a, _label)
+        ATTR.set(mDynChild.mNode, _a, _label)
+
+
 #@cgmGEN.Timer
 def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, upVector = None, uValues = [], offset = None, size = None,f_factor = None,connectionPoints=6):
     """

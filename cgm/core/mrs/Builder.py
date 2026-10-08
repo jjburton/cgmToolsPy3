@@ -139,7 +139,7 @@ _sidePadding = 25
 
 def reloadMRSStuff():
     log.info("reloading...")
-    for m in [BLOCKGEN,MRSPOST,RIGSHAPES]:
+    for m in [BLOCKGEN,MRSPOST,RIGSHAPES,HELPERS]:
         cgmGEN._reloadMod(m)
     BLOCKGEN.reloadMRSStuff()
 
@@ -213,6 +213,18 @@ def blockPicker_get(mBlock=None):
         return  BLOCKPICKER
             
     return ui_blockPicker(mBlock)
+
+
+def blockCreate_open():
+    """Launch BlockCreate with fresh Helpers + Builder modules (scene helpers re-read in insert_init)."""
+    _str_func = 'blockCreate_open'
+    log.info("|{0}| >> Reloading Helpers...".format(_str_func))
+    cgmGEN._reloadMod(HELPERS)
+    import cgm.core.mrs.Builder as BUILDER_MOD
+    log.info("|{0}| >> Reloading Builder...".format(_str_func))
+    cgmGEN._reloadMod(BUILDER_MOD)
+    return BUILDER_MOD.ui_createBlock()
+
 
 class ui_blockPicker(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
@@ -4473,7 +4485,8 @@ class ui(cgmUI.cgmGUI):
             
             global UI
             UI = self
-            
+
+            self.setSceneChangeCB(cgmGEN.Callback(self.uiFunc_on_scene_change))
             
     def build_menus(self):
         self.uiMenu_options = mUI.MelMenu( l='Options', pmc=self.buildMenu_options)                        
@@ -5870,7 +5883,7 @@ class ui(cgmUI.cgmGUI):
         self.uiMenu_add.clear()
         
         mUI.MelMenuItem(self.uiMenu_add, label = 'Create UI', 
-                        c = lambda *a:ui_createBlock())
+                        c = lambda *a:blockCreate_open())
         
         
         mUI.MelMenuItemDiv(self.uiMenu_add, label = 'Old')
@@ -6705,6 +6718,30 @@ class ui(cgmUI.cgmGUI):
             return
             
         except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+
+    def uiFunc_on_scene_change(self):
+        """scriptJob SceneOpened — defer until the new scene DAG is ready."""
+        _str_func = 'uiFunc_on_scene_change'
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'Scene opened — scheduling block list refresh'))
+        mc.evalDeferred(cgmGEN.Callback(self.uiFunc_refresh_blocks_after_scene_open), lp=True)
+
+    def uiFunc_refresh_blocks_after_scene_open(self):
+        _str_func = 'uiFunc_refresh_blocks_after_scene_open'
+        if not getattr(self, 'uiScrollList_blocks', None):
+            return
+        try:
+            self.uiFunc_block_clearActive()
+            log.info(cgmGEN.logString_msg(_str_func, 'Block list refreshed'))
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'clearActive failed ({0}); rebuilding list'.format(err)))
+            try:
+                self.uiScrollList_blocks.mActive = None
+                self.uiScrollList_blocks.rebuild()
+            except Exception as err2:
+                log.warning(cgmGEN.logString_msg(_str_func, 'rebuild failed: {0}'.format(err2)))
+
     def uiFunc_block_clearActive(self):
         #self.uiField_inspector(edit=True, label = '')
         self.uiField_report(edit=True, label = '...', en=False)        
@@ -9467,54 +9504,18 @@ class ui_createBlock(CGMUI.cgmGUI):
         # Initialize HelperDag system
         self.mHelper = HELPERS.HelperDag(self)
         self.mDag = self.mHelper.mDag
-        self.ml_helpers = VALID.listArg(self.mDag.getMessageAsMeta('helpers'))
+        self.ml_helpers = HELPERS.helpers_msglist_get(self.mDag)
         
-        # Debug: Check what we're getting from the DAG
         log.debug("|{0}| >> DAG node: {1}".format(_str_func, self.mDag.mNode))
-        log.debug("|{0}| >> Raw helpers from DAG: {1}".format(_str_func, self.mDag.getMessageAsMeta('helpers')))
-        log.debug("|{0}| >> Processed helpers list: {1}".format(_str_func, self.ml_helpers))
+        log.debug("|{0}| >> Helpers msgList: {1}".format(_str_func, len(self.ml_helpers)))
         
-        # Debug: List all objects that might be helpers
-        try:
-            all_objects = mc.ls('*helper*', type='transform')
-            log.debug("|{0}| >> All objects matching '*helper*': {1}".format(_str_func, all_objects))
-        except:
-            pass
-        
-        # Check if we have existing helpers in the scene
         if self.ml_helpers:
-            log.info("|{0}| >> Found {1} existing helpers in scene".format(_str_func, len(self.ml_helpers)))
-            # Filter out any helpers that no longer exist in the scene
-            valid_helpers = []
-            for i, mHelper in enumerate(self.ml_helpers):
-                try:
-                    # Check if helper is valid and exists
-                    if (mHelper and 
-                        hasattr(mHelper, 'mNode') and 
-                        mHelper.mNode and 
-                        mc.objExists(mHelper.mNode)):
-                        valid_helpers.append(mHelper)
-                        log.debug("|{0}| >> Helper {1} is valid".format(_str_func, mHelper.mNode))
-                    else:
-                        log.warning("|{0}| >> Helper at index {1} ({2}) no longer exists, removing from list".format(_str_func, i, mHelper))
-                except Exception as e:
-                    log.warning("|{0}| >> Error validating helper at index {1} ({2}): {3}".format(_str_func, i, mHelper, str(e)))
-            
-            self.ml_helpers = valid_helpers
-            self.mDag.helpers = self.ml_helpers  # Update the DAG with valid helpers
-            
-            if self.ml_helpers:
-                log.info("|{0}| >> Restored {1} valid helpers".format(_str_func, len(self.ml_helpers)))
-                # Show user feedback about restored helpers
-                self._show_helper_restoration_feedback(len(self.ml_helpers))
-            else:
-                log.info("|{0}| >> No valid helpers found in DAG, trying fallback search...".format(_str_func))
-                # Fallback: search for helpers by name pattern
-                self._fallback_helper_search()
+            log.info("|{0}| >> Restored {1} helpers from mrsHelpers".format(_str_func, len(self.ml_helpers)))
+            self._show_helper_restoration_feedback(len(self.ml_helpers))
         else:
-            log.info("|{0}| >> No existing helpers found in DAG, trying fallback search...".format(_str_func))
-            # Fallback: search for helpers by name pattern
+            log.info("|{0}| >> No helpers on mrsHelpers, trying fallback search...".format(_str_func))
             self._fallback_helper_search()
+        HELPERS.helpers_ui_update_registered(self, syncFromDag=False)
     
     def _fallback_helper_search(self):
         """Fallback method to search for helpers by name pattern"""
@@ -9555,7 +9556,7 @@ class ui_createBlock(CGMUI.cgmGUI):
                     seen_nodes.add(helper.mNode)
             
             self.ml_helpers = unique_helpers
-            self.mDag.helpers = self.ml_helpers  # Update the DAG
+            HELPERS.helpers_msglist_set(self.mDag, self.ml_helpers)
             
             log.info("|{0}| >> Found {1} helpers via fallback search".format(_str_func, len(self.ml_helpers)))
             self._show_helper_restoration_feedback(len(self.ml_helpers))
@@ -9563,17 +9564,9 @@ class ui_createBlock(CGMUI.cgmGUI):
             log.info("|{0}| >> No helpers found via fallback search".format(_str_func))
     
     def _show_helper_restoration_feedback(self, count):
-        """Show user feedback about restored helpers"""
+        """Log when existing helpers were restored from mrsHelpers."""
         if count > 0:
-            # Use Maya's built-in confirmation dialog to show the user
-            result = mc.confirmDialog(
-                title='Block Helpers Restored',
-                message='Found and restored {0} existing block helpers from the scene.\n\nThese helpers are now available for block creation.'.format(count),
-                button=['OK'],
-                defaultButton='OK',
-                cancelButton='OK',
-                dismissString='OK'
-            )
+            log.info("BlockCreate | Restored {0} block helper(s) from mrsHelpers.".format(count))
     
     def uiFunc_refresh_helpers(self):
         """Manually refresh helpers from the scene"""
@@ -9582,6 +9575,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         # Re-initialize the helper system
         self._init_helper_system()
+        HELPERS.helpers_ui_update_registered(self, syncFromDag=False)
         
         # Show feedback
         if hasattr(self, 'ml_helpers') and self.ml_helpers:
@@ -9723,33 +9717,23 @@ class ui_createBlock(CGMUI.cgmGUI):
             ml_helpers = []
             
         for i in range(count):
+            if i >= len(ml_helpers) or not ml_helpers[i]:
+                return log.error("|{0}| >> Helper missing for index {1} (have {2})".format(
+                    _str_func, i, len(ml_helpers)))
             mHelper = ml_helpers[i]
 
             
             if mHelper and mHelper.mNode:
-                _orient = mHelper.p_orient
-                mHelper.p_orient = 0,0,0
-                _size = TRANS.bbSize_get(mHelper.mNode)
-                mHelper.p_orient = _orient
-                _cast = max(_size) * 1.5
-                #d_create['size'] = _size
-                _helper = mHelper.mNode
-                _shapeDirection = d_create.get('shapeDirection','z+')
-                
-                _d_shapeToCast = {'y':'xzy',
-                                  'x':'yzx',
-                                  'z':'xyz'}
-                _d_shapeToCast[_shapeDirection[0]][0]
-                _castSize = [RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][0],shapes = _helper, selfCast=True, maxDistance=10000),
-                             RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][1],shapes = _helper, selfCast=True, maxDistance=10000),
-                             RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][2],shapes = _helper, selfCast=True, maxDistance=10000),
-                             ]
+                _shapeDirection = d_create.get('shapeDirection', 'z+')
+                _castSize = HELPERS.helper_block_size_from_helper(mHelper, _shapeDirection)
                 d_create['size'] = _castSize
                 
                 d_create['jointRadius'] = (MATH.average(_castSize[0],_castSize[1])) * .2
                 
             pprint.pprint(d_create)
             _mBlock = cgmMeta.createMetaNode('cgmRigBlock',**d_create)
+            if mHelper and mHelper.mNode:
+                _mBlock.p_orient = mHelper.p_orient
 
             
             if _sel:

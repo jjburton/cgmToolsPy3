@@ -1963,6 +1963,7 @@ def ribbon(jointList = None,
         if squashStretchMain == 'arcLength':
             log.debug("|{0}| >> arcLength aim stretch setup ".format(_str_func)+cgmGEN._str_subLine)
             for i,mJnt in enumerate(ml_joints):#Nodes =======================================================
+                l_argBuild = []
                 try:
                     v_scaleFactor = l_scaleFactors[i]
                 except Exception as err:
@@ -2050,7 +2051,7 @@ def ribbon(jointList = None,
                                                                             mPlug_aimNormalized.p_combinedName,
                                                                             mPlug_segScale.p_combinedName))
                     else:
-                        mPlug_aimResult = mPlug_aimNormalized
+                        mPlug_aimResult = mPlug_aimNormalized or mPlug_outResult
                         
                     
                 else:
@@ -2070,7 +2071,7 @@ def ribbon(jointList = None,
                     for axis in ['scaleX','scaleY']:
                         mPlug_outResult.doConnectOut('{0}.{1}'.format(mJnt.mNode,axis))
                         
-                if not skipAim:
+                if not skipAim and mPlug_aimResult:
                     mPlug_aimResult.doConnectOut('{0}.{1}'.format(mJnt.mNode,'scaleZ'))
                     
         elif squashStretchMain == 'pointDist':

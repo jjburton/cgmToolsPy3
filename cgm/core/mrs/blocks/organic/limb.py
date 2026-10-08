@@ -94,6 +94,10 @@ from cgm.core import cgm_Meta as cgmMeta
 #>> Block Settings
 #=============================================================================================================
 __version__ = cgmGEN.__RELEASESTRING
+
+# TEMP: digit rigSetup skips scaleSetup dyn-parent / scaleSpace pass (remove when finger attach stable)
+_LIMB_TEMP_SKIP_SCALE_SETUP_DIGIT = True
+
 __autoForm__ = False
 __dimensions = [15.2, 23.2, 19.7]#...cm
 __menuVisible__ = True
@@ -1857,7 +1861,7 @@ def form(self):
         
         
             mLinearCurve.parent = mNoTransformNull
-            mLinearCurve.rename('seg_{0}_trackCrv'.format(i))
+            mLinearCurve.rename('{0}_seg_{1}_trackCrv'.format(self.p_nameBase, i))
         
         
             #Tmp loft mesh -------------------------------------------------------------------
@@ -3966,6 +3970,12 @@ def rig_dataBuffer(self):
         #Squash stretch logic  =================================================================================
         log.debug("|{0}| >> Squash stretch..".format(_str_func))
         self.b_scaleSetup = mBlock.scaleSetup
+        self.b_scaleSetupDynSpace = self.b_scaleSetup
+        if (_LIMB_TEMP_SKIP_SCALE_SETUP_DIGIT
+                and mBlock.getEnumValueString('rigSetup') == 'digit'):
+            self.b_scaleSetupDynSpace = False
+            log.info("|{0}| >> TEMP: digit rigSetup — scaleSetup dyn-parent / scaleSpace disabled".format(
+                _str_func))
         self.b_squashSetup = False
         
         if not self.md_roll:
@@ -6994,11 +7004,12 @@ def rig_frame(self):
                 mPivotDriverHandle = mPivotHolderHandle
             mPivotResultDriver = mPivotDriverHandle.doCreateAt()
 
-        mPivotResultDriver.addAttr('cgmName','pivotResult')
+        _part = self.d_module['partName']
+        mPivotResultDriver.addAttr('cgmName','{0}_pivotResult'.format(_part))
         mPivotResultDriver.addAttr('cgmType','driver')
         mPivotResultDriver.doName()
         
-        mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
+        mPivotResultDriver.addAttr('cgmAlias', '{0}_PivotResult'.format(_part))
         mIKHandleDriver = mPivotResultDriver
         
         if mIKControlEnd:
@@ -7685,11 +7696,12 @@ def rig_frameSingle(self):
                 else:
                     mPivotDriverHandle = mPivotHolderHandle
                 mPivotResultDriver = mPivotDriverHandle.doCreateAt()
-            mPivotResultDriver.addAttr('cgmName','pivotResult')
+            _part = self.d_module['partName']
+            mPivotResultDriver.addAttr('cgmName','{0}_pivotResult'.format(_part))
             mPivotResultDriver.addAttr('cgmType','driver')
             mPivotResultDriver.doName()
             
-            mPivotResultDriver.addAttr('cgmAlias', 'PivotResult')
+            mPivotResultDriver.addAttr('cgmAlias', '{0}_PivotResult'.format(_part))
             mIKHandleDriver = mPivotResultDriver
             
             if mIKControlEnd:
@@ -8723,9 +8735,6 @@ def rig_cleanUp(self):
                 mDynGroup.rebuild()
                 
                 
-        else:
-            ml_baseDynParents.append(mRoot)
-        
         #pprint.pprint(vars())
         
         #...Root controls ================================================================================
@@ -8742,7 +8751,7 @@ def rig_cleanUp(self):
             mRoot.addAttr('cgmAlias','{0}_root'.format(self.d_module['partName']))
         
         #if str_rigSetup not in ['digit']:
-        if mBlock.root_dynParentScaleMode == 2:
+        if self.b_scaleSetupDynSpace or mBlock.root_dynParentScaleMode == 2:
             ml_targetDynParents.extend(self.ml_dynParentsAbove)
             
         ml_targetDynParents.extend(self.ml_dynEndParents)
@@ -8758,14 +8767,23 @@ def rig_cleanUp(self):
             
         mDynGroup.rebuild()
         
+        if self.b_scaleSetupDynSpace:
+            BUILDUTILS.scaleSetup_dynParentDefaultIndex(
+                self, mRoot, mDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
+        
+        # scaleSetup: orientTo/follow/space from attachPoint; scaleSpace left at 0 unless legacy below
+        if not self.b_scaleSetupDynSpace:
+            if mBlock.root_dynParentScaleMode == 2 and self.str_rigSetup != 'digit':
+                mRoot.scaleSpace = 'puppet'
+                ATTR.set_default(mRoot.mNode, 'scaleSpace', 'puppet')
+        
         _enum_dynParentMode = mBlock.getEnumValueString('root_dynParentMode')
         if _enum_dynParentMode == 'follow':
             mDynGroup.dynFollow.p_parent = self.mConstrainNull
         
-        
-        if mBlock.root_dynParentScaleMode == 2 and self.str_rigSetup != 'digit':
-            mRoot.scaleSpace = 'puppet'
-            ATTR.set_default(mRoot.mNode, 'scaleSpace', 'puppet')
+        ml_endDynParents.insert(0, mRoot)
+        if self.b_scaleSetupDynSpace and not self.b_lever:
+            ml_baseDynParents.append(mRoot)
             
         #mDynGroup.dynFollow.p_parent = self.mConstrainNull
         
@@ -8811,6 +8829,9 @@ def rig_cleanUp(self):
             
             ml_targetDynParents.append(self.md_dynTargetsParent['world'])
             ml_targetDynParents.extend(mHandle.msgList_get('spacePivots',asMeta = True))
+        
+            if self.b_scaleSetupDynSpace:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
         
             #mDynGroup.dynMode = 2
         
@@ -8859,6 +8880,9 @@ def rig_cleanUp(self):
             #if str_rigSetup not in ['digit']:
             ml_targetDynParents.extend(ml_endDynParents)        
             #ml_targetDynParents.extend(mHandle.msgList_get('spacePivots',asMeta = True))
+        
+            if self.b_scaleSetupDynSpace:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
         
             mDynGroup = cgmRigMeta.cgmDynParentGroup(dynChild=mHandle,dynMode=0)
             #mDynGroup.dynMode = 2
@@ -8952,6 +8976,9 @@ def rig_cleanUp(self):
             #if str_rigSetup not in ['digit']:
             ml_targetDynParents.extend(ml_endDynParents)
             ml_targetDynParents.extend(mObj.msgList_get('spacePivots',asMeta = True))
+    
+            if self.b_scaleSetupDynSpace:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
     
             mDynGroup = cgmRigMeta.cgmDynParentGroup(dynChild=mObj.mNode, dynMode=_mode)# dynParents=ml_targetDynParents)
             #mDynGroup.dynMode = 2
@@ -9097,7 +9124,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
     try:
         _short = self.p_nameShort
         _str_func = '[{0}] > build_proxyMesh'.format(_short)
-        log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
+        log.info(cgmGEN.logString_sub(_str_func, 'start | puppetMeshMode={0} skin={1}'.format(
+            puppetMeshMode, skin)))
       
         _start = time.time()
         mBlock = self
@@ -9150,6 +9178,7 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 else:
                     return _bfr
             if not mBlock.proxyBuild:
+                log.info(cgmGEN.logString_msg(_str_func, 'proxyBuild off — skip proxy mesh'))
                 return 
             
         #Figure out our rig joints --------------------------------------------------------
@@ -9225,7 +9254,25 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
             
             ml_clav = []
             ml_casters = copy.copy(ml_rigJoints)
-            
+
+            log.info(cgmGEN.logString_sub(_str_func, 'proxy mesh plan'))
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'block={0} | profile={1} | proxyGeoCap={2} | proxyLoft={3} | proxyEnd={4} | '
+                'proxyGeoRoot={5} | rigJoints={6} | extendToStart={7} | extendCastSurface={8} | '
+                'ballBase={9} ballMode={10} | pivotHelper={11}'.format(
+                    mBlock.p_nameShort,
+                    _blockProfile,
+                    mBlock.getEnumValueString('proxyGeoCap') if mBlock.hasAttr('proxyGeoCap') else 'n/a',
+                    _proxyLoft,
+                    _str_proxyEnd,
+                    _ballMode if mBlock.proxyGeoRoot else 'off',
+                    len(ml_casters),
+                    _extendToStart,
+                    _extendToEnd,
+                    _ballBase,
+                    _ballMode,
+                    bool(mPivotHelper))))
 
             #pprint.pprint(vars())
             ml_segProxy = cgmMeta.validateObjListArg(mBlock.atUtils('mesh_proxyCreate',
@@ -9361,6 +9408,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                     ml_segProxy = ml_united               
                 
             
+            if not skin:
+                BLOCKUTILS.puppetMesh_normalCheck(ml_segProxy)
             mRigNull.msgList_connect('puppetProxyMesh', ml_segProxy)
             return ml_segProxy
         
@@ -9399,7 +9448,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
                 
             
+        BLOCKUTILS.puppetMesh_normalCheck(ml_segProxy)
         mRigNull.msgList_connect('proxyMesh', ml_segProxy)
+        return ml_segProxy
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 

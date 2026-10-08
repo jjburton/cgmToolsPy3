@@ -125,7 +125,8 @@ _d_attrStateOff = {0:[],
 
 d_attrStateMask = {'define':['neckDirection'],
                    'form':['neckBuild',
-                           'neckSubShapers','neckShapers'],
+                           'neckSubShapers','neckShapers',
+                           'formAim','shapersAim','shapersAimUp'],
                    'prerig':['neckControls'],
                    'skeleton':['neckJoints','skeletonMode'],
                    'squashStretch':['segmentStretchBy'],
@@ -157,6 +158,7 @@ _d_attrStateOn = {0:[],
 d_attrProfileMask = {'box':['loftDegree','loftList','loftSetup','loftShape','loftSides','loftSplit',
                             'neckBuild','neckControls','neckDirection','neckIK',
                             'neckJoints','neckShapers','neckSubShapers',
+                            'formAim','shapersAim','shapersAimUp',
                             'proxyGeoRoot','ribbonAim','ribbonConnectBy','ribbonParam',
                             'ikMidSetup',]}
 
@@ -301,6 +303,9 @@ d_attrsToMake = {'visMeasure':'bool',
                  'neckControls':'int',
                  'neckShapers':'int',
                  'neckSubShapers':'int',
+                 'formAim':'none:simple:chain',
+                 'shapersAim':'none:chain:orientToHandle',
+                 'shapersAimUp':'none:handle:blockOrient',
                  'neckJoints':'int',
                  'ikSplineTwistEndConnect':'bool',
                  'ikSplineExtendEnd':'bool',                 
@@ -321,6 +326,9 @@ d_defaultSettings = {'version':__version__,
                      'neckControls': 1,
                      'neckShapers':0,
                      'neckSubShapers':2,
+                     'formAim':'simple',
+                     'shapersAim':'chain',
+                     'shapersAimUp':'handle',
                      'attachPoint':'end',
                      'loftSides': 10,
                      'loftSplit':1,
@@ -964,6 +972,7 @@ def form(self):
             _loftShapeBase = self.getEnumValueString('loftShape')
             _loftShape = 'loft' + _loftShapeBase[0].capitalize() + ''.join(_loftShapeBase[1:])
             _loftSetup = self.getEnumValueString('loftSetup')
+            _shapersAimUp = self.getEnumValueString('shapersAimUp') or 'blockOrient'
             
             cgmGEN.func_snapShot(vars())
             
@@ -976,6 +985,9 @@ def form(self):
                 aShapers = 'neckShapers',aSubShapers = 'neckSubShapers',
                 loftShape=_loftShape,l_basePos = _l_basePos, baseSize=_size_handle,
                 orientHelperPlug='orientNeckHelper',
+                formAim=self.getEnumValueString('formAim'),
+                shapersAim=self.getEnumValueString('shapersAim'),
+                shapersAimUp=_shapersAimUp,
                 sizeWidth = _size_width, sizeLoft=_size_loft,side = _side,
                 mFormNull = mFormNull,mNoTransformNull = mNoTransformNull,
                 mDefineEndObj=None)
@@ -2086,7 +2098,7 @@ def rig_dataBuffer(self):
             _driverSetup =  mBlock.getEnumValueString('ribbonAim')
         self.d_squashStretch['driverSetup'] = _driverSetup
     
-        self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
+        #self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
         self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
         self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
         self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
@@ -3185,7 +3197,8 @@ def rig_segments(self):
         mRigNull = self.mRigNull
         mRootParent = self.mDeformNull
         mModule = self.mModule
-        mRoot = mRigNull.rigRoot
+        try:mRoot = mRigNull.scaleRoot
+        except:mRoot = mRigNull.rigRoot
         
         ml_segJoints = mRigNull.msgList_get('segmentJoints')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
@@ -3213,16 +3226,11 @@ def rig_segments(self):
         log.debug("|{0}| >> Ribbon setup...".format(_str_func))    
         
         ml_influences = copy.copy(ml_handleJoints)
-        
-        _settingsControl = None
-        if mBlock.squashExtraControl:
-            _settingsControl = mRigNull.settings.mNode
-        
-        _extraSquashControl = mBlock.squashExtraControl
                
         res_segScale = self.UTILS.get_blockScale(self,'segMeasure')
         mPlug_masterScale = res_segScale[0]
         mMasterCurve = res_segScale[1]
+        self.fnc_connect_toRigGutsVis(mMasterCurve)
         
         if self.ml_ikMidControls and mBlock.neckControls == 1:
             log.debug("|{0}| >> seg mid IK control found...".format(_str_func))
@@ -3230,16 +3238,17 @@ def rig_segments(self):
         
         _d = {'jointList':[mObj.mNode for mObj in ml_segJoints],
               'baseName':'{0}_rigRibbon'.format(self.d_module['partName']),
-              'connectBy':'constraint',
-              'extendEnds':True,
+              'connectBy':mBlock.getEnumValueString('ribbonConnectBy') or 'constraint',
+              'extendEnds':mBlock.ribbonExtendEnds,
               'masterScalePlug':mPlug_masterScale,
               'paramaterization':mBlock.getEnumValueString('ribbonParam'),          
               'influences':ml_influences,
-              'settingsControl':_settingsControl,
-              'attachEndsToInfluences':False,
-              'parentDeformTo':self.mDeformNull,
+              'settingsControl':mRigNull.settings.mNode,
+              'attachStartToInfluence':False,
+              'attachEndToInfluence':False,
+              'parentDeformTo':mRoot,
+              'driverSetup':mBlock.getEnumValueString('ribbonAim'),
               'skipAim':mBlock.squashSkipAim,
-                            
               'moduleInstance':mModule}
         
         if self.ml_ikMidControls:
@@ -3248,10 +3257,12 @@ def rig_segments(self):
         _d.update(self.d_squashStretch)
         
         if self.str_segmentType in ['ribbon','ribbonLive']:
-            _d['liveSurface'] = False if self.str_segmentType == 'ribbon' else True
-            
             if self.str_segmentStretchBy == 'scale':
                 _d['setupAimScale'] = True
+            else:
+                _d['setupAimScale'] = False
+                
+            _d['liveSurface'] = False if self.str_segmentType == 'ribbon' else True
                 
             if self.str_ribbonAttachEndsToInfluence == 'both':
                 _d['attachEndsToInfluences'] = True
@@ -3260,8 +3271,7 @@ def rig_segments(self):
             elif self.str_ribbonAttachEndsToInfluence == 'end':
                 _d['attachEndToInfluence'] = True            
             
-            _d['extendEnds'] = mBlock.ribbonExtendEnds
-            
+            cgmGEN._reloadMod(IK)
             res_ribbon = IK.ribbon(**_d)
             #ml_surfaces = res_ribbon['mlSurfaces']
         else:
@@ -4341,11 +4351,15 @@ def rig_cleanUp(self):
                 
             mDynGroup.rebuild()
             
-            if mBlock.root_dynParentScaleMode == 2:
-                mRoot.scaleSpace = 'puppet'
-                ATTR.set_default(mRoot.mNode, 'scaleSpace', 'puppet')
+            if self.b_scaleSetup:
+                BUILDERUTILS.scaleSetup_dynParentDefaultIndex(
+                    self, mRoot, mDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
+            
+            BUILDERUTILS.scaleSetup_scaleSpacePuppetDefault(self, mRoot, mBlock)
             
             ml_endDynParents.insert(0,mRoot)
+            if self.b_scaleSetup:
+                ml_baseDynParents.append(mRoot)
             if mDynGroup.getMessage('dynFollow'):
                 mDynGroup.dynFollow.p_parent = self.mDeformNull   
             
@@ -4412,7 +4426,9 @@ def rig_cleanUp(self):
                 mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
                 if mControlIKNeckRoot:
                     ml_targetDynParents.insert(0,mControlIKNeckRoot )
-                    
+            
+            if self.b_scaleSetup:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
             
             mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mHandle,dynMode=2)
             #mDynGroup.dynMode = 2
@@ -4457,6 +4473,9 @@ def rig_cleanUp(self):
                 mMainDriver = mHandle.getMessageAsMeta('mainDriver')
                 if mMainDriver:
                     ml_targetDynParents.insert(0,mMainDriver)
+                
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
                 
                 mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mHandle,dynMode=0)
                 #mDynGroup.dynMode = 2
@@ -4621,6 +4640,9 @@ def rig_cleanUp(self):
                 
                 ml_targetDynParents.extend(ml_endDynParents)
                 ml_targetDynParents.extend(mObj.msgList_get('spacePivots',asMeta = True))
+            
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
             
                 mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mObj.mNode, dynMode=_mode)# dynParents=ml_targetDynParents)
                 #mDynGroup.dynMode = 2
@@ -4998,7 +5020,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 if mPrerigProxy.getMayaType() == 'nurbsSurface':
                     mPrerigProxyDup = RIGCREATE.get_meshFromNurbs(mPrerigProxy,
                                                         mode = 'general',
-                                                        uNumber = mBlock.loftSplit, vNumber=mBlock.loftSides)                
+                                                        uNumber = mBlock.loftSplit, vNumber=mBlock.loftSides)
+                    mPrerigProxyDup = BLOCKUTILS.proxy_mesh_cap_after_nurbs_tessellate(
+                        mBlock, mPrerigProxyDup, _str_func, label='neckPrerigLoft')
                 else:
                     mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
                     
@@ -5160,7 +5184,16 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 if mBlock.neckJoints == 1:
                     mProxy = ml_moduleJoints[0].doCreateAt(setClass=True)
                     mPrerigProxy = mBlock.getMessage('prerigLoftMesh',asMeta=True)[0]
-                    mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
+                    if mPrerigProxy.getMayaType() == 'nurbsSurface':
+                        mPrerigProxyDup = RIGCREATE.get_meshFromNurbs(
+                            mPrerigProxy,
+                            mode='general',
+                            uNumber=mBlock.loftSplit,
+                            vNumber=mBlock.loftSides)
+                        mPrerigProxyDup = BLOCKUTILS.proxy_mesh_cap_after_nurbs_tessellate(
+                            mBlock, mPrerigProxyDup, _str_func, label='neckPrerigLoftPuppet')
+                    else:
+                        mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
                     CORERIG.shapeParent_in_place(mProxy.mNode, mPrerigProxyDup.mNode,False,True)
                     ATTR.copy_to(ml_moduleJoints[0].mNode,'cgmName',mProxy.mNode,driven = 'target')
                     mProxy.addAttr('cgmType','proxyPuppetGeo')

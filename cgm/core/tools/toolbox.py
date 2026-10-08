@@ -870,6 +870,35 @@ def buildSection_rigging(self,parent):
     mUI.MelSpacer(_row_group,w=5)                                              
     _row_group.layout()      
 
+    _row_dagFlags = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+    mUI.MelSpacer(_row_dagFlags,w=5)
+    mUI.MelLabel(_row_dagFlags,l='Flags:')
+    _row_dagFlags.setStretchWidget(mUI.MelSeparator(_row_dagFlags))
+
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'dagLock',
+              ann = 'Lock standard transform attrs (tx–sz, v) on selection',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagLock',True,**{'state':True}))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'dagUnlock',
+              ann = 'Unlock standard transform attrs on selection',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagUnlock',True,**{'state':False}))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'Hide Std',
+              ann = 'Lock and hide standard transform attrs (setAttrFlags defaults)',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_hide, None,'each','Hide Std Attrs',True))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'Unhide Std',
+              ann = 'Unlock and unhide standard transform attrs in the channel box',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_unhide, None,'each','Unhide Std Attrs',True))
+
+    mUI.MelSpacer(_row_dagFlags,w=5)
+    _row_dagFlags.layout()
+
     
     #>>>Attr -------------------------------------------------------------------------------------
     _row_attr = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)

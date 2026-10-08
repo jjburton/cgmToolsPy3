@@ -27,6 +27,7 @@ from Red9.core import Red9_AnimationUtils as r9Anim
 
 # From cgm ==============================================================
 from cgm.core import cgm_General as cgmGEN
+from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.cgmPy import validateArgs as VALID
 
 from cgm.core.lib import attribute_utils as ATTR
@@ -84,6 +85,21 @@ def valid_arg_multi(arg = None, tag = None, calledFrom = None):
     if not issubclass(type(arg),list or tuple):
         arg = [arg]
     return arg
+
+def dag_lock(obj, state=True, ignore=None):
+    """Lock or unlock translate/rotate/scale/v on a transform (``cgmObject.dagLock``)."""
+    mObj = cgmMeta.validateObjArg(obj, cgmMeta.cgmObject)
+    return mObj.dagLock(state, ignore=ignore)
+
+def standard_attrs_hide(obj):
+    """Lock and hide standard transform attrs (``cgmObject.setAttrFlags`` defaults)."""
+    mObj = cgmMeta.validateObjArg(obj, cgmMeta.cgmObject)
+    return mObj.setAttrFlags()
+
+def standard_attrs_unhide(obj):
+    """Unlock and show standard transform attrs in the channel box."""
+    mObj = cgmMeta.validateObjArg(obj, cgmMeta.cgmObject)
+    return mObj.setAttrFlags(lock=False, visible=True, keyable=True)
 
 def match_orientation(obj = None, source = None,
                      rotateOrder = True, rotateAxis = True):
