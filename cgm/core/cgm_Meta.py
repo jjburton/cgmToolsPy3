@@ -71,6 +71,13 @@ drawingOverrideAttrsDict = {'overrideEnabled':0,
                             'overrideVisibility':1}
 l_componentTypes = ['polyVertex','curveCV','surfaceCV','polyEdge','editPoint','isoparm','polyFace','polyUV','curvePoint','surfacePatch','nurbsUV']
 l_cgmNameTags = ['cgmName','cgmNameModifier','cgmPosition','cgmDirection','cgmDirectionModifier','cgmIterator','cgmType','cgmTypeModifier']
+
+def _hierarchyQueryFullPath(asMeta, fullPath):
+    """listRelatives long names when wrapping results as meta (unambiguous resolve)."""
+    if asMeta:
+        return True
+    return fullPath
+
 #KWS ================================================================================================================
 _d_KWARG_asMeta = {'kw':'asMeta',"default":True, 'help':"Whether to return as meta or not", "argType":"bool"}
 _d_KWARG_attr = {'kw':'attr',"default":None, 'help':"Attribute name to look for", "argType":"string"}
@@ -568,7 +575,7 @@ class cgmNode(r9Meta.MetaClass):
             _str_nameCandidate =  nameTools.returnCombinedNameFromDict(d_updatedNamesDict)
             mc.rename(self.mNode, _str_nameCandidate	)
             if nameChildren:
-                for mObj in validateObjListArg(TRANS.descendents_get(self.mNode)):
+                for mObj in validateObjListArg(TRANS.descendents_get(self.mNode, fullPath=True)):
                     mObj.doName()
                     
         else:
@@ -643,7 +650,7 @@ class cgmNode(r9Meta.MetaClass):
     #>>> Transforms...
     #========================================================================================================
     def getParent(self,asMeta = False):
-        buffer = TRANS.parent_get(self)
+        buffer = TRANS.parent_get(self, _hierarchyQueryFullPath(asMeta, True))
         if buffer and asMeta:
             return validateObjArg(buffer,mType = cgmObject)
         return buffer
@@ -652,7 +659,7 @@ class cgmNode(r9Meta.MetaClass):
     parent = p_parent
     
     def getSiblings(self,asMeta = False):
-        _res = TRANS.siblings_get(self)
+        _res = TRANS.siblings_get(self, _hierarchyQueryFullPath(asMeta, True))
         if _res and asMeta:
             return validateObjListArg(_res,'cgmNode')
         return _res     
@@ -1428,7 +1435,7 @@ class cgmObject(cgmNode):
     #>>> Heirarchy ...
     #========================================================================================================  
     def getParent(self,asMeta = False,fullPath = True):
-        _res = TRANS.parent_get(self,fullPath)
+        _res = TRANS.parent_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjArg(_res,'cgmObject')
         return _res
@@ -1490,7 +1497,7 @@ class cgmObject(cgmNode):
         :returns
             parents(list)
         """ 
-        _res = TRANS.parents_get(self,fullPath)
+        _res = TRANS.parents_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1507,7 +1514,7 @@ class cgmObject(cgmNode):
         :returns
             siblings(list)
         """         
-        _res = TRANS.siblings_get(self, fullPath)
+        _res = TRANS.siblings_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1524,7 +1531,7 @@ class cgmObject(cgmNode):
         :returns
             children(list)
         """         
-        _res = TRANS.descendents_get(self, fullPath,type)
+        _res = TRANS.descendents_get(self, _hierarchyQueryFullPath(asMeta, fullPath), type)
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res 
@@ -1542,7 +1549,7 @@ class cgmObject(cgmNode):
         :returns
             children(list)
         """         
-        _res = TRANS.children_get(self, fullPath, type)
+        _res = TRANS.children_get(self, _hierarchyQueryFullPath(asMeta, fullPath), type)
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1559,7 +1566,7 @@ class cgmObject(cgmNode):
         :returns
             parents(list)
         """         
-        _res = TRANS.shapes_get(self, fullPath)
+        _res = TRANS.shapes_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res
@@ -1576,7 +1583,7 @@ class cgmObject(cgmNode):
         :returns
             listPath(list)
         """         
-        _res = TRANS.get_listPathTo(self, target, fullPath)
+        _res = TRANS.get_listPathTo(self, target, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res   

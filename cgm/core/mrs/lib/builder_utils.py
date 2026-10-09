@@ -1577,6 +1577,48 @@ def _scaleSetup_joint_to_dyn_parent_target(mJnt):
     return mJnt
 
 
+def _scaleSetup_dyn_parent_is_cog(mObj):
+    """Match parent cog rigRoot entries added in get_dynParentTargetsDat ('cog' in name)."""
+    if not mObj:
+        return False
+    _parts = []
+    try:
+        _parts.append(mObj.p_nameBase or '')
+    except Exception:
+        pass
+    try:
+        if getattr(mObj, 'hasAttr', None) and mObj.hasAttr('cgmName'):
+            _parts.append(str(mObj.cgmName or ''))
+    except Exception:
+        pass
+    try:
+        _alias = mObj.getNameAlias()
+        if _alias:
+            _parts.append(str(_alias))
+    except Exception:
+        pass
+    for _s in _parts:
+        if _s and 'cog' in _s.lower():
+            return True
+    return False
+
+
+def _scaleSetup_own_module_cog_dyn_parent(self):
+    """This module's cog rigRoot only — not parent-module cog from ml_dynParentsAbove."""
+    mRigNull = getattr(self, 'mRigNull', None)
+    mBlock = getattr(self, 'mBlock', None)
+    if not mRigNull:
+        return None
+    mRoot = mRigNull.getMessageAsMeta('rigRoot')
+    if not mRoot:
+        return None
+    if _scaleSetup_dyn_parent_is_cog(mRoot):
+        return mRoot
+    if mBlock and getattr(mBlock, 'addCog', False):
+        return mRoot
+    return None
+
+
 def _scaleSetup_index_in_dyn_parents(mTar, ml_parents):
     if not mTar or not ml_parents:
         return None
@@ -1673,6 +1715,12 @@ def scaleSetup_dynParentDefaultIndexFromAttach(self, mDynGroup, mChild=None, mBl
     if mBlock is None:
         mBlock = getattr(self, 'mBlock', None)
     ml_above = getattr(self, 'ml_dynParentsAbove', []) or []
+
+    _mOwnCog = _scaleSetup_own_module_cog_dyn_parent(self)
+    if _mOwnCog:
+        _cog_idx = _scaleSetup_index_in_dyn_parents(_mOwnCog, ml_parents)
+        if _cog_idx is not None:
+            return _cog_idx
 
     _attach = 'end'
     if mBlock and getattr(mBlock, 'hasAttr', None) and mBlock.hasAttr('attachPoint'):

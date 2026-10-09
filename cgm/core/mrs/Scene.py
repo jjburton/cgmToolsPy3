@@ -912,10 +912,9 @@ example:
             _parent = self._version_files_parent_directory()
             if not _parent:
                 return None
-            if not self.hasSub and self.subTypes:
+            _item = self.versionList['scrollList'].getSelectedItem()
+            if not _item and not self.hasSub and self.subTypes:
                 _item = self.subTypeSearchList['scrollList'].getSelectedItem()
-            else:
-                _item = self.versionList['scrollList'].getSelectedItem()
             if not _item:
                 return None
             return os.path.normpath(os.path.join(_parent, _item))
@@ -949,44 +948,21 @@ example:
 
     @property
     def hasSub(self):
+        """
+        True when path_subType has child folders (sets tier).
+        asset/type/*.ma only → False. asset/type with any subfolder → True (root .ma also show in Sets).
+        """
         _str_func = 'hasSub'
-
-        _res = False
-        _path  = self.path_subType
-        if not _path:
+        _path = self.path_subType
+        if not _path or not os.path.isdir(_path):
             return False
 
-        if not os.path.isdir(_path):
-            return False
-
-        log.debug(log_start(_str_func))    
-        log.debug(log_msg(_str_func, self.category))
+        log.debug(log_start(_str_func))
         log.debug(log_msg(_str_func, _path))
 
-        #path_set= os.path.normpath(os.path.join( self.path_dir_category, self.category ))
-        _dirs = CGMOS.get_lsFromPath(_path,'dir')
-        _dirsUse = []      
-        for d in _dirs:
-            if d.lower() not in self.l_dirMask:
-                _dirsUse.append(d)
-
-        if _dirsUse:
-            _res = True
-
-        #log.debug(log_start(_str_func))    
-        #pprint.pprint(_dirs)
-        log.debug(log_msg(_str_func,_res))
+        _res = bool(self._dir_children_dirs(_path))
+        log.debug(log_msg(_str_func, _res))
         return _res
-
-
-        """
-        try:
-            r = self.mDat.assetType_get(self.category)['content'][self.subTypeIndex].get('hasSub', False)
-            return r
-        except:
-            return True
-
-        """
     @property
     def hasSubTypes(self):
         _str_func = 'hasSubTypes'
@@ -1047,52 +1023,49 @@ example:
 
     @property
     def hasVariant(self):
+        """
+        True when the selected set folder has child folders (variation tier).
+        Loose .ma in the set folder use the version column; subfolders use Variation + Version.
+        """
         _str_func = 'hasVariant'
-        _res = False
-        _dirs = []
-        _dirsRaw = []
+        _cfg_variant = None
         try:
-            _path_set= self.path_set
-            log.debug(log_msg(_str_func, _path_set))
+            _cfg_variant = self.mDat.assetType_get(self.category)['content'][self.subTypeIndex].get(
+                'hasVariant')
+        except Exception:
+            pass
+        if _cfg_variant is False:
+            log.debug(log_msg(_str_func, False))
+            return False
+
+        try:
+            _path_set = self.path_set
         except Exception as err:
-            log.error(log_msg(_str_func, err))            
-            return _res
+            log.error(log_msg(_str_func, err))
+            return False
 
         log.debug(log_start(_str_func))
-        log.debug(log_msg(_str_func, "path_set | {}".format(_path_set)))        
-        if _path_set and os.path.isdir(_path_set):
-            _dirsRaw = CGMOS.get_lsFromPath(_path_set,'dir')
+        log.debug(log_msg(_str_func, "path_set | {}".format(_path_set)))
+        if not _path_set or not os.path.isdir(_path_set):
+            log.debug(log_msg(_str_func, False))
+            return False
 
-        for d in _dirsRaw:
-            if d.lower() not in self.l_dirMask:
-                _dirs.append(d)
-                
-        #log.info("hasVariant...")
-        #pprint.pprint(_dirs)             
-
-        if _dirs:
-            _res = True
-
-
-        log.debug(log_msg(_str_func,_res))
-
+        _res = bool(self._dir_children_dirs(_path_set))
+        log.debug(log_msg(_str_func, _res))
         return _res
-        """
-        try:
-            r = self.mDat.assetType_get(self.category)['content'][self.subTypeIndex].get('hasVariant', False)
-            return r
-        except:
-            return True"""
 
     def HasSub(self, category, subType):
+        """Filesystem walk for a subtype folder (not project hasSub flags)."""
         try:
-            hasSub = True
-            for sub in self.mDat.assetType_get(category)['content']:
-                if sub['n'] == subType:
-                    hasSub = sub.get('hasSub', True)
-            return hasSub
-        except:
-            return True
+            _asset = self.path_asset
+            if not _asset:
+                return False
+            _sub_path = self._resolve_subType_container_path(_asset, subType)
+            if not _sub_path or not os.path.isdir(_sub_path):
+                return False
+            return bool(self._dir_children_dirs(_sub_path))
+        except Exception:
+            return False
 
     def _dir_children_dirs(self, path):
         """Immediate child directory names under *path*, filtered by dirMask."""
@@ -1184,13 +1157,20 @@ example:
             return False
         if not self.subTypes:
             return True
+        if not self.hasSub:
+            return False
         if not self.subTypeSearchList['scrollList'].getSelectedItem():
             return False
         if self.hasVariant:
-            if not self.variationList['scrollList'].getSelectedItem():
-                return False
             _varPath = self.path_variationDirectory
-            return bool(_varPath and os.path.isdir(_varPath))
+            if _varPath and os.path.isfile(_varPath):
+                return False
+            if _varPath and os.path.isdir(_varPath):
+                return True
+            _set = self.path_set
+            if _set and os.path.isdir(_set) and self._dir_maya_files(_set):
+                return True
+            return False
         _parent = self._version_files_parent_directory()
         if _parent and os.path.isdir(_parent):
             return True
@@ -1432,6 +1412,31 @@ example:
         self.assetMetaData = self.getMetaDataFromFile()
         self.buildDetailsColumn()
         return True
+
+    def _navigation_refresh_file_flags_from_paths(self):
+        """Align b_subFile / b_varFile with scroll selection after silent list loads."""
+        self.b_subFile = False
+        self.b_varFile = False
+        self.file_subType = None
+
+        _set_item = self.subTypeSearchList['scrollList'].getSelectedItem()
+        if _set_item and self.hasSub:
+            try:
+                _sub_root = self.path_subType or self._resolve_subType_container_path(
+                    self.path_asset, self.subType)
+                if _sub_root:
+                    _set_path = os.path.normpath(os.path.join(_sub_root, _set_item))
+                    if os.path.isfile(_set_path):
+                        self.b_subFile = True
+                        self.file_subType = _set_path
+                        return
+            except Exception:
+                pass
+
+        if self.hasVariant:
+            _var_path = self.path_variationDirectory
+            if _var_path and os.path.isfile(_var_path):
+                self.b_varFile = True
 
     def _selectByValueIfPresent(self, scrollList, value, selCommand=True):
         """Avoid Script Editor 'Item not found' warnings when restoring stale selections."""
@@ -2347,30 +2352,21 @@ example:
             mc.formLayout( self._subForms[3], e=True, vis=True )
 
         else:
-            log.debug(log_msg(_str_func,"subtypes..."))            
-            mc.formLayout( self._subForms[2], e=True, vis=self.hasVariant and self.hasSub )
-            mc.formLayout( self._subForms[1], e=True, vis=True )            
-
+            log.debug(log_msg(_str_func,"subtypes..."))
             _hasSub = self.hasSub
             log.debug(log_msg(_str_func,"hasSub: {}".format(_hasSub)))
 
-            if not self.subTypeSearchList['scrollList'].getSelectedItem():
+            mc.formLayout( self._subForms[2], e=True, vis=self.hasVariant and _hasSub )
+            mc.formLayout( self._subForms[1], e=True, vis=True )
+
+            if not _hasSub:
+                mc.formLayout( self._subForms[3], e=True, vis=False)
+            elif not self.subTypeSearchList['scrollList'].getSelectedItem():
                 log.debug(log_msg(_str_func,"no subTypeSearchList selected"))
                 mc.formLayout( self._subForms[3], e=True, vis=False)
-
             else:
                 log.debug(log_msg(_str_func,"subTypeSearchList selected"))
                 mc.formLayout( self._subForms[3], e=True, vis=self._version_column_should_show())
-
-                if not self.hasSubTypes:
-                    log.debug(log_msg(_str_func,"no subtypes 2..."))
-
-                    mc.formLayout( self._subForms[3], e=True, vis=self._version_column_should_show())
-
-                else:
-                    log.debug(log_msg(_str_func,"subtypes 2..."))
-                    mc.formLayout( self._subForms[1], e=True, vis=True )
-
 
         attachForm = []
         attachControl = []
@@ -3005,8 +3001,11 @@ example:
     def uiFunc_showAllFiles(self):
         self.SaveOptions()
         self.LoadSubTypeList()
-        self.LoadVariationList()
-        self.LoadVersionList()
+        if self.hasSub:
+            self.LoadVariationList()
+            if self.hasVariant or self.subTypeSearchList['scrollList'].getSelectedItem():
+                self.LoadVersionList()
+        self.buildAssetForm()
 
     def uiFunc_assetList_select(self):
         _str_func = 'uiFunc_assetList_select'
@@ -3146,14 +3145,15 @@ example:
             return
 
         self.b_subFile = False
+        self.b_varFile = False
         if self.hasVariant:
-            self.b_varFile = False
             self.LoadVariationList()
         else:
             if self.variationList:
                 self._clear_searchable_list(self.variationList)
             self.LoadVersionList()
 
+        self._navigation_refresh_file_flags_from_paths()
         log.debug(log_end(_str_func))
 
     def uiFunc_subTypeList_select(self):
@@ -3199,6 +3199,7 @@ example:
 
         log.debug(log_msg(_str_func,"dir passed"))
         self.b_subFile = False
+        self.b_varFile = False
         for mUI in self.ml_dirOptions_set:
             mUI(edit=True,en=True)
 
@@ -4425,14 +4426,6 @@ example:
         for i,item in enumerate(self.subTypeMenuItemList):
             mc.menuItem(item, e=True, enable= i != self.subTypeIndex)
 
-        if not self.hasSub:
-            mc.formLayout( self._subForms[3], e=True, vis=self._subtype_level_has_content())
-        elif not self._subtype_level_has_content():
-            mc.formLayout( self._subForms[3], e=True, vis=False )
-        else:
-            mc.formLayout( self._subForms[3], e=True, vis=True )
-
-        mc.formLayout( self._subForms[2], e=True, vis=self.hasVariant and self.hasSub )
         self.buildAssetForm()
         self.uiUpdate_setsButtons()
 
@@ -4456,7 +4449,10 @@ example:
 
         if self.path_dir_category and self.assetList['scrollList'].getSelectedItem():
             if not self.hasSub:
+                self._clear_searchable_list(self.variationList)
+                self._clear_searchable_list(self.versionList)
                 self.LoadVersionList()
+                self.buildAssetForm()
                 self.uiUpdate_setsButtons()
                 return
 
@@ -4490,6 +4486,7 @@ example:
 
         if self.hasSub:
             self._ensure_navigation_row_selected(self.subTypeSearchList, cascade=True)
+            self.buildAssetForm()
 
         self.uiUpdate_setsButtons()
 
@@ -4512,58 +4509,58 @@ example:
             self.buildAssetForm()            
             return
         else:
-            log.debug(log_msg(_str_func, "hasVariant"))            
-            mc.formLayout( self._subForms[2], e=True, vis=False )                        
+            log.debug(log_msg(_str_func, "hasVariant"))
+            mc.formLayout(self._subForms[2], e=True, vis=self.hasSub)
             self.buildAssetForm()
-
 
         variationEntries = []
         animationDir = None
 
-        selectedVariation = self.variationList['scrollList'].getSelectedItem()
-
         self._clear_searchable_list(self.variationList)
 
-        if self.path_set:#self.path_dir_category and self.assetList['scrollList'].getSelectedItem() and self.subTypeSearchList['scrollList'].getSelectedItem():
+        if self.path_set:
             animationDir = self.path_set
-            log.debug(log_msg(_str_func, "path walk: {}".format(animationDir)))                                    
+            log.debug(log_msg(_str_func, "path walk: {}".format(animationDir)))
             if os.path.isfile(animationDir):
-                log.debug(log_msg(_str_func, "is file..."))                                        
+                log.debug(log_msg(_str_func, "is file..."))
                 return
-
 
             if os.path.exists(animationDir):
                 for d in self._dir_children_dirs(animationDir):
                     variationEntries.append((d, 'dir'))
-
-                _dirNames = {e[0] for e in variationEntries}
-                for f in self._dir_maya_files(animationDir):
-                    if f not in _dirNames:
-                        variationEntries.append((f, 'file'))
-
             else:
-                log.error(log_msg(_str_func, "path doesn't exist? {}".format(animationDir)))                                    
+                log.error(log_msg(_str_func, "path doesn't exist? {}".format(animationDir)))
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(variationEntries))
         self._publish_searchable_list_rows(self.variationList, _rows, animationDir, progress_label='Variation')
+
+        _mixed_set = bool(animationDir and self._dir_is_mixed(animationDir))
 
         if _rows:
             _vsl = self.variationList['scrollList']
             _selOn = _vsl.b_selCommandOn
             _vsl.b_selCommandOn = False
             try:
-                _vsl.select_last(selCommand=False)
+                if not _mixed_set:
+                    _dir_name = None
+                    for _row in _rows:
+                        if getattr(_row, 'kind', None) == 'dir':
+                            _dir_name = getattr(_row, 'item', None)
+                            break
+                    if _dir_name:
+                        _vsl.selectByValue(_dir_name, selCommand=False)
             finally:
                 _vsl.b_selCommandOn = _selOn
-            # Auto-select skips selCommand — keep file/dir flags and version column in sync
-            _autoPath = self.path_variationDirectory
-            self.b_varFile = bool(_autoPath and os.path.isfile(_autoPath))
-            if _autoPath and os.path.isdir(_autoPath):
-                self.LoadVersionList()
-            elif _autoPath and os.path.isfile(_autoPath):
-                self._clear_searchable_list(self.versionList)
 
+        _autoPath = self.path_variationDirectory
+        if _autoPath and os.path.isdir(_autoPath):
+            self.LoadVersionList()
+        elif animationDir and os.path.isdir(animationDir):
+            self.LoadVersionList()
+
+        self._navigation_refresh_file_flags_from_paths()
+        self._refreshMetaDataFromSelection()
         self.uiUpdate_variationButtons()
 
         #self.variationList['scrollList'].selectByValue(selectedVariation) # if selectedVariation else variationList[0]
@@ -4594,13 +4591,17 @@ example:
             #searchList = self.subTypeSearchList
             #if self.hasSub:
             if self.hasVariant:
-                log.debug(log_msg(_str_func,"subtypes"))                            
-                searchDir = self.path_variationDirectory
+                log.debug(log_msg(_str_func,"subtypes"))
+                _var_dir = self.path_variationDirectory
+                if _var_dir and os.path.isdir(_var_dir):
+                    searchDir = _var_dir
+                else:
+                    searchDir = self.path_set
             elif self.hasSub:
                 log.debug(log_msg(_str_func,"has sub"))                            
                 searchDir = self.path_set
             else:
-                searchDir = self.path_subType                
+                searchDir = self.path_subType
                 searchList = self.subTypeSearchList
 
 
@@ -4668,6 +4669,8 @@ example:
                         _vsl.select_last(selCommand=False)
             finally:
                 _vsl.b_selCommandOn = _selOn
+            self._navigation_refresh_file_flags_from_paths()
+            self._refreshMetaDataFromSelection()
 
         #if anims:
             #searchList['scrollList'].selectByValue(anims[-1])
@@ -4796,8 +4799,9 @@ example:
                     log.warning("Failed to load subtype: {}".format(_last_subType))
 
             if _switched_asset:
-                self._ensure_navigation_row_selected(self.subTypeSearchList, cascade=True)
-            else:
+                if self.hasSub:
+                    self._ensure_navigation_row_selected(self.subTypeSearchList, cascade=True)
+            elif self.hasSub:
                 _last_set = self.var_lastSet.getValue()
                 _sl_set = self.subTypeSearchList['scrollList']
                 if _last_set:
@@ -4815,8 +4819,20 @@ example:
                 _var_path = self.path_variationDirectory if self.hasVariant else None
                 if self.hasVariant and _var_path and os.path.isdir(_var_path):
                     self.LoadVersionList()
+                elif not self.hasVariant:
+                    self.b_varFile = False
+            else:
+                _last_file = self.var_lastVersion.getValue() or self.var_lastSet.getValue()
+                _sl_files = self.subTypeSearchList['scrollList']
+                if _last_file:
+                    self._selectByValueIfPresent(_sl_files, _last_file, selCommand=False)
+                if not _sl_files.getSelectedItem():
+                    try:
+                        _sl_files.select_last(selCommand=False)
+                    except Exception:
+                        pass
 
-        if not _switched_asset:
+        if not _switched_asset and self.subTypes and self.hasSub:
             _last_version = self.var_lastVersion.getValue()
             _sl_ver = self.versionList['scrollList']
             if _last_version:
@@ -4824,7 +4840,9 @@ example:
             if not _sl_ver.getSelectedItem():
                 _sl_ver.select_last(selCommand=False)
 
+        self._navigation_refresh_file_flags_from_paths()
         self._refreshMetaDataFromSelection()
+        self.buildAssetForm()
 
         log.debug(log_end(_str_func))
 

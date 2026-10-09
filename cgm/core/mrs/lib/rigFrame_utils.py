@@ -36,6 +36,7 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.rig.ik_utils as IK
 import cgm.core.classes.NodeFactory as NODEFACTORY
 
@@ -280,9 +281,109 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
             raise Exception("{} | unknown mode : {}".format(_str_func, _str_mode))
             
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+
+
+def limb_segment_mid(self, mControlMid, ml_segHandles, segmentIndex, mGroup=None, ml_trackHandles=None):
+    """
+    Per roll-segment mid IK for limb blocks — localized to ml_segHandles only.
+    Not full-chain segment_mid (spine/neck).
+    """
+    try:
+        _str_func = 'limb_segment_mid'
+        log_start(_str_func)
+        
+        mBlock = self.mBlock
+        mModule = self.mModule
+        
+        _str_mode = mBlock.getEnumValueString('segmentMidIKSetup')
+        
+        if not mControlMid or not ml_segHandles:
+            raise ValueError("{0} | mControlMid and ml_segHandles required".format(_str_func))
+        
+        mSegStart = ml_segHandles[0]
+        mSegEnd = ml_segHandles[-1]
+        _base = '{0}_segMid_{1}'.format(self.d_module['partName'], segmentIndex)
+        
+        if _str_mode in ['ribbon', 'ribbonLive']:
+            if mGroup:
+                mControlMid.masterGroup.parent = mGroup
+            
+            ml_midTrackJoints = copy.copy(ml_segHandles)
+            ml_midTrackJoints.insert(1, mControlMid)
+            
+            # Live surface: only seg end handles drive the loft; mid rides via jointList + follicles.
+            d_mid = {'jointList': [mJnt.mNode for mJnt in ml_midTrackJoints],
+                     'baseName': '{0}_midRibbon'.format(_base),
+                     'driverSetup': None,
+                     'squashStretch': None,
+                     'paramaterization': 'floating',
+                     'msgDriver': 'masterGroup',
+                     'specialMode': 'noStartEnd',
+                     'connectBy': 'constraint',
+                     'influences': ml_segHandles,
+                     'liveSurface': _str_mode == 'ribbonLive',
+                     'extendEnds': _str_mode == 'ribbonLive',
+                     'moduleInstance': mModule}
+            
+            if _str_mode == 'ribbonLive':
+                _sectionSpans = 2
+                _d_ik = getattr(self, 'd_squashStretchIK', None) or {}
+                if _d_ik.get('sectionSpans'):
+                    _sectionSpans = _d_ik['sectionSpans']
+                d_mid['sectionSpans'] = _sectionSpans
+            
+            IK.ribbon(**d_mid)
+            return
+        
+        if _str_mode == 'prntConstraint':
+            mDriver = mControlMid.doCreateAt('joint', setClass='cgmObject')
+            mDriver.rename('{0}_mainDriver'.format(mControlMid.p_nameBase))
+            mDriver.p_parent = mControlMid.masterGroup
+            mControlMid.doStore('mainDriver', mDriver.mNode, 'msg')
+            mc.parentConstraint([mObj.mNode for mObj in ml_segHandles],
+                                mDriver.mNode,
+                                maintainOffset=True)
+            return
+        
+        if _str_mode in ['linearTrack', 'cubicTrack']:
+            ml_curveThrough = ml_trackHandles or list(ml_segHandles)
+            if len(ml_curveThrough) < 2:
+                raise ValueError("{0} | need at least two segment handles for track (got {1})".format(
+                    _str_func, len(ml_curveThrough)))
+            
+            _trackCurve, _l_clusters = CORERIG.create_at(
+                [mObj.mNode for mObj in ml_curveThrough],
+                _str_mode,
+                baseName='{0}_mid{1}'.format(_base, _str_mode))
+            mCrv = cgmMeta.asMeta(_trackCurve)
+            mShape = cgmMeta.asMeta(mCrv.getShapes()[0])
+            
+            ml_clusters = cgmMeta.asMeta([s[1] for s in _l_clusters])
+            
+            for mObj in [mCrv] + ml_clusters:
+                mObj.overrideEnabled = 1
+                cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsVis', lock=False).doConnectOut(
+                    "%s.%s" % (_trackCurve, 'overrideVisibility'))
+                cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsLock', lock=False).doConnectOut(
+                    "%s.%s" % (_trackCurve, 'overrideDisplayType'))
+            
+            for s in _l_clusters:
+                ATTR.set(s[1], 'visibility', False)
+            
+            mCrv.p_parent = mModule.rigNull.mNode
+            
+            BLOCKSHAPES.attachToCurve(mControlMid,
+                                      mCrv,
+                                      mShape,
+                                      parentTo=mModule.rigNull.mNode,
+                                      trackLink='masterGroup')
+            return
+        
+        raise ValueError("{0} | unknown segmentMidIKSetup mode: {1}".format(_str_func, _str_mode))
     
-    
-    
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err, localDat=vars())
+
 
 def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
           mIKControl=None,mIKBaseControl = None,

@@ -1291,7 +1291,7 @@ def setup_shapes(d_shapes = {}):
 
     - ``shape`` — preset name for ``CURVES.create_fromName(shape, size)``.
     - ``size`` — numeric size passed into that call.
-    - ``mirror`` — if truthy, applies the same recipe to ``L_{name}`` and ``R_{name}``
+    - ``mirror`` — if true, applies the same recipe to ``L_{name}`` and ``R_{name}``
       (mirror branch skips ``setAttr`` / ``process_obj`` extras compared to single).
     - ``moveOffsetAim`` — optional local Z offset (aim axis tweak while briefly parented).
     - ``setAttr`` — optional ``{attr: value}`` applied on the temp curve before shape swap.

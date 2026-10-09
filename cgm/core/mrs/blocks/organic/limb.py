@@ -131,10 +131,10 @@ d_attrStateMask = {'define':[],
                              'addLeverEnd',
                              'addToe',
                              'buildEnd'],
-                   'squashStretch':['segmentStretchBy'],
+                   'squashStretch':['squashSkipAim','segmentStretchBy'],
                    'skeleton':[],
                    'rig':[ 'ikExtendSetup','ikLeverEndLock','ikRollSetup', 'ikRPAim','ikOrientEndTo','segmentType',
-                           'ikRP_pos_mult',
+                           'ikRP_pos_mult','segmentMidIKSetup',
                            'mainRotAxis',  'followParentBank',],
                    'vis':['visRotatePlane']}
 
@@ -869,6 +869,7 @@ l_attrsStandard = ['side',
                    'squashExtraControl',
                    'squashFactorMax',
                    'squashFactorMin',
+                   'squashSkipAim',
                    'ribbonAim',
                    'ribbonParam',
                    'visRotatePlane',
@@ -927,6 +928,8 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ikOrientEndTo':'end:previous',
                  'ikLeverEndLock':'none:outNeg',
                  'segmentStretchBy':'translate:scale',
+                 'squashSkipAim':'bool',
+                 'segmentMidIKSetup':'none:ribbon:ribbonLive:prntConstraint:linearTrack:cubicTrack',
                  #'buildSpacePivots':'bool',
                  #'nameIter':'string',
                  #'numControls':'int',
@@ -991,7 +994,9 @@ d_defaultSettings = {'version':__version__,
                      'ribbonAim':'stable',
                      'squashFactorMax':1.0,
                      'squashFactorMin':0.0,
+                     'squashSkipAim':True,
                      'segmentMidIKControl':True,
+                     'segmentMidIKSetup':'ribbon',
                      'segmentType':'curve',
                      'jointRadius':.1,
                      'visRotatePlane':False,
@@ -4013,7 +4018,11 @@ def rig_dataBuffer(self):
             
             #Check for mid control and even handle count to see if w need an extra curve
             if mBlock.segmentMidIKControl:
-                if MATH.is_even(mBlock.numControls):
+                _str_midSetup = mBlock.getEnumValueString('segmentMidIKSetup') if mBlock.hasAttr('segmentMidIKSetup') else 'none'
+                if _str_midSetup == 'ribbonLive':
+                    # one seg mid per roll segment — same as head neck: 1 + len(mid controls)
+                    self.d_squashStretchIK['sectionSpans'] = 2
+                elif MATH.is_even(mBlock.numControls):
                     self.d_squashStretchIK['sectionSpans'] = 2
                     
             if self.d_squashStretchIK:
@@ -6703,32 +6712,27 @@ def rig_segments(self):
             
             
             #Mid Ik... -----------------------------------------------------------------------------            
-            if mControlMid:
-                log.debug("|{0}| >> Mid IK {1} setup...".format(_str_func,i))            
+            _str_midSetup = mBlock.getEnumValueString('segmentMidIKSetup') if mBlock.hasAttr('segmentMidIKSetup') else 'none'
+            if mControlMid and _str_midSetup != 'none':
+                log.debug("|{0}| >> Mid IK {1} follow setup | segmentMidIKSetup: {2}...".format(
+                    _str_func, i, _str_midSetup))
                 
-                mControlMid.masterGroup.parent = mRoot#ml_blendJoints[i]
-                    
-                ml_midTrackJoints = copy.copy(ml_segHandles)
-                ml_midTrackJoints.insert(1,mControlMid)
+                ml_trackHandles = ml_handleJoints[i:i + 2]
+                RIGFRAME.limb_segment_mid(self,
+                                          mControlMid,
+                                          ml_segHandles,
+                                          i,
+                                          mRoot,
+                                          ml_trackHandles=ml_trackHandles)
                 
-                d_mid = {'jointList':[mJnt.mNode for mJnt in ml_midTrackJoints],
-                         'baseName' :self.d_module['partName'] + '_midRibbon',
-                         'driverSetup':None,#Old - stable blend
-                         'squashStretch':None,
-                         'paramaterization':'floating',          
-                         'msgDriver':'masterGroup',
-                         'specialMode':'noStartEnd',
-                         'connectBy':'constraint',
-                         'influences':ml_segHandles,
-                         'moduleInstance' : mModule}
-                
-                
-                #reload(IK)
-                l_midSurfReturn = IK.ribbon(**d_mid)            
-                ml_influences.insert(1,mControlMid)
-                
-                if self.b_squashSetup:
-                    mc.scaleConstraint([mObj.mNode for mObj in ml_segHandles], mControlMid.masterGroup.mNode, maintainOffset=True)
+                if self.b_squashSetup and _str_midSetup in ['ribbon', 'ribbonLive']:
+                    mc.scaleConstraint([mObj.mNode for mObj in ml_segHandles],
+                                       mControlMid.masterGroup.mNode,
+                                       maintainOffset=True)
+            
+            # segmentMidIKControl: mid still drives segment ribbon / helpers; setup enum is follow mode only
+            if mControlMid and mBlock.segmentMidIKControl:
+                ml_influences.insert(1, mControlMid)
                 
             #Segment... --------------------------------------------------------------------------------------------
             log.debug("|{0}| >> Segment {1} setup {2}".format(_str_func,i,_type))
@@ -6751,6 +6755,7 @@ def rig_segments(self):
                   'masterScalePlug':mPlug_masterScale,
                   'paramaterization':mBlock.getEnumValueString('ribbonParam'),                            
                   'influences':[mHandle.mNode for mHandle in ml_influences],
+                  'skipAim': mBlock.squashSkipAim,
                   }            
             
             if i == l_rollKeys[0]:
@@ -6768,10 +6773,8 @@ def rig_segments(self):
                 #reload(IK)
                 _d['parentDeformTo'] = ml_blendJoints[i].getMessageAsMeta('scaleJoint') or ml_blendJoints[i]
                 _d['setupAim'] = 1
-                _d['skipAim'] = True
                 if self.str_segmentStretchBy == 'scale':
                     _d['setupAimScale'] = True
-                    _d['skipAim'] = False
                     
                     
                 if i == l_rollKeys[-1] and not self.b_extraHandles:
@@ -6799,6 +6802,9 @@ def rig_segments(self):
                 _d['parentDeformTo'] = ml_blendJoints[i]
                 if self.str_segmentStretchBy == 'scale':
                     _d['setupAimScale'] = True
+                else:
+                    _d['setupAimScale'] = False
+                _d['liveSurface'] = _type == 'ribbonLive'
                 
                 pprint.pprint(_d)
                 IK.ribbon(**_d)
