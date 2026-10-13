@@ -5510,6 +5510,62 @@ def _bezier_stretch_volume_driver(str_base, str_final_ratio, b_translate_stretch
     return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
 
 
+def _bezier_stretch_joint_squash_scale_network(str_base,
+                                               i_joint,
+                                               str_volume_driver,
+                                               mPlug_squash,
+                                               mSettings,
+                                               v_scale_factor,
+                                               extra_keyable=True):
+    """
+    Per-joint volume squash: 1 + (volBase - 1) * outFactor * squash.
+
+    Matches ribbon arcLength extraSquashControl (one factor per joint on settings).
+    """
+    mPlug_joint_factor = cgmMeta.cgmAttr(
+        mSettings.mNode,
+        '{0}_outFactor_{1}'.format(str_base, i_joint),
+        attrType='float',
+        hidden=False,
+        initialValue=v_scale_factor,
+        defaultValue=v_scale_factor,
+        keyable=extra_keyable,
+        lock=False,
+        minValue=0)
+
+    m_diff = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_squash_{1:02d}_volDiff_pma'.format(str_base, i_joint))
+    m_diff.operation = 2
+    ATTR.connect(str_volume_driver, m_diff.mNode + '.input1D[0]')
+    ATTR.set(m_diff.mNode, 'input1D[1]', 1.0)
+
+    m_res = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_squash_{1:02d}_factorRes_mdl'.format(str_base, i_joint))
+    mPlug_joint_factor.doConnectOut(m_res.mNode + '.input1')
+    mPlug_squash.doConnectOut(m_res.mNode + '.input2')
+
+    m_mult = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_squash_{1:02d}_volMult_mdl'.format(str_base, i_joint))
+    ATTR.connect(m_diff.mNode + '.output1D', m_mult.mNode + '.input1')
+    ATTR.connect(m_res.mNode + '.output', m_mult.mNode + '.input2')
+
+    m_out = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_squash_{1:02d}_volOut_pma'.format(str_base, i_joint))
+    m_out.operation = 1
+    ATTR.set(m_out.mNode, 'input1D[0]', 1.0)
+    ATTR.connect(m_mult.mNode + '.output', m_out.mNode + '.input1D[1]')
+
+    return {
+        'mPlug_jointFactor': mPlug_joint_factor,
+        'ml_nodes': [m_diff, m_res, m_mult, m_out],
+        'str_scale': m_out.mNode + '.output1D',
+    }
+
+
 def bezier_spline_stretch(ml_joints=None,
                           root_joint=None,
                           jointList=None,
@@ -5526,6 +5582,16 @@ def bezier_spline_stretch(ml_joints=None,
                           name=None,
                           replaceExisting=True,
                           replace_existing=None,
+                          extraSquashControl=False,
+                          extra_squash_control=None,
+                          squashFactorMin=0.0,
+                          squash_factor_min=None,
+                          squashFactorMax=1.0,
+                          squash_factor_max=None,
+                          squashFactorMode='midPeak',
+                          squash_factor_mode=None,
+                          extraKeyable=True,
+                          extra_keyable=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -5552,6 +5618,7 @@ def bezier_spline_stretch(ml_joints=None,
         globalScalePlug | Optional uniform scale plug to remove from measured length
         name / baseName | Network node base name
         replace_existing / replaceExisting | Disconnect existing drivers on stretch channels
+        extraSquashControl | Per-joint `{base}_outFactor_i` on settings (ramp from squashFactorMin/Max/Mode)
         useUndoChunk | Wrap in undo chunk
 
     :returns:
@@ -5591,14 +5658,25 @@ def bezier_spline_stretch(ml_joints=None,
         baseName, noneValid=True)
     if replace_existing is not None:
         replaceExisting = replace_existing
+    if extra_squash_control is not None:
+        extraSquashControl = extra_squash_control
+    if squash_factor_min is not None:
+        squashFactorMin = squash_factor_min
+    if squash_factor_max is not None:
+        squashFactorMax = squash_factor_max
+    if squash_factor_mode is not None:
+        squashFactorMode = squash_factor_mode
+    if extra_keyable is not None:
+        extraKeyable = extra_keyable
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'start | measure:{0} settings:{1} stretchBy:{2}'.format(
+        'start | measure:{0} settings:{1} stretchBy:{2} extraSquash:{3}'.format(
             cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
             cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
             if _settings else '(driver)',
-            str_stretch_by)))
+            str_stretch_by,
+            extraSquashControl)))
 
     mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
     if not mDriver.getShapes(asMeta=False):
@@ -5745,24 +5823,52 @@ def bezier_spline_stretch(ml_joints=None,
         mRatioClamp, mVolumeDriver, str_volume_driver = _bezier_stretch_volume_driver(
             str_base, str_final_ratio, not b_stretch_scale)
 
-        mSquashBlend = cgmMeta.cgmNode(
-            nodeType='blendTwoAttr',
-            name='{0}_squash_blend'.format(str_base))
-        ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
-        ATTR.connect(str_volume_driver, mSquashBlend.mNode + '.input[1]')
-        mPlug_squash.doConnectOut(mSquashBlend.mNode + '.attributesBlender')
-
-        str_volume_scale = mSquashBlend.mNode + '.output'
-        for mJnt in ml_joints[:-1]:
-            for _attr in l_volume_scale:
-                ATTR.connect(
-                    str_volume_scale,
-                    '{0}.{1}'.format(mJnt.mNode, _attr))
+        mSquashBlend = None
+        ml_squash_dg = []
+        ml_joint_factor_plugs = []
+        l_scale_factors = None
+        if extraSquashControl:
+            l_scale_factors = MATH.get_blendList(
+                len(ml_joints), squashFactorMax, squashFactorMin, squashFactorMode)
+            log.debug("|{0}| >> squash outFactors: {1}".format(
+                _str_func, l_scale_factors))
+            for i, mJnt in enumerate(ml_joints[:-1]):
+                try:
+                    v_factor = l_scale_factors[i]
+                except Exception as err:
+                    log.error(
+                        "squash factor idx fail ({0}). Using 1.0 | {1}".format(
+                            i, err))
+                    v_factor = 1.0
+                d_joint_squash = _bezier_stretch_joint_squash_scale_network(
+                    str_base, i, str_volume_driver, mPlug_squash, mSettings,
+                    v_factor, extraKeyable)
+                ml_joint_factor_plugs.append(d_joint_squash['mPlug_jointFactor'])
+                ml_squash_dg.extend(d_joint_squash['ml_nodes'])
+                for _attr in l_volume_scale:
+                    ATTR.connect(
+                        d_joint_squash['str_scale'],
+                        '{0}.{1}'.format(mJnt.mNode, _attr))
+        else:
+            mSquashBlend = cgmMeta.cgmNode(
+                nodeType='blendTwoAttr',
+                name='{0}_squash_blend'.format(str_base))
+            ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
+            ATTR.connect(str_volume_driver, mSquashBlend.mNode + '.input[1]')
+            mPlug_squash.doConnectOut(mSquashBlend.mNode + '.attributesBlender')
+            str_volume_scale = mSquashBlend.mNode + '.output'
+            for mJnt in ml_joints[:-1]:
+                for _attr in l_volume_scale:
+                    ATTR.connect(
+                        str_volume_scale,
+                        '{0}.{1}'.format(mJnt.mNode, _attr))
 
         ml_dg = [
             mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
-            mRatioClamp, mVolumeDriver, mSquashBlend,
-        ] + ml_segment_mdl
+            mRatioClamp, mVolumeDriver,
+        ] + ml_segment_mdl + ml_squash_dg
+        if mSquashBlend:
+            ml_dg.append(mSquashBlend)
         if globalScalePlug:
             ml_dg.insert(1, mGlobalMd)
         else:
@@ -5786,10 +5892,13 @@ def bezier_spline_stretch(ml_joints=None,
             'mRatioClamp': mRatioClamp,
             'mVolumeDriver': mVolumeDriver,
             'mSquashBlend': mSquashBlend,
+            'ml_jointFactorPlugs': ml_joint_factor_plugs,
+            'l_scaleFactors': l_scale_factors,
             'mGlobalScaleMd': mGlobalMd,
             'ml_segmentMdl': ml_segment_mdl,
             'restChainLength': f_rest_length,
             'ml_joints': ml_joints,
+            'extraSquashControl': extraSquashControl,
         }
         log.info(cgmGEN.logString_msg(_str_func, 'done'))
         return _res

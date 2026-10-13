@@ -4217,6 +4217,10 @@ def rig_frame(self):
                         aimAxis=_str_aim,
                         stretchBy=self.str_segmentStretchBy,
                         baseName='{0}_bezier'.format(self.d_module['partName']),
+                        extraSquashControl=mBlock.squashExtraControl,
+                        squashFactorMin=mBlock.squashFactorMin,
+                        squashFactorMax=mBlock.squashFactorMax,
+                        squashFactorMode=self.str_squashFactorMode,
                         useUndoChunk=False)
 
             elif _ikSetup in ['spline','curve']:# ==============================================================================
