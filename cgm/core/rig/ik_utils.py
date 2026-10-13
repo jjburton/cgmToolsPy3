@@ -5510,6 +5510,158 @@ def _bezier_stretch_volume_driver(str_base, str_final_ratio, b_translate_stretch
     return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
 
 
+def _bezier_stretch_poci_measure_per_joint(str_base,
+                                          ml_joints,
+                                          mDriver,
+                                          str_shape,
+                                          b_track_joint_parameter=False):
+    """
+    pointOnCurveInfo per joint on the driver (pointDist segment lengths).
+
+    Distances use POCI.position on the curve — not joint worldPosition — so
+    stretch/squash scale drivers do not feed back through child joint pivots.
+
+    When b_track_joint_parameter (translate stretch only), nearestPointOnCurve
+    from the joint world matrix drives POCI.parameter so spacing can follow
+    IK motion along the curve. Scale stretch keeps bind-time U (spline IK).
+    """
+    ml_poci = []
+    ml_track_dg = []
+    _min_u = ATTR.get(str_shape, 'minValue')
+    _max_u = ATTR.get(str_shape, 'maxValue')
+
+    for _i, mJnt in enumerate(ml_joints):
+        param = CURVES.getUParamOnCurveFromObj(mJnt.mNode, mDriver.mNode)
+        mPoci = cgmMeta.cgmNode(
+            nodeType='pointOnCurveInfo',
+            name='{0}_stretch_poci_{1:02d}'.format(str_base, _i))
+        ATTR.connect(str_shape + '.worldSpace[0]', mPoci.mNode + '.inputCurve')
+        mPoci.turnOnPercentage = True
+        mPoci.parameter = MATH.get_normalized_parameter(_min_u, _max_u, param)
+
+        if b_track_joint_parameter:
+            mNpoc = cgmMeta.cgmNode(
+                mc.createNode('nearestPointOnCurve'),
+                setClass=True)
+            mNpoc.rename('{0}_stretch_npoc_{1:02d}'.format(str_base, _i))
+            mDecomp = cgmMeta.cgmNode(
+                nodeType='decomposeMatrix',
+                name='{0}_stretch_wt_{1:02d}'.format(str_base, _i))
+            ATTR.connect(str_shape + '.worldSpace[0]', mNpoc.mNode + '.inputCurve')
+            ATTR.connect(
+                mJnt.mNode + '.worldMatrix[0]', mDecomp.mNode + '.inputMatrix')
+            ATTR.connect(
+                mDecomp.mNode + '.outputTranslate', mNpoc.mNode + '.inPosition')
+            ATTR.connect(
+                mNpoc.mNode + '.parameter', mPoci.mNode + '.parameter')
+            ml_track_dg.extend([mNpoc, mDecomp])
+
+        ml_poci.append(mPoci)
+
+    return ml_poci, ml_track_dg
+
+
+def _bezier_stretch_point_dist_shapes(str_base, ml_curve_pts, mParent):
+    """Distance between consecutive on-curve closest points (per segment)."""
+    ml_shapes = []
+    ml_dags = []
+    for _i in range(len(ml_curve_pts) - 1):
+        mShape = cgmMeta.cgmNode(mc.createNode('distanceDimShape'))
+        mDag = mShape.getTransform(asMeta=True)
+        mDag.doStore('cgmName', '{0}_segDist'.format(str_base))
+        mDag.addAttr('cgmTypeModifier', '{0:02d}'.format(_i), lock=True)
+        mDag.addAttr('cgmType', 'measureNode', lock=True)
+        mDag.doName(nameShapes=True)
+        if mParent:
+            mDag.parent = mParent
+        mDag.overrideEnabled = 1
+        mDag.overrideVisibility = 0
+        ATTR.connect(
+            ml_curve_pts[_i].mNode + '.position', mShape.mNode + '.startPoint')
+        ATTR.connect(
+            ml_curve_pts[_i + 1].mNode + '.position',
+            mShape.mNode + '.endPoint')
+        ml_shapes.append(mShape)
+        ml_dags.append(mDag)
+    return ml_shapes, ml_dags
+
+
+def _bezier_stretch_seg_final_ratio_network(str_base,
+                                            seg_i,
+                                            mDistShape,
+                                            mPlug_stretch,
+                                            str_master_scale=None):
+    """
+    Per-segment stretch ratio from distanceDim (pointDist).
+
+    segRatio = normDist / normRest (each / masterScale when set); final = 1 + stretch * (segRatio - 1)
+    """
+    str_dist = mDistShape.mNode + '.distance'
+    f_rest = float(ATTR.get(mDistShape.mNode, 'distance'))
+    if f_rest <= 0.000001:
+        f_rest = 0.000001
+
+    ml_nodes = []
+
+    if str_master_scale:
+        m_dist_norm = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_seg_{1:02d}_distNorm_md'.format(str_base, seg_i))
+        ATTR.set(m_dist_norm.mNode, 'operation', 2)
+        ATTR.connect(str_dist, m_dist_norm.mNode + '.input1X')
+        ATTR.connect(str_master_scale, m_dist_norm.mNode + '.input2X')
+        str_dist_num = m_dist_norm.mNode + '.outputX'
+        ml_nodes.append(m_dist_norm)
+
+        m_base_norm = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_seg_{1:02d}_baseNorm_md'.format(str_base, seg_i))
+        ATTR.set(m_base_norm.mNode, 'operation', 2)
+        ATTR.set(m_base_norm.mNode, 'input1X', f_rest)
+        ATTR.connect(str_master_scale, m_base_norm.mNode + '.input2X')
+        str_denom = m_base_norm.mNode + '.outputX'
+        ml_nodes.append(m_base_norm)
+    else:
+        str_dist_num = str_dist
+        str_denom = None
+
+    m_seg_ratio = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch_seg_{1:02d}_ratio_md'.format(str_base, seg_i))
+    ATTR.set(m_seg_ratio.mNode, 'operation', 2)
+    ATTR.connect(str_dist_num, m_seg_ratio.mNode + '.input1X')
+    if str_denom:
+        ATTR.connect(str_denom, m_seg_ratio.mNode + '.input2X')
+    else:
+        ATTR.set(m_seg_ratio.mNode, 'input2X', f_rest)
+    ml_nodes.append(m_seg_ratio)
+
+    m_delta = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch_seg_{1:02d}_ratioDelta_pma'.format(str_base, seg_i))
+    m_delta.operation = 2
+    ATTR.connect(m_seg_ratio.mNode + '.outputX', m_delta.mNode + '.input1D[0]')
+    ATTR.set(m_delta.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_delta)
+
+    m_weight = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_stretch_seg_{1:02d}_weight_mdl'.format(str_base, seg_i))
+    mPlug_stretch.doConnectOut(m_weight.mNode + '.input1')
+    ATTR.connect(m_delta.mNode + '.output1D', m_weight.mNode + '.input2')
+    ml_nodes.append(m_weight)
+
+    m_final = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch_seg_{1:02d}_finalRatio_pma'.format(str_base, seg_i))
+    m_final.operation = 1
+    ATTR.connect(m_weight.mNode + '.output', m_final.mNode + '.input1D[0]')
+    ATTR.set(m_final.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_final)
+
+    return m_final.mNode + '.output1D', ml_nodes, f_rest
+
+
 def _bezier_stretch_joint_squash_scale_network(str_base,
                                                i_joint,
                                                str_volume_driver,
@@ -5592,6 +5744,8 @@ def bezier_spline_stretch(ml_joints=None,
                           squash_factor_mode=None,
                           extraKeyable=True,
                           extra_keyable=None,
+                          squashStretchMain='arcLength',
+                          squash_stretch_main=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -5619,6 +5773,7 @@ def bezier_spline_stretch(ml_joints=None,
         name / baseName | Network node base name
         replace_existing / replaceExisting | Disconnect existing drivers on stretch channels
         extraSquashControl | Per-joint `{base}_outFactor_i` on settings (ramp from squashFactorMin/Max/Mode)
+        squashStretchMain | arcLength (global curveInfo) | pointDist (per-segment distance on driver)
         useUndoChunk | Wrap in undo chunk
 
     :returns:
@@ -5668,14 +5823,19 @@ def bezier_spline_stretch(ml_joints=None,
         squashFactorMode = squash_factor_mode
     if extra_keyable is not None:
         extraKeyable = extra_keyable
+    if squash_stretch_main is not None:
+        squashStretchMain = squash_stretch_main
+    str_squash_main = (
+        VALID.stringArg(squashStretchMain, noneValid=True) or 'arcLength').lower()
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'start | measure:{0} settings:{1} stretchBy:{2} extraSquash:{3}'.format(
+        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4}'.format(
             cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
             cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
             if _settings else '(driver)',
             str_stretch_by,
+            str_squash_main,
             extraSquashControl)))
 
     mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
@@ -5750,150 +5910,295 @@ def bezier_spline_stretch(ml_joints=None,
         if not mDriver.hasAttr('masterScale'):
             mDriver.addAttr('masterScale', value=1.0, minValue=0.0001, attrType='float')
 
-        mCurveInfo = cgmMeta.cgmNode(
-            nodeType='curveInfo', name='{0}_stretch_curveInfo'.format(str_base))
-        ATTR.connect(str_shape + '.worldSpace[0]', mCurveInfo.mNode + '.inputCurve')
-
-        str_length = mCurveInfo.mNode + '.arcLength'
+        str_master_scale = None
         if globalScalePlug:
-            mGlobalMd = cgmMeta.cgmNode(
-                nodeType='multiplyDivide',
-                name='{0}_stretch_globalScale_md'.format(str_base))
-            ATTR.set(mGlobalMd.mNode, 'operation', 2)
-            ATTR.connect(str_length, mGlobalMd.mNode + '.input1X')
-            ATTR.connect(globalScalePlug, mGlobalMd.mNode + '.input2X')
-            str_length = mGlobalMd.mNode + '.outputX'
+            d_ms = cgmMeta.validateAttrArg(globalScalePlug, noneValid=True)
+            if d_ms:
+                str_master_scale = d_ms.get('combined')
+                if str_master_scale and not mc.listConnections(
+                        mDriver.mNode + '.masterScale', source=True, plugs=True):
+                    ATTR.connect(str_master_scale, mDriver.mNode + '.masterScale')
+        if not str_master_scale:
+            str_master_scale = '{0}.masterScale'.format(mDriver.mNode)
 
-        mRatioMd = cgmMeta.cgmNode(
-            nodeType='multiplyDivide',
-            name='{0}_stretch_lengthRatio_md'.format(str_base))
-        ATTR.set(mRatioMd.mNode, 'operation', 2)
-        ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
-        ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'masterScale plug: {0}'.format(str_master_scale)))
 
-        mRatioDelta = cgmMeta.cgmNode(
-            nodeType='plusMinusAverage',
-            name='{0}_stretch_ratioDelta_pma'.format(str_base))
-        mRatioDelta.operation = 2
-        ATTR.connect(mRatioMd.mNode + '.outputX', mRatioDelta.mNode + '.input1D[0]')
-        ATTR.set(mRatioDelta.mNode, 'input1D[1]', 1.0)
+        b_point_dist = str_squash_main in ['pointdist', 'point_dist']
 
-        mStretchWeight = cgmMeta.cgmNode(
-            nodeType='multDL',
-            name='{0}_stretch_weight_mdl'.format(str_base))
-        mPlug_stretch.doConnectOut(mStretchWeight.mNode + '.input1')
-        ATTR.connect(mRatioDelta.mNode + '.output1D', mStretchWeight.mNode + '.input2')
-
-        mFinalRatio = cgmMeta.cgmNode(
-            nodeType='plusMinusAverage',
-            name='{0}_stretch_finalRatio_pma'.format(str_base))
-        mFinalRatio.operation = 1
-        ATTR.connect(mStretchWeight.mNode + '.output', mFinalRatio.mNode + '.input1D[0]')
-        ATTR.set(mFinalRatio.mNode, 'input1D[1]', 1.0)
-
-        str_final_ratio = mFinalRatio.mNode + '.output1D'
-
+        mCurveInfo = None
+        mRatioMd = None
+        mRatioDelta = None
+        mStretchWeight = None
+        mFinalRatio = None
+        mGlobalMd = None
+        ml_cpoc = []
+        ml_dist_shapes = []
+        ml_dist_dags = []
+        ml_measure_dg = []
         ml_segment_mdl = []
-        if b_stretch_scale:
-            for _i, mJnt in enumerate(ml_joints[:-1]):
-                mMdl = cgmMeta.cgmNode(
-                    nodeType='multDL',
-                    name='{0}_stretch_seg_{1:02d}_mdl'.format(str_base, _i))
-                _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
-                if abs(_f_rest_scale) < 0.000001:
-                    _f_rest_scale = 1.0
-                ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
-                ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
-                ATTR.connect(
-                    mMdl.mNode + '.output',
-                    '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
-                ml_segment_mdl.append(mMdl)
-        else:
-            for _i, mJnt in enumerate(ml_segments):
-                mMdl = cgmMeta.cgmNode(
-                    nodeType='multDL',
-                    name='{0}_stretch_seg_{1:02d}_mdl'.format(str_base, _i))
-                ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
-                ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
-                ATTR.connect(
-                    mMdl.mNode + '.output',
-                    '{0}.{1}'.format(mJnt.mNode, str_translate))
-                ml_segment_mdl.append(mMdl)
-
-        mRatioClamp, mVolumeDriver, str_volume_driver = _bezier_stretch_volume_driver(
-            str_base, str_final_ratio, not b_stretch_scale)
-
-        mSquashBlend = None
         ml_squash_dg = []
         ml_joint_factor_plugs = []
         l_scale_factors = None
-        if extraSquashControl:
-            l_scale_factors = MATH.get_blendList(
-                len(ml_joints), squashFactorMax, squashFactorMin, squashFactorMode)
-            log.debug("|{0}| >> squash outFactors: {1}".format(
-                _str_func, l_scale_factors))
-            for i, mJnt in enumerate(ml_joints[:-1]):
-                try:
-                    v_factor = l_scale_factors[i]
-                except Exception as err:
-                    log.error(
-                        "squash factor idx fail ({0}). Using 1.0 | {1}".format(
-                            i, err))
-                    v_factor = 1.0
-                d_joint_squash = _bezier_stretch_joint_squash_scale_network(
-                    str_base, i, str_volume_driver, mPlug_squash, mSettings,
-                    v_factor, extraKeyable)
-                ml_joint_factor_plugs.append(d_joint_squash['mPlug_jointFactor'])
-                ml_squash_dg.extend(d_joint_squash['ml_nodes'])
-                for _attr in l_volume_scale:
-                    ATTR.connect(
-                        d_joint_squash['str_scale'],
-                        '{0}.{1}'.format(mJnt.mNode, _attr))
-        else:
-            mSquashBlend = cgmMeta.cgmNode(
-                nodeType='blendTwoAttr',
-                name='{0}_squash_blend'.format(str_base))
-            ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
-            ATTR.connect(str_volume_driver, mSquashBlend.mNode + '.input[1]')
-            mPlug_squash.doConnectOut(mSquashBlend.mNode + '.attributesBlender')
-            str_volume_scale = mSquashBlend.mNode + '.output'
-            for mJnt in ml_joints[:-1]:
-                for _attr in l_volume_scale:
-                    ATTR.connect(
-                        str_volume_scale,
-                        '{0}.{1}'.format(mJnt.mNode, _attr))
+        mSquashBlend = None
+        l_seg_final_ratio = []
 
-        ml_dg = [
-            mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
-            mRatioClamp, mVolumeDriver,
-        ] + ml_segment_mdl + ml_squash_dg
-        if mSquashBlend:
-            ml_dg.append(mSquashBlend)
-        if globalScalePlug:
+        if b_point_dist:
+            m_measure_grp = mDriver.doCreateAt()
+            m_measure_grp.rename('{0}_stretchMeasure_grp'.format(str_base))
+            m_measure_grp.parent = mDriver.getParent(asMeta=True) or mDriver
+            mc.setAttr(m_measure_grp.mNode + '.visibility', 0)
+
+            ml_poci, ml_track_dg = _bezier_stretch_poci_measure_per_joint(
+                str_base,
+                ml_joints,
+                mDriver,
+                str_shape,
+                b_track_joint_parameter=not b_stretch_scale)
+            ml_dist_shapes, ml_dist_dags = _bezier_stretch_point_dist_shapes(
+                str_base, ml_poci, m_measure_grp)
+            ml_measure_dg = ml_poci + ml_track_dg + ml_dist_dags
+
+            for _i, m_dist in enumerate(ml_dist_shapes):
+                str_seg_ratio, ml_seg_nodes, _f_rest_seg = (
+                    _bezier_stretch_seg_final_ratio_network(
+                        str_base, _i, m_dist, mPlug_stretch, str_master_scale))
+                l_seg_final_ratio.append(str_seg_ratio)
+                ml_measure_dg.extend(ml_seg_nodes)
+
+                if b_stretch_scale:
+                    m_jnt = ml_joints[_i]
+                    m_mdl = cgmMeta.cgmNode(
+                        nodeType='multDL',
+                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                            str_base, _i))
+                    _f_rest_scale = float(ATTR.get(m_jnt.mNode, str_aim_scale))
+                    if abs(_f_rest_scale) < 0.000001:
+                        _f_rest_scale = 1.0
+                    ATTR.set(m_mdl.mNode, 'input1', _f_rest_scale)
+                    ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                    ATTR.connect(
+                        m_mdl.mNode + '.output',
+                        '{0}.{1}'.format(m_jnt.mNode, str_aim_scale))
+                    ml_segment_mdl.append(m_mdl)
+                else:
+                    m_jnt = ml_segments[_i]
+                    m_mdl = cgmMeta.cgmNode(
+                        nodeType='multDL',
+                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                            str_base, _i))
+                    ATTR.set(m_mdl.mNode, 'input1', l_rest_translate[_i])
+                    ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                    ATTR.connect(
+                        m_mdl.mNode + '.output',
+                        '{0}.{1}'.format(m_jnt.mNode, str_translate))
+                    ml_segment_mdl.append(m_mdl)
+
+            if extraSquashControl:
+                l_scale_factors = MATH.get_blendList(
+                    len(ml_joints), squashFactorMax, squashFactorMin,
+                    squashFactorMode)
+
+            for _i, m_jnt in enumerate(ml_joints[:-1]):
+                str_seg_ratio = l_seg_final_ratio[_i]
+                m_ratio_clamp, m_vol_driver, str_vol = (
+                    _bezier_stretch_volume_driver(
+                        '{0}_volJ{1:02d}'.format(str_base, _i),
+                        str_seg_ratio, not b_stretch_scale))
+                ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
+                if extraSquashControl:
+                    try:
+                        v_factor = l_scale_factors[_i]
+                    except Exception as err:
+                        log.error(
+                            "squash factor idx fail ({0}). Using 1.0 | {1}".format(
+                                _i, err))
+                        v_factor = 1.0
+                    d_joint_squash = (
+                        _bezier_stretch_joint_squash_scale_network(
+                            str_base, _i, str_vol, mPlug_squash, mSettings,
+                            v_factor, extraKeyable))
+                    ml_joint_factor_plugs.append(
+                        d_joint_squash['mPlug_jointFactor'])
+                    ml_squash_dg.extend(d_joint_squash['ml_nodes'])
+                    str_scale_out = d_joint_squash['str_scale']
+                else:
+                    m_blend = cgmMeta.cgmNode(
+                        nodeType='blendTwoAttr',
+                        name='{0}_squash_j{1:02d}_blend'.format(
+                            str_base, _i))
+                    ATTR.set(m_blend.mNode, 'input[0]', 1.0)
+                    ATTR.connect(str_vol, m_blend.mNode + '.input[1]')
+                    mPlug_squash.doConnectOut(
+                        m_blend.mNode + '.attributesBlender')
+                    ml_squash_dg.append(m_blend)
+                    str_scale_out = m_blend.mNode + '.output'
+                for _attr in l_volume_scale:
+                    ATTR.connect(
+                        str_scale_out, '{0}.{1}'.format(m_jnt.mNode, _attr))
+
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'pointDist | segments:{0} restChain:{1}'.format(
+                    len(ml_dist_shapes), f_rest_length)))
+
+        else:
+            mCurveInfo = cgmMeta.cgmNode(
+                nodeType='curveInfo',
+                name='{0}_stretch_curveInfo'.format(str_base))
+            ATTR.connect(
+                str_shape + '.worldSpace[0]', mCurveInfo.mNode + '.inputCurve')
+
+            str_length = mCurveInfo.mNode + '.arcLength'
+            if globalScalePlug:
+                mGlobalMd = cgmMeta.cgmNode(
+                    nodeType='multiplyDivide',
+                    name='{0}_stretch_globalScale_md'.format(str_base))
+                ATTR.set(mGlobalMd.mNode, 'operation', 2)
+                ATTR.connect(str_length, mGlobalMd.mNode + '.input1X')
+                ATTR.connect(globalScalePlug, mGlobalMd.mNode + '.input2X')
+                str_length = mGlobalMd.mNode + '.outputX'
+
+            mRatioMd = cgmMeta.cgmNode(
+                nodeType='multiplyDivide',
+                name='{0}_stretch_lengthRatio_md'.format(str_base))
+            ATTR.set(mRatioMd.mNode, 'operation', 2)
+            ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
+            ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
+
+            mRatioDelta = cgmMeta.cgmNode(
+                nodeType='plusMinusAverage',
+                name='{0}_stretch_ratioDelta_pma'.format(str_base))
+            mRatioDelta.operation = 2
+            ATTR.connect(
+                mRatioMd.mNode + '.outputX', mRatioDelta.mNode + '.input1D[0]')
+            ATTR.set(mRatioDelta.mNode, 'input1D[1]', 1.0)
+
+            mStretchWeight = cgmMeta.cgmNode(
+                nodeType='multDL',
+                name='{0}_stretch_weight_mdl'.format(str_base))
+            mPlug_stretch.doConnectOut(mStretchWeight.mNode + '.input1')
+            ATTR.connect(
+                mRatioDelta.mNode + '.output1D', mStretchWeight.mNode + '.input2')
+
+            mFinalRatio = cgmMeta.cgmNode(
+                nodeType='plusMinusAverage',
+                name='{0}_stretch_finalRatio_pma'.format(str_base))
+            mFinalRatio.operation = 1
+            ATTR.connect(
+                mStretchWeight.mNode + '.output', mFinalRatio.mNode + '.input1D[0]')
+            ATTR.set(mFinalRatio.mNode, 'input1D[1]', 1.0)
+
+            str_final_ratio = mFinalRatio.mNode + '.output1D'
+            l_seg_final_ratio = [str_final_ratio]
+
+            if b_stretch_scale:
+                for _i, mJnt in enumerate(ml_joints[:-1]):
+                    mMdl = cgmMeta.cgmNode(
+                        nodeType='multDL',
+                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                            str_base, _i))
+                    _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
+                    if abs(_f_rest_scale) < 0.000001:
+                        _f_rest_scale = 1.0
+                    ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
+                    ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                    ATTR.connect(
+                        mMdl.mNode + '.output',
+                        '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+                    ml_segment_mdl.append(mMdl)
+            else:
+                for _i, mJnt in enumerate(ml_segments):
+                    mMdl = cgmMeta.cgmNode(
+                        nodeType='multDL',
+                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                            str_base, _i))
+                    ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
+                    ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                    ATTR.connect(
+                        mMdl.mNode + '.output',
+                        '{0}.{1}'.format(mJnt.mNode, str_translate))
+                    ml_segment_mdl.append(mMdl)
+
+            m_ratio_clamp, m_vol_driver, str_volume_driver = (
+                _bezier_stretch_volume_driver(
+                    str_base, str_final_ratio, not b_stretch_scale))
+
+            if extraSquashControl:
+                l_scale_factors = MATH.get_blendList(
+                    len(ml_joints), squashFactorMax, squashFactorMin,
+                    squashFactorMode)
+                log.debug("|{0}| >> squash outFactors: {1}".format(
+                    _str_func, l_scale_factors))
+                for i, mJnt in enumerate(ml_joints[:-1]):
+                    try:
+                        v_factor = l_scale_factors[i]
+                    except Exception as err:
+                        log.error(
+                            "squash factor idx fail ({0}). Using 1.0 | {1}".format(
+                                i, err))
+                        v_factor = 1.0
+                    d_joint_squash = (
+                        _bezier_stretch_joint_squash_scale_network(
+                            str_base, i, str_volume_driver, mPlug_squash,
+                            mSettings, v_factor, extraKeyable))
+                    ml_joint_factor_plugs.append(
+                        d_joint_squash['mPlug_jointFactor'])
+                    ml_squash_dg.extend(d_joint_squash['ml_nodes'])
+                    for _attr in l_volume_scale:
+                        ATTR.connect(
+                            d_joint_squash['str_scale'],
+                            '{0}.{1}'.format(mJnt.mNode, _attr))
+                ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
+            else:
+                mSquashBlend = cgmMeta.cgmNode(
+                    nodeType='blendTwoAttr',
+                    name='{0}_squash_blend'.format(str_base))
+                ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
+                ATTR.connect(
+                    str_volume_driver, mSquashBlend.mNode + '.input[1]')
+                mPlug_squash.doConnectOut(
+                    mSquashBlend.mNode + '.attributesBlender')
+                str_volume_scale = mSquashBlend.mNode + '.output'
+                for mJnt in ml_joints[:-1]:
+                    for _attr in l_volume_scale:
+                        ATTR.connect(
+                            str_volume_scale,
+                            '{0}.{1}'.format(mJnt.mNode, _attr))
+                ml_squash_dg.extend(
+                    [m_ratio_clamp, m_vol_driver, mSquashBlend])
+
+            f_arc = float(ATTR.get(mCurveInfo.mNode, 'arcLength'))
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'arcLength | restLength:{0} arcLength:{1}'.format(
+                    f_rest_length, f_arc)))
+
+        ml_dg = ml_measure_dg + ml_segment_mdl + ml_squash_dg
+        if mCurveInfo:
+            ml_dg = [
+                mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
+            ] + ml_dg
+        if mGlobalMd:
             ml_dg.insert(1, mGlobalMd)
-        else:
-            mGlobalMd = None
-
-        f_arc = float(ATTR.get(mCurveInfo.mNode, 'arcLength'))
-        log.info(cgmGEN.logString_msg(
-            _str_func,
-            'restLength:{0} arcLength:{1}'.format(f_rest_length, f_arc)))
 
         _res = {
             'mDriverCurve': mDriver,
             'mSettings': mSettings,
             'mPlug_stretch': mPlug_stretch,
             'mPlug_squash': mPlug_squash,
+            'squashStretchMain': str_squash_main,
             'mCurveInfo': mCurveInfo,
             'mRatioMd': mRatioMd,
             'mRatioDelta': mRatioDelta,
             'mStretchWeight': mStretchWeight,
             'mFinalRatio': mFinalRatio,
-            'mRatioClamp': mRatioClamp,
-            'mVolumeDriver': mVolumeDriver,
             'mSquashBlend': mSquashBlend,
+            'ml_closestOnCurve': ml_cpoc,
+            'ml_distShapes': ml_dist_shapes,
             'ml_jointFactorPlugs': ml_joint_factor_plugs,
             'l_scaleFactors': l_scale_factors,
+            'l_segFinalRatioPlugs': l_seg_final_ratio,
             'mGlobalScaleMd': mGlobalMd,
             'ml_segmentMdl': ml_segment_mdl,
             'restChainLength': f_rest_length,

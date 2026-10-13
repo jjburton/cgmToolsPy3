@@ -2021,7 +2021,11 @@ def rig_prechecks(self):
             if str_segmentType != 'parent':
                 self.l_precheckErrors.append(
                     'ikSetup bezier (phase 1) requires segmentType parent')
-            
+
+        if mBlock.getEnumValueString('squashMeasure') == 'pointDist':
+            self.l_precheckWarnings.append(
+                'squashMeasure pointDist is experimental — prefer arcLength for production rigs.')
+
         if mBlock.addPivot and not mBlock.addCog:
             self.l_precheckErrors.append('Add pivot requires addCog')
             
@@ -2118,8 +2122,8 @@ def rig_dataBuffer(self):
         
         _squashMeasure = None
         if mBlock.squashMeasure:
-            _squashMeasure =  mBlock.getEnumValueString('squashMeasure')    
-        self.d_squashStretch['squashStretchMain'] = _squashMeasure    
+            _squashMeasure = mBlock.getEnumValueString('squashMeasure')
+        self.d_squashStretch['squashStretchMain'] = _squashMeasure
     
         _driverSetup = None
         if mBlock.ribbonAim:
@@ -2704,6 +2708,19 @@ def _rig_shapes_bezier_ik_apply_from_fk(self, ml_fkShapes, ml_fkCastTargets, mHa
         _rig_shapes_bezier_ik_cube_from_fk(
             self, mHelper, self.ml_ikMidHelpers[i], ml_fkShapes[idx])
         _rig_shapes_bezier_main_ik_type(mHelper, mHandleFactory)
+
+
+def _rig_frame_bezier_ik_track_vis(mRigNull, mPlug_IKon, ml_track_curves=None):
+    """Bezier main→sub track curves follow FK/IK vis (result_IKon)."""
+    ml_tracks = ml_track_curves or mRigNull.msgList_get('bezierIKTrackCurves') or []
+    str_vis = mPlug_IKon.p_combinedShortName
+    for mTrack in ml_tracks:
+        mTrack = cgmMeta.validateObjArg(mTrack, 'cgmObject', noneValid=True)
+        if not mTrack:
+            continue
+        for mShape in mTrack.getShapes(asMeta=True):
+            mShape.overrideEnabled = 1
+            ATTR.connect(str_vis, '{0}.overrideVisibility'.format(mShape.mNode))
 
 
 def _rig_shapes_bezier_main_to_sub_track(self, mMain, mSub, str_nameMod, mHandleFactory):
@@ -4000,6 +4017,10 @@ def rig_frame(self):
             mIKGroup.dagLock(True)
             mIKControl.masterGroup.parent = mIKGroup
             mIKBaseControl.masterGroup.parent = mIKGroup
+
+            if _ikSetup == 'bezier':
+                _rig_frame_bezier_ik_track_vis(
+                    mRigNull, mPlug_IKon, self.ml_bezierIKTrackCurves)
             
             #mIKBaseControl = False
             mSpinGroup = False
@@ -4216,7 +4237,10 @@ def rig_frame(self):
                         mSettings=mSettings,
                         aimAxis=_str_aim,
                         stretchBy=self.str_segmentStretchBy,
+                        globalScalePlug=mPlug_masterScale.p_combinedName,
                         baseName='{0}_bezier'.format(self.d_module['partName']),
+                        squashStretchMain=self.d_squashStretch.get(
+                            'squashStretchMain') or 'arcLength',
                         extraSquashControl=mBlock.squashExtraControl,
                         squashFactorMin=mBlock.squashFactorMin,
                         squashFactorMax=mBlock.squashFactorMax,
