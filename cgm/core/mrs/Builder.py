@@ -4087,53 +4087,79 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         _str_func = 'uiFunc_process[{0}]'.format(self.__class__.TOOLNAME)
         log.debug("|{0}| >>...".format(_str_func))
         cgmGEN._reloadMod(MRSBATCH)
-                
-        ml_masters = r9Meta.getMetaNodes(mTypes = 'cgmRigBlock',
-                                         nTypes=['transform','network'],
-                                         mAttrs='blockType=master')
-        log.info(
-            cgmGEN.logString_msg(
-                _str_func,
-                "Rig block prechecks (current scene) | master blocks: {0}".format(
-                    len(ml_masters) if ml_masters else 0
-                ),
-            )
-        )
 
-        l_fails = []
-        ml_fails = []
-        for mMaster in ml_masters:    
-            ml_context = BLOCKGEN.get_rigBlock_heirarchy_context(mMaster,'below',True,False)
-    
-            for mSubBlock in ml_context:
-                l_fails.append(mSubBlock.asRigFactory(**{'mode':'prechecks'}).b_prechecks)
-                if not l_fails[-1]: ml_fails.append(mSubBlock)
-        
-        if False in l_fails:
-            #self.uiScrollList_blocks.selectByObj(ml_fails[0])
-            result = mc.confirmDialog(title="Prchecks failed. Verify",
-                                      message= "{0} Blocks failed prechecks. \n Check scriptEditor".format(len(ml_fails)),
-                                      button=['OK'],
-                                      defaultButton='OK',
-                                      #cancelButton='Cancel',
-                                      dismissString='OK')
-            
-            #if result != 'OK':
-            #    log.error("|{0}| >> Cancelled | {1} | {2}.".format(_str_func,_state_target,self))
-            #    return False            
-            return (
-                log.warning(
-                    "{0} | Aborted before batch file step (rig prechecks failed in current scene; "
-                    "queued files were not processed). Check script editor.".format(_str_func)
-                )
-            )
-        
-        log.info("Batch file creating...")        
         log.debug(self.l_files)
         if not f:
             f = copy.deepcopy(self.l_files)
-            self.l_files = []#empty this as we're we don't want it staying stored after we've grabbed it
-        
+            self.l_files = []  # empty after grab — do not keep queued paths on the UI instance
+
+        l_check = VALID.listArg(f)
+        if not l_check:
+            log.info(cgmGEN.logString_msg(_str_func, "No file passed. Using current"))
+            l_check = [mc.file(q=True, sn=True)]
+
+        _open_raw = mc.file(q=True, loc=True) or mc.file(q=True, sn=True)
+        _open_norm = os.path.normpath(_open_raw) if _open_raw else None
+        open_matches_queue = False
+        if _open_norm:
+            for _queued in l_check:
+                if _queued and os.path.normpath(_queued) == _open_norm:
+                    open_matches_queue = True
+                    break
+
+        skip_prechecks = bool(l_check) and not open_matches_queue
+        if skip_prechecks:
+            log.info(
+                cgmGEN.logString_msg(
+                    _str_func,
+                    "Skipping rig prechecks (queued file(s) do not match open scene; "
+                    "batch will open file in mayapy) | queue={0} | open={1}".format(
+                        l_check, _open_raw,
+                    ),
+                )
+            )
+        else:
+            ml_masters = r9Meta.getMetaNodes(
+                mTypes='cgmRigBlock',
+                nTypes=['transform', 'network'],
+                mAttrs='blockType=master',
+            )
+            log.info(
+                cgmGEN.logString_msg(
+                    _str_func,
+                    "Rig block prechecks (current scene) | master blocks: {0}".format(
+                        len(ml_masters) if ml_masters else 0
+                    ),
+                )
+            )
+
+            l_fails = []
+            ml_fails = []
+            for mMaster in ml_masters:
+                ml_context = BLOCKGEN.get_rigBlock_heirarchy_context(mMaster, 'below', True, False)
+
+                for mSubBlock in ml_context:
+                    l_fails.append(mSubBlock.asRigFactory(**{'mode': 'prechecks'}).b_prechecks)
+                    if not l_fails[-1]:
+                        ml_fails.append(mSubBlock)
+
+            if False in l_fails:
+                result = mc.confirmDialog(
+                    title="Prchecks failed. Verify",
+                    message="{0} Blocks failed prechecks. \n Check scriptEditor".format(len(ml_fails)),
+                    button=['OK'],
+                    defaultButton='OK',
+                    dismissString='OK',
+                )
+                return (
+                    log.warning(
+                        "{0} | Aborted before batch file step (rig prechecks failed in current scene; "
+                        "queued files were not processed). Check script editor.".format(_str_func)
+                    )
+                )
+
+        log.info("Batch file creating...")
+
         #try:
         
         
@@ -4164,18 +4190,10 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         
         l_paths = []
         l_dirs = []
-        l_check = VALID.listArg(f)
         l_mFiles = []
         l_batch = []
-        if not l_check:
-            log.info(cgmGEN.logString_msg(_str_func,"No file passed. Using current"))
-            l_check = [mc.file(q=True, sn=True)]
         log.info(cgmGEN.logString_msg(_str_func, "Files to batch | {0}".format(l_check)))
-            
-        
-        _current = os.path.normpath(mc.file(q=True, sn=True))
-        
-        
+
         for f in l_check:
             mFile = PATHS.Path(f)
             if not mFile.exists():
@@ -4183,16 +4201,20 @@ class ui_toStandAlone(cgmUI.cgmGUI):
                     "{0} | Skip — path does not exist | {1}".format(_str_func, f)
                 )
                 continue
-            
-            if os.path.normpath(f) == _current:
-                if VALID.fileDirtyCheck() == False:
-                    log.info(
-                        "{0} | Skip — unsaved scene dialog cancelled or save aborted | {1}".format(
-                            _str_func, f
-                        )
+
+            if (
+                open_matches_queue
+                and _open_norm
+                and os.path.normpath(f) == _open_norm
+                and VALID.fileDirtyCheck() is False
+            ):
+                log.info(
+                    "{0} | Skip — unsaved scene dialog cancelled or save aborted | {1}".format(
+                        _str_func, f
                     )
-                    continue
-            
+                )
+                continue
+
             log.debug(cgmGEN.logString_sub(_str_func))
             
             _path = mFile.asFriendly()
