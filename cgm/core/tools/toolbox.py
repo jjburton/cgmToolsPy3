@@ -798,6 +798,21 @@ def buildSection_rigging(self,parent):
               ut = 'cgmUITemplate',                                        
               l = 'CrvLin',
               c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curveLinear'}))                          
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'Bezier',
+              ann='Create Maya Bezier curve from selection (segment count prompt)',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_createBezierCurve))
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'BzrTrk',
+              ann='Bezier track — spans from target count; CV clusters to selection',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_createBezierTrackCurve))
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'BzrCtl',
+              ann='CV controls on bezierIKCurve after IK.bezier_spline',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_addBezierControls))
 
     mUI.MelSpacer(_row_create,w=5)                                              
     _row_create.layout()  

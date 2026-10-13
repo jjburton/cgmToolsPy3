@@ -67,6 +67,7 @@ import cgm.core.lib.constraint_utils as CONSTRAINT
 import cgm.core.lib.position_utils as POS
 import cgm.core.rig.joint_utils as JOINT
 import cgm.core.rig.ik_utils as IK
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.mrs.lib.block_utils as BLOCKUTILS
 import cgm.core.mrs.lib.builder_utils as BUILDUTILS
 import cgm.core.cgm_RigMeta as cgmRIGMETA
@@ -2015,6 +2016,11 @@ def rig_prechecks(self):
             
         if mBlock.special_swim and str_segmentType != 'ribbon':
             self.l_precheckErrors.append('Special Swim setup requires segmentType of ribbon')
+
+        if str_ikSetup == 'bezier':
+            if str_segmentType != 'parent':
+                self.l_precheckErrors.append(
+                    'ikSetup bezier (phase 1) requires segmentType parent')
             
         if mBlock.addPivot and not mBlock.addCog:
             self.l_precheckErrors.append('Add pivot requires addCog')
@@ -2062,6 +2068,9 @@ def rig_dataBuffer(self):
         
         self.ml_ikMidHelpers = mPrerigNull.msgList_get('ikMidHelpers')
         self.ml_ikMidControls = []
+        self.ml_bezierIKSubControls = []
+        self.ml_bezierIKTrackCurves = []
+        self.md_bezierIKSubsBySlot = {}
         
         ml_handleJoints = mPrerigNull.msgList_get('handleJoints')
         mMasterNull = self.d_module['mMasterNull']
@@ -2579,6 +2588,10 @@ def rig_skeleton(self):
                                                                             cgmType = 'handle', indices=[1])
                 
             
+        if mBlock.ikSetup and self.b_squashSetup:
+            _squash_ik_fk_blend_segment_scale_compensate(
+                self, ml_ikJoints, ml_fkJoints, ml_blendJoints)
+
         #Mirror if side...
         if self.d_module['mirrorDirection'] == 'Left':
             log.debug("|{0}| >> Mirror direction ...".format(_str_func))
@@ -2598,6 +2611,327 @@ def rig_skeleton(self):
         #cgmGEN.func_snapShot(vars())     
         return True
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
+
+def _rig_shapes_fk_shape_cross_size(mFKShape, scale=1.0):
+    """Width of a cast FK frame shape (avg of the two smaller axis-box axes)."""
+    l_axis = POS.get_axisBox_size(mFKShape.mNode, False)
+    return MATH.average(sorted(l_axis)[:2]) * scale
+
+
+def _rig_shapes_closest_fk_shape_idx(v_pos, ml_fkCastTargets):
+    idx_best = 0
+    f_best = None
+    for i, mTar in enumerate(ml_fkCastTargets):
+        f_dist = DIST.get_distance_between_points(v_pos, mTar.p_position)
+        if f_best is None or f_dist < f_best:
+            f_best = f_dist
+            idx_best = i
+    return idx_best
+
+
+def _rig_shapes_bezier_sub_pos(v_main, v_neighbor):
+    """Position 1/3 from main toward neighbor (world space)."""
+    f_dist = DIST.get_distance_between_points(v_main, v_neighbor) / 3.0
+    v_vec = MATH.get_vector_of_two_points(v_main, v_neighbor)
+    return DIST.get_pos_by_vec_dist(v_main, v_vec, f_dist)
+
+
+def _rig_shapes_bezier_ik_shape_from_fk(
+        self, mIKControl, mFKShape, str_shape='cube', mSnapSource=None, scale=1.2):
+    """IK handle curve sized from FK cast cross-section (ikSetup bezier)."""
+    if mSnapSource is None:
+        mSnapSource = mIKControl
+    f_size = _rig_shapes_fk_shape_cross_size(mFKShape, scale)
+    _ik_shape = CURVES.create_fromName(str_shape, size=f_size)
+    mIKShape = cgmMeta.validateObjArg(_ik_shape, 'cgmObject', setClass=True)
+    mIKShape.doSnapTo(mSnapSource)
+    CORERIG.shapeParent_in_place(
+        mIKControl.mNode, mIKShape.mNode, False, replaceShapes=True)
+
+
+def _rig_shapes_bezier_ik_cube_from_fk(self, mIKControl, mSnapSource, mFKShape, scale=1.2):
+    _rig_shapes_bezier_ik_shape_from_fk(
+        self, mIKControl, mFKShape, 'cube', mSnapSource, scale)
+
+
+def _rig_shapes_bezier_main_fk_idx(self, mMain, mRigNull, mBlock, ml_fkCastTargets,
+                                   ml_fkShapes, mControlIK, mControlIKBase):
+    if mMain == mControlIKBase:
+        return min(self.int_segBaseIdx, len(ml_fkShapes) - 1)
+    if mMain == mControlIK:
+        idx = self.int_handleEndIdx
+        if abs(idx) > len(ml_fkShapes):
+            idx = -1
+        return idx
+    for i, mMid in enumerate(self.ml_ikMidControls):
+        if mMain == mMid:
+            return _rig_shapes_closest_fk_shape_idx(
+                self.ml_ikMidHelpers[i].p_position, ml_fkCastTargets)
+    return 0
+
+
+def _rig_shapes_bezier_main_ik_type(mMain, mHandleFactory):
+    mMain.doStore('cgmTypeModifier', 'ikBezier')
+    mMain.doStore('cgmType', 'handle')
+    mMain.doName()
+    mHandleFactory.color(mMain.mNode, controlType='main')
+
+
+def _rig_shapes_bezier_ik_apply_from_fk(self, ml_fkShapes, ml_fkCastTargets, mHandleFactory):
+    """Bezier IK cubes + ikBezier typing on mains (segment rig_shapes)."""
+    mRigNull = self.mRigNull
+    mBlock = self.mBlock
+
+    mControlIK = mRigNull.getMessageAsMeta('controlIK')
+    if mControlIK:
+        idx = self.int_handleEndIdx
+        if abs(idx) > len(ml_fkShapes):
+            idx = -1
+        _rig_shapes_bezier_ik_cube_from_fk(
+            self, mControlIK, mBlock.ikEndHandle, ml_fkShapes[idx])
+        _rig_shapes_bezier_main_ik_type(mControlIK, mHandleFactory)
+
+    mControlIKBase = mRigNull.getMessageAsMeta('controlIKBase')
+    if mControlIKBase:
+        idx = min(self.int_segBaseIdx, len(ml_fkShapes) - 1)
+        _rig_shapes_bezier_ik_cube_from_fk(
+            self, mControlIKBase, mBlock.ikStartHandle, ml_fkShapes[idx])
+        _rig_shapes_bezier_main_ik_type(mControlIKBase, mHandleFactory)
+
+    for i, mHelper in enumerate(self.ml_ikMidControls):
+        idx = _rig_shapes_closest_fk_shape_idx(
+            self.ml_ikMidHelpers[i].p_position, ml_fkCastTargets)
+        _rig_shapes_bezier_ik_cube_from_fk(
+            self, mHelper, self.ml_ikMidHelpers[i], ml_fkShapes[idx])
+        _rig_shapes_bezier_main_ik_type(mHelper, mHandleFactory)
+
+
+def _rig_shapes_bezier_main_to_sub_track(self, mMain, mSub, str_nameMod, mHandleFactory):
+    """Linear track curve main → sub (limb midIK / knee pattern)."""
+    str_base = '{0}_{1}_bezierSubTrack'.format(mMain.p_nameBase, str_nameMod)
+    trackcrv, l_clusters = CORERIG.create_at(
+        [mMain.mNode, mSub.mNode],
+        'linearTrack',
+        baseName=str_base)
+    mTrackCrv = cgmMeta.asMeta(trackcrv)
+    mTrackCrv.p_parent = self.mModule
+    mHandleFactory.color(mTrackCrv.mNode, controlType='aux')
+    for mShape in mTrackCrv.getShapes(asMeta=True):
+        mShape.overrideEnabled = 1
+        mShape.overrideDisplayType = 2
+    return mTrackCrv
+
+
+def _rig_shapes_bezier_main_slot_key(mMain, ml_bezierMainIK, mControlIKBase, mControlIK):
+    """Slot id for md_bezierIKSubsBySlot: base | midN | end (vocabulary, not DAG names)."""
+    if mControlIKBase and mMain == mControlIKBase:
+        return 'base'
+    if mControlIK and mMain == mControlIK:
+        return 'end'
+    int_mid = 0
+    for m in ml_bezierMainIK:
+        if mControlIKBase and m == mControlIKBase:
+            continue
+        if mControlIK and m == mControlIK:
+            continue
+        int_mid += 1
+        if m == mMain:
+            return 'mid{0}'.format(int_mid)
+    return 'mid0'
+
+
+def _bezier_ik_stretch_aim_axis(self):
+    """Joint aim axis for bezier_spline_stretch (not rotate-order string)."""
+    str_aim = self.d_orientation.get('stringAim') or self.d_orientation['str'][0]
+    return str(str_aim)[0].lower()
+
+
+def _squash_ik_fk_blend_segment_scale_compensate(self,
+                                                 ml_ikJoints=None,
+                                                 ml_fkJoints=None,
+                                                 ml_blendJoints=None):
+    """segmentScaleCompensate on ik/fk/blend chains when squash stretch is active."""
+    if not self.b_squashSetup:
+        return
+    for ml in (ml_ikJoints, ml_fkJoints, ml_blendJoints):
+        if not ml:
+            continue
+        for mJnt in ml:
+            mJnt.segmentScaleCompensate = True
+
+
+def _bezier_ik_bezier_main_ik_list(mIKBaseControl, ml_ikMidControls, mIKControl):
+    """Anchor mains in rig_shapes / rig_frame wire order."""
+    ml_bezierMainIK = []
+    if mIKBaseControl:
+        ml_bezierMainIK.append(mIKBaseControl)
+    if ml_ikMidControls:
+        ml_bezierMainIK.extend(ml_ikMidControls)
+    if mIKControl:
+        ml_bezierMainIK.append(mIKControl)
+    return ml_bezierMainIK
+
+
+def _bezier_ik_slot_msglist_attr(str_slot):
+    """rigNull msgList attr for subs in a main slot (base | midN | end)."""
+    if str_slot == 'base':
+        return 'bezierIKSubsBase'
+    if str_slot == 'end':
+        return 'bezierIKSubsEnd'
+    if str_slot.startswith('mid'):
+        return 'bezierIKSubs{0}'.format(str_slot.capitalize())
+    return 'bezierIKSubs_{0}'.format(str_slot)
+
+
+def _bezier_ik_subs_split_by_modifier(ml_subs):
+    ml_back, ml_fwd = [], []
+    for mSub in ml_subs or []:
+        _name_mod = None
+        if mc.attributeQuery('cgmNameModifier', node=mSub.mNode, exists=True):
+            _name_mod = ATTR.get(mSub.mNode, 'cgmNameModifier')
+        if _name_mod == 'back':
+            ml_back.append(mSub)
+        elif _name_mod == 'forward':
+            ml_fwd.append(mSub)
+    return ml_back, ml_fwd
+
+
+def _bezier_ik_pickwalk_controls(mRigNull, md_subs_by_slot=None):
+    """
+    IK pickwalk order along the bezier chain:
+    base, base_forward, mid1_back, mid1, mid1_forward, …, end_back, end.
+    """
+    mBase = mRigNull.getMessageAsMeta('controlIKBase')
+    ml_mid = mRigNull.msgList_get('controlSegMidIK') or []
+    mEnd = mRigNull.getMessageAsMeta('controlIK')
+    ml_mains = _bezier_ik_bezier_main_ik_list(mBase, ml_mid, mEnd)
+    if not ml_mains:
+        return []
+
+    md_subs = dict(md_subs_by_slot or {})
+    if not md_subs:
+        for mMain in ml_mains:
+            str_slot = _rig_shapes_bezier_main_slot_key(mMain, ml_mains, mBase, mEnd)
+            str_attr = _bezier_ik_slot_msglist_attr(str_slot)
+            if mRigNull.msgList_exists(str_attr):
+                md_subs[str_slot] = mRigNull.msgList_get(str_attr) or []
+
+    ml_out = []
+    int_last = len(ml_mains) - 1
+    for i, mMain in enumerate(ml_mains):
+        str_slot = _rig_shapes_bezier_main_slot_key(mMain, ml_mains, mBase, mEnd)
+        ml_back, ml_fwd = _bezier_ik_subs_split_by_modifier(
+            md_subs.get(str_slot, []))
+        if i == 0:
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+            ml_out.extend(ml_back)
+        elif i == int_last:
+            ml_out.extend(ml_back)
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+        else:
+            ml_out.extend(ml_back)
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+    return ml_out
+
+
+def _bezier_ik_reinit_session_meta(self):
+    """Re-wrap bezier IK session meta after MODULECONTROL.register."""
+    import cgm.core.cgm_Meta as cgmMeta
+
+    def _reinit(ml_handles):
+        ml_out = []
+        for mObj in ml_handles or []:
+            if not mObj:
+                continue
+            mFresh = cgmMeta.reinitializeMetaClass(mObj)
+            ml_out.append(mFresh if mFresh else mObj)
+        return ml_out
+
+    self.ml_bezierIKSubControls = _reinit(self.ml_bezierIKSubControls)
+    self.ml_bezierIKTrackCurves = _reinit(self.ml_bezierIKTrackCurves)
+    md_subs = {}
+    for str_slot, ml_subs in (self.md_bezierIKSubsBySlot or {}).items():
+        md_subs[str_slot] = _reinit(ml_subs)
+    self.md_bezierIKSubsBySlot = md_subs
+
+
+def _rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactory):
+    """Bezier tangent sub-handles (ikBezierSub) for rig_shapes; rig_controls registers later."""
+    mRigNull = self.mRigNull
+    mBlock = self.mBlock
+    self.ml_bezierIKSubControls = []
+    self.ml_bezierIKTrackCurves = []
+    self.md_bezierIKSubsBySlot = {}
+
+    mControlIK = mRigNull.getMessageAsMeta('controlIK')
+    mControlIKBase = mRigNull.getMessageAsMeta('controlIKBase')
+
+    ml_bezierMainIK = _bezier_ik_bezier_main_ik_list(
+        mControlIKBase, self.ml_ikMidControls, mControlIK)
+
+    if len(ml_bezierMainIK) < 2:
+        return
+
+    f_mainIkScale = 1.2
+    f_subScale = f_mainIkScale * 0.8
+
+    for i, mMain in enumerate(ml_bezierMainIK):
+        v_main = mMain.p_position
+        l_sub_defs = []
+        if i == 0:
+            l_sub_defs.append(('forward', ml_bezierMainIK[i + 1].p_position))
+        elif i == len(ml_bezierMainIK) - 1:
+            l_sub_defs.append(('back', ml_bezierMainIK[i - 1].p_position))
+        else:
+            l_sub_defs.append(('back', ml_bezierMainIK[i - 1].p_position))
+            l_sub_defs.append(('forward', ml_bezierMainIK[i + 1].p_position))
+
+        fk_idx = _rig_shapes_bezier_main_fk_idx(
+            self, mMain, mRigNull, mBlock, ml_fkCastTargets, ml_fkShapes,
+            mControlIK, mControlIKBase)
+        ml_subs = []
+
+        for str_nameMod, v_neighbor in l_sub_defs:
+            mSub = mMain.doCreateAt(setClass=True)
+            mSub.p_position = _rig_shapes_bezier_sub_pos(v_main, v_neighbor)
+            mSub.doCopyNameTagsFromObject(
+                mMain.mNode,
+                ignore=['cgmType', 'cgmTypeModifier', 'cgmNameModifier', 'cgmAlias'])
+            mSub.doStore('cgmTypeModifier', 'ikBezierSub')
+            mSub.doStore('cgmNameModifier', str_nameMod)
+            mSub.doStore('cgmType', 'handle')
+            mSub.doName()
+
+            _rig_shapes_bezier_ik_shape_from_fk(
+                self, mSub, ml_fkShapes[fk_idx], 'sphere', mSub, f_subScale)
+            mBlock.asHandleFactory(mSub.mNode).color(mSub.mNode, controlType='accent')
+            mSub.p_parent = mMain
+
+            mTrackCrv = _rig_shapes_bezier_main_to_sub_track(
+                self, mMain, mSub, str_nameMod, mHandleFactory)
+            self.ml_bezierIKTrackCurves.append(mTrackCrv)
+
+            ml_subs.append(mSub)
+            self.ml_bezierIKSubControls.append(mSub)
+
+        str_slot = _rig_shapes_bezier_main_slot_key(
+            mMain, ml_bezierMainIK, mControlIKBase, mControlIK)
+        self.md_bezierIKSubsBySlot[str_slot] = ml_subs
+        mRigNull.msgList_connect(
+            _bezier_ik_slot_msglist_attr(str_slot),
+            [mObj.mNode for mObj in ml_subs])
+
+    if self.ml_bezierIKSubControls:
+        mRigNull.msgList_connect(
+            'bezierIKSubControls',
+            [mObj.mNode for mObj in self.ml_bezierIKSubControls])
+    if self.ml_bezierIKTrackCurves:
+        mRigNull.msgList_connect(
+            'bezierIKTrackCurves',
+            [mObj.mNode for mObj in self.ml_bezierIKTrackCurves])
 
 #@cgmGEN.Timer
 def rig_shapes(self):
@@ -2658,11 +2992,18 @@ def rig_shapes(self):
         _castVector = mBlock.getEnumValueString('castVector')
         _aimVector = d_orients.get('vector{0}'.format(CORESTRING.capFirst(_castVector)))        
 
+        #FK Shapes (before IK / mid IK so bezier can size from cast cross-section) =============
+        ml_fkShapes = self.atBuilderUtils('shapes_fromCast',
+                                          targets = ml_fkCastTargets,
+                                          offset = _offset,
+                                          aimVector = _aimVector,
+                                          mode = 'frameHandle')
 
         #controlSegMidIK... =============================================================================
         for i,mHelper in enumerate(self.ml_ikMidControls):
-            RIGSHAPES.ik_segMid(self,mHelper)
-            CORERIG.shapeParent_in_place(mHelper.mNode, self.ml_ikMidHelpers[i].mNode, False)
+            if str_ikSetup != 'bezier':
+                RIGSHAPES.ik_segMid(self,mHelper)
+                CORERIG.shapeParent_in_place(mHelper.mNode, self.ml_ikMidHelpers[i].mNode, False)
             
             
         """    
@@ -2702,15 +3043,6 @@ def rig_shapes(self):
         ml_handleJoints = self.mRigNull.msgList_get('handleJoints')
         if ml_handleJoints: RIGSHAPES.segment_handles(self, ml_handleJoints)        
         
-        
-        #FK Shapes =============================================================================
-        ml_fkShapes = self.atBuilderUtils('shapes_fromCast',
-                                          targets = ml_fkCastTargets,
-                                          offset = _offset,
-                                          aimVector = _aimVector,
-                                          mode = 'frameHandle')
-    
-        
         if mBlock.ikSetup:
             #reload(RIGSHAPES)
             #IK Shapes=====================================================================
@@ -2732,7 +3064,13 @@ def rig_shapes(self):
                 RIGSHAPES.ik_base(self,None,ml_fkJoints,ml_fkShapes)
                 
             if str_ikSetup == 'rp':
-                RIGSHAPES.ik_rp(self,None,ml_ikJoints)            
+                RIGSHAPES.ik_rp(self,None,ml_ikJoints)
+
+            if str_ikSetup == 'bezier':
+                _rig_shapes_bezier_ik_apply_from_fk(
+                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
+                _rig_shapes_bezier_ik_subs(
+                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
             
         #FK...=======================================================================
         log.debug("|{0}| >> FK...".format(_str_func))
@@ -2834,6 +3172,7 @@ def rig_controls(self):
         if mBlock.getMessage('cogHelper'):
             b_cog = True
         str_ikBase = ATTR.get_enumValueString(mBlock.mNode,'ikBase')
+        str_ikSetup = mBlock.getEnumValueString('ikSetup')
         
         d_controlSpaces = self.atBuilderUtils('get_controlSpaceSetupDict')
         
@@ -3027,7 +3366,7 @@ def rig_controls(self):
             log.debug("|{0}| >> Found midIKControls".format(_str_func))            
             d_mid = copy.copy(d_controlSpaces)
             if d_mid.get('addSpacePivots'):d_mid.pop('addSpacePivots')
-            for mHandle in self.ml_ikMidControls:
+            for i, mHandle in enumerate(self.ml_ikMidControls):
                 _d = MODULECONTROL.register(mHandle,
                                             addDynParentGroup = True, 
                                             mirrorSide= self.d_module['mirrorDirection'],
@@ -3038,12 +3377,47 @@ def rig_controls(self):
                 
                 mNew = _d['mObj']
                 mNew.masterGroup.parent = mRootParent
+                self.ml_ikMidControls[i] = mNew
                 ml_controlsAll.append(mNew)            
                 ml_controlsIK.insert(-1,mNew)
 
                 if ml_blendJoints:
                     self.atUtils('get_switchTarget', mNew, DIST.get_closestTarget(mNew.mNode,[mTarget.mNode for mTarget in ml_blendJoints]))
 
+        #Bezier IK sub handles (rig_shapes) ======================================================
+        if str_ikSetup == 'bezier':
+            ml_bezierIKSubs = mRigNull.msgList_get('bezierIKSubControls')
+            if not ml_bezierIKSubs:
+                ml_bezierIKSubs = self.ml_bezierIKSubControls or []
+            if ml_bezierIKSubs:
+                log.debug("|{0}| >> bezier IK sub controls: {1}".format(
+                    _str_func, len(ml_bezierIKSubs)))
+                if self.d_module['mirrorDirection'] == 'Centre':
+                    _bezierSubMirrorAxis = 'translateY,translateZ,rotateY,rotateZ'
+                else:
+                    _bezierSubMirrorAxis = 'translateX,translateY,translateZ'
+                for mSub in ml_bezierIKSubs:
+                    mParentMain = mSub.getParent(asMeta=True)
+                    _d = MODULECONTROL.register(
+                        mSub,
+                        addDynParentGroup=False,
+                        mirrorSide=self.d_module['mirrorDirection'],
+                        mirrorAxis=_bezierSubMirrorAxis,
+                        makeAimable=False)
+                    mSub = _d['mObj']
+                    if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
+                        ATTR.set_hidden(mSub.mNode, 'radius', True)
+                    if mParentMain:
+                        mSub.masterGroup.p_parent = mParentMain
+                    ml_controlsAll.append(mSub)
+
+                _bezier_ik_reinit_session_meta(self)
+                for str_slot, ml_subs in (self.md_bezierIKSubsBySlot or {}).items():
+                    mRigNull.msgList_connect(
+                        _bezier_ik_slot_msglist_attr(str_slot),
+                        [mObj.mNode for mObj in ml_subs])
+                ml_controlsIK = _bezier_ik_pickwalk_controls(
+                    mRigNull, self.md_bezierIKSubsBySlot)
 
             
             
@@ -3743,6 +4117,108 @@ def rig_frame(self):
                                mIKControl,mIKBaseControl,mIKHandleDriver,
                                mRoot,mIKGroup)                
 
+            elif _ikSetup == 'bezier':
+                log.debug("|{0}| >> bezier setup...".format(_str_func))
+
+                ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
+                if not ml_ribbonIkHandles:
+                    raise ValueError("No ribbon IKDriversFound")
+
+                ml_segMidDrivers = copy.copy(ml_ribbonIkHandles)
+
+                if self.ml_ikMidControls and mBlock.ikMidSetup:
+                    RIGFRAME.segment_mid(self, self.ml_ikMidControls,
+                                         ml_segMidDrivers, mIKGroup,
+                                         mIKBaseControl, mIKControl, ml_ikJoints)
+
+                if mIKBaseControl:
+                    ml_ribbonIkHandles[0].parent = mIKBaseControl
+                else:
+                    ml_ribbonIkHandles[0].parent = mSpinGroup
+
+                ml_ribbonIkHandles[-1].parent = mIKControl
+
+                for i, mJnt in enumerate(ml_ikJoints[1:]):
+                    mJnt.p_parent = ml_ikJoints[i]
+
+                mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
+                mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
+
+                ml_ikUse = copy.copy(ml_ikJoints)
+                ml_ikUse[-1] = mIKSplineEnd
+
+                mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
+
+                if mBlock.ikSplineParentSegEnd:
+                    ml_ikJoints[-1].p_parent = mIKControl
+
+                _bezier_ik_reinit_session_meta(self)
+                ml_bezierMainIK = _bezier_ik_bezier_main_ik_list(
+                    mIKBaseControl, self.ml_ikMidControls, mIKControl)
+                ml_bezierSubsPerMain = []
+                for mMain in ml_bezierMainIK:
+                    str_slot = _rig_shapes_bezier_main_slot_key(
+                        mMain, ml_bezierMainIK, mIKBaseControl, mIKControl)
+                    ml_bezierSubsPerMain.append(
+                        list((self.md_bezierIKSubsBySlot or {}).get(str_slot, [])))
+
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'bezier rig_frame | sections={0} mains={1} subs={2}'.format(
+                        max(1, len(ml_bezierMainIK) - 1),
+                        len(ml_bezierMainIK),
+                        len(self.ml_bezierIKSubControls or []))))
+
+                RIGFRAME.bezier(
+                    self,
+                    ml_ikUse,
+                    mIKControl,
+                    mIKBaseControl,
+                    mPlug_masterScale,
+                    mBlock.ikSplineTwistEndConnect,
+                    mSettings=mSettings,
+                    ml_bezierMainIK=ml_bezierMainIK,
+                    ml_bezierSubsPerMain=ml_bezierSubsPerMain)
+
+                if mSettings.hasAttr('twistType'):
+                    ATTR.set_default(mSettings.mNode, 'twistType', 1)
+                    ATTR.set(mSettings.mNode, 'twistType', 1)
+
+                mc.pointConstraint([mIKSplineEnd.mNode], ml_ikJoints[-1].mNode, maintainOffset=True)
+                mIKSplineIKDriver = ml_ikJoints[-1].doDuplicate()
+                mIKSplineIKDriver.rename("{}_splineControl".format(ml_ikJoints[-1].p_nameBase))
+                mIKSplineIKDriver.p_parent = mIKControl
+
+                mPlug_followIK = cgmMeta.cgmAttr(
+                    mIKControl.mNode, 'followIK', attrType='float', lock=False,
+                    keyable=True, defaultValue=0.0)
+                mPlug_followIK.p_value = 0.0
+                ATTR.set_default(mIKControl.mNode, 'followIK', 0.0)
+
+                RIGCONSTRAINT.blendChainsBy(
+                    mIKSplineEnd, mIKSplineIKDriver, ml_ikJoints[-1],
+                    driver=mPlug_followIK.p_combinedName,
+                    l_constraints=['orient'])
+
+                if (self.b_scaleSetup
+                        and mBlock.getEnumValueString('squash') == 'simple'):
+                    mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
+                    _str_aim = _bezier_ik_stretch_aim_axis(self)
+                    log.info(cgmGEN.logString_msg(
+                        _str_func,
+                        'bezier_spline_stretch | aim:{0} stretchBy:{1} joints:{2}'.format(
+                            _str_aim,
+                            self.str_segmentStretchBy,
+                            len(ml_ikUse))))
+                    IK.bezier_spline_stretch(
+                        jointList=[mObj.mNode for mObj in ml_ikUse],
+                        mDriverCurve=mBezierDriver,
+                        mSettings=mSettings,
+                        aimAxis=_str_aim,
+                        stretchBy=self.str_segmentStretchBy,
+                        baseName='{0}_bezier'.format(self.d_module['partName']),
+                        useUndoChunk=False)
+
             elif _ikSetup in ['spline','curve']:# ==============================================================================
                 log.debug("|{0}| >> {1} setup...".format(_str_func,_ikSetup))
                 
@@ -4039,7 +4515,7 @@ def rig_frame(self):
             
             
             ml_blendJoints[0].parent = mRoot
-            if _ikSetup == 'spline':
+            if _ikSetup in ['spline', 'bezier']:
                 ml_ikJoints[0].parent = mIKBaseControl.masterGroup.p_parent
             else:
                 ml_ikJoints[0].parent = mIKBaseControl
@@ -4060,54 +4536,57 @@ def rig_frame(self):
             
 
             #Setup blend ----------------------------------------------------------------------------------
-            if self.b_scaleSetup and _ikSetup in ['ribbon','curve']:
-                log.debug("|{0}| >> scale blend chain setup...".format(_str_func))                
-                RIGCONSTRAINT.blendChainsBy(ml_fkAttachJoints,ml_ikJoints,ml_blendJoints,
-                                            driver = mPlug_FKIK.p_combinedName,
-                                            l_constraints=['parent','scale'])
-                
-                
-                #Scale setup for ik joints                
-                if _ikSetup not in ['curve']:
-                    ml_ikScaleTargets = [mIKControl]
-    
-                    if mIKBaseControl:
-                        mc.scaleConstraint(mIKBaseControl.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
-                        ml_ikScaleTargets.append(mIKBaseControl)
-                    else:
-                        mc.scaleConstraint(mRoot.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
-                        ml_ikScaleTargets.append(mRoot)
-                        
-                    mc.scaleConstraint(mIKControl.mNode, ml_ikJoints[-1].mNode,maintainOffset=True)
-                    
-                    _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
-                    
-                    #Scale setup for mid set IK
-                    """
-                    if mSegMidIK:
-                        mMasterGroup = mSegMidIK.masterGroup
-                        _vList = DIST.get_normalizedWeightsByDistance(mMasterGroup.mNode,_targets)
-                        _scale = mc.scaleConstraint(_targets,mMasterGroup.mNode,maintainOffset = True)#Point contraint loc to the object
-                        CONSTRAINT.set_weightsByDistance(_scale[0],_vList)                
-                        ml_ikScaleTargets.append(mSegMidIK)
+            if self.b_scaleSetup and _ikSetup in ['ribbon', 'curve', 'bezier']:
+                log.debug("|{0}| >> scale blend chain setup...".format(_str_func))
+                RIGCONSTRAINT.blendChainsBy(
+                    ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
+                    driver=mPlug_FKIK.p_combinedName,
+                    l_constraints=['parent'])
+                RIGCONSTRAINT.blendChainsScaleByAttr(
+                    ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
+                    driver=mPlug_FKIK.p_combinedName)
+
+                # Ribbon / spline driver scale on IK — not bezier (stretch owns IK channels).
+                if _ikSetup in ['ribbon', 'curve']:
+                    if _ikSetup not in ['curve']:
+                        ml_ikScaleTargets = [mIKControl]
+
+                        if mIKBaseControl:
+                            mc.scaleConstraint(
+                                mIKBaseControl.mNode, ml_ikJoints[0].mNode,
+                                maintainOffset=True)
+                            ml_ikScaleTargets.append(mIKBaseControl)
+                        else:
+                            mc.scaleConstraint(
+                                mRoot.mNode, ml_ikJoints[0].mNode,
+                                maintainOffset=True)
+                            ml_ikScaleTargets.append(mRoot)
+
+                        mc.scaleConstraint(
+                            mIKControl.mNode, ml_ikJoints[-1].mNode,
+                            maintainOffset=True)
+
                         _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
-                        """
-                    for mJnt in ml_ikJoints[1:-1]:
-                        _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode,_targets)
-                        _scale = mc.scaleConstraint(_targets,mJnt.mNode,maintainOffset = True)#Point contraint loc to the object
-                        CONSTRAINT.set_weightsByDistance(_scale[0],_vList)
-                
-                for mJnt in ml_ikJoints[1:]:
-                    mJnt.p_parent = mIKGroup
-                    mJnt.segmentScaleCompensate = False
-                    
+
+                        for mJnt in ml_ikJoints[1:-1]:
+                            _vList = DIST.get_normalizedWeightsByDistance(
+                                mJnt.mNode, _targets)
+                            _scale = mc.scaleConstraint(
+                                _targets, mJnt.mNode, maintainOffset=True)
+                            CONSTRAINT.set_weightsByDistance(_scale[0], _vList)
+
+                    for mJnt in ml_ikJoints[1:]:
+                        mJnt.p_parent = mIKGroup
+                        if not self.b_squashSetup:
+                            mJnt.segmentScaleCompensate = False
+
                 for mJnt in ml_blendJoints:
-                    mJnt.segmentScaleCompensate = False
+                    if not self.b_squashSetup:
+                        mJnt.segmentScaleCompensate = False
                     if mJnt == ml_blendJoints[0]:
                         continue
                     mJnt.p_parent = ml_blendJoints[0].p_parent
-                
-                
+
             else:
                 RIGCONSTRAINT.blendChainsBy(ml_fkAttachJoints,ml_ikJoints,ml_blendJoints,
                                             driver = mPlug_FKIK.p_combinedName,
@@ -4979,12 +5458,23 @@ def controller_getDat(self):
     md['noHide'] = md['root'] + md['settings']
     
     #IK...
-    md['ik'] = checkList(['leverFK','controlsIK',
-                          'controlIKBase',
-                          'controlIKMid','controlSegMidIK',
-                          'controlBallRotation','leverIK',
-                          'controlIKBall','controlIKBallHinge','controlIKToe',
-                          'controlIKEnd','controlIK'])
+    ml_bezierSubs = mRigNull.msgList_get('bezierIKSubControls')
+    if ml_bezierSubs:
+        md['ik'] = checkList(['leverFK',
+                              'controlBallRotation', 'leverIK',
+                              'controlIKBall', 'controlIKBallHinge', 'controlIKToe',
+                              'controlIKEnd'])
+        ml_pickwalk = _bezier_ik_pickwalk_controls(mRigNull)
+        _set_pick = set(ml_pickwalk)
+        md['ik'] = [m for m in md['ik'] if m not in _set_pick]
+        md['ik'].extend(ml_pickwalk)
+    else:
+        md['ik'] = checkList(['leverFK', 'controlsIK',
+                              'controlIKBase',
+                              'controlIKMid', 'controlSegMidIK',
+                              'controlBallRotation', 'leverIK',
+                              'controlIKBall', 'controlIKBallHinge', 'controlIKToe',
+                              'controlIKEnd', 'controlIK'])
     #seg...
     md['segmentHandles'] = mRigNull.msgList_get('handleJoints')
         

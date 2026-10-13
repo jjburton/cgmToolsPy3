@@ -35,6 +35,7 @@ import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
 #reload(RIGGING)
 from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import curve_Utils as CURVES
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.lib.rayCaster as RAYS
 import cgm.core.lib.locator_utils as LOC
 from cgm.core.tools import meshTools
@@ -1959,6 +1960,18 @@ def uiSection_createFromSel(parent, selection = None):
                 l = 'Curve [ Cubic Track ]',
                 ann='Create a cubic track curve from eps of the selected components or transforms',                                
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Cubic Track Curve',**{'create':'cubicTrack'}))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier ]',
+                ann='Create a Maya Bezier curve from selected positions (prompts for segment count)',
+                c = cgmGEN.Callback(uiFunc_createBezierCurve))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier Track ]',
+                ann='Bezier track: spans = selection count - 1; CV clusters parented to targets',
+                c = cgmGEN.Callback(uiFunc_createBezierTrackCurve))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier Controls ]',
+                ann='CV controls on bezierIKCurve after IK.bezier_spline',
+                c = cgmGEN.Callback(uiFunc_addBezierControls))
     
     
     
@@ -2371,6 +2384,49 @@ def uiSection_rayCast(parent, selection = None):
 def uiFunc_createOneOfEach():
     var_createSizeValue = cgmMeta.cgmOptionVar('cgmVar_createSizeValue', defaultValue=1.0)        
     CURVES.create_oneOfEach(var_createSizeValue.value)
+
+
+def _uiPrompt_bezier_sections():
+    _sections = cgmUI.uiPrompt_getValue(
+        title='Bezier Curve',
+        message='How many Bezier segments:',
+        text='1')
+    if _sections is None:
+        return None
+    try:
+        return max(1, int(_sections))
+    except (TypeError, ValueError):
+        log.warning('_uiPrompt_bezier_sections | Invalid segment count: {0}'.format(_sections))
+        return None
+
+
+def uiFunc_createBezierCurve():
+    """Prompt for Bezier segment count, then build curve from current selection."""
+    _sections = _uiPrompt_bezier_sections()
+    if _sections is None:
+        return
+
+    MMCONTEXT.func_process(
+        CURVES.create_bezier_curve_from_objects,
+        None,
+        'all',
+        'Create Bezier Curve',
+        bezier_sections=_sections)
+
+
+def uiFunc_createBezierTrackCurve():
+    """Build Bezier track curve; span count from number of selected targets."""
+    MMCONTEXT.func_process(
+        CURVES.create_bezier_track_curve_from_objects,
+        None,
+        'all',
+        'Create Bezier Track Curve')
+
+
+def uiFunc_addBezierControls():
+    """Add CV controls to the selected Bezier curve."""
+    RIGBEZIER.bezier_controls_add()
+
 
 def uiFunc_createCurve():
     cgmGEN._reloadMod(CURVES)

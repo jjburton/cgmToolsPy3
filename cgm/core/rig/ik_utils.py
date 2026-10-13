@@ -11,6 +11,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 # From Python =============================================================
 import copy
+import math
 import re
 import time
 import pprint
@@ -5218,6 +5219,1138 @@ def curve(jointList = None,
     _res = {'mlCurves':ml_curves}
     return _res
 
+
+def _bezier_joint_chain_from_root(mRoot):
+    """Single-child joint chain from root; raises if a joint branches."""
+    mRoot = cgmMeta.validateObjArg(mRoot, mayaType=['joint'], noneValid=False)
+    ml_chain = [mRoot]
+    mCurrent = mRoot
+    while True:
+        ml_children = [
+            mChild for mChild in (mCurrent.getChildren(asMeta=True) or [])
+            if mc.nodeType(mChild.mNode) == 'joint']
+        if not ml_children:
+            break
+        if len(ml_children) > 1:
+            raise ValueError(
+                'Joint "{0}" has multiple joint children. '
+                'Use a non-branching chain.'.format(mCurrent.p_nameLong))
+        mCurrent = ml_children[0]
+        ml_chain.append(mCurrent)
+    return ml_chain
+
+
+def _bezier_bind_driver_cvs_from_bezier(mBezierCurve,
+                                        mDriverCurve,
+                                        sample_count,
+                                        str_baseName):
+    """Drive hidden spline-IK CVs from uniform samples on the Bezier curve."""
+    _bezier_shape = mBezierCurve.getShapes(asMeta=False)[0]
+    _driver_shape = mDriverCurve.getShapes(asMeta=False)[0]
+    ml_poci = []
+    ml_wtl = []
+
+    for _index in range(sample_count):
+        _parameter = float(_index) / float(sample_count - 1)
+
+        mPoci = cgmMeta.cgmNode(
+            nodeType='pointOnCurveInfo',
+            name='{0}_{1:02d}_poci'.format(str_baseName, _index))
+        mWtl = cgmMeta.cgmNode(
+            nodeType='vectorProduct',
+            name='{0}_{1:02d}_wtlVP'.format(str_baseName, _index))
+
+        ATTR.set(mWtl.mNode, 'operation', 4)
+        ATTR.set(mWtl.mNode, 'normalizeOutput', 0)
+
+        ATTR.connect(_bezier_shape + '.worldSpace[0]', mPoci.mNode + '.inputCurve')
+        ATTR.set(mPoci.mNode, 'turnOnPercentage', 1)
+        ATTR.set(mPoci.mNode, 'parameter', _parameter)
+
+        ATTR.connect(mPoci.mNode + '.position', mWtl.mNode + '.input1')
+        ATTR.connect(mDriverCurve.mNode + '.worldInverseMatrix[0]', mWtl.mNode + '.matrix')
+        ATTR.connect(
+            mWtl.mNode + '.output',
+            '{0}.controlPoints[{1}]'.format(_driver_shape, _index))
+
+        ml_poci.append(mPoci)
+        ml_wtl.append(mWtl)
+
+    return ml_poci, ml_wtl
+
+
+def bezier_spline(jointList=None,
+                  baseName=None,
+                  bezierSections=None,
+                  sampleCount=None,
+                  useBezierCurve=None,
+                  advancedTwistSetup=False,
+                  moduleInstance=None,
+                  parentGutsTo=None,
+                  useUndoChunk=True,
+                  **kws):
+    """
+    Bezier-authored curve driving a hidden nurbs curve for ikSplineSolver.
+
+    :parameters:
+        jointList(joints) | Root joint or ordered chain metas. Selection used when None.
+        baseName(str) | Node base name
+        bezierSections(int) | Editable Bezier sections (default from joint count, max 4)
+        sampleCount(int) | CV count on hidden driver curve
+        useBezierCurve(nurbsCurve) | Existing Bezier curve; skips auto CV build when set
+        advancedTwistSetup(bool) | Pass through to IKHandle_addSplineIKTwist
+        moduleInstance(cgmRigModule) | Optional; MRS rigNull parenting (omit for native Maya tests)
+        parentGutsTo(transform) | Parent setup group under an existing transform
+        useUndoChunk(bool) | Wrap build in mc.undoInfo chunk
+
+    :returns:
+        dict with mIKHandle, mIKEffector, mBezierCurve, mDriverCurve, mSetupGroup, ml_joints, ...
+    """
+    _str_func = 'bezier_spline'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    if jointList is None:
+        _sel = mc.ls(sl=True, type='joint', long=True) or []
+        if not _sel:
+            raise ValueError('Select the root joint of a chain or pass jointList.')
+        ml_joints = _bezier_joint_chain_from_root(_sel[0])
+    else:
+        ml_joints = cgmMeta.validateObjListArg(
+            jointList, mType='cgmObject', mayaType=['joint'], noneValid=False)
+        if len(ml_joints) == 1:
+            ml_joints = _bezier_joint_chain_from_root(ml_joints[0])
+
+    if len(ml_joints) < 2:
+        raise ValueError('Bezier spline IK needs at least two joints.')
+
+    mModule = cgmMeta.validateObjArg(moduleInstance, 'cgmRigModule', noneValid=True)
+    str_baseName = VALID.stringArg(baseName, noneValid=True)
+    if not str_baseName and mModule:
+        str_baseName = mModule.getPartNameBase()
+    if not str_baseName:
+        str_baseName = 'bezierSpline'
+    mi_rigNull = mModule.rigNull if mModule else False
+
+    l_positions = [mJnt.p_position for mJnt in ml_joints]
+
+    if bezierSections is None:
+        _sections = max(1, min(len(ml_joints) - 1, 4))
+    else:
+        _sections = max(1, int(bezierSections))
+
+    if sampleCount is None:
+        _sample_count = max(len(ml_joints), (_sections * 3) + 1, 8)
+    else:
+        _sample_count = max(4, int(sampleCount))
+
+    if parentGutsTo is None:
+        mSetupGroup = cgmMeta.cgmObject(name='{0}_setup_grp'.format(str_baseName))
+        mSetupGroup.addAttr('cgmName', str_baseName, lock=True)
+        mSetupGroup.addAttr('cgmTypeModifier', 'bezierIKStuff', lock=True)
+        mSetupGroup.doName()
+    else:
+        mSetupGroup = cgmMeta.validateObjArg(parentGutsTo, 'cgmObject', noneValid=False)
+
+    if mi_rigNull:
+        mSetupGroup.p_parent = mi_rigNull
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        mi_useBezier = cgmMeta.validateObjArg(
+            useBezierCurve, mayaType=['nurbsCurve'], noneValid=True)
+
+        if mi_useBezier:
+            mBezierCurve = mi_useBezier
+        else:
+            l_anchors = []
+            for _i in range(_sections + 1):
+                _t = float(_i) / float(_sections)
+                l_anchors.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
+            l_bezier_cvs = CURVES.bezier_cvs_from_anchors(l_anchors)
+            _bezier_xform = CURVES.create_bezier_nurbs_curve(
+                '{0}_bezier_crv'.format(str_baseName),
+                l_bezier_cvs)
+            mBezierCurve = cgmMeta.asMeta(_bezier_xform, 'cgmObject', setClass=True)
+            mBezierCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+            mBezierCurve.addAttr('cgmType', 'bezierIKCurve', attrType='string', lock=True)
+            mBezierCurve.doName()
+
+        mBezierCurve.p_parent = mSetupGroup
+
+        l_driver_pts = []
+        for _i in range(_sample_count):
+            _t = float(_i) / float(_sample_count - 1)
+            l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
+
+        _driver_xform = mc.curve(
+            name='{0}_ikDriver_crv'.format(str_baseName),
+            degree=3,
+            point=l_driver_pts)
+        mDriverCurve = cgmMeta.asMeta(_driver_xform, 'cgmObject', setClass=True)
+        mDriverCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mDriverCurve.addAttr('cgmType', 'splineIKCurve', attrType='string', lock=True)
+        mDriverCurve.doName()
+        mDriverCurve.p_parent = mSetupGroup
+
+        ml_poci, ml_wtl = _bezier_bind_driver_cvs_from_bezier(
+            mBezierCurve, mDriverCurve, _sample_count, str_baseName)
+
+        _buffer = mc.ikHandle(
+            sj=ml_joints[0].mNode,
+            ee=ml_joints[-1].mNode,
+            name='{0}_ikh'.format(str_baseName),
+            solver='ikSplineSolver',
+            curve=mDriverCurve.mNode,
+            createCurve=False,
+            parentCurve=False,
+            rootOnCurve=True,
+            simplifyCurve=False,
+            forceSolver=True,
+            snapHandleFlagToggle=True)
+
+        mIKHandle = cgmMeta.validateObjArg(_buffer[0], 'cgmObject', setClass=True)
+        mIKHandle.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mIKHandle.doName()
+
+        mIKEffector = cgmMeta.validateObjArg(_buffer[1], 'cgmObject', setClass=True)
+        mIKEffector.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mIKEffector.doName()
+        mIKEffector.rename('{0}_effector'.format(str_baseName))
+
+        mIKHandle.p_parent = mSetupGroup
+        mc.setAttr(mDriverCurve.mNode + '.visibility', 0)
+
+        mBezierCurve.connectChildNode(mDriverCurve.mNode, 'ikDriverCurve', 'bezierIKCurve')
+        mDriverCurve.msgList_append('ikHandles', mIKHandle.mNode, 'segmentCurve')
+        mIKHandle.msgList_connect('drivenJoints', [mJ.mNode for mJ in ml_joints], 'ikHandle')
+
+        d_twist = IKHandle_addSplineIKTwist(mIKHandle.mNode, VALID.boolArg(advancedTwistSetup))
+
+        # POCI / vectorProduct are DG nodes (cgmNode) — no DAG parent; leave unparented like spline stretch nodes.
+        ml_toConnect = [mDriverCurve, mIKHandle, mIKEffector] + ml_poci + ml_wtl
+        if mi_rigNull:
+            _str_rigNull = mi_rigNull.mNode
+            for mObj in ml_toConnect:
+                mObj.overrideEnabled = 1
+                cgmMeta.cgmAttr(_str_rigNull, 'gutsVis', lock=False).doConnectOut(
+                    '{0}.overrideVisibility'.format(mObj.mNode))
+                cgmMeta.cgmAttr(_str_rigNull, 'gutsLock', lock=False).doConnectOut(
+                    '{0}.overrideDisplayType'.format(mObj.mNode))
+
+        _res = {
+            'mIKHandle': mIKHandle,
+            'mIKEffector': mIKEffector,
+            'mBezierCurve': mBezierCurve,
+            'mDriverCurve': mDriverCurve,
+            'mSplineCurve': mDriverCurve,
+            'mSetupGroup': mSetupGroup,
+            'ml_joints': ml_joints,
+            'ml_pointOnCurveInfo': ml_poci,
+            'ml_worldToLocalVP': ml_wtl,
+        }
+        _res.update(d_twist)
+        log.info(cgmGEN.logString_msg(_str_func, 'done | {0}'.format(mBezierCurve.p_nameShort)))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def _bezier_stretch_axis_data(str_aim_axis):
+    str_aim = str_aim_axis.lower()
+    if str_aim == 'x':
+        return 'translateX', 'scaleX', ('scaleY', 'scaleZ')
+    if str_aim == 'y':
+        return 'translateY', 'scaleY', ('scaleX', 'scaleZ')
+    if str_aim == 'z':
+        return 'translateZ', 'scaleZ', ('scaleX', 'scaleY')
+    raise ValueError('aimAxis must be "x", "y" or "z".')
+
+
+def _bezier_stretch_disconnect_incoming(str_plug):
+    for _src in mc.listConnections(
+            str_plug, source=True, destination=False, plugs=True) or []:
+        mc.disconnectAttr(_src, str_plug)
+
+
+def _bezier_stretch_volume_driver(str_base, str_final_ratio, b_translate_stretch):
+    """
+    Perpendicular squash scale driver from length ratio (always positive).
+
+    translate stretch — linear 1/ratio (MRS simple squash; stable with SSC + translate).
+    scale stretch — ratio^-0.5 (volume-style).
+    """
+    mRatioClamp = cgmMeta.cgmNode(
+        nodeType='clamp', name='{0}_stretch_ratioClamp'.format(str_base))
+    ATTR.set(mRatioClamp.mNode, 'minR', 0.0001)
+    ATTR.set(mRatioClamp.mNode, 'maxR', 1000000.0)
+    ATTR.connect(str_final_ratio, mRatioClamp.mNode + '.inputR')
+    str_clamped = mRatioClamp.mNode + '.outputR'
+
+    if b_translate_stretch:
+        mVolDriver = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_volumeInv_md'.format(str_base))
+        ATTR.set(mVolDriver.mNode, 'operation', 2)
+        ATTR.set(mVolDriver.mNode, 'input1X', 1.0)
+        ATTR.connect(str_clamped, mVolDriver.mNode + '.input2X')
+        return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
+
+    mVolDriver = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch_volumePow_md'.format(str_base))
+    ATTR.set(mVolDriver.mNode, 'operation', 3)
+    ATTR.connect(str_clamped, mVolDriver.mNode + '.input1X')
+    ATTR.set(mVolDriver.mNode, 'input2X', -0.5)
+    return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
+
+
+def bezier_spline_stretch(ml_joints=None,
+                          root_joint=None,
+                          jointList=None,
+                          mDriverCurve=None,
+                          driver_curve=None,
+                          mSettings=None,
+                          settings_node=None,
+                          aimAxis='x',
+                          aim_axis=None,
+                          stretchBy='translate',
+                          stretch_by=None,
+                          globalScalePlug=None,
+                          baseName=None,
+                          name=None,
+                          replaceExisting=True,
+                          replace_existing=None,
+                          useUndoChunk=True):
+    """
+    Exact arc-length stretch for IK.bezier_spline joint chains.
+
+    Uses stretch / squash on settings (bezierIKCurve recommended).
+
+    finalRatio = 1 + stretch * (arcRatio - 1)
+    stretch=1 matches measured curve arc length; stretch=0 rest bind; stretch less than 0 shrinks
+    (opposite of arc length delta). squash=1 applies volume compensation on secondary scales
+    (translate stretch: linear 1/ratio; scale stretch: ratio^-0.5).
+
+    curveInfo measures driver_curve / mDriverCurve — the curve whose length drives stretch.
+    When spline_ik_curve_add_sine is used, pass the **sine output** (same curve wired to
+    ikHandle.inCurve), not the hidden undeformed POCI driver.
+
+    :parameters:
+        ml_joints | Joint chain metas (root to tip); same order as bezier_spline return
+        root_joint(joint) | Build ml_joints from a non-branching chain root
+        jointList(joints) | Ordered chain; overrides root_joint when set
+        driver_curve / mDriverCurve | Measured arc-length source (sine output when deformed)
+        settings_node / mSettings | Attr holder for stretch / squash
+        aim_axis / aimAxis | Local segment length axis x|y|z
+        stretch_by / stretchBy | translate | scale — segment length via translate or aim-axis scale
+        globalScalePlug | Optional uniform scale plug to remove from measured length
+        name / baseName | Network node base name
+        replace_existing / replaceExisting | Disconnect existing drivers on stretch channels
+        useUndoChunk | Wrap in undo chunk
+
+    :returns:
+        dict of meta nodes and plugs
+    """
+    _str_func = 'bezier_spline_stretch'
+
+    if jointList is not None:
+        ml_joints = cgmMeta.validateObjListArg(
+            jointList, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    elif ml_joints is not None:
+        ml_joints = cgmMeta.validateObjListArg(
+            ml_joints, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    elif root_joint is not None:
+        ml_joints = _bezier_joint_chain_from_root(root_joint)
+    else:
+        raise ValueError(
+            '|{0}| >> Pass ml_joints, jointList, or root_joint.'.format(_str_func))
+
+    if len(ml_joints) < 2:
+        raise ValueError('|{0}| >> At least two joints required.'.format(_str_func))
+
+    _length_curve = mDriverCurve if mDriverCurve is not None else driver_curve
+    if _length_curve is None:
+        raise ValueError(
+            '|{0}| >> Pass driver_curve or mDriverCurve (sine output when deformed).'.format(
+                _str_func))
+
+    _settings = mSettings if mSettings is not None else settings_node
+    if aim_axis is not None:
+        aimAxis = aim_axis
+    str_stretch_by = VALID.stringArg(stretch_by, noneValid=True)
+    if not str_stretch_by:
+        str_stretch_by = VALID.stringArg(stretchBy, noneValid=True) or 'translate'
+    b_stretch_scale = str_stretch_by.lower() in ['scale', 's']
+    str_base = VALID.stringArg(name, noneValid=True) or VALID.stringArg(
+        baseName, noneValid=True)
+    if replace_existing is not None:
+        replaceExisting = replace_existing
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'start | measure:{0} settings:{1} stretchBy:{2}'.format(
+            cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
+            cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
+            if _settings else '(driver)',
+            str_stretch_by)))
+
+    mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
+    if not mDriver.getShapes(asMeta=False):
+        raise ValueError(
+            '|{0}| >> mDriverCurve has no curve shape.'.format(_str_func))
+    mSettings = cgmMeta.validateObjArg(
+        _settings or mDriver, 'cgmObject', noneValid=False)
+
+    if not str_base:
+        str_base = mSettings.p_nameBase
+    str_translate, str_aim_scale, l_volume_scale = _bezier_stretch_axis_data(aimAxis)
+
+    str_shape = mDriver.getShapes(asMeta=False)[0]
+    ml_segments = ml_joints[1:]
+
+    l_rest_translate = []
+    for mJnt in ml_segments:
+        l_rest_translate.append(float(ATTR.get(mJnt.mNode, str_translate)))
+
+    f_rest_length = sum(abs(_v) for _v in l_rest_translate)
+    if f_rest_length <= 0.000001:
+        raise ValueError(
+            '|{0}| >> Joint chain has no length along local {1}.'.format(
+                _str_func, aimAxis))
+
+    l_affected = []
+    if b_stretch_scale:
+        for mJnt in ml_joints[:-1]:
+            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+    else:
+        for mJnt in ml_segments:
+            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_translate))
+    for mJnt in ml_joints[:-1]:
+        if not b_stretch_scale:
+            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+        for _attr in l_volume_scale:
+            l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
+
+    l_existing = []
+    for _plug in l_affected:
+        for _src in mc.listConnections(
+                _plug, source=True, destination=False, plugs=True) or []:
+            l_existing.append((_src, _plug))
+
+    if l_existing and not replaceExisting:
+        raise ValueError(
+            '|{0}| >> Existing connections on stretch channels; use replaceExisting=True.'.format(
+                _str_func))
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        if replaceExisting:
+            for _plug in l_affected:
+                _bezier_stretch_disconnect_incoming(_plug)
+
+        if not b_stretch_scale:
+            for mJnt in ml_joints[:-1]:
+                ATTR.set(mJnt.mNode, str_aim_scale, 1.0)
+
+        mPlug_stretch = cgmMeta.cgmAttr(
+            mSettings.mNode, 'stretch', attrType='float', keyable=True,
+            hidden=False, initialValue=1.0)
+        mPlug_squash = cgmMeta.cgmAttr(
+            mSettings.mNode, 'squash', attrType='float', keyable=True,
+            hidden=False, initialValue=1.0, minValue=0.0)
+
+        if not mDriver.hasAttr('masterScale'):
+            mDriver.addAttr('masterScale', value=1.0, minValue=0.0001, attrType='float')
+
+        mCurveInfo = cgmMeta.cgmNode(
+            nodeType='curveInfo', name='{0}_stretch_curveInfo'.format(str_base))
+        ATTR.connect(str_shape + '.worldSpace[0]', mCurveInfo.mNode + '.inputCurve')
+
+        str_length = mCurveInfo.mNode + '.arcLength'
+        if globalScalePlug:
+            mGlobalMd = cgmMeta.cgmNode(
+                nodeType='multiplyDivide',
+                name='{0}_stretch_globalScale_md'.format(str_base))
+            ATTR.set(mGlobalMd.mNode, 'operation', 2)
+            ATTR.connect(str_length, mGlobalMd.mNode + '.input1X')
+            ATTR.connect(globalScalePlug, mGlobalMd.mNode + '.input2X')
+            str_length = mGlobalMd.mNode + '.outputX'
+
+        mRatioMd = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_lengthRatio_md'.format(str_base))
+        ATTR.set(mRatioMd.mNode, 'operation', 2)
+        ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
+        ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
+
+        mRatioDelta = cgmMeta.cgmNode(
+            nodeType='plusMinusAverage',
+            name='{0}_stretch_ratioDelta_pma'.format(str_base))
+        mRatioDelta.operation = 2
+        ATTR.connect(mRatioMd.mNode + '.outputX', mRatioDelta.mNode + '.input1D[0]')
+        ATTR.set(mRatioDelta.mNode, 'input1D[1]', 1.0)
+
+        mStretchWeight = cgmMeta.cgmNode(
+            nodeType='multDL',
+            name='{0}_stretch_weight_mdl'.format(str_base))
+        mPlug_stretch.doConnectOut(mStretchWeight.mNode + '.input1')
+        ATTR.connect(mRatioDelta.mNode + '.output1D', mStretchWeight.mNode + '.input2')
+
+        mFinalRatio = cgmMeta.cgmNode(
+            nodeType='plusMinusAverage',
+            name='{0}_stretch_finalRatio_pma'.format(str_base))
+        mFinalRatio.operation = 1
+        ATTR.connect(mStretchWeight.mNode + '.output', mFinalRatio.mNode + '.input1D[0]')
+        ATTR.set(mFinalRatio.mNode, 'input1D[1]', 1.0)
+
+        str_final_ratio = mFinalRatio.mNode + '.output1D'
+
+        ml_segment_mdl = []
+        if b_stretch_scale:
+            for _i, mJnt in enumerate(ml_joints[:-1]):
+                mMdl = cgmMeta.cgmNode(
+                    nodeType='multDL',
+                    name='{0}_stretch_seg_{1:02d}_mdl'.format(str_base, _i))
+                _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
+                if abs(_f_rest_scale) < 0.000001:
+                    _f_rest_scale = 1.0
+                ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
+                ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                ATTR.connect(
+                    mMdl.mNode + '.output',
+                    '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+                ml_segment_mdl.append(mMdl)
+        else:
+            for _i, mJnt in enumerate(ml_segments):
+                mMdl = cgmMeta.cgmNode(
+                    nodeType='multDL',
+                    name='{0}_stretch_seg_{1:02d}_mdl'.format(str_base, _i))
+                ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
+                ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                ATTR.connect(
+                    mMdl.mNode + '.output',
+                    '{0}.{1}'.format(mJnt.mNode, str_translate))
+                ml_segment_mdl.append(mMdl)
+
+        mRatioClamp, mVolumeDriver, str_volume_driver = _bezier_stretch_volume_driver(
+            str_base, str_final_ratio, not b_stretch_scale)
+
+        mSquashBlend = cgmMeta.cgmNode(
+            nodeType='blendTwoAttr',
+            name='{0}_squash_blend'.format(str_base))
+        ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
+        ATTR.connect(str_volume_driver, mSquashBlend.mNode + '.input[1]')
+        mPlug_squash.doConnectOut(mSquashBlend.mNode + '.attributesBlender')
+
+        str_volume_scale = mSquashBlend.mNode + '.output'
+        for mJnt in ml_joints[:-1]:
+            for _attr in l_volume_scale:
+                ATTR.connect(
+                    str_volume_scale,
+                    '{0}.{1}'.format(mJnt.mNode, _attr))
+
+        ml_dg = [
+            mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
+            mRatioClamp, mVolumeDriver, mSquashBlend,
+        ] + ml_segment_mdl
+        if globalScalePlug:
+            ml_dg.insert(1, mGlobalMd)
+        else:
+            mGlobalMd = None
+
+        f_arc = float(ATTR.get(mCurveInfo.mNode, 'arcLength'))
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'restLength:{0} arcLength:{1}'.format(f_rest_length, f_arc)))
+
+        _res = {
+            'mDriverCurve': mDriver,
+            'mSettings': mSettings,
+            'mPlug_stretch': mPlug_stretch,
+            'mPlug_squash': mPlug_squash,
+            'mCurveInfo': mCurveInfo,
+            'mRatioMd': mRatioMd,
+            'mRatioDelta': mRatioDelta,
+            'mStretchWeight': mStretchWeight,
+            'mFinalRatio': mFinalRatio,
+            'mRatioClamp': mRatioClamp,
+            'mVolumeDriver': mVolumeDriver,
+            'mSquashBlend': mSquashBlend,
+            'mGlobalScaleMd': mGlobalMd,
+            'ml_segmentMdl': ml_segment_mdl,
+            'restChainLength': f_rest_length,
+            'ml_joints': ml_joints,
+        }
+        log.info(cgmGEN.logString_msg(_str_func, 'done'))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def _spline_ik_nurbs_curve_xform_and_shape(source):
+    """
+    Resolve a transform and nurbsCurve shape from a curve transform or shape DAG name.
+
+    :returns:
+        (str_xform, str_shape) long paths
+    """
+    mSrc = cgmMeta.validateObjArg(source, noneValid=False)
+    str_node = mSrc.mNode
+    if mc.nodeType(str_node) == 'nurbsCurve':
+        str_shape = str_node
+        str_xform = mc.listRelatives(str_shape, parent=True, fullPath=True)[0]
+    else:
+        str_xform = str_node
+        l_shapes = mc.listRelatives(
+            str_xform, shapes=True, noIntermediate=True, fullPath=True) or []
+        l_shapes = [s for s in l_shapes if mc.nodeType(s) == 'nurbsCurve']
+        if not l_shapes:
+            raise ValueError(
+                'No NURBS curve shape under {0}.'.format(str_xform))
+        str_shape = l_shapes[0]
+    return str_xform, str_shape
+
+
+def _spline_ik_world_point_object_local(str_parent_xform, v_world):
+    """World point as object-space translate relative to str_parent_xform."""
+    str_tmp = mc.createNode('transform')
+    mc.parent(str_tmp, str_parent_xform)
+    mc.xform(str_tmp, worldSpace=True, translation=v_world)
+    v_local = mc.xform(str_tmp, query=True, objectSpace=True, translation=True)
+    mc.delete(str_tmp)
+    return v_local
+
+
+def _spline_ik_lock_curve_transform_to_driver(str_follower_xform, str_driver_xform):
+    """
+    Keep follower curve transform aligned with the clean driver (local blendShape
+    only transfers shape deformation when world transforms match).
+    """
+    if not mc.objExists(str_follower_xform) or not mc.objExists(str_driver_xform):
+        return
+    if str_follower_xform == str_driver_xform:
+        return
+
+    l_driver_parent = mc.listRelatives(str_driver_xform, parent=True, fullPath=True) or []
+    l_follower_parent = mc.listRelatives(str_follower_xform, parent=True, fullPath=True) or []
+    str_driver_parent = l_driver_parent[0] if l_driver_parent else None
+    str_follower_parent = l_follower_parent[0] if l_follower_parent else None
+
+    if str_driver_parent != str_follower_parent:
+        if str_driver_parent:
+            mc.parent(str_follower_xform, str_driver_parent)
+        else:
+            mc.parent(str_follower_xform, world=True)
+
+    mc.matchTransform(str_follower_xform, str_driver_xform, pos=True, rot=True, scl=True)
+
+    for str_attr in ('translate', 'rotate', 'scale'):
+        mc.connectAttr(
+            '{0}.{1}'.format(str_driver_xform, str_attr),
+            '{0}.{1}'.format(str_follower_xform, str_attr),
+            force=True)
+
+
+def spline_ik_sine_handle_fit_to_curve(curve=None,
+                                       sine_handle=None,
+                                       sine_deformer=None,
+                                       parent_handle_to=None,
+                                       amplitude=None,
+                                       wavelength=None,
+                                       baseName=None,
+                                       useUndoChunk=True):
+    """
+    Aim sine handle local Y from first CV toward last CV and scale Y so
+    lowBound/highBound (-1, 1) span the straight start-to-end distance.
+
+    :parameters:
+        curve(transform|nurbsCurve) | Curve to measure (driver or sine output)
+        sine_handle(transform) | nonLinear sine handle transform
+        sine_deformer(nonLinear) | Sine deformer node
+        parent_handle_to(transform) | Parent for handle (sine output curve); required for stable deformation
+        amplitude/wavelength(float) | Optional overrides on deformer after fit
+        baseName(str) | Temp aim-target naming token
+        useUndoChunk(bool) | Wrap in mc.undoInfo chunk
+
+    :returns:
+        dict — straightLength, mSineHandle, mSineDeformer
+    """
+    _str_func = 'spline_ik_sine_handle_fit_to_curve'
+
+    if curve is None:
+        raise ValueError('|{0}| >> curve is required.'.format(_str_func))
+    if sine_handle is None or sine_deformer is None:
+        raise ValueError(
+            '|{0}| >> sine_handle and sine_deformer are required.'.format(_str_func))
+
+    _str_xform, str_shape = _spline_ik_nurbs_curve_xform_and_shape(curve)
+    mSineHandle = cgmMeta.validateObjArg(sine_handle, 'cgmObject', noneValid=False)
+    mSineDeformer = cgmMeta.validateObjArg(sine_deformer, noneValid=False)
+
+    l_cvs = mc.ls(str_shape + '.cv[*]', flatten=True) or []
+    if len(l_cvs) < 2:
+        raise ValueError(
+            '|{0}| >> Curve needs at least two CVs: {1}'.format(_str_func, str_shape))
+
+    v_start = mc.pointPosition(l_cvs[0], world=True)
+    v_end = mc.pointPosition(l_cvs[-1], world=True)
+    v_dir = [
+        v_end[0] - v_start[0],
+        v_end[1] - v_start[1],
+        v_end[2] - v_start[2],
+    ]
+    f_straight = math.sqrt(v_dir[0] ** 2 + v_dir[1] ** 2 + v_dir[2] ** 2)
+    if f_straight <= 0.000001:
+        raise ValueError(
+            '|{0}| >> Curve start and end CV positions are identical.'.format(_str_func))
+
+    v_norm = [v / f_straight for v in v_dir]
+    v_mid = [
+        (v_start[i] + v_end[i]) * 0.5 for i in range(3)]
+
+    f_dot_y = abs(v_norm[1])
+    v_world_up = (0.0, 1.0, 0.0) if f_dot_y < 0.95 else (0.0, 0.0, 1.0)
+
+    str_host = parent_handle_to
+    if str_host is None:
+        str_host = _str_xform
+    else:
+        str_host = cgmMeta.validateObjArg(parent_handle_to, noneValid=False).mNode
+
+    str_base = VALID.stringArg(baseName, noneValid=True) or 'sineFit'
+    str_handle = mSineHandle.mNode
+    str_deformer = mSineDeformer.mNode
+
+    v_mid_local = _spline_ik_world_point_object_local(str_host, v_mid)
+    v_end_local = _spline_ik_world_point_object_local(str_host, v_end)
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_handle = mc.parent(str_handle, str_host)[0]
+        mSineHandle = cgmMeta.asMeta(str_handle, 'cgmObject', setClass=True)
+
+        mc.setAttr(
+            str_handle + '.translate',
+            v_mid_local[0], v_mid_local[1], v_mid_local[2],
+            type='double3')
+        mc.setAttr(str_handle + '.rotate', 0.0, 0.0, 0.0, type='double3')
+        mc.setAttr(str_handle + '.scale', 1.0, 1.0, 1.0, type='double3')
+
+        str_target = mc.createNode(
+            'transform', name='{0}_sineFit_aimTarget'.format(str_base))
+        mc.parent(str_target, str_host)
+        mc.setAttr(
+            str_target + '.translate',
+            v_end_local[0], v_end_local[1], v_end_local[2],
+            type='double3')
+
+        str_constraint = mc.aimConstraint(
+            str_target,
+            str_handle,
+            aimVector=(0.0, 1.0, 0.0),
+            upVector=(0.0, 0.0, 1.0),
+            worldUpType='vector',
+            worldUpVector=v_world_up,
+            maintainOffset=False)[0]
+        mc.delete(str_constraint, str_target)
+
+        mc.setAttr(str_handle + '.scaleY', f_straight * 0.5)
+
+        ATTR.set(str_deformer, 'lowBound', -1.0)
+        ATTR.set(str_deformer, 'highBound', 1.0)
+        ATTR.set(str_deformer, 'envelope', 1.0)
+        if mc.objExists(str_deformer + '.dropoff'):
+            ATTR.set(str_deformer, 'dropoff', 0.0)
+
+        if amplitude is not None:
+            ATTR.set(str_deformer, 'amplitude', float(amplitude))
+        if wavelength is not None:
+            ATTR.set(str_deformer, 'wavelength', float(wavelength))
+
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'handle:{0} span:{1}'.format(mSineHandle.p_nameShort, f_straight)))
+
+        return {
+            'straightLength': f_straight,
+            'mSineHandle': mSineHandle,
+            'mSineDeformer': mSineDeformer,
+        }
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def spline_ik_curve_add_sine(source_curve=None,
+                             ik_handle=None,
+                             baseName=None,
+                             amplitude=1.0,
+                             wavelength=4.0,
+                             offset=0.0,
+                             orientation=(0.0, 0.0, 0.0),
+                             fit_handle=True,
+                             hide_source=True,
+                             useUndoChunk=True):
+    """
+    Duplicate a spline IK driver curve, run a sine deformer on the duplicate, and
+    optionally drive spline IK from the deformed curve.
+
+    The duplicate shape is fed from the source via create/local so POCI-driven
+    drivers (e.g. IK.bezier_spline hidden driver) stay live.
+
+    :parameters:
+        source_curve(transform|nurbsCurve) | Driver curve; selection when None
+        ik_handle(ikHandle) | Spline IK handle to rewire to deformed curve
+        baseName(str) | Name token for created nodes
+        amplitude/wavelength/offset(float) | Initial sine deformer values
+        orientation(double3) | Local rotate when fit_handle=False (legacy bbox center)
+        fit_handle(bool) | Aim/scale handle along first-to-last CV (recommended)
+        hide_source(bool) | Hide undeformed source driver only (output curve stays visible)
+        useUndoChunk(bool) | Wrap in mc.undoInfo chunk
+
+    :returns:
+        dict — mSourceCurve, mOutputCurve, mSineDeformer, mSineHandle, mIKHandle (if set)
+    """
+    _str_func = 'spline_ik_curve_add_sine'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    if source_curve is None:
+        l_sel = mc.ls(sl=True, long=True) or []
+        if not l_sel:
+            raise ValueError('Select the spline-driver NURBS curve or pass source_curve.')
+        source_curve = l_sel[0]
+
+    str_src_xform, str_src_shape = _spline_ik_nurbs_curve_xform_and_shape(source_curve)
+    mSourceCurve = cgmMeta.asMeta(str_src_xform, 'cgmObject', setClass=True)
+
+    mIKHandle = cgmMeta.validateObjArg(ik_handle, 'cgmObject', noneValid=True)
+    if mIKHandle and not mc.objExists(mIKHandle.mNode):
+        raise ValueError('IK handle does not exist: {0}'.format(mIKHandle.mNode))
+
+    str_base = VALID.stringArg(baseName, noneValid=True)
+    if not str_base:
+        str_base = mSourceCurve.p_nameBase
+        if str_base.endswith('_ikDriver_crv'):
+            str_base = str_base[:-len('_ikDriver_crv')]
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_output_xform = mc.duplicate(
+            str_src_xform,
+            name='{0}_sineOutput_crv'.format(str_base),
+            returnRootsOnly=True)[0]
+        mOutputCurve = cgmMeta.asMeta(str_output_xform, 'cgmObject', setClass=True)
+        mOutputCurve.addAttr('cgmName', str_base, attrType='string', lock=True)
+        mOutputCurve.addAttr('cgmType', 'splineIKSineCurve', attrType='string', lock=True)
+        mOutputCurve.doName()
+
+        str_output_xform = mOutputCurve.mNode
+        str_output_shape = mOutputCurve.getShapes(asMeta=False)[0]
+        if not str_output_shape:
+            raise ValueError(
+                '|{0}| >> Sine output curve has no shape after duplicate.'.format(
+                    _str_func))
+
+        # Duplicate inherits visibility from hidden ikDriver; keep output drawable.
+        mc.setAttr(str_output_xform + '.visibility', 1)
+
+        _spline_ik_lock_curve_transform_to_driver(str_output_xform, str_src_xform)
+
+        mc.connectAttr(
+            str_src_shape + '.local',
+            str_output_shape + '.create',
+            force=True)
+
+        l_nonlinear = mc.nonLinear(
+            str_output_xform,
+            type='sine',
+            name='{0}_sine'.format(str_base))
+        mSineDeformer = cgmMeta.asMeta(l_nonlinear[0], setClass=True)
+        mSineHandle = cgmMeta.asMeta(l_nonlinear[1], 'cgmObject', setClass=True)
+        mSineHandle.rename('{0}_sineHandle'.format(str_base))
+        mc.setAttr(mSineHandle.mNode + '.visibility', 1)
+
+        if fit_handle:
+            _d_fit = spline_ik_sine_handle_fit_to_curve(
+                curve=str_src_xform,
+                parent_handle_to=str_output_xform,
+                sine_handle=mSineHandle,
+                sine_deformer=mSineDeformer,
+                amplitude=amplitude,
+                wavelength=wavelength,
+                baseName=str_base,
+                useUndoChunk=False)
+            mSineHandle = _d_fit['mSineHandle']
+            ATTR.set(mSineDeformer.mNode, 'offset', float(offset))
+        else:
+            ATTR.set(mSineDeformer.mNode, 'amplitude', float(amplitude))
+            ATTR.set(mSineDeformer.mNode, 'wavelength', float(wavelength))
+            ATTR.set(mSineDeformer.mNode, 'offset', float(offset))
+            mc.setAttr(
+                mSineHandle.mNode + '.rotate',
+                orientation[0], orientation[1], orientation[2],
+                type='double3')
+            l_bbox = mc.exactWorldBoundingBox(str_src_xform)
+            v_center = [
+                (l_bbox[0] + l_bbox[3]) * 0.5,
+                (l_bbox[1] + l_bbox[4]) * 0.5,
+                (l_bbox[2] + l_bbox[5]) * 0.5,
+            ]
+            mc.xform(mSineHandle.mNode, worldSpace=True, translation=v_center)
+
+        l_wave_attrs = (
+            ('waveAmplitude', float(amplitude)),
+            ('waveLength', float(wavelength)),
+            ('waveOffset', float(offset)),
+        )
+        for str_attr, f_default in l_wave_attrs:
+            str_plug = '{0}.{1}'.format(mOutputCurve.mNode, str_attr)
+            if not mc.objExists(str_plug):
+                mc.addAttr(
+                    mOutputCurve.mNode,
+                    longName=str_attr,
+                    attributeType='double',
+                    defaultValue=f_default,
+                    keyable=True)
+            str_deformer_attr = {
+                'waveAmplitude': 'amplitude',
+                'waveLength': 'wavelength',
+                'waveOffset': 'offset',
+            }[str_attr]
+            mc.connectAttr(
+                str_plug,
+                '{0}.{1}'.format(mSineDeformer.mNode, str_deformer_attr),
+                force=True)
+
+        if mIKHandle:
+            str_ikh = mIKHandle.mNode
+            for str_existing in mc.listConnections(
+                    str_ikh + '.inCurve',
+                    source=True,
+                    destination=False,
+                    plugs=True) or []:
+                mc.disconnectAttr(str_existing, str_ikh + '.inCurve')
+            mc.connectAttr(
+                str_output_shape + '.worldSpace[0]',
+                str_ikh + '.inCurve',
+                force=True)
+
+        if hide_source:
+            mc.setAttr(str_src_xform + '.visibility', 0)
+
+        _res = {
+            'mSourceCurve': mSourceCurve,
+            'mOutputCurve': mOutputCurve,
+            'mSineDeformer': mSineDeformer,
+            'mSineHandle': mSineHandle,
+            'mIKHandle': mIKHandle,
+        }
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'done | {0}'.format(mOutputCurve.p_nameShort)))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def _spline_ik_smoothstep(f_value):
+    f_value = max(0.0, min(1.0, float(f_value)))
+    return f_value * f_value * (3.0 - (2.0 * f_value))
+
+
+def spline_ik_curve_add_wave_blend(base_curve=None,
+                                   wave_target_curve=None,
+                                   ik_handle=None,
+                                   baseName=None,
+                                   root_fade_cvs=3,
+                                   wave_weight=1.0,
+                                   hide_internal_curves=True,
+                                   useUndoChunk=True):
+    """
+    Final IK curve: live base via create/local plus local-space blendShape from
+    the sine wave target. Root CV pinned; following CVs smoothstep into full wave.
+
+    Typical inputs after spline_ik_curve_add_sine:
+        base_curve — clean Bezier-driven driver (hidden ikDriver)
+        wave_target_curve — sine output (mOutputCurve from add_sine)
+
+    :parameters:
+        base_curve(transform) | Undeformed driver transform or shape
+        wave_target_curve(transform) | Sine-deformed duplicate transform
+        ik_handle(ikHandle) | Spline IK handle; rewired to blended output
+        baseName(str) | Node name token
+        root_fade_cvs(int) | CV count for root fade-in (min 1)
+        wave_weight(float) | Initial blendShape target weight
+        hide_internal_curves(bool) | Hide base and wave-target transforms
+        useUndoChunk(bool) | Wrap in undo chunk
+
+    :returns:
+        dict — mBaseCurve, mWaveTargetCurve, mOutputCurve, mBlendShape, mIKHandle, ...
+    """
+    _str_func = 'spline_ik_curve_add_wave_blend'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    if base_curve is None or wave_target_curve is None:
+        raise ValueError(
+            '|{0}| >> base_curve and wave_target_curve are required.'.format(_str_func))
+
+    str_base_xform, str_base_shape = _spline_ik_nurbs_curve_xform_and_shape(base_curve)
+    str_wave_xform, str_wave_shape = _spline_ik_nurbs_curve_xform_and_shape(
+        wave_target_curve)
+    mBaseCurve = cgmMeta.asMeta(str_base_xform, 'cgmObject', setClass=True)
+    mWaveTargetCurve = cgmMeta.asMeta(str_wave_xform, 'cgmObject', setClass=True)
+
+    mIKHandle = cgmMeta.validateObjArg(ik_handle, 'cgmObject', noneValid=True)
+    if mIKHandle and not mc.objExists(mIKHandle.mNode):
+        raise ValueError('IK handle does not exist: {0}'.format(mIKHandle.mNode))
+
+    str_token = VALID.stringArg(baseName, noneValid=True)
+    if not str_token:
+        str_token = mBaseCurve.p_nameBase
+        if str_token.endswith('_ikDriver_crv'):
+            str_token = str_token[:-len('_ikDriver_crv')]
+
+    l_base_cvs = mc.ls(str_base_shape + '.cv[*]', flatten=True) or []
+    l_wave_cvs = mc.ls(str_wave_shape + '.cv[*]', flatten=True) or []
+    if len(l_base_cvs) != len(l_wave_cvs):
+        raise ValueError(
+            '|{0}| >> Base and wave curves need matching CV counts ({1} vs {2}).'.format(
+                _str_func, len(l_base_cvs), len(l_wave_cvs)))
+    if not l_base_cvs:
+        raise ValueError('|{0}| >> No curve CVs found.'.format(_str_func))
+
+    i_root_fade = max(1, int(root_fade_cvs))
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_output_xform = mc.duplicate(
+            str_base_xform,
+            name='{0}_waveOutput_crv'.format(str_token),
+            returnRootsOnly=True)[0]
+        mOutputCurve = cgmMeta.asMeta(str_output_xform, 'cgmObject', setClass=True)
+        mOutputCurve.addAttr('cgmName', str_token, attrType='string', lock=True)
+        mOutputCurve.addAttr('cgmType', 'splineIKWaveOutputCurve', attrType='string', lock=True)
+        mOutputCurve.doName()
+
+        str_output_xform = mOutputCurve.mNode
+        str_output_shape = mOutputCurve.getShapes(asMeta=False)[0]
+        mc.setAttr(str_output_xform + '.visibility', 1)
+
+        _spline_ik_lock_curve_transform_to_driver(str_wave_xform, str_base_xform)
+        _spline_ik_lock_curve_transform_to_driver(str_output_xform, str_base_xform)
+
+        for str_src in mc.listConnections(
+                str_output_shape + '.create',
+                source=True,
+                destination=False,
+                plugs=True) or []:
+            mc.disconnectAttr(str_src, str_output_shape + '.create')
+
+        mc.connectAttr(
+            str_base_shape + '.local',
+            str_output_shape + '.create',
+            force=True)
+
+        # Shape target, after create — transfers sine shape delta only (not a second curve in space).
+        l_bs = mc.blendShape(
+            str_wave_shape,
+            str_output_shape,
+            name='{0}_wave_blendShape'.format(str_token),
+            origin='local',
+            frontOfChain=False)
+        mBlendShape = cgmMeta.asMeta(l_bs[0], setClass=True)
+
+        l_aliases = mc.aliasAttr(mBlendShape.mNode, query=True) or []
+        str_target_attr = None
+        for i in range(0, len(l_aliases), 2):
+            str_alias = l_aliases[i]
+            str_plug = l_aliases[i + 1]
+            if str_plug.startswith('weight['):
+                str_target_attr = '{0}.{1}'.format(mBlendShape.mNode, str_alias)
+                break
+        if str_target_attr is None:
+            str_target_attr = '{0}.weight[0]'.format(mBlendShape.mNode)
+
+        ATTR.set(str_target_attr, float(wave_weight))
+
+        l_output_cvs = mc.ls(str_output_shape + '.cv[*]', flatten=True) or []
+        l_cv_weights = []
+        for i_cv, str_component in enumerate(l_output_cvs):
+            if i_cv == 0:
+                f_w = 0.0
+            elif i_cv >= i_root_fade:
+                f_w = 1.0
+            else:
+                f_w = _spline_ik_smoothstep(float(i_cv) / float(i_root_fade))
+            mc.percent(mBlendShape.mNode, str_component, v=f_w)
+            l_cv_weights.append(f_w)
+
+        mPlug_waveAmount = cgmMeta.cgmAttr(
+            mOutputCurve.mNode, 'waveAmount', attrType='float', keyable=True,
+            hidden=False, initialValue=float(wave_weight), minValue=0.0, maxValue=1.0)
+        mPlug_waveAmount.doConnectOut(str_target_attr)
+
+        if mIKHandle:
+            str_ikh = mIKHandle.mNode
+            for str_existing in mc.listConnections(
+                    str_ikh + '.inCurve',
+                    source=True,
+                    destination=False,
+                    plugs=True) or []:
+                mc.disconnectAttr(str_existing, str_ikh + '.inCurve')
+            mc.connectAttr(
+                str_output_shape + '.worldSpace[0]',
+                str_ikh + '.inCurve',
+                force=True)
+
+        if hide_internal_curves:
+            mc.setAttr(str_base_xform + '.visibility', 0)
+            mc.setAttr(str_wave_xform + '.visibility', 0)
+
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'done | {0} fadeCVs:{1}'.format(mOutputCurve.p_nameShort, i_root_fade)))
+
+        return {
+            'mBaseCurve': mBaseCurve,
+            'mWaveTargetCurve': mWaveTargetCurve,
+            'mOutputCurve': mOutputCurve,
+            'mBlendShape': mBlendShape,
+            'mPlug_waveAmount': mPlug_waveAmount,
+            'str_blendTargetAttr': str_target_attr,
+            'l_cvWeights': l_cv_weights,
+            'mIKHandle': mIKHandle,
+        }
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
 
 
 def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):

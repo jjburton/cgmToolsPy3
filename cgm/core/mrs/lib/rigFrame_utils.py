@@ -38,6 +38,7 @@ import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.rig.ik_utils as IK
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.classes.NodeFactory as NODEFACTORY
 
 """
@@ -877,8 +878,100 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
         
       
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
-    
-    
+
+
+def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
+           mPlug_masterScale=None, ikEndTwistConnect=True, mSettings=None,
+           ml_bezierMainIK=None, ml_bezierSubsPerMain=None):
+    """
+    Bezier IK driver + ikSplineSolver (IK.bezier_spline). Stretch uses bezier_spline_stretch later.
+    """
+    try:
+        _str_func = 'bezier'
+        log_start(_str_func)
+
+        mRigNull = self.mRigNull
+        _jointOrientation = self.d_orientation['str']
+        str_base = '{0}_bezier'.format(self.d_module['partName'])
+
+        if not ml_bezierMainIK:
+            ml_bezierMainIK = []
+            if mIKBaseControl:
+                ml_bezierMainIK.append(mIKBaseControl)
+            if mIKControl:
+                if mIKControl not in ml_bezierMainIK:
+                    ml_bezierMainIK.append(mIKControl)
+
+        int_bezier_sections = max(1, len(ml_bezierMainIK) - 1)
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'bezierSections={0} | main IK controls:{1}'.format(
+                int_bezier_sections, len(ml_bezierMainIK))))
+
+        res_bezier = IK.bezier_spline(
+            jointList=[mObj.mNode for mObj in ml_ikJoints],
+            baseName=str_base,
+            bezierSections=int_bezier_sections,
+            advancedTwistSetup=True,
+            moduleInstance=self.mModule,
+            useUndoChunk=False)
+
+        mBezierCurve = res_bezier['mBezierCurve']
+        mDriverCurve = res_bezier['mDriverCurve']
+        mIKHandle = res_bezier['mIKHandle']
+
+        mRigNull.connectChildNode(mBezierCurve.mNode, 'bezierIKCurve', 'rigNull')
+        mRigNull.connectChildNode(mDriverCurve.mNode, 'bezierIKDriverCurve', 'rigNull')
+        mRigNull.connectChildNode(mIKHandle.mNode, 'ikSplineHandle', 'rigNull')
+
+        if ml_bezierMainIK:
+            res_wire = RIGBEZIER.bezier_controls_wire_from_handles(
+                mBezierCurve,
+                ml_anchorControls=ml_bezierMainIK,
+                ml_subs_per_main=ml_bezierSubsPerMain,
+                baseName=str_base,
+                templateCurve=True,
+                snapHandles=True)
+            mRigNull.connectChildNode(
+                res_wire['mControlsGroup'].mNode, 'bezierIKControlsGrp', 'rigNull')
+            res_bezier['bezierControlsWire'] = res_wire
+
+        if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
+            mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
+
+        if ikEndTwistConnect and mIKControl and mIKBaseControl:
+            _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
+            mPlug_addEnd = cgmMeta.cgmAttr(
+                mIKControl.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
+            arg1 = "{}.twistEnd = {}.r{} + {}".format(
+                mDriverCurve.mNode,
+                mIKControl.mNode,
+                _twistAxis,
+                mPlug_addEnd.p_combinedName)
+            NODEFACTORY.argsToNodes(arg1).doBuild()
+
+            mPlug_addStart = cgmMeta.cgmAttr(
+                mIKBaseControl.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
+            arg1 = "{}.twistStart = {}.r{} + {}".format(
+                mDriverCurve.mNode,
+                mIKBaseControl.mNode,
+                _twistAxis,
+                mPlug_addStart.p_combinedName)
+            NODEFACTORY.argsToNodes(arg1).doBuild()
+        elif mSettings:
+            ATTR.copy_to(mDriverCurve.mNode, 'twistEnd', mSettings.mNode, driven='source')
+            ATTR.copy_to(mDriverCurve.mNode, 'twistStart', mSettings.mNode, driven='source')
+
+        if mSettings and mDriverCurve.hasAttr('twistType'):
+            ATTR.copy_to(mDriverCurve.mNode, 'twistType', mSettings.mNode, driven='source')
+
+        log.info(cgmGEN.logString_msg(_str_func, 'done | {0}'.format(mBezierCurve.p_nameShort)))
+        return res_bezier
+
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err, localDat=vars())
+
+
 def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseControl=None,
                     mRoot = None, str_ikBase = None, upMode = 'asdf'):
     pprint.pprint(vars())

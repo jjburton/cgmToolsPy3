@@ -138,6 +138,213 @@ def polyline_length_fractions(l_positions):
     return [v / _total for v in _cumulative]
 
 
+def sample_polyline_by_parameter(l_positions, parameter):
+    """Return [x, y, z] on a polyline by normalized arc length (0 = start, 1 = end)."""
+    if not l_positions:
+        raise ValueError('sample_polyline_by_parameter requires at least one position')
+
+    _param = float(parameter)
+    if _param <= 0.0:
+        return list(l_positions[0])
+    if _param >= 1.0:
+        return list(l_positions[-1])
+    if len(l_positions) == 1:
+        return list(l_positions[0])
+
+    _segment_lengths = []
+    _total = 0.0
+    for _i in range(len(l_positions) - 1):
+        _seg = DIST.get_distance_between_points(l_positions[_i], l_positions[_i + 1])
+        _segment_lengths.append(_seg)
+        _total += _seg
+
+    if _total <= 0.000001:
+        return list(l_positions[0])
+
+    _target = _total * _param
+    _accum = 0.0
+    for _i, _seg in enumerate(_segment_lengths):
+        _next = _accum + _seg
+        if _target <= _next:
+            if _seg <= 0.000001:
+                return list(l_positions[_i])
+            _local = (_target - _accum) / _seg
+            _a = l_positions[_i]
+            _b = l_positions[_i + 1]
+            return [
+                _a[0] + ((_b[0] - _a[0]) * _local),
+                _a[1] + ((_b[1] - _a[1]) * _local),
+                _a[2] + ((_b[2] - _a[2]) * _local),
+            ]
+        _accum = _next
+
+    return list(l_positions[-1])
+
+
+def bezier_cvs_from_anchors(anchor_points):
+    """Cubic Bezier CV list from anchor positions (3n + 1 CVs)."""
+    if len(anchor_points) < 2:
+        raise ValueError('At least two Bezier anchors are required.')
+
+    l_tangents = []
+    for _i in range(len(anchor_points)):
+        if _i == 0:
+            l_tangents.append([
+                anchor_points[1][_axis] - anchor_points[0][_axis]
+                for _axis in range(3)])
+        elif _i == len(anchor_points) - 1:
+            l_tangents.append([
+                anchor_points[-1][_axis] - anchor_points[-2][_axis]
+                for _axis in range(3)])
+        else:
+            l_tangents.append([
+                (anchor_points[_i + 1][_axis] - anchor_points[_i - 1][_axis]) * 0.5
+                for _axis in range(3)])
+
+    l_cvs = [list(anchor_points[0])]
+    for _i in range(len(anchor_points) - 1):
+        _start = anchor_points[_i]
+        _end = anchor_points[_i + 1]
+        l_cvs.append([
+            _start[_axis] + (l_tangents[_i][_axis] / 3.0)
+            for _axis in range(3)])
+        l_cvs.append([
+            _end[_axis] - (l_tangents[_i + 1][_axis] / 3.0)
+            for _axis in range(3)])
+        l_cvs.append(list(_end))
+    return l_cvs
+
+
+def create_bezier_nurbs_curve(str_name, l_points):
+    """Create a multi-span degree-3 Maya Bezier NURBS curve transform name."""
+    _degree = 3
+    if (len(l_points) - 1) % _degree:
+        raise ValueError(
+            'Cubic Bezier requires 3n + 1 CVs. Received {0}.'.format(len(l_points)))
+
+    _section_count = (len(l_points) - 1) // _degree
+    l_knots = [0.0] * _degree
+    for _section_index in range(1, _section_count):
+        l_knots.extend([float(_section_index)] * _degree)
+    l_knots.extend([float(_section_count)] * _degree)
+
+    if len(l_knots) != len(l_points) + _degree - 1:
+        raise ValueError('Invalid Bezier knot count for {0} CVs.'.format(len(l_points)))
+
+    return mc.curve(
+        name=str_name,
+        degree=_degree,
+        point=l_points,
+        knot=l_knots,
+        bezier=True)
+
+
+def create_bezier_curve_from_positions(l_positions,
+                                       bezier_sections=1,
+                                       baseName='bezierCrv',
+                                       track=False,
+                                       l_anchors=None):
+    """Build a Maya Bezier curve by sampling anchors along a position polyline."""
+    if not l_positions or len(l_positions) < 2:
+        raise ValueError('At least two positions are required to create a Bezier curve.')
+
+    if l_anchors is not None:
+        if len(l_anchors) < 2:
+            raise ValueError('At least two Bezier anchors are required.')
+        _sections = len(l_anchors) - 1
+    else:
+        _sections = max(1, int(bezier_sections))
+        l_anchors = []
+        for _i in range(_sections + 1):
+            _t = float(_i) / float(_sections)
+            l_anchors.append(sample_polyline_by_parameter(l_positions, _t))
+
+    str_name = '{0}_split{1}'.format(baseName, _sections)
+    if track:
+        str_name = '{0}_track'.format(str_name)
+
+    l_cvs = bezier_cvs_from_anchors(l_anchors)
+    _crv = create_bezier_nurbs_curve(str_name, l_cvs)
+    mCrv = cgmMeta.asMeta(_crv, 'cgmObject', setClass=True)
+    mCrv.addAttr('cgmName', str_name, attrType='string', lock=True)
+    mCrv.addAttr('cgmType', 'bezierIKCurve', attrType='string', lock=True)
+    mCrv.doName()
+    return mCrv
+
+
+def _bezier_track_cluster_cvs(mCrv, obj, str_baseName):
+    """Cluster each Bezier CV to the matching selection driver (anchors + tangents)."""
+    l_cv = mc.ls(['{0}.cv[*]'.format(mCrv.mNode)], flatten=True) or []
+    if not l_cv:
+        raise ValueError('No CVs found on Bezier track curve: {0}'.format(mCrv.mNode))
+
+    l_clusters = []
+    _n_obj = len(obj)
+
+    for _i, _cv in enumerate(l_cv):
+        if _n_obj <= 1:
+            _driver = obj[0]
+        else:
+            _block = _i // 3
+            _rem = _i % 3
+            if _rem == 2:
+                _idx = min(_block + 1, _n_obj - 1)
+            else:
+                _idx = min(_block, _n_obj - 1)
+            _driver = obj[_idx]
+
+        _res = mc.cluster(_cv, n='{0}_{1}_cluster'.format(str_baseName, _i))
+        TRANS.parent_set('|{0}'.format(_res[1]), _driver)
+        ATTR.set(_res[1], 'visibility', False)
+        l_clusters.append(_res)
+
+    return l_clusters
+
+
+def create_bezier_curve_from_objects(obj=None, bezier_sections=1, baseName='bezierCrv'):
+    """Create Bezier curve from selection positions (ordered list of DAG/components)."""
+    _str_func = 'create_bezier_curve_from_objects'
+    if not obj:
+        raise ValueError('|{0}| >> No objects passed.'.format(_str_func))
+
+    l_pos = []
+    for _o in obj:
+        _p = TRANS.position_get(_o)
+        if _p not in l_pos:
+            l_pos.append(_p)
+
+    mCrv = create_bezier_curve_from_positions(
+        l_pos,
+        bezier_sections=bezier_sections,
+        baseName=baseName,
+        track=False)
+    mc.select(mCrv.mNode, replace=True)
+    return mCrv.mNode
+
+
+def create_bezier_track_curve_from_objects(obj=None, baseName='bezierCrv'):
+    """Bezier track curve: one anchor per target; span count = len(targets) - 1."""
+    _str_func = 'create_bezier_track_curve_from_objects'
+    if not obj:
+        raise ValueError('|{0}| >> No objects passed.'.format(_str_func))
+
+    l_pos = [TRANS.position_get(_o) for _o in obj]
+    if len(l_pos) < 2:
+        raise ValueError('|{0}| >> At least two targets required for Bezier track.'.format(_str_func))
+
+    _sections = len(obj) - 1
+    str_name = '{0}_split{1}_track'.format(baseName, _sections)
+
+    mCrv = create_bezier_curve_from_positions(
+        l_pos,
+        baseName=baseName,
+        track=True,
+        l_anchors=l_pos)
+    l_clusters = _bezier_track_cluster_cvs(mCrv, obj, str_name)
+    mc.select(mCrv.mNode, replace=True)
+    return mCrv.mNode, l_clusters
+
+
 def _closestPointOnShape(shape, position):
     """Closest world position and U parameter on a nurbsCurve shape."""
     _node = mc.createNode('nearestPointOnCurve')

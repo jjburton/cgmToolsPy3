@@ -4953,7 +4953,10 @@ example:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
 
 
-        wantedName = "{}Ref.{}".format(wantedName, self.d_tf['general']['mayaFilePref'].getValue())
+        _file_pref = self._scene_maya_file_type_pref(log_context='CreateSubTypeRef')
+        if not _file_pref:
+            return False
+        wantedName = "{}Ref.{}".format(wantedName, _file_pref)
 
         log.debug(log_msg(_str_func,"Wanted: {0}".format(wantedName)))
 
@@ -5110,14 +5113,16 @@ example:
 
 
 
-    def _compute_next_version_save_basename(self):
+    def _compute_next_version_save_basename(self, file_type=None):
         """
         Next save filename (with extension) using the same rules as SaveVersion.
         Used to prefill fileDialog2 via startingDirectory full path.
         """
         if not self.path_asset:
             return None
-        _fileType = self.d_tf['general']['mayaFilePref'].getValue()
+        _fileType = file_type or self._scene_maya_file_type_pref(log_context='SaveVersion')
+        if not _fileType:
+            return None
         versionList = self.versionList if self.hasSub else self.subTypeSearchList
         existingFiles = versionList['items']
 
@@ -5200,6 +5205,59 @@ example:
 
         return wantedName
 
+    def _scene_maya_file_type_pref(self, log_context=None):
+        """
+        Project save extension: 'ma' or 'mb'.
+        Returns None when the Project UI value is present but invalid (caller should abort).
+        """
+        _ctx = log_context or 'Scene'
+        _ui_raw = None
+        try:
+            _om = self.d_tf.get('general', {}).get('mayaFilePref')
+            if _om:
+                _ui_raw = _om.getValue()
+        except Exception as err:
+            log.debug("{0} | mayaFilePref UI read failed: {1}".format(_ctx, err))
+
+        if _ui_raw in ('ma', 'mb'):
+            return _ui_raw
+        if _ui_raw not in (None, ''):
+            log.error(
+                "{0} | Invalid Maya File Pref '{1}' on the Project tab "
+                "(choose ma or mb under General → Maya File Pref).".format(_ctx, _ui_raw))
+            return None
+
+        try:
+            if self.mDat:
+                _from_dat = self.mDat.d_general.get('mayaFilePref')
+                if _from_dat in ('ma', 'mb'):
+                    log.warning(
+                        "{0} | Maya File Pref not selected in the Project UI; using '{1}' from project data.".format(
+                            _ctx, _from_dat))
+                    return _from_dat
+        except Exception:
+            pass
+        try:
+            _v = getattr(self, 'var_mayaFilePref', None)
+            if _v and _v.value in ('ma', 'mb'):
+                log.warning(
+                    "{0} | Maya File Pref not selected in the Project UI; using '{1}' from Options → Maya File Pref.".format(
+                        _ctx, _v.value))
+                return _v.value
+        except Exception:
+            pass
+
+        log.warning(
+            "{0} | Maya File Pref not set. Open the Project tab → General → Maya File Pref (ma or mb). "
+            "Using mb for this operation.".format(_ctx))
+        return 'mb'
+
+    def _scene_maya_save_file_type(self, file_type=None):
+        _ft = file_type or self._scene_maya_file_type_pref()
+        if _ft not in ('ma', 'mb'):
+            return None
+        return {'ma': 'mayaAscii', 'mb': 'mayaBinary'}[_ft]
+
     def _save_here_suggested_stub(self):
         """
         Basename for Save Maya here dialog: same logical name as the next SaveVersion file,
@@ -5229,12 +5287,16 @@ example:
         if not self.path_asset:
             log.error("No asset selected")
             return
-        _saveTypeDict = {'ma':'mayaAscii', 'mb':'mayaBinary'}
-        _fileType = self.d_tf['general']['mayaFilePref'].getValue()
-        _saveType = _saveTypeDict[_fileType]
-        wantedName = self._compute_next_version_save_basename()
+        _fileType = self._scene_maya_file_type_pref(log_context='SaveVersion')
+        if not _fileType:
+            return
+        _saveType = self._scene_maya_save_file_type(_fileType)
+        if not _saveType:
+            log.error("SaveVersion | Could not resolve Maya save file type (ma/mb).")
+            return
+        wantedName = self._compute_next_version_save_basename(file_type=_fileType)
         if not wantedName:
-            log.error("No asset selected")
+            log.error("SaveVersion | Could not build version filename (check asset/set selection and Maya File Pref).")
             return
 
         saveLocation = self._version_files_parent_directory()

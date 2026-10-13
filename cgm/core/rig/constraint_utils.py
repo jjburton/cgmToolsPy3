@@ -656,6 +656,68 @@ def blendChainsBy(l_jointChain1 = None,
     return d_blendReturn
 
 
+def blendChainsScaleByAttr(l_jointChain1=None,
+                           l_jointChain2=None,
+                           l_blendChain=None,
+                           driver=None,
+                           l_axes=None):
+    """
+    FK/IK scale blend onto a third chain via blendTwoAttr per axis (no scaleConstraint).
+
+    l_jointChain1 — FK (blend weight 0)
+    l_jointChain2 — IK (blend weight 1)
+    driver — 0 = FK scale, 1 = IK scale (same as blendChainsBy FKIK)
+    """
+    _str_func = 'blendChainsScaleByAttr'
+    if l_axes is None:
+        l_axes = ('scaleX', 'scaleY', 'scaleZ')
+
+    ml_jointChain1 = cgmMeta.validateObjListArg(
+        l_jointChain1, 'cgmObject', noneValid=False)
+    ml_jointChain2 = cgmMeta.validateObjListArg(
+        l_jointChain2, 'cgmObject', noneValid=False)
+    ml_blendChain = cgmMeta.validateObjListArg(
+        l_blendChain, 'cgmObject', noneValid=False)
+    d_driver = cgmMeta.validateAttrArg(driver, noneValid=True)
+    if not d_driver:
+        raise ValueError("Invalid driver: {0}".format(driver))
+    mi_driver = d_driver.get('mi_plug') or False
+
+    if (len(ml_jointChain1) < len(ml_blendChain)
+            or len(ml_jointChain2) < len(ml_blendChain)):
+        raise Exception(
+            "Joint chains aren't equal lengths: l_jointChain1: {0} | "
+            "l_jointChain2: {1} | l_blendChain: {2}".format(
+                len(ml_jointChain1), len(ml_jointChain2), len(ml_blendChain)))
+
+    ml_nodes = []
+    for i, m_blend in enumerate(ml_blendChain):
+        m_fk = ml_jointChain1[i]
+        m_ik = ml_jointChain2[i]
+        for str_axis in l_axes:
+            str_dest = '{0}.{1}'.format(m_blend.mNode, str_axis)
+            for _src in mc.listConnections(
+                    str_dest, source=True, destination=False, plugs=True) or []:
+                mc.disconnectAttr(_src, str_dest)
+
+            m_blend_node = cgmMeta.cgmNode(nodeType='blendTwoAttr')
+            m_blend_node.rename('{0}_{1}_fkIkScale_blend'.format(
+                m_blend.p_nameBase, str_axis))
+            ATTR.connect(
+                '{0}.{1}'.format(m_fk.mNode, str_axis),
+                m_blend_node.mNode + '.input[0]')
+            ATTR.connect(
+                '{0}.{1}'.format(m_ik.mNode, str_axis),
+                m_blend_node.mNode + '.input[1]')
+            mi_driver.doConnectOut(m_blend_node.mNode + '.attributesBlender')
+            ATTR.connect(m_blend_node.mNode + '.output', str_dest)
+            ml_nodes.append(m_blend_node)
+
+    log.debug("|{0}| >> {1} joints | {2} blend nodes".format(
+        _str_func, len(ml_blendChain), len(ml_nodes)))
+    return {'ml_nodes': ml_nodes, 'd_driver': d_driver}
+
+
 def build_aimSequence(l_driven = None,
                       l_targets = None,
                       l_parents = None,

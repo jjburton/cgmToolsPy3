@@ -3523,6 +3523,32 @@ class ui_stepBuild(cgmUI.cgmGUI):
 
                 
 
+    def _uiFunc_rigPrechecks(self):
+        """Rig factory prechecks without raising (mode=prechecks)."""
+        return self.mBlock.asRigFactory(autoBuild=False, mode='prechecks')
+
+    def _uiFunc_layoutPrecheckFailure(self, parent, mRigFacPre):
+        _l_errors = mRigFacPre.l_precheckErrors or []
+        _n = len(_l_errors)
+        self.uiStatus(
+            edit=True, vis=True,
+            label='Prechecks failed ({0}) — fix block settings'.format(_n))
+        mc.setParent(parent)
+        cgmUI.add_Header('Precheck errors')
+        _bgc = SHARED._d_gui_state_colors.get('warning')
+        for i, _err in enumerate(_l_errors):
+            mUI.MelLabel(
+                parent,
+                label='{0} | {1}'.format(i, _err),
+                align='left',
+                bgc=_bgc,
+                h=20)
+        log.error(
+            '|{0}| >> Step build prechecks failed on {1} ({2} errors)'.format(
+                'ui_stepBuild', self.mBlock.p_nameShort, _n))
+        for i, _err in enumerate(_l_errors):
+            log.error('   {0} | {1}'.format(i, _err))
+
     def uiFunc_updateStatus(self):
         if not self.mBlock:
             self.uiStatus(edit=1,
@@ -3574,7 +3600,22 @@ class ui_stepBuild(cgmUI.cgmGUI):
             self.uiStatus(edit=True,vis=True,label="Block must be skeleton state")            
             return log.error("{0} Block must be skeleton state. Found: {1}".format(self.mBlock.p_nameShort,_blockState))
             pass
-        
+
+        mRigFacPre = self._uiFunc_rigPrechecks()
+        if not mRigFacPre.b_prechecks:
+            self._uiFunc_layoutPrecheckFailure(_inside, mRigFacPre)
+            mc.setParent(_MainForm)
+            _MainForm(edit=True,
+                      af=[(_inside, 'top', 0),
+                          (_inside, 'left', 0),
+                          (_inside, 'right', 0),
+                          (self.uiStatus, 'left', 0),
+                          (self.uiStatus, 'right', 0),
+                          (self.uiStatus, 'bottom', 0)],
+                      ac=[(_inside, 'bottom', 0, self.uiStatus)],
+                      attachNone=[(self.uiStatus, 'top')])
+            return
+
         mRigFac = self.mBlock.asRigFactory(autoBuild=False)
         self.mRigFac = mRigFac
         mModule = mRigFac.d_block['buildModule']

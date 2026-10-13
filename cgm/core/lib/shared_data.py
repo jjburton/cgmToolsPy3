@@ -139,6 +139,7 @@ d_cgmTypes = {### Custom Types
 # Maya 2026+ may report abbreviated utility node names from objectType().
 d_mayaNodeType_canonical = {
     'addDL': 'addDoubleLinear',
+    'multDL': 'multDoubleLinear',
 }
 
 
@@ -287,11 +288,13 @@ _d_colors_to_index = {'black':1,'grayDark':2,'grayLight':3,'redDark':4,
                       'white':16,'yellowBright':17,'blueSky':18,'teal':19,
                       'pink':20,'peach':21,'yellow':22,'greenBlue':23,'tan':24,
                       'olive':25,'greenYellow':26,'greenBlue':27,'blueGray':28,
-                      'blueGrayDark':29,'purple':30,'purpleBrown':31}
+                      'blueGrayDark':29,'purple':30,'purpleBrown':31,
+                      'yellowOrange':32}
 
 _d_colors_to_RGB = {'red':(1,0,0),'redDark':(.5,0,0),'redLight':(1,.2,.2),'redBlack':(.25,0,0),'redWhite':(1,.5,.5),
                     'orange':(1,.27,0),'orangeDark':(.65,.1,0),'orangeLight':(1,.5,.2),'orangeBlack':(.2,.02,0),'orangeWhite':(1,.6,.1),                    
                     'yellow':(1,.7,0),'yellowDark':(.882,.815,.121),'yellowLight':(1,.8,.1),'yellowBlack':(.25,.25,0),'yellowWhite':(1,.9,.5),
+                    'yellowOrange':(1,.58,.12),
                     'green':(0,.4,0),'greenDark':(0,.25,0),'greenLight':(.1,.8,.1),'greenBlack':(0,.129,0),'greenWhite':(.667,1,.667),                                        
                     'blue':(0,0,1),'blueDark':(0,.05,.4),'blueLight':(.06,.275,1),'blueBlack':(0,0,.25),'blueWhite':(.634,.79,.98),
                     'purple':(.22,0,.44),'purpleDark':(.22,0,.44),'purpleLight':(.5,0,1),'purpleBlack':(.05,0,.1),'purpleWhite':(.8,.6,1),
@@ -323,25 +326,31 @@ _d_colorsByIndexSets = {'red':('pink','redBright','redDark'),
 #We have our main dicts which use rgb and a corresponding setup for old stuff...
 _d_side_colors = {'left':{'main':'blue',
                           'sub':'blueWhite',
-                          'aux':'blueDark'},
+                          'aux':'blueDark',
+                          'accent':'teal'},
                   'right':{'main':'red',
                            'sub':'redWhite',
-                           'aux':'redDark'},
+                           'aux':'redDark',
+                           'accent':'pink'},
                   'special':{'pupil':'black'},                  
                   'center':{'main':'yellow',
                             'sub':'yellowWhite',
-                            'aux':'yellowDark'}}
+                            'aux':'yellowDark',
+                            'accent':'yellowOrange'}}
 _d_side_colors_index = {'left':{'main':'blueBright',
                                 'sub':'blueSky',
-                                'aux':'blueDark'},
+                                'aux':'blueDark',
+                                'accent':'teal'},
                         'special':{'pupil':'black'},                  
                         
                         'right':{'main':'redBright',
                                  'sub':'pink',
-                                 'aux':'redDark'},
+                                 'aux':'redDark',
+                                 'accent':'pink'},
                         'center':{'main':'yellow',
                                   'sub':'yellowBright',
-                                  'aux':'peach'}}
+                                  'aux':'peach',
+                                  'accent':'yellowOrange'}}
 
 # cgmSettings.conf colorLeft/Right/Center is primary,secondary.
 # left/right → main,sub. center conf is yellowBright,peach → sub,aux (main is 'yellow').
