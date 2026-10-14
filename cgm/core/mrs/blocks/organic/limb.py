@@ -82,6 +82,9 @@ from cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.mrs.lib.rigShapes_utils as RIGSHAPES
 import cgm.core.mrs.lib.rigFrame_utils as RIGFRAME
 import cgm.core.mrs.lib.post_utils as MRSPOST
+import cgm.core.rig.bezier_utils as RIGBEZIER
+import cgm.core.rig.dynamic_utils as RIGDYN
+import cgm.core.mrs.blocks.organic.segment as MRSSEGMENT
 
 #for m in RIGSHAPES,CURVES,BUILDUTILS,BLOCKSHAPES,CORERIG,RIGCONSTRAINT,MODULECONTROL,RIGFRAME:
 #    reload(m)
@@ -97,7 +100,8 @@ __version__ = cgmGEN.__RELEASESTRING
 
 # TEMP: digit rigSetup skips scaleSetup dyn-parent / scaleSpace pass (remove when finger attach stable)
 _LIMB_TEMP_SKIP_SCALE_SETUP_DIGIT = True
-
+# Bezier segment sub handles: limbSegmentHandle cast semisphere scale vs main (jointRadius/offset)
+_LIMB_BEZIER_SUB_SEMISPHERE_SCALE = 0.4
 __autoForm__ = False
 __dimensions = [15.2, 23.2, 19.7]#...cm
 __menuVisible__ = True
@@ -316,6 +320,9 @@ d_block_profiles = {
  'squashExtraControl': True,
  'squashFactorMax': 1.0,
  'squashFactorMin': 1.0,
+ 'inflateFactorMax': 1.0,
+ 'inflateFactorMin': 0.0,
+ 'inflateFactorMode': 'midPeak',
  'squashMeasure': 'arcLength'},
 'leg digitgrade rear':{
     'addCog':False,
@@ -869,6 +876,9 @@ l_attrsStandard = ['side',
                    'squashExtraControl',
                    'squashFactorMax',
                    'squashFactorMin',
+                   'inflateFactorMode',
+                   'inflateFactorMax',
+                   'inflateFactorMin',
                    'squashSkipAim',
                    'ribbonAim',
                    'ribbonParam',
@@ -924,10 +934,13 @@ d_attrsToMake = {'visMeasure':'bool',
                  'loftSetup':'default:loftList',
                  'loftShapeStart':BLOCKSHARE._d_attrsTo_make['loftShape'],
                  'loftShapeEnd':BLOCKSHARE._d_attrsTo_make['loftShape'],
-                 'segmentType':'ribbon:ribbonLive:curve:linear:parent',
+                 'segmentType':'ribbon:ribbonLive:curve:linear:parent:bezier',
                  'ikOrientEndTo':'end:previous',
                  'ikLeverEndLock':'none:outNeg',
                  'segmentStretchBy':'translate:scale',
+                 'inflateFactorMax':'float',
+                 'inflateFactorMin':'float',
+                 'inflateFactorMode':"midPeak:midBlendDown:midBlendUp:blendUp:blendDown:max",
                  'squashSkipAim':'bool',
                  'segmentMidIKSetup':'none:ribbon:ribbonLive:prntConstraint:linearTrack:cubicTrack',
                  #'buildSpacePivots':'bool',
@@ -3539,6 +3552,1366 @@ def skeleton_build(self, forceNew = True):
 d_preferredAngles = {}
 d_rotateOrders = {'default':'yxz'}
 
+
+def _limb_bezier_section_mains(mRigNull, mBlock, section_idx, int_roll_set_len=0):
+    """
+    Ordered Bezier segment mains for roll section i:
+    handleJoints[i], optional controlSegMidIK_{i}, handleJoints[i+1].
+    (segmentType bezier uses rigNull handleJoints — not segmentHandles_{i}.)
+    """
+    ml_handleJoints = mRigNull.msgList_get('handleJoints') or []
+    int_end = section_idx + 1
+    if int_end >= len(ml_handleJoints):
+        log.warning(
+            '_limb_bezier_section_mains | section {0} | handleJoints len {1} — need index {2}'.format(
+                section_idx, len(ml_handleJoints), int_end))
+        return []
+    mStart = ml_handleJoints[section_idx]
+    mEnd = ml_handleJoints[int_end]
+    ml_mains = [mStart]
+    if mBlock.segmentMidIKControl and int_roll_set_len > 2:
+        mMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(section_idx))
+        if mMid:
+            ml_mains.append(mMid)
+    ml_mains.append(mEnd)
+    return ml_mains
+
+
+def _limb_bezier_main_slot_key(mMain, ml_bezierMainIK):
+    """Slot id per section: base | midN | end (segment handle chain, not module controlIK)."""
+    if not ml_bezierMainIK:
+        return 'mid0'
+    if mMain == ml_bezierMainIK[0]:
+        return 'base'
+    if mMain == ml_bezierMainIK[-1]:
+        return 'end'
+    int_mid = 0
+    for m in ml_bezierMainIK[1:-1]:
+        int_mid += 1
+        if m == mMain:
+            return 'mid{0}'.format(int_mid)
+    return 'mid0'
+
+
+def _limb_bezier_ik_slot_msglist_attr(str_slot, section_idx):
+    """rigNull msgList attr for subs in a main slot on roll section section_idx."""
+    str_suffix = '_{0}'.format(section_idx)
+    if str_slot == 'base':
+        return 'bezierIKSubsBase{0}'.format(str_suffix)
+    if str_slot == 'end':
+        return 'bezierIKSubsEnd{0}'.format(str_suffix)
+    if str_slot.startswith('mid'):
+        return 'bezierIKSubs{0}{1}'.format(str_slot.capitalize(), str_suffix)
+    return 'bezierIKSubs_{0}{1}'.format(str_slot, str_suffix)
+
+
+def _limb_bezier_shared_main_role(md_mains_by_section, section_idx, mMain, i_main, ml_mains):
+    """
+    Shared handleJoints between adjacent roll sections (e.g. elbow).
+    shared_end: last main of section — back sub only (forward lives on next section).
+    shared_start: first main of section — forward sub only (back was added on prior section).
+    """
+    if not md_mains_by_section or not ml_mains:
+        return None
+    if i_main == len(ml_mains) - 1:
+        ml_next = md_mains_by_section.get(section_idx + 1) or []
+        if ml_next and ml_mains[-1] == ml_next[0] and mMain == ml_mains[-1]:
+            return 'shared_end'
+    if i_main == 0:
+        ml_prev = md_mains_by_section.get(section_idx - 1) or []
+        if ml_prev and ml_mains[0] == ml_prev[-1] and mMain == ml_mains[0]:
+            return 'shared_start'
+    return None
+
+
+def _limb_bezier_segment_handle_semisphere_size(mBlock, offset, scale=1.0):
+    f_base = mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None
+    if not f_base:
+        f_base = offset
+    return f_base * scale
+
+
+def _limb_rig_shapes_bezier_segment_handle_cast(
+        self, mObj, mHandleFactory, offset, aim_vector, size_semisphere=None,
+        control_type='main', tag_bezier_main=False):
+    """limbSegmentHandle cast (semiSphere lobes) on a transform."""
+    ml_shapes = self.atBuilderUtils(
+        'shapes_fromCast',
+        targets=mObj,
+        offset=offset,
+        aimVector=aim_vector,
+        mode='limbSegmentHandle',
+        size=size_semisphere)
+    if not ml_shapes:
+        return
+    CORERIG.shapeParent_in_place(
+        mObj.mNode, ml_shapes[0].mNode, False, replaceShapes=True)
+    if tag_bezier_main:
+        MRSSEGMENT._rig_shapes_bezier_main_ik_type(mObj, mHandleFactory)
+    mHandleFactory.color(mObj.mNode, controlType=control_type)
+    try:
+        ml_shapes[0].delete()
+    except Exception:
+        pass
+
+
+def _limb_shapes_limb_segment_cast_spans(self, mObj, str_meshShape, offset):
+    """
+    Cast spans at mObj — same args as RIGSHAPES.segment_handles /
+    shapes_fromCast mode limbSegmentHandle (builder_utils).
+    """
+    str_orientation = self.d_orientation['str']
+    pos_obj = mObj.p_position
+    dist_fallback = offset * 5
+    md_sides = {}
+    for axis in str_orientation:
+        md_sides[axis] = {}
+        for d in ['+', '-']:
+            p = SNAPCALLS.get_special_pos(
+                [mObj.mNode, str_meshShape], 'cast', axis + d)
+            if not p:
+                p = DIST.get_pos_by_axis_dist(
+                    mObj.mNode, axis + d, dist_fallback)
+            md_sides[axis][d] = DIST.get_distance_between_points(p, pos_obj)
+
+    l_cross = []
+    for axis in (str_orientation[1], str_orientation[2]):
+        l_cross.append(md_sides[axis]['+'])
+        l_cross.append(md_sides[axis]['-'])
+    _max = max(l_cross)
+    _distCheck = MATH.average([v for v in l_cross if v is not _max]) * 2.0
+
+    def _axis_span(axis, b_filter_cross):
+        d_pos = md_sides[axis]['+']
+        d_neg = md_sides[axis]['-']
+        if b_filter_cross and axis in (str_orientation[1], str_orientation[2]):
+            if d_pos > _distCheck:
+                d_pos = None
+            if d_neg > _distCheck:
+                d_neg = None
+        l_use = [v for v in (d_pos, d_neg) if v is not None]
+        if not l_use:
+            return dist_fallback * 2.0
+        if len(l_use) == 2:
+            return l_use[0] + l_use[1]
+        return l_use[0] * 2.0
+
+    mBlock = self.mBlock
+    f_aim = (
+        mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None)
+    if not f_aim:
+        f_aim = offset
+    f_cross_a = _axis_span(str_orientation[1], True)
+    f_cross_b = _axis_span(str_orientation[2], True)
+    return {
+        str_orientation[0]: f_aim,
+        str_orientation[1]: f_cross_a,
+        str_orientation[2]: f_cross_b,
+    }
+
+
+def _limb_rig_shapes_bezier_main_cast_box_size(self, mMain, offset=None):
+    """Cube [sx,sy,sz] from segment-handle cast (get_castMesh(True), v_offset)."""
+    _str_func = '_limb_rig_shapes_bezier_main_cast_box_size'
+    offset = offset if offset is not None else getattr(self, 'v_offset', None)
+    if not offset:
+        offset = self.mPuppet.atUtils('get_shapeOffset')
+    mMesh = self.mBlock.atUtils('get_castMesh', True)
+    if not mMesh:
+        log.warning('|{0}| >> no cast mesh'.format(_str_func))
+        return None
+    str_meshShape = mMesh.getShapes()[0]
+    try:
+        md_span = _limb_shapes_limb_segment_cast_spans(
+            self, mMain, str_meshShape, offset)
+    except Exception as err:
+        log.warning('|{0}| >> cast fail {1} | {2}'.format(
+            _str_func, mMain.p_nameShort, err))
+        return None
+    finally:
+        try:
+            mMesh.delete()
+        except Exception:
+            pass
+    return [md_span['x'], md_span['y'], md_span['z']]
+
+
+def _limb_rig_shapes_bezier_main_cube_on_handle(
+        self, mMain, mFKShape=None, offset=None):
+    """Cast-sized cube on main; FK cross fallback if raycast fails."""
+    l_size = _limb_rig_shapes_bezier_main_cast_box_size(self, mMain, offset)
+    if not l_size and mFKShape:
+        f_cross = MRSSEGMENT._rig_shapes_fk_shape_cross_size(mFKShape, 1.0)
+        mBlock = self.mBlock
+        f_aim = (
+            mBlock.getMayaAttr('jointRadius')
+            if mBlock.hasAttr('jointRadius') else None)
+        if not f_aim:
+            f_aim = getattr(self, 'v_offset', None) or 1.0
+        _d_orient = self.d_orientation or {}
+        str_aim = (_d_orient.get('stringAim') or '{0}+'.format(
+            _d_orient.get('str', 'zyx')[0]))[0].lower()
+        l_size = [f_cross, f_cross, f_cross]
+        l_size[{'x': 0, 'y': 1, 'z': 2}.get(str_aim, 2)] = f_aim
+    if not l_size:
+        return
+    _ik_shape = CURVES.create_fromName(
+        'cube', size=l_size, bakeScale=True)
+    mIKShape = cgmMeta.validateObjArg(_ik_shape, 'cgmObject', setClass=True)
+    mIKShape.doSnapTo(mMain)
+    CORERIG.shapeParent_in_place(
+        mMain.mNode, mIKShape.mNode, False, replaceShapes=True)
+
+
+def _limb_rig_shapes_bezier_main_segment_handle(
+        self, mMain, mHandleFactory, ml_fkShapes, ml_fkCastTargets, offset=0):
+    """Bezier main IK cube — segment_handles cast sizing; thin on aim axis."""
+    fk_idx = MRSSEGMENT._rig_shapes_closest_fk_shape_idx(
+        mMain.p_position, ml_fkCastTargets)
+    _limb_rig_shapes_bezier_main_cube_on_handle(
+        self, mMain, ml_fkShapes[fk_idx], offset=offset)
+    MRSSEGMENT._rig_shapes_bezier_main_ik_type(mMain, mHandleFactory)
+    mHandleFactory.color(mMain.mNode, controlType='sub')
+
+
+def _limb_bezier_sub_control_type(str_name_mod):
+    """Forward/back tangent subs both use accent."""
+    return 'accent'
+
+
+def _limb_rig_shapes_bezier_sub_segment_handle(
+        self, mSub, mHandleFactory, offset, aim_vector, mBlock, str_name_mod):
+    """Bezier sub: smaller semiSphere segment cast; color by forward/back."""
+    f_size = _limb_bezier_segment_handle_semisphere_size(
+        mBlock, offset, _LIMB_BEZIER_SUB_SEMISPHERE_SCALE)
+    _limb_rig_shapes_bezier_segment_handle_cast(
+        self, mSub, mHandleFactory, offset, aim_vector,
+        size_semisphere=f_size,
+        control_type=_limb_bezier_sub_control_type(str_name_mod),
+        tag_bezier_main=False)
+
+
+def _limb_rig_shapes_bezier_section(
+        self, section_idx, ml_mains, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
+        md_mains_by_section=None, offset=0, aim_vector=None):
+    """Segment handle shapes on Bezier mains + smaller tertiary segment subs (one roll section)."""
+    _str_func = '_limb_rig_shapes_bezier_section'
+    mRigNull = self.mRigNull
+    mBlock = self.mBlock
+
+    if len(ml_mains) < 2:
+        log.warning("|{0}| >> section {1} | need 2+ mains, got {2}".format(
+            _str_func, section_idx, len(ml_mains)))
+        return
+
+    ml_subs_all = []
+    ml_tracks_all = []
+    md_subs_by_slot = {}
+
+    for i, mMain in enumerate(ml_mains):
+        str_shared = _limb_bezier_shared_main_role(
+            md_mains_by_section, section_idx, mMain, i, ml_mains)
+        if str_shared != 'shared_start':
+            _limb_rig_shapes_bezier_main_segment_handle(
+                self, mMain, mHandleFactory, ml_fkShapes, ml_fkCastTargets,
+                offset=offset)
+
+        v_main = mMain.p_position
+        l_sub_defs = []
+        if str_shared == 'shared_end':
+            l_sub_defs.append(('back', ml_mains[i - 1].p_position))
+        elif str_shared == 'shared_start':
+            l_sub_defs.append(('forward', ml_mains[i + 1].p_position))
+        elif i == 0:
+            l_sub_defs.append(('forward', ml_mains[i + 1].p_position))
+        elif i == len(ml_mains) - 1:
+            l_sub_defs.append(('back', ml_mains[i - 1].p_position))
+        else:
+            l_sub_defs.append(('back', ml_mains[i - 1].p_position))
+            l_sub_defs.append(('forward', ml_mains[i + 1].p_position))
+
+        ml_subs = []
+        for str_nameMod, v_neighbor in l_sub_defs:
+            mSub = mMain.doCreateAt(setClass=True)
+            mSub.p_position = MRSSEGMENT._rig_shapes_bezier_sub_pos(v_main, v_neighbor)
+            mSub.doCopyNameTagsFromObject(
+                mMain.mNode,
+                ignore=['cgmType', 'cgmTypeModifier', 'cgmNameModifier', 'cgmAlias'])
+            mSub.doStore('cgmTypeModifier', 'ikBezierSub')
+            mSub.doStore('cgmNameModifier', str_nameMod)
+            mSub.doStore('cgmType', 'handle')
+            mSub.doName()
+
+            _limb_rig_shapes_bezier_sub_segment_handle(
+                self, mSub, mHandleFactory, offset, aim_vector, mBlock, str_nameMod)
+            mSub.p_parent = mMain
+
+            mTrackCrv = MRSSEGMENT._rig_shapes_bezier_main_to_sub_track(
+                self, mMain, mSub, str_nameMod, mHandleFactory)
+            ml_tracks_all.append(mTrackCrv)
+            ml_subs.append(mSub)
+            ml_subs_all.append(mSub)
+
+        str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+        md_subs_by_slot[str_slot] = ml_subs
+        mRigNull.msgList_connect(
+            _limb_bezier_ik_slot_msglist_attr(str_slot, section_idx),
+            [mObj.mNode for mObj in ml_subs])
+
+    if ml_subs_all:
+        mRigNull.msgList_connect(
+            'bezierIKSubControls_{0}'.format(section_idx),
+            [mObj.mNode for mObj in ml_subs_all])
+    if ml_tracks_all:
+        mRigNull.msgList_connect(
+            'bezierIKTrackCurves_{0}'.format(section_idx),
+            [mObj.mNode for mObj in ml_tracks_all])
+
+    self.md_bezierIKSubsBySection[section_idx] = md_subs_by_slot
+    self.md_bezierIKSubControlsBySection[section_idx] = ml_subs_all
+    self.md_bezierIKTrackCurvesBySection[section_idx] = ml_tracks_all
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'section {0} | mains: {1} | subs: {2} | tracks: {3}'.format(
+            section_idx, len(ml_mains), len(ml_subs_all), len(ml_tracks_all))))
+
+
+def _limb_rig_shapes_bezier_segments(
+        self, ml_fkShapes, ml_fkCastTargets, mHandleFactory, offset=0, aim_vector=None):
+    """All roll sections from md_bezierSegMainsBySection (shoulder–elbow, elbow–wrist, …)."""
+    md_mains = getattr(self, 'md_bezierSegMainsBySection', None) or {}
+    for section_idx in sorted(md_mains.keys()):
+        if section_idx == -1:
+            continue
+        ml_mains = md_mains.get(section_idx) or []
+        _limb_rig_shapes_bezier_section(
+            self, section_idx, ml_mains, ml_fkShapes,
+            ml_fkCastTargets, mHandleFactory,
+            md_mains_by_section=md_mains,
+            offset=offset,
+            aim_vector=aim_vector)
+
+
+def _limb_bezier_unique_mains_from_sections(md_mains_by_section):
+    ml_out = []
+    _seen = set()
+    for section_idx in sorted(md_mains_by_section.keys()):
+        if section_idx == -1:
+            continue
+        for mMain in md_mains_by_section.get(section_idx) or []:
+            if not mMain:
+                continue
+            nid = mMain.mNode
+            if nid not in _seen:
+                _seen.add(nid)
+                ml_out.append(mMain)
+    return ml_out
+
+
+def _limb_bezier_main_blend_parent_index(mMain, mRigNull, md_roll):
+    ml_handle = mRigNull.msgList_get('handleJoints') or []
+    try:
+        return ml_handle.index(mMain)
+    except ValueError:
+        pass
+    if md_roll:
+        for i in md_roll:
+            if i == -1:
+                continue
+            mMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
+            if mMid and mMid.mNode == mMain.mNode:
+                return i
+    return None
+
+
+def _limb_bezier_reinit_session_meta(self):
+    """Re-wrap limb bezier session meta after MODULECONTROL.register."""
+    import cgm.core.cgm_Meta as cgmMeta
+
+    def _reinit(ml_handles):
+        ml_out = []
+        for mObj in ml_handles or []:
+            if not mObj:
+                continue
+            mFresh = cgmMeta.reinitializeMetaClass(mObj)
+            ml_out.append(mFresh if mFresh else mObj)
+        return ml_out
+
+    md_mains = getattr(self, 'md_bezierSegMainsBySection', None) or {}
+    self.md_bezierSegMainsBySection = {
+        k: _reinit(ml) for k, ml in md_mains.items()}
+
+    md_subs = getattr(self, 'md_bezierIKSubsBySection', None) or {}
+    self.md_bezierIKSubsBySection = {
+        k: {str_slot: _reinit(ml) for str_slot, ml in (md_slot or {}).items()}
+        for k, md_slot in md_subs.items()}
+
+    md_ctrl = getattr(self, 'md_bezierIKSubControlsBySection', None) or {}
+    self.md_bezierIKSubControlsBySection = {
+        k: _reinit(v) for k, v in md_ctrl.items()}
+
+    md_trk = getattr(self, 'md_bezierIKTrackCurvesBySection', None) or {}
+    self.md_bezierIKTrackCurvesBySection = {
+        k: _reinit(v) for k, v in md_trk.items()}
+
+
+def _limb_bezier_md_subs_from_rigNull(mRigNull, section_idx, ml_mains):
+    md_subs = {}
+    for mMain in ml_mains or []:
+        str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+        ml_slot = mRigNull.msgList_get(
+            _limb_bezier_ik_slot_msglist_attr(str_slot, section_idx))
+        if ml_slot:
+            md_subs[str_slot] = ml_slot
+    return md_subs
+
+
+def _limb_bezier_section_pickwalk_one_section(ml_mains, md_subs):
+    """Per-section order: base, fwd, back, mid1_back, mid1, … (matches Segment bezier IK)."""
+    if not ml_mains:
+        return []
+    ml_out = []
+    int_last = len(ml_mains) - 1
+    for i, mMain in enumerate(ml_mains):
+        str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+        ml_back, ml_fwd = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+            (md_subs or {}).get(str_slot, []))
+        if i == 0:
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+            ml_out.extend(ml_back)
+        elif i == int_last:
+            ml_out.extend(ml_back)
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+        else:
+            ml_out.extend(ml_back)
+            ml_out.append(mMain)
+            ml_out.extend(ml_fwd)
+    return ml_out
+
+
+def _limb_bezier_segment_pickwalk_controls(mRigNull, md_mains_by_section, md_subs_by_section):
+    ml_out = []
+    _seen = set()
+    for section_idx in sorted(md_mains_by_section.keys()):
+        if section_idx == -1:
+            continue
+        ml_mains = md_mains_by_section.get(section_idx) or []
+        md_subs = (md_subs_by_section or {}).get(section_idx)
+        if not md_subs:
+            md_subs = _limb_bezier_md_subs_from_rigNull(mRigNull, section_idx, ml_mains)
+        for mObj in _limb_bezier_section_pickwalk_one_section(ml_mains, md_subs):
+            if not mObj:
+                continue
+            nid = mObj.mNode
+            if nid not in _seen:
+                _seen.add(nid)
+                ml_out.append(mObj)
+    return ml_out
+
+
+def _limb_bezier_mains_subs_dat_from_rigNull(self, mRigNull):
+    """Rebuild per-section mains/subs from rigNull (puppet reload / controller_verify)."""
+    md_mains = dict(getattr(self, 'md_bezierSegMainsBySection', None) or {})
+    md_subs = dict(getattr(self, 'md_bezierIKSubsBySection', None) or {})
+    md_roll = getattr(self, 'md_roll', None) or {}
+    mBlock = self.mBlock
+    for i in sorted(md_roll.keys()):
+        if i == -1:
+            continue
+        if not md_mains.get(i):
+            ml_set = md_roll[i]
+            md_mains[i] = _limb_bezier_section_mains(
+                mRigNull, mBlock, i, len(ml_set))
+        if not md_subs.get(i):
+            md_slot = _limb_bezier_md_subs_from_rigNull(
+                mRigNull, i, md_mains.get(i) or [])
+            if md_slot:
+                md_subs[i] = md_slot
+    return md_mains, md_subs
+
+
+def _limb_bezier_has_sub_controls(mRigNull, md_roll=None):
+    if mRigNull.msgList_get('bezierIKSubControls'):
+        return True
+    for i in (md_roll or {}):
+        if i == -1:
+            continue
+        if mRigNull.msgList_get('bezierIKSubControls_{0}'.format(i)):
+            return True
+    return False
+
+
+def _limb_bezier_connect_control_msglists(self, mRigNull):
+    """Pickwalk + flat sub list on rigNull (Segment bezierIKSubControls / controlsIK pattern)."""
+    md_mains, md_subs = _limb_bezier_mains_subs_dat_from_rigNull(self, mRigNull)
+    if not md_mains:
+        return
+    ml_pickwalk = _limb_bezier_segment_pickwalk_controls(mRigNull, md_mains, md_subs)
+    if ml_pickwalk:
+        mRigNull.msgList_connect(
+            'controlsSegmentBezier',
+            [mObj.mNode for mObj in ml_pickwalk])
+    ml_all_subs = []
+    _seen_subs = set()
+    for section_idx in sorted(md_mains.keys()):
+        if section_idx == -1:
+            continue
+        for mSub in mRigNull.msgList_get('bezierIKSubControls_{0}'.format(section_idx)) or []:
+            if mSub and mSub.mNode not in _seen_subs:
+                _seen_subs.add(mSub.mNode)
+                ml_all_subs.append(mSub)
+    if ml_all_subs:
+        mRigNull.msgList_connect(
+            'bezierIKSubControls',
+            [mObj.mNode for mObj in ml_all_subs])
+
+
+def _limb_rig_controls_bezier_segment(
+        self, mRigNull, ml_controlsAll, ml_blend, ml_fkJoints, d_controlSpaces, mPlug_visSub):
+    _str_func = '_limb_rig_controls_bezier_segment'
+    md_mains = getattr(self, 'md_bezierSegMainsBySection', None) or {}
+    ml_mains_unique = _limb_bezier_unique_mains_from_sections(md_mains)
+    if not ml_mains_unique:
+        log.warning('|{0}| >> no bezier mains in session'.format(_str_func))
+        return
+
+    log.debug('|{0}| >> bezier segment mains: {1}'.format(_str_func, len(ml_mains_unique)))
+
+    d_mid_spaces = copy.copy(d_controlSpaces)
+    if d_mid_spaces.get('addSpacePivots'):
+        d_mid_spaces.pop('addSpacePivots')
+
+    md_registered = {}
+    for mMain in ml_mains_unique:
+        _d = MODULECONTROL.register(
+            mMain,
+            addDynParentGroup=True,
+            mirrorSide=self.d_module['mirrorDirection'],
+            mirrorAxis='translateX,rotateY,rotateZ',
+            makeAimable=True,
+            **d_mid_spaces)
+        mMain = _d['mObj']
+        md_registered[mMain.mNode] = mMain
+
+        idx = _limb_bezier_main_blend_parent_index(mMain, mRigNull, self.md_roll)
+        if idx is not None:
+            if ml_blend:
+                mMain.masterGroup.parent = ml_blend[idx]
+            elif ml_fkJoints:
+                mMain.masterGroup.parent = ml_fkJoints[min(idx, len(ml_fkJoints) - 1)]
+
+        ml_controlsAll.append(mMain)
+        ATTR.connect(
+            mPlug_visSub.p_combinedShortName,
+            '{0}.visibility'.format(mMain.masterGroup.mNode))
+        ATTR.set_hidden(mMain.mNode, 'radius', True)
+
+    if self.d_module['mirrorDirection'] == 'Centre':
+        _bezierSubMirrorAxis = 'translateY,translateZ,rotateY,rotateZ'
+    else:
+        _bezierSubMirrorAxis = 'translateX,translateY,rotateZ'
+
+    for section_idx in sorted(md_mains.keys()):
+        if section_idx == -1:
+            continue
+        ml_subs = (
+            (getattr(self, 'md_bezierIKSubControlsBySection', None) or {}).get(section_idx)
+            or mRigNull.msgList_get('bezierIKSubControls_{0}'.format(section_idx))
+            or [])
+        for mSub in ml_subs:
+            if not mSub:
+                continue
+            nid = mSub.mNode
+            if nid in md_registered:
+                continue
+            mParentMain = mSub.getParent(asMeta=True)
+            _d = MODULECONTROL.register(
+                mSub,
+                addDynParentGroup=False,
+                mirrorSide=self.d_module['mirrorDirection'],
+                mirrorAxis=_bezierSubMirrorAxis,
+                makeAimable=False)
+            mSub = _d['mObj']
+            md_registered[nid] = mSub
+            if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
+                ATTR.set_hidden(mSub.mNode, 'radius', True)
+            if mParentMain:
+                mParentMain = md_registered.get(mParentMain.mNode, mParentMain)
+                mSub.masterGroup.p_parent = mParentMain
+            ml_controlsAll.append(mSub)
+
+    _limb_bezier_reinit_session_meta(self)
+    mRigNull = self.mRigNull
+    for section_idx in sorted((getattr(self, 'md_bezierIKSubsBySection', None) or {}).keys()):
+        md_slot = self.md_bezierIKSubsBySection[section_idx]
+        for str_slot, ml_subs in (md_slot or {}).items():
+            mRigNull.msgList_connect(
+                _limb_bezier_ik_slot_msglist_attr(str_slot, section_idx),
+                [mObj.mNode for mObj in ml_subs])
+    for section_idx, ml_subs in (getattr(self, 'md_bezierIKSubControlsBySection', None) or {}).items():
+        if ml_subs:
+            mRigNull.msgList_connect(
+                'bezierIKSubControls_{0}'.format(section_idx),
+                [mObj.mNode for mObj in ml_subs])
+
+    log.debug(cgmGEN._str_subLine)
+
+
+def _limb_rig_segments_bezier_wrist_follow_root(
+        self, section_idx, mParent, ml_handleJoints, ml_blendJoints, mBlock,
+        _jointOrientation):
+    """Wrist main followRoot blend (ribbon last segmentHandle / artist handle)."""
+    if not mParent or mParent != ml_handleJoints[-1]:
+        return
+    if mBlock.addBall or mBlock.addLeverEnd:
+        return
+    idx_parent = ml_handleJoints.index(mParent)
+    mBlendParent = ml_blendJoints[idx_parent]
+    mBlendParentsParent = ml_blendJoints[idx_parent - 1]
+    _aim_back = ml_handleJoints[idx_parent - 1].p_nameShort
+
+    mFollow = mParent.doCreateAt()
+    mFollow.doStore('cgmName', mParent)
+    mFollow.doStore('cgmTypeModifier', 'follow')
+    mFollow.doStore('cgmType', 'driver')
+    mFollow.doName()
+    mFollow.p_parent = mBlendParent
+    mc.xform(mFollow.mNode, rotateOrder=self.rotateOrder, p=True)
+    TRANS.aim(
+        mFollow.mNode, _aim_back,
+        '{}-'.format(self.d_orientation['str'][0]),
+        '{}+'.format(self.d_orientation['str'][1]), 'vector',
+        ml_handleJoints[idx_parent - 1].getAxisVector(
+            '{}+'.format(self.d_orientation['str'][1])))
+
+    mAimBack = mFollow.doCreateAt()
+    mAimBack.p_parent = mBlendParent
+    mAimBack.doStore('cgmName', mParent)
+    mAimBack.doStore('cgmTypeModifier', 'back')
+    mAimBack.doStore('cgmType', 'aimer')
+    mAimBack.doName()
+    mc.xform(mAimBack.mNode, rotateOrder=self.rotateOrder, p=True)
+
+    mStableUp = mParent.doCreateAt()
+    mStableUp.p_parent = mBlendParent.mNode
+    mStableUp.doStore('cgmName', mParent)
+    mStableUp.doStore('cgmTypeModifier', 'stableEnd')
+    mStableUp.doStore('cgmType', 'upObj')
+    mStableUp.rotateOrder = 0
+    mStableUp.doName()
+    mc.orientConstraint(
+        mBlendParent.mNode, mStableUp.mNode,
+        maintainOffset=True,
+        skip=[_jointOrientation[2], _jointOrientation[1]])
+    mConstrain = mStableUp.doGroup(True, asMeta=True, typeModifier='orient')
+    mStableUp.p_parent = False
+    mc.orientConstraint(
+        mBlendParentsParent.mNode, mConstrain.mNode, maintainOffset=False)
+    mStableUp.p_parent = mConstrain
+    mc.aimConstraint(
+        _aim_back, mAimBack.mNode, maintainOffset=False,
+        aimVector=[0, 0, -1], upVector=self.v_twistUp,
+        worldUpObject=mStableUp.mNode,
+        worldUpType='objectrotation',
+        worldUpVector=self.v_twistUp)
+
+    const = mc.orientConstraint(
+        [mFollow.mNode, mAimBack.mNode],
+        mParent.masterGroup.mNode, maintainOffset=False)[0]
+    d_blendReturn = NODEFACTORY.createSingleBlendNetwork(
+        [mParent.mNode, 'followRoot_{0}'.format(section_idx)],
+        [mParent.mNode, 'resRootFollow_{0}'.format(section_idx)],
+        [mParent.mNode, 'resAimFollow_{0}'.format(section_idx)],
+        keyable=True)
+    targetWeights = mc.orientConstraint(
+        const, q=True, weightAliasList=True, maintainOffset=True)
+    d_blendReturn['d_result1']['mi_plug'].doConnectOut(
+        '%s.%s' % (const, targetWeights[0]))
+    d_blendReturn['d_result2']['mi_plug'].doConnectOut(
+        '%s.%s' % (const, targetWeights[1]))
+    d_blendReturn['d_result1']['mi_plug'].p_hidden = True
+    d_blendReturn['d_result2']['mi_plug'].p_hidden = True
+
+    if not self.b_extraHandles and self.b_pivotSetup:
+        ATTR.set_default(mParent.mNode, 'followRoot_{0}'.format(section_idx), 1.0)
+        ATTR.set(mParent.mNode, 'followRoot_{0}'.format(section_idx), 1.0)
+
+
+def _limb_bezier_section_mid_span_drivers(mStart, mEnd, ml_mains, md_subs):
+    """Start main forward + end main back subs (fallback to mains)."""
+    md_subs = md_subs or {}
+    str_slot_start = _limb_bezier_main_slot_key(mStart, ml_mains)
+    str_slot_end = _limb_bezier_main_slot_key(mEnd, ml_mains)
+    _ml_back_s, ml_fwd_s = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+        md_subs.get(str_slot_start, []))
+    ml_back_e, _ml_fwd_e = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+        md_subs.get(str_slot_end, []))
+    m_fwd = ml_fwd_s[0] if ml_fwd_s else mStart
+    m_back = ml_back_e[0] if ml_back_e else mEnd
+    return m_fwd, m_back
+
+
+def _limb_bezier_main_forward_driver(
+        mMain, ml_mains, md_subs, mRigNull=None, section_idx=None,
+        mBlock=None, int_roll_set_len=0, md_mains_by_section=None):
+    """
+    Forward sub on mMain. Shared elbow (section end main): forward lives on
+    the next roll section's base slot.
+    """
+    md_subs = md_subs or {}
+    str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+    _ml_back, ml_fwd = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+        md_subs.get(str_slot, []))
+    if ml_fwd:
+        return ml_fwd[0]
+    if (mRigNull is not None and section_idx is not None and ml_mains
+            and mMain == ml_mains[-1]):
+        int_next = section_idx + 1
+        ml_next_mains = (md_mains_by_section or {}).get(int_next)
+        if not ml_next_mains and mBlock is not None:
+            ml_next_mains = _limb_bezier_section_mains(
+                mRigNull, mBlock, int_next, int_roll_set_len)
+        if ml_next_mains and mMain == ml_next_mains[0]:
+            md_next = _limb_bezier_md_subs_from_rigNull(
+                mRigNull, int_next, ml_next_mains)
+            _ml_back_n, ml_fwd_n = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+                md_next.get('base', []))
+            if ml_fwd_n:
+                return ml_fwd_n[0]
+    return mMain
+
+
+def _limb_rig_segments_bezier_section_mid(
+        self, section_idx, mRigNull, mBlock, ml_handleJoints, mRoot,
+        ml_mains, md_subs):
+    """
+    segmentMidIKSetup after CV wire.
+    prntConstraint: start main forward + end main back subs drive mid masterGroup.
+    linearTrack / cubicTrack: track on span curve; masterGroup orients to section start-handle forward sub.
+    """
+    _str_func = '_limb_rig_segments_bezier_section_mid'
+    md_mains_by_section = getattr(self, 'md_bezierSegMainsBySection', None) or {}
+    ml_roll_set = (getattr(self, 'md_roll', None) or {}).get(section_idx) or []
+    mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(section_idx))
+    _str_midSetup = (
+        mBlock.getEnumValueString('segmentMidIKSetup')
+        if mBlock.hasAttr('segmentMidIKSetup') else 'none')
+    if not mControlMid or _str_midSetup == 'none':
+        return
+    if section_idx + 1 >= len(ml_handleJoints):
+        log.warning('|{0}| >> section {1} | bad handle span'.format(
+            _str_func, section_idx))
+        return
+    mStart = ml_handleJoints[section_idx]
+    mEnd = ml_handleJoints[section_idx + 1]
+    m_fwd, m_back = _limb_bezier_section_mid_span_drivers(
+        mStart, mEnd, ml_mains, md_subs)
+    ml_drivers = [m_fwd, m_back]
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'section {0} | {1} | drivers {2} -> {3}'.format(
+            section_idx, _str_midSetup,
+            m_fwd.p_nameShort, m_back.p_nameShort)))
+
+    if _str_midSetup == 'prntConstraint':
+        mDriver = mControlMid.doCreateAt('joint', setClass='cgmObject')
+        mDriver.rename('{0}_mainDriver'.format(mControlMid.p_nameBase))
+        mDriver.p_parent = mControlMid.masterGroup
+        mControlMid.doStore('mainDriver', mDriver.mNode, 'msg')
+        mc.parentConstraint(
+            [mObj.mNode for mObj in ml_drivers],
+            mControlMid.masterGroup.mNode,
+            maintainOffset=True)
+        return
+
+    RIGFRAME.limb_segment_mid(
+        self, mControlMid, ml_drivers, section_idx, mRoot,
+        ml_trackHandles=ml_drivers)
+    if _str_midSetup in ['linearTrack', 'cubicTrack']:
+        m_orient_fwd = _limb_bezier_main_forward_driver(
+            mStart, ml_mains, md_subs, mRigNull=mRigNull,
+            section_idx=section_idx, mBlock=mBlock,
+            int_roll_set_len=len(ml_roll_set),
+            md_mains_by_section=md_mains_by_section)
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'section {0} | mid orient | start {1} | driver {2}'.format(
+                section_idx, mStart.p_nameShort, m_orient_fwd.p_nameShort)))
+        mc.orientConstraint(
+            m_orient_fwd.mNode,
+            mControlMid.masterGroup.mNode,
+            maintainOffset=True)
+    if self.b_squashSetup and _str_midSetup in ['ribbon', 'ribbonLive']:
+        mc.scaleConstraint(
+            [mObj.mNode for mObj in ml_drivers],
+            mControlMid.masterGroup.mNode,
+            maintainOffset=True)
+
+
+def _limb_rig_segments_bezier_shoulder_stable(
+        self, section_idx, mHandle, ml_handleJoints, ml_blendJoints, mRoot,
+        mRigNull, mBlock, _jointOrientation):
+    """Shoulder (first handleJoint) stable / aim — same contract as ribbon segmentHandles."""
+    _str_func = '_limb_rig_segments_bezier_shoulder_stable'
+    if not ml_handleJoints or mHandle != ml_handleJoints[0]:
+        return
+    idx_parent = 0
+    mBlendParent = ml_blendJoints[idx_parent]
+    _aimForward = ml_handleJoints[idx_parent + 1].p_nameShort
+
+    mStableUp = mBlendParent.doCreateAt()
+    mLimbRoot = mRigNull.getMessageAsMeta('limbRoot')
+    mStableUp.p_parent = mLimbRoot if mLimbRoot else mRoot
+    mStableUp.doStore('cgmName', mHandle)
+    mStableUp.doStore('cgmTypeModifier', 'stable')
+    mStableUp.doStore('cgmType', 'upObj')
+    mStableUp.doName()
+
+    mc.orientConstraint(
+        mBlendParent.mNode, mStableUp.mNode,
+        maintainOffset=True,
+        skip=[_jointOrientation[0], _jointOrientation[1]])
+
+    mAimStable = mHandle.doCreateAt()
+    mAimStable.p_parent = mBlendParent
+    mAimStable.doStore('cgmName', mHandle)
+    mAimStable.doStore('cgmTypeModifier', 'stableStart')
+    mAimStable.doStore('cgmType', 'aimer')
+    mAimStable.doName()
+
+    if mBlock.getEnumValueString('mainRotAxis') == 'up':
+        _defaultStable = 'zxy'
+    else:
+        _defaultStable = 'xyz'
+    mAttr = cgmMeta.cgmAttr(
+        mHandle.mNode, 'roStableUp', keyable=True, attrType='enum',
+        enum='xyz:yzx:zxy:xzy:yxz:zyx', hidden=False, value=_defaultStable)
+    mAttr.doConnectOut('{0}.rotateOrder'.format(mStableUp.mNode))
+    ATTR.set_default(mHandle.mNode, 'roStableUp', _defaultStable)
+
+    mAimFollow = mHandle.doCreateAt()
+    mAimFollow.p_parent = mBlendParent
+    mAimFollow.doStore('cgmName', mHandle)
+    mAimFollow.doStore('cgmTypeModifier', 'follow')
+    mAimFollow.doStore('cgmType', 'aimer')
+    mAimFollow.doName()
+    mAimFollow.rotateOrder = self.rotateOrder
+
+    mc.aimConstraint(
+        _aimForward, mAimFollow.mNode, maintainOffset=True,
+        aimVector=[0, 0, 1], upVector=[0, 1, 0],
+        worldUpObject=mBlendParent.mNode, worldUpType='objectrotation',
+        worldUpVector=[0, 1, 0])
+    mc.aimConstraint(
+        _aimForward, mAimStable.mNode, maintainOffset=True,
+        aimVector=[0, 0, 1], upVector=[0, 1, 0],
+        worldUpObject=mStableUp.mNode, worldUpType='objectrotation',
+        worldUpVector=[0, 1, 0])
+
+    const = mc.orientConstraint(
+        [mAimStable.mNode, mAimFollow.mNode],
+        mHandle.masterGroup.mNode, maintainOffset=False)[0]
+    d_blendReturn = NODEFACTORY.createSingleBlendNetwork(
+        [mHandle.mNode, 'stable_{0}'.format(section_idx)],
+        [mHandle.mNode, 'resRootFollow_{0}'.format(section_idx)],
+        [mHandle.mNode, 'resAimFollow_{0}'.format(section_idx)],
+        keyable=True)
+    targetWeights = mc.orientConstraint(
+        const, q=True, weightAliasList=True, maintainOffset=True)
+    d_blendReturn['d_result1']['mi_plug'].doConnectOut(
+        '%s.%s' % (const, targetWeights[0]))
+    d_blendReturn['d_result2']['mi_plug'].doConnectOut(
+        '%s.%s' % (const, targetWeights[1]))
+    d_blendReturn['d_result1']['mi_plug'].p_hidden = True
+    d_blendReturn['d_result2']['mi_plug'].p_hidden = True
+    log.debug('|{0}| >> shoulder stable section {1}'.format(_str_func, section_idx))
+
+
+def _limb_bezier_create_seg_aim_handle(mParent, section_idx, str_end, mRigNull):
+    """Ribbon-style segmentHandle DAG parented to main handle (not the artist main orient)."""
+    mSegHandle = mParent.doDuplicate(po=True)
+    mSegHandle.p_parent = mParent
+    mSegHandle.doStore('cgmTypeModifier', 'bezierSegAim_{0}_{1}'.format(section_idx, str_end))
+    mSegHandle.doStore('cgmType', 'segHandle')
+    mSegHandle.doName()
+    ATTR.set_hidden(mSegHandle.mNode, 'radius', True)
+    str_attr = 'bezierSegAim_{0}_{1}'.format(section_idx, str_end)
+    mRigNull.connectChildNode(mSegHandle.mNode, str_attr, 'rigNull')
+    return mSegHandle
+
+
+def _limb_bezier_seg_handle_reg_curve(
+        self, section_idx, mSegHandle, mParent, idx_parent, ml_handleJoints,
+        ml_blendJoints, ii_seg, mWorldUpMain=None):
+    """
+    Reg segmentHandle aim (curveSeg on mParent) — orient drives mSegHandle, not the main.
+    Matches ribbon rig_segments Reg handle block.
+    """
+    mWorldUp = mWorldUpMain or mParent
+    mBlendParent = ml_blendJoints[idx_parent]
+    mBlendParentsParent = ml_blendJoints[idx_parent - 1]
+    _aim_forward = ml_handleJoints[idx_parent + 1].p_nameShort
+    _aim_back = ml_handleJoints[idx_parent - 1].p_nameShort
+
+    mAimForward = mSegHandle.doCreateAt()
+    mAimForward.p_parent = mSegHandle.p_parent
+    mAimForward.doStore('cgmName', mSegHandle)
+    mAimForward.doStore('cgmTypeModifier', 'forward')
+    mAimForward.doStore('cgmType', 'aimer')
+    mAimForward.doName()
+    mc.xform(mAimForward.mNode, rotateOrder=self.rotateOrder, p=True)
+
+    mAimBack = mSegHandle.doCreateAt()
+    mAimBack.p_parent = mBlendParentsParent
+    mc.pointConstraint(mSegHandle.mNode, mAimBack.mNode, maintainOffset=True)
+    mAimBack.doStore('cgmName', mSegHandle)
+    mAimBack.doStore('cgmTypeModifier', 'back')
+    mAimBack.doStore('cgmType', 'aimer')
+    mAimBack.doName()
+    mc.xform(mAimBack.mNode, rotateOrder=self.rotateOrder, p=True)
+
+    _d_aim = {
+        'worldUpType': 'objectrotation',
+        'upVector': self.v_twistUp,
+        'worldUpObject': mWorldUp.mNode,
+        'worldUpVector': self.v_twistUp}
+    mc.aimConstraint(
+        _aim_forward, mAimForward.mNode, maintainOffset=False,
+        aimVector=[0, 0, 1], **_d_aim)
+    mc.aimConstraint(
+        _aim_back, mAimBack.mNode, maintainOffset=False,
+        aimVector=[0, 0, -1], **_d_aim)
+
+    if ii_seg == 0:
+        const = mc.orientConstraint(
+            [mAimBack.mNode, mAimForward.mNode], mSegHandle.mNode,
+            maintainOffset=False)[0]
+    else:
+        const = mc.orientConstraint(
+            [mAimForward.mNode, mAimBack.mNode], mSegHandle.mNode,
+            maintainOffset=False)[0]
+    ATTR.set(const, 'interpType', 2)
+
+    str_curve = 'curveSeg_{0}'.format(section_idx)
+    if not mc.attributeQuery(str_curve, node=mParent.mNode, exists=True):
+        d_blendReturn = NODEFACTORY.createSingleBlendNetwork(
+            [mParent.mNode, str_curve],
+            [mParent.mNode, 'resRootFollow_{0}'.format(section_idx)],
+            [mParent.mNode, 'resAimFollow_{0}'.format(section_idx)],
+            keyable=True)
+        targetWeights = mc.orientConstraint(
+            const, q=True, weightAliasList=True, maintainOffset=True)
+        d_blendReturn['d_result1']['mi_plug'].doConnectOut(
+            '%s.%s' % (const, targetWeights[0]))
+        d_blendReturn['d_result2']['mi_plug'].doConnectOut(
+            '%s.%s' % (const, targetWeights[1]))
+        d_blendReturn['d_result1']['mi_plug'].p_hidden = True
+        d_blendReturn['d_result2']['mi_plug'].p_hidden = True
+        ATTR.set_default(mParent.mNode, str_curve, 0.0)
+
+    if not mParent.masterGroup.getConstraintsTo(typeFilter='orient'):
+        mc.orientConstraint(
+            [mBlendParentsParent.mNode, mBlendParent.mNode],
+            mParent.masterGroup.mNode, maintainOffset=False)
+    return mSegHandle
+
+
+def _limb_bezier_drive_subs_from_seg_handle(ml_subs, mSegHandle):
+    """Sub Bezier CV controls follow seg aim DAG (position + orient)."""
+    for mSub in ml_subs or []:
+        if not mSub:
+            continue
+        mc.parentConstraint(
+            mSegHandle.mNode, mSub.masterGroup.mNode, maintainOffset=True)
+
+
+def _limb_rig_segments_bezier_section_seg_aims(
+        self, section_idx, mRigNull, ml_handleJoints, ml_blendJoints, ml_mains,
+        md_subs):
+    """
+    Per-section segment aim drivers at interior mains (elbow): curveSeg_{section}
+    on the main handle, orient on segHandle DAG, subs parented to segHandle.
+    """
+    _str_func = '_limb_rig_segments_bezier_section_seg_aims'
+    if not ml_mains or len(ml_handleJoints) < 3:
+        return
+
+    mStart = ml_mains[0]
+    mEnd = ml_mains[-1]
+
+    def _is_interior(m_main):
+        return m_main not in (ml_handleJoints[0], ml_handleJoints[-1])
+
+    # Section end main (e.g. elbow on shoulder–elbow span): back subs + ii=1
+    if _is_interior(mEnd):
+        idx_parent = ml_handleJoints.index(mEnd)
+        mSeg = _limb_bezier_create_seg_aim_handle(
+            mEnd, section_idx, 'end', mRigNull)
+        _limb_bezier_seg_handle_reg_curve(
+            self, section_idx, mSeg, mEnd, idx_parent, ml_handleJoints,
+            ml_blendJoints, ii_seg=1, mWorldUpMain=mStart)
+        str_slot = _limb_bezier_main_slot_key(mEnd, ml_mains)
+        ml_back, _ml_fwd = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+            (md_subs or {}).get(str_slot, []))
+        _limb_bezier_drive_subs_from_seg_handle(ml_back, mSeg)
+        log.debug('|{0}| >> section {1} end | {2} | back subs {3}'.format(
+            _str_func, section_idx, mEnd.p_nameShort, len(ml_back)))
+
+    # Section start main (e.g. elbow on elbow–wrist span): forward subs + ii=0
+    if section_idx > 0 and _is_interior(mStart):
+        idx_parent = ml_handleJoints.index(mStart)
+        mSeg = _limb_bezier_create_seg_aim_handle(
+            mStart, section_idx, 'start', mRigNull)
+        _limb_bezier_seg_handle_reg_curve(
+            self, section_idx, mSeg, mStart, idx_parent, ml_handleJoints,
+            ml_blendJoints, ii_seg=0, mWorldUpMain=mEnd)
+        str_slot = _limb_bezier_main_slot_key(mStart, ml_mains)
+        _ml_back, ml_fwd = MRSSEGMENT._bezier_ik_subs_split_by_modifier(
+            (md_subs or {}).get(str_slot, []))
+        _limb_bezier_drive_subs_from_seg_handle(ml_fwd, mSeg)
+        log.debug('|{0}| >> section {1} start | {2} | forward subs {3}'.format(
+            _str_func, section_idx, mStart.p_nameShort, len(ml_fwd)))
+
+
+def _limb_bezier_connect_section_twist(
+        mDriverCurve, mIKHandle, mBlock, ml_mains, d_orientation, str_mainRotAxis=None):
+    """
+    Per roll section: twistStart/End from section bezier mains; spline IK object-rotation
+    world up from the same start/end mains (not settings-only copy).
+    """
+    if not mDriverCurve or not ml_mains:
+        return
+    _str_twist = str_mainRotAxis
+    if not _str_twist and mBlock.hasAttr('ikSplineTwistAxis'):
+        _str_twist = mBlock.getEnumValueString('ikSplineTwistAxis')
+    if not _str_twist:
+        _str_twist = (d_orientation or {}).get('str', 'xyz')[2]
+    mMainStart = ml_mains[0]
+    mMainEnd = ml_mains[-1]
+    if mDriverCurve.hasAttr('twistStart'):
+        NODEFACTORY.argsToNodes(
+            '{0}.twistStart = {1}.r{2}'.format(
+                mDriverCurve.mNode, mMainStart.mNode, _str_twist)).doBuild()
+    if mDriverCurve.hasAttr('twistEnd'):
+        NODEFACTORY.argsToNodes(
+            '{0}.twistEnd = {1}.r{2}'.format(
+                mDriverCurve.mNode, mMainEnd.mNode, _str_twist)).doBuild()
+    if mDriverCurve.hasAttr('twistType'):
+        ATTR.set_default(mDriverCurve.mNode, 'twistType', 1)
+        ATTR.set(mDriverCurve.mNode, 'twistType', 1)
+
+    if not mIKHandle:
+        return
+    _d_orient = d_orientation or {}
+    _str_fwd = _d_orient.get('stringAim') or '{0}+'.format(_d_orient.get('str', 'zyx')[0])
+    _str_up = _d_orient.get('stringUp') or '{0}+'.format(_d_orient.get('str', 'zyx')[1])
+    try:
+        mFwd = VALID.simpleAxis(_str_fwd)
+        mUp = VALID.simpleAxis(_str_up)
+        RIGDYN._apply_hair_spline_ik_advanced_twist(
+            mIKHandle, mFwd, mUp, mMainStart, mMainEnd)
+    except Exception as err:
+        log.warning('|_limb_bezier_connect_section_twist| advanced WU | {0}'.format(err))
+
+
+def _limb_bezier_block_squash_mode(mBlock):
+    if not mBlock.hasAttr('squash') or not mBlock.squash:
+        return 'none'
+    return mBlock.getEnumValueString('squash')
+
+
+def _limb_bezier_volume_squash_active(mBlock):
+    return _limb_bezier_block_squash_mode(mBlock) in ['simple', 'both']
+
+
+def _limb_bezier_should_run_spline_stretch(self, mBlock):
+    """
+    IK.bezier_spline_stretch on roll seg chains when scaleSetup is on.
+    squash:none → stretch + settings.stretch only (squash attr pinned 0).
+    """
+    if not getattr(self, 'b_scaleSetup', False):
+        return False
+    _mode = _limb_bezier_block_squash_mode(mBlock)
+    if _mode in ['simple', 'both', 'none']:
+        return True
+    return False
+
+
+def _limb_bezier_inflate_slide_global_spec(mRigNull, l_rollKeys):
+    """
+    Squash joint count across roll sections for squashInflate slide (not volume squash).
+    Returns (total_squash_joints, {section_idx: start_index}).
+    """
+    md_start = {}
+    int_run = 0
+    for section_idx in l_rollKeys:
+        ml_seg = mRigNull.msgList_get('segJoints_{0}'.format(section_idx)) or []
+        int_n = max(0, len(ml_seg) - 1) if len(ml_seg) >= 2 else 0
+        md_start[section_idx] = int_run
+        int_run += int_n
+    return int_run, md_start
+
+
+def _limb_bezier_section_squash_factor_mode(section_idx, l_rollKeys):
+    if section_idx == l_rollKeys[0]:
+        return 'midPeak'
+    if section_idx == l_rollKeys[-1]:
+        return 'blendDown'
+    return 'max'
+
+
+def _limb_rig_segments_bezier_squash_stretch(
+        self, section_idx, mRigNull, mBlock, ml_ikUse, mDriverCurve,
+        mPlug_masterScale, l_rollKeys, str_base, d_squash_share):
+    """Settings stretch (+ optional volume squash) on seg IK chain."""
+    _str_func = '_limb_rig_segments_bezier_squash_stretch'
+    if not _limb_bezier_should_run_spline_stretch(self, mBlock):
+        log.debug('|{0}| >> section {1} | stretch skipped (scaleSetup/squash mode)'.format(
+            _str_func, section_idx))
+        return
+
+    _b_volume_squash = _limb_bezier_volume_squash_active(mBlock)
+    _str_aim = MRSSEGMENT._bezier_ik_stretch_aim_axis(self)
+    _squash_factor_mode = _limb_bezier_section_squash_factor_mode(
+        section_idx, l_rollKeys)
+    _squash_main = (
+        (d_squash_share or {}).get('squashStretchMain')
+        or (getattr(self, 'd_squashStretch', None) or {}).get('squashStretchMain')
+        or 'arcLength')
+    if mBlock.squashMeasure:
+        _squash_main = mBlock.getEnumValueString('squashMeasure') or _squash_main
+
+    b_scale_stretch = self.str_segmentStretchBy == 'scale'
+    for mJnt in ml_ikUse:
+        mJnt.segmentScaleCompensate = b_scale_stretch
+
+    mSettings = mRigNull.getMessageAsMeta('settings')
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'section {0} | aim:{1} stretchBy:{2} measure:{3} volumeSquash:{4}'.format(
+            section_idx, _str_aim, self.str_segmentStretchBy,
+            _squash_main, _b_volume_squash)))
+
+    _inflate_global_count = None
+    _inflate_global_start = None
+    if mBlock.squashExtraControl and _b_volume_squash:
+        _int_total = getattr(self, '_limbBezierInflateSlideGlobalCount', 0)
+        if _int_total > 1:
+            _inflate_global_count = _int_total
+            _md_starts = getattr(self, '_limbBezierInflateSlideGlobalStarts', None) or {}
+            _inflate_global_start = _md_starts.get(section_idx, 0)
+
+    _d_ss = getattr(self, 'd_squashStretch', None) or {}
+    _str_inflate_mode = (
+        mBlock.getEnumValueString('inflateFactorMode') if mBlock.hasAttr(
+            'inflateFactorMode') else None) or _d_ss.get(
+                'inflateFactorMode', 'midPeak')
+
+    IK.bezier_spline_stretch(
+        jointList=[mObj.mNode for mObj in ml_ikUse],
+        mDriverCurve=mDriverCurve,
+        mSettings=mSettings,
+        aimAxis=_str_aim,
+        stretchBy=self.str_segmentStretchBy,
+        globalScalePlug=mPlug_masterScale.p_combinedShortName if mPlug_masterScale else None,
+        baseName=str_base,
+        squashStretchMain=_squash_main,
+        extraSquashControl=mBlock.squashExtraControl if _b_volume_squash else False,
+        extraInflateControl=bool(mBlock.squashExtraControl),
+        squashFactorMin=mBlock.squashFactorMin,
+        squashFactorMax=mBlock.squashFactorMax,
+        squashFactorMode=_squash_factor_mode,
+        inflateSlideGlobalCount=_inflate_global_count,
+        inflateSlideGlobalStart=_inflate_global_start,
+        inflateFactorMin=_d_ss.get('inflateFactorMin', mBlock.squashFactorMin),
+        inflateFactorMax=_d_ss.get('inflateFactorMax', mBlock.squashFactorMax),
+        inflateFactorMode=_str_inflate_mode,
+        inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
+        useUndoChunk=False)
+
+    if mSettings:
+        if mSettings.hasAttr('stretch'):
+            ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
+            ATTR.set(mSettings.mNode, 'stretch', 1.0)
+        if not _b_volume_squash and mSettings.hasAttr('squash'):
+            ATTR.set_default(mSettings.mNode, 'squash', 0.0)
+            ATTR.set(mSettings.mNode, 'squash', 0.0)
+
+
+def _limb_bezier_rigjoint_scale_from_seg_drivers(self, ml_rigJoints):
+    """Ribbon final squash pass — seg drivers scale rig joints (not handle locks)."""
+    if not getattr(self, 'b_squashSetup', False):
+        return
+    if self.str_segmentStretchBy == 'scale':
+        return
+    for mJnt in ml_rigJoints[:self.int_handleEndIdx]:
+        ml_drivers = mJnt.msgList_get('driverJoints')
+        if not ml_drivers:
+            continue
+        if mJnt.masterGroup.getConstraintsTo(typeFilter='scale'):
+            continue
+        mc.scaleConstraint(
+            [mObj.mNode for mObj in ml_drivers],
+            mJnt.masterGroup.mNode,
+            maintainOffset=True)
+
+
+def _limb_rig_segments_bezier_handle_aims(
+        self, mRigNull, mRoot, mBlock, ml_handleJoints, ml_blendJoints,
+        l_rollKeys, _jointOrientation):
+    """Shoulder stable on first main (ribbon first-handle on artist control)."""
+    if not ml_handleJoints or not l_rollKeys:
+        return
+    sec_first = l_rollKeys[0]
+    mShoulder = ml_handleJoints[0]
+    if mShoulder:
+        _limb_rig_segments_bezier_shoulder_stable(
+            self, sec_first, mShoulder, ml_handleJoints, ml_blendJoints,
+            mRoot, mRigNull, mBlock, _jointOrientation)
+
+
+def _limb_rig_segments_bezier_section(
+        self, section_idx, mRigNull, mBlock, mModule, ml_blendJoints,
+        l_rollKeys, _d_ribbonShare):
+    """Bezier IK spline + CV wire for one limb roll section (segmentType bezier)."""
+    _str_func = '_limb_rig_segments_bezier_section'
+    ml_segJoints = mRigNull.msgList_get('segJoints_{0}'.format(section_idx)) or []
+    if len(ml_segJoints) < 2:
+        log.warning('|{0}| >> section {1} | need 2+ seg joints, got {2}'.format(
+            _str_func, section_idx, len(ml_segJoints)))
+        return
+
+    _limb_bezier_reinit_session_meta(self)
+    md_mains = getattr(self, 'md_bezierSegMainsBySection', None) or {}
+    ml_mains = md_mains.get(section_idx)
+    if not ml_mains:
+        ml_set = (self.md_roll or {}).get(section_idx) or []
+        ml_mains = _limb_bezier_section_mains(
+            mRigNull, mBlock, section_idx, len(ml_set))
+    if len(ml_mains) < 2:
+        log.warning('|{0}| >> section {1} | need 2+ bezier mains'.format(
+            _str_func, section_idx))
+        return
+
+    md_subs = (getattr(self, 'md_bezierIKSubsBySection', None) or {}).get(section_idx)
+    if not md_subs:
+        md_subs = {}
+        for mMain in ml_mains:
+            str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+            ml_slot = mRigNull.msgList_get(
+                _limb_bezier_ik_slot_msglist_attr(str_slot, section_idx))
+            if ml_slot:
+                md_subs[str_slot] = ml_slot
+
+    ml_bezierSubsPerMain = []
+    for mMain in ml_mains:
+        str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+        ml_bezierSubsPerMain.append(list((md_subs or {}).get(str_slot, [])))
+
+    ml_handleJoints = mRigNull.msgList_get('handleJoints') or []
+    mRoot = mRigNull.rigRoot
+    _jointOrientation = self.d_orientation['str']
+    _limb_rig_segments_bezier_section_seg_aims(
+        self, section_idx, mRigNull, ml_handleJoints, ml_blendJoints,
+        ml_mains, md_subs)
+
+    for mJnt in ml_segJoints:
+        mJnt.drawStyle = 2
+        ATTR.set(mJnt.mNode, 'radius', 0)
+        mJnt.segmentScaleCompensate = False
+
+    ml_segJoints[0].parent = ml_blendJoints[section_idx]
+
+    res_segScale = self.UTILS.get_blockScale(
+        self, 'segMeasure_{0}'.format(section_idx), ml_segJoints)
+    mPlug_masterScale = res_segScale[0]
+    mMasterCurve = res_segScale[1]
+    self.fnc_connect_toRigGutsVis(mMasterCurve)
+    mMasterCurve.p_parent = (
+        ml_blendJoints[section_idx].getMessageAsMeta('scaleJoint')
+        or ml_blendJoints[section_idx])
+
+    ml_ikUse = copy.copy(ml_segJoints)
+    mIKSplineEnd = ml_segJoints[-1].doDuplicate()
+    mIKSplineEnd.rename('{0}_splineEnd'.format(ml_segJoints[-1].p_nameBase))
+    ml_ikUse[-1] = mIKSplineEnd
+    mIKSplineEnd.p_parent = ml_segJoints[-1].p_parent
+
+    str_base = '{0}_seg_{1}_bezier'.format(self.d_module['partName'], section_idx)
+    int_bezier_sections = max(1, len(ml_mains) - 1)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'section {0} | mains={1} subs={2} joints={3} sections={4}'.format(
+            section_idx,
+            len(ml_mains),
+            sum(len(ml) for ml in ml_bezierSubsPerMain),
+            len(ml_ikUse),
+            int_bezier_sections)))
+
+    cgmGEN._reloadMod(IK)
+    res_bezier = IK.bezier_spline(
+        jointList=[mObj.mNode for mObj in ml_ikUse],
+        baseName=str_base,
+        bezierSections=int_bezier_sections,
+        advancedTwistSetup=True,
+        moduleInstance=mModule,
+        useUndoChunk=False)
+
+    mBezierCurve = res_bezier['mBezierCurve']
+    mDriverCurve = res_bezier['mDriverCurve']
+    mIKHandle = res_bezier['mIKHandle']
+
+    str_suffix = '_{0}'.format(section_idx)
+    mRigNull.connectChildNode(
+        mBezierCurve.mNode, 'bezierIKCurve{0}'.format(str_suffix), 'rigNull')
+    mRigNull.connectChildNode(
+        mDriverCurve.mNode, 'bezierIKDriverCurve{0}'.format(str_suffix), 'rigNull')
+    mRigNull.connectChildNode(
+        mIKHandle.mNode, 'ikSplineHandle{0}'.format(str_suffix), 'rigNull')
+
+    res_wire = RIGBEZIER.bezier_controls_wire_from_handles(
+        mBezierCurve,
+        ml_anchorControls=ml_mains,
+        ml_subs_per_main=ml_bezierSubsPerMain,
+        baseName=str_base,
+        templateCurve=True,
+        snapHandles=True)
+    mRigNull.connectChildNode(
+        res_wire['mControlsGroup'].mNode,
+        'bezierIKControlsGrp{0}'.format(str_suffix),
+        'rigNull')
+
+    _limb_rig_segments_bezier_section_mid(
+        self, section_idx, mRigNull, mBlock, ml_handleJoints, mRoot,
+        ml_mains, md_subs)
+
+    if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
+        mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
+
+    _limb_bezier_connect_section_twist(
+        mDriverCurve, mIKHandle, mBlock, ml_mains, self.d_orientation,
+        str_mainRotAxis=getattr(self, 'str_mainRotAxis', None))
+
+    mc.pointConstraint(
+        [mIKSplineEnd.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
+
+    _limb_rig_segments_bezier_squash_stretch(
+        self, section_idx, mRigNull, mBlock, ml_ikUse, mDriverCurve,
+        mPlug_masterScale, l_rollKeys, str_base, _d_ribbonShare)
+
+    if section_idx == l_rollKeys[-1]:
+        _limb_rig_segments_bezier_wrist_follow_root(
+            self, section_idx, ml_mains[-1], ml_handleJoints, ml_blendJoints,
+            mBlock, _jointOrientation)
+
+    log.debug(cgmGEN._str_subLine)
+    return []
+
+
 #Rig build stuff goes through the rig build factory ------------------------------------------------------
 def rig_prechecks(self):
     try:
@@ -3594,6 +4967,14 @@ def rig_prechecks(self):
             
         if sum(_rollCount) and str_segmentType == 'parent':
             self.l_precheckErrors.append("Roll and segmentType parent. | parent segmentType is for when you don't have roll joints ")
+
+        if str_segmentType == 'bezier':
+            if not sum(_rollCount):
+                self.l_precheckErrors.append(
+                    'segmentType bezier requires roll sections (rollCount)')
+            if str_squashMeasure == 'pointDist':
+                self.l_precheckWarnings.append(
+                    'squashMeasure pointDist is experimental — prefer arcLength for production rigs.')
             
         #str_ikEnd = mBlock.getEnumValueString('ikEnd')
         #ml_formHandles = mBlock.msgList_get('formHandles')
@@ -3648,6 +5029,11 @@ def rig_dataBuffer(self):
         for k in ['rigSetup','ikRollSetup','ikExtendSetup','addBall','ikOrientEndTo','addLeverBase','addLeverEnd','addToe','segmentType','buildEnd','ikLeverEndLock',
                   'root_dynParentMode','root_dynParentScaleMode','segmentStretchBy','ikDynParentMode','fkDynParentMode']:
             self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)
+
+        self.md_bezierIKSubsBySection = {}
+        self.md_bezierIKTrackCurvesBySection = {}
+        self.md_bezierIKSubControlsBySection = {}
+        self.md_bezierSegMainsBySection = {}
             
         #self.str_rigSetup = ATTR.get_enumValueString(mBlock.mNode,'rigSetup')
         #self.str_ikRollSetup = ATTR.get_enumValueString(mBlock.mNode,'ikRollSetup')
@@ -4012,6 +5398,11 @@ def rig_dataBuffer(self):
             self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
             self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
             self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
+            if mBlock.hasAttr('inflateFactorMax'):
+                self.d_squashStretch['inflateFactorMax'] = mBlock.inflateFactorMax
+                self.d_squashStretch['inflateFactorMin'] = mBlock.inflateFactorMin
+                self.d_squashStretch['inflateFactorMode'] = (
+                    mBlock.getEnumValueString('inflateFactorMode') or 'midPeak')
             
             log.debug("|{0}| >> self.d_squashStretch..".format(_str_func))    
             #pprint.pprint(self.d_squashStretch)
@@ -4319,7 +5710,8 @@ def rig_skeleton(self):
             if self.b_ikNeedEnd:#...this is necessary
                 ml_targets = ml_targets[:-1]
         
-        pprint.pprint(ml_targets)
+        # pprint.pprint(ml_targets)
+        #For bezier, these are the main bezier handles
         ml_handleJoints = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
                                                                   ml_targets,#ml_parentJoints,#ml_parentJoints[:self.int_handleEndIdx+1],
                                                                   None, 
@@ -4330,7 +5722,10 @@ def rig_skeleton(self):
         for i,mJnt in enumerate(ml_handleJoints):
             #if mJnt.hasAttr('cgmTypeModifier'):
                 #ATTR.delete(mJnt.mNode,'cgmTypeModifier')
-            mJnt.doStore('cgmTypeModifier','seg')
+            if self.str_segmentType == 'bezier':
+                mJnt.doStore('cgmTypeModifier','bezier')
+            else:   
+                mJnt.doStore('cgmTypeModifier','seg')
             mJnt.doName()
             mJnt.parent = ml_parentJoints[i]
             
@@ -4340,46 +5735,50 @@ def rig_skeleton(self):
         for i,ml_set in list(self.md_roll.items()):
             if i == -1:
                 continue
-            
-            log.debug("|{0}| >> Segment Handles {1} ...".format(_str_func, i))#----------------------------
-        
-            ml_segmentHandles = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
-                                                                        [ml_set[0],ml_set[-1]], None, 
-                                                                        mRigNull,
-                                                                        'segmentHandles_{0}'.format(i),
-                                                                        connectToSource = 'segHandle_{0}'.format(i),
-                                                                        cgmType = 'segHandle')
-            log.debug("|{0}| >> created ... {1}".format(_str_func, ml_segmentHandles))#----------------------------
-
-            ml_jointsToConnect.extend(ml_segmentHandles)
-            
-            self.md_segHandles[i] = ml_segmentHandles
-            
-            for mJnt in ml_segmentHandles:
-                mJnt.doStore('cgmTypeModifier',"seg_{0}".format(i))
-                mJnt.doName()
-                
-                
-            if mBlock.ikSetup:
-                for ii,mJnt in enumerate(ml_segmentHandles):
-                    mJnt.parent = ml_blendJoints[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
-            else:
-                for ii,mJnt in enumerate(ml_segmentHandles):
-                    mJnt.parent = ml_fkJointsToUse[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
+            if self.str_segmentType != 'bezier':
+                log.debug("|{0}| >> Segment Handles {1} ...".format(_str_func, i))#----------------------------
                     
-            if mBlock.segmentMidIKControl and len(ml_set) > 2:
-                ml_segmentMidHandles = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
+                ml_segmentHandles = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
                                                                             [ml_set[0],ml_set[-1]], None, 
                                                                             mRigNull,
-                                                                            'segmentMidHandles_{0}'.format(i),
-                                                                            connectToSource = 'segMidHandle_{0}'.format(i),
+                                                                            'segmentHandles_{0}'.format(i),
+                                                                            connectToSource = 'segHandle_{0}'.format(i),
                                                                             cgmType = 'segHandle')
-                ml_jointsToConnect.extend(ml_segmentMidHandles)
+                log.debug("|{0}| >> created ... {1}".format(_str_func, ml_segmentHandles))#----------------------------
+
+                ml_jointsToConnect.extend(ml_segmentHandles)
                 
-                for ii,mJnt in enumerate(ml_segmentMidHandles):
-                    mJnt.doStore('cgmTypeModifier',"segMid_{0}".format(i))
+                self.md_segHandles[i] = ml_segmentHandles
+                
+                for mJnt in ml_segmentHandles:
+                    mJnt.doStore('cgmTypeModifier',"seg_{0}".format(i))
                     mJnt.doName()
-                    mJnt.p_parent = ml_segmentHandles[0].p_parent#...used to be i
+                    
+            
+                if mBlock.ikSetup:
+                    for ii,mJnt in enumerate(ml_segmentHandles):
+                        mJnt.parent = ml_blendJoints[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
+                else:
+                    for ii,mJnt in enumerate(ml_segmentHandles):
+                        mJnt.parent = ml_fkJointsToUse[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
+                        
+                if mBlock.segmentMidIKControl and len(ml_set) > 2:
+                    ml_segmentMidHandles = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
+                                                                                [ml_set[0],ml_set[-1]], None, 
+                                                                                mRigNull,
+                                                                                'segmentMidHandles_{0}'.format(i),
+                                                                                connectToSource = 'segMidHandle_{0}'.format(i),
+                                                                                cgmType = 'segHandle')
+                    ml_jointsToConnect.extend(ml_segmentMidHandles)
+                    
+                    for ii,mJnt in enumerate(ml_segmentMidHandles):
+                        mJnt.doStore('cgmTypeModifier',"segMid_{0}".format(i))
+                        mJnt.doName()
+                        # if mBlock.ikSetup:
+                        #     mJnt.p_parent = ml_blendJoints[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
+                        # else:
+                        #     mJnt.p_parent = ml_fkJointsToUse[ self.md_segHandleIndices[self.ml_segHandles[ii]]]
+                        mJnt.p_parent = ml_segmentHandles[0].p_parent#...used to be i
                     
                 
             #Seg chain -------------------------------------------------------------------------------------
@@ -4417,6 +5816,8 @@ def rig_skeleton(self):
             ml_segmentChain[0].parent = ml_parentJoints[i]
             
             
+            #For bezier, these are the mid bezier handles
+
             if mBlock.segmentMidIKControl and len(ml_set) > 2:
                 log.debug("|{0}| >> Creating mid control: {1}".format(_str_func,i))  
                 #Lever...
@@ -4441,8 +5842,24 @@ def rig_skeleton(self):
                 JOINT.freezeOrientation(mMidIK.mNode)
                 
                 mRigNull.connectChildNode(mMidIK,'controlSegMidIK_{0}'.format(i),'rigNull')            
-            
-                
+
+            if self.str_segmentType == 'bezier':
+                ml_bezier_mains = _limb_bezier_section_mains(
+                    mRigNull, mBlock, i, len(ml_set))
+                self.md_bezierSegMainsBySection[i] = ml_bezier_mains
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'segmentType bezier | section {0} | mains: {1}'.format(
+                        i, len(ml_bezier_mains))))
+
+        if (self.str_segmentType == 'bezier'
+                and mBlock.ikSetup
+                and getattr(self, 'b_squashSetup', False)):
+            MRSSEGMENT._squash_ik_fk_blend_segment_scale_compensate(
+                self,
+                ml_ikJoints=mRigNull.msgList_get('ikJoints'),
+                ml_fkJoints=ml_fkJoints,
+                ml_blendJoints=ml_blendJoints)
 
     
     #Parenting rigJoints ======================================================================
@@ -5386,7 +6803,7 @@ def rig_shapes(self):
         for i in list(self.md_roll.keys()):
             mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
             log.debug("|{0}| >> Found: {1}".format(_str_func,mControlMid))
-            if mControlMid:
+            if mControlMid and self.str_segmentType != 'bezier':
                 ml_shapes = self.atBuilderUtils('shapes_fromCast',
                                                 targets = mControlMid,
                                                 offset = _offset,
@@ -5761,6 +7178,12 @@ def rig_shapes(self):
             mShape = ml_fkShapes.pop(-1)
             mShape.delete()                
             ml_fkShapes.extend(ml_rollShapes)
+
+    if self.str_segmentType == 'bezier':
+        log.info(cgmGEN.logString_sub(_str_func, 'segmentType bezier | segment CV shapes'))
+        _limb_rig_shapes_bezier_segments(
+            self, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
+            _offset, _aimVector)
     
     log.debug("|{0}| >> FK...".format(_str_func))    
     for i,mShape in enumerate(ml_fkShapes):
@@ -6163,7 +7586,7 @@ def rig_controls(self):
             log.debug(cgmGEN._str_subLine)                
         
     #>> handleJoints ==================================================================================
-    if ml_handleJoints:
+    if ml_handleJoints and self.str_segmentType != 'bezier':
         log.debug("|{0}| >> Found Handle Joints...".format(_str_func))
         
         ml_controlsAll.extend(ml_handleJoints)
@@ -6190,7 +7613,7 @@ def rig_controls(self):
         for i in list(self.md_roll.keys()):
             mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
             log.debug("|{0}| >> found mControlMid {2} : {1}".format(_str_func,mControlMid,i))
-            if mControlMid:
+            if mControlMid and self.str_segmentType != 'bezier':
                 _d = MODULECONTROL.register(mControlMid,
                                             addDynParentGroup = True, 
                                             mirrorSide= self.d_module['mirrorDirection'],
@@ -6215,6 +7638,12 @@ def rig_controls(self):
                 #self.atUtils('get_switchTarget', mControlMid,ml_blend[ MATH.get_midIndex(len(ml_blend))])        
 
         log.debug(cgmGEN._str_subLine)
+
+    if self.str_segmentType == 'bezier':
+        ml_fkJoints = mRigNull.msgList_get('fkJoints')
+        _limb_rig_controls_bezier_segment(
+            self, mRigNull, ml_controlsAll, ml_blend, ml_fkJoints,
+            d_controlSpaces, mPlug_visSub)
 
     #>> Direct Controls ====================================================================================
     log.debug("|{0}| >> Direct controls...".format(_str_func))
@@ -6282,6 +7711,9 @@ def rig_controls(self):
     mRigNull.msgList_connect('controlsAll',ml_controlsAll)
     mRigNull.moduleSet.extend(ml_controlsAll)
     #self.atBuilderUtils('check_nameMatches', ml_controlsAll)
+
+    if self.str_segmentType == 'bezier':
+        _limb_bezier_connect_control_msglists(self, mRigNull)
     
     return 
     #except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
@@ -6363,12 +7795,26 @@ def rig_segments(self):
         l_rollKeys.sort()
         if -1 in l_rollKeys:
             l_rollKeys.remove(-1)
+
+        if (_type == 'bezier'
+                and mBlock.squashExtraControl
+                and _limb_bezier_volume_squash_active(mBlock)):
+            _cnt, _starts = _limb_bezier_inflate_slide_global_spec(
+                mRigNull, l_rollKeys)
+            self._limbBezierInflateSlideGlobalCount = _cnt
+            self._limbBezierInflateSlideGlobalStarts = _starts
             
         for i in l_rollKeys:
 
             
             log.debug("|{0}| >> Segment {1}".format(_str_func,i))
-            
+
+            if _type == 'bezier':
+                _limb_rig_segments_bezier_section(
+                    self, i, mRigNull, mBlock, mModule, ml_blendJoints,
+                    l_rollKeys, _d_ribbonShare)
+                continue
+
             ml_segHandles = mRigNull.msgList_get('segmentHandles_{0}'.format(i))
             ml_segMidHandles = mRigNull.msgList_get('segmentMidHandles_{0}'.format(i))
             mControlMid = mRigNull.getMessageAsMeta('controlSegMidIK_{0}'.format(i))
@@ -6828,7 +8274,13 @@ def rig_segments(self):
             
             
         #segmentHandles_{0}
-    
+
+        if _type == 'bezier' and ml_handleJoints:
+            _limb_bezier_rigjoint_scale_from_seg_drivers(self, ml_rigJoints)
+            _limb_rig_segments_bezier_handle_aims(
+                self, mRigNull, mRoot, mBlock, ml_handleJoints, ml_blendJoints,
+                l_rollKeys, _jointOrientation)
+
         #
         #Edge cases =====================================================================
         if self.mBall:
@@ -6849,7 +8301,7 @@ def rig_segments(self):
                     except:
                         pass
         
-        if self.b_squashSetup:
+        if self.b_squashSetup and _type != 'bezier':
             log.debug("|{0}| >> Final squash stretch stuff...".format(_str_func))
             '''Need to probably skip this in some cases'''
             if not self.str_segmentStretchBy == 'scale':
@@ -6871,6 +8323,9 @@ def rig_segments(self):
                 mHandle.masterGroup.p_parent=mScaleParent
                 
     #if _type in ['linear','curve']:
+
+    if _type == 'bezier':
+        return
 
     for mHandle in ml_handleJoints:
         if mHandle not in ml_segHandlesProcessed:
@@ -7645,6 +9100,22 @@ def rig_frame(self):
             #ml_ikJoints[0].p_parent = mIKControlBase
             mc.pointConstraint(mIKControlBase.mNode,ml_ikJoints[0].mNode,maintainOffset=False)
         
+    if self.str_segmentType == 'bezier' and self.md_roll:
+        mSettings = mRigNull.getMessageAsMeta('settings')
+        if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
+            mPlug_IKon = cgmMeta.cgmAttr(mSettings.mNode, 'result_IKon')
+            for i in sorted(self.md_roll.keys()):
+                if i == -1:
+                    continue
+                ml_tracks = (
+                    (getattr(self, 'md_bezierIKTrackCurvesBySection', None) or {}).get(i))
+                if not ml_tracks:
+                    ml_tracks = mRigNull.msgList_get(
+                        'bezierIKTrackCurves_{0}'.format(i)) or []
+                if ml_tracks:
+                    MRSSEGMENT._rig_frame_bezier_ik_track_vis(
+                        mRigNull, mPlug_IKon, ml_track_curves=ml_tracks)
+
     #cgmGEN.func_snapShot(vars())
     return    
     #except Exception,err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
@@ -9737,9 +11208,13 @@ def get_handleIndices(self):
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
 
+# segmentType bezier: per-section bezierIKSubControls_{i}; aggregate bezierIKSubControls,
+# controlsSegmentBezier (pickwalk) written in rig_controls closeout.
 d_controlDat_links = {
     'fk' : ['leverFK','fkJoints','controlsFK','controlFK','controlFKReverse'],
     'ik' : ['leverFK',
+            'controlsSegmentBezier',
+            'bezierIKSubControls',
             'controlIKBase',
             'controlIKMid',
             'controlIKEnd','controlIK',
@@ -9747,6 +11222,8 @@ d_controlDat_links = {
             'controlIKBallHinge','controlIKBall','controlIKToe',
             'controlIKMid','leverIK','eyeLookAt','lookAt',
             'ikBase'],
+    'segmentHandles' : ['controlsSegmentBezier', 'bezierIKSubControls',
+                        'handleJoints', 'controlSegMidIK'],
     'root' : ['cog','rigRoot','limbRoot'],
 }
 
@@ -9787,31 +11264,55 @@ def controller_getDat(self):
     md['noHide'] = md['root'] + md['settings']
     
     #IK...
-    md['ik'] = checkList(['leverFK',
-                          'controlIKBase',
-                          'controlIKMid',
-                          'controlIKEnd','controlIK',
-                          'controlBallRotation','leverIK',
-                          'controlIKBallHinge','controlIKBall','controlIKToe',
-                          ])
+    md_roll = getattr(self, 'md_roll', None)
+    if _limb_bezier_has_sub_controls(mRigNull, md_roll):
+        md['ik'] = checkList(['leverFK',
+                              'controlsSegmentBezier',
+                              'bezierIKSubControls',
+                              'controlIKBase',
+                              'controlIKMid',
+                              'controlIKEnd', 'controlIK',
+                              'controlBallRotation', 'leverIK',
+                              'controlIKBallHinge', 'controlIKBall', 'controlIKToe',
+                              ])
+        md_mains, md_subs = _limb_bezier_mains_subs_dat_from_rigNull(self, mRigNull)
+        ml_pickwalk = _limb_bezier_segment_pickwalk_controls(mRigNull, md_mains, md_subs)
+        if ml_pickwalk:
+            _set_pick = {m.p_nameLong for m in ml_pickwalk}
+            md['ik'] = [m for m in md['ik'] if m.p_nameLong not in _set_pick]
+            md['ik'].extend(ml_pickwalk)
+    else:
+        md['ik'] = checkList(['leverFK',
+                              'controlIKBase',
+                              'controlIKMid',
+                              'controlIKEnd','controlIK',
+                              'controlBallRotation','leverIK',
+                              'controlIKBallHinge','controlIKBall','controlIKToe',
+                              ])
     #seg...
-    ml_handles = mRigNull.msgList_get('handleJoints')
-    ml_mid = mRigNull.msgList_get('controlSegMidIK')
-    
-    if ml_handles:
-        ml_use = []
-        for i,mObj in enumerate(ml_handles):
-            ml_use.append(mObj)
-            
-            if ml_mid:
-                try:ml_use.append(ml_mid[i])
-                except:
-                    pass
+    str_segmentType = self.mBlock.getEnumValueString('segmentType')
+    if str_segmentType == 'bezier':
+        md_mains, md_subs = _limb_bezier_mains_subs_dat_from_rigNull(self, mRigNull)
+        ml_use = _limb_bezier_segment_pickwalk_controls(mRigNull, md_mains, md_subs)
+        if ml_use:
+            md['segmentHandles'] = ml_use
+    else:
+        ml_handles = mRigNull.msgList_get('handleJoints')
+        ml_mid = mRigNull.msgList_get('controlSegMidIK')
 
-                
-        md['segmentHandles'] = ml_use
-        
-        
+        if ml_handles:
+            ml_use = []
+            for i, mObj in enumerate(ml_handles):
+                ml_use.append(mObj)
+
+                if ml_mid:
+                    try:
+                        ml_use.append(ml_mid[i])
+                    except Exception:
+                        pass
+
+            md['segmentHandles'] = ml_use
+
     return md
 
 

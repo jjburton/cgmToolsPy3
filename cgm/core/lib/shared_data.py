@@ -291,7 +291,7 @@ _d_colors_to_index = {'black':1,'grayDark':2,'grayLight':3,'redDark':4,
                       'blueGrayDark':29,'purple':30,'purpleBrown':31,
                       'yellowOrange':32}
 
-_d_colors_to_RGB = {'red':(1,0,0),'redDark':(.5,0,0),'redLight':(1,.2,.2),'redBlack':(.25,0,0),'redWhite':(1,.5,.5),
+_d_colors_to_RGB = {'red':(1,0,0),'redDark':(.6,0,0),'redLight':(1,.2,.2),'redBlack':(.25,0,0),'redWhite':(1,.8,.8),
                     'orange':(1,.27,0),'orangeDark':(.65,.1,0),'orangeLight':(1,.5,.2),'orangeBlack':(.2,.02,0),'orangeWhite':(1,.6,.1),                    
                     'yellow':(1,.7,0),'yellowDark':(.882,.815,.121),'yellowLight':(1,.8,.1),'yellowBlack':(.25,.25,0),'yellowWhite':(1,.9,.5),
                     'yellowOrange':(1,.58,.12),
@@ -299,6 +299,7 @@ _d_colors_to_RGB = {'red':(1,0,0),'redDark':(.5,0,0),'redLight':(1,.2,.2),'redBl
                     'blue':(0,0,1),'blueDark':(0,.05,.4),'blueLight':(.06,.275,1),'blueBlack':(0,0,.25),'blueWhite':(.634,.79,.98),
                     'purple':(.22,0,.44),'purpleDark':(.22,0,.44),'purpleLight':(.5,0,1),'purpleBlack':(.05,0,.1),'purpleWhite':(.8,.6,1),
                     'teal':(0,1,.5),'blueSky':(.392,.789,1.0),'blueSkyDark':(0.0,.535,1.0),'blueSkyLight':(0.0,.535,1.0),'blueSkyWhite':(0.0,.73,1.0),
+                    'pink':(1.0,.305,1.0),'peach':(1.0,.8,.6),
                     'white':(1,1,1),'black':(0,0,0),
                     'gray':(.5,.5,.5),'gray25':(.25,.25,.25),'gray75':(.75,.75,.75),
                     }

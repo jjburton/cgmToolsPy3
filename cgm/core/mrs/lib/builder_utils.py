@@ -2463,7 +2463,10 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                         l_shapes = []
                         
                         dist = offset * 5
-                        size_sphere = self.mBlock.getMayaAttr('jointRadius') or offset
+                        if size is not None:
+                            size_sphere = size
+                        else:
+                            size_sphere = self.mBlock.getMayaAttr('jointRadius') or offset
                         pos_obj = mObj.p_position
                         crvBase = CURVES.create_fromName(name='semiSphere',
                                                      direction = 'z+',

@@ -698,6 +698,9 @@ l_attrsStandard = ['side',
                    'ribbonAttachEndsToInfluence',
                    'controlOffsetMult',
                    'squashFactorMode',
+                   'inflateFactorMode',
+                   'inflateFactorMax',
+                   'inflateFactorMin',
                    'settingsDirection',
                    'skeletonMode',
                    'moduleTarget']
@@ -711,6 +714,9 @@ d_attrsToMake = {'visMeasure':'bool',
                  'squashExtraControl' : 'bool',
                  'squashFactorMax':'float',
                  'squashFactorMin':'float',
+                 'inflateFactorMax':'float',
+                 'inflateFactorMin':'float',
+                 'inflateFactorMode':"midPeak:midBlendDown:midBlendUp:blendUp:blendDown:max",
                  'formAim':'none:simple:chain',
                  'shapersAim':'none:chain:orientToHandle',
                  'shapersAimUp':'none:handle:blockOrient',
@@ -767,6 +773,9 @@ d_defaultSettings = {'version':__version__,
                      'squash':'simple',
                      'squashFactorMax':1.0,
                      'squashFactorMin':0.0,
+                     'inflateFactorMax':1.0,
+                     'inflateFactorMin':0.0,
+                     'inflateFactorMode':'midPeak',
                      'ikSplineTwistEndConnect':True,
                      'loftList':['square','circle','square'],
                      'visLabels':True,
@@ -820,10 +829,11 @@ d_skeletonSetup = {'mode':'curveCast',
 #d_rotationOrders = {'head':'yxz'}
 d_controlDat_links = {
     'fk' : ['leverFK','controlsFK','controlFK','fkReverseControls'],
-    'ik' : ['leverFK',
+    'ik' : ['leverFK', 'controlsIK',
             'controlIKBase',
             'controlIKMid','controlSegMidIK',
             'controlIKEnd','controlIK',
+            'bezierIKSubControls',
             'controlBallRotation','leverIK',
             'controlIKBallHinge','controlIKBall','controlIKToe',
             'controlIKMid','leverIK','eyeLookAt','lookAt',
@@ -2134,6 +2144,11 @@ def rig_dataBuffer(self):
         self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
         self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
         self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
+        if mBlock.hasAttr('inflateFactorMax'):
+            self.d_squashStretch['inflateFactorMax'] = mBlock.inflateFactorMax
+            self.d_squashStretch['inflateFactorMin'] = mBlock.inflateFactorMin
+            self.d_squashStretch['inflateFactorMode'] = (
+                mBlock.getEnumValueString('inflateFactorMode') or 'midPeak')
         
         log.debug("|{0}| >> self.d_squashStretch..".format(_str_func))    
         #pprint.pprint(self.d_squashStretch)
@@ -4242,9 +4257,18 @@ def rig_frame(self):
                         squashStretchMain=self.d_squashStretch.get(
                             'squashStretchMain') or 'arcLength',
                         extraSquashControl=mBlock.squashExtraControl,
+                        extraInflateControl=bool(mBlock.squashExtraControl),
                         squashFactorMin=mBlock.squashFactorMin,
                         squashFactorMax=mBlock.squashFactorMax,
                         squashFactorMode=self.str_squashFactorMode,
+                        inflateFactorMin=self.d_squashStretch.get(
+                            'inflateFactorMin', mBlock.squashFactorMin),
+                        inflateFactorMax=self.d_squashStretch.get(
+                            'inflateFactorMax', mBlock.squashFactorMax),
+                        inflateFactorMode=self.d_squashStretch.get(
+                            'inflateFactorMode', self.str_squashFactorMode),
+                        inflateFactorBaseName='{0}_inflate'.format(
+                            self.d_module['partName']),
                         useUndoChunk=False)
 
             elif _ikSetup in ['spline','curve']:# ==============================================================================
@@ -5488,13 +5512,13 @@ def controller_getDat(self):
     #IK...
     ml_bezierSubs = mRigNull.msgList_get('bezierIKSubControls')
     if ml_bezierSubs:
-        md['ik'] = checkList(['leverFK',
-                              'controlBallRotation', 'leverIK',
-                              'controlIKBall', 'controlIKBallHinge', 'controlIKToe',
-                              'controlIKEnd'])
+        md['ik'] = checkList(['leverFK', 'controlsIK',
+                              'controlIKBase',
+                              'controlIKMid', 'controlSegMidIK',
+                              'controlIK'])
         ml_pickwalk = _bezier_ik_pickwalk_controls(mRigNull)
-        _set_pick = set(ml_pickwalk)
-        md['ik'] = [m for m in md['ik'] if m not in _set_pick]
+        _set_pick = {m.p_nameLong for m in ml_pickwalk}
+        md['ik'] = [m for m in md['ik'] if m.p_nameLong not in _set_pick]
         md['ik'].extend(ml_pickwalk)
     else:
         md['ik'] = checkList(['leverFK', 'controlsIK',

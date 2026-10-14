@@ -548,6 +548,8 @@ example:
             if not _subRoot or not isinstance(_subRoot, str):
                 return None
             _path = os.path.normpath(os.path.join(_subRoot, _item))
+            if os.path.normpath(_subRoot) == os.path.normpath(_path):
+                return None
             if os.path.isdir(_path):
                 return _item
         except Exception:
@@ -826,13 +828,17 @@ example:
     def path_set(self):
         try:
             if self.hasSub:
-                if self.subTypeSearchList['scrollList'].getSelectedItem():
-                    _subTypePath = self.path_subType
-                    if not _subTypePath:
-                        return None
-                    return os.path.normpath(os.path.join(_subTypePath, self.subTypeSearchList['scrollList'].getSelectedItem()))
-                else:
+                _item = self.subTypeSearchList['scrollList'].getSelectedItem()
+                if not _item or not str(_item).strip():
                     return None
+                _subTypePath = self.path_subType
+                if not _subTypePath or not isinstance(_subTypePath, str):
+                    return None
+                _path = os.path.normpath(os.path.join(_subTypePath, _item))
+                # Stale/empty selection can join to the subtype root — that tier uses Sets, not Variation.
+                if self._path_is_subtype_root(_path):
+                    return None
+                return _path
             else:
                 return self.path_subType
         except Exception as err:
@@ -1049,6 +1055,9 @@ example:
         if not _path_set or not os.path.isdir(_path_set):
             log.debug(log_msg(_str_func, False))
             return False
+        if self._path_is_subtype_root(_path_set):
+            log.debug(log_msg(_str_func, False))
+            return False
 
         _res = bool(self._dir_children_dirs(_path_set))
         log.debug(log_msg(_str_func, _res))
@@ -1103,6 +1112,16 @@ example:
 
     def _dir_is_mixed(self, path):
         return bool(self._dir_children_dirs(path)) and bool(self._dir_maya_files(path))
+
+    def _path_is_subtype_root(self, path):
+        """True when *path* is the current subtype container (not a set folder under it)."""
+        try:
+            _sub = self.path_subType
+            if not path or not _sub or not isinstance(_sub, str):
+                return False
+            return os.path.normpath(path) == os.path.normpath(_sub)
+        except Exception:
+            return False
 
     def _subtype_level_has_content(self):
         _path = self.path_subType
@@ -1165,9 +1184,13 @@ example:
             _varPath = self.path_variationDirectory
             if _varPath and os.path.isfile(_varPath):
                 return False
-            if _varPath and os.path.isdir(_varPath):
-                return True
             _set = self.path_set
+            if _varPath and os.path.isdir(_varPath):
+                if _set and os.path.normpath(_varPath) != os.path.normpath(_set):
+                    return True
+                return False
+            if _set and os.path.isdir(_set) and self._dir_is_mixed(_set):
+                return False
             if _set and os.path.isdir(_set) and self._dir_maya_files(_set):
                 return True
             return False
@@ -4459,9 +4482,9 @@ example:
             charDir = self.path_subType
 
             if os.path.exists(charDir):
-                for d in os.listdir(charDir):
-                    animDir = os.path.normpath(os.path.join(charDir, d))
-                    if self.showAllFiles:
+                if self.showAllFiles:
+                    for d in os.listdir(charDir):
+                        animDir = os.path.normpath(os.path.join(charDir, d))
                         if d.lower() in self.l_dirMask:
                             continue
                         _break = False
@@ -4472,10 +4495,15 @@ example:
                         if _break:
                             continue
 
-                    if os.path.isdir(animDir):
+                        if os.path.isdir(animDir):
+                            subEntries.append((d, 'dir'))
+                        else:
+                            subEntries.append((d, 'file'))
+                else:
+                    for d in self._dir_children_dirs(charDir):
                         subEntries.append((d, 'dir'))
-                    else:
-                        subEntries.append((d, 'file'))
+                    for f in self._dir_maya_files(charDir):
+                        subEntries.append((f, 'file'))
 
         _rows = SCENEUTILS.scene_list_sort_rows(
             SCENEUTILS.scene_list_rows_from_entries(subEntries))
@@ -4484,8 +4512,21 @@ example:
         self._clear_searchable_list(self.variationList)
         self._clear_searchable_list(self.versionList)
 
+        _mixed_type = bool(charDir and self._dir_is_mixed(charDir))
+
         if self.hasSub:
-            self._ensure_navigation_row_selected(self.subTypeSearchList, cascade=True)
+            if _mixed_type:
+                _sl = self.subTypeSearchList['scrollList']
+                _selOn = _sl.b_selCommandOn
+                _sl.b_selCommandOn = False
+                try:
+                    _sl(e=True, deselectAll=True)
+                except Exception:
+                    pass
+                finally:
+                    _sl.b_selCommandOn = _selOn
+            else:
+                self._ensure_navigation_row_selected(self.subTypeSearchList, cascade=True)
             self.buildAssetForm()
 
         self.uiUpdate_setsButtons()
@@ -4524,10 +4565,18 @@ example:
             if os.path.isfile(animationDir):
                 log.debug(log_msg(_str_func, "is file..."))
                 return
+            if self._path_is_subtype_root(animationDir):
+                log.debug(log_msg(_str_func, "subtype root — sets column owns mixed children"))
+                mc.formLayout(self._subForms[2], e=True, vis=False)
+                self.buildAssetForm()
+                return
 
             if os.path.exists(animationDir):
                 for d in self._dir_children_dirs(animationDir):
                     variationEntries.append((d, 'dir'))
+                if self._dir_is_mixed(animationDir):
+                    for f in self._dir_maya_files(animationDir):
+                        variationEntries.append((f, 'file'))
             else:
                 log.error(log_msg(_str_func, "path doesn't exist? {}".format(animationDir)))
 
@@ -4555,9 +4604,12 @@ example:
 
         _autoPath = self.path_variationDirectory
         if _autoPath and os.path.isdir(_autoPath):
+            if not animationDir or os.path.normpath(_autoPath) != os.path.normpath(animationDir):
+                self.LoadVersionList()
+        elif animationDir and os.path.isdir(animationDir) and not _mixed_set:
             self.LoadVersionList()
-        elif animationDir and os.path.isdir(animationDir):
-            self.LoadVersionList()
+        elif _mixed_set:
+            self._clear_searchable_list(self.versionList)
 
         self._navigation_refresh_file_flags_from_paths()
         self._refreshMetaDataFromSelection()
@@ -4593,10 +4645,16 @@ example:
             if self.hasVariant:
                 log.debug(log_msg(_str_func,"subtypes"))
                 _var_dir = self.path_variationDirectory
+                _set = self.path_set
                 if _var_dir and os.path.isdir(_var_dir):
-                    searchDir = _var_dir
+                    if _set and os.path.normpath(_var_dir) != os.path.normpath(_set):
+                        searchDir = _var_dir
+                    else:
+                        searchDir = None
+                elif _set and self._dir_is_mixed(_set):
+                    searchDir = None
                 else:
-                    searchDir = self.path_set
+                    searchDir = _set
             elif self.hasSub:
                 log.debug(log_msg(_str_func,"has sub"))                            
                 searchDir = self.path_set
