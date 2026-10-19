@@ -137,7 +137,8 @@ d_attrStateMask = {'define':['baseSizeX','baseSizeY','baseSizeZ'],
                    'rig':['segmentType','special_swim','ikEndShape','ikSplineAimEnd','ikSplineTwistEndConnect','ikSplineExtendEnd','ikSplineParentSegEnd','ikMidSetup','ikMidControlNum','ikSplineTwistAxis',
                           'ikSplineTwistUpStart','ikSplineTwistUpEnd',
                           'ribbonExtendEnds','ribbonAttachEndsToInfluence','reverseSetup',
-                          'ikBaseExtend','ikEndExtend','ikEndLever','followParentBank','splineBezierMode',]}
+                          'ikBaseExtend','ikEndExtend','ikEndLever','followParentBank','splineBezierMode',
+                          'ikBezierControlShape',]}
 
 l_createUI_attrs = ['attachPoint','attachIndex','nameIter','numControls','numJoints',
                     'addCog','addPivot','followParentBank','numSubShapers','segmentType',
@@ -145,7 +146,7 @@ l_createUI_attrs = ['attachPoint','attachIndex','nameIter','numControls','numJoi
                     'numControls',
                     'numSubShapers',
                     'reverseSetup',
-                    'ikSetup','segmentStretchBy','splineBezierMode',
+                    'ikSetup','segmentStretchBy','splineBezierMode','ikBezierControlShape',
                     'ribbonExtendEnds','ribbonAttachEndsToInfluence',
                     'root_dynParentMode',
                     'root_dynParentScaleMode','squashSkipAim',
@@ -741,6 +742,7 @@ d_attrsToMake = {'visMeasure':'bool',
                  'segmentType':'ribbon:ribbonLive:spline:curve:linear:parent',
                  'segmentStretchBy':'translate:scale',
                  'splineBezierMode':BLOCKSHARE._d_attrsTo_make['splineBezierMode'],
+                 'ikBezierControlShape':BLOCKSHARE._d_attrsTo_make['ikBezierControlShape'],
                  'ikBase':'none:cube:simple:hips:head',
                  'settingsPlace':'start:end:cog',
                  'blockProfile':'string',#':'.join(d_block_profiles.keys()),
@@ -828,6 +830,7 @@ d_defaultSettings = {'version':__version__,
                      'squashSkipAim':True,
                      'segmentStretchBy':'scale',
                      'splineBezierMode':'uniform',
+                     'ikBezierControlShape':'ball',
                      'attachPoint':'closest',}
 
 

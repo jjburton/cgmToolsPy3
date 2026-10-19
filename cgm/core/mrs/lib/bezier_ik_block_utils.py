@@ -18,6 +18,8 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.position_utils as POS
 import cgm.core.lib.rigging_utils as CORERIG
+import cgm.core.lib.string_utils as CORESTRING
+import cgm.core.tools.lib.snap_calls as SNAPCALLS
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +187,54 @@ def block_bezier_anchor_mode(mBlock):
     return 'uniform'
 
 
+def block_ik_bezier_control_shape(mBlock):
+    """Segment ikBezierControlShape: ball (FK cube + sphere subs) vs segmentHandle (cast-thin cube + limbSegmentHandle subs)."""
+    if mBlock and mBlock.hasAttr('ikBezierControlShape'):
+        _mode = mBlock.getEnumValueString('ikBezierControlShape')
+        if _mode == 'segmentHandle':
+            return 'segmentHandle'
+    return 'ball'
+
+
+def rig_shapes_bezier_cast_aim_vector(self):
+    """Cast aim vector for limbSegmentHandle shapes (matches segment rig_shapes)."""
+    mBlock = self.mBlock
+    d_orients = self.d_orientation or {}
+    _castVector = mBlock.getEnumValueString('castVector')
+    return d_orients.get('vector{0}'.format(CORESTRING.capFirst(_castVector)))
+
+
+def rig_shapes_bezier_segment_handle_semisphere_size(mBlock, offset, scale=1.0):
+    f_base = mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None
+    if not f_base:
+        f_base = offset
+    return f_base * scale
+
+
+def rig_shapes_bezier_segment_handle_shape(
+        self, mObj, mHandleFactory, aim_vector, offset, scale=1.0,
+        control_type='accent'):
+    """limbSegmentHandle semiSphere cast (limb bezier subs / neck handleJoints style)."""
+    mBlock = self.mBlock
+    f_size = rig_shapes_bezier_segment_handle_semisphere_size(mBlock, offset, scale)
+    ml_shapes = self.atBuilderUtils(
+        'shapes_fromCast',
+        targets=mObj,
+        offset=offset,
+        aimVector=aim_vector,
+        mode='limbSegmentHandle',
+        size=f_size)
+    if not ml_shapes:
+        return
+    CORERIG.shapeParent_in_place(
+        mObj.mNode, ml_shapes[0].mNode, False, replaceShapes=True)
+    mHandleFactory.color(mObj.mNode, controlType=control_type)
+    try:
+        ml_shapes[0].delete()
+    except Exception:
+        pass
+
+
 def rig_shapes_fk_shape_cross_size(mFKShape, scale=1.0):
     """Width of a cast FK frame shape (avg of the two smaller axis-box axes)."""
     l_axis = POS.get_axisBox_size(mFKShape.mNode, False)
@@ -227,6 +277,113 @@ def rig_shapes_bezier_ik_cube_from_fk(self, mIKControl, mSnapSource, mFKShape, s
         self, mIKControl, mFKShape, 'cube', mSnapSource, scale)
 
 
+def rig_shapes_bezier_cast_mesh_spans(self, mObj, str_meshShape, offset):
+    """Cast spans at mObj (limbSegmentHandle / limb bezier main cube sizing)."""
+    str_orientation = self.d_orientation['str']
+    pos_obj = mObj.p_position
+    dist_fallback = offset * 5
+    md_sides = {}
+    for axis in str_orientation:
+        md_sides[axis] = {}
+        for d in ['+', '-']:
+            p = SNAPCALLS.get_special_pos(
+                [mObj.mNode, str_meshShape], 'cast', axis + d)
+            if not p:
+                p = DIST.get_pos_by_axis_dist(
+                    mObj.mNode, axis + d, dist_fallback)
+            md_sides[axis][d] = DIST.get_distance_between_points(p, pos_obj)
+
+    l_cross = []
+    for axis in (str_orientation[1], str_orientation[2]):
+        l_cross.append(md_sides[axis]['+'])
+        l_cross.append(md_sides[axis]['-'])
+    _max = max(l_cross)
+    _distCheck = MATH.average([v for v in l_cross if v is not _max]) * 2.0
+
+    def _axis_span(axis, b_filter_cross):
+        d_pos = md_sides[axis]['+']
+        d_neg = md_sides[axis]['-']
+        if b_filter_cross and axis in (str_orientation[1], str_orientation[2]):
+            if d_pos > _distCheck:
+                d_pos = None
+            if d_neg > _distCheck:
+                d_neg = None
+        l_use = [v for v in (d_pos, d_neg) if v is not None]
+        if not l_use:
+            return dist_fallback * 2.0
+        if len(l_use) == 2:
+            return l_use[0] + l_use[1]
+        return l_use[0] * 2.0
+
+    mBlock = self.mBlock
+    f_aim = (
+        mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None)
+    if not f_aim:
+        f_aim = offset
+    f_cross_a = _axis_span(str_orientation[1], True)
+    f_cross_b = _axis_span(str_orientation[2], True)
+    return {
+        str_orientation[0]: f_aim,
+        str_orientation[1]: f_cross_a,
+        str_orientation[2]: f_cross_b,
+    }
+
+
+def rig_shapes_bezier_main_cast_box_size(self, mMain, offset=None):
+    """Cube [sx,sy,sz] from proxy cast — aim axis uses jointRadius (limb bezier mains)."""
+    _str_func = 'rig_shapes_bezier_main_cast_box_size'
+    offset = offset if offset is not None else getattr(self, 'v_offset', None)
+    if not offset and getattr(self, 'mPuppet', None):
+        offset = self.mPuppet.atUtils('get_shapeOffset')
+    mMesh = self.mBlock.atUtils('get_castMesh', True)
+    if not mMesh:
+        log.warning(cgmGEN.logString_msg(_str_func, 'no cast mesh'))
+        return None
+    str_meshShape = mMesh.getShapes()[0]
+    try:
+        md_span = rig_shapes_bezier_cast_mesh_spans(
+            self, mMain, str_meshShape, offset)
+    except Exception as err:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'cast fail {0} | {1}'.format(mMain.p_nameShort, err)))
+        md_span = None
+    finally:
+        try:
+            mMesh.delete()
+        except Exception:
+            pass
+    if not md_span:
+        return None
+    return [md_span['x'], md_span['y'], md_span['z']]
+
+
+def rig_shapes_bezier_main_cube_cast_sized(
+        self, mMain, mFKShape=None, offset=None, scale=1.2):
+    """Cast-thin cube on main IK (jointRadius on aim); FK fallback if cast fails."""
+    offset = offset if offset is not None else getattr(self, 'v_offset', None)
+    l_size = rig_shapes_bezier_main_cast_box_size(self, mMain, offset)
+    if not l_size and mFKShape:
+        f_cross = rig_shapes_fk_shape_cross_size(mFKShape, scale)
+        mBlock = self.mBlock
+        f_aim = (
+            mBlock.getMayaAttr('jointRadius')
+            if mBlock.hasAttr('jointRadius') else None)
+        if not f_aim:
+            f_aim = offset or 1.0
+        _d_orient = self.d_orientation or {}
+        str_aim = (_d_orient.get('stringAim') or '{0}+'.format(
+            _d_orient.get('str', 'zyx')[0]))[0].lower()
+        l_size = [f_cross, f_cross, f_cross]
+        l_size[{'x': 0, 'y': 1, 'z': 2}.get(str_aim, 2)] = f_aim
+    if not l_size:
+        return
+    _ik_shape = CURVES.create_fromName('cube', size=l_size, bakeScale=True)
+    mIKShape = cgmMeta.validateObjArg(_ik_shape, 'cgmObject', setClass=True)
+    mIKShape.doSnapTo(mMain)
+    CORERIG.shapeParent_in_place(
+        mMain.mNode, mIKShape.mNode, False, replaceShapes=True)
+
+
 def rig_shapes_bezier_main_fk_idx(self, mMain, mRigNull, mBlock, ml_fkCastTargets,
                                   ml_fkShapes, mControlIK, mControlIKBase):
     int_handle_end = getattr(self, 'int_handleEndIdx', -1)
@@ -253,11 +410,22 @@ def rig_shapes_bezier_main_ik_type(mMain, mHandleFactory):
 
 
 def rig_shapes_bezier_ik_apply_from_fk(self, ml_fkShapes, ml_fkCastTargets, mHandleFactory):
-    """Bezier IK cubes + ikBezier typing on mains (block rig_shapes)."""
+    """Bezier IK cube mains + ikBezier typing (segment / head rig_shapes)."""
     mRigNull = self.mRigNull
     mBlock = self.mBlock
+    str_shape_mode = block_ik_bezier_control_shape(mBlock)
     int_handle_end = getattr(self, 'int_handleEndIdx', -1)
     int_seg_base = getattr(self, 'int_segBaseIdx', 0)
+    offset = getattr(self, 'v_offset', None)
+
+    def _shape_main(mIKControl, mSnapSource, mFKShape):
+        if str_shape_mode == 'segmentHandle':
+            rig_shapes_bezier_main_cube_cast_sized(
+                self, mIKControl, mFKShape, offset=offset)
+        else:
+            rig_shapes_bezier_ik_cube_from_fk(
+                self, mIKControl, mSnapSource, mFKShape)
+        rig_shapes_bezier_main_ik_type(mIKControl, mHandleFactory)
 
     mControlIK = mRigNull.getMessageAsMeta('controlIK')
     if mControlIK:
@@ -265,24 +433,18 @@ def rig_shapes_bezier_ik_apply_from_fk(self, ml_fkShapes, ml_fkCastTargets, mHan
         if abs(idx) > len(ml_fkShapes):
             idx = -1
         mSnapEnd = getattr(mBlock, 'ikEndHandle', None) or mControlIK
-        rig_shapes_bezier_ik_cube_from_fk(
-            self, mControlIK, mSnapEnd, ml_fkShapes[idx])
-        rig_shapes_bezier_main_ik_type(mControlIK, mHandleFactory)
+        _shape_main(mControlIK, mSnapEnd, ml_fkShapes[idx])
 
     mControlIKBase = mRigNull.getMessageAsMeta('controlIKBase')
     if mControlIKBase:
         idx = min(int_seg_base, len(ml_fkShapes) - 1)
         mSnapStart = getattr(mBlock, 'ikStartHandle', None) or mControlIKBase
-        rig_shapes_bezier_ik_cube_from_fk(
-            self, mControlIKBase, mSnapStart, ml_fkShapes[idx])
-        rig_shapes_bezier_main_ik_type(mControlIKBase, mHandleFactory)
+        _shape_main(mControlIKBase, mSnapStart, ml_fkShapes[idx])
 
     for i, mHelper in enumerate(self.ml_ikMidControls):
         idx = rig_shapes_closest_fk_shape_idx(
             self.ml_ikMidHelpers[i].p_position, ml_fkCastTargets)
-        rig_shapes_bezier_ik_cube_from_fk(
-            self, mHelper, self.ml_ikMidHelpers[i], ml_fkShapes[idx])
-        rig_shapes_bezier_main_ik_type(mHelper, mHandleFactory)
+        _shape_main(mHelper, self.ml_ikMidHelpers[i], ml_fkShapes[idx])
 
 
 def rig_frame_bezier_ik_track_vis(mRigNull, mPlug_IKon, ml_track_curves=None):
@@ -689,6 +851,12 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
     if len(ml_bezierMainIK) < 2:
         return
 
+    str_shape_mode = block_ik_bezier_control_shape(mBlock)
+    offset = getattr(self, 'v_offset', None)
+    aim_vector = (
+        rig_shapes_bezier_cast_aim_vector(self)
+        if str_shape_mode == 'segmentHandle' else None)
+
     f_mainIkScale = 1.2
     f_subScale = f_mainIkScale
 
@@ -719,9 +887,15 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
             mSub.doStore('cgmType', 'handle')
             mSub.doName()
 
-            rig_shapes_bezier_ik_shape_from_fk(
-                self, mSub, ml_fkShapes[fk_idx], 'sphere', mSub, f_subScale)
-            mBlock.asHandleFactory(mSub.mNode).color(mSub.mNode, controlType='accent')
+            if str_shape_mode == 'segmentHandle':
+                rig_shapes_bezier_segment_handle_shape(
+                    self, mSub, mHandleFactory, aim_vector, offset,
+                    scale=f_subScale, control_type='accent')
+            else:
+                rig_shapes_bezier_ik_shape_from_fk(
+                    self, mSub, ml_fkShapes[fk_idx], 'sphere', mSub, f_subScale)
+                mBlock.asHandleFactory(mSub.mNode).color(
+                    mSub.mNode, controlType='accent')
             mSub.p_parent = mMain
 
             mTrackCrv = rig_shapes_bezier_main_to_sub_track(
