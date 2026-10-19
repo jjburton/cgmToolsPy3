@@ -1390,9 +1390,13 @@ def _ik_spline_handle_twist_axis_enum(ik_handle, attr_name, axis_string):
     return SHARED._d_simple_axis_to_ikSpline_worldUp_axis_enum.get(axis_string)
 
 
-def _apply_hair_spline_ik_advanced_twist(mIKHandle, fwdAxis, upAxis, mWorldUpStart, mWorldUpEnd):
+def _apply_hair_spline_ik_advanced_twist(
+        mIKHandle, fwdAxis, upAxis, mWorldUpStart, mWorldUpEnd,
+        v_worldUpStart=None, v_worldUpEnd=None):
     """
     Spline IK advanced twist: Object Rotation Up (Start/End), chain fwd/up axes, sim joint WU objects.
+
+    Optional v_worldUpStart / v_worldUpEnd override dWorldUpVector / dWorldUpVectorEnd (object-rotation WU).
     """
     _str_func = '_apply_hair_spline_ik_advanced_twist'
     mIKHandle = cgmMeta.asMeta(mIKHandle)
@@ -1419,9 +1423,12 @@ def _apply_hair_spline_ik_advanced_twist(mIKHandle, fwdAxis, upAxis, mWorldUpSta
     else:
         log.warning(cgmGEN.logString_msg(_str_func, 'dWorldUpAxis missing on {0}'.format(_ik)))
 
-    _wu = upAxis.p_vector
-    mc.setAttr('{0}.dWorldUpVector'.format(_ik), _wu[0], _wu[1], _wu[2])
-    mc.setAttr('{0}.dWorldUpVectorEnd'.format(_ik), _wu[0], _wu[1], _wu[2])
+    _wu_start = v_worldUpStart if v_worldUpStart is not None else upAxis.p_vector
+    _wu_end = v_worldUpEnd if v_worldUpEnd is not None else upAxis.p_vector
+    mc.setAttr(
+        '{0}.dWorldUpVector'.format(_ik), _wu_start[0], _wu_start[1], _wu_start[2])
+    mc.setAttr(
+        '{0}.dWorldUpVectorEnd'.format(_ik), _wu_end[0], _wu_end[1], _wu_end[2])
 
     _wu_start = _dag_str(mWorldUpStart)
     _wu_end = _dag_str(mWorldUpEnd)

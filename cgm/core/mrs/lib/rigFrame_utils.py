@@ -39,6 +39,7 @@ import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.rig.ik_utils as IK
 import cgm.core.rig.bezier_utils as RIGBEZIER
+import cgm.core.mrs.lib.bezier_ik_block_utils as BEZIERIKBLOCK
 import cgm.core.classes.NodeFactory as NODEFACTORY
 
 """
@@ -246,37 +247,81 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
             for mDriver in ml_drivers:
                 RIGCONSTRAINT.attach_toShape(mDriver, mShape.mNode, 'conPoint',parentTo=mModule.rigNull.mNode, floating=False)
                 
-            
-            if len(ml_drivers) > 1:
-                for i,mDriver in enumerate(ml_drivers):
-                    if mDriver == ml_drivers[-1]:
-                        mc.aimConstraint([ml_drivers[-2].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,-1], upVector = [0,1,0],
-                                         worldUpObject = mIKEnd.mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])      
-                    elif mDriver == ml_drivers[0]:
-                        mc.aimConstraint([ml_drivers[i+1].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,-1], upVector = [0,1,0],
-                                         worldUpObject = mIKBase.mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])                              
-                    else:
-                        mc.aimConstraint([ml_drivers[i+1].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,1], upVector = [0,1,0],
-                                         worldUpObject = ml_drivers[i-1].mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])
-            else:
-                mc.aimConstraint([mIKBase.mNode],
-                                 mDriver.mNode,
-                                 maintainOffset = True, #skip = 'z',
-                                 aimVector = [0,0,-1], upVector = [0,1,0],
-                                 worldUpObject = mIKEnd.mNode,
-                                 worldUpType = 'objectrotation', worldUpVector = [1,0,0])                
+            # Head: ikMidAimSetup (default off). Other blocks: legacy always aim on track modes.
+            _b_midAimSetup = True
+            if mBlock.hasAttr('ikMidAimSetup'):
+                _b_midAimSetup = bool(mBlock.ikMidAimSetup)
+
+            _b_head_linear_root_end_aim = (
+                _b_midAimSetup
+                and _str_mode == 'linearTrack'
+                and mBlock.hasAttr('ikMidAimSetup')
+                and mIKBase
+                and mIKEnd)
+
+            if _b_head_linear_root_end_aim:
+                _v_aim = self.d_orientation['vectorAim']
+                _v_up = self.d_orientation['vectorUp']
+                _v_wu = self.d_orientation.get('vectorOut')
+                if not _v_wu and getattr(self, 'v_twistUp', None):
+                    _v_wu = self.v_twistUp
+                if not _v_wu:
+                    _v_wu = [0, 1, 0]
+                mAimRef = mIKBase.doCreateAt(setClass='cgmObject')
+                mAimRef.rename('{0}_midRootEnd_aimRef'.format(self.d_module['partName']))
+                mAimRef.p_parent = mIKBase
+                mc.aimConstraint(
+                    mIKEnd.mNode,
+                    mAimRef.mNode,
+                    maintainOffset=True,
+                    aimVector=_v_aim,
+                    upVector=_v_up,
+                    worldUpObject=mIKBase.mNode,
+                    worldUpType='objectrotation',
+                    worldUpVector=_v_wu)
+                for mDriver in ml_drivers:
+                    mc.orientConstraint(
+                        mAimRef.mNode,
+                        mDriver.mNode,
+                        maintainOffset=True)
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'head linearTrack mid aim | root {0} -> end {1} | drivers {2}'.format(
+                        mIKBase.p_nameShort,
+                        mIKEnd.p_nameShort,
+                        len(ml_drivers))))
+
+            elif _b_midAimSetup:
+                if len(ml_drivers) > 1:
+                    for i,mDriver in enumerate(ml_drivers):
+                        if mDriver == ml_drivers[-1]:
+                            mc.aimConstraint([ml_drivers[-2].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,-1], upVector = [0,1,0],
+                                             worldUpObject = mIKEnd.mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])      
+                        elif mDriver == ml_drivers[0]:
+                            mc.aimConstraint([ml_drivers[i+1].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,-1], upVector = [0,1,0],
+                                             worldUpObject = mIKBase.mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])                              
+                        else:
+                            mc.aimConstraint([ml_drivers[i+1].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,1], upVector = [0,1,0],
+                                             worldUpObject = ml_drivers[i-1].mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])
+                else:
+                    mc.aimConstraint([mIKBase.mNode],
+                                     mDriver.mNode,
+                                     maintainOffset = True, #skip = 'z',
+                                     aimVector = [0,0,-1], upVector = [0,1,0],
+                                     worldUpObject = mIKEnd.mNode,
+                                     worldUpType = 'objectrotation', worldUpVector = [1,0,0])
             
         else:
             raise Exception("{} | unknown mode : {}".format(_str_func, _str_mode))
@@ -882,7 +927,8 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
 
 def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
            mPlug_masterScale=None, ikEndTwistConnect=True, mSettings=None,
-           ml_bezierMainIK=None, ml_bezierSubsPerMain=None):
+           ml_bezierMainIK=None, ml_bezierSubsPerMain=None,
+           mTwistEndControl=None):
     """
     Bezier IK driver + ikSplineSolver (IK.bezier_spline). Stretch uses bezier_spline_stretch later.
     """
@@ -908,10 +954,15 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
             'bezierSections={0} | main IK controls:{1}'.format(
                 int_bezier_sections, len(ml_bezierMainIK))))
 
+        _str_bezier_mode = BEZIERIKBLOCK.block_bezier_anchor_mode(self.mBlock)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'bezierAnchorMode={0}'.format(_str_bezier_mode)))
+
         res_bezier = IK.bezier_spline(
             jointList=[mObj.mNode for mObj in ml_ikJoints],
             baseName=str_base,
             bezierSections=int_bezier_sections,
+            bezierAnchorMode=_str_bezier_mode,
             advancedTwistSetup=True,
             moduleInstance=self.mModule,
             useUndoChunk=False)
@@ -939,13 +990,14 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
             mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
 
-        if ikEndTwistConnect and mIKControl and mIKBaseControl:
+        mTwistEnd = mTwistEndControl or mIKControl
+        if ikEndTwistConnect and mTwistEnd and mIKBaseControl:
             _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
             mPlug_addEnd = cgmMeta.cgmAttr(
-                mIKControl.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
+                mTwistEnd.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
             arg1 = "{}.twistEnd = {}.r{} + {}".format(
                 mDriverCurve.mNode,
-                mIKControl.mNode,
+                mTwistEnd.mNode,
                 _twistAxis,
                 mPlug_addEnd.p_combinedName)
             NODEFACTORY.argsToNodes(arg1).doBuild()
@@ -964,6 +1016,17 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
 
         if mSettings and mDriverCurve.hasAttr('twistType'):
             ATTR.copy_to(mDriverCurve.mNode, 'twistType', mSettings.mNode, driven='source')
+
+        if mIKBaseControl and mTwistEnd:
+            BEZIERIKBLOCK.bezier_ik_connect_spline_advanced_twist(
+                mDriverCurve,
+                mIKHandle,
+                self.mBlock,
+                self.d_orientation,
+                mWorldUpStart=mIKBaseControl,
+                mWorldUpEnd=mTwistEnd,
+                str_mainRotAxis=getattr(self, 'str_mainRotAxis', None),
+                wire_driver_twist_from_mains=False)
 
         log.info(cgmGEN.logString_msg(_str_func, 'done | {0}'.format(mBezierCurve.p_nameShort)))
         return res_bezier

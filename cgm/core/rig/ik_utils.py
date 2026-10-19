@@ -5243,15 +5243,25 @@ def _bezier_joint_chain_from_root(mRoot):
 def _bezier_bind_driver_cvs_from_bezier(mBezierCurve,
                                         mDriverCurve,
                                         sample_count,
-                                        str_baseName):
-    """Drive hidden spline-IK CVs from uniform samples on the Bezier curve."""
+                                        str_baseName,
+                                        l_bezier_parameters=None):
+    """Drive hidden spline-IK CVs from samples on the Bezier curve (uniform or per-CV U)."""
     _bezier_shape = mBezierCurve.getShapes(asMeta=False)[0]
     _driver_shape = mDriverCurve.getShapes(asMeta=False)[0]
     ml_poci = []
     ml_wtl = []
 
+    if l_bezier_parameters is not None:
+        if len(l_bezier_parameters) != sample_count:
+            raise ValueError(
+                'bezier driver parameter list length {0} must match sample count {1}.'.format(
+                    len(l_bezier_parameters), sample_count))
+
     for _index in range(sample_count):
-        _parameter = float(_index) / float(sample_count - 1)
+        if l_bezier_parameters is not None:
+            _parameter = float(l_bezier_parameters[_index])
+        else:
+            _parameter = float(_index) / float(sample_count - 1)
 
         mPoci = cgmMeta.cgmNode(
             nodeType='pointOnCurveInfo',
@@ -5284,6 +5294,11 @@ def bezier_spline(jointList=None,
                   bezierSections=None,
                   sampleCount=None,
                   useBezierCurve=None,
+                  bezierAnchorMode='uniform',
+                  driverSampleMode='uniform',
+                  bezierTension=0.15,
+                  bezierClampHandles=True,
+                  bezierAuthorPause=False,
                   advancedTwistSetup=False,
                   moduleInstance=None,
                   parentGutsTo=None,
@@ -5298,6 +5313,11 @@ def bezier_spline(jointList=None,
         bezierSections(int) | Editable Bezier sections (default from joint count, max 4)
         sampleCount(int) | CV count on hidden driver curve
         useBezierCurve(nurbsCurve) | Existing Bezier curve; skips auto CV build when set
+        bezierAnchorMode(str) | bend (default) — joint anchors + bend-prioritized sections; uniform; joints; polyline
+        bezierTension(float) | bend mode handle length (0–1, default 0.15 — higher = shorter handles)
+        bezierClampHandles(bool) | bend mode — clamp handles to local joint segment lengths
+        driverSampleMode(str) | uniform (default) — driver CVs; joints — driver CV at each joint + chord-length U on Bezier
+        bezierAuthorPause(bool) | After auto Bezier build (not useBezierCurve), select curve and wait for Continue before driver + IK
         advancedTwistSetup(bool) | Pass through to IKHandle_addSplineIKTwist
         moduleInstance(cgmRigModule) | Optional; MRS rigNull parenting (omit for native Maya tests)
         parentGutsTo(transform) | Parent setup group under an existing transform
@@ -5308,6 +5328,19 @@ def bezier_spline(jointList=None,
     """
     _str_func = 'bezier_spline'
     log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    _anchor_mode = VALID.stringArg(bezierAnchorMode, noneValid=False).lower()
+    if _anchor_mode in ('bendpriority', 'bend_prioritized'):
+        _anchor_mode = 'bend'
+    _driver_mode = VALID.stringArg(driverSampleMode, noneValid=False).lower()
+    if _anchor_mode not in ('uniform', 'joints', 'polyline', 'bend'):
+        raise ValueError(
+            'bezierAnchorMode must be "bend", "uniform", "joints", or "polyline".')
+    _bezier_tension = VALID.valueArg(bezierTension, noneValid=False)
+    _bezier_clamp_handles = VALID.boolArg(bezierClampHandles)
+    if _driver_mode not in ('uniform', 'joints'):
+        raise ValueError('driverSampleMode must be "uniform" or "joints".')
+    _author_pause = VALID.boolArg(bezierAuthorPause)
 
     if jointList is None:
         _sel = mc.ls(sl=True, type='joint', long=True) or []
@@ -5333,15 +5366,38 @@ def bezier_spline(jointList=None,
 
     l_positions = [mJnt.p_position for mJnt in ml_joints]
 
-    if bezierSections is None:
+    if _anchor_mode in ('joints', 'polyline') and bezierSections is None:
+        _sections = max(1, len(ml_joints) - 1)
+    elif bezierSections is None:
         _sections = max(1, min(len(ml_joints) - 1, 4))
     else:
         _sections = max(1, int(bezierSections))
 
-    if sampleCount is None:
+    if _driver_mode == 'joints':
+        if len(ml_joints) < 4:
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                'driverSampleMode joints needs at least 4 joints; using uniform driver.'))
+            _driver_mode = 'uniform'
+        elif sampleCount is None:
+            _sample_count = len(ml_joints)
+        else:
+            _sample_count = max(4, int(sampleCount))
+    elif sampleCount is None:
         _sample_count = max(len(ml_joints), (_sections * 3) + 1, 8)
     else:
         _sample_count = max(4, int(sampleCount))
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'joints={0} sections={1} sampleCount={2} | bezierAnchorMode={3} driverSampleMode={4} '
+        'bezierAuthorPause={5}'.format(
+            len(ml_joints),
+            _sections,
+            _sample_count,
+            _anchor_mode,
+            _driver_mode,
+            _author_pause)))
 
     if parentGutsTo is None:
         mSetupGroup = cgmMeta.cgmObject(name='{0}_setup_grp'.format(str_baseName))
@@ -5361,16 +5417,45 @@ def bezier_spline(jointList=None,
 
     try:
         mi_useBezier = cgmMeta.validateObjArg(
-            useBezierCurve, mayaType=['nurbsCurve'], noneValid=True)
+            useBezierCurve, mayaType=['nurbsCurve', 'bezierCurve'], noneValid=True)
 
         if mi_useBezier:
             mBezierCurve = mi_useBezier
+            _bez_shapes = mBezierCurve.getShapes(asMeta=False) or []
+            if not any(mc.nodeType(_s) == 'bezierCurve' for _s in _bez_shapes):
+                raise ValueError(
+                    '{0} | useBezierCurve needs a bezierCurve shape. Got: {1}'.format(
+                        _str_func, [mc.nodeType(_s) for _s in _bez_shapes]))
         else:
-            l_anchors = []
-            for _i in range(_sections + 1):
-                _t = float(_i) / float(_sections)
-                l_anchors.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
-            l_bezier_cvs = CURVES.bezier_cvs_from_anchors(l_anchors)
+            if _anchor_mode == 'bend':
+                _d_bend = CURVES.bezier_cvs_from_bend_prioritized(
+                    l_positions,
+                    _sections,
+                    tension=_bezier_tension,
+                    clamp_handles=_bezier_clamp_handles)
+                l_bezier_cvs = _d_bend['bezierCVs']
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'bend anchors | sections={0} indices={1}'.format(
+                        _sections, _d_bend['anchorIndices'])))
+            elif _anchor_mode == 'uniform':
+                l_anchor_u = [
+                    float(_i) / float(_sections)
+                    for _i in range(_sections + 1)]
+                l_anchors = [
+                    CURVES.sample_polyline_by_parameter(l_positions, _t)
+                    for _t in l_anchor_u]
+                l_bezier_cvs = CURVES.bezier_cvs_from_anchors(l_anchors)
+            elif _anchor_mode == 'joints':
+                l_anchor_u = CURVES.polyline_length_fractions(l_positions)
+                l_bezier_cvs = CURVES.bezier_cvs_from_polyline_anchors(
+                    l_positions, l_anchor_u)
+            else:
+                l_anchor_u = [
+                    float(_i) / float(_sections)
+                    for _i in range(_sections + 1)]
+                l_bezier_cvs = CURVES.bezier_cvs_from_polyline_anchors(
+                    l_positions, l_anchor_u)
             _bezier_xform = CURVES.create_bezier_nurbs_curve(
                 '{0}_bezier_crv'.format(str_baseName),
                 l_bezier_cvs)
@@ -5381,10 +5466,41 @@ def bezier_spline(jointList=None,
 
         mBezierCurve.p_parent = mSetupGroup
 
-        l_driver_pts = []
-        for _i in range(_sample_count):
-            _t = float(_i) / float(_sample_count - 1)
-            l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
+        if _author_pause and not mi_useBezier:
+            mc.select(mBezierCurve.mNode, replace=True)
+            _btn = mc.confirmDialog(
+                title='Bezier spline IK',
+                message=(
+                    'Adjust Bezier CVs (component mode) to match the joint chain, '
+                    'then Continue.\n\nCancel leaves the Bezier only (no IK driver yet).'),
+                button=['Continue', 'Cancel'],
+                defaultButton='Continue',
+                cancelButton='Cancel',
+                dismissString='Cancel')
+            if _btn != 'Continue':
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'author pause cancelled | bezier only: {0}'.format(mBezierCurve.p_nameShort)))
+                return {
+                    'mBezierCurve': mBezierCurve,
+                    'mSetupGroup': mSetupGroup,
+                    'ml_joints': ml_joints,
+                    'bezierAuthorCancelled': True,
+                }
+
+        l_driver_bezier_u = None
+        if _driver_mode == 'joints':
+            l_driver_pts = [list(_p) for _p in l_positions]
+            l_driver_bezier_u = CURVES.polyline_length_fractions(l_positions)
+            if len(l_driver_pts) != _sample_count:
+                raise ValueError(
+                    'driverSampleMode joints: sampleCount must match joint count ({0}).'.format(
+                        len(ml_joints)))
+        else:
+            l_driver_pts = []
+            for _i in range(_sample_count):
+                _t = float(_i) / float(_sample_count - 1)
+                l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
 
         _driver_xform = mc.curve(
             name='{0}_ikDriver_crv'.format(str_baseName),
@@ -5397,7 +5513,11 @@ def bezier_spline(jointList=None,
         mDriverCurve.p_parent = mSetupGroup
 
         ml_poci, ml_wtl = _bezier_bind_driver_cvs_from_bezier(
-            mBezierCurve, mDriverCurve, _sample_count, str_baseName)
+            mBezierCurve,
+            mDriverCurve,
+            _sample_count,
+            str_baseName,
+            l_bezier_parameters=l_driver_bezier_u)
 
         _buffer = mc.ikHandle(
             sj=ml_joints[0].mNode,
@@ -5594,7 +5714,11 @@ def _bezier_stretch_seg_final_ratio_network(str_base,
     """
     Per-segment stretch ratio from distanceDim (pointDist).
 
-    segRatio = normDist / normRest (each / masterScale when set); final = 1 + stretch * (segRatio - 1)
+    segRatio = (dist / masterScale) / restDist when masterScale is set — same contract
+    as arcLength (normalize live measure only; bind rest stays fixed). Ribbon pointDist
+    used rest * masterScale in the denominator via aimBaseNorm.
+
+    final = 1 + stretch * (segRatio - 1)
     """
     str_dist = mDistShape.mNode + '.distance'
     f_rest = float(ATTR.get(mDistShape.mNode, 'distance'))
@@ -5612,28 +5736,15 @@ def _bezier_stretch_seg_final_ratio_network(str_base,
         ATTR.connect(str_master_scale, m_dist_norm.mNode + '.input2X')
         str_dist_num = m_dist_norm.mNode + '.outputX'
         ml_nodes.append(m_dist_norm)
-
-        m_base_norm = cgmMeta.cgmNode(
-            nodeType='multiplyDivide',
-            name='{0}_stretch_seg_{1:02d}_baseNorm_md'.format(str_base, seg_i))
-        ATTR.set(m_base_norm.mNode, 'operation', 2)
-        ATTR.set(m_base_norm.mNode, 'input1X', f_rest)
-        ATTR.connect(str_master_scale, m_base_norm.mNode + '.input2X')
-        str_denom = m_base_norm.mNode + '.outputX'
-        ml_nodes.append(m_base_norm)
     else:
         str_dist_num = str_dist
-        str_denom = None
 
     m_seg_ratio = cgmMeta.cgmNode(
         nodeType='multiplyDivide',
         name='{0}_stretch_seg_{1:02d}_ratio_md'.format(str_base, seg_i))
     ATTR.set(m_seg_ratio.mNode, 'operation', 2)
     ATTR.connect(str_dist_num, m_seg_ratio.mNode + '.input1X')
-    if str_denom:
-        ATTR.connect(str_denom, m_seg_ratio.mNode + '.input2X')
-    else:
-        ATTR.set(m_seg_ratio.mNode, 'input2X', f_rest)
+    ATTR.set(m_seg_ratio.mNode, 'input2X', f_rest)
     ml_nodes.append(m_seg_ratio)
 
     m_delta = cgmMeta.cgmNode(
@@ -5737,6 +5848,37 @@ def _bezier_stretch_inflate_choice_wire_inputs(m_choice, md_factor_plugs, int_ma
             force=True)
 
 
+def _bezier_stretch_guts_group(str_base, parent_guts_to):
+    """Null under rigNull (or caller parent) for bezier stretch DAG transforms."""
+    m_parent = cgmMeta.validateObjArg(parent_guts_to, 'cgmObject', noneValid=True)
+    if not m_parent:
+        return None
+    str_grp = '{0}_bezierStretch_grp'.format(str_base)
+    if mc.objExists(str_grp):
+        return cgmMeta.cgmObject(str_grp)
+    m_grp = m_parent.doCreateAt('null')
+    m_grp.rename(str_grp)
+    m_grp.addAttr('cgmName', str(str_base), lock=True)
+    m_grp.addAttr('cgmTypeModifier', 'bezierStretch', lock=True)
+    m_grp.doName()
+    m_grp.p_parent = m_parent
+    mc.setAttr(m_grp.mNode + '.visibility', 0)
+    return m_grp
+
+
+def _bezier_stretch_parent_dag_under(ml_nodes, m_parent):
+    """Parent transform DAG nodes (e.g. inflate floorUtil) so rig cleanUp keeps them."""
+    m_parent = cgmMeta.validateObjArg(m_parent, 'cgmObject', noneValid=True)
+    if not m_parent or not ml_nodes:
+        return
+    for m_node in ml_nodes:
+        m_obj = cgmMeta.validateObjArg(m_node, noneValid=True)
+        if not m_obj:
+            continue
+        if mc.nodeType(m_obj.mNode) in ('transform', 'joint'):
+            m_obj.p_parent = m_parent
+
+
 def _bezier_stretch_dg_named_node(str_node_type, str_name):
     """
     Create a DG node, wrap as cgmNode, and rename to str_name.
@@ -5758,6 +5900,9 @@ def _bezier_stretch_dg_named_node(str_node_type, str_name):
 
 def _bezier_stretch_inflate_floor_plug(str_base, i_joint, str_s_plug):
     """floor(s) for clamped non-negative s — util + expression (floatMath unreliable here)."""
+    str_legacy_fm = '{0}_inflateSample_{1:02d}_floor_fm'.format(str_base, i_joint)
+    if mc.objExists(str_legacy_fm):
+        mc.delete(str_legacy_fm)
     str_util = '{0}_inflateSample_{1:02d}_floorUtil'.format(str_base, i_joint)
     str_expr = '{0}_expr'.format(str_util)
     if mc.objExists(str_expr):
@@ -5801,7 +5946,7 @@ def _bezier_stretch_inflate_offset_sample_network(str_base,
     m_shifted = _bezier_stretch_dg_named_node(
         'plusMinusAverage',
         '{0}_inflateSample_{1:02d}_idx_pma'.format(str_base, i_joint))
-    m_shifted.operation = 2
+    ATTR.set(m_shifted.mNode, 'operation', 2)
     ATTR.set(m_shifted.mNode, 'input1D[0]', float(int_global_idx))
     ATTR.connect(str_shift_plug, m_shifted.mNode + '.input1D[1]')
 
@@ -5821,7 +5966,7 @@ def _bezier_stretch_inflate_offset_sample_network(str_base,
     m_ceil_add = _bezier_stretch_dg_named_node(
         'plusMinusAverage',
         '{0}_inflateSample_{1:02d}_ceil_pma'.format(str_base, i_joint))
-    m_ceil_add.operation = 1
+    ATTR.set(m_ceil_add.mNode, 'operation', 1)
     ATTR.connect(str_floor, m_ceil_add.mNode + '.input1D[0]')
     ATTR.set(m_ceil_add.mNode, 'input1D[1]', 1.0)
     m_ceil_clamp = _bezier_stretch_dg_named_node(
@@ -5836,7 +5981,7 @@ def _bezier_stretch_inflate_offset_sample_network(str_base,
     m_frac = _bezier_stretch_dg_named_node(
         'plusMinusAverage',
         '{0}_inflateSample_{1:02d}_frac_pma'.format(str_base, i_joint))
-    m_frac.operation = 2
+    ATTR.set(m_frac.mNode, 'operation', 2)
     ATTR.connect(str_s, m_frac.mNode + '.input1D[0]')
     ATTR.connect(str_floor, m_frac.mNode + '.input1D[1]')
     str_frac = m_frac.mNode + '.output1D'
@@ -5921,11 +6066,17 @@ def _bezier_stretch_inflate_factor_plug(mSettings,
     str_attr = '{0}_inflateFactor_{1}'.format(str_factor_base, i_global)
     m_node = cgmMeta.validateObjArg(mSettings, noneValid=False)
     if m_node.hasAttr(str_attr):
+        try:
+            mc.addAttr(
+                '{0}.{1}'.format(m_node.mNode, str_attr),
+                edit=True, hasMin=False, hasMax=False)
+        except Exception:
+            pass
         return cgmMeta.cgmAttr(m_node.mNode, str_attr)
     mPlug = cgmMeta.cgmAttr(
         m_node.mNode, str_attr, attrType='float',
         hidden=False, initialValue=v_factor, defaultValue=v_factor,
-        keyable=extra_keyable, lock=False, minValue=0.0)
+        keyable=extra_keyable, lock=False)
     log.info(cgmGEN.logString_msg(
         '_bezier_stretch_inflate_factor_plug',
         '{0}.{1} = {2}'.format(m_node.p_nameShort, str_attr, v_factor)))
@@ -5940,6 +6091,7 @@ def _bezier_stretch_joint_inflate_additive_network(str_base,
     """
     Optional additive layer: volScale + factorSample * squashInflate.
     factorSample comes from offset-shifted inflateFactor ramp (not volume outFactor).
+    Negative factorSample (or squashInflate) contracts vs volume squash on that joint.
     """
     ml_nodes = []
     m_inflate_mdl = cgmMeta.cgmNode(
@@ -6058,6 +6210,8 @@ def bezier_spline_stretch(ml_joints=None,
                           inflate_factor_mode=None,
                           inflateFactorBaseName=None,
                           inflate_factor_base_name=None,
+                          parentGutsTo=None,
+                          parent_guts_to=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -6087,6 +6241,7 @@ def bezier_spline_stretch(ml_joints=None,
         extraSquashControl | Per-joint `{base}_outFactor_i` on settings (ramp from squashFactorMin/Max/Mode)
         squashStretchMain | arcLength (global curveInfo) | pointDist (per-segment distance on driver)
         useUndoChunk | Wrap in undo chunk
+        parentGutsTo | rigNull (or group): parent transform DAG (inflate floorUtil, etc.)
 
     :returns:
         dict of meta nodes and plugs
@@ -6151,6 +6306,8 @@ def bezier_spline_stretch(ml_joints=None,
         inflateFactorMax = inflate_factor_max
     if inflate_factor_mode is not None:
         inflateFactorMode = inflate_factor_mode
+    if parent_guts_to is not None:
+        parentGutsTo = parent_guts_to
     str_inflate_factor_base = VALID.stringArg(inflate_factor_base_name, noneValid=True)
     if not str_inflate_factor_base:
         str_inflate_factor_base = VALID.stringArg(inflateFactorBaseName, noneValid=True)
@@ -6626,6 +6783,11 @@ def bezier_spline_stretch(ml_joints=None,
             ] + ml_dg
         if mGlobalMd:
             ml_dg.insert(1, mGlobalMd)
+
+        if parentGutsTo:
+            m_guts_grp = _bezier_stretch_guts_group(str_base, parentGutsTo)
+            if m_guts_grp:
+                _bezier_stretch_parent_dag_under(ml_dg, m_guts_grp)
 
         _res = {
             'mDriverCurve': mDriver,

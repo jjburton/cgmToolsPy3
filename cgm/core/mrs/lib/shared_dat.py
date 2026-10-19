@@ -99,6 +99,22 @@ d_build_profiles = {
 }
 
 
+_l_squashStretch_ik_share_exclude = frozenset((
+    'extraInflateControl',
+    'inflateFactorMax',
+    'inflateFactorMin',
+    'inflateFactorMode',
+))
+
+
+def squash_stretch_ik_share_kwargs(d_squashStretch):
+    """Ribbon/curve IK share dict — omit bezier-only squash/inflate keys."""
+    if not d_squashStretch:
+        return {}
+    return {k: v for k, v in d_squashStretch.items()
+            if k not in _l_squashStretch_ik_share_exclude}
+
+
 d_uiAttrDict = {'name':['nameList','cgmName','nameIter'],
                 'profile':['blockProfile','buildProfile'],
                 'basic':['attachPoint','attachIndex'],
@@ -117,6 +133,7 @@ d_uiAttrDict = {'name':['nameList','cgmName','nameIter'],
                        'buildSDK',
                        'ikOrientToWorld',
                        'ikSetup',
+                       'splineBezierMode',
                        'ikBase','ikEnd',
                        'parentVisAttr','segmentType',
                        'ikSplineAimEnd','ikSplineTwistEndConnect','ikSplineExtendEnd','ikMidSetup','ikMidControlNum',
@@ -126,7 +143,8 @@ d_uiAttrDict = {'name':['nameList','cgmName','nameIter'],
                          'dynParentMode','dynParentScaleMode','ikDynParentMode','fkDynParentMode','fkDynParentSetup',
                          'root_dynParentMode','root_dynParentScaleMode'],
                 'advanced':['baseDat'],
-                'squashStretch':['scaleSetup','squash','squashExtraControl','squashFactorMin','squashFactorMax',
+                'squashStretch':['scaleSetup','squash','squashExtraControl','squashInflateControl',
+                                 'squashFactorMin','squashFactorMax',
                                  'squashMeasure','squashFactorMode','squashSkipAim'],
                 'vis':[ 'visLabels','visMeasure','visProximityMode','visJointHandle','visRotatePlane'],
                 'data':['version','blockType','blockProfile'],
@@ -187,6 +205,7 @@ _d_attrsTo_make = {'side':'none:left:right:center',
                    'ikOrientToWorld':'bool',
                    'controlOffsetMult':'float',
                    'ikSetup':'none:rp:spring:spline:ribbon:ribbonLive:curve:bezier',
+                   'splineBezierMode':'uniform:bend',
                    'ikBase':'none:cube:simple:hips',
                    'ikEnd':'none:bank:foot:paw:hand:tipBase:tipEnd:tipMid:tipCombo:proxy',
                    'buildProfile':'none:unityLow:unityMed:unityToon:unityToonMobile:humanIK:feature',
@@ -198,6 +217,7 @@ _d_attrsTo_make = {'side':'none:left:right:center',
                    'squashMeasure' : 'none:arcLength:pointDist',
                    'squash' : 'none:simple:single:both',
                    'squashExtraControl' : 'bool',
+                   'squashInflateControl' : 'bool',
                    'squashFactorMax':'float',
                    'squashFactorMin':'float',
                    'squashFactorMode':"midPeak:midBlendDown:midBlendUp:blendUp:blendDown:max",

@@ -326,6 +326,9 @@ example:
         self.uiPop_sendToProject_version = None
         self.uiPop_sendToProject_variant = None
         self.uiPop_sendToProject_sub = None
+        self.uiMenu_sendToBuild_set = None
+        self.uiMenu_sendToBuild_variant = None
+        self.uiMenu_sendToBuild_version = None
         self.subTypeListPUM = None
         self.variationListPUM = None
         self.versionListPUM = None
@@ -3210,6 +3213,8 @@ example:
 
             self._refresh_p4_menu_items([self.ml_p4_options_set], True)
             self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_set], False)
+            self._refresh_send_to_build_menu_item(
+                self.subTypeSearchList['scrollList'], self.uiMenu_sendToBuild_set, list_key='sets')
 
             log.debug(log_msg(_str_func,'is versionList'))            
             self.assetMetaData = self.getMetaDataFromFile()
@@ -3263,6 +3268,8 @@ example:
 
             self._refresh_p4_menu_items([self.ml_p4_options_variant], True)
             self._refresh_p4_dir_menu_items([self.ml_p4_options_dir_variant], False)
+            self._refresh_send_to_build_menu_item(
+                self.variationList['scrollList'], self.uiMenu_sendToBuild_variant, list_key='variation')
 
             self.versionList['scrollList'].clear()
             self.assetMetaData = self.getMetaDataFromFile()
@@ -3300,6 +3307,8 @@ example:
         self._refresh_p4_menu_items(
             [self.ml_p4_options_version],
             bool(self._scene_p4_selected_file_path()))
+        self._refresh_send_to_build_menu_item(
+            self.versionList['scrollList'], self.uiMenu_sendToBuild_version, list_key='version')
         self._log_picked_file_to_script_editor()
 
 
@@ -7083,6 +7092,106 @@ example:
         self._scene_p4_run_open_file_action(
             list_key, 'Shelve', P4UTIL.shelve_paths, 'Shelve to Perforce')
 
+    def _scene_is_build_output_basename(self, name):
+        """True when a scene basename is already an MRS BUILD output (not a rig source)."""
+        return BATCH.is_mrs_build_output_scene(name)
+
+    def _scene_resolve_list_file_path(self, scrollList, list_key):
+        """Absolute path for the sole selected row in a file scroll list (sets / variation / version)."""
+        if not scrollList or not list_key:
+            return None
+        _item = scrollList.getSelectedItem()
+        if not _item:
+            return None
+        try:
+            if list_key == 'version':
+                _parent = self._version_files_parent_directory()
+                if _parent:
+                    return os.path.normpath(os.path.join(_parent, _item))
+            elif list_key == 'sets':
+                _subRoot = self.path_subType or self._resolve_subType_container_path(
+                    self.path_asset, self.subType)
+                if _subRoot:
+                    _p = os.path.normpath(os.path.join(_subRoot, _item))
+                    if os.path.isfile(_p):
+                        return _p
+            elif list_key == 'variation':
+                _p = self.path_variationDirectory
+                if _p and os.path.isfile(_p):
+                    return os.path.normpath(_p)
+        except Exception:
+            pass
+        return None
+
+    def _scene_path_is_build_output(self, path_or_name):
+        if not path_or_name:
+            return False
+        if BATCH.is_mrs_build_output_scene(path_or_name):
+            return True
+        try:
+            if os.path.isfile(path_or_name) and BATCH.is_mrs_build_output_scene(os.path.basename(path_or_name)):
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _scene_send_to_build_menu_enabled(self, scrollList, list_key=None):
+        """False when the sole list row resolves to an MRS *_BUILD output scene."""
+        _items = scrollList.getSelectedItems() if scrollList else []
+        if not _items or len(_items) != 1:
+            return False
+        _candidates = []
+        _resolved = self._scene_resolve_list_file_path(scrollList, list_key)
+        if _resolved:
+            _candidates.append(_resolved)
+        _candidates.append(_items[0])
+        try:
+            _vf = self.versionFile
+            if _vf:
+                _candidates.append(_vf)
+        except Exception:
+            pass
+        for _c in _candidates:
+            if self._scene_path_is_build_output(_c):
+                return False
+        return True
+
+    def _refresh_send_to_build_menu_item(self, scrollList, menu_item, list_key=None):
+        if not menu_item:
+            return
+        _en = self._scene_send_to_build_menu_enabled(scrollList, list_key=list_key)
+        try:
+            menu_item(edit=True, en=_en)
+        except Exception:
+            pass
+
+    def _refresh_send_to_build_for_list_key(self, scrollList, list_key):
+        _map = {
+            'sets': self.uiMenu_sendToBuild_set,
+            'variation': self.uiMenu_sendToBuild_variant,
+            'version': self.uiMenu_sendToBuild_version,
+        }
+        self._refresh_send_to_build_menu_item(scrollList, _map.get(list_key), list_key=list_key)
+
+    def _ensure_file_list_popup_selection(self, scrollList, selCommand=False):
+        """Maya does not always highlight the sole row before the first RMB — select it for popup build.
+
+        Returns (items, auto_selected) where auto_selected is True when the sole row was implied.
+        """
+        if not scrollList:
+            return [], False
+        _items = scrollList.getSelectedItems() or []
+        if _items:
+            return _items, False
+        _all = list(getattr(scrollList, '_items', None) or [])
+        if len(_all) != 1:
+            return [], False
+        try:
+            scrollList.selectByIdx(0, selCommand=selCommand)
+        except Exception:
+            pass
+        return scrollList.getSelectedItems() or _all[:1], True
+
     def _fileListPopupDelete(self, popupAttr, sendToProjectAttr=None):
         if sendToProjectAttr:
             _sendMenu = getattr(self, sendToProjectAttr, None)
@@ -7134,7 +7243,7 @@ example:
     def _rebuildFileListPopup(self, scrollList, popupAttr, buildSingleFunc, list_key, sendToProjectAttr=None):
         """Delete and recreate file-list popup from current selection (Builder pattern)."""
         self._fileListPopupDelete(popupAttr, sendToProjectAttr=sendToProjectAttr)
-        _items = scrollList.getSelectedItems()
+        _items, _auto = self._ensure_file_list_popup_selection(scrollList, selCommand=False)
         if not _items:
             return None
         _pmc = self._d_fileListPopupPmc.get(popupAttr)
@@ -7167,14 +7276,36 @@ example:
         setattr(self, popupAttr, None)
 
         def _popupPmc(*a):
+            _items, _auto = self._ensure_file_list_popup_selection(scrollList, selCommand=False)
+            if _auto and listSelectFunc:
+                listSelectFunc()
+                _items = scrollList.getSelectedItems() or _items
             pum = getattr(self, popupAttr, None)
-            if not pum or len(pum) == 0:
-                self._rebuildFileListPopup(scrollList, popupAttr, buildPopupFunc, list_key,
-                                           sendToProjectAttr=sendToProjectAttr)
-            if sendToProjectAttr and len(scrollList.getSelectedItems() or []) <= 1:
+            if not pum or not _items:
+                pum = self._rebuildFileListPopup(
+                    scrollList, popupAttr, buildPopupFunc, list_key,
+                    sendToProjectAttr=sendToProjectAttr)
+            else:
+                try:
+                    if len(pum) == 0:
+                        pum = self._rebuildFileListPopup(
+                            scrollList, popupAttr, buildPopupFunc, list_key,
+                            sendToProjectAttr=sendToProjectAttr)
+                except Exception:
+                    pum = self._rebuildFileListPopup(
+                        scrollList, popupAttr, buildPopupFunc, list_key,
+                        sendToProjectAttr=sendToProjectAttr)
+            # Do not rebuild the popup here (crashes Maya on menu click). Toggle Send To Build only.
+            if _items and len(_items) <= 1:
+                self._refresh_send_to_build_for_list_key(scrollList, list_key)
+            if sendToProjectAttr and len(_items) <= 1:
                 _sendMenu = getattr(self, sendToProjectAttr, None)
-                if _sendMenu and mc.objExists(_sendMenu):
-                    self.UpdateVersionTSLPopup(_sendMenu)
+                if _sendMenu:
+                    try:
+                        if mc.objExists(_sendMenu):
+                            self.UpdateVersionTSLPopup(_sendMenu)
+                    except Exception:
+                        pass
 
         self._d_fileListPopupPmc[popupAttr] = _popupPmc
 
@@ -7221,7 +7352,9 @@ example:
 
         self.uiPop_sendToProject_sub = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True, en=1)
         self.ml_fileOptions_set.append(self.uiPop_sendToProject_sub)
-        self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
+        _stb_en = self._scene_send_to_build_menu_enabled(scrollList, list_key='sets')
+        self.uiMenu_sendToBuild_set = mUI.MelMenuItem(
+            pum, label="Send To Build", command=self.SendToBuild, en=_stb_en)
         self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
         self.ml_fileOptions_set.append(mUI.MelMenuItem(pum, label="Create SubTypeRef", command=lambda *a: self.CreateSubTypeRef()))
 
@@ -7243,6 +7376,7 @@ example:
         mUI.MelMenuItem(pum, label="Delete",
                          command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'sets')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_sub)
+        self._refresh_send_to_build_menu_item(scrollList, self.uiMenu_sendToBuild_set)
 
     def buildVariationListPopup(self, scrollList, pum=None):
         if pum is None:
@@ -7275,7 +7409,9 @@ example:
 
         self.uiPop_sendToProject_variant = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True)
         self.ml_fileOptions_variant.append(self.uiPop_sendToProject_variant)
-        self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1))
+        _stb_en = self._scene_send_to_build_menu_enabled(scrollList, list_key='variation')
+        self.uiMenu_sendToBuild_variant = mUI.MelMenuItem(
+            pum, label="Send To Build", command=self.SendToBuild, en=_stb_en)
         self.ml_fileOptions_variant.append(mUI.MelMenuItem(pum, label="Send Last To Queue", command=self.AddLastToExportQueue))
 
         self._append_p4_file_menu(pum, self.ml_p4_options_variant, list_key='variation')
@@ -7291,6 +7427,7 @@ example:
         mUI.MelMenuItem(pum, label="Delete",
                          command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'variation')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_variant)
+        self._refresh_send_to_build_menu_item(scrollList, self.uiMenu_sendToBuild_variant)
 
     def buildVersionListPopup(self, scrollList, pum=None):
         if pum is None:
@@ -7312,7 +7449,9 @@ example:
                         command=lambda *a: self.ExportSelection(mode='version'))
 
         self.uiPop_sendToProject_version = mUI.MelMenuItem(pum, label="Send To Project", subMenu=True)
-        mUI.MelMenuItem(pum, label="Send To Build", command=self.SendToBuild, en=1)
+        _stb_en = self._scene_send_to_build_menu_enabled(scrollList, list_key='version')
+        self.uiMenu_sendToBuild_version = mUI.MelMenuItem(
+            pum, label="Send To Build", command=self.SendToBuild, en=_stb_en)
 
         _batch = mUI.MelMenuItem(pum, label="To Queue as:", subMenu=True)
         for t in ['export', 'rig', 'cutscene']:
@@ -7333,6 +7472,7 @@ example:
         mUI.MelMenuItem(pum, label="Delete",
                          command=lambda *a: self._defer_ui(cgmGEN.Callback(self.uiFunc_deleteSelectedInList, 'version')))
         self.UpdateVersionTSLPopup(self.uiPop_sendToProject_version)
+        self._refresh_send_to_build_menu_item(scrollList, self.uiMenu_sendToBuild_version)
 
     def UpdateVersionTSLPopup(self, mMenu = None,  *args):
         if not mMenu or not mc.objExists(mMenu):
@@ -7371,6 +7511,8 @@ example:
         f = self.versionFile
         if not f:
             return log.error("SendToBuild: No version file found")
+        if BATCH.is_mrs_build_output_scene(f):
+            return log.error("SendToBuild: BUILD output scenes cannot be sent to build again")
 
         _build_path = BATCH.resolve_build_output_path(f)
         if _build_path and os.path.exists(_build_path):

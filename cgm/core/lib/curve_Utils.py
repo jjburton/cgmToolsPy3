@@ -8,6 +8,7 @@ __MAYALOCAL = 'CURVES'
 
 # From Python =============================================================
 import copy
+import math
 import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -181,6 +182,68 @@ def sample_polyline_by_parameter(l_positions, parameter):
     return list(l_positions[-1])
 
 
+def polyline_tangent_at_parameter(l_positions, parameter, delta=0.002):
+    """Unit tangent on the chord-length joint polyline at normalized parameter."""
+    if len(l_positions) < 2:
+        raise ValueError('polyline_tangent_at_parameter requires at least two positions.')
+
+    _param = float(parameter)
+    _delta = max(float(delta), 1e-6)
+    _t0 = max(0.0, _param - _delta)
+    _t1 = min(1.0, _param + _delta)
+    if _t0 >= _t1:
+        _t1 = min(1.0, _t0 + _delta)
+
+    _p0 = sample_polyline_by_parameter(l_positions, _t0)
+    _p1 = sample_polyline_by_parameter(l_positions, _t1)
+    _vx = _p1[0] - _p0[0]
+    _vy = _p1[1] - _p0[1]
+    _vz = _p1[2] - _p0[2]
+    _mag = (_vx * _vx + _vy * _vy + _vz * _vz) ** 0.5
+    if _mag <= 1e-8:
+        _a = l_positions[0]
+        _b = l_positions[1]
+        _vx = _b[0] - _a[0]
+        _vy = _b[1] - _a[1]
+        _vz = _b[2] - _a[2]
+        _mag = (_vx * _vx + _vy * _vy + _vz * _vz) ** 0.5
+        if _mag <= 1e-8:
+            return [1.0, 0.0, 0.0]
+    return [_vx / _mag, _vy / _mag, _vz / _mag]
+
+
+def bezier_cvs_from_polyline_anchors(l_positions, l_anchor_parameters):
+    """
+    Cubic Bezier CVs with anchors on a joint polyline and tangents along it.
+
+    l_anchor_parameters: normalized chord-length values (0 = root, 1 = tip), e.g.
+    uniform section splits or polyline_length_fractions per joint.
+    """
+    if len(l_anchor_parameters) < 2:
+        raise ValueError('At least two anchor parameters are required.')
+
+    l_anchor_pts = [
+        sample_polyline_by_parameter(l_positions, float(_t))
+        for _t in l_anchor_parameters]
+    l_tangents = [
+        polyline_tangent_at_parameter(l_positions, float(_t))
+        for _t in l_anchor_parameters]
+
+    l_cvs = [list(l_anchor_pts[0])]
+    for _i in range(len(l_anchor_pts) - 1):
+        _start = l_anchor_pts[_i]
+        _end = l_anchor_pts[_i + 1]
+        _third = DIST.get_distance_between_points(_start, _end) / 3.0
+        l_cvs.append([
+            _start[_axis] + (l_tangents[_i][_axis] * _third)
+            for _axis in range(3)])
+        l_cvs.append([
+            _end[_axis] - (l_tangents[_i + 1][_axis] * _third)
+            for _axis in range(3)])
+        l_cvs.append(list(_end))
+    return l_cvs
+
+
 def bezier_cvs_from_anchors(anchor_points):
     """Cubic Bezier CV list from anchor positions (3n + 1 CVs)."""
     if len(anchor_points) < 2:
@@ -215,6 +278,189 @@ def bezier_cvs_from_anchors(anchor_points):
     return l_cvs
 
 
+# Bend-prioritized Bezier (anchors on joints; section count honored) -----------------
+
+_BEZIER_BEND_DEFAULT_TENSION = 0.15
+
+
+def _bezier_bend_vec_subtract(vector_a, vector_b):
+    return [vector_a[i] - vector_b[i] for i in range(3)]
+
+
+def _bezier_bend_vec_add(vector_a, vector_b):
+    return [vector_a[i] + vector_b[i] for i in range(3)]
+
+
+def _bezier_bend_vec_scale(vector, value):
+    return [vector[i] * value for i in range(3)]
+
+
+def _bezier_bend_vec_length(vector):
+    return math.sqrt(sum(value * value for value in vector))
+
+
+def _bezier_bend_vec_normalize(vector):
+    length = _bezier_bend_vec_length(vector)
+    if length <= 0.000001:
+        return [1.0, 0.0, 0.0]
+    return [value / length for value in vector]
+
+
+def _bezier_bend_vec_dot(vector_a, vector_b):
+    return sum(vector_a[i] * vector_b[i] for i in range(3))
+
+
+def _bezier_bend_path_length(l_positions, start_index, end_index):
+    path_length = 0.0
+    for index in range(start_index, end_index):
+        path_length += DIST.get_distance_between_points(
+            l_positions[index],
+            l_positions[index + 1])
+    return path_length
+
+
+def bezier_bend_joint_data(l_positions):
+    """Per-interior-joint bend angle (radians) and local segment context."""
+    bend_data = []
+    for index in range(1, len(l_positions) - 1):
+        previous_point = l_positions[index - 1]
+        current_point = l_positions[index]
+        next_point = l_positions[index + 1]
+
+        incoming_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(current_point, previous_point))
+        outgoing_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(next_point, current_point))
+
+        alignment = max(-1.0, min(1.0, _bezier_bend_vec_dot(
+            incoming_direction, outgoing_direction)))
+        bend_angle = math.acos(alignment)
+
+        previous_length = DIST.get_distance_between_points(
+            previous_point, current_point)
+        next_length = DIST.get_distance_between_points(
+            current_point, next_point)
+
+        bend_data.append({
+            'index': index,
+            'angleRadians': bend_angle,
+            'angleDegrees': math.degrees(bend_angle),
+            'affectedLength': min(previous_length, next_length),
+        })
+    return bend_data
+
+
+def bezier_bend_select_anchor_indices(l_positions, section_count):
+    """
+    section_count + 1 anchors on joint indices: root, tip, and strongest interior bends.
+    """
+    joint_count = len(l_positions)
+    if joint_count < 2:
+        raise ValueError('At least two joint positions are required.')
+
+    section_count = max(1, min(int(section_count), joint_count - 1))
+    interior_anchor_count = section_count - 1
+
+    if interior_anchor_count <= 0:
+        return [0, joint_count - 1]
+
+    bend_data = bezier_bend_joint_data(l_positions)
+    bend_data.sort(
+        key=lambda item: (item['angleRadians'], item['affectedLength']),
+        reverse=True)
+
+    selected_indices = [
+        item['index'] for item in bend_data[:interior_anchor_count]]
+    selected_indices.extend([0, joint_count - 1])
+    return sorted(set(selected_indices))
+
+
+def bezier_bend_build_cvs(l_positions,
+                          anchor_indices,
+                          tension=_BEZIER_BEND_DEFAULT_TENSION,
+                          clamp_handles=True):
+    """
+    Cubic Bezier CVs with anchors on joints; per-span handles follow entering/leaving segments.
+    """
+    tension = max(0.0, min(1.0, float(tension)))
+    handle_scale = 1.0 - tension
+
+    anchors = [list(l_positions[index]) for index in anchor_indices]
+    bezier_cvs = [list(anchors[0])]
+    sections = []
+
+    for section_index in range(len(anchor_indices) - 1):
+        start_index = anchor_indices[section_index]
+        end_index = anchor_indices[section_index + 1]
+
+        start_anchor = l_positions[start_index]
+        end_anchor = l_positions[end_index]
+
+        outgoing_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(
+                l_positions[start_index + 1],
+                l_positions[start_index]))
+        incoming_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(
+                l_positions[end_index],
+                l_positions[end_index - 1]))
+
+        path_length = _bezier_bend_path_length(
+            l_positions, start_index, end_index)
+        base_handle_length = path_length * handle_scale / 3.0
+
+        outgoing_length = base_handle_length
+        incoming_length = base_handle_length
+
+        if clamp_handles:
+            first_segment_length = DIST.get_distance_between_points(
+                l_positions[start_index],
+                l_positions[start_index + 1])
+            last_segment_length = DIST.get_distance_between_points(
+                l_positions[end_index - 1],
+                l_positions[end_index])
+            outgoing_length = min(outgoing_length, first_segment_length)
+            incoming_length = min(incoming_length, last_segment_length)
+
+        outgoing_handle = _bezier_bend_vec_add(
+            start_anchor,
+            _bezier_bend_vec_scale(outgoing_direction, outgoing_length))
+        incoming_handle = _bezier_bend_vec_add(
+            end_anchor,
+            _bezier_bend_vec_scale(incoming_direction, -incoming_length))
+
+        bezier_cvs.extend([
+            outgoing_handle,
+            incoming_handle,
+            list(end_anchor),
+        ])
+        sections.append({
+            'startAnchorIndex': start_index,
+            'endAnchorIndex': end_index,
+            'pathLength': path_length,
+        })
+
+    return {
+        'anchors': anchors,
+        'bezierCVs': bezier_cvs,
+        'sections': sections,
+        'anchorIndices': anchor_indices,
+    }
+
+
+def bezier_cvs_from_bend_prioritized(l_positions,
+                                     section_count,
+                                     tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                     clamp_handles=True):
+    """CV list for a limited-section Bezier fitted to a joint position chain."""
+    anchor_indices = bezier_bend_select_anchor_indices(l_positions, section_count)
+    return bezier_bend_build_cvs(
+        l_positions,
+        anchor_indices,
+        tension=tension,
+        clamp_handles=clamp_handles)
+
+
 def create_bezier_nurbs_curve(str_name, l_points):
     """Create a multi-span degree-3 Maya Bezier NURBS curve transform name."""
     _degree = 3
@@ -243,27 +489,58 @@ def create_bezier_curve_from_positions(l_positions,
                                        bezier_sections=1,
                                        baseName='bezierCrv',
                                        track=False,
-                                       l_anchors=None):
-    """Build a Maya Bezier curve by sampling anchors along a position polyline."""
+                                       l_anchors=None,
+                                       bezier_build_mode='bend',
+                                       bezier_tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                       bezier_clamp_handles=True):
+    """
+    Build a Maya Bezier curve from ordered positions (e.g. joint chain).
+
+    bezier_build_mode:
+        bend (default) — anchors on joints; interior picks strongest bends; honors bezier_sections
+        uniform — arc-length anchor samples + chord tangents
+        polyline — arc-length anchors + tangents along the polyline
+    """
     if not l_positions or len(l_positions) < 2:
         raise ValueError('At least two positions are required to create a Bezier curve.')
+
+    _build_mode = cgmValid.stringArg(bezier_build_mode, noneValid=False).lower()
+    if _build_mode in ('bendpriority', 'bend_prioritized'):
+        _build_mode = 'bend'
 
     if l_anchors is not None:
         if len(l_anchors) < 2:
             raise ValueError('At least two Bezier anchors are required.')
         _sections = len(l_anchors) - 1
+        l_cvs = bezier_cvs_from_anchors(l_anchors)
+    elif _build_mode == 'bend':
+        _sections = max(1, min(int(bezier_sections), len(l_positions) - 1))
+        _d_bend = bezier_cvs_from_bend_prioritized(
+            l_positions,
+            _sections,
+            tension=bezier_tension,
+            clamp_handles=bezier_clamp_handles)
+        l_cvs = _d_bend['bezierCVs']
+        log.info(cgmGEN.logString_msg(
+            'create_bezier_curve_from_positions',
+            'bend | sections={0} anchorIndices={1}'.format(
+                _sections, _d_bend['anchorIndices'])))
+    elif _build_mode == 'polyline':
+        _sections = max(1, int(bezier_sections))
+        l_anchor_u = [
+            float(_i) / float(_sections) for _i in range(_sections + 1)]
+        l_cvs = bezier_cvs_from_polyline_anchors(l_positions, l_anchor_u)
     else:
         _sections = max(1, int(bezier_sections))
         l_anchors = []
         for _i in range(_sections + 1):
             _t = float(_i) / float(_sections)
             l_anchors.append(sample_polyline_by_parameter(l_positions, _t))
+        l_cvs = bezier_cvs_from_anchors(l_anchors)
 
     str_name = '{0}_split{1}'.format(baseName, _sections)
     if track:
         str_name = '{0}_track'.format(str_name)
-
-    l_cvs = bezier_cvs_from_anchors(l_anchors)
     _crv = create_bezier_nurbs_curve(str_name, l_cvs)
     mCrv = cgmMeta.asMeta(_crv, 'cgmObject', setClass=True)
     mCrv.addAttr('cgmName', str_name, attrType='string', lock=True)
@@ -301,7 +578,12 @@ def _bezier_track_cluster_cvs(mCrv, obj, str_baseName):
     return l_clusters
 
 
-def create_bezier_curve_from_objects(obj=None, bezier_sections=1, baseName='bezierCrv'):
+def create_bezier_curve_from_objects(obj=None,
+                                     bezier_sections=1,
+                                     baseName='bezierCrv',
+                                     bezier_build_mode='bend',
+                                     bezier_tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                     bezier_clamp_handles=True):
     """Create Bezier curve from selection positions (ordered list of DAG/components)."""
     _str_func = 'create_bezier_curve_from_objects'
     if not obj:
@@ -317,7 +599,10 @@ def create_bezier_curve_from_objects(obj=None, bezier_sections=1, baseName='bezi
         l_pos,
         bezier_sections=bezier_sections,
         baseName=baseName,
-        track=False)
+        track=False,
+        bezier_build_mode=bezier_build_mode,
+        bezier_tension=bezier_tension,
+        bezier_clamp_handles=bezier_clamp_handles)
     mc.select(mCrv.mNode, replace=True)
     return mCrv.mNode
 

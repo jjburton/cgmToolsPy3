@@ -530,9 +530,22 @@ def _run_batch_post_stage(_str_func, stage_name, stage_call):
         raise
 
 
+def is_mrs_build_output_scene(path_or_basename):
+    """True when *path_or_basename* is an MRS Build output scene (``*_BUILD.ma`` / ``*.mb``)."""
+    if not path_or_basename:
+        return False
+    _base = os.path.basename(str(path_or_basename))
+    _stem, _ext = os.path.splitext(_base)
+    if _ext.lower() not in ('.ma', '.mb'):
+        return False
+    return _stem.upper().endswith('_BUILD')
+
+
 def resolve_build_output_path(version_file_path):
     """MRS Build output scene: same directory, basename + ``_BUILD`` before extension."""
     if not version_file_path:
+        return None
+    if is_mrs_build_output_scene(version_file_path):
         return None
     mFile = PATHS.Path(version_file_path)
     _name = mFile.name()
