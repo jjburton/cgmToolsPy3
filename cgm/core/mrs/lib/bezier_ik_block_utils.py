@@ -31,6 +31,151 @@ def block_squash_inflate_control(mBlock):
     return False
 
 
+def block_squash_inflate_factor_min_max(mBlock, d_squash_stretch=None):
+    """
+    Block bounds for settings {part}_inflate_inflateFactor_* ramp (get_blendList).
+    Prefer squashInflateFactorMin/Max; legacy inflateFactorMin/Max; then squashFactor*.
+    """
+    _d = d_squash_stretch or {}
+    f_min = _d.get('squashInflateFactorMin')
+    f_max = _d.get('squashInflateFactorMax')
+    if f_min is None and mBlock and mBlock.hasAttr('squashInflateFactorMin'):
+        f_min = float(mBlock.squashInflateFactorMin)
+    elif f_min is None and mBlock and mBlock.hasAttr('inflateFactorMin'):
+        f_min = float(mBlock.inflateFactorMin)
+    if f_max is None and mBlock and mBlock.hasAttr('squashInflateFactorMax'):
+        f_max = float(mBlock.squashInflateFactorMax)
+    elif f_max is None and mBlock and mBlock.hasAttr('inflateFactorMax'):
+        f_max = float(mBlock.inflateFactorMax)
+    if f_min is None:
+        f_min = 0.0
+    if f_max is None:
+        f_max = 1.0
+    if f_max <= f_min and mBlock:
+        if mBlock.hasAttr('squashFactorMin') and mBlock.hasAttr('squashFactorMax'):
+            f_min = float(mBlock.squashFactorMin)
+            f_max = float(mBlock.squashFactorMax)
+        if f_max <= f_min:
+            f_min, f_max = 0.0, 1.0
+    return f_min, f_max
+
+
+def block_squash_inflate_factor_mode(mBlock, default='midPeak'):
+    """
+    Block enum for per-joint inflate factor ramp (ik_utils MATH.get_blendList).
+    Parallel to squashFactorMode; legacy blocks may still have inflateFactorMode.
+    """
+    if not mBlock:
+        return default
+    if mBlock.hasAttr('squashInflateFactorMode'):
+        return mBlock.getEnumValueString('squashInflateFactorMode') or default
+    if mBlock.hasAttr('inflateFactorMode'):
+        return mBlock.getEnumValueString('inflateFactorMode') or default
+    return default
+
+
+def _bezier_inflate_volume_scale_attrs(d_stretch_res, aim_axis):
+    l_volume_scale = (d_stretch_res or {}).get('l_volumeScaleAttrs')
+    if not l_volume_scale:
+        import cgm.core.rig.ik_utils as IKUTIL
+        _, _, l_volume_scale = IKUTIL._bezier_stretch_axis_data(aim_axis)
+    return l_volume_scale
+
+
+def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
+    """
+    Wire inflate scale onto parents of direct rig controls (FK-visible).
+
+    l_entries: list of dicts with keys m_rig, m_parent (null parents under this),
+        str_plug (inflate scale source).
+    """
+    _str_func = 'bezier_inflate_parent_direct_controls'
+    if not d_stretch_res or not d_stretch_res.get('inflateDriveDirectParents'):
+        return []
+    if not l_entries:
+        return []
+
+    l_volume_scale = _bezier_inflate_volume_scale_attrs(d_stretch_res, aim_axis)
+    ml_inflate_nodes = []
+    for d_entry in l_entries:
+        m_rig = cgmMeta.validateObjArg(
+            d_entry.get('m_rig'), 'cgmObject', noneValid=True)
+        m_parent = cgmMeta.validateObjArg(
+            d_entry.get('m_parent'), 'cgmObject', noneValid=True)
+        str_scale_plug = d_entry.get('str_plug')
+        if not m_rig or not m_parent or not str_scale_plug:
+            continue
+
+        m_inflate = m_parent.doCreateAt('null')
+        m_inflate.rename('{0}_inflateScale'.format(m_rig.p_nameBase))
+        if not m_inflate.hasAttr('cgmTypeModifier'):
+            m_inflate.addAttr('cgmTypeModifier', 'inflateScale', lock=True)
+        else:
+            ATTR.set(m_inflate.mNode, 'cgmTypeModifier', 'inflateScale')
+        m_inflate.p_parent = m_parent
+
+        for str_attr in l_volume_scale:
+            ATTR.connect(
+                str_scale_plug,
+                '{0}.{1}'.format(m_inflate.mNode, str_attr))
+
+        m_rig.connectChildNode(m_inflate, 'inflateScale', 'rigJoint')
+
+        m_master = m_rig.getMessageAsMeta('masterGroup')
+        if m_master:
+            m_master.p_parent = m_inflate
+        else:
+            m_rig.p_parent = m_inflate
+
+        ml_inflate_nodes.append(m_inflate)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'wired | count:{0}'.format(len(ml_inflate_nodes))))
+    return ml_inflate_nodes
+
+
+def bezier_inflate_parent_segment_direct_controls(
+        mRigNull, d_stretch_res, ml_blendJoints, ml_rigJoints, aim_axis):
+    """
+    Segment parent segmentType: inflate on a parent of direct rig joints (FK-visible).
+
+    Expects bezier_spline_stretch with inflateDriveDirectParents and l_inflateDirectPlugs.
+    """
+    _str_func = 'bezier_inflate_parent_segment_direct_controls'
+    l_plugs = (d_stretch_res or {}).get('l_inflateDirectPlugs') or []
+    if not l_plugs:
+        return []
+
+    ml_blendJoints = cgmMeta.validateObjListArg(
+        ml_blendJoints, 'cgmObject', noneValid=True) or []
+    ml_rigJoints = cgmMeta.validateObjListArg(
+        ml_rigJoints, 'cgmObject', noneValid=True) or []
+    if (not ml_blendJoints or not ml_rigJoints
+            or len(ml_blendJoints) != len(ml_rigJoints)):
+        log.warning(cgmGEN.logString_msg(
+            _str_func,
+            'skip | blend:{0} rig:{1}'.format(
+                len(ml_blendJoints), len(ml_rigJoints))))
+        return []
+
+    l_entries = []
+    for d_plug in l_plugs:
+        int_i = d_plug.get('i', 0)
+        if int_i < 0 or int_i >= len(ml_rigJoints):
+            continue
+        str_scale_plug = d_plug.get('str_plug')
+        if not str_scale_plug:
+            continue
+        l_entries.append({
+            'm_rig': ml_rigJoints[int_i],
+            'm_parent': ml_blendJoints[int_i],
+            'str_plug': str_scale_plug,
+        })
+
+    return bezier_inflate_parent_direct_controls(
+        d_stretch_res, aim_axis, l_entries)
+
+
 def block_bezier_anchor_mode(mBlock):
     """Map block splineBezierMode enum to IK.bezier_spline bezierAnchorMode (uniform | bend)."""
     if mBlock and mBlock.hasAttr('splineBezierMode'):
@@ -545,7 +690,7 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
         return
 
     f_mainIkScale = 1.2
-    f_subScale = f_mainIkScale * 0.8
+    f_subScale = f_mainIkScale
 
     for i, mMain in enumerate(ml_bezierMainIK):
         v_main = mMain.p_position

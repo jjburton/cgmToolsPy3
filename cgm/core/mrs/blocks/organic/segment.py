@@ -700,9 +700,9 @@ l_attrsStandard = ['side',
                    'ribbonAttachEndsToInfluence',
                    'controlOffsetMult',
                    'squashFactorMode',
-                   'inflateFactorMode',
-                   'inflateFactorMax',
-                   'inflateFactorMin',
+                   'squashInflateFactorMin',
+                   'squashInflateFactorMax',
+                   'squashInflateFactorMode',
                    'squashInflateControl',
                    'settingsDirection',
                    'skeletonMode',
@@ -718,9 +718,12 @@ d_attrsToMake = {'visMeasure':'bool',
                  'squashInflateControl' : 'bool',
                  'squashFactorMax':'float',
                  'squashFactorMin':'float',
-                 'inflateFactorMax':'float',
-                 'inflateFactorMin':'float',
-                 'inflateFactorMode':"midPeak:midBlendDown:midBlendUp:blendUp:blendDown:max",
+                 'squashInflateFactorMax':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMax'),
+                 'squashInflateFactorMin':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMin'),
+                 'squashInflateFactorMode':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMode'),
                  'formAim':'none:simple:chain',
                  'shapersAim':'none:chain:orientToHandle',
                  'shapersAimUp':'none:handle:blockOrient',
@@ -780,9 +783,9 @@ d_defaultSettings = {'version':__version__,
                      'squash':'simple',
                      'squashFactorMax':1.0,
                      'squashFactorMin':0.0,
-                     'inflateFactorMax':1.0,
-                     'inflateFactorMin':0.0,
-                     'inflateFactorMode':'midPeak',
+                     'squashInflateFactorMax':1.0,
+                     'squashInflateFactorMin':0.0,
+                     'squashInflateFactorMode':'midPeak',
                      'ikSplineTwistEndConnect':True,
                      'loftList':['square','circle','square'],
                      'visLabels':True,
@@ -2105,7 +2108,7 @@ def rig_dataBuffer(self):
             log.warning("|{0}| >> Mid control unavilable with count: joint: {1} | controls: {2}".format(_str_func,mBlock.numJoints, mBlock.numControls))  
             mBlock.ikMidSetup = 0
             
-        for k in ['segmentType','settingsPlace','ikEndShape','ikEnd','ikBase','ikMidSetup','ribbonAttachEndsToInfluence','segmentStretchBy','squashFactorMode','reverseSetup','addPivot']:
+        for k in ['segmentType','settingsPlace','ikEndShape','ikEnd','ikBase','ikMidSetup','ribbonAttachEndsToInfluence','segmentStretchBy','squashFactorMode','squashInflateFactorMode','reverseSetup','addPivot']:
             self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)
                 
         #Vector ====================================================================================
@@ -2154,11 +2157,16 @@ def rig_dataBuffer(self):
         self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
         self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
         self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
-        if mBlock.hasAttr('inflateFactorMax'):
-            self.d_squashStretch['inflateFactorMax'] = mBlock.inflateFactorMax
-            self.d_squashStretch['inflateFactorMin'] = mBlock.inflateFactorMin
-            self.d_squashStretch['inflateFactorMode'] = (
-                mBlock.getEnumValueString('inflateFactorMode') or 'midPeak')
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock)
+        self.d_squashStretch['squashInflateFactorMin'] = _f_inf_min
+        self.d_squashStretch['squashInflateFactorMax'] = _f_inf_max
+        if (mBlock.hasAttr('squashInflateFactorMode')
+                or mBlock.hasAttr('inflateFactorMode')
+                or mBlock.hasAttr('squashInflateFactorMax')
+                or mBlock.hasAttr('inflateFactorMax')):
+            self.d_squashStretch['squashInflateFactorMode'] = (
+                BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
         
         log.debug("|{0}| >> self.d_squashStretch..".format(_str_func))    
         #pprint.pprint(self.d_squashStretch)
@@ -3570,6 +3578,7 @@ def rig_frame(self):
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
         ml_baseIKDrivers = mRigNull.msgList_get('baseIKDrivers')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
+        d_bezierStretch = None
         mPlug_globalScale = self.d_module['mPlug_globalScale']
         
         
@@ -3922,7 +3931,9 @@ def rig_frame(self):
                             _str_aim,
                             self.str_segmentStretchBy,
                             len(ml_ikUse))))
-                    IK.bezier_spline_stretch(
+                    _b_inflate_direct_parents = BEZIERIKBLOCK.block_squash_inflate_control(
+                        mBlock)
+                    d_bezierStretch = IK.bezier_spline_stretch(
                         jointList=[mObj.mNode for mObj in ml_ikUse],
                         mDriverCurve=mBezierDriver,
                         mSettings=mSettings,
@@ -3933,20 +3944,22 @@ def rig_frame(self):
                         squashStretchMain=self.d_squashStretch.get(
                             'squashStretchMain') or 'arcLength',
                         extraSquashControl=mBlock.squashExtraControl,
-                        extraInflateControl=BEZIERIKBLOCK.block_squash_inflate_control(
-                            mBlock),
+                        extraInflateControl=_b_inflate_direct_parents,
                         squashFactorMin=mBlock.squashFactorMin,
                         squashFactorMax=mBlock.squashFactorMax,
                         squashFactorMode=self.str_squashFactorMode,
-                        inflateFactorMin=self.d_squashStretch.get(
-                            'inflateFactorMin', mBlock.squashFactorMin),
-                        inflateFactorMax=self.d_squashStretch.get(
-                            'inflateFactorMax', mBlock.squashFactorMax),
+                        inflateFactorMin=BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+                            mBlock, self.d_squashStretch)[0],
+                        inflateFactorMax=BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+                            mBlock, self.d_squashStretch)[1],
                         inflateFactorMode=self.d_squashStretch.get(
-                            'inflateFactorMode', self.str_squashFactorMode),
+                            'squashInflateFactorMode',
+                            getattr(self, 'str_squashInflateFactorMode', None)
+                            or self.str_squashFactorMode),
                         inflateFactorBaseName='{0}_inflate'.format(
                             self.d_module['partName']),
                         parentGutsTo=mRigNull,
+                        inflateDriveDirectParents=_b_inflate_direct_parents,
                         useUndoChunk=False)
 
             elif _ikSetup in ['spline','curve']:# ==============================================================================
@@ -4276,6 +4289,24 @@ def rig_frame(self):
                 RIGCONSTRAINT.blendChainsScaleByAttr(
                     ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
                     driver=mPlug_FKIK.p_combinedName)
+
+                if (_ikSetup == 'bezier'
+                        and self.str_segmentType == 'parent'
+                        and d_bezierStretch
+                        and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)):
+                    _str_aim_inflate = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
+                    log.info(cgmGEN.logString_msg(
+                        _str_func,
+                        'inflate direct parents | plugs:{0} | squashInflate default:{1}'.format(
+                            len(d_bezierStretch.get('l_inflateDirectPlugs') or []),
+                            ATTR.get_default(mSettings.mNode, 'squashInflate')
+                            if mSettings.hasAttr('squashInflate') else None)))
+                    BEZIERIKBLOCK.bezier_inflate_parent_segment_direct_controls(
+                        mRigNull,
+                        d_bezierStretch,
+                        ml_blendJoints,
+                        ml_rigJoints,
+                        _str_aim_inflate)
 
                 # Ribbon / spline driver scale on IK — not bezier (stretch owns IK channels).
                 if _ikSetup in ['ribbon', 'curve']:

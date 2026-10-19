@@ -6083,6 +6083,26 @@ def _bezier_stretch_inflate_factor_plug(mSettings,
     return mPlug
 
 
+def _bezier_stretch_connect_inflate_joint_or_direct(
+        m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, i_joint):
+    """IK joint gets volume-only or full scale; optional direct-parent inflate plugs."""
+    if inflate_drive_direct_parents:
+        l_inflate_direct_plugs.append({
+            'i': i_joint,
+            'str_plug': str_inflate_scale,
+            'm_ikJoint': m_jnt,
+            'str_vol_scale': str_vol_scale,
+        })
+        str_joint_scale = str_vol_scale
+    else:
+        str_joint_scale = str_inflate_scale
+    for _attr in l_volume_scale:
+        ATTR.connect(
+            str_joint_scale,
+            '{0}.{1}'.format(m_jnt.mNode, _attr))
+
+
 def _bezier_stretch_joint_inflate_additive_network(str_base,
                                                    i_joint,
                                                    str_vol_scale_plug,
@@ -6212,6 +6232,8 @@ def bezier_spline_stretch(ml_joints=None,
                           inflate_factor_base_name=None,
                           parentGutsTo=None,
                           parent_guts_to=None,
+                          inflateDriveDirectParents=False,
+                          inflate_drive_direct_parents=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -6242,6 +6264,8 @@ def bezier_spline_stretch(ml_joints=None,
         squashStretchMain | arcLength (global curveInfo) | pointDist (per-segment distance on driver)
         useUndoChunk | Wrap in undo chunk
         parentGutsTo | rigNull (or group): parent transform DAG (inflate floorUtil, etc.)
+        inflateDriveDirectParents | Volume squash on IK joints only; full inflate plugs in
+            l_inflateDirectPlugs for direct-control parents (Segment FK)
 
     :returns:
         dict of meta nodes and plugs
@@ -6308,6 +6332,8 @@ def bezier_spline_stretch(ml_joints=None,
         inflateFactorMode = inflate_factor_mode
     if parent_guts_to is not None:
         parentGutsTo = parent_guts_to
+    if inflate_drive_direct_parents is not None:
+        inflateDriveDirectParents = inflate_drive_direct_parents
     str_inflate_factor_base = VALID.stringArg(inflate_factor_base_name, noneValid=True)
     if not str_inflate_factor_base:
         str_inflate_factor_base = VALID.stringArg(inflateFactorBaseName, noneValid=True)
@@ -6316,14 +6342,15 @@ def bezier_spline_stretch(ml_joints=None,
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5}'.format(
+        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6}'.format(
             cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
             cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
             if _settings else '(driver)',
             str_stretch_by,
             str_squash_main,
             extraSquashControl,
-            extraInflateControl)))
+            extraInflateControl,
+            inflateDriveDirectParents)))
 
     mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
     if not mDriver.getShapes(asMeta=False):
@@ -6421,9 +6448,17 @@ def bezier_spline_stretch(ml_joints=None,
             l_inflate_factors = MATH.get_blendList(
                 int_inflate_blend, inflateFactorMax, inflateFactorMin,
                 inflateFactorMode)
-            log.info("|{0}| >> inflateFactor ramp ({1}): {2} | base:{3}".format(
+            log.info("|{0}| >> inflateFactor ramp ({1}): {2} | mode:{3} min:{4} max:{5} | base:{6}".format(
                 _str_func, int_inflate_blend, l_inflate_factors,
+                inflateFactorMode, inflateFactorMin, inflateFactorMax,
                 str_inflate_factor_base))
+
+        md_inflate_factor_plugs_prepared = None
+        if extraInflateControl and l_inflate_factors:
+            md_inflate_factor_plugs_prepared = (
+                _bezier_stretch_inflate_factor_plugs_ensure(
+                    mSettings, str_inflate_factor_base, l_inflate_factors,
+                    int_inflate_max_factor_idx, extraKeyable))
 
         if not mDriver.hasAttr('masterScale'):
             mDriver.addAttr('masterScale', value=1.0, minValue=0.0001, attrType='float')
@@ -6456,6 +6491,7 @@ def bezier_spline_stretch(ml_joints=None,
         ml_measure_dg = []
         ml_segment_mdl = []
         ml_squash_dg = []
+        l_inflateDirectPlugs = []
         ml_joint_factor_plugs = []
         l_scale_factors = None
         mSquashBlend = None
@@ -6568,33 +6604,30 @@ def bezier_spline_stretch(ml_joints=None,
                             str_scale_out,
                             '{0}.{1}'.format(m_jnt.mNode, _attr))
 
-            if mPlug_inflate and ml_inflate_pending and l_inflate_factors:
-                md_inflate_factor_plugs = _bezier_stretch_inflate_factor_plugs_ensure(
-                    mSettings, str_inflate_factor_base, l_inflate_factors,
-                    int_inflate_max_factor_idx, extraKeyable)
+            if (mPlug_inflate and ml_inflate_pending
+                    and md_inflate_factor_plugs_prepared):
                 str_inflate_shift = (
                     d_inflate_offset_shared['str_shift']
                     if d_inflate_offset_shared else None)
                 for _d_pending in ml_inflate_pending:
                     _i = _d_pending['i']
                     m_jnt = _d_pending['m_jnt']
-                    str_scale_out = _d_pending['str_scale']
+                    str_vol_scale = _d_pending['str_scale']
                     int_g = _bezier_stretch_inflate_global_index(
                         _i, inflateSlideGlobalStart)
                     str_factor_sample, ml_sample = (
                         _bezier_stretch_inflate_offset_sample_network(
                             str_base, _i, int_g, int_inflate_max_factor_idx,
-                            str_inflate_shift, md_inflate_factor_plugs))
+                            str_inflate_shift, md_inflate_factor_plugs_prepared))
                     ml_inflate_dg.extend(ml_sample)
                     d_inflate = _bezier_stretch_joint_inflate_additive_network(
-                        str_base, _i, str_scale_out,
+                        str_base, _i, str_vol_scale,
                         str_factor_sample, mPlug_inflate)
-                    str_scale_out = d_inflate['str_scale']
+                    str_inflate_scale = d_inflate['str_scale']
                     ml_inflate_dg.extend(d_inflate['ml_nodes'])
-                    for _attr in l_volume_scale:
-                        ATTR.connect(
-                            str_scale_out,
-                            '{0}.{1}'.format(m_jnt.mNode, _attr))
+                    _bezier_stretch_connect_inflate_joint_or_direct(
+                        m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+                        inflateDriveDirectParents, l_inflateDirectPlugs, _i)
 
             if ml_inflate_dg:
                 ml_squash_dg.extend(ml_inflate_dg)
@@ -6720,35 +6753,32 @@ def bezier_spline_stretch(ml_joints=None,
                             ATTR.connect(
                                 str_scale_out,
                                 '{0}.{1}'.format(mJnt.mNode, _attr))
-                if mPlug_inflate and ml_inflate_pending and l_inflate_factors:
-                    md_inflate_factor_plugs = (
-                        _bezier_stretch_inflate_factor_plugs_ensure(
-                            mSettings, str_inflate_factor_base, l_inflate_factors,
-                            int_inflate_max_factor_idx, extraKeyable))
+                if (mPlug_inflate and ml_inflate_pending
+                        and md_inflate_factor_plugs_prepared):
                     str_inflate_shift = (
                         d_inflate_offset_shared['str_shift']
                         if d_inflate_offset_shared else None)
                     for _d_pending in ml_inflate_pending:
                         i = _d_pending['i']
                         mJnt = _d_pending['m_jnt']
-                        str_scale_out = _d_pending['str_scale']
+                        str_vol_scale = _d_pending['str_scale']
                         int_g = _bezier_stretch_inflate_global_index(
                             i, inflateSlideGlobalStart)
                         str_factor_sample, ml_sample = (
                             _bezier_stretch_inflate_offset_sample_network(
                                 str_base, i, int_g, int_inflate_max_factor_idx,
-                                str_inflate_shift, md_inflate_factor_plugs))
+                                str_inflate_shift, md_inflate_factor_plugs_prepared))
                         ml_inflate_dg.extend(ml_sample)
                         d_inflate = (
                             _bezier_stretch_joint_inflate_additive_network(
-                                str_base, i, str_scale_out,
+                                str_base, i, str_vol_scale,
                                 str_factor_sample, mPlug_inflate))
-                        str_scale_out = d_inflate['str_scale']
+                        str_inflate_scale = d_inflate['str_scale']
                         ml_inflate_dg.extend(d_inflate['ml_nodes'])
-                        for _attr in l_volume_scale:
-                            ATTR.connect(
-                                str_scale_out,
-                                '{0}.{1}'.format(mJnt.mNode, _attr))
+                        _bezier_stretch_connect_inflate_joint_or_direct(
+                            mJnt, l_volume_scale, str_vol_scale,
+                            str_inflate_scale, inflateDriveDirectParents,
+                            l_inflateDirectPlugs, i)
                 if ml_inflate_dg:
                     ml_squash_dg.extend(ml_inflate_dg)
                 ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
@@ -6811,6 +6841,10 @@ def bezier_spline_stretch(ml_joints=None,
             'restChainLength': f_rest_length,
             'ml_joints': ml_joints,
             'extraSquashControl': extraSquashControl,
+            'l_inflateDirectPlugs': l_inflateDirectPlugs,
+            'inflateDriveDirectParents': inflateDriveDirectParents,
+            'l_volumeScaleAttrs': l_volume_scale,
+            'str_base': str_base,
         }
         log.info(cgmGEN.logString_msg(_str_func, 'done'))
         return _res

@@ -565,6 +565,9 @@ def find_valueInList(v,l,mode='near'):
     if mode in ['near','previous','next']:return _d[min(_l)]
     elif mode == 'far':return _d[max(_l)]
 
+_d_midBulge_dist_weight = {0: 1.0, 1: 0.6, 2: 0.2}
+
+
 @cgmGEN.Timer
 def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
     '''
@@ -578,6 +581,7 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
             min
             max
             midPeak - ease to peak and back
+            midBulge - center 1.0, ±1 → 0.6, ±2 → 0.2, farther → min (e.g. count 7: 0,.2,.6,1,.6,.2,0)
             midBlendDown - max to mid then blend down
             midBlendUp  - blend from min to max then max
             blendUp
@@ -588,6 +592,7 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
 
         examples - all with example with count 5, min 0, max 1
             midPeak - [0.0, 0.5, 1.0, 0.5, 0.0]
+            midBulge (count 7) - [0.0, 0.2, 0.6, 1.0, 0.6, 0.2, 0.0]
             midBlendDown - [1.0, 1.0, 1.0, 0.5, 0.0]
             midBlendUp - [0.0, 0.5, 1.0, 1.0, 1.0]
             blendUp - [0.0, 0.25, 0.5, 0.75, 1.0]
@@ -610,6 +615,18 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
 
         if mode == 'blendDown':
             _res.reverse()
+
+    elif mode == 'midBulge':
+        if count < 1:
+            return []
+        if maxValue == minValue:
+            return [maxValue for i in range(count)]
+        idx_mid = get_midIndex(count)
+        f_span = float(maxValue) - float(minValue)
+        for i in range(count):
+            int_dist = abs(i - idx_mid)
+            f_weight = _d_midBulge_dist_weight.get(int_dist, 0.0)
+            _res.append(float(minValue) + (f_weight * f_span))
 
     elif mode in ['midPeak','midBlendUp','midBlendDown']:
         if count == 2:

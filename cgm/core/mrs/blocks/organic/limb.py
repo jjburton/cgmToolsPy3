@@ -101,8 +101,6 @@ __version__ = cgmGEN.__RELEASESTRING
 
 # TEMP: digit rigSetup skips scaleSetup dyn-parent / scaleSpace pass (remove when finger attach stable)
 _LIMB_TEMP_SKIP_SCALE_SETUP_DIGIT = True
-# Bezier segment sub handles: limbSegmentHandle cast semisphere scale vs main (jointRadius/offset)
-_LIMB_BEZIER_SUB_SEMISPHERE_SCALE = 0.4
 __autoForm__ = False
 __dimensions = [15.2, 23.2, 19.7]#...cm
 __menuVisible__ = True
@@ -321,9 +319,9 @@ d_block_profiles = {
  'squashExtraControl': True,
  'squashFactorMax': 1.0,
  'squashFactorMin': 1.0,
- 'inflateFactorMax': 1.0,
- 'inflateFactorMin': 0.0,
- 'inflateFactorMode': 'midPeak',
+ 'squashInflateFactorMax': 1.0,
+ 'squashInflateFactorMin': 0.0,
+ 'squashInflateFactorMode': 'midPeak',
  'squashMeasure': 'arcLength'},
 'leg digitgrade rear':{
     'addCog':False,
@@ -878,9 +876,9 @@ l_attrsStandard = ['side',
                    'squashInflateControl',
                    'squashFactorMax',
                    'squashFactorMin',
-                   'inflateFactorMode',
-                   'inflateFactorMax',
-                   'inflateFactorMin',
+                   'squashInflateFactorMode',
+                   'squashInflateFactorMax',
+                   'squashInflateFactorMin',
                    'squashSkipAim',
                    'ribbonAim',
                    'ribbonParam',
@@ -941,9 +939,12 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ikLeverEndLock':'none:outNeg',
                  'segmentStretchBy':'translate:scale',
                  'splineBezierMode':BLOCKSHARE._d_attrsTo_make['splineBezierMode'],
-                 'inflateFactorMax':'float',
-                 'inflateFactorMin':'float',
-                 'inflateFactorMode':"midPeak:midBlendDown:midBlendUp:blendUp:blendDown:max",
+                 'squashInflateFactorMax':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMax'),
+                 'squashInflateFactorMin':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMin'),
+                 'squashInflateFactorMode':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMode'),
                  'squashSkipAim':'bool',
                  'segmentMidIKSetup':'none:ribbon:ribbonLive:prntConstraint:linearTrack:cubicTrack',
                  #'buildSpacePivots':'bool',
@@ -1012,6 +1013,8 @@ d_defaultSettings = {'version':__version__,
                      'ribbonAim':'stable',
                      'squashFactorMax':1.0,
                      'squashFactorMin':0.0,
+                     'squashInflateFactorMax':1.0,
+                     'squashInflateFactorMin':0.0,
                      'squashSkipAim':True,
                      'segmentMidIKControl':True,
                      'segmentMidIKSetup':'ribbon',
@@ -3796,9 +3799,8 @@ def _limb_bezier_sub_control_type(str_name_mod):
 
 def _limb_rig_shapes_bezier_sub_segment_handle(
         self, mSub, mHandleFactory, offset, aim_vector, mBlock, str_name_mod):
-    """Bezier sub: smaller semiSphere segment cast; color by forward/back."""
-    f_size = _limb_bezier_segment_handle_semisphere_size(
-        mBlock, offset, _LIMB_BEZIER_SUB_SEMISPHERE_SCALE)
+    """Bezier sub: limbSegmentHandle semiSphere (same radius as main segment cast)."""
+    f_size = _limb_bezier_segment_handle_semisphere_size(mBlock, offset, 1.0)
     _limb_rig_shapes_bezier_segment_handle_cast(
         self, mSub, mHandleFactory, offset, aim_vector,
         size_semisphere=f_size,
@@ -3809,7 +3811,7 @@ def _limb_rig_shapes_bezier_sub_segment_handle(
 def _limb_rig_shapes_bezier_section(
         self, section_idx, ml_mains, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
         md_mains_by_section=None, offset=0, aim_vector=None):
-    """Segment handle shapes on Bezier mains + smaller tertiary segment subs (one roll section)."""
+    """Segment handle shapes on Bezier mains + tertiary segment subs (one roll section)."""
     _str_func = '_limb_rig_shapes_bezier_section'
     mRigNull = self.mRigNull
     mBlock = self.mBlock
@@ -4712,12 +4714,20 @@ def _limb_rig_segments_bezier_squash_stretch(
             _inflate_global_start = _md_starts.get(section_idx, 0)
 
     _d_ss = getattr(self, 'd_squashStretch', None) or {}
-    _str_inflate_mode = (
-        mBlock.getEnumValueString('inflateFactorMode') if mBlock.hasAttr(
-            'inflateFactorMode') else None) or _d_ss.get(
-                'inflateFactorMode', 'midPeak')
+    _str_inflate_mode = _d_ss.get('squashInflateFactorMode')
+    if not _str_inflate_mode:
+        _str_inflate_mode = BEZIERIKBLOCK.block_squash_inflate_factor_mode(
+            mBlock, _squash_factor_mode)
+    _f_inflate_min, _f_inflate_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+        mBlock, _d_ss)
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'section {0} | squashInflateFactorMode:{1} | inflateMin:{2} inflateMax:{3} | squashFactorMode:{4}'.format(
+            section_idx, _str_inflate_mode, _f_inflate_min, _f_inflate_max,
+            _squash_factor_mode)))
 
-    IK.bezier_spline_stretch(
+    _b_inflate_direct_parents = bool(_extra_inflate_control)
+    d_stretch = IK.bezier_spline_stretch(
         jointList=[mObj.mNode for mObj in ml_ikUse],
         mDriverCurve=mDriverCurve,
         mSettings=mSettings,
@@ -4733,12 +4743,18 @@ def _limb_rig_segments_bezier_squash_stretch(
         squashFactorMode=_squash_factor_mode,
         inflateSlideGlobalCount=_inflate_global_count,
         inflateSlideGlobalStart=_inflate_global_start,
-        inflateFactorMin=_d_ss.get('inflateFactorMin', mBlock.squashFactorMin),
-        inflateFactorMax=_d_ss.get('inflateFactorMax', mBlock.squashFactorMax),
+        inflateFactorMin=_f_inflate_min,
+        inflateFactorMax=_f_inflate_max,
         inflateFactorMode=_str_inflate_mode,
         inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
         parentGutsTo=mRigNull,
+        inflateDriveDirectParents=_b_inflate_direct_parents,
         useUndoChunk=False)
+
+    if d_stretch:
+        if getattr(self, 'md_limbBezierStretchBySection', None) is None:
+            self.md_limbBezierStretchBySection = {}
+        self.md_limbBezierStretchBySection[section_idx] = d_stretch
 
     if mSettings:
         if mSettings.hasAttr('stretch'):
@@ -4747,6 +4763,67 @@ def _limb_rig_segments_bezier_squash_stretch(
         if not _b_volume_squash and mSettings.hasAttr('squash'):
             ATTR.set_default(mSettings.mNode, 'squash', 0.0)
             ATTR.set(mSettings.mNode, 'squash', 0.0)
+
+
+def _limb_bezier_inflate_parent_direct_controls(
+        self, mRigNull, ml_blendJoints, l_rollKeys):
+    """Bezier roll sections: inflateScale under seg IK joint → rig masterGroup."""
+    _str_func = '_limb_bezier_inflate_parent_direct_controls'
+    md_stretch = getattr(self, 'md_limbBezierStretchBySection', None) or {}
+    if not md_stretch:
+        return []
+
+    _str_aim = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
+    ml_inflate_nodes = []
+    for section_idx in l_rollKeys:
+        d_stretch = md_stretch.get(section_idx)
+        if not d_stretch or not d_stretch.get('inflateDriveDirectParents'):
+            continue
+        l_plugs = d_stretch.get('l_inflateDirectPlugs') or []
+        if not l_plugs:
+            continue
+
+        ml_segJoints = mRigNull.msgList_get(
+            'segJoints_{0}'.format(section_idx)) or []
+        if not ml_segJoints:
+            continue
+
+        l_entries = []
+        for d_plug in l_plugs:
+            int_i = d_plug.get('i', 0)
+            str_scale_plug = d_plug.get('str_plug')
+            if int_i < 0 or int_i >= len(ml_segJoints) or not str_scale_plug:
+                continue
+            m_seg = ml_segJoints[int_i]
+            m_rig = m_seg.getMessageAsMeta('drivenJoint')
+            if not m_rig:
+                ml_roll = (getattr(self, 'md_roll', None) or {}).get(
+                    section_idx) or []
+                if int_i < len(ml_roll):
+                    m_rig = ml_roll[int_i].getMessageAsMeta('rigJoint')
+            if not m_rig:
+                log.warning(cgmGEN.logString_msg(
+                    _str_func,
+                    'skip plug | section:{0} idx:{1} | no rigJoint'.format(
+                        section_idx, int_i)))
+                continue
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'wire | section:{0} segIdx:{1} | seg:{2} | rig:{3}'.format(
+                    section_idx, int_i, m_seg.p_nameShort, m_rig.p_nameShort)))
+            l_entries.append({
+                'm_rig': m_rig,
+                'm_parent': m_seg,
+                'str_plug': str_scale_plug,
+            })
+
+        ml_inflate_nodes.extend(
+            BEZIERIKBLOCK.bezier_inflate_parent_direct_controls(
+                d_stretch, _str_aim, l_entries))
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'wired | count:{0}'.format(len(ml_inflate_nodes))))
+    return ml_inflate_nodes
 
 
 def _limb_bezier_rigjoint_scale_from_seg_drivers(self, ml_rigJoints):
@@ -5408,11 +5485,16 @@ def rig_dataBuffer(self):
             self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
             self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
             self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
-            if mBlock.hasAttr('inflateFactorMax'):
-                self.d_squashStretch['inflateFactorMax'] = mBlock.inflateFactorMax
-                self.d_squashStretch['inflateFactorMin'] = mBlock.inflateFactorMin
-                self.d_squashStretch['inflateFactorMode'] = (
-                    mBlock.getEnumValueString('inflateFactorMode') or 'midPeak')
+            _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+                mBlock)
+            self.d_squashStretch['squashInflateFactorMin'] = _f_inf_min
+            self.d_squashStretch['squashInflateFactorMax'] = _f_inf_max
+            if (mBlock.hasAttr('squashInflateFactorMode')
+                    or mBlock.hasAttr('inflateFactorMode')
+                    or mBlock.hasAttr('squashInflateFactorMax')
+                    or mBlock.hasAttr('inflateFactorMax')):
+                self.d_squashStretch['squashInflateFactorMode'] = (
+                    BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
             
             log.debug("|{0}| >> self.d_squashStretch..".format(_str_func))    
             #pprint.pprint(self.d_squashStretch)
@@ -7814,6 +7896,9 @@ def rig_segments(self):
                 mRigNull, l_rollKeys)
             self._limbBezierInflateSlideGlobalCount = _cnt
             self._limbBezierInflateSlideGlobalStarts = _starts
+
+        if _type == 'bezier':
+            self.md_limbBezierStretchBySection = {}
             
         for i in l_rollKeys:
 
@@ -8291,6 +8376,23 @@ def rig_segments(self):
             _limb_rig_segments_bezier_handle_aims(
                 self, mRigNull, mRoot, mBlock, ml_handleJoints, ml_blendJoints,
                 l_rollKeys, _jointOrientation)
+
+        if (_type == 'bezier'
+                and getattr(self, 'b_scaleSetup', False)
+                and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)):
+            md_stretch = getattr(self, 'md_limbBezierStretchBySection', None) or {}
+            m_settings = mRigNull.getMessageAsMeta('settings')
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'inflate direct parents | sections:{0} plugs:{1} | squashInflate default:{2}'.format(
+                    len(md_stretch),
+                    sum(len((d or {}).get('l_inflateDirectPlugs') or [])
+                        for d in md_stretch.values()),
+                    ATTR.get_default(m_settings.mNode, 'squashInflate')
+                    if m_settings and m_settings.hasAttr('squashInflate')
+                    else None)))
+            _limb_bezier_inflate_parent_direct_controls(
+                self, mRigNull, ml_blendJoints, l_rollKeys)
 
         #
         #Edge cases =====================================================================
@@ -9613,6 +9715,7 @@ def rig_blendFrame(self):
                 mScaleJoint = mJnt.getMessageAsMeta('scaleJoint')
                 if mScaleJoint and mRigJoint:
                     mRigJoint.masterGroup.p_parent = mScaleJoint
+
     else:
         log.debug("|{0}| >> Normal setup...".format(_str_func))
         
