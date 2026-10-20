@@ -5706,10 +5706,62 @@ def _bezier_stretch_point_dist_shapes(str_base, ml_curve_pts, mParent):
     return ml_shapes, ml_dags
 
 
+def _bezier_stretch_curve_blend_network(str_base,
+                                        str_match_ratio_plug,
+                                        mPlug_stretch,
+                                        str_name_mid=''):
+    """
+    curveBlend = 1 + stretch * (matchRatio - 1)
+
+    str_name_mid: '' for global arcLength, '_seg_00' for per-segment pointDist nodes.
+    """
+    ml_nodes = []
+
+    m_delta = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch{1}_ratioDelta_pma'.format(str_base, str_name_mid))
+    m_delta.operation = 2
+    ATTR.connect(str_match_ratio_plug, m_delta.mNode + '.input1D[0]')
+    ATTR.set(m_delta.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_delta)
+
+    m_weight = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_stretch{1}_weight_mdl'.format(str_base, str_name_mid))
+    mPlug_stretch.doConnectOut(m_weight.mNode + '.input1')
+    ATTR.connect(m_delta.mNode + '.output1D', m_weight.mNode + '.input2')
+    ml_nodes.append(m_weight)
+
+    m_curve_blend = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch{1}_finalRatio_pma'.format(str_base, str_name_mid))
+    m_curve_blend.operation = 1
+    ATTR.connect(m_weight.mNode + '.output', m_curve_blend.mNode + '.input1D[0]')
+    ATTR.set(m_curve_blend.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_curve_blend)
+
+    return m_curve_blend.mNode + '.output1D', ml_nodes, m_curve_blend
+
+
+def _bezier_stretch_apply_length_scale(str_base,
+                                       str_curve_blend_plug,
+                                       mPlug_lengthScale,
+                                       str_name_mid=''):
+    """finalRatio = curveBlend * lengthScale"""
+    m_md = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch{1}_lengthScale_md'.format(str_base, str_name_mid))
+    ATTR.set(m_md.mNode, 'operation', 1)
+    ATTR.connect(str_curve_blend_plug, m_md.mNode + '.input1X')
+    mPlug_lengthScale.doConnectOut(m_md.mNode + '.input2X')
+    return m_md.mNode + '.outputX', m_md
+
+
 def _bezier_stretch_seg_final_ratio_network(str_base,
                                             seg_i,
                                             mDistShape,
                                             mPlug_stretch,
+                                            mPlug_lengthScale,
                                             str_master_scale=None):
     """
     Per-segment stretch ratio from distanceDim (pointDist).
@@ -5718,7 +5770,7 @@ def _bezier_stretch_seg_final_ratio_network(str_base,
     as arcLength (normalize live measure only; bind rest stays fixed). Ribbon pointDist
     used rest * masterScale in the denominator via aimBaseNorm.
 
-    final = 1 + stretch * (segRatio - 1)
+    curveBlend = 1 + stretch * (segRatio - 1); finalRatio = curveBlend * lengthScale
     """
     str_dist = mDistShape.mNode + '.distance'
     f_rest = float(ATTR.get(mDistShape.mNode, 'distance'))
@@ -5747,30 +5799,20 @@ def _bezier_stretch_seg_final_ratio_network(str_base,
     ATTR.set(m_seg_ratio.mNode, 'input2X', f_rest)
     ml_nodes.append(m_seg_ratio)
 
-    m_delta = cgmMeta.cgmNode(
-        nodeType='plusMinusAverage',
-        name='{0}_stretch_seg_{1:02d}_ratioDelta_pma'.format(str_base, seg_i))
-    m_delta.operation = 2
-    ATTR.connect(m_seg_ratio.mNode + '.outputX', m_delta.mNode + '.input1D[0]')
-    ATTR.set(m_delta.mNode, 'input1D[1]', 1.0)
-    ml_nodes.append(m_delta)
+    str_name_mid = '_seg_{0:02d}'.format(seg_i)
+    str_curve_blend, ml_blend_nodes, _m_curve_blend = (
+        _bezier_stretch_curve_blend_network(
+            str_base,
+            m_seg_ratio.mNode + '.outputX',
+            mPlug_stretch,
+            str_name_mid=str_name_mid))
+    ml_nodes.extend(ml_blend_nodes)
 
-    m_weight = cgmMeta.cgmNode(
-        nodeType='multDL',
-        name='{0}_stretch_seg_{1:02d}_weight_mdl'.format(str_base, seg_i))
-    mPlug_stretch.doConnectOut(m_weight.mNode + '.input1')
-    ATTR.connect(m_delta.mNode + '.output1D', m_weight.mNode + '.input2')
-    ml_nodes.append(m_weight)
+    str_final_ratio, m_length_scale_md = _bezier_stretch_apply_length_scale(
+        str_base, str_curve_blend, mPlug_lengthScale, str_name_mid=str_name_mid)
+    ml_nodes.append(m_length_scale_md)
 
-    m_final = cgmMeta.cgmNode(
-        nodeType='plusMinusAverage',
-        name='{0}_stretch_seg_{1:02d}_finalRatio_pma'.format(str_base, seg_i))
-    m_final.operation = 1
-    ATTR.connect(m_weight.mNode + '.output', m_final.mNode + '.input1D[0]')
-    ATTR.set(m_final.mNode, 'input1D[1]', 1.0)
-    ml_nodes.append(m_final)
-
-    return m_final.mNode + '.output1D', ml_nodes, f_rest
+    return str_final_ratio, ml_nodes, f_rest
 
 
 def _bezier_stretch_scalar_abs_plug(str_base, str_suffix, str_sub_plug):
@@ -6240,9 +6282,11 @@ def bezier_spline_stretch(ml_joints=None,
 
     Uses stretch / squash on settings (bezierIKCurve recommended).
 
-    finalRatio = 1 + stretch * (arcRatio - 1)
+    curveBlend = 1 + stretch * (arcRatio - 1)
+    finalRatio = curveBlend * lengthScale
     stretch=1 matches measured curve arc length; stretch=0 rest bind; stretch less than 0 shrinks
-    (opposite of arc length delta). squash=1 applies volume compensation on secondary scales
+    (opposite of arc length delta). lengthScale=1 default; uniform length when arc ratio is 1.
+    squash=1 applies volume compensation on secondary scales
     (translate stretch: linear 1/ratio; scale stretch: ratio^-0.5).
 
     curveInfo measures driver_curve / mDriverCurve — the curve whose length drives stretch.
@@ -6421,6 +6465,16 @@ def bezier_spline_stretch(ml_joints=None,
         if not mc.listConnections(
                 '{0}.stretch'.format(mSettings.mNode), source=True, plugs=True):
             ATTR.set(mSettings.mNode, 'stretch', 1.0)
+        mPlug_lengthScale = cgmMeta.cgmAttr(
+            mSettings.mNode, 'lengthScale', attrType='float', keyable=True,
+            hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0001)
+        ATTR.set_default(mSettings.mNode, 'lengthScale', 1.0)
+        if not mc.listConnections(
+                '{0}.lengthScale'.format(mSettings.mNode), source=True, plugs=True):
+            ATTR.set(mSettings.mNode, 'lengthScale', 1.0)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'lengthScale attr on settings: {0}'.format(
+                mSettings.p_nameShort)))
         mPlug_squash = cgmMeta.cgmAttr(
             mSettings.mNode, 'squash', attrType='float', keyable=True,
             hidden=False, initialValue=1.0, minValue=0.0)
@@ -6484,6 +6538,7 @@ def bezier_spline_stretch(ml_joints=None,
         mRatioDelta = None
         mStretchWeight = None
         mFinalRatio = None
+        mLengthScaleMd = None
         mGlobalMd = None
         ml_cpoc = []
         ml_dist_shapes = []
@@ -6516,7 +6571,8 @@ def bezier_spline_stretch(ml_joints=None,
             for _i, m_dist in enumerate(ml_dist_shapes):
                 str_seg_ratio, ml_seg_nodes, _f_rest_seg = (
                     _bezier_stretch_seg_final_ratio_network(
-                        str_base, _i, m_dist, mPlug_stretch, str_master_scale))
+                        str_base, _i, m_dist, mPlug_stretch, mPlug_lengthScale,
+                        str_master_scale))
                 l_seg_final_ratio.append(str_seg_ratio)
                 ml_measure_dg.extend(ml_seg_nodes)
 
@@ -6661,30 +6717,17 @@ def bezier_spline_stretch(ml_joints=None,
             ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
             ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
 
-            mRatioDelta = cgmMeta.cgmNode(
-                nodeType='plusMinusAverage',
-                name='{0}_stretch_ratioDelta_pma'.format(str_base))
-            mRatioDelta.operation = 2
-            ATTR.connect(
-                mRatioMd.mNode + '.outputX', mRatioDelta.mNode + '.input1D[0]')
-            ATTR.set(mRatioDelta.mNode, 'input1D[1]', 1.0)
+            str_curve_blend, ml_curve_blend_nodes, mFinalRatio = (
+                _bezier_stretch_curve_blend_network(
+                    str_base,
+                    mRatioMd.mNode + '.outputX',
+                    mPlug_stretch,
+                    str_name_mid=''))
+            mRatioDelta = ml_curve_blend_nodes[0]
+            mStretchWeight = ml_curve_blend_nodes[1]
 
-            mStretchWeight = cgmMeta.cgmNode(
-                nodeType='multDL',
-                name='{0}_stretch_weight_mdl'.format(str_base))
-            mPlug_stretch.doConnectOut(mStretchWeight.mNode + '.input1')
-            ATTR.connect(
-                mRatioDelta.mNode + '.output1D', mStretchWeight.mNode + '.input2')
-
-            mFinalRatio = cgmMeta.cgmNode(
-                nodeType='plusMinusAverage',
-                name='{0}_stretch_finalRatio_pma'.format(str_base))
-            mFinalRatio.operation = 1
-            ATTR.connect(
-                mStretchWeight.mNode + '.output', mFinalRatio.mNode + '.input1D[0]')
-            ATTR.set(mFinalRatio.mNode, 'input1D[1]', 1.0)
-
-            str_final_ratio = mFinalRatio.mNode + '.output1D'
+            str_final_ratio, mLengthScaleMd = _bezier_stretch_apply_length_scale(
+                str_base, str_curve_blend, mPlug_lengthScale, str_name_mid='')
             l_seg_final_ratio = [str_final_ratio]
 
             if b_stretch_scale:
@@ -6811,6 +6854,8 @@ def bezier_spline_stretch(ml_joints=None,
             ml_dg = [
                 mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
             ] + ml_dg
+            if mLengthScaleMd:
+                ml_dg.insert(5, mLengthScaleMd)
         if mGlobalMd:
             ml_dg.insert(1, mGlobalMd)
 
@@ -6823,7 +6868,9 @@ def bezier_spline_stretch(ml_joints=None,
             'mDriverCurve': mDriver,
             'mSettings': mSettings,
             'mPlug_stretch': mPlug_stretch,
+            'mPlug_lengthScale': mPlug_lengthScale,
             'mPlug_squash': mPlug_squash,
+            'mLengthScaleMd': mLengthScaleMd,
             'squashStretchMain': str_squash_main,
             'mCurveInfo': mCurveInfo,
             'mRatioMd': mRatioMd,
