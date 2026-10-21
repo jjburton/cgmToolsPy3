@@ -219,7 +219,6 @@ def segment_inflate_stretch_result_from_ik_joints(
 
     _, _, l_volume_scale = IKUTIL._bezier_stretch_axis_data(aim_axis)
     str_inflate_factor_base = inflate_factor_base_name or str_base
-    int_squash_joints = max(0, len(ml_ikJoints) - 1)
 
     l_indices_with_volume = []
     for int_i, m_jnt in enumerate(ml_ikJoints[:-1]):
@@ -233,7 +232,7 @@ def segment_inflate_stretch_result_from_ik_joints(
     mPlug_inflate, mPlug_inflate_offset = (
         IKUTIL._bezier_stretch_settings_inflate_plugs(mSettings, extra_keyable))
     int_inflate_max_factor_idx = IKUTIL._bezier_stretch_inflate_max_factor_index(
-        int_squash_joints, None)
+        len(ml_ikJoints), None)
     d_inflate_offset_shared = IKUTIL._bezier_stretch_inflate_offset_shared(
         str_base, mPlug_inflate_offset, int_inflate_max_factor_idx)
     ml_inflate_dg = list(d_inflate_offset_shared.get('ml_nodes') or [])
@@ -272,6 +271,30 @@ def segment_inflate_stretch_result_from_ik_joints(
         IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
             m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
             True, l_inflate_direct_plugs, int_i)
+
+    if len(ml_ikJoints) >= 1:
+        int_tip = len(ml_ikJoints) - 1
+        m_tip = ml_ikJoints[int_tip]
+        str_tip_vol = _segment_inflate_volume_plug_from_ik_joint(
+            m_tip, l_volume_scale)
+        if not str_tip_vol and int_tip > 0:
+            str_tip_vol = _segment_inflate_volume_plug_from_ik_joint(
+                ml_ikJoints[int_tip - 1], l_volume_scale)
+        if str_tip_vol:
+            int_g = int_tip
+            str_factor_sample, ml_sample = (
+                IKUTIL._bezier_stretch_inflate_offset_sample_network(
+                    str_base, int_tip, int_g, int_inflate_max_factor_idx,
+                    str_inflate_shift, md_inflate_factor_plugs))
+            ml_inflate_dg.extend(ml_sample)
+            d_inflate = IKUTIL._bezier_stretch_joint_inflate_additive_network(
+                str_base, int_tip, str_tip_vol,
+                str_factor_sample, mPlug_inflate)
+            str_inflate_scale = d_inflate['str_scale']
+            ml_inflate_dg.extend(d_inflate['ml_nodes'])
+            IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
+                m_tip, l_volume_scale, str_tip_vol, str_inflate_scale,
+                True, l_inflate_direct_plugs, int_tip)
 
     if parentGutsTo and ml_inflate_dg:
         m_guts_grp = IKUTIL._bezier_stretch_guts_group(str_base, parentGutsTo)

@@ -1989,7 +1989,7 @@ def ribbon(jointList = None,
                                                         hidden = False,
                                                         initialValue=v_scaleFactor,
                                                         defaultValue=v_scaleFactor,
-                                                        keyable = extraKeyable,
+                                                        keyable=False,
                                                         lock=False,
                                                         minValue = 0)
                     
@@ -2033,7 +2033,7 @@ def ribbon(jointList = None,
                                                           hidden = False,
                                                           initialValue=v_aimFactor,
                                                           defaultValue=v_aimFactor,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -2189,7 +2189,7 @@ def ribbon(jointList = None,
                                                           hidden = False,
                                                           initialValue=v_aimFactor,
                                                           defaultValue=v_aimFactor,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -2243,7 +2243,7 @@ def ribbon(jointList = None,
                                                       hidden = False,
                                                       initialValue=v_scaleFactor,
                                                       defaultValue=v_scaleFactor,
-                                                      keyable = extraKeyable,
+                                                      keyable=False,
                                                       lock=False,
                                                       minValue = 0)                        
                     
@@ -3379,7 +3379,7 @@ def _ribbon_applySquashStretch(ml_joints,
                                                     hidden=False,
                                                     initialValue=v_scaleFactor,
                                                     defaultValue=v_scaleFactor,
-                                                    keyable=extraKeyable,
+                                                    keyable=False,
                                                     lock=False,
                                                     minValue=0)
                 mPlug_jointRes = cgmMeta.cgmAttr(mControlSurface.mNode,
@@ -4759,7 +4759,7 @@ def curve(jointList = None,
                                                         hidden = False,
                                                         initialValue=v_scaleFactor,
                                                         defaultValue=v_scaleFactor,
-                                                        keyable = extraKeyable,
+                                                        keyable=False,
                                                         lock=False,
                                                         minValue = 0)
                     
@@ -4804,7 +4804,7 @@ def curve(jointList = None,
                                                           hidden = False,
                                                           initialValue=1.0,
                                                           defaultValue=1.0,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -5840,12 +5840,17 @@ def _bezier_stretch_inflate_global_index(i_joint, inflate_slide_global_start):
     return int_g
 
 
-def _bezier_stretch_inflate_max_factor_index(int_squash_joints,
+def _bezier_stretch_inflate_max_factor_index(int_chain_joint_count,
                                              inflate_slide_global_count):
+    """
+    Max settings ``inflateFactor`` index (0..max inclusive).
+
+    One ramp slot per IK joint in the chain — not the N-1 volume ``outFactor`` span count.
+    """
     if (inflate_slide_global_count is not None
             and int(inflate_slide_global_count) > 0):
         return max(0, int(inflate_slide_global_count) - 1)
-    return max(0, int(int_squash_joints) - 1)
+    return max(0, int(int_chain_joint_count) - 1)
 
 
 def _bezier_stretch_inflate_offset_shared(str_base, mPlug_offset, int_max_idx):
@@ -5866,7 +5871,7 @@ def _bezier_stretch_inflate_factor_plugs_ensure(mSettings,
                                                 str_factor_base,
                                                 l_inflate_factors,
                                                 int_max_idx,
-                                                extra_keyable):
+                                                extra_keyable=None):
     """Create every settings inflateFactor_0..max_idx (needed for offset sampling)."""
     md_plugs = {}
     for int_k in range(int(int_max_idx) + 1):
@@ -5875,7 +5880,7 @@ def _bezier_stretch_inflate_factor_plugs_ensure(mSettings,
         except Exception:
             v_factor = l_inflate_factors[-1] if l_inflate_factors else 1.0
         md_plugs[int_k] = _bezier_stretch_inflate_factor_plug(
-            mSettings, str_factor_base, int_k, v_factor, extra_keyable)
+            mSettings, str_factor_base, int_k, v_factor)
     return md_plugs
 
 
@@ -6085,7 +6090,7 @@ def _bezier_stretch_inflate_factor_for_joint(mSettings,
                                              i_joint,
                                              l_inflate_factors,
                                              inflate_slide_global_start,
-                                             extra_keyable=True):
+                                             extra_keyable=None):
     int_g = int(i_joint)
     if inflate_slide_global_start is not None:
         int_g = int(inflate_slide_global_start) + int_g
@@ -6096,33 +6101,68 @@ def _bezier_stretch_inflate_factor_for_joint(mSettings,
             "inflate factor idx fail ({0}). Using 1.0 | {1}".format(int_g, err))
         v_factor = 1.0
     return _bezier_stretch_inflate_factor_plug(
-        mSettings, str_factor_base, int_g, v_factor, extra_keyable)
+        mSettings, str_factor_base, int_g, v_factor)
 
 
 def _bezier_stretch_inflate_factor_plug(mSettings,
                                         str_factor_base,
                                         i_global,
                                         v_factor,
-                                        extra_keyable=True):
+                                        extra_keyable=None):
     """Per-joint inflate ramp factor on settings (separate from volume outFactor)."""
     str_attr = '{0}_inflateFactor_{1}'.format(str_factor_base, i_global)
     m_node = cgmMeta.validateObjArg(mSettings, noneValid=False)
-    if m_node.hasAttr(str_attr):
-        try:
-            mc.addAttr(
-                '{0}.{1}'.format(m_node.mNode, str_attr),
-                edit=True, hasMin=False, hasMax=False)
-        except Exception:
-            pass
-        return cgmMeta.cgmAttr(m_node.mNode, str_attr)
     mPlug = cgmMeta.cgmAttr(
         m_node.mNode, str_attr, attrType='float',
         hidden=False, initialValue=v_factor, defaultValue=v_factor,
-        keyable=extra_keyable, lock=False)
+        keyable=False, lock=False)
     log.info(cgmGEN.logString_msg(
         '_bezier_stretch_inflate_factor_plug',
         '{0}.{1} = {2}'.format(m_node.p_nameShort, str_attr, v_factor)))
     return mPlug
+
+
+def _bezier_stretch_tip_inflate_volume_plug(str_base, str_volume_driver, mPlug_squash):
+    """Chain-tip volume squash for inflate (no ``outFactor`` attr on tip)."""
+    m_blend = cgmMeta.cgmNode(
+        nodeType='blendTwoAttr',
+        name='{0}_squash_tip_vol_blend'.format(str_base))
+    ATTR.set(m_blend.mNode, 'input[0]', 1.0)
+    ATTR.connect(str_volume_driver, m_blend.mNode + '.input[1]')
+    mPlug_squash.doConnectOut(m_blend.mNode + '.attributesBlender')
+    return m_blend.mNode + '.output', [m_blend]
+
+
+def _bezier_stretch_wire_chain_tip_inflate(
+        str_base, ml_joints, str_tip_volume_driver, mPlug_squash, mPlug_inflate,
+        int_inflate_max_factor_idx, str_inflate_shift, md_factor_plugs,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, l_volume_scale,
+        inflate_slide_global_start, ml_inflate_dg):
+    """Last IK joint: inflate ramp slot + direct-parent inflateScale (no outFactor span)."""
+    if (not mPlug_inflate or not inflate_drive_direct_parents
+            or not md_factor_plugs or not str_tip_volume_driver):
+        return
+    if len(ml_joints) < 1:
+        return
+    int_tip = len(ml_joints) - 1
+    m_tip = ml_joints[int_tip]
+    str_tip_vol, ml_tip_vol = _bezier_stretch_tip_inflate_volume_plug(
+        str_base, str_tip_volume_driver, mPlug_squash)
+    ml_inflate_dg.extend(ml_tip_vol)
+    int_g = _bezier_stretch_inflate_global_index(
+        int_tip, inflate_slide_global_start)
+    str_factor_sample, ml_sample = (
+        _bezier_stretch_inflate_offset_sample_network(
+            str_base, int_tip, int_g, int_inflate_max_factor_idx,
+            str_inflate_shift, md_factor_plugs))
+    ml_inflate_dg.extend(ml_sample)
+    d_inflate = _bezier_stretch_joint_inflate_additive_network(
+        str_base, int_tip, str_tip_vol, str_factor_sample, mPlug_inflate)
+    str_inflate_scale = d_inflate['str_scale']
+    ml_inflate_dg.extend(d_inflate['ml_nodes'])
+    _bezier_stretch_connect_inflate_joint_or_direct(
+        m_tip, l_volume_scale, str_tip_vol, str_inflate_scale,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, int_tip)
 
 
 def _bezier_stretch_connect_inflate_joint_or_direct(
@@ -6180,20 +6220,21 @@ def _bezier_stretch_joint_squash_scale_network(str_base,
                                                mPlug_squash,
                                                mSettings,
                                                v_scale_factor,
-                                               extra_keyable=True):
+                                               extra_keyable=None):
     """
     Per-joint volume squash: 1 + (volBase - 1) * outFactor * squash.
 
     Matches ribbon arcLength extraSquashControl (one factor per joint on settings).
     """
+    str_out_attr = '{0}_outFactor_{1}'.format(str_base, i_joint)
     mPlug_joint_factor = cgmMeta.cgmAttr(
         mSettings.mNode,
-        '{0}_outFactor_{1}'.format(str_base, i_joint),
+        str_out_attr,
         attrType='float',
         hidden=False,
         initialValue=v_scale_factor,
         defaultValue=v_scale_factor,
-        keyable=extra_keyable,
+        keyable=False,
         lock=False,
         minValue=0)
 
@@ -6502,12 +6543,11 @@ def bezier_spline_stretch(ml_joints=None,
         int_inflate_max_factor_idx = 0
         ml_inflate_dg = []
         l_inflate_factors = None
-        int_squash_joints = max(0, len(ml_joints) - 1)
         if extraInflateControl:
             mPlug_inflate, mPlug_inflate_offset = (
                 _bezier_stretch_settings_inflate_plugs(mSettings, extraKeyable))
             int_inflate_max_factor_idx = _bezier_stretch_inflate_max_factor_index(
-                int_squash_joints, inflateSlideGlobalCount)
+                len(ml_joints), inflateSlideGlobalCount)
             d_inflate_offset_shared = _bezier_stretch_inflate_offset_shared(
                 str_base, mPlug_inflate_offset, int_inflate_max_factor_idx)
             ml_inflate_dg.extend(d_inflate_offset_shared['ml_nodes'])
@@ -6703,6 +6743,18 @@ def bezier_spline_stretch(ml_joints=None,
                     _bezier_stretch_connect_inflate_joint_or_direct(
                         m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
                         inflateDriveDirectParents, l_inflateDirectPlugs, _i)
+                if extraSquashControl and l_seg_final_ratio:
+                    _m_tip_ratio, _m_tip_vol, _str_tip_vol_drv = (
+                        _bezier_stretch_volume_driver(
+                            '{0}_volTip'.format(str_base),
+                            l_seg_final_ratio[-1], not b_stretch_scale))
+                    ml_squash_dg.extend([_m_tip_ratio, _m_tip_vol])
+                    _bezier_stretch_wire_chain_tip_inflate(
+                        str_base, ml_joints, _str_tip_vol_drv, mPlug_squash,
+                        mPlug_inflate, int_inflate_max_factor_idx,
+                        str_inflate_shift, md_inflate_factor_plugs_prepared,
+                        inflateDriveDirectParents, l_inflateDirectPlugs,
+                        l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
 
             if ml_inflate_dg:
                 ml_squash_dg.extend(ml_inflate_dg)
@@ -6842,6 +6894,12 @@ def bezier_spline_stretch(ml_joints=None,
                             mJnt, l_volume_scale, str_vol_scale,
                             str_inflate_scale, inflateDriveDirectParents,
                             l_inflateDirectPlugs, i)
+                    _bezier_stretch_wire_chain_tip_inflate(
+                        str_base, ml_joints, str_volume_driver, mPlug_squash,
+                        mPlug_inflate, int_inflate_max_factor_idx,
+                        str_inflate_shift, md_inflate_factor_plugs_prepared,
+                        inflateDriveDirectParents, l_inflateDirectPlugs,
+                        l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
                 if ml_inflate_dg:
                     ml_squash_dg.extend(ml_inflate_dg)
                 ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])

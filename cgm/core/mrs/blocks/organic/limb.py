@@ -4193,13 +4193,26 @@ def _limb_rig_controls_bezier_segment(
     log.debug(cgmGEN._str_subLine)
 
 
-def _limb_rig_segments_bezier_wrist_follow_root(
+def _limb_rig_segments_bezier_end_main_follow_root(
         self, section_idx, mParent, ml_handleJoints, ml_blendJoints, mBlock,
         _jointOrientation):
-    """Wrist main followRoot blend (ribbon last segmentHandle / artist handle)."""
-    if not mParent or mParent != ml_handleJoints[-1]:
+    """
+    Last roll section end main followRoot + stableEnd (ribbon last segmentHandle).
+    Limb-agnostic: wrist, ankle, etc. — mParent is last rig handleJoints main (culled IK span).
+    """
+    _str_func = '_limb_rig_segments_bezier_end_main_follow_root'
+    if not ml_handleJoints or len(ml_handleJoints) < 2:
         return
-    if mBlock.addBall or mBlock.addLeverEnd:
+    # Rig handleJoints are built from ml_handleTargetsCulled — last main is IK segment end
+    # (wrist/ankle). int_handleEndIdx is prerig-relative; do not index culled rig list with it.
+    int_end_idx = len(ml_handleJoints) - 1
+    mEndMain = ml_handleJoints[int_end_idx]
+    if not mParent or mParent != mEndMain:
+        if mParent:
+            log.warning(cgmGEN.logString_msg(
+                _str_func,
+                'skip | parent {0} != segment end main {1} (rig handle end idx {2})'.format(
+                    mParent.p_nameShort, mEndMain.p_nameShort, int_end_idx)))
         return
     idx_parent = ml_handleJoints.index(mParent)
     mBlendParent = ml_blendJoints[idx_parent]
@@ -4991,10 +5004,11 @@ def _limb_rig_segments_bezier_section(
         self, section_idx, mRigNull, mBlock, ml_ikUse, mDriverCurve,
         mPlug_masterScale, l_rollKeys, str_base, _d_ribbonShare)
 
-    if section_idx == l_rollKeys[-1]:
-        _limb_rig_segments_bezier_wrist_follow_root(
-            self, section_idx, ml_mains[-1], ml_handleJoints, ml_blendJoints,
-            mBlock, _jointOrientation)
+    int_rig_handle_end = len(ml_handleJoints) - 1
+    if section_idx + 1 == int_rig_handle_end:
+        _limb_rig_segments_bezier_end_main_follow_root(
+            self, section_idx, ml_handleJoints[int_rig_handle_end],
+            ml_handleJoints, ml_blendJoints, mBlock, _jointOrientation)
 
     log.debug(cgmGEN._str_subLine)
     return []
@@ -5817,6 +5831,9 @@ def rig_skeleton(self):
                 #ATTR.delete(mJnt.mNode,'cgmTypeModifier')
             if self.str_segmentType == 'bezier':
                 mJnt.doStore('cgmTypeModifier','bezier')
+                if mJnt == ml_handleJoints[-1]:
+                    mJnt.p_orient = ml_handleJoints[-2].p_orient
+                    JOINT.freezeOrientation(mJnt.mNode)
             else:   
                 mJnt.doStore('cgmTypeModifier','seg')
             mJnt.doName()
