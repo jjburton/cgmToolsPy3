@@ -346,7 +346,29 @@ def helpers_ui_update_registered(self, syncFromDag=True):
             pass
     if getattr(self, 'mButton_helpersBuild', None):
         self.mButton_helpersBuild(edit=True, en=_n > 0)
+    if getattr(self, 'mButton_helpersSelect', None):
+        self.mButton_helpersSelect(edit=True, en=_n > 0)
     return _n
+
+
+def uiFunc_helpers_select(self):
+    """Select helpers registered on mrsHelpers."""
+    _str_func = 'uiFunc_helpers_select'
+    helpers_ensure_mDag(self)
+    self.ml_helpers = helpers_msglist_get(self.mDag)
+    helpers_ui_update_registered(self, syncFromDag=False)
+
+    _sel = []
+    for mHelper in self.ml_helpers or []:
+        try:
+            if mHelper and getattr(mHelper, 'mNode', None) and mc.objExists(mHelper.mNode):
+                _sel.append(mHelper.mNode)
+        except Exception:
+            pass
+    if not _sel:
+        return log.warning("|{0}| >> No helpers to select".format(_str_func))
+    mc.select(_sel, r=True)
+    log.info("|{0}| >> Selected {1} helper(s)".format(_str_func, len(_sel)))
 
         
 def uiFunc_helper_initialize(self):
@@ -497,6 +519,15 @@ def buildFrame_helpers(self,parent,changeCommand = ''):
         ut='cgmUITemplate',
         ann='Re-read registered helpers from mrsHelpers',
         c=cgmGEN.Callback(helpers_ui_update_registered, self, True),
+    )
+    _select_en = bool(self.ml_helpers)
+    self.mButton_helpersSelect = mUI.MelButton(
+        _row_status,
+        label='Select',
+        ut='cgmUITemplate',
+        en=_select_en,
+        ann='Select registered block helper(s) in the scene',
+        c=cgmGEN.Callback(uiFunc_helpers_select, self),
     )
     mUI.MelSpacer(_row_status, w=5)
     _row_status.layout()

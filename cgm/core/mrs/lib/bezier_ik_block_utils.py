@@ -178,6 +178,115 @@ def bezier_inflate_parent_segment_direct_controls(
         d_stretch_res, aim_axis, l_entries)
 
 
+def _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
+    """First live driver on secondary scale attrs (ribbon/curve volume squash output)."""
+    m_jnt = cgmMeta.validateObjArg(m_jnt, 'cgmObject', noneValid=True)
+    if not m_jnt:
+        return None
+    for str_attr in l_volume_scale:
+        str_plug = ATTR.get_driver('{0}.{1}'.format(m_jnt.mNode, str_attr))
+        if str_plug:
+            return str_plug
+    return None
+
+
+def segment_inflate_stretch_result_from_ik_joints(
+        ml_ikJoints,
+        mSettings,
+        aim_axis,
+        str_base,
+        inflate_factor_min=0.0,
+        inflate_factor_max=1.0,
+        inflate_factor_mode='midPeak',
+        inflate_factor_base_name=None,
+        parentGutsTo=None,
+        extra_keyable=True):
+    """
+    Build inflate settings + additive scale plugs from existing IK volume drivers.
+
+    Does not change ribbon/curve squash/stretch; IK joints keep volume-only drivers.
+    Returns the same dict slice as bezier_spline_stretch for inflate parent wiring.
+    """
+    import cgm.core.rig.ik_utils as IKUTIL
+
+    _str_func = 'segment_inflate_stretch_result_from_ik_joints'
+    ml_ikJoints = cgmMeta.validateObjListArg(
+        ml_ikJoints, 'cgmObject', noneValid=True) or []
+    mSettings = cgmMeta.validateObjArg(mSettings, noneValid=True)
+    if len(ml_ikJoints) < 2 or not mSettings:
+        log.info(cgmGEN.logString_msg(_str_func, 'skip | joints or settings missing'))
+        return None
+
+    _, _, l_volume_scale = IKUTIL._bezier_stretch_axis_data(aim_axis)
+    str_inflate_factor_base = inflate_factor_base_name or str_base
+    int_squash_joints = max(0, len(ml_ikJoints) - 1)
+
+    l_indices_with_volume = []
+    for int_i, m_jnt in enumerate(ml_ikJoints[:-1]):
+        if _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
+            l_indices_with_volume.append(int_i)
+    if not l_indices_with_volume:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'skip | no volume drivers on IK joints'))
+        return None
+
+    mPlug_inflate, mPlug_inflate_offset = (
+        IKUTIL._bezier_stretch_settings_inflate_plugs(mSettings, extra_keyable))
+    int_inflate_max_factor_idx = IKUTIL._bezier_stretch_inflate_max_factor_index(
+        int_squash_joints, None)
+    d_inflate_offset_shared = IKUTIL._bezier_stretch_inflate_offset_shared(
+        str_base, mPlug_inflate_offset, int_inflate_max_factor_idx)
+    ml_inflate_dg = list(d_inflate_offset_shared.get('ml_nodes') or [])
+
+    l_inflate_factors = MATH.get_blendList(
+        len(ml_ikJoints), inflate_factor_max, inflate_factor_min,
+        inflate_factor_mode)
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'inflateFactor ramp ({0}) mode:{1} min:{2} max:{3}'.format(
+            len(ml_ikJoints), inflate_factor_mode,
+            inflate_factor_min, inflate_factor_max)))
+
+    md_inflate_factor_plugs = IKUTIL._bezier_stretch_inflate_factor_plugs_ensure(
+        mSettings, str_inflate_factor_base, l_inflate_factors,
+        int_inflate_max_factor_idx, extra_keyable)
+
+    l_inflate_direct_plugs = []
+    str_inflate_shift = d_inflate_offset_shared.get('str_shift')
+
+    for int_i, m_jnt in enumerate(ml_ikJoints[:-1]):
+        str_vol_scale = _segment_inflate_volume_plug_from_ik_joint(
+            m_jnt, l_volume_scale)
+        if not str_vol_scale:
+            continue
+        str_factor_sample, ml_sample = (
+            IKUTIL._bezier_stretch_inflate_offset_sample_network(
+                str_base, int_i, int_i, int_inflate_max_factor_idx,
+                str_inflate_shift, md_inflate_factor_plugs))
+        ml_inflate_dg.extend(ml_sample)
+        d_inflate = IKUTIL._bezier_stretch_joint_inflate_additive_network(
+            str_base, int_i, str_vol_scale,
+            str_factor_sample, mPlug_inflate)
+        str_inflate_scale = d_inflate['str_scale']
+        ml_inflate_dg.extend(d_inflate['ml_nodes'])
+        IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
+            m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+            True, l_inflate_direct_plugs, int_i)
+
+    if parentGutsTo and ml_inflate_dg:
+        m_guts_grp = IKUTIL._bezier_stretch_guts_group(str_base, parentGutsTo)
+        if m_guts_grp:
+            IKUTIL._bezier_stretch_parent_dag_under(ml_inflate_dg, m_guts_grp)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'done | plugs:{0}'.format(len(l_inflate_direct_plugs))))
+    return {
+        'inflateDriveDirectParents': True,
+        'l_inflateDirectPlugs': l_inflate_direct_plugs,
+        'l_volumeScaleAttrs': l_volume_scale,
+    }
+
+
 def block_bezier_anchor_mode(mBlock):
     """Map block splineBezierMode enum to IK.bezier_spline bezierAnchorMode (uniform | bend)."""
     if mBlock and mBlock.hasAttr('splineBezierMode'):

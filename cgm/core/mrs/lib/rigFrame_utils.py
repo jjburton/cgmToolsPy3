@@ -920,7 +920,7 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
 
         
         #mc.orientConstraint(mIKControl.mNode, ml_ikJoints[-1].mNode, maintainOffset=True)
-        
+        return {'mSplineCurve': mSplineCurve}
       
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
 

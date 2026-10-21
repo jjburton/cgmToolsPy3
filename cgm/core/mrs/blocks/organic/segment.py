@@ -3581,7 +3581,7 @@ def rig_frame(self):
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
         ml_baseIKDrivers = mRigNull.msgList_get('baseIKDrivers')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
-        d_bezierStretch = None
+        d_stretchInflate = None
         mPlug_globalScale = self.d_module['mPlug_globalScale']
         
         
@@ -3720,6 +3720,7 @@ def rig_frame(self):
             mIKGroup.dagLock(True)
             mIKControl.masterGroup.parent = mIKGroup
             mIKBaseControl.masterGroup.parent = mIKGroup
+            mSplineDriverCurve = None
 
             if _ikSetup == 'bezier':
                 BEZIERIKBLOCK.rig_frame_bezier_ik_track_vis(
@@ -3936,7 +3937,7 @@ def rig_frame(self):
                             len(ml_ikUse))))
                     _b_inflate_direct_parents = BEZIERIKBLOCK.block_squash_inflate_control(
                         mBlock)
-                    d_bezierStretch = IK.bezier_spline_stretch(
+                    d_stretchInflate = IK.bezier_spline_stretch(
                         jointList=[mObj.mNode for mObj in ml_ikUse],
                         mDriverCurve=mBezierDriver,
                         mSettings=mSettings,
@@ -4020,7 +4021,7 @@ def rig_frame(self):
                         ml_ikJoints[-1].p_parent = mIKControl#...to get free orient
                     
                     #pprint.pprint(ml_ikJoints)
-                    RIGFRAME.spline(self,ml_ikUse,
+                    _d_spline_frame = RIGFRAME.spline(self, ml_ikUse,
                                     ml_ribbonIkHandles,
                                     mIKControl,mIKBaseControl,
                                     ml_skinDrivers,
@@ -4030,6 +4031,8 @@ def rig_frame(self):
                                     mBlock.ikSplineExtendEnd,
                                     mBlock.ikSplineAimEnd,
                                     mSettings = mSettings)
+                    if _d_spline_frame:
+                        mSplineDriverCurve = _d_spline_frame.get('mSplineCurve')
                     
                     if mSettings.hasAttr('twistType'):
                         ATTR.set_default(mSettings.mNode,'twistType',1)
@@ -4196,6 +4199,13 @@ def rig_frame(self):
                 
             else:
                 raise ValueError("Not implemented {0} ik setup".format(_ikSetup))
+
+            if (self.b_squashSetup
+                    and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)
+                    and _ikSetup == 'rp'):
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'squashInflateControl on but ikSetup=rp has no IK volume squash — inflate parent wire skipped'))
             
             
             #Parent --------------------------------------------------
@@ -4283,7 +4293,7 @@ def rig_frame(self):
             
 
             #Setup blend ----------------------------------------------------------------------------------
-            if self.b_scaleSetup and _ikSetup in ['ribbon', 'curve', 'bezier']:
+            if self.b_scaleSetup and _ikSetup in ['ribbon', 'curve', 'bezier', 'spline']:
                 log.debug("|{0}| >> scale blend chain setup...".format(_str_func))
                 RIGCONSTRAINT.blendChainsBy(
                     ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
@@ -4293,20 +4303,89 @@ def rig_frame(self):
                     ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
                     driver=mPlug_FKIK.p_combinedName)
 
-                if (_ikSetup == 'bezier'
+                _d_inflate_res = d_stretchInflate
+                if (_ikSetup != 'bezier'
                         and self.str_segmentType == 'parent'
-                        and d_bezierStretch
+                        and self.b_squashSetup
+                        and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)
+                        and _ikSetup in ['ribbon', 'ribbonLive', 'curve', 'spline']):
+                    _str_aim_inflate = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
+                    _f_inf_min, _f_inf_max = (
+                        BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+                            mBlock, self.d_squashStretch))
+                    _str_inf_mode = self.d_squashStretch.get(
+                        'squashInflateFactorMode',
+                        BEZIERIKBLOCK.block_squash_inflate_factor_mode(
+                            mBlock, 'midPeak'))
+                    _b_inflate_direct_parents = (
+                        BEZIERIKBLOCK.block_squash_inflate_control(mBlock))
+                    if (_ikSetup == 'spline' and mSplineDriverCurve
+                            and mBlock.squashExtraControl):
+                        log.info(cgmGEN.logString_msg(
+                            _str_func,
+                            'spline volume squash + inflate | aim:{0} | driver:{1}'.format(
+                                _str_aim_inflate,
+                                mSplineDriverCurve.p_nameShort)))
+                        _d_inflate_res = IK.bezier_spline_stretch(
+                            jointList=[mObj.mNode for mObj in ml_ikJoints],
+                            mDriverCurve=mSplineDriverCurve,
+                            mSettings=mSettings,
+                            aimAxis=_str_aim_inflate,
+                            stretchBy=self.str_segmentStretchBy,
+                            globalScalePlug=mPlug_masterScale.p_combinedName,
+                            baseName='{0}_splineVol'.format(
+                                self.d_module['partName']),
+                            squashStretchMain=(
+                                self.d_squashStretch.get('squashStretchMain')
+                                or 'arcLength'),
+                            extraSquashControl=mBlock.squashExtraControl,
+                            extraInflateControl=_b_inflate_direct_parents,
+                            squashFactorMin=mBlock.squashFactorMin,
+                            squashFactorMax=mBlock.squashFactorMax,
+                            squashFactorMode=self.str_squashFactorMode,
+                            inflateFactorMin=_f_inf_min,
+                            inflateFactorMax=_f_inf_max,
+                            inflateFactorMode=_str_inf_mode,
+                            inflateFactorBaseName='{0}_inflate'.format(
+                                self.d_module['partName']),
+                            parentGutsTo=mRigNull,
+                            inflateDriveDirectParents=_b_inflate_direct_parents,
+                            volumeSquashInflateOnly=True,
+                            replaceExisting=True,
+                            useUndoChunk=False)
+                    else:
+                        log.info(cgmGEN.logString_msg(
+                            _str_func,
+                            'inflate overlay from IK volume | ikSetup:{0} | aim:{1}'.format(
+                                _ikSetup, _str_aim_inflate)))
+                        _d_inflate_res = (
+                            BEZIERIKBLOCK.segment_inflate_stretch_result_from_ik_joints(
+                                ml_ikJoints,
+                                mSettings,
+                                _str_aim_inflate,
+                                '{0}_ikInflate'.format(self.d_module['partName']),
+                                inflate_factor_min=_f_inf_min,
+                                inflate_factor_max=_f_inf_max,
+                                inflate_factor_mode=_str_inf_mode,
+                                inflate_factor_base_name='{0}_inflate'.format(
+                                    self.d_module['partName']),
+                                parentGutsTo=mRigNull,
+                                extra_keyable=True))
+
+                if (self.str_segmentType == 'parent'
+                        and _d_inflate_res
                         and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)):
                     _str_aim_inflate = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
                     log.info(cgmGEN.logString_msg(
                         _str_func,
-                        'inflate direct parents | plugs:{0} | squashInflate default:{1}'.format(
-                            len(d_bezierStretch.get('l_inflateDirectPlugs') or []),
+                        'inflate direct parents | ikSetup:{0} | plugs:{1} | squashInflate default:{2}'.format(
+                            _ikSetup,
+                            len(_d_inflate_res.get('l_inflateDirectPlugs') or []),
                             ATTR.get_default(mSettings.mNode, 'squashInflate')
                             if mSettings.hasAttr('squashInflate') else None)))
                     BEZIERIKBLOCK.bezier_inflate_parent_segment_direct_controls(
                         mRigNull,
-                        d_bezierStretch,
+                        _d_inflate_res,
                         ml_blendJoints,
                         ml_rigJoints,
                         _str_aim_inflate)

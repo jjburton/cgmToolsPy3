@@ -6276,6 +6276,8 @@ def bezier_spline_stretch(ml_joints=None,
                           parent_guts_to=None,
                           inflateDriveDirectParents=False,
                           inflate_drive_direct_parents=None,
+                          volumeSquashInflateOnly=False,
+                          volume_squash_inflate_only=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -6378,6 +6380,9 @@ def bezier_spline_stretch(ml_joints=None,
         parentGutsTo = parent_guts_to
     if inflate_drive_direct_parents is not None:
         inflateDriveDirectParents = inflate_drive_direct_parents
+    if volume_squash_inflate_only is not None:
+        volumeSquashInflateOnly = volume_squash_inflate_only
+    b_volume_only = bool(volumeSquashInflateOnly)
     str_inflate_factor_base = VALID.stringArg(inflate_factor_base_name, noneValid=True)
     if not str_inflate_factor_base:
         str_inflate_factor_base = VALID.stringArg(inflateFactorBaseName, noneValid=True)
@@ -6386,7 +6391,7 @@ def bezier_spline_stretch(ml_joints=None,
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6}'.format(
+        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6} volumeOnly:{7}'.format(
             cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
             cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
             if _settings else '(driver)',
@@ -6394,7 +6399,8 @@ def bezier_spline_stretch(ml_joints=None,
             str_squash_main,
             extraSquashControl,
             extraInflateControl,
-            inflateDriveDirectParents)))
+            inflateDriveDirectParents,
+            b_volume_only)))
 
     mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
     if not mDriver.getShapes(asMeta=False):
@@ -6421,17 +6427,22 @@ def bezier_spline_stretch(ml_joints=None,
                 _str_func, aimAxis))
 
     l_affected = []
-    if b_stretch_scale:
+    if b_volume_only:
         for mJnt in ml_joints[:-1]:
-            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+            for _attr in l_volume_scale:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
     else:
-        for mJnt in ml_segments:
-            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_translate))
-    for mJnt in ml_joints[:-1]:
-        if not b_stretch_scale:
-            l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
-        for _attr in l_volume_scale:
-            l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
+        if b_stretch_scale:
+            for mJnt in ml_joints[:-1]:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+        else:
+            for mJnt in ml_segments:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_translate))
+        for mJnt in ml_joints[:-1]:
+            if not b_stretch_scale:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+            for _attr in l_volume_scale:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
 
     l_existing = []
     for _plug in l_affected:
@@ -6454,27 +6465,34 @@ def bezier_spline_stretch(ml_joints=None,
             for _plug in l_affected:
                 _bezier_stretch_disconnect_incoming(_plug)
 
-        if not b_stretch_scale:
+        if not b_volume_only and not b_stretch_scale:
             for mJnt in ml_joints[:-1]:
                 ATTR.set(mJnt.mNode, str_aim_scale, 1.0)
 
-        mPlug_stretch = cgmMeta.cgmAttr(
-            mSettings.mNode, 'stretch', attrType='float', keyable=True,
-            hidden=False, initialValue=1.0, defaultValue=1.0)
-        ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
-        if not mc.listConnections(
-                '{0}.stretch'.format(mSettings.mNode), source=True, plugs=True):
-            ATTR.set(mSettings.mNode, 'stretch', 1.0)
-        mPlug_lengthScale = cgmMeta.cgmAttr(
-            mSettings.mNode, 'lengthScale', attrType='float', keyable=True,
-            hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0001)
-        ATTR.set_default(mSettings.mNode, 'lengthScale', 1.0)
-        if not mc.listConnections(
-                '{0}.lengthScale'.format(mSettings.mNode), source=True, plugs=True):
-            ATTR.set(mSettings.mNode, 'lengthScale', 1.0)
-        log.info(cgmGEN.logString_msg(
-            _str_func, 'lengthScale attr on settings: {0}'.format(
-                mSettings.p_nameShort)))
+        if mSettings.hasAttr('stretch'):
+            mPlug_stretch = cgmMeta.cgmAttr(mSettings.mNode, 'stretch')
+        else:
+            mPlug_stretch = cgmMeta.cgmAttr(
+                mSettings.mNode, 'stretch', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0)
+            ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
+            if not mc.listConnections(
+                    '{0}.stretch'.format(mSettings.mNode), source=True, plugs=True):
+                ATTR.set(mSettings.mNode, 'stretch', 1.0)
+        if mSettings.hasAttr('lengthScale'):
+            mPlug_lengthScale = cgmMeta.cgmAttr(mSettings.mNode, 'lengthScale')
+        else:
+            mPlug_lengthScale = cgmMeta.cgmAttr(
+                mSettings.mNode, 'lengthScale', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0001)
+            ATTR.set_default(mSettings.mNode, 'lengthScale', 1.0)
+            if not mc.listConnections(
+                    '{0}.lengthScale'.format(mSettings.mNode), source=True, plugs=True):
+                ATTR.set(mSettings.mNode, 'lengthScale', 1.0)
+        if not b_volume_only:
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'lengthScale attr on settings: {0}'.format(
+                    mSettings.p_nameShort)))
         mPlug_squash = cgmMeta.cgmAttr(
             mSettings.mNode, 'squash', attrType='float', keyable=True,
             hidden=False, initialValue=1.0, minValue=0.0)
@@ -6576,33 +6594,34 @@ def bezier_spline_stretch(ml_joints=None,
                 l_seg_final_ratio.append(str_seg_ratio)
                 ml_measure_dg.extend(ml_seg_nodes)
 
-                if b_stretch_scale:
-                    m_jnt = ml_joints[_i]
-                    m_mdl = cgmMeta.cgmNode(
-                        nodeType='multDL',
-                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
-                            str_base, _i))
-                    _f_rest_scale = float(ATTR.get(m_jnt.mNode, str_aim_scale))
-                    if abs(_f_rest_scale) < 0.000001:
-                        _f_rest_scale = 1.0
-                    ATTR.set(m_mdl.mNode, 'input1', _f_rest_scale)
-                    ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
-                    ATTR.connect(
-                        m_mdl.mNode + '.output',
-                        '{0}.{1}'.format(m_jnt.mNode, str_aim_scale))
-                    ml_segment_mdl.append(m_mdl)
-                else:
-                    m_jnt = ml_segments[_i]
-                    m_mdl = cgmMeta.cgmNode(
-                        nodeType='multDL',
-                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
-                            str_base, _i))
-                    ATTR.set(m_mdl.mNode, 'input1', l_rest_translate[_i])
-                    ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
-                    ATTR.connect(
-                        m_mdl.mNode + '.output',
-                        '{0}.{1}'.format(m_jnt.mNode, str_translate))
-                    ml_segment_mdl.append(m_mdl)
+                if not b_volume_only:
+                    if b_stretch_scale:
+                        m_jnt = ml_joints[_i]
+                        m_mdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        _f_rest_scale = float(ATTR.get(m_jnt.mNode, str_aim_scale))
+                        if abs(_f_rest_scale) < 0.000001:
+                            _f_rest_scale = 1.0
+                        ATTR.set(m_mdl.mNode, 'input1', _f_rest_scale)
+                        ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                        ATTR.connect(
+                            m_mdl.mNode + '.output',
+                            '{0}.{1}'.format(m_jnt.mNode, str_aim_scale))
+                        ml_segment_mdl.append(m_mdl)
+                    else:
+                        m_jnt = ml_segments[_i]
+                        m_mdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        ATTR.set(m_mdl.mNode, 'input1', l_rest_translate[_i])
+                        ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                        ATTR.connect(
+                            m_mdl.mNode + '.output',
+                            '{0}.{1}'.format(m_jnt.mNode, str_translate))
+                        ml_segment_mdl.append(m_mdl)
 
             if extraSquashControl:
                 l_scale_factors = MATH.get_blendList(
@@ -6730,33 +6749,34 @@ def bezier_spline_stretch(ml_joints=None,
                 str_base, str_curve_blend, mPlug_lengthScale, str_name_mid='')
             l_seg_final_ratio = [str_final_ratio]
 
-            if b_stretch_scale:
-                for _i, mJnt in enumerate(ml_joints[:-1]):
-                    mMdl = cgmMeta.cgmNode(
-                        nodeType='multDL',
-                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
-                            str_base, _i))
-                    _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
-                    if abs(_f_rest_scale) < 0.000001:
-                        _f_rest_scale = 1.0
-                    ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
-                    ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
-                    ATTR.connect(
-                        mMdl.mNode + '.output',
-                        '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
-                    ml_segment_mdl.append(mMdl)
-            else:
-                for _i, mJnt in enumerate(ml_segments):
-                    mMdl = cgmMeta.cgmNode(
-                        nodeType='multDL',
-                        name='{0}_stretch_seg_{1:02d}_mdl'.format(
-                            str_base, _i))
-                    ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
-                    ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
-                    ATTR.connect(
-                        mMdl.mNode + '.output',
-                        '{0}.{1}'.format(mJnt.mNode, str_translate))
-                    ml_segment_mdl.append(mMdl)
+            if not b_volume_only:
+                if b_stretch_scale:
+                    for _i, mJnt in enumerate(ml_joints[:-1]):
+                        mMdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
+                        if abs(_f_rest_scale) < 0.000001:
+                            _f_rest_scale = 1.0
+                        ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
+                        ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                        ATTR.connect(
+                            mMdl.mNode + '.output',
+                            '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+                        ml_segment_mdl.append(mMdl)
+                else:
+                    for _i, mJnt in enumerate(ml_segments):
+                        mMdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
+                        ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                        ATTR.connect(
+                            mMdl.mNode + '.output',
+                            '{0}.{1}'.format(mJnt.mNode, str_translate))
+                        ml_segment_mdl.append(mMdl)
 
             m_ratio_clamp, m_vol_driver, str_volume_driver = (
                 _bezier_stretch_volume_driver(

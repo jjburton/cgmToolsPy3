@@ -4244,10 +4244,11 @@ def _limb_rig_segments_bezier_wrist_follow_root(
     mc.orientConstraint(
         mBlendParentsParent.mNode, mConstrain.mNode, maintainOffset=False)
     mStableUp.p_parent = mConstrain
+    mWorldUpSectionStart = ml_handleJoints[section_idx]
     mc.aimConstraint(
         _aim_back, mAimBack.mNode, maintainOffset=False,
         aimVector=[0, 0, -1], upVector=self.v_twistUp,
-        worldUpObject=mStableUp.mNode,
+        worldUpObject=mWorldUpSectionStart.mNode,
         worldUpType='objectrotation',
         worldUpVector=self.v_twistUp)
 
@@ -4600,7 +4601,7 @@ def _limb_rig_segments_bezier_section_seg_aims(
             mStart, section_idx, 'start', mRigNull)
         _limb_bezier_seg_handle_reg_curve(
             self, section_idx, mSeg, mStart, idx_parent, ml_handleJoints,
-            ml_blendJoints, ii_seg=0, mWorldUpMain=mEnd)
+            ml_blendJoints, ii_seg=0, mWorldUpMain=mStart)
         str_slot = _limb_bezier_main_slot_key(mStart, ml_mains)
         _ml_back, ml_fwd = BEZIERIKBLOCK.bezier_ik_subs_split_by_modifier(
             (md_subs or {}).get(str_slot, []))
