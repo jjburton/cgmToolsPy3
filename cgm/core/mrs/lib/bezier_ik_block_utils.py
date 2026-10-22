@@ -220,7 +220,7 @@ def _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
 
 
 _SEGMENT_INFLATE_OVERLAY_SEGMENT_TYPES = (
-    'parent', 'ribbon', 'ribbonLive', 'spline', 'curve')
+    'parent', 'ribbon', 'ribbonLive', 'spline', 'curve', 'bezier', 'linear')
 
 # Segment deform ribbon is built in rig_segments (after rig_frame); inflate must wire there.
 _SEGMENT_INFLATE_AFTER_DEFORM_RIBBON_TYPES = ('ribbon', 'ribbonLive')
@@ -233,6 +233,40 @@ def segment_inflate_direct_parent_joint_list(mRigNull, str_segment_type):
     if str_segment_type == 'parent':
         return mRigNull.msgList_get('blendJoints') or []
     return mRigNull.msgList_get('segmentJoints') or []
+
+
+def segment_inflate_result_from_module_volume(
+        self_seg, mBlock, mRigNull, mSettings, ml_volume_joints,
+        leave_joint_volume_wiring=True):
+    """
+    ``rig_inflate`` only: inflate settings + direct-parent plugs from volume
+    already on ``ml_volume_joints`` (stretch built in rig_frame / rig_segments).
+    """
+    if not block_squash_inflate_control(mBlock) or not self_seg.b_squashSetup:
+        return None
+    ml_volume_joints = cgmMeta.validateObjListArg(
+        ml_volume_joints, 'cgmObject', noneValid=True) or []
+    mSettings = cgmMeta.validateObjArg(mSettings, noneValid=True)
+    if not ml_volume_joints or not mSettings:
+        return None
+    _d_ss = getattr(self_seg, 'd_squashStretch', None) or {}
+    _f_inf_min, _f_inf_max = block_squash_inflate_factor_min_max(mBlock, _d_ss)
+    _str_inf_mode = _d_ss.get(
+        'squashInflateFactorMode',
+        block_squash_inflate_factor_mode(mBlock, 'midPeak'))
+    str_part = self_seg.d_module['partName']
+    return segment_inflate_stretch_result_from_volume_joints(
+        ml_volume_joints,
+        mSettings,
+        segment_squash_stretch_aim_axis(self_seg),
+        '{0}_segInflate'.format(str_part),
+        inflate_factor_min=_f_inf_min,
+        inflate_factor_max=_f_inf_max,
+        inflate_factor_mode=_str_inf_mode,
+        inflate_factor_base_name='{0}_inflate'.format(str_part),
+        parentGutsTo=mRigNull,
+        extra_keyable=True,
+        leave_joint_volume_wiring=leave_joint_volume_wiring)
 
 
 def segment_inflate_stretch_result_from_volume_joints(
@@ -725,14 +759,13 @@ def rig_shapes_bezier_segment_hips_chain_mains(
             _str_func, '{0} | {1}'.format(str_msg, mMain.p_nameShort)))
 
 
-def rig_frame_bezier_segment_hips_chain_master_groups(
-        mRigNull, mBlock, str_segment_type='parent'):
+def rig_frame_bezier_segment_hips_chain_master_groups(mRigNull, mBlock):
     """
     Hips bezier chain: parent chain start/end MODULECONTROL masterGroups under
     controlIKBase and controlIK (after those IK controls are on the IK group).
     """
     _str_func = 'rig_frame_bezier_segment_hips_chain_master_groups'
-    if not segment_bezier_ik_uses_hips_chain_mains(mBlock, str_segment_type):
+    if not segment_bezier_ik_uses_hips_chain_mains(mBlock):
         return
 
     m_ik_base = mRigNull.getMessageAsMeta('controlIKBase')
@@ -858,17 +891,30 @@ def bezier_ik_bezier_main_ik_list(mIKBaseControl, ml_ikMidControls, mIKControl):
     return ml_bezierMainIK
 
 
-def segment_bezier_ik_uses_hips_chain_mains(mBlock, str_segment_type='parent'):
-    """Segment parent bezier: hip/chest IK handles + separate chain-end bezier mains."""
+def segment_bezier_ik_uses_hips_chain_mains(mBlock):
+    """Segment ikSetup=bezier + ikBase=hips: hip/chest IK + separate chain bezier mains."""
     if not mBlock or not mBlock.ikSetup:
         return False
     if mBlock.getEnumValueString('ikSetup') != 'bezier':
         return False
-    if str_segment_type and str_segment_type != 'parent':
-        return False
     if mBlock.getEnumValueString('ikBase') != 'hips':
         return False
     return True
+
+
+def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
+    """
+    ``ikSetup=bezier`` volume squash + settings ramp on the module **ik** chain.
+
+    ``segmentType=parent``: IK bezier owns squash (joints follow handles).
+    Any other segment deform (ribbon, segment bezier, …): squash stays on
+    **segmentJoints** only; module IK gets arc-length stretch without volume.
+    """
+    if not mBlock or not mBlock.ikSetup:
+        return False
+    if mBlock.getEnumValueString('ikSetup') != 'bezier':
+        return False
+    return str_segment_type == 'parent'
 
 
 def bezier_ik_resolve_main_ik_list(mRigNull, ml_ik_mid_controls=None):
@@ -1598,7 +1644,7 @@ def rig_controls_bezier_segment_parent_hips_chain(
         self, mRigNull, ml_controlsAll, mRootParent, ml_ikJoints,
         d_controlSpaces, mPlug_visSub):
     """
-    Segment parent ikSetup=bezier + ikBase=hips: register chain bezier mains/subs
+    Segment ikSetup=bezier + ikBase=hips: register chain bezier mains/subs
     as visSub handles (like segmentType=bezier handle CVs). Hip/chest controlIK*
     are registered separately as main IK.
     """
@@ -1846,15 +1892,6 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
         for mJnt in ml_ik_use:
             mJnt.segmentScaleCompensate = b_scale_stretch
 
-        _d_ss = getattr(self, 'd_squashStretch', None) or {}
-        _str_inflate_mode = _d_ss.get('squashInflateFactorMode')
-        if not _str_inflate_mode:
-            _str_inflate_mode = block_squash_inflate_factor_mode(mBlock, 'midPeak')
-        _f_inflate_min, _f_inflate_max = block_squash_inflate_factor_min_max(
-            mBlock, _d_ss)
-        _extra_inflate = block_squash_inflate_control(mBlock)
-        _b_inflate_direct = bool(_extra_inflate)
-
         d_stretch = IK.bezier_spline_stretch(
             jointList=[mObj.mNode for mObj in ml_ik_use],
             mDriverCurve=m_driver_curve,
@@ -1865,16 +1902,12 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
             baseName=str_base,
             squashStretchMain=_squash_main,
             extraSquashControl=mBlock.squashExtraControl if _b_volume_squash else False,
-            extraInflateControl=bool(_extra_inflate),
+            extraInflateControl=False,
             squashFactorMin=mBlock.squashFactorMin,
             squashFactorMax=mBlock.squashFactorMax,
             squashFactorMode=self.str_squashFactorMode,
-            inflateFactorMin=_f_inflate_min,
-            inflateFactorMax=_f_inflate_max,
-            inflateFactorMode=_str_inflate_mode,
-            inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
             parentGutsTo=mRigNull,
-            inflateDriveDirectParents=_b_inflate_direct,
+            inflateDriveDirectParents=False,
             useUndoChunk=False)
         self.d_segmentBezierStretch = d_stretch
 

@@ -99,7 +99,8 @@ __l_rigBuildOrder__ = ['rig_dataBuffer',
                        'rig_shapes',
                        'rig_controls',
                        'rig_frame',
-                       'rig_segments',                       
+                       'rig_segments',
+                       'rig_inflate',
                        'rig_cleanUp']
 
 d_wiring_skeleton = {'msgLinks':[],
@@ -3580,6 +3581,8 @@ def rig_frame(self):
         ml_baseIKDrivers = self.mRigNull.msgList_get('baseIKDrivers')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
         d_bezierStretch = None
+        self.d_stretchInflateRes = None
+        self.mSplineDriverCurve = None
         ml_segBlendTargets = copy.copy(ml_blendJoints)
         mSegMidIK = mRigNull.getMessageAsMeta('controlSegMidIK')
         
@@ -4525,8 +4528,6 @@ def rig_frame(self):
                                     _str_aim,
                                     self.str_segmentStretchBy,
                                     len(ml_ikUse))))
-                            _b_inflate_direct_parents = (
-                                BEZIERIKBLOCK.block_squash_inflate_control(mBlock))
                             d_bezierStretch = IK.bezier_spline_stretch(
                                 jointList=[mObj.mNode for mObj in ml_ikUse],
                                 mDriverCurve=mBezierDriver,
@@ -4538,23 +4539,14 @@ def rig_frame(self):
                                 squashStretchMain=self.d_squashStretch.get(
                                     'squashStretchMain') or 'arcLength',
                                 extraSquashControl=mBlock.squashExtraControl,
-                                extraInflateControl=_b_inflate_direct_parents,
+                                extraInflateControl=False,
                                 squashFactorMin=mBlock.squashFactorMin,
                                 squashFactorMax=mBlock.squashFactorMax,
                                 squashFactorMode=self.str_squashFactorMode,
-                                inflateFactorMin=BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
-                                    mBlock, self.d_squashStretch)[0],
-                                inflateFactorMax=BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
-                                    mBlock, self.d_squashStretch)[1],
-                                inflateFactorMode=self.d_squashStretch.get(
-                                    'squashInflateFactorMode',
-                                    getattr(self, 'str_squashInflateFactorMode', None)
-                                    or self.str_squashFactorMode),
-                                inflateFactorBaseName='{0}_inflate'.format(
-                                    self.d_module['partName']),
                                 parentGutsTo=mRigNull,
-                                inflateDriveDirectParents=_b_inflate_direct_parents,
+                                inflateDriveDirectParents=False,
                                 useUndoChunk=False)
+                            self.d_stretchInflateRes = d_bezierStretch
            
                     else:
                         raise ValueError("Not implemented {0} ik setup".format(_ikNeck))                    
@@ -4586,25 +4578,6 @@ def rig_frame(self):
                         RIGCONSTRAINT.blendChainsScaleByAttr(
                             ml_fkJoints, ml_ikJoints, ml_blendJoints,
                             driver=mPlug_FKIK.p_combinedName)
-                        if (self.str_segmentType == 'parent'
-                                and d_bezierStretch
-                                and BEZIERIKBLOCK.block_squash_inflate_control(
-                                    mBlock)):
-                            _str_aim_inflate = (
-                                BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self))
-                            log.info(cgmGEN.logString_msg(
-                                _str_func,
-                                'inflate direct parents | plugs:{0} | squashInflate default:{1}'.format(
-                                    len(d_bezierStretch.get(
-                                        'l_inflateDirectPlugs') or []),
-                                    ATTR.get_default(mSettings.mNode, 'squashInflate')
-                                    if mSettings.hasAttr('squashInflate') else None)))
-                            BEZIERIKBLOCK.bezier_inflate_parent_segment_direct_controls(
-                                mRigNull,
-                                d_bezierStretch,
-                                ml_blendJoints,
-                                ml_rigJoints,
-                                _str_aim_inflate)
                         if (mHeadIK
                                 and not (
                                     _ikNeck == 'bezier'
@@ -4673,7 +4646,143 @@ def rig_frame(self):
                                                     l_constraints=['point','orient'])                
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
-    
+
+@cgmGEN.Timer
+def rig_inflate(self):
+    _str_func = 'rig_inflate'
+    log.debug("|{0}| >>  ".format(_str_func) + '-' * 80)
+    mBlock = self.mBlock
+    mRigNull = self.mRigNull
+
+    if not mBlock.neckBuild:
+        log.debug("|{0}| >> No neck build optioned".format(_str_func))
+        return True
+
+    if not BEZIERIKBLOCK.block_squash_inflate_control(mBlock):
+        return True
+    if self.str_segmentType not in BEZIERIKBLOCK._SEGMENT_INFLATE_OVERLAY_SEGMENT_TYPES:
+        return True
+
+    mSettings = mRigNull.getMessageAsMeta('settings')
+    ml_rigJoints = mRigNull.msgList_get('rigJoints') or []
+    _str_aim_inflate = BEZIERIKBLOCK.segment_squash_stretch_aim_axis(self)
+    ml_inflate_parents = BEZIERIKBLOCK.segment_inflate_direct_parent_joint_list(
+        mRigNull, self.str_segmentType)
+    _ikNeck = mBlock.getEnumValueString('neckIK') if mBlock.neckIK else None
+    d_inflate_res = None
+
+    if self.str_segmentType in BEZIERIKBLOCK._SEGMENT_INFLATE_AFTER_DEFORM_RIBBON_TYPES:
+        ml_seg_joints = mRigNull.msgList_get('segmentJoints') or []
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock, self.d_squashStretch)
+        _str_inf_mode = self.d_squashStretch.get(
+            'squashInflateFactorMode',
+            BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'ribbon segment overlay | segJoints:{0} (leave joint squash wiring)'.format(
+                len(ml_seg_joints))))
+        d_inflate_res = BEZIERIKBLOCK.segment_inflate_stretch_result_from_volume_joints(
+            ml_seg_joints,
+            mSettings,
+            _str_aim_inflate,
+            '{0}_segInflate'.format(self.d_module['partName']),
+            inflate_factor_min=_f_inf_min,
+            inflate_factor_max=_f_inf_max,
+            inflate_factor_mode=_str_inf_mode,
+            inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
+            parentGutsTo=mRigNull,
+            extra_keyable=True,
+            leave_joint_volume_wiring=True)
+    elif self.str_segmentType == 'bezier':
+        if getattr(self, 'd_segmentBezierStretch', None):
+            d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
+                self, mBlock, mRigNull, mSettings,
+                mRigNull.msgList_get('segmentJoints') or [])
+    elif (_ikNeck == 'bezier'
+            and getattr(self, 'd_stretchInflateRes', None)):
+        d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
+            self, mBlock, mRigNull, mSettings,
+            mRigNull.msgList_get('ikJoints') or [])
+
+    if (not d_inflate_res
+            and self.b_scaleSetup
+            and _ikNeck in ['curve', 'spline']):
+        ml_ik_joints = mRigNull.msgList_get('ikJoints') or []
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock, self.d_squashStretch)
+        _str_inf_mode = self.d_squashStretch.get(
+            'squashInflateFactorMode',
+            BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
+        res_seg_scale = self.UTILS.get_blockScale(self, 'segMeasure')
+        m_plug_master_scale = res_seg_scale[0]
+        m_spline_driver = getattr(self, 'mSplineDriverCurve', None)
+        if (_ikNeck == 'spline'
+                and m_spline_driver
+                and mBlock.squashExtraControl):
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'spline volume squash + inflate | driver:{0}'.format(
+                    m_spline_driver.p_nameShort)))
+            d_inflate_res = IK.bezier_spline_stretch(
+                jointList=[mObj.mNode for mObj in ml_ik_joints],
+                mDriverCurve=m_spline_driver,
+                mSettings=mSettings,
+                aimAxis=_str_aim_inflate,
+                stretchBy=self.str_segmentStretchBy,
+                globalScalePlug=m_plug_master_scale.p_combinedName,
+                baseName='{0}_splineVol'.format(self.d_module['partName']),
+                squashStretchMain=(
+                    self.d_squashStretch.get('squashStretchMain') or 'arcLength'),
+                extraSquashControl=mBlock.squashExtraControl,
+                extraInflateControl=True,
+                squashFactorMin=mBlock.squashFactorMin,
+                squashFactorMax=mBlock.squashFactorMax,
+                squashFactorMode=self.str_squashFactorMode,
+                inflateFactorMin=_f_inf_min,
+                inflateFactorMax=_f_inf_max,
+                inflateFactorMode=_str_inf_mode,
+                inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
+                parentGutsTo=mRigNull,
+                inflateDriveDirectParents=True,
+                volumeSquashInflateOnly=True,
+                replaceExisting=True,
+                useUndoChunk=False)
+        elif self.b_squashSetup and ml_ik_joints:
+            d_inflate_res = BEZIERIKBLOCK.segment_inflate_stretch_result_from_volume_joints(
+                ml_ik_joints,
+                mSettings,
+                _str_aim_inflate,
+                '{0}_segInflate'.format(self.d_module['partName']),
+                inflate_factor_min=_f_inf_min,
+                inflate_factor_max=_f_inf_max,
+                inflate_factor_mode=_str_inf_mode,
+                inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
+                parentGutsTo=mRigNull,
+                extra_keyable=True)
+
+    if d_inflate_res and d_inflate_res.get('l_inflateDirectPlugs'):
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'inflate direct parents | neckIK:{0} segmentType:{1} | plugs:{2}'.format(
+                _ikNeck,
+                self.str_segmentType,
+                len(d_inflate_res.get('l_inflateDirectPlugs') or []))))
+        BEZIERIKBLOCK.segment_inflate_parent_rig_direct_controls(
+            mRigNull,
+            d_inflate_res,
+            ml_inflate_parents,
+            ml_rigJoints,
+            _str_aim_inflate)
+    else:
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'skip parent wire | segmentType:{0} neckIK:{1}'.format(
+                self.str_segmentType, _ikNeck)))
+
+    return True
+
+
 def rig_cleanUp(self):
     try:
         _short = self.d_block['shortName']
