@@ -2629,12 +2629,18 @@ def rig_skeleton(self):
                 mJnt.parent = ml_rigParents[i]
                 
             if str_ikBase in ['hips','head']:
-                log.debug("|{0}| >> Simple setup. Need single handle.".format(_str_func))
-                ml_segmentHandles = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,
-                                                                            mk_fkUse, 
-                                                                            'handle', mRigNull,
-                                                                            'handleJoints',
-                                                                            cgmType = 'handle', indices=[1])
+                if BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                        mBlock, self.str_segmentType):
+                    log.debug("|{0}| >> hips bezier: skip handleJoints at fk index 1".format(
+                        _str_func))
+                else:
+                    log.debug("|{0}| >> Simple setup. Need single handle.".format(_str_func))
+                    ml_segmentHandles = BLOCKUTILS.skeleton_buildDuplicateChain(
+                        mBlock,
+                        mk_fkUse,
+                        'handle', mRigNull,
+                        'handleJoints',
+                        cgmType='handle', indices=[1])
                 
             
         if mBlock.ikSetup and self.b_squashSetup:
@@ -2774,6 +2780,10 @@ def rig_shapes(self):
             if str_segmentType == 'bezier':
                 BEZIERIKBLOCK.rig_shapes_bezier_segment_handles(
                     self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
+            elif BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                    mBlock, str_segmentType):
+                log.debug("|{0}| >> hips bezier: skip segment_handles on handleJoints".format(
+                    _str_func))
             else:
                 RIGSHAPES.segment_handles(self, ml_handleJoints)
         
@@ -2801,8 +2811,18 @@ def rig_shapes(self):
                 RIGSHAPES.ik_rp(self,None,ml_ikJoints)
 
             if str_ikSetup == 'bezier' and str_segmentType == 'parent':
-                BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
-                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
+                _b_bezier_hips_chain = BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                    mBlock, str_segmentType)
+                if _b_bezier_hips_chain:
+                    BEZIERIKBLOCK.rig_shapes_bezier_segment_hips_chain_mains(
+                        self, ml_fkJoints, ml_fkShapes, mHandleFactory,
+                        ml_ikJoints=ml_ikJoints)
+                    BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
+                        self, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
+                        skip_base_end=True)
+                else:
+                    BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
+                        self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
                 BEZIERIKBLOCK.rig_shapes_bezier_ik_subs(
                     self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
             
@@ -2907,6 +2927,12 @@ def rig_controls(self):
             b_cog = True
         str_ikBase = ATTR.get_enumValueString(mBlock.mNode,'ikBase')
         str_ikSetup = mBlock.getEnumValueString('ikSetup')
+        _b_hips_bezier_chain = (
+            str_ikSetup == 'bezier'
+            and self.str_segmentType == 'parent'
+            and BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                mBlock, self.str_segmentType))
+        ml_ikJoints = mRigNull.msgList_get('ikJoints', asMeta=True)
         
         d_controlSpaces = self.atBuilderUtils('get_controlSpaceSetupDict')
         
@@ -3096,7 +3122,7 @@ def rig_controls(self):
 
             
         #Mid controls ====================
-        if self.ml_ikMidControls:
+        if self.ml_ikMidControls and not _b_hips_bezier_chain:
             log.debug("|{0}| >> Found midIKControls".format(_str_func))            
             d_mid = copy.copy(d_controlSpaces)
             if d_mid.get('addSpacePivots'):d_mid.pop('addSpacePivots')
@@ -3118,40 +3144,80 @@ def rig_controls(self):
                 if ml_blendJoints:
                     self.atUtils('get_switchTarget', mNew, DIST.get_closestTarget(mNew.mNode,[mTarget.mNode for mTarget in ml_blendJoints]))
 
-        #Bezier IK sub handles (rig_shapes) — parent segmentType only ===========================
+        #Bezier IK — parent segmentType only ===========================================
         if str_ikSetup == 'bezier' and self.str_segmentType == 'parent':
-            if self.ml_ikMidControls:
-                mRigNull.msgList_connect(
-                    'controlSegMidIK',
-                    [mObj.mNode for mObj in self.ml_ikMidControls])
-            ml_bezierIKSubs = mRigNull.msgList_get('bezierIKSubControls')
-            if not ml_bezierIKSubs:
-                ml_bezierIKSubs = self.ml_bezierIKSubControls or []
-            if ml_bezierIKSubs:
-                log.debug("|{0}| >> bezier IK sub controls: {1}".format(
-                    _str_func, len(ml_bezierIKSubs)))
-                if self.d_module['mirrorDirection'] == 'Centre':
-                    _bezierSubMirrorAxis = 'translateY,translateZ,rotateY,rotateZ'
-                else:
-                    _bezierSubMirrorAxis = 'translateX,translateY,translateZ'
-                for mSub in ml_bezierIKSubs:
-                    mParentMain = mSub.getParent(asMeta=True)
+            if _b_hips_bezier_chain:
+                BEZIERIKBLOCK.rig_controls_bezier_segment_parent_hips_chain(
+                    self, mRigNull, ml_controlsAll, mRootParent, ml_ikJoints,
+                    d_controlSpaces, mPlug_visSub)
+                ml_controlsIK = []
+                if mControlBaseIK:
+                    ml_controlsIK.append(mControlBaseIK)
+                if mControlIK:
+                    ml_controlsIK.append(mControlIK)
+                ml_controlsIK = BEZIERIKBLOCK.controller_getDat_ik_merge_bezier_msglist(
+                    ml_controlsIK, mRigNull)
+            else:
+                if self.ml_ikMidControls:
+                    mRigNull.msgList_connect(
+                        'controlSegMidIK',
+                        [mObj.mNode for mObj in self.ml_ikMidControls])
+                ml_blend = mRigNull.msgList_get('blendJoints')
+                for str_chain_msg in ('bezierIKChainStart', 'bezierIKChainEnd'):
+                    mChainMain = mRigNull.getMessageAsMeta(str_chain_msg)
+                    if not mChainMain:
+                        continue
+                    log.debug("|{0}| >> bezier chain main: {1}".format(
+                        _str_func, mChainMain))
                     _d = MODULECONTROL.register(
-                        mSub,
-                        addDynParentGroup=False,
+                        mChainMain,
+                        addDynParentGroup=True,
                         mirrorSide=self.d_module['mirrorDirection'],
-                        mirrorAxis=_bezierSubMirrorAxis,
-                        makeAimable=False)
-                    mSub = _d['mObj']
-                    if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
-                        ATTR.set_hidden(mSub.mNode, 'radius', True)
-                    if mParentMain:
-                        mSub.masterGroup.p_parent = mParentMain
-                    ml_controlsAll.append(mSub)
+                        mirrorAxis="translateX,translateY,rotateZ",
+                        makeAimable=True,
+                        **d_controlSpaces)
+                    mChainMain = _d['mObj']
+                    mChainMain.masterGroup.parent = mRootParent
+                    ml_controlsAll.append(mChainMain)
+                    if ml_blend:
+                        if str_chain_msg == 'bezierIKChainStart':
+                            self.atUtils(
+                                'get_switchTarget',
+                                mChainMain,
+                                ml_blend[min(self.int_segBaseIdx, len(ml_blend) - 1)])
+                        else:
+                            self.atUtils(
+                                'get_switchTarget',
+                                mChainMain,
+                                ml_blend[self.int_handleEndIdx])
+                ml_bezierIKSubs = mRigNull.msgList_get('bezierIKSubControls')
+                if not ml_bezierIKSubs:
+                    ml_bezierIKSubs = self.ml_bezierIKSubControls or []
+                if ml_bezierIKSubs:
+                    log.debug("|{0}| >> bezier IK sub controls: {1}".format(
+                        _str_func, len(ml_bezierIKSubs)))
+                    if self.d_module['mirrorDirection'] == 'Centre':
+                        _bezierSubMirrorAxis = 'translateY,translateZ,rotateY,rotateZ'
+                    else:
+                        _bezierSubMirrorAxis = 'translateX,translateY,translateZ'
+                    for mSub in ml_bezierIKSubs:
+                        mParentMain = mSub.getParent(asMeta=True)
+                        _d = MODULECONTROL.register(
+                            mSub,
+                            addDynParentGroup=False,
+                            mirrorSide=self.d_module['mirrorDirection'],
+                            mirrorAxis=_bezierSubMirrorAxis,
+                            makeAimable=False)
+                        mSub = _d['mObj']
+                        if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
+                            ATTR.set_hidden(mSub.mNode, 'radius', True)
+                        if mParentMain:
+                            mSub.masterGroup.p_parent = mParentMain
+                        ml_controlsAll.append(mSub)
 
-                BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
-            ml_controlsIK = BEZIERIKBLOCK.bezier_ik_rig_controls_build_controls_ik(
-                mRigNull, self.md_bezierIKSubsBySlot)
+                    BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
+                ml_controlsIK = BEZIERIKBLOCK.bezier_ik_rig_controls_build_controls_ik(
+                    mRigNull, self.md_bezierIKSubsBySlot)
 
             
             
@@ -3237,7 +3303,10 @@ def rig_controls(self):
         
         #>> handleJoints ========================================================================================
         ml_handleJoints = self.mRigNull.msgList_get('handleJoints')
-        if ml_handleJoints and self.str_segmentType != 'bezier':
+        if (ml_handleJoints
+                and self.str_segmentType != 'bezier'
+                and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                    mBlock, self.str_segmentType)):
             log.debug("|{0}| >> Found Handle Joints...".format(_str_func))
             
             ml_controlsAll.extend(ml_handleJoints)
@@ -3824,7 +3893,8 @@ def rig_frame(self):
             self.mDeformNull.p_parent = self.md_dynTargetsParent['attachDriver'].mNode                
         
         #>> handleJoints =====================================================================================
-        if ml_handleJoints:
+        if ml_handleJoints and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                mBlock, self.str_segmentType):
             log.debug("|{0}| >> Handles setup...".format(_str_func))
             ml_handleParents = ml_fkJoints
             if ml_blendJoints:
@@ -4013,6 +4083,11 @@ def rig_frame(self):
             elif _ikSetup == 'bezier':
                 log.debug("|{0}| >> bezier setup...".format(_str_func))
 
+                if BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
+                        mBlock, self.str_segmentType):
+                    BEZIERIKBLOCK.rig_frame_bezier_segment_hips_chain_master_groups(
+                        mRigNull, mBlock, self.str_segmentType)
+
                 ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
                 if not ml_ribbonIkHandles:
                     raise ValueError("No ribbon IKDriversFound")
@@ -4046,12 +4121,14 @@ def rig_frame(self):
                     ml_ikJoints[-1].p_parent = mIKControl
 
                 BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
-                ml_bezierMainIK = BEZIERIKBLOCK.bezier_ik_bezier_main_ik_list(
-                    mIKBaseControl, self.ml_ikMidControls, mIKControl)
+                ml_bezierMainIK = BEZIERIKBLOCK.bezier_ik_resolve_main_ik_list(
+                    mRigNull, self.ml_ikMidControls)
+                m_slot_base = mRigNull.getMessageAsMeta('bezierIKChainStart') or mIKBaseControl
+                m_slot_end = mRigNull.getMessageAsMeta('bezierIKChainEnd') or mIKControl
                 ml_bezierSubsPerMain = []
                 for mMain in ml_bezierMainIK:
                     str_slot = BEZIERIKBLOCK.rig_shapes_bezier_main_slot_key(
-                        mMain, ml_bezierMainIK, mIKBaseControl, mIKControl)
+                        mMain, ml_bezierMainIK, m_slot_base, m_slot_end)
                     ml_bezierSubsPerMain.append(
                         list((self.md_bezierIKSubsBySlot or {}).get(str_slot, [])))
 

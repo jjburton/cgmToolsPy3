@@ -62,6 +62,9 @@ from cgm.core.cgmPy import path_Utils as PATH
 from cgm.core.lib import nameTools as NAMETOOLS
 from cgm.core.lib import nameTools as NAMETOOLS
 from cgm.core.mrs.lib import rigFrame_utils as RIGFRAME
+from cgm.core.mrs.lib import rigShapes_utils as RIGSHAPES
+from cgm.core.mrs.lib import bezier_ik_block_utils as BEZIERIKBLOCK
+from cgm.core.rig import bezier_utils as RIGBEZIER
 from cgm.core.mrs.lib import module_utils as MODULEUTILS
 from cgm.core.mrs.lib import puppet_utils as PUPPETUTILS
 
@@ -1000,13 +1003,29 @@ def get_modules_dat(update = False):
 
 def reloadMRSStuff():
     log.info("reloading MRS Stuff...")
-    
-    for m in [BUILDERUTILS,BLOCKUTILS,BLOCKSHARE,SHARED,RIGFRAME,cgmGEN,IK,
-              CONTEXT,BLOCKSHAPES,NAMETOOLS,CGMUI,MODULEUTILS,PUPPETUTILS,
-              MODULECONTROLFACTORY,MODULESHAPECASTER]:
-        print(m)
+    _l_reload = [
+        BUILDERUTILS,
+        BLOCKUTILS,
+        BLOCKSHARE,
+        SHARED,
+        cgmGEN,
+        RIGBEZIER,
+        IK,
+        BEZIERIKBLOCK,
+        RIGFRAME,
+        RIGSHAPES,
+        CONTEXT,
+        BLOCKSHAPES,
+        NAMETOOLS,
+        CGMUI,
+        MODULEUTILS,
+        PUPPETUTILS,
+        MODULECONTROLFACTORY,
+        MODULESHAPECASTER,
+    ]
+    for m in _l_reload:
+        log.info("|reloadMRSStuff| >> {0}".format(getattr(m, '__name__', m)))
         cgmGEN._reloadMod(m)
-
 
     log.info(cgmGEN._str_subLine)
 

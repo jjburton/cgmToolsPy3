@@ -990,8 +990,12 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
             mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
 
+        mTwistStart = mIKBaseControl
         mTwistEnd = mTwistEndControl or mIKControl
-        if ikEndTwistConnect and mTwistEnd and mIKBaseControl:
+        if ml_bezierMainIK:
+            mTwistStart = ml_bezierMainIK[0]
+            mTwistEnd = mTwistEndControl or ml_bezierMainIK[-1]
+        if ikEndTwistConnect and mTwistEnd and mTwistStart:
             _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
             mPlug_addEnd = cgmMeta.cgmAttr(
                 mTwistEnd.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
@@ -1003,10 +1007,10 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
             NODEFACTORY.argsToNodes(arg1).doBuild()
 
             mPlug_addStart = cgmMeta.cgmAttr(
-                mIKBaseControl.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
+                mTwistStart.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
             arg1 = "{}.twistStart = {}.r{} + {}".format(
                 mDriverCurve.mNode,
-                mIKBaseControl.mNode,
+                mTwistStart.mNode,
                 _twistAxis,
                 mPlug_addStart.p_combinedName)
             NODEFACTORY.argsToNodes(arg1).doBuild()
@@ -1017,13 +1021,13 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         if mSettings and mDriverCurve.hasAttr('twistType'):
             ATTR.copy_to(mDriverCurve.mNode, 'twistType', mSettings.mNode, driven='source')
 
-        if mIKBaseControl and mTwistEnd:
+        if mTwistStart and mTwistEnd:
             BEZIERIKBLOCK.bezier_ik_connect_spline_advanced_twist(
                 mDriverCurve,
                 mIKHandle,
                 self.mBlock,
                 self.d_orientation,
-                mWorldUpStart=mIKBaseControl,
+                mWorldUpStart=mTwistStart,
                 mWorldUpEnd=mTwistEnd,
                 str_mainRotAxis=getattr(self, 'str_mainRotAxis', None),
                 wire_driver_twist_from_mains=False)

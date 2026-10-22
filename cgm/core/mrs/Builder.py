@@ -69,9 +69,11 @@ from cgm.core.mrs.lib import blockShapes_utils as BLOCKSHAPES
 from cgm.core.mrs.lib import ModuleControlFactory as MODULECONTROLFACTORY
 from cgm.core.mrs.lib import ModuleShapeCaster as MODULESHAPECASTER
 from cgm.core.rig import ik_utils as IK
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.tools.lib.tool_calls as TOOLCALLS
 
 from cgm.core.mrs.lib import rigFrame_utils as RIGFRAME
+import cgm.core.mrs.lib.bezier_ik_block_utils as BEZIERIKBLOCK
 import cgm.core.lib.string_utils as CORESTRINGS
 
 from cgm.core.mrs.lib import general_utils as BLOCKGEN
@@ -139,7 +141,8 @@ _sidePadding = 25
 
 def reloadMRSStuff():
     log.info("reloading...")
-    for m in [BLOCKGEN,MRSPOST,RIGSHAPES,HELPERS]:
+    for m in [BLOCKGEN, MRSPOST, RIGSHAPES, HELPERS, RIGBEZIER, IK, BEZIERIKBLOCK, RIGFRAME]:
+        log.info("|reloadMRSStuff| >> {0}".format(getattr(m, '__name__', m)))
         cgmGEN._reloadMod(m)
     BLOCKGEN.reloadMRSStuff()
 
@@ -3622,12 +3625,24 @@ class ui_stepBuild(cgmUI.cgmGUI):
         
         
         def reloadStuff():
-            cgmGEN._reloadMod(mModule)
-            cgmGEN._reloadMod(BUILDERUTILS)
-            cgmGEN._reloadMod(BLOCKGEN)
-            cgmGEN._reloadMod(BLOCKSHARE)
-            cgmGEN._reloadMod(BLOCKUTILS)
-            cgmGEN._reloadMod(RIGFRAME)
+            _l_step_reload = (
+                (mModule, 'block module'),
+                (BUILDERUTILS, 'builder_utils'),
+                (BLOCKGEN, 'general_utils'),
+                (BLOCKSHARE, 'shared_dat'),
+                (BLOCKUTILS, 'block_utils'),
+                (RIGBEZIER, 'bezier_utils'),
+                (IK, 'ik_utils'),
+                (BEZIERIKBLOCK, 'bezier_ik_block_utils'),
+                (RIGFRAME, 'rigFrame_utils'),
+                (RIGSHAPES, 'rigShapes_utils'),
+            )
+            log.info("|ui_stepBuild.reloadStuff| >> start")
+            for m, _label in _l_step_reload:
+                log.info("|ui_stepBuild.reloadStuff| >> {0}".format(_label))
+                cgmGEN._reloadMod(m)
+            log.info("|ui_stepBuild.reloadStuff| >> done")
+            log.info(cgmGEN._str_subLine)
         
         #SingleChecks======================================================================
         mRow_buttons = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 2)
