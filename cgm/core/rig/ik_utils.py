@@ -2560,7 +2560,7 @@ def ribbon(jointList = None,
         
         max_influences = 2
         mode_tighten = 'twoBlend'
-        blendLength = int_lenJoints/2
+        blendLength = int_lenJoints // 2
         blendMin = 2
         _hardLength = 2
         
@@ -5139,7 +5139,7 @@ def curve(jointList = None,
         log.debug("|{0}| >> Influences found. Attempting to skin...".format(_str_func)+cgmGEN._str_subLine)            
         max_influences = 2
         mode_tighten = 'twoBlend'
-        blendLength = int_lenJoints/2
+        blendLength = int_lenJoints // 2
         blendMin = 2
         _hardLength = 2
         
@@ -6534,9 +6534,16 @@ def bezier_spline_stretch(ml_joints=None,
             log.info(cgmGEN.logString_msg(
                 _str_func, 'lengthScale attr on settings: {0}'.format(
                     mSettings.p_nameShort)))
-        mPlug_squash = cgmMeta.cgmAttr(
-            mSettings.mNode, 'squash', attrType='float', keyable=True,
-            hidden=False, initialValue=1.0, minValue=0.0)
+        if mSettings.hasAttr('squash'):
+            mPlug_squash = cgmMeta.cgmAttr(mSettings.mNode, 'squash')
+        else:
+            mPlug_squash = cgmMeta.cgmAttr(
+                mSettings.mNode, 'squash', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0)
+        ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+        if not mc.listConnections(
+                '{0}.squash'.format(mSettings.mNode), source=True, plugs=True):
+            ATTR.set(mSettings.mNode, 'squash', 1.0)
         mPlug_inflate = None
         mPlug_inflate_offset = None
         d_inflate_offset_shared = None

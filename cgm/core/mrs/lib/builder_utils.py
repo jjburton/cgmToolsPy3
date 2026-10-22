@@ -1776,6 +1776,53 @@ def scaleSetup_dynParentDefaultIndex(self, mChild, mDynGroup, idx=1, mBlock=None
         ATTR.set(mDynChild.mNode, _a, _label)
 
 
+SEGMENT_HANDLE_CAST_SPACING_DIVISOR = 4.0
+
+
+def segment_handle_cast_spacing_joint_chain(mRigNull):
+    """Dense module joint chain for segment handle semiSphere cast sizing."""
+    if not mRigNull:
+        return []
+    for str_attr in ('moduleJoints', 'skinJoints', 'segmentJoints'):
+        ml = mRigNull.msgList_get(str_attr) or []
+        if len(ml) >= 2:
+            return list(ml)
+    return []
+
+
+def segment_handle_cast_semisphere_size(
+        mBlock, mRigNull, offset, ml_chain=None, scale=1.0):
+    """
+    Default radius for limbSegmentHandle / segment handle semiSphere casts:
+    mean adjacent joint span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR, capped by
+    block jointRadius. ``ml_chain`` defaults to moduleJoints on rigNull.
+    """
+    _str_func = 'segment_handle_cast_semisphere_size'
+    f_joint_cap = None
+    if mBlock and mBlock.hasAttr('jointRadius'):
+        f_joint_cap = mBlock.getMayaAttr('jointRadius')
+    if f_joint_cap is None and offset is not None:
+        f_joint_cap = offset
+
+    if not ml_chain and mRigNull:
+        ml_chain = segment_handle_cast_spacing_joint_chain(mRigNull)
+
+    if ml_chain and len(ml_chain) >= 2:
+        try:
+            f_avg_span = DIST.get_distance_between_targets(
+                [mObj.mNode for mObj in ml_chain], average=True)
+            f_size = f_avg_span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR
+            if f_joint_cap is not None:
+                return min(f_size, f_joint_cap)
+            return f_size
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'chain spacing failed | {0}'.format(err)))
+
+    f_base = f_joint_cap if f_joint_cap is not None else (offset or 1.0)
+    return f_base * scale
+
+
 #@cgmGEN.Timer
 def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, upVector = None, uValues = [], offset = None, size = None,f_factor = None,connectionPoints=6):
     """
@@ -2466,7 +2513,8 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                         if size is not None:
                             size_sphere = size
                         else:
-                            size_sphere = self.mBlock.getMayaAttr('jointRadius') or offset
+                            size_sphere = segment_handle_cast_semisphere_size(
+                                self.mBlock, mRigNull, offset)
                         pos_obj = mObj.p_position
                         crvBase = CURVES.create_fromName(name='semiSphere',
                                                      direction = 'z+',

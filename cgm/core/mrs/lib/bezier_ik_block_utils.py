@@ -3,6 +3,7 @@ MRS block-level Bezier IK helpers (shapes, controls pickwalk, stretch aim, squas
 
 Shared by Segment, Head neck, and Limb bezier paths. Solver math lives in ik_utils / bezier_utils.
 """
+import copy
 import logging
 
 import maya.cmds as mc
@@ -139,7 +140,11 @@ def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
 def bezier_inflate_parent_segment_direct_controls(
         mRigNull, d_stretch_res, ml_blendJoints, ml_rigJoints, aim_axis):
     """
-    Segment parent segmentType: inflate on a parent of direct rig joints (FK-visible).
+    Inflate `{rigJoint}_inflateScale` above direct rig controls (FK-visible).
+
+    `ml_blendJoints` arg is the per-index DAG parent for the inflate null:
+    **blendJoints** when `segmentType=parent`, **segmentJoints** when segment
+    bezier deform drives seg chain.
 
     Expects bezier_spline_stretch with inflateDriveDirectParents and l_inflateDirectPlugs.
     """
@@ -174,24 +179,64 @@ def bezier_inflate_parent_segment_direct_controls(
             'str_plug': str_scale_plug,
         })
 
-    return bezier_inflate_parent_direct_controls(
+    return segment_inflate_parent_direct_controls(
         d_stretch_res, aim_axis, l_entries)
 
 
+def segment_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
+    """Segment / limb: wire ``{rig}_inflateScale`` above direct rig controls."""
+    return bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries)
+
+
+def segment_inflate_parent_rig_direct_controls(
+        mRigNull, d_stretch_res, ml_parent_joints, ml_rigJoints, aim_axis):
+    """
+    Segment block: parent inflate nulls on ``ml_parent_joints`` (blend or seg chain),
+    re-parent each rig direct's masterGroup. Expects ``l_inflateDirectPlugs`` on
+    ``d_stretch_res`` (from ``bezier_spline_stretch`` or ``segment_inflate_stretch_result_from_volume_joints``).
+    """
+    return bezier_inflate_parent_segment_direct_controls(
+        mRigNull, d_stretch_res, ml_parent_joints, ml_rigJoints, aim_axis)
+
+
 def _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
-    """First live driver on secondary scale attrs (ribbon/curve volume squash output)."""
+    """First live driver on volume scale attrs (ribbon legacy may use scaleX/Y)."""
     m_jnt = cgmMeta.validateObjArg(m_jnt, 'cgmObject', noneValid=True)
     if not m_jnt:
         return None
+    l_tried = []
     for str_attr in l_volume_scale:
+        l_tried.append(str_attr)
+        str_plug = ATTR.get_driver('{0}.{1}'.format(m_jnt.mNode, str_attr))
+        if str_plug:
+            return str_plug
+    for str_attr in ('scaleX', 'scaleY', 'scaleZ'):
+        if str_attr in l_tried:
+            continue
         str_plug = ATTR.get_driver('{0}.{1}'.format(m_jnt.mNode, str_attr))
         if str_plug:
             return str_plug
     return None
 
 
-def segment_inflate_stretch_result_from_ik_joints(
-        ml_ikJoints,
+_SEGMENT_INFLATE_OVERLAY_SEGMENT_TYPES = (
+    'parent', 'ribbon', 'ribbonLive', 'spline', 'curve')
+
+# Segment deform ribbon is built in rig_segments (after rig_frame); inflate must wire there.
+_SEGMENT_INFLATE_AFTER_DEFORM_RIBBON_TYPES = ('ribbon', 'ribbonLive')
+
+
+def segment_inflate_direct_parent_joint_list(mRigNull, str_segment_type):
+    """DAG parent for `{rig}_inflateScale` — blend on parent segment, else segmentJoints."""
+    if not mRigNull:
+        return []
+    if str_segment_type == 'parent':
+        return mRigNull.msgList_get('blendJoints') or []
+    return mRigNull.msgList_get('segmentJoints') or []
+
+
+def segment_inflate_stretch_result_from_volume_joints(
+        ml_volume_joints,
         mSettings,
         aim_axis,
         str_base,
@@ -200,60 +245,66 @@ def segment_inflate_stretch_result_from_ik_joints(
         inflate_factor_mode='midPeak',
         inflate_factor_base_name=None,
         parentGutsTo=None,
-        extra_keyable=True):
+        extra_keyable=True,
+        leave_joint_volume_wiring=False):
     """
-    Build inflate settings + additive scale plugs from existing IK volume drivers.
+    Build inflate factor plugs for direct rig controls when volume squash already
+    exists on a joint chain (ribbon **segmentJoints**, curve IK joints, etc.).
 
-    Does not change ribbon/curve squash/stretch; IK joints keep volume-only drivers.
-    Returns the same dict slice as bezier_spline_stretch for inflate parent wiring.
+    ``leave_joint_volume_wiring=True`` for ribbon segment deform: read existing
+    ribbon squash drivers only — do not reconnect segment joint scale (inflate
+    rides on direct-parent nulls).
+
+    Returns the same shape as ``bezier_spline_stretch`` inflate slice for
+    ``segment_inflate_parent_rig_direct_controls``.
     """
     import cgm.core.rig.ik_utils as IKUTIL
 
-    _str_func = 'segment_inflate_stretch_result_from_ik_joints'
-    ml_ikJoints = cgmMeta.validateObjListArg(
-        ml_ikJoints, 'cgmObject', noneValid=True) or []
+    _str_func = 'segment_inflate_stretch_result_from_volume_joints'
+    ml_volume_joints = cgmMeta.validateObjListArg(
+        ml_volume_joints, 'cgmObject', noneValid=True) or []
     mSettings = cgmMeta.validateObjArg(mSettings, noneValid=True)
-    if len(ml_ikJoints) < 2 or not mSettings:
+    if len(ml_volume_joints) < 2 or not mSettings:
         log.info(cgmGEN.logString_msg(_str_func, 'skip | joints or settings missing'))
         return None
 
     _, _, l_volume_scale = IKUTIL._bezier_stretch_axis_data(aim_axis)
     str_inflate_factor_base = inflate_factor_base_name or str_base
 
-    l_indices_with_volume = []
-    for int_i, m_jnt in enumerate(ml_ikJoints[:-1]):
-        if _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
-            l_indices_with_volume.append(int_i)
-    if not l_indices_with_volume:
-        log.info(cgmGEN.logString_msg(
-            _str_func, 'skip | no volume drivers on IK joints'))
-        return None
-
     mPlug_inflate, mPlug_inflate_offset = (
         IKUTIL._bezier_stretch_settings_inflate_plugs(mSettings, extra_keyable))
     int_inflate_max_factor_idx = IKUTIL._bezier_stretch_inflate_max_factor_index(
-        len(ml_ikJoints), None)
+        len(ml_volume_joints), None)
     d_inflate_offset_shared = IKUTIL._bezier_stretch_inflate_offset_shared(
         str_base, mPlug_inflate_offset, int_inflate_max_factor_idx)
     ml_inflate_dg = list(d_inflate_offset_shared.get('ml_nodes') or [])
 
     l_inflate_factors = MATH.get_blendList(
-        len(ml_ikJoints), inflate_factor_max, inflate_factor_min,
+        len(ml_volume_joints), inflate_factor_max, inflate_factor_min,
         inflate_factor_mode)
     log.info(cgmGEN.logString_msg(
         _str_func,
         'inflateFactor ramp ({0}) mode:{1} min:{2} max:{3}'.format(
-            len(ml_ikJoints), inflate_factor_mode,
+            len(ml_volume_joints), inflate_factor_mode,
             inflate_factor_min, inflate_factor_max)))
 
     md_inflate_factor_plugs = IKUTIL._bezier_stretch_inflate_factor_plugs_ensure(
         mSettings, str_inflate_factor_base, l_inflate_factors,
         int_inflate_max_factor_idx, extra_keyable)
 
+    l_indices_with_volume = []
+    for int_i, m_jnt in enumerate(ml_volume_joints[:-1]):
+        if _segment_inflate_volume_plug_from_ik_joint(m_jnt, l_volume_scale):
+            l_indices_with_volume.append(int_i)
+    if not l_indices_with_volume:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'skip wiring | no volume drivers on joint chain'))
+        return None
+
     l_inflate_direct_plugs = []
     str_inflate_shift = d_inflate_offset_shared.get('str_shift')
 
-    for int_i, m_jnt in enumerate(ml_ikJoints[:-1]):
+    for int_i, m_jnt in enumerate(ml_volume_joints[:-1]):
         str_vol_scale = _segment_inflate_volume_plug_from_ik_joint(
             m_jnt, l_volume_scale)
         if not str_vol_scale:
@@ -268,18 +319,24 @@ def segment_inflate_stretch_result_from_ik_joints(
             str_factor_sample, mPlug_inflate)
         str_inflate_scale = d_inflate['str_scale']
         ml_inflate_dg.extend(d_inflate['ml_nodes'])
-        IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
-            m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
-            True, l_inflate_direct_plugs, int_i)
+        if leave_joint_volume_wiring:
+            l_inflate_direct_plugs.append({
+                'i': int_i,
+                'str_plug': str_inflate_scale,
+            })
+        else:
+            IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
+                m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+                True, l_inflate_direct_plugs, int_i)
 
-    if len(ml_ikJoints) >= 1:
-        int_tip = len(ml_ikJoints) - 1
-        m_tip = ml_ikJoints[int_tip]
+    if len(ml_volume_joints) >= 1:
+        int_tip = len(ml_volume_joints) - 1
+        m_tip = ml_volume_joints[int_tip]
         str_tip_vol = _segment_inflate_volume_plug_from_ik_joint(
             m_tip, l_volume_scale)
         if not str_tip_vol and int_tip > 0:
             str_tip_vol = _segment_inflate_volume_plug_from_ik_joint(
-                ml_ikJoints[int_tip - 1], l_volume_scale)
+                ml_volume_joints[int_tip - 1], l_volume_scale)
         if str_tip_vol:
             int_g = int_tip
             str_factor_sample, ml_sample = (
@@ -292,9 +349,15 @@ def segment_inflate_stretch_result_from_ik_joints(
                 str_factor_sample, mPlug_inflate)
             str_inflate_scale = d_inflate['str_scale']
             ml_inflate_dg.extend(d_inflate['ml_nodes'])
-            IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
-                m_tip, l_volume_scale, str_tip_vol, str_inflate_scale,
-                True, l_inflate_direct_plugs, int_tip)
+            if leave_joint_volume_wiring:
+                l_inflate_direct_plugs.append({
+                    'i': int_tip,
+                    'str_plug': str_inflate_scale,
+                })
+            else:
+                IKUTIL._bezier_stretch_connect_inflate_joint_or_direct(
+                    m_tip, l_volume_scale, str_tip_vol, str_inflate_scale,
+                    True, l_inflate_direct_plugs, int_tip)
 
     if parentGutsTo and ml_inflate_dg:
         m_guts_grp = IKUTIL._bezier_stretch_guts_group(str_base, parentGutsTo)
@@ -311,9 +374,14 @@ def segment_inflate_stretch_result_from_ik_joints(
 
 
 def block_bezier_anchor_mode(mBlock):
-    """Map block splineBezierMode enum to IK.bezier_spline bezierAnchorMode (uniform | bend)."""
-    if mBlock and mBlock.hasAttr('splineBezierMode'):
-        _mode = mBlock.getEnumValueString('splineBezierMode')
+    """Map block ikSplineBezierMode enum to IK.bezier_spline bezierAnchorMode (uniform | bend)."""
+    if not mBlock:
+        return 'uniform'
+    _attr = 'ikSplineBezierMode'
+    if not mBlock.hasAttr(_attr) and mBlock.hasAttr('splineBezierMode'):
+        _attr = 'splineBezierMode'
+    if mBlock.hasAttr(_attr):
+        _mode = mBlock.getEnumValueString(_attr)
         if _mode:
             return _mode
     return 'uniform'
@@ -336,19 +404,25 @@ def rig_shapes_bezier_cast_aim_vector(self):
     return d_orients.get('vector{0}'.format(CORESTRING.capFirst(_castVector)))
 
 
-def rig_shapes_bezier_segment_handle_semisphere_size(mBlock, offset, scale=1.0):
-    f_base = mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None
-    if not f_base:
-        f_base = offset
-    return f_base * scale
+def rig_shapes_bezier_module_joint_spacing_chain(mRigNull):
+    import cgm.core.mrs.lib.builder_utils as BUILDUTILS
+    return BUILDUTILS.segment_handle_cast_spacing_joint_chain(mRigNull)
+
+
+def rig_shapes_bezier_segment_handle_semisphere_size(
+        mBlock, offset, scale=1.0, ml_chain=None, mRigNull=None):
+    import cgm.core.mrs.lib.builder_utils as BUILDUTILS
+    return BUILDUTILS.segment_handle_cast_semisphere_size(
+        mBlock, mRigNull, offset, ml_chain=ml_chain, scale=scale)
 
 
 def rig_shapes_bezier_segment_handle_shape(
         self, mObj, mHandleFactory, aim_vector, offset, scale=1.0,
-        control_type='accent'):
+        control_type='accent', ml_chain=None):
     """limbSegmentHandle semiSphere cast (limb bezier subs / neck handleJoints style)."""
     mBlock = self.mBlock
-    f_size = rig_shapes_bezier_segment_handle_semisphere_size(mBlock, offset, scale)
+    f_size = rig_shapes_bezier_segment_handle_semisphere_size(
+        mBlock, offset, scale, ml_chain=ml_chain, mRigNull=self.mRigNull)
     ml_shapes = self.atBuilderUtils(
         'shapes_fromCast',
         targets=mObj,
@@ -628,6 +702,11 @@ def rig_shapes_bezier_main_slot_key(mMain, ml_bezierMainIK, mControlIKBase, mCon
 
 def bezier_ik_stretch_aim_axis(self):
     """Joint aim axis for bezier_spline_stretch (not rotate-order string)."""
+    return segment_squash_stretch_aim_axis(self)
+
+
+def segment_squash_stretch_aim_axis(self):
+    """Volume squash / inflate aim axis for segment blocks (not rotate-order string)."""
     str_aim = self.d_orientation.get('stringAim') or self.d_orientation['str'][0]
     return str(str_aim)[0].lower()
 
@@ -988,6 +1067,7 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
     aim_vector = (
         rig_shapes_bezier_cast_aim_vector(self)
         if str_shape_mode == 'segmentHandle' else None)
+    ml_spacing_chain = rig_shapes_bezier_module_joint_spacing_chain(mRigNull)
 
     f_mainIkScale = 1.2
     f_subScale = f_mainIkScale
@@ -1022,7 +1102,8 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
             if str_shape_mode == 'segmentHandle':
                 rig_shapes_bezier_segment_handle_shape(
                     self, mSub, mHandleFactory, aim_vector, offset,
-                    scale=f_subScale, control_type='accent')
+                    control_type='accent',
+                    ml_chain=ml_spacing_chain or ml_bezierMainIK)
             else:
                 rig_shapes_bezier_ik_shape_from_fk(
                     self, mSub, ml_fkShapes[fk_idx], 'sphere', mSub, f_subScale)
@@ -1135,3 +1216,424 @@ def bezier_ik_connect_spline_advanced_twist(
             v_worldUpEnd=v_worldUpEnd)
     except Exception as err:
         log.warning(cgmGEN.logString_msg(_str_func, 'advanced WU | {0}'.format(err)))
+
+
+def segment_bezier_mains_from_handle_joints(mRigNull, mBlock=None):
+    """Ordered bezier CV mains for Segment segmentType=bezier (full handleJoints chain)."""
+    ml_handles = mRigNull.msgList_get('handleJoints') or []
+    return list(ml_handles)
+
+
+def segment_bezier_main_slot_key(mMain, ml_mains):
+    """Slot id for segment handle mains: base | midN | end."""
+    if not ml_mains:
+        return 'mid0'
+    if mMain == ml_mains[0]:
+        return 'base'
+    if mMain == ml_mains[-1]:
+        return 'end'
+    int_mid = 0
+    for m in ml_mains[1:-1]:
+        int_mid += 1
+        if m == mMain:
+            return 'mid{0}'.format(int_mid)
+    return 'mid0'
+
+
+def bezier_ik_pickwalk_controls_from_mains(ml_mains, md_subs_by_slot=None):
+    """Pickwalk along handle mains (segment segmentType=bezier)."""
+    if not ml_mains:
+        return []
+    ml_out = []
+    int_last = len(ml_mains) - 1
+    md_subs = dict(md_subs_by_slot or {})
+    for i, mMain in enumerate(ml_mains):
+        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+        ml_subs_on_main = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST)
+        if ml_subs_on_main:
+            ml_subs = ml_subs_on_main
+        else:
+            ml_subs = md_subs.get(str_slot, []) or []
+        bezier_ik_pickwalk_append_main_index(ml_out, i, int_last, mMain, ml_subs)
+    return ml_out
+
+
+def bezier_ik_rig_controls_build_controls_segment_bezier(mRigNull, ml_mains, md_subs_by_slot=None):
+    """Build controlsSegmentBezier pickwalk + flat bezierIKSubControls on rigNull."""
+    if not ml_mains:
+        return []
+    bezier_ik_connect_main_sub_msglists_for_mains(
+        ml_mains, md_subs_by_slot, ml_mains[0], ml_mains[-1])
+    ml_pickwalk = bezier_ik_pickwalk_controls_from_mains(ml_mains, md_subs_by_slot)
+    ml_dags = bezier_ik_filter_pickwalk_dags(ml_pickwalk, ml_mains)
+    if ml_dags:
+        mRigNull.msgList_connect(
+            BEZIER_IK_AGGREGATE_MSGLIST_LIMB,
+            [mObj.mNode for mObj in ml_dags])
+    set_main_longs = {m.p_nameLong for m in ml_mains if m}
+    ml_subs_flat = [m for m in ml_dags if m.p_nameLong not in set_main_longs]
+    if ml_subs_flat:
+        mRigNull.msgList_connect(
+            'bezierIKSubControls',
+            [mObj.mNode for mObj in ml_subs_flat])
+    return ml_dags
+
+
+def rig_shapes_bezier_segment_handles(self, ml_fkShapes, ml_fkCastTargets, mHandleFactory):
+    """Bezier CV mains + subs on rigNull handleJoints (Segment segmentType=bezier)."""
+    mRigNull = self.mRigNull
+    mBlock = self.mBlock
+    self.ml_bezierIKSubControls = []
+    self.ml_bezierIKTrackCurves = []
+    self.md_bezierIKSubsBySlot = {}
+
+    ml_mains = segment_bezier_mains_from_handle_joints(mRigNull, mBlock)
+    if len(ml_mains) < 2:
+        log.warning('rig_shapes_bezier_segment_handles | need 2+ handleJoints, got {0}'.format(
+            len(ml_mains)))
+        return
+
+    str_shape_mode = block_ik_bezier_control_shape(mBlock)
+    offset = getattr(self, 'v_offset', None)
+    aim_vector = (
+        rig_shapes_bezier_cast_aim_vector(self)
+        if str_shape_mode == 'segmentHandle' else None)
+    ml_spacing_chain = rig_shapes_bezier_module_joint_spacing_chain(mRigNull)
+    for i, mMain in enumerate(ml_mains):
+        fk_idx = rig_shapes_closest_fk_shape_idx(mMain.p_position, ml_fkCastTargets)
+        if str_shape_mode == 'segmentHandle':
+            rig_shapes_bezier_main_cube_cast_sized(
+                self, mMain, ml_fkShapes[fk_idx], offset=offset)
+        else:
+            rig_shapes_bezier_ik_cube_from_fk(
+                self, mMain, mMain, ml_fkShapes[fk_idx], scale=1.2)
+        rig_shapes_bezier_main_ik_type(mMain, mHandleFactory)
+
+        v_main = mMain.p_position
+        l_sub_defs = []
+        if i == 0:
+            l_sub_defs.append(('forward', ml_mains[i + 1].p_position))
+        elif i == len(ml_mains) - 1:
+            l_sub_defs.append(('back', ml_mains[i - 1].p_position))
+        else:
+            l_sub_defs.append(('back', ml_mains[i - 1].p_position))
+            l_sub_defs.append(('forward', ml_mains[i + 1].p_position))
+
+        ml_subs = []
+        for str_nameMod, v_neighbor in l_sub_defs:
+            mSub = mMain.doCreateAt(setClass=True)
+            mSub.p_position = rig_shapes_bezier_sub_pos(v_main, v_neighbor)
+            mSub.doCopyNameTagsFromObject(
+                mMain.mNode,
+                ignore=['cgmType', 'cgmTypeModifier', 'cgmNameModifier', 'cgmAlias'])
+            mSub.doStore('cgmTypeModifier', 'ikBezierSub')
+            mSub.doStore('cgmNameModifier', str_nameMod)
+            mSub.doStore('cgmType', 'handle')
+            mSub.doName()
+
+            if str_shape_mode == 'segmentHandle':
+                rig_shapes_bezier_segment_handle_shape(
+                    self, mSub, mHandleFactory, aim_vector, offset,
+                    control_type='accent',
+                    ml_chain=ml_spacing_chain or ml_mains)
+            else:
+                rig_shapes_bezier_ik_shape_from_fk(
+                    self, mSub, ml_fkShapes[fk_idx], 'sphere', mSub, 1.2)
+                mHandleFactory.color(mSub.mNode, controlType='accent')
+            mSub.p_parent = mMain
+
+            mTrackCrv = rig_shapes_bezier_main_to_sub_track(
+                self, mMain, mSub, str_nameMod, mHandleFactory)
+            self.ml_bezierIKTrackCurves.append(mTrackCrv)
+            ml_subs.append(mSub)
+            self.ml_bezierIKSubControls.append(mSub)
+
+        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+        self.md_bezierIKSubsBySlot[str_slot] = ml_subs
+        mRigNull.msgList_connect(
+            bezier_ik_slot_msglist_attr(str_slot),
+            [mObj.mNode for mObj in ml_subs])
+
+    if self.ml_bezierIKSubControls:
+        mRigNull.msgList_connect(
+            'bezierIKSubControls',
+            [mObj.mNode for mObj in self.ml_bezierIKSubControls])
+    if self.ml_bezierIKTrackCurves:
+        mRigNull.msgList_connect(
+            'bezierIKTrackCurves',
+            [mObj.mNode for mObj in self.ml_bezierIKTrackCurves])
+
+    log.info(cgmGEN.logString_msg(
+        'rig_shapes_bezier_segment_handles',
+        'mains={0} subs={1} tracks={2}'.format(
+            len(ml_mains),
+            len(self.ml_bezierIKSubControls),
+            len(self.ml_bezierIKTrackCurves))))
+
+
+def rig_controls_bezier_segment_handles(
+        self, mRigNull, ml_controlsAll, ml_blendJoints, ml_fkJoints,
+        d_controlSpaces, mPlug_visSub):
+    """MODULECONTROL register for segment handle bezier mains/subs."""
+    import cgm.core.mrs.lib.ModuleControlFactory as MODULECONTROL
+
+    _str_func = 'rig_controls_bezier_segment_handles'
+    ml_mains = segment_bezier_mains_from_handle_joints(mRigNull, self.mBlock)
+    if not ml_mains:
+        log.warning('|{0}| >> no handle bezier mains'.format(_str_func))
+        return
+
+    d_mid_spaces = copy.copy(d_controlSpaces)
+    if d_mid_spaces.get('addSpacePivots'):
+        d_mid_spaces.pop('addSpacePivots')
+
+    md_registered = {}
+    for i, mMain in enumerate(ml_mains):
+        _d = MODULECONTROL.register(
+            mMain,
+            addDynParentGroup=True,
+            mirrorSide=self.d_module['mirrorDirection'],
+            mirrorAxis='translateX,rotateY,rotateZ',
+            makeAimable=True,
+            **d_mid_spaces)
+        mMain = _d['mObj']
+        md_registered[mMain.mNode] = mMain
+        if ml_blendJoints and i < len(ml_blendJoints):
+            mMain.masterGroup.parent = ml_blendJoints[i]
+        elif ml_fkJoints:
+            mMain.masterGroup.parent = ml_fkJoints[min(i, len(ml_fkJoints) - 1)]
+        ml_controlsAll.append(mMain)
+        ATTR.connect(
+            mPlug_visSub.p_combinedShortName,
+            '{0}.visibility'.format(mMain.masterGroup.mNode))
+        ATTR.set_hidden(mMain.mNode, 'radius', True)
+
+    if self.d_module['mirrorDirection'] == 'Centre':
+        _bezier_sub_mirror_axis = 'translateY,translateZ,rotateY,rotateZ'
+    else:
+        _bezier_sub_mirror_axis = 'translateX,translateY,rotateZ'
+
+    ml_subs = (
+        mRigNull.msgList_get('bezierIKSubControls')
+        or self.ml_bezierIKSubControls
+        or [])
+    for mSub in ml_subs:
+        if not mSub:
+            continue
+        nid = mSub.mNode
+        if nid in md_registered:
+            continue
+        mParentMain = mSub.getParent(asMeta=True)
+        _d = MODULECONTROL.register(
+            mSub,
+            addDynParentGroup=False,
+            mirrorSide=self.d_module['mirrorDirection'],
+            mirrorAxis=_bezier_sub_mirror_axis,
+            makeAimable=False)
+        mSub = _d['mObj']
+        md_registered[nid] = mSub
+        if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
+            ATTR.set_hidden(mSub.mNode, 'radius', True)
+        if mParentMain:
+            mParentMain = md_registered.get(mParentMain.mNode, mParentMain)
+            mSub.masterGroup.p_parent = mParentMain
+        ml_controlsAll.append(mSub)
+
+    bezier_ik_reinit_session_meta(self)
+    bezier_ik_rig_controls_build_controls_segment_bezier(
+        mRigNull, ml_mains, self.md_bezierIKSubsBySlot)
+
+
+def _segment_bezier_should_run_spline_stretch(self, mBlock):
+    if not getattr(self, 'b_scaleSetup', False):
+        return False
+    if not mBlock.hasAttr('squash') or not mBlock.squash:
+        return True
+    str_mode = mBlock.getEnumValueString('squash')
+    return str_mode in ['simple', 'both', 'none']
+
+
+def _segment_bezier_volume_squash_active(mBlock):
+    if not mBlock.hasAttr('squash') or not mBlock.squash:
+        return False
+    return mBlock.getEnumValueString('squash') in ['simple', 'both']
+
+
+def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
+                                ml_handleJoints, ml_blendJoints, mRoot, mSettings,
+                                d_squash_share=None):
+    """Single-chain bezier spline on segmentJoints; CV anchors = handleJoints."""
+    import cgm.core.rig.ik_utils as IK
+    import cgm.core.rig.bezier_utils as RIGBEZIER
+
+    _str_func = 'segment_rig_segments_bezier'
+    if len(ml_segJoints) < 2:
+        log.warning('|{0}| >> need 2+ segment joints'.format(_str_func))
+        return
+
+    bezier_ik_reinit_session_meta(self)
+    ml_mains = segment_bezier_mains_from_handle_joints(mRigNull, mBlock)
+    if len(ml_mains) < 2:
+        log.warning('|{0}| >> need 2+ bezier mains'.format(_str_func))
+        return
+
+    md_subs = dict(self.md_bezierIKSubsBySlot or {})
+    if not md_subs:
+        for mMain in ml_mains:
+            str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+            ml_slot = mRigNull.msgList_get(bezier_ik_slot_msglist_attr(str_slot))
+            if ml_slot:
+                md_subs[str_slot] = ml_slot
+
+    ml_bezier_subs_per_main = []
+    for mMain in ml_mains:
+        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+        ml_bezier_subs_per_main.append(list(md_subs.get(str_slot, [])))
+
+    for mJnt in ml_segJoints:
+        mJnt.drawStyle = 2
+        ATTR.set(mJnt.mNode, 'radius', 0)
+        mJnt.segmentScaleCompensate = False
+
+    ml_segJoints[0].parent = mRoot
+
+    res_seg_scale = self.UTILS.get_blockScale(self, 'segMeasure', ml_segJoints)
+    mPlug_masterScale = res_seg_scale[0]
+    mMasterCurve = res_seg_scale[1]
+    self.fnc_connect_toRigGutsVis(mMasterCurve)
+    mMasterCurve.p_parent = mRoot
+
+    for i, mJnt in enumerate(ml_segJoints[1:], 1):
+        mJnt.p_parent = ml_segJoints[i - 1]
+
+    ml_ik_use = copy.copy(ml_segJoints)
+    m_ik_spline_end = ml_segJoints[-1].doDuplicate()
+    m_ik_spline_end.rename('{0}_splineEnd'.format(ml_segJoints[-1].p_nameBase))
+    ml_ik_use[-1] = m_ik_spline_end
+    m_ik_spline_end.p_parent = ml_segJoints[-1].p_parent
+
+    str_base = '{0}_seg_bezier'.format(self.d_module['partName'])
+    int_bezier_sections = max(1, len(ml_mains) - 1)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'mains={0} subs={1} joints={2} sections={3}'.format(
+            len(ml_mains),
+            sum(len(ml) for ml in ml_bezier_subs_per_main),
+            len(ml_ik_use),
+            int_bezier_sections)))
+
+    cgmGEN._reloadMod(IK)
+    res_bezier = IK.bezier_spline(
+        jointList=[mObj.mNode for mObj in ml_ik_use],
+        baseName=str_base,
+        bezierSections=int_bezier_sections,
+        bezierAnchorMode=block_bezier_anchor_mode(mBlock),
+        advancedTwistSetup=True,
+        moduleInstance=mModule,
+        useUndoChunk=False)
+
+    m_bezier_curve = res_bezier['mBezierCurve']
+    m_driver_curve = res_bezier['mDriverCurve']
+    m_ik_handle = res_bezier['mIKHandle']
+
+    mRigNull.connectChildNode(m_bezier_curve.mNode, 'bezierIKCurve', 'rigNull')
+    mRigNull.connectChildNode(m_driver_curve.mNode, 'bezierIKDriverCurve', 'rigNull')
+    mRigNull.connectChildNode(m_ik_handle.mNode, 'ikSplineHandle', 'rigNull')
+
+    res_wire = RIGBEZIER.bezier_controls_wire_from_handles(
+        m_bezier_curve,
+        ml_anchorControls=ml_mains,
+        ml_subs_per_main=ml_bezier_subs_per_main,
+        baseName=str_base,
+        templateCurve=True,
+        snapHandles=True)
+    mRigNull.connectChildNode(
+        res_wire['mControlsGroup'].mNode, 'bezierIKControlsGrp', 'rigNull')
+
+    ml_guts_vis = [m_bezier_curve, m_driver_curve, m_ik_handle, mMasterCurve]
+    m_controls_grp = res_wire.get('mControlsGroup')
+    if m_controls_grp:
+        ml_guts_vis.append(m_controls_grp)
+    self.fnc_connect_toRigGutsVis(ml_guts_vis)
+
+    if mPlug_masterScale and m_driver_curve.hasAttr('masterScale'):
+        m_driver_curve.doConnectIn(
+            'masterScale', mPlug_masterScale.p_combinedShortName)
+
+    bezier_ik_connect_spline_advanced_twist(
+        m_driver_curve,
+        m_ik_handle,
+        mBlock,
+        self.d_orientation,
+        mWorldUpStart=ml_mains[0],
+        mWorldUpEnd=ml_mains[-1],
+        wire_driver_twist_from_mains=True)
+
+    mc.pointConstraint(
+        [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
+
+    if _segment_bezier_should_run_spline_stretch(self, mBlock):
+        _b_volume_squash = _segment_bezier_volume_squash_active(mBlock)
+        _str_aim = bezier_ik_stretch_aim_axis(self)
+        _squash_main = (
+            (d_squash_share or {}).get('squashStretchMain')
+            or (getattr(self, 'd_squashStretch', None) or {}).get('squashStretchMain')
+            or 'arcLength')
+        if mBlock.squashMeasure:
+            _squash_main = mBlock.getEnumValueString('squashMeasure') or _squash_main
+
+        b_scale_stretch = self.str_segmentStretchBy == 'scale'
+        for mJnt in ml_ik_use:
+            mJnt.segmentScaleCompensate = b_scale_stretch
+
+        _d_ss = getattr(self, 'd_squashStretch', None) or {}
+        _str_inflate_mode = _d_ss.get('squashInflateFactorMode')
+        if not _str_inflate_mode:
+            _str_inflate_mode = block_squash_inflate_factor_mode(mBlock, 'midPeak')
+        _f_inflate_min, _f_inflate_max = block_squash_inflate_factor_min_max(
+            mBlock, _d_ss)
+        _extra_inflate = block_squash_inflate_control(mBlock)
+        _b_inflate_direct = bool(_extra_inflate)
+
+        d_stretch = IK.bezier_spline_stretch(
+            jointList=[mObj.mNode for mObj in ml_ik_use],
+            mDriverCurve=m_driver_curve,
+            mSettings=mSettings,
+            aimAxis=_str_aim,
+            stretchBy=self.str_segmentStretchBy,
+            globalScalePlug=mPlug_masterScale.p_combinedShortName if mPlug_masterScale else None,
+            baseName=str_base,
+            squashStretchMain=_squash_main,
+            extraSquashControl=mBlock.squashExtraControl if _b_volume_squash else False,
+            extraInflateControl=bool(_extra_inflate),
+            squashFactorMin=mBlock.squashFactorMin,
+            squashFactorMax=mBlock.squashFactorMax,
+            squashFactorMode=self.str_squashFactorMode,
+            inflateFactorMin=_f_inflate_min,
+            inflateFactorMax=_f_inflate_max,
+            inflateFactorMode=_str_inflate_mode,
+            inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
+            parentGutsTo=mRigNull,
+            inflateDriveDirectParents=_b_inflate_direct,
+            useUndoChunk=False)
+        self.d_segmentBezierStretch = d_stretch
+
+        if mSettings:
+            if mSettings.hasAttr('stretch'):
+                ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
+                ATTR.set(mSettings.mNode, 'stretch', 1.0)
+            if mSettings.hasAttr('squash'):
+                if _b_volume_squash:
+                    ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+                    ATTR.set(mSettings.mNode, 'squash', 1.0)
+                else:
+                    ATTR.set_default(mSettings.mNode, 'squash', 0.0)
+                    ATTR.set(mSettings.mNode, 'squash', 0.0)
+
+    if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
+        m_plug_ik_on = cgmMeta.cgmAttr(mSettings.mNode, 'result_IKon')
+        rig_frame_bezier_ik_track_vis(
+            mRigNull, m_plug_ik_on, ml_track_curves=self.ml_bezierIKTrackCurves)
+
+    log.debug(cgmGEN._str_subLine)

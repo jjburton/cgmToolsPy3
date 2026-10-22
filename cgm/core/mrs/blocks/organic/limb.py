@@ -137,7 +137,7 @@ d_attrStateMask = {'define':[],
                    'squashStretch':['squashSkipAim','segmentStretchBy'],
                    'skeleton':[],
                    'rig':[ 'ikExtendSetup','ikLeverEndLock','ikRollSetup', 'ikRPAim','ikOrientEndTo','segmentType',
-                           'ikRP_pos_mult','segmentMidIKSetup','splineBezierMode',
+                           'ikRP_pos_mult','segmentMidIKSetup','ikSplineBezierMode',
                            'mainRotAxis',  'followParentBank',],
                    'vis':['visRotatePlane']}
 
@@ -146,7 +146,7 @@ l_createUI_attrs = ['attachPoint','attachIndex',
                     'addCog','addPivot','addScalePivot','addAim',
                     'numControls',
                     'numSubShapers','loftShape',
-                    'ikSetup','segmentStretchBy','splineBezierMode',
+                    'ikSetup','segmentStretchBy','ikSplineBezierMode',
                     'root_dynParentMode',
                     'root_dynParentScaleMode',
                     'ikDynParentMode',
@@ -938,7 +938,7 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ikOrientEndTo':'end:previous',
                  'ikLeverEndLock':'none:outNeg',
                  'segmentStretchBy':'translate:scale',
-                 'splineBezierMode':BLOCKSHARE._d_attrsTo_make['splineBezierMode'],
+                 'ikSplineBezierMode':BLOCKSHARE._d_attrsTo_make['ikSplineBezierMode'],
                  'squashInflateFactorMax':BLOCKSHARE._d_attrsTo_make.get(
                      'squashInflateFactorMax'),
                  'squashInflateFactorMin':BLOCKSHARE._d_attrsTo_make.get(
@@ -983,7 +983,7 @@ d_defaultSettings = {'version':__version__,
                      'addLeverEnd':'none',                     
                      'visLabels':True,
                      'segmentStretchBy':'scale',
-                     'splineBezierMode':'uniform',
+                     'ikSplineBezierMode':'uniform',
                      'settingsDirection':'up',
                      'numSpacePivots':2,
                      'settingsPlace':1,
@@ -3642,11 +3642,10 @@ def _limb_bezier_shared_main_role(md_mains_by_section, section_idx, mMain, i_mai
     return None
 
 
-def _limb_bezier_segment_handle_semisphere_size(mBlock, offset, scale=1.0):
-    f_base = mBlock.getMayaAttr('jointRadius') if mBlock.hasAttr('jointRadius') else None
-    if not f_base:
-        f_base = offset
-    return f_base * scale
+def _limb_bezier_segment_handle_semisphere_size(
+        mBlock, offset, scale=1.0, mRigNull=None):
+    return BUILDUTILS.segment_handle_cast_semisphere_size(
+        mBlock, mRigNull, offset, scale=scale)
 
 
 def _limb_rig_shapes_bezier_segment_handle_cast(
@@ -3800,7 +3799,8 @@ def _limb_bezier_sub_control_type(str_name_mod):
 def _limb_rig_shapes_bezier_sub_segment_handle(
         self, mSub, mHandleFactory, offset, aim_vector, mBlock, str_name_mod):
     """Bezier sub: limbSegmentHandle semiSphere (same radius as main segment cast)."""
-    f_size = _limb_bezier_segment_handle_semisphere_size(mBlock, offset, 1.0)
+    f_size = _limb_bezier_segment_handle_semisphere_size(
+        mBlock, offset, 1.0, mRigNull=self.mRigNull)
     _limb_rig_shapes_bezier_segment_handle_cast(
         self, mSub, mHandleFactory, offset, aim_vector,
         size_semisphere=f_size,
@@ -4774,9 +4774,13 @@ def _limb_rig_segments_bezier_squash_stretch(
         if mSettings.hasAttr('stretch'):
             ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
             ATTR.set(mSettings.mNode, 'stretch', 1.0)
-        if not _b_volume_squash and mSettings.hasAttr('squash'):
-            ATTR.set_default(mSettings.mNode, 'squash', 0.0)
-            ATTR.set(mSettings.mNode, 'squash', 0.0)
+        if mSettings.hasAttr('squash'):
+            if _b_volume_squash:
+                ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+                ATTR.set(mSettings.mNode, 'squash', 1.0)
+            else:
+                ATTR.set_default(mSettings.mNode, 'squash', 0.0)
+                ATTR.set(mSettings.mNode, 'squash', 0.0)
 
 
 def _limb_bezier_inflate_parent_direct_controls(

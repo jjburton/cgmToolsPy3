@@ -156,6 +156,8 @@ def surface_tightenEnds(controlSurface,start = None, end = None,blendLength=3, h
     if mode == 'twoBlend':
         log.debug("|{0}| >> twoBlend mode".format(_str_func))        
         blendLength = len(l_cvsUse) - hardLength
+
+    blendLength = int(blendLength)
         
     blendFactor = 1.0 / (blendLength+hardLength)
     log.debug("|{0}| >> BlendFactor: {1} | BlendLength: {2}".format(_str_func,blendFactor, blendLength))
@@ -299,6 +301,8 @@ def curve_tightenEnds(curve,start = None, end = None,blendLength=3, hardLength =
     if mode == 'twoBlend':
         log.debug("|{0}| >> twoBlend mode".format(_str_func))        
         blendLength = len(l_cvsUse) - hardLength
+
+    blendLength = int(blendLength)
         
     blendFactor = 1.0 / (blendLength+hardLength)
     log.debug("|{0}| >> BlendFactor: {1}".format(_str_func,blendFactor))
