@@ -975,8 +975,9 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
     Hips-style root orient follow without changing ``ml_ikUse[0]``.
 
     ``m_ik_base_control`` is the module IK base (segment ``rig_frame`` uses
-    ``rigNull.controlIKBase``). ``*_ikOrientFrame`` dup under the IK root is the solver-side orient source;
-    follow dup under IK base; ``blendChainsBy`` drives ``ml_ikUse[0]`` (``m_ik_root``).
+    ``rigNull.controlIKBase``). Orient blend is on ``*_ikOrientFrame`` only —
+    ``ml_ikUse[0]`` (``m_ik_root``) is never an orientConstraint target here.
+    Solver-side blend input is ``m_ik_root``; follow dup under IK base.
     """
     m_root = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
     m_base = cgmMeta.validateObjArg(m_ik_base_control, 'cgmObject', noneValid=False)
@@ -1001,8 +1002,10 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
             str_attr, m_base.p_nameShort, m_root.p_nameShort,
             m_blend_frame.p_nameShort)))
 
+    # Same driver contract as end follow: 0 = IK span/root orient, 1 = follow control.
+    # Blend target is ikOrientFrame (not pelvis — IK handle owns that joint).
     RIGCONSTRAINT.blendChainsBy(
-        m_follow_orient, m_blend_frame, m_root,
+        m_follow_orient, m_root, m_blend_frame,
         driver=m_plug_follow.p_combinedName,
         l_constraints=['orient'])
     return {
