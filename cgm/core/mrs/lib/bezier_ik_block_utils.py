@@ -1803,8 +1803,8 @@ def _segment_bezier_rig_segments_joint_chain(self, ml_segJoints, mRoot):
 
 
 def _segment_bezier_rig_segments_stretch(
-        self, mBlock, mRigNull, ml_ik_use, m_driver_curve, mSettings,
-        mPlug_masterScale, d_squash_share, str_base):
+        self, mBlock, mRigNull, ml_seg_joints, ml_ik_use, m_driver_curve,
+        mSettings, mPlug_masterScale, d_squash_share, str_base):
     """bezier_spline_stretch on segment ik span; sets d_segmentBezierStretch."""
     import cgm.core.rig.ik_utils as IK
 
@@ -1821,8 +1821,14 @@ def _segment_bezier_rig_segments_stretch(
         _squash_main = mBlock.getEnumValueString('squashMeasure') or _squash_main
 
     b_scale_stretch = self.str_segmentStretchBy == 'scale'
-    for mJnt in ml_ik_use:
-        mJnt.segmentScaleCompensate = b_scale_stretch
+    # Deform chain is ml_seg_joints; ml_ik_use[-1] is a spline-end dup for ikSpline.
+    if ml_seg_joints:
+        for mJnt in ml_seg_joints:
+            mJnt.segmentScaleCompensate = b_scale_stretch
+    if ml_ik_use and ml_seg_joints:
+        m_spline_end = ml_ik_use[-1]
+        if m_spline_end.mNode != ml_seg_joints[-1].mNode:
+            m_spline_end.segmentScaleCompensate = False
 
     d_stretch = IK.bezier_spline_stretch(
         jointList=[mObj.mNode for mObj in ml_ik_use],
@@ -1913,7 +1919,7 @@ def segment_rig_segments_bezier_shared_module_curve(
         [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
 
     _segment_bezier_rig_segments_stretch(
-        self, mBlock, mRigNull, ml_ik_use, mModuleDriver, mSettings,
+        self, mBlock, mRigNull, ml_segJoints, ml_ik_use, mModuleDriver, mSettings,
         mPlug_masterScale, d_squash_share, str_base)
 
     if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
@@ -2034,7 +2040,7 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
         [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
 
     _segment_bezier_rig_segments_stretch(
-        self, mBlock, mRigNull, ml_ik_use, m_driver_curve, mSettings,
+        self, mBlock, mRigNull, ml_segJoints, ml_ik_use, m_driver_curve, mSettings,
         mPlug_masterScale, d_squash_share, str_base)
 
     if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):

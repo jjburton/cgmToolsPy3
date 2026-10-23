@@ -2770,8 +2770,12 @@ def rig_shapes(self):
         ml_handleJoints = self.mRigNull.msgList_get('handleJoints')
         if ml_handleJoints:
             if str_segmentType == 'bezier':
-                BEZIERIKBLOCK.rig_shapes_bezier_segment_handles(
-                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
+                if BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock):
+                    log.debug("|{0}| >> ikSetup bezier + segmentType bezier: "
+                              "skip handle-joint bezier shapes".format(_str_func))
+                else:
+                    BEZIERIKBLOCK.rig_shapes_bezier_segment_handles(
+                        self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
             elif BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock):
                 log.debug("|{0}| >> hips bezier: skip segment_handles on handleJoints".format(
                     _str_func))
@@ -2804,6 +2808,8 @@ def rig_shapes(self):
             if str_ikSetup == 'bezier':
                 _b_bezier_hips_chain = (
                     BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock))
+                _b_shared_module_bezier = (
+                    BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock))
                 if _b_bezier_hips_chain:
                     BEZIERIKBLOCK.rig_shapes_bezier_segment_hips_chain_mains(
                         self, ml_fkJoints, ml_fkShapes, mHandleFactory,
@@ -2811,10 +2817,12 @@ def rig_shapes(self):
                     BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
                         self, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
                         skip_base_end=True)
-                elif str_segmentType == 'parent':
+                elif str_segmentType == 'parent' or _b_shared_module_bezier:
                     BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
                         self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
-                if _b_bezier_hips_chain or str_segmentType == 'parent':
+                if (_b_bezier_hips_chain
+                        or str_segmentType == 'parent'
+                        or _b_shared_module_bezier):
                     BEZIERIKBLOCK.rig_shapes_bezier_ik_subs(
                         self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
             
@@ -3145,7 +3153,9 @@ def rig_controls(self):
                 ml_controlsIK.append(mControlIK)
             ml_controlsIK = BEZIERIKBLOCK.controller_getDat_ik_merge_bezier_msglist(
                 ml_controlsIK, mRigNull)
-        elif str_ikSetup == 'bezier' and self.str_segmentType == 'parent':
+        elif (str_ikSetup == 'bezier'
+              and (self.str_segmentType == 'parent'
+                   or BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock))):
             if self.ml_ikMidControls:
                 mRigNull.msgList_connect(
                     'controlSegMidIK',
@@ -3311,7 +3321,8 @@ def rig_controls(self):
                 for mShape in mObj.getShapes(asMeta=True):
                     ATTR.connect(mPlug_visSub.p_combinedShortName, "{0}.overrideVisibility".format(mShape.mNode))
 
-        if self.str_segmentType == 'bezier':
+        if (self.str_segmentType == 'bezier'
+                and not BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock)):
             ml_blendJoints = mRigNull.msgList_get('blendJoints')
             ml_fkJoints = mRigNull.msgList_get('fkJoints')
             BEZIERIKBLOCK.rig_controls_bezier_segment_handles(
@@ -3887,8 +3898,9 @@ def rig_frame(self):
             self.mDeformNull.p_parent = self.md_dynTargetsParent['attachDriver'].mNode                
         
         #>> handleJoints =====================================================================================
-        if ml_handleJoints and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(
-                mBlock):
+        if (ml_handleJoints
+                and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock)
+                and not BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock)):
             log.debug("|{0}| >> Handles setup...".format(_str_func))
             ml_handleParents = ml_fkJoints
             if ml_blendJoints:
@@ -3954,7 +3966,9 @@ def rig_frame(self):
             mIKBaseControl.masterGroup.parent = mIKGroup
             mSplineDriverCurve = None
 
-            if _ikSetup == 'bezier' and self.str_segmentType == 'parent':
+            if (_ikSetup == 'bezier'
+                    and (self.str_segmentType == 'parent'
+                         or BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock))):
                 BEZIERIKBLOCK.rig_frame_bezier_ik_track_vis(
                     mRigNull, mPlug_IKon, self.ml_bezierIKTrackCurves)
             
