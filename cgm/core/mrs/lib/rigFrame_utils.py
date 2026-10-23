@@ -36,6 +36,7 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+import cgm.core.lib.constraint_utils as CONSTRAINT
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.rig.ik_utils as IK
 import cgm.core.rig.bezier_utils as RIGBEZIER
@@ -199,7 +200,18 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
             IK.ribbon(**d_mid)
             
         elif _str_mode == 'prntConstraint':
-            mc.parentConstraint([mObj.mNode for mObj in ml_ribbonHandles], mDriver.mNode, maintainOffset = 1)
+            _l_targets = [mObj.mNode for mObj in ml_ribbonHandles]
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'prntConstraint | mid drivers:{0} | ribbon targets:{1}'.format(
+                    len(ml_drivers),
+                    [mObj.p_nameShort for mObj in ml_ribbonHandles])))
+            for mDriver in ml_drivers:
+                _pc = mc.parentConstraint(
+                    _l_targets, mDriver.mNode, maintainOffset=True)
+                _vList = DIST.get_normalizedWeightsByDistance(
+                    mDriver.mNode, _l_targets)
+                CONSTRAINT.set_weightsByDistance(_pc[0], _vList)
         
         elif _str_mode in ['linearTrack','cubicTrack']:
             ml_track = ml_ribbonHandles

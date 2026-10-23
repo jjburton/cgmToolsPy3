@@ -22,6 +22,7 @@ import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.string_utils as CORESTRING
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+import cgm.core.rig.constraint_utils as CONSTRAINT
 
 log = logging.getLogger(__name__)
 
@@ -901,6 +902,156 @@ def segment_bezier_ik_uses_hips_chain_mains(mBlock):
     if mBlock.getEnumValueString('ikBase') != 'hips':
         return False
     return True
+
+
+def segment_bezier_ik_mid_span_drivers(mRigNull, md_subs_by_slot=None):
+    """
+    Bezier module IK mid follow: span between chain start/end mains.
+    Drivers = start main forward sub + end main back sub (fallback to mains).
+    """
+    ml_mains = bezier_ik_resolve_main_ik_list(mRigNull)
+    if len(ml_mains) < 2:
+        return None
+    m_start = ml_mains[0]
+    m_end = ml_mains[-1]
+    m_slot_base = (
+        mRigNull.getMessageAsMeta('bezierIKChainStart')
+        or mRigNull.getMessageAsMeta('controlIKBase'))
+    m_slot_end = (
+        mRigNull.getMessageAsMeta('bezierIKChainEnd')
+        or mRigNull.getMessageAsMeta('controlIK'))
+    md_subs = dict(md_subs_by_slot or {})
+    if not md_subs:
+        for mMain in ml_mains:
+            str_slot = rig_shapes_bezier_main_slot_key(
+                mMain, ml_mains, m_slot_base, m_slot_end)
+            str_attr = bezier_ik_slot_msglist_attr(str_slot)
+            if mRigNull.msgList_exists(str_attr):
+                md_subs[str_slot] = mRigNull.msgList_get(str_attr) or []
+    str_slot_start = rig_shapes_bezier_main_slot_key(
+        m_start, ml_mains, m_slot_base, m_slot_end)
+    str_slot_end = rig_shapes_bezier_main_slot_key(
+        m_end, ml_mains, m_slot_base, m_slot_end)
+    _ml_back_s, ml_fwd_s = bezier_ik_subs_split_by_modifier(
+        md_subs.get(str_slot_start, []))
+    ml_back_e, _ml_fwd_e = bezier_ik_subs_split_by_modifier(
+        md_subs.get(str_slot_end, []))
+    m_fwd = ml_fwd_s[0] if ml_fwd_s else m_start
+    m_back = ml_back_e[0] if ml_back_e else m_end
+    return m_fwd, m_back, m_start, m_end, ml_mains
+
+
+def segment_bezier_module_ik_mid_setup(
+        self, mIKGroup, mIKBaseControl, mIKControl, ml_ikJoints):
+    """
+    Segment ikSetup=bezier + parent (module bezier mains): honor ikMidSetup using
+    bezier start/end span drivers (not ribbonIKDrivers). Matches limb bezier mid contract.
+    """
+    import cgm.core.rig.ik_utils as IK
+    import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
+
+    _str_func = 'segment_bezier_module_ik_mid_setup'
+    mBlock = self.mBlock
+    mRigNull = self.mRigNull
+    mModule = self.mModule
+    ml_handles = self.ml_ikMidControls or []
+    if not ml_handles:
+        return
+
+    _str_mode = mBlock.getEnumValueString('ikMidSetup')
+    if _str_mode == 'none':
+        return
+
+    _span = segment_bezier_ik_mid_span_drivers(
+        mRigNull, getattr(self, 'md_bezierIKSubsBySlot', None))
+    if not _span:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'skip | need 2+ bezier mains on rigNull'))
+        return
+    m_fwd, m_back, m_start, m_end, _ml_mains = _span
+    ml_span_drivers = [m_fwd, m_back]
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'ikMidSetup={0} | mids={1} | span {2} -> {3}'.format(
+            _str_mode,
+            len(ml_handles),
+            m_fwd.p_nameShort,
+            m_back.p_nameShort)))
+
+    _base = '{0}_midBezier'.format(self.d_module['partName'])
+
+    for mHandle in ml_handles:
+        mHandle.masterGroup.parent = mIKGroup
+        mDriver = mHandle.doCreateAt('joint', setClass='cgmObject')
+        mDriver.rename('{0}_mainDriver'.format(mHandle.p_nameBase))
+        mDriver.p_parent = mHandle.masterGroup
+        mHandle.doStore('mainDriver', mDriver.mNode, 'msg')
+
+    if _str_mode == 'ribbon':
+        ml_mid_track = [m_start] + list(ml_handles) + [m_end]
+        d_mid = {
+            'jointList': [mJnt.mNode for mJnt in ml_mid_track],
+            'baseName': '{0}_midRibbon'.format(_base),
+            'driverSetup': None,
+            'squashStretch': None,
+            'msgDriver': 'masterGroup',
+            'specialMode': 'noStartEnd',
+            'paramaterization': 'floating',
+            'connectBy': 'constraint',
+            'influences': ml_span_drivers,
+            'moduleInstance': mModule}
+        IK.ribbon(**d_mid)
+
+    elif _str_mode == 'prntConstraint':
+        _l_targets = [mObj.mNode for mObj in ml_span_drivers]
+        for mHandle in ml_handles:
+            _pc = mc.parentConstraint(
+                _l_targets, mHandle.masterGroup.mNode, maintainOffset=True)
+            _vList = DIST.get_normalizedWeightsByDistance(
+                mHandle.masterGroup.mNode, _l_targets)
+            CONSTRAINT.set_weightsByDistance(_pc[0], _vList)
+
+    elif _str_mode in ['linearTrack', 'cubicTrack']:
+        _track_curve, _l_clusters = CORERIG.create_at(
+            [mObj.mNode for mObj in ml_span_drivers],
+            _str_mode,
+            baseName='{0}_mid{1}'.format(_base, _str_mode))
+        m_crv = cgmMeta.asMeta(_track_curve)
+        m_shape = cgmMeta.asMeta(m_crv.getShapes()[0])
+        ml_clusters = cgmMeta.asMeta([s[1] for s in _l_clusters])
+        for m_obj in [m_crv] + ml_clusters:
+            m_obj.overrideEnabled = 1
+            cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsVis', lock=False).doConnectOut(
+                '%s.%s' % (_track_curve, 'overrideVisibility'))
+            cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsLock', lock=False).doConnectOut(
+                '%s.%s' % (_track_curve, 'overrideDisplayType'))
+        m_crv.p_parent = mModule.rigNull.mNode
+        for mHandle in ml_handles:
+            BLOCKSHAPES.attachToCurve(
+                mHandle,
+                m_crv,
+                m_shape,
+                parentTo=mModule.rigNull.mNode,
+                trackLink='masterGroup')
+            mc.orientConstraint(
+                m_fwd.mNode,
+                mHandle.masterGroup.mNode,
+                maintainOffset=True)
+    else:
+        raise ValueError(
+            '{0} | unknown ikMidSetup: {1}'.format(_str_func, _str_mode))
+
+
+def segment_bezier_module_ik_mid_uses_bezier_span(mBlock):
+    """Segment bezier rig_frame: mid follow uses bezier mains, not ribbonIKDrivers."""
+    if not mBlock or not mBlock.ikSetup:
+        return False
+    if mBlock.getEnumValueString('ikSetup') != 'bezier':
+        return False
+    if mBlock.getEnumValueString('segmentType') == 'parent':
+        return True
+    return segment_bezier_uses_module_ik_curve(mBlock)
 
 
 def segment_ik_module_follow_end_control(m_rig_null):

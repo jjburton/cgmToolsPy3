@@ -4107,12 +4107,18 @@ def rig_frame(self):
 
                 ml_ribbonIkHandles[-1].parent = mIKControl
 
-                ml_segMidDrivers = copy.copy(ml_ribbonIkHandles)
-
                 if self.ml_ikMidControls and mBlock.ikMidSetup:
-                    RIGFRAME.segment_mid(self, self.ml_ikMidControls,
-                                         ml_segMidDrivers, mIKGroup,
-                                         mIKBaseControl, mIKControl, ml_ikJoints)
+                    if BEZIERIKBLOCK.segment_bezier_module_ik_mid_uses_bezier_span(
+                            mBlock):
+                        BEZIERIKBLOCK.segment_bezier_module_ik_mid_setup(
+                            self, mIKGroup, mIKBaseControl, mIKControl,
+                            ml_ikJoints)
+                    else:
+                        ml_segMidDrivers = copy.copy(ml_ribbonIkHandles)
+                        RIGFRAME.segment_mid(
+                            self, self.ml_ikMidControls,
+                            ml_segMidDrivers, mIKGroup,
+                            mIKBaseControl, mIKControl, ml_ikJoints)
 
                 for i, mJnt in enumerate(ml_ikJoints[1:]):
                     mJnt.p_parent = ml_ikJoints[i]
