@@ -917,6 +917,17 @@ def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
     return str_segment_type == 'parent'
 
 
+def segment_bezier_uses_module_ik_curve(mBlock):
+    """segmentType=bezier + ikSetup=bezier: segment deform shares module bezierIKCurve."""
+    if not mBlock:
+        return False
+    if mBlock.getEnumValueString('ikSetup') != 'bezier':
+        return False
+    if mBlock.getEnumValueString('segmentType') != 'bezier':
+        return False
+    return True
+
+
 def bezier_ik_resolve_main_ik_list(mRigNull, ml_ik_mid_controls=None):
     """
     Bezier CV mains for wire / subs / pickwalk.
@@ -1764,37 +1775,8 @@ def _segment_bezier_volume_squash_active(mBlock):
     return mBlock.getEnumValueString('squash') in ['simple', 'both']
 
 
-def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
-                                ml_handleJoints, ml_blendJoints, mRoot, mSettings,
-                                d_squash_share=None):
-    """Single-chain bezier spline on segmentJoints; CV anchors = handleJoints."""
-    import cgm.core.rig.ik_utils as IK
-    import cgm.core.rig.bezier_utils as RIGBEZIER
-
-    _str_func = 'segment_rig_segments_bezier'
-    if len(ml_segJoints) < 2:
-        log.warning('|{0}| >> need 2+ segment joints'.format(_str_func))
-        return
-
-    bezier_ik_reinit_session_meta(self)
-    ml_mains = segment_bezier_mains_from_handle_joints(mRigNull, mBlock)
-    if len(ml_mains) < 2:
-        log.warning('|{0}| >> need 2+ bezier mains'.format(_str_func))
-        return
-
-    md_subs = dict(self.md_bezierIKSubsBySlot or {})
-    if not md_subs:
-        for mMain in ml_mains:
-            str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
-            ml_slot = mRigNull.msgList_get(bezier_ik_slot_msglist_attr(str_slot))
-            if ml_slot:
-                md_subs[str_slot] = ml_slot
-
-    ml_bezier_subs_per_main = []
-    for mMain in ml_mains:
-        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
-        ml_bezier_subs_per_main.append(list(md_subs.get(str_slot, [])))
-
+def _segment_bezier_rig_segments_joint_chain(self, ml_segJoints, mRoot):
+    """Parent segmentJoints, segMeasure scale, spline-end dup for ikSpline span."""
     for mJnt in ml_segJoints:
         mJnt.drawStyle = 2
         ATTR.set(mJnt.mNode, 'radius', 0)
@@ -1816,6 +1798,179 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
     m_ik_spline_end.rename('{0}_splineEnd'.format(ml_segJoints[-1].p_nameBase))
     ml_ik_use[-1] = m_ik_spline_end
     m_ik_spline_end.p_parent = ml_segJoints[-1].p_parent
+
+    return ml_ik_use, m_ik_spline_end, mPlug_masterScale, mMasterCurve
+
+
+def _segment_bezier_rig_segments_stretch(
+        self, mBlock, mRigNull, ml_ik_use, m_driver_curve, mSettings,
+        mPlug_masterScale, d_squash_share, str_base):
+    """bezier_spline_stretch on segment ik span; sets d_segmentBezierStretch."""
+    import cgm.core.rig.ik_utils as IK
+
+    if not _segment_bezier_should_run_spline_stretch(self, mBlock):
+        return
+
+    _b_volume_squash = _segment_bezier_volume_squash_active(mBlock)
+    _str_aim = bezier_ik_stretch_aim_axis(self)
+    _squash_main = (
+        (d_squash_share or {}).get('squashStretchMain')
+        or (getattr(self, 'd_squashStretch', None) or {}).get('squashStretchMain')
+        or 'arcLength')
+    if mBlock.squashMeasure:
+        _squash_main = mBlock.getEnumValueString('squashMeasure') or _squash_main
+
+    b_scale_stretch = self.str_segmentStretchBy == 'scale'
+    for mJnt in ml_ik_use:
+        mJnt.segmentScaleCompensate = b_scale_stretch
+
+    d_stretch = IK.bezier_spline_stretch(
+        jointList=[mObj.mNode for mObj in ml_ik_use],
+        mDriverCurve=m_driver_curve,
+        mSettings=mSettings,
+        aimAxis=_str_aim,
+        stretchBy=self.str_segmentStretchBy,
+        globalScalePlug=mPlug_masterScale.p_combinedShortName if mPlug_masterScale else None,
+        baseName=str_base,
+        squashStretchMain=_squash_main,
+        extraSquashControl=mBlock.squashExtraControl if _b_volume_squash else False,
+        extraInflateControl=False,
+        squashFactorMin=mBlock.squashFactorMin,
+        squashFactorMax=mBlock.squashFactorMax,
+        squashFactorMode=self.str_squashFactorMode,
+        parentGutsTo=mRigNull,
+        inflateDriveDirectParents=False,
+        useUndoChunk=False)
+    self.d_segmentBezierStretch = d_stretch
+
+    if mSettings:
+        if mSettings.hasAttr('stretch'):
+            ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
+            ATTR.set(mSettings.mNode, 'stretch', 1.0)
+        if mSettings.hasAttr('squash'):
+            if _b_volume_squash:
+                ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+                ATTR.set(mSettings.mNode, 'squash', 1.0)
+            else:
+                ATTR.set_default(mSettings.mNode, 'squash', 0.0)
+                ATTR.set(mSettings.mNode, 'squash', 0.0)
+
+
+def segment_rig_segments_bezier_shared_module_curve(
+        self, mRigNull, mBlock, mModule, ml_segJoints, mRoot, mSettings,
+        mModuleBezier, mModuleDriver, d_squash_share=None):
+    """
+    segmentJoints ikSpline on module bezierIKCurve (wired in rig_frame).
+    No handle-joint CV wire; does not replace rigNull bezierIK* messages.
+    """
+    import cgm.core.rig.ik_utils as IK
+
+    _str_func = 'segment_rig_segments_bezier_shared_module_curve'
+    ml_ik_use, m_ik_spline_end, mPlug_masterScale, mMasterCurve = (
+        _segment_bezier_rig_segments_joint_chain(self, ml_segJoints, mRoot))
+
+    ml_bezier_main_ik = bezier_ik_resolve_main_ik_list(
+        mRigNull, getattr(self, 'ml_ikMidControls', None))
+    int_bezier_sections = max(1, len(ml_bezier_main_ik) - 1)
+    str_base = '{0}_seg_shared'.format(self.d_module['partName'])
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'sharedModuleCurve:True | segJoints:{0} | moduleCurve:{1} | driver:{2} | '
+        'ikMains:{3} sections:{4}'.format(
+            len(ml_ik_use),
+            mModuleBezier.p_nameShort,
+            mModuleDriver.p_nameShort,
+            len(ml_bezier_main_ik),
+            int_bezier_sections)))
+
+    cgmGEN._reloadMod(IK)
+    res_bezier = IK.bezier_spline(
+        jointList=[mObj.mNode for mObj in ml_ik_use],
+        baseName=str_base,
+        bezierSections=int_bezier_sections,
+        bezierAnchorMode=block_bezier_anchor_mode(mBlock),
+        useBezierCurve=mModuleBezier,
+        advancedTwistSetup=True,
+        moduleInstance=mModule,
+        parentGutsTo=mRigNull,
+        useUndoChunk=False)
+
+    m_seg_driver = res_bezier['mDriverCurve']
+    m_seg_ik_handle = res_bezier['mIKHandle']
+
+    mRigNull.connectChildNode(
+        m_seg_ik_handle.mNode, 'segmentBezierIKSplineHandle', 'rigNull')
+
+    ml_guts_vis = [m_seg_driver, m_seg_ik_handle, mMasterCurve]
+    self.fnc_connect_toRigGutsVis(ml_guts_vis)
+
+    if mPlug_masterScale and m_seg_driver.hasAttr('masterScale'):
+        m_seg_driver.doConnectIn(
+            'masterScale', mPlug_masterScale.p_combinedShortName)
+
+    mc.pointConstraint(
+        [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
+
+    _segment_bezier_rig_segments_stretch(
+        self, mBlock, mRigNull, ml_ik_use, mModuleDriver, mSettings,
+        mPlug_masterScale, d_squash_share, str_base)
+
+    if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
+        m_plug_ik_on = cgmMeta.cgmAttr(mSettings.mNode, 'result_IKon')
+        rig_frame_bezier_ik_track_vis(
+            mRigNull, m_plug_ik_on, ml_track_curves=self.ml_bezierIKTrackCurves)
+
+    log.debug(cgmGEN._str_subLine)
+
+
+def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
+                                ml_handleJoints, ml_blendJoints, mRoot, mSettings,
+                                d_squash_share=None):
+    """Single-chain bezier spline on segmentJoints; CV anchors = handleJoints."""
+    import cgm.core.rig.ik_utils as IK
+    import cgm.core.rig.bezier_utils as RIGBEZIER
+
+    _str_func = 'segment_rig_segments_bezier'
+    if len(ml_segJoints) < 2:
+        log.warning('|{0}| >> need 2+ segment joints'.format(_str_func))
+        return
+
+    if segment_bezier_uses_module_ik_curve(mBlock):
+        m_module_bezier = mRigNull.getMessageAsMeta('bezierIKCurve')
+        m_module_driver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
+        if m_module_bezier and m_module_driver:
+            bezier_ik_reinit_session_meta(self)
+            segment_rig_segments_bezier_shared_module_curve(
+                self, mRigNull, mBlock, mModule, ml_segJoints, mRoot, mSettings,
+                m_module_bezier, m_module_driver, d_squash_share=d_squash_share)
+            return
+        log.warning(cgmGEN.logString_msg(
+            _str_func,
+            'sharedModuleCurve:False | missing module bezier on rigNull — '
+            'fallback handle-joint bezier'))
+
+    bezier_ik_reinit_session_meta(self)
+    ml_mains = segment_bezier_mains_from_handle_joints(mRigNull, mBlock)
+    if len(ml_mains) < 2:
+        log.warning('|{0}| >> need 2+ bezier mains'.format(_str_func))
+        return
+
+    md_subs = dict(self.md_bezierIKSubsBySlot or {})
+    if not md_subs:
+        for mMain in ml_mains:
+            str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+            ml_slot = mRigNull.msgList_get(bezier_ik_slot_msglist_attr(str_slot))
+            if ml_slot:
+                md_subs[str_slot] = ml_slot
+
+    ml_bezier_subs_per_main = []
+    for mMain in ml_mains:
+        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
+        ml_bezier_subs_per_main.append(list(md_subs.get(str_slot, [])))
+
+    ml_ik_use, m_ik_spline_end, mPlug_masterScale, mMasterCurve = (
+        _segment_bezier_rig_segments_joint_chain(self, ml_segJoints, mRoot))
 
     str_base = '{0}_seg_bezier'.format(self.d_module['partName'])
     int_bezier_sections = max(1, len(ml_mains) - 1)
@@ -1878,50 +2033,9 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
     mc.pointConstraint(
         [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
 
-    if _segment_bezier_should_run_spline_stretch(self, mBlock):
-        _b_volume_squash = _segment_bezier_volume_squash_active(mBlock)
-        _str_aim = bezier_ik_stretch_aim_axis(self)
-        _squash_main = (
-            (d_squash_share or {}).get('squashStretchMain')
-            or (getattr(self, 'd_squashStretch', None) or {}).get('squashStretchMain')
-            or 'arcLength')
-        if mBlock.squashMeasure:
-            _squash_main = mBlock.getEnumValueString('squashMeasure') or _squash_main
-
-        b_scale_stretch = self.str_segmentStretchBy == 'scale'
-        for mJnt in ml_ik_use:
-            mJnt.segmentScaleCompensate = b_scale_stretch
-
-        d_stretch = IK.bezier_spline_stretch(
-            jointList=[mObj.mNode for mObj in ml_ik_use],
-            mDriverCurve=m_driver_curve,
-            mSettings=mSettings,
-            aimAxis=_str_aim,
-            stretchBy=self.str_segmentStretchBy,
-            globalScalePlug=mPlug_masterScale.p_combinedShortName if mPlug_masterScale else None,
-            baseName=str_base,
-            squashStretchMain=_squash_main,
-            extraSquashControl=mBlock.squashExtraControl if _b_volume_squash else False,
-            extraInflateControl=False,
-            squashFactorMin=mBlock.squashFactorMin,
-            squashFactorMax=mBlock.squashFactorMax,
-            squashFactorMode=self.str_squashFactorMode,
-            parentGutsTo=mRigNull,
-            inflateDriveDirectParents=False,
-            useUndoChunk=False)
-        self.d_segmentBezierStretch = d_stretch
-
-        if mSettings:
-            if mSettings.hasAttr('stretch'):
-                ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
-                ATTR.set(mSettings.mNode, 'stretch', 1.0)
-            if mSettings.hasAttr('squash'):
-                if _b_volume_squash:
-                    ATTR.set_default(mSettings.mNode, 'squash', 1.0)
-                    ATTR.set(mSettings.mNode, 'squash', 1.0)
-                else:
-                    ATTR.set_default(mSettings.mNode, 'squash', 0.0)
-                    ATTR.set(mSettings.mNode, 'squash', 0.0)
+    _segment_bezier_rig_segments_stretch(
+        self, mBlock, mRigNull, ml_ik_use, m_driver_curve, mSettings,
+        mPlug_masterScale, d_squash_share, str_base)
 
     if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
         m_plug_ik_on = cgmMeta.cgmAttr(mSettings.mNode, 'result_IKon')
