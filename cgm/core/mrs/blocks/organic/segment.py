@@ -3624,21 +3624,15 @@ def rig_segments(self):
                 ATTR.set(mSettings.mNode,'twistType',1)
                 
                 
-            mc.pointConstraint([mIKSplineEnd.mNode], ml_segJoints[-1].mNode, maintainOffset = True)
-            mIKSplineIKDriver = ml_segJoints[-1].doDuplicate()
-            mIKSplineIKDriver.rename("{}_splineControl".format(ml_segJoints[-1].p_nameBase))
-            mIKSplineIKDriver.p_parent =  ml_handleJoints[-1]
             mIKSplineEnd.dagLock()
 
-            
-            #Add follow setup here 07.10.22
-            mPlug_followIK = cgmMeta.cgmAttr(ml_handleJoints[-1].mNode,'followEnd',attrType='float',lock=False,keyable=True,defaultValue=1.0)
-            mPlug_followIK.p_value = 1.0
-            
-            #Setup blend ----------------------------------------------------------------------------------
-            RIGCONSTRAINT.blendChainsBy(mIKSplineEnd,mIKSplineIKDriver,ml_segJoints[-1],
-                                        driver = mPlug_followIK.p_combinedName,
-                                        l_constraints=['orient'])                                
+            BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                ml_segJoints[-1],
+                mIKSplineEnd,
+                ml_handleJoints[-1],
+                str_attr='followEnd',
+                f_default=0.0,
+                b_start=False)
             
 
 
@@ -4120,10 +4114,18 @@ def rig_frame(self):
                 for i, mJnt in enumerate(ml_ikJoints[1:]):
                     mJnt.p_parent = ml_ikJoints[i]
 
+                mIKSplineStart = None
+                ml_ikUse = copy.copy(ml_ikJoints)
+                if str_ikBase == 'hips':
+                    mIKSplineStart = ml_ikJoints[0].doDuplicate()
+                    mIKSplineStart.rename(
+                        '{0}_splineStart'.format(ml_ikJoints[0].p_nameBase))
+                    ml_ikUse[0] = mIKSplineStart
+                    mIKSplineStart.p_parent = ml_ikJoints[0].p_parent
+
                 mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
                 mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
 
-                ml_ikUse = copy.copy(ml_ikJoints)
                 ml_ikUse[-1] = mIKSplineEnd
 
                 mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
@@ -4165,21 +4167,27 @@ def rig_frame(self):
                     ATTR.set_default(mSettings.mNode, 'twistType', 1)
                     ATTR.set(mSettings.mNode, 'twistType', 1)
 
-                mc.pointConstraint([mIKSplineEnd.mNode], ml_ikJoints[-1].mNode, maintainOffset=True)
-                mIKSplineIKDriver = ml_ikJoints[-1].doDuplicate()
-                mIKSplineIKDriver.rename("{}_splineControl".format(ml_ikJoints[-1].p_nameBase))
-                mIKSplineIKDriver.p_parent = mIKControl
-
-                mPlug_followIK = cgmMeta.cgmAttr(
-                    mIKControl.mNode, 'followIK', attrType='float', lock=False,
-                    keyable=True, defaultValue=0.0)
-                mPlug_followIK.p_value = 0.0
-                ATTR.set_default(mIKControl.mNode, 'followIK', 0.0)
-
-                RIGCONSTRAINT.blendChainsBy(
-                    mIKSplineEnd, mIKSplineIKDriver, ml_ikJoints[-1],
-                    driver=mPlug_followIK.p_combinedName,
-                    l_constraints=['orient'])
+                m_end_follow = (
+                    mRigNull.getMessageAsMeta('bezierIKChainEnd') or mIKControl)
+                BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                    ml_ikJoints[-1],
+                    mIKSplineEnd,
+                    m_end_follow,
+                    str_attr='followIK',
+                    f_default=1.0,
+                    b_start=False)
+                if str_ikBase == 'hips' and mIKSplineStart:
+                    m_base_follow = (
+                        mRigNull.getMessageAsMeta('bezierIKChainStart')
+                        or mIKBaseControl)
+                    if m_base_follow:
+                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                            ml_ikJoints[0],
+                            mIKSplineStart,
+                            m_base_follow,
+                            str_attr='followIK',
+                            f_default=1.0,
+                            b_start=True)
 
                 if (self.b_scaleSetup
                         and mBlock.getEnumValueString('squash') == 'simple'):
@@ -4271,11 +4279,19 @@ def rig_frame(self):
                     ATTR.set(mSettings.mNode,'twistType',1)'''
                     for i,mJnt in enumerate(ml_ikJoints[1:]):
                         mJnt.p_parent = ml_ikJoints[i]
+
+                    mIKSplineStart = None
+                    ml_ikUse = copy.copy(ml_ikJoints)
+                    if str_ikBase == 'hips':
+                        mIKSplineStart = ml_ikJoints[0].doDuplicate()
+                        mIKSplineStart.rename(
+                            '{0}_splineStart'.format(ml_ikJoints[0].p_nameBase))
+                        ml_ikUse[0] = mIKSplineStart
+                        mIKSplineStart.p_parent = ml_ikJoints[0].p_parent
                         
                     mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
                     mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
                     
-                    ml_ikUse = copy.copy(ml_ikJoints)
                     ml_ikUse[-1] = mIKSplineEnd
                     
                     mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
@@ -4303,25 +4319,25 @@ def rig_frame(self):
                         ATTR.set(mSettings.mNode,'twistType',1)
                         
                         
-                    mc.pointConstraint([mIKSplineEnd.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)
-                    mIKSplineIKDriver = ml_ikJoints[-1].doDuplicate()
-                    mIKSplineIKDriver.rename("{}_splineControl".format(ml_ikJoints[-1].p_nameBase))
-                    mIKSplineIKDriver.p_parent = mIKControl
-                    #mIKSplineEnd.dagLock()#....why did I think locking this was a good idea
-                    #...this orient here isn't what we want?
-                    #mc.orientConstraint([mIKSplineEnd.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)                    
-                    
-                    #mc.orientConstraint([mIKControl.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)
-                    
-                    #Add follow setup here 07.10.22
-                    mPlug_followIK = cgmMeta.cgmAttr(mIKControl.mNode,'followIK',attrType='float',lock=False,keyable=True,defaultValue=1.0)
-                    mPlug_followIK.p_value = 1.0
-                    
-                    #Setup blend ----------------------------------------------------------------------------------
-                    RIGCONSTRAINT.blendChainsBy(mIKSplineEnd,mIKSplineIKDriver,ml_ikJoints[-1],
-                                                driver = mPlug_followIK.p_combinedName,
-                                                l_constraints=['orient'])                    
-                    
+                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                        ml_ikJoints[-1],
+                        mIKSplineEnd,
+                        mIKControl,
+                        str_attr='followIK',
+                        f_default=0.0,
+                        b_start=False)
+                    if str_ikBase == 'hips' and mIKSplineStart:
+                        m_base_follow = (
+                            mRigNull.getMessageAsMeta('bezierIKChainStart')
+                            or mIKBaseControl)
+                        if m_base_follow:
+                            BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                                ml_ikJoints[0],
+                                mIKSplineStart,
+                                m_base_follow,
+                                str_attr='followIK',
+                                f_default=0.0,
+                                b_start=True)
                     
                 else:
                     _d_ribbonShare = {'connectBy':'constraint',

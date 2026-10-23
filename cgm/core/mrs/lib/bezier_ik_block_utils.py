@@ -21,6 +21,7 @@ import cgm.core.lib.position_utils as POS
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.string_utils as CORESTRING
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
+import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 
 log = logging.getLogger(__name__)
 
@@ -900,6 +901,46 @@ def segment_bezier_ik_uses_hips_chain_mains(mBlock):
     if mBlock.getEnumValueString('ikBase') != 'hips':
         return False
     return True
+
+
+def segment_ik_spline_orient_follow_setup(m_skin_joint,
+                                          m_spline_span_joint,
+                                          m_follow_influence,
+                                          str_attr='followIK',
+                                          f_default=1.0,
+                                          b_start=False):
+    """
+    Spline IK orient follow on a skin joint (tip or root).
+
+    ``followIK`` / ``followEnd`` driver: **0** = solver span orient, **1** = follow
+    the influence transform hierarchy (swapped ``blendChainsBy`` chain order).
+    """
+    m_skin = cgmMeta.validateObjArg(m_skin_joint, 'cgmObject', noneValid=False)
+    m_span = cgmMeta.validateObjArg(m_spline_span_joint, 'cgmObject', noneValid=False)
+    m_infl = cgmMeta.validateObjArg(m_follow_influence, 'cgmObject', noneValid=False)
+
+    mc.pointConstraint([m_span.mNode], m_skin.mNode, maintainOffset=True)
+    m_spline_control = m_skin.doDuplicate()
+    if b_start:
+        m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
+    else:
+        m_spline_control.rename('{0}_splineControl'.format(m_skin.p_nameBase))
+    m_spline_control.p_parent = m_infl
+
+    m_plug_follow = cgmMeta.cgmAttr(
+        m_infl.mNode, str_attr, attrType='float', lock=False,
+        keyable=True, defaultValue=f_default)
+    m_plug_follow.p_value = f_default
+    ATTR.set_default(m_infl.mNode, str_attr, f_default)
+
+    RIGCONSTRAINT.blendChainsBy(
+        m_spline_control, m_span, m_skin,
+        driver=m_plug_follow.p_combinedName,
+        l_constraints=['orient'])
+    return {
+        'mSplineControl': m_spline_control,
+        'mPlug_follow': m_plug_follow,
+    }
 
 
 def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
