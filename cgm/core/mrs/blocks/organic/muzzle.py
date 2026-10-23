@@ -6670,7 +6670,6 @@ def rig_frame(self):
             mMuzzle.masterGroup.p_parent = self.mDeformNull
             
             mFollowParent = mMuzzle
-            mFollowParentUpr = mMuzzle
             mFollowBase = mMuzzle.doCreateAt('null',setClass=True)
             mFollowBase.rename('{0}_followBase'.format(self.d_module['partName']))
             mFollowBase.p_parent = self.mDeformNull
@@ -6678,13 +6677,15 @@ def rig_frame(self):
         if mJawUpr:
             log.debug("|{0}| >> Jaw upr setup...".format(_str_func))
             mJawUpr.masterGroup.p_parent = mFollowParent
-            if not mMuzzle:
-                mFollowParentUpr = mJawUpr            
         if mJaw:
             log.debug("|{0}| >> Jaw setup...".format(_str_func))
             mJaw.masterGroup.p_parent = mFollowParent
             if not mMuzzle:
                 mFollowParent = mJaw
+
+        # Upper-face follow (teeth upr, nose, sneer/cheekUpr tracks, upper lip): upper jaw, then muzzle, then lower jaw
+        mFollowParentUpr = mJawUpr or mMuzzle or mJaw or mDeformNull
+        log.debug("|{0}| >> mFollowParentUpr: {1}".format(_str_func,mFollowParentUpr))
                 
         mUprTeeth = mRigNull.getMessageAsMeta('controlTeethUpr')
         if mUprTeeth:
@@ -6738,9 +6739,7 @@ def rig_frame(self):
             ml_uprChain = self.md_handles['lipUpr']['right'][1:] + [mUprCenter] + ml_uprLeft#self.md_handles['lipUpr']['left'][1:]
             ml_lwrChain = self.md_handles['lipLwr']['right'] + [mLwrCenter] + ml_lwrLeft#self.md_handles['lipLwr']['left']
             
-            # Upper lip follow: upper jaw, then muzzle, then lower jaw (lip only — not mFollowParentUpr / teeth / nose)
-            mFollowParentUprLip = mJawUpr or mMuzzle or mJaw or mDeformNull
-            log.debug("|{0}| >> mFollowParentUprLip: {1}".format(_str_func,mFollowParentUprLip))
+            mFollowParentUprLip = mFollowParentUpr
             
                 
             for mHandle in mLeftCorner,mRightCorner:
@@ -7142,7 +7141,7 @@ def rig_frame(self):
                     mMainTrack.doStore('cgmName',mHandle)
                     mMainTrack.doStore('cgmType','mainTrack')
                     mMainTrack.doName()
-                    mMainTrack.p_parent = mJawUpr or mFollowParent
+                    mMainTrack.p_parent = mFollowParentUpr
                     
                     mJawTrack = mHandle.doCreateAt(setClass=1)
                     mJawTrack.doStore('cgmName',mHandle)
