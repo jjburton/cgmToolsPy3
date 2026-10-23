@@ -974,21 +974,22 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
     """
     Hips-style root orient follow without changing ``ml_ikUse[0]``.
 
-    ``m_ik_base_control`` is the module IK base (segment ``rig_frame`` uses
-    ``rigNull.controlIKBase``). Orient blend is on ``*_ikOrientFrame`` only —
-    ``ml_ikUse[0]`` (pelvis) is never a blend target. Driver **0** uses
-    ``*_ikOrientFrame`` orient (inherits pelvis IK via parenting), not pelvis.
+    ``m_ik_base_control`` is ``rigNull.controlIKBase`` on segment ``rig_frame``.
+
+    - **span** — ``*_ikOrientFrame`` dup; orient follow blend lands here.
+    - **follow** — dup under IK base; ``followIK`` driver **0**.
+    - **span parent** — ``ml_ikUse[0]`` ik pelvis; ``followIK`` driver **1**.
     """
-    m_root = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
+    m_pelvis = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
     m_base = cgmMeta.validateObjArg(m_ik_base_control, 'cgmObject', noneValid=False)
 
-    m_orient_frame = m_root.doDuplicate(po=True, ic=False)
-    m_orient_frame.rename('{0}_ikOrientFrame'.format(m_root.p_nameBase))
-    m_orient_frame.p_parent = m_root
+    m_span = m_pelvis.doDuplicate(po=True, ic=False)
+    m_span.rename('{0}_ikOrientFrame'.format(m_pelvis.p_nameBase))
+    m_span.p_parent = m_pelvis
 
-    m_follow_orient = m_root.doDuplicate(po=True, ic=False)
-    m_follow_orient.rename('{0}_splineControlStart'.format(m_root.p_nameBase))
-    m_follow_orient.p_parent = m_base
+    m_follow = m_pelvis.doDuplicate(po=True, ic=False)
+    m_follow.rename('{0}_splineControlStart'.format(m_pelvis.p_nameBase))
+    m_follow.p_parent = m_base
 
     m_plug_follow = cgmMeta.cgmAttr(
         m_base.mNode, str_attr, attrType='float', lock=False,
@@ -998,20 +999,19 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_base_orient_follow_setup',
-        '{0} on {1} | ikUse[0]:{2} orientFrame:{3} (driver 0 = orientFrame)'.format(
-            str_attr, m_base.p_nameShort, m_root.p_nameShort,
-            m_orient_frame.p_nameShort)))
+        '{0} on {1} | span:{2} follow:{3} pelvis:{4}'.format(
+            str_attr, m_base.p_nameShort, m_span.p_nameShort,
+            m_follow.p_nameShort, m_pelvis.p_nameShort)))
 
-    # Parallel to end: driver 0 = span side (ikOrientFrame, not pelvis ik joint).
-    # orientConstraint([orientFrame, follow], orientFrame) — MO keeps pelvis-IK inherit at 0.
+    mc.pointConstraint([m_pelvis.mNode], m_span.mNode, maintainOffset=True)
     RIGCONSTRAINT.blendChainsBy(
-        m_follow_orient, m_orient_frame, m_orient_frame,
+        m_pelvis, m_follow, m_span,
         driver=m_plug_follow.p_combinedName,
-        l_constraints=['orient'],
-        maintainOffset=True)
+        l_constraints=['orient'])
     return {
-        'mIkOrientFrame': m_orient_frame,
-        'mSplineControlStart': m_follow_orient,
+        'mSpan': m_span,
+        'mFollow': m_follow,
+        'mIkPelvis': m_pelvis,
         'mPlug_follow': m_plug_follow,
     }
 
