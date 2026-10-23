@@ -6738,6 +6738,9 @@ def rig_frame(self):
             ml_uprChain = self.md_handles['lipUpr']['right'][1:] + [mUprCenter] + ml_uprLeft#self.md_handles['lipUpr']['left'][1:]
             ml_lwrChain = self.md_handles['lipLwr']['right'] + [mLwrCenter] + ml_lwrLeft#self.md_handles['lipLwr']['left']
             
+            # Upper lip follow: upper jaw, then muzzle, then lower jaw (lip only — not mFollowParentUpr / teeth / nose)
+            mFollowParentUprLip = mJawUpr or mMuzzle or mJaw or mDeformNull
+            log.debug("|{0}| >> mFollowParentUprLip: {1}".format(_str_func,mFollowParentUprLip))
             
                 
             for mHandle in mLeftCorner,mRightCorner:
@@ -6754,7 +6757,7 @@ def rig_frame(self):
                     mMainTrack.doStore('cgmName',mHandle)
                     mMainTrack.doStore('cgmType','mainTrack')
                     mMainTrack.doName()
-                    mMainTrack.p_parent = mJawUpr or mFollowParent
+                    mMainTrack.p_parent = mFollowParentUprLip
                     
                     
                     mJawTrack = mHandle.doCreateAt(setClass=1)
@@ -6812,8 +6815,8 @@ def rig_frame(self):
             else:
                 mLwrCenter.masterGroup.p_parent = mMouth
             
-            if mJawUpr:
-                mUprCenter.masterGroup.p_parent = mFollowParentUpr
+            if mJawUpr or mMuzzle or mJaw:
+                mUprCenter.masterGroup.p_parent = mFollowParentUprLip
             else:
                 mUprCenter.masterGroup.p_parent = mMouth
                 
@@ -6854,8 +6857,9 @@ def rig_frame(self):
                     mSkinCluster.doStore('cgmName', mControlSurface)
                     mSkinCluster.doName()
     
+                    _lipFollowParent = mFollowParentUprLip if k == 'upr' else mFollowParent
                     for mHandle in d['mHandles']:
-                        mHandle.masterGroup.p_parent = mFollowParent
+                        mHandle.masterGroup.p_parent = _lipFollowParent
                         _resAttach = RIGCONSTRAINT.attach_toShape(mHandle.masterGroup.mNode,
                                                                   mControlSurface.mNode,
                                                                   'conParent')
@@ -6871,7 +6875,7 @@ def rig_frame(self):
             elif self.str_lipMidFollowSetup == 'parent':
                 d_lipSetup = {'upr':{'left':self.md_handles['lipUpr']['left'][1:],
                                      'right':self.md_handles['lipUpr']['right'][1:],
-                                     'parent':mFollowParentUpr},
+                                     'parent':mFollowParentUprLip},
                               
                               
                               'lwr':{'left':self.md_handles['lipLwr']['left'],
@@ -6904,14 +6908,15 @@ def rig_frame(self):
                     ml_left = d['left']
                     ml_right = d['right']
                     mInfluences = d['mInfluences']
+                    _lipFollowParent = mFollowParentUprLip if k == 'upr' else mFollowParent
 
                     for mHandle in ml_left:
-                        mHandle.masterGroup.p_parent = mFollowParent
+                        mHandle.masterGroup.p_parent = _lipFollowParent
                         mc.parentConstraint([mObj.mNode for mObj in mInfluences[1:]],
                                            mHandle.masterGroup.mNode,
                                            maintainOffset=True, weight=1)
                     for mHandle in ml_right:
-                        mHandle.masterGroup.p_parent = mFollowParent
+                        mHandle.masterGroup.p_parent = _lipFollowParent
                         mc.parentConstraint([mObj.mNode for mObj in mInfluences[:2]],
                                            mHandle.masterGroup.mNode,
                                            maintainOffset=True, weight=1)
@@ -6972,9 +6977,10 @@ def rig_frame(self):
                     ml_left = d['left']
                     ml_right = d['right']
                     mInfluences = d['mInfluences']
+                    _lipFollowParent = mFollowParentUprLip if k == 'upr' else mFollowParent
                     
                     for mHandle in ml_left:
-                        mHandle.masterGroup.p_parent = mFollowParent                        
+                        mHandle.masterGroup.p_parent = _lipFollowParent                        
                         mc.pointConstraint([mObj.mNode for mObj in mInfluences[1:]],
                                             mHandle.masterGroup.mNode,
                                             maintainOffset = True, weight = 1)
@@ -6982,7 +6988,7 @@ def rig_frame(self):
                                             mHandle.masterGroup.mNode,
                                             maintainOffset = True, weight = 1)
                     for mHandle in ml_right:
-                        mHandle.masterGroup.p_parent = mFollowParent                        
+                        mHandle.masterGroup.p_parent = _lipFollowParent                        
                         mc.pointConstraint([mObj.mNode for mObj in mInfluences[:2]],
                                             mHandle.masterGroup.mNode,
                                             maintainOffset = True, weight = 1)
