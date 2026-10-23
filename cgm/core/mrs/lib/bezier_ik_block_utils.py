@@ -976,15 +976,15 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
 
     ``m_ik_base_control`` is the module IK base (segment ``rig_frame`` uses
     ``rigNull.controlIKBase``). Orient blend is on ``*_ikOrientFrame`` only —
-    ``ml_ikUse[0]`` (``m_ik_root``) is never an orientConstraint target here.
-    Solver-side blend input is ``m_ik_root``; follow dup under IK base.
+    ``ml_ikUse[0]`` (pelvis) is never a blend target. Driver **0** uses
+    ``*_ikOrientFrame`` orient (inherits pelvis IK via parenting), not pelvis.
     """
     m_root = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
     m_base = cgmMeta.validateObjArg(m_ik_base_control, 'cgmObject', noneValid=False)
 
-    m_blend_frame = m_root.doDuplicate(po=True, ic=False)
-    m_blend_frame.rename('{0}_ikOrientFrame'.format(m_root.p_nameBase))
-    m_blend_frame.p_parent = m_root
+    m_orient_frame = m_root.doDuplicate(po=True, ic=False)
+    m_orient_frame.rename('{0}_ikOrientFrame'.format(m_root.p_nameBase))
+    m_orient_frame.p_parent = m_root
 
     m_follow_orient = m_root.doDuplicate(po=True, ic=False)
     m_follow_orient.rename('{0}_splineControlStart'.format(m_root.p_nameBase))
@@ -998,18 +998,19 @@ def segment_ik_base_orient_follow_setup(m_ik_root,
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_base_orient_follow_setup',
-        '{0} on {1} | ik[0]:{2} orientFrame:{3}'.format(
+        '{0} on {1} | ikUse[0]:{2} orientFrame:{3} (driver 0 = orientFrame)'.format(
             str_attr, m_base.p_nameShort, m_root.p_nameShort,
-            m_blend_frame.p_nameShort)))
+            m_orient_frame.p_nameShort)))
 
-    # Same driver contract as end follow: 0 = IK span/root orient, 1 = follow control.
-    # Blend target is ikOrientFrame (not pelvis — IK handle owns that joint).
+    # Parallel to end: driver 0 = span side (ikOrientFrame, not pelvis ik joint).
+    # orientConstraint([orientFrame, follow], orientFrame) — MO keeps pelvis-IK inherit at 0.
     RIGCONSTRAINT.blendChainsBy(
-        m_follow_orient, m_root, m_blend_frame,
+        m_follow_orient, m_orient_frame, m_orient_frame,
         driver=m_plug_follow.p_combinedName,
-        l_constraints=['orient'])
+        l_constraints=['orient'],
+        maintainOffset=True)
     return {
-        'mIkOrientFrame': m_blend_frame,
+        'mIkOrientFrame': m_orient_frame,
         'mSplineControlStart': m_follow_orient,
         'mPlug_follow': m_plug_follow,
     }
