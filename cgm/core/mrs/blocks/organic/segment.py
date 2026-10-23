@@ -2049,6 +2049,10 @@ def rig_prechecks(self):
             if mBlock.numControls < 2:
                 self.l_precheckErrors.append(
                     'segmentType bezier requires at least 2 controls')
+            if str_ikSetup == 'bezier':
+                self.l_precheckErrors.append(
+                    'Bezier/bezier is not a viable path. '
+                    'Bezier/Ribbon or Bezier/Parent is recommended')
 
         if mBlock.getEnumValueString('squashMeasure') == 'pointDist':
             self.l_precheckWarnings.append(
@@ -3561,10 +3565,9 @@ def rig_segments(self):
 
         
         if self.str_segmentType in ['ribbon', 'ribbonLive']:
-            if self.str_segmentStretchBy == 'scale':
-                _d['setupAimScale'] = True
-            else:
-                _d['setupAimScale'] = False
+            _d['setupAimScale'] = (
+                self.str_segmentStretchBy == 'scale'
+                and not mBlock.squashSkipAim)
 
             _d['liveSurface'] = self.str_segmentType == 'ribbonLive'
             #log.info(cgmGEN.logString_sub,_str_func,"segment dict...")
@@ -3644,9 +3647,10 @@ def rig_segments(self):
         else:
             _l_segJoints = _d['jointList']
             _ml_segTmp = cgmMeta.asMeta(_l_segJoints)
-            _d['setupAim'] = 1                
-            if self.str_segmentStretchBy == 'scale':
-                _d['setupAimScale'] = True
+            _d['setupAim'] = 1
+            _d['setupAimScale'] = (
+                self.str_segmentStretchBy == 'scale'
+                and not mBlock.squashSkipAim)
             #_d['attachEndToInfluence'] = False                
             pprint.pprint(_d)
             IK.curve(**_d)
@@ -4184,14 +4188,18 @@ def rig_frame(self):
                     _b_ik_volume_squash = (
                         BEZIERIKBLOCK.segment_bezier_ik_module_chain_volume_squash(
                             mBlock, self.str_segmentType))
+                    _squash_main = (
+                        BEZIERIKBLOCK.segment_bezier_ik_module_chain_stretch_squash_measure(
+                            mBlock, self.str_segmentType, self.d_squashStretch))
                     log.info(cgmGEN.logString_msg(
                         _str_func,
                         'bezier_spline_stretch | aim:{0} stretchBy:{1} joints:{2} '
-                        'segmentType:{3} ikVolumeSquash:{4}'.format(
+                        'segmentType:{3} measure:{4} ikVolumeSquash:{5}'.format(
                             _str_aim,
                             self.str_segmentStretchBy,
                             len(ml_ikUse),
                             self.str_segmentType,
+                            _squash_main,
                             _b_ik_volume_squash)))
                     d_stretchInflate = IK.bezier_spline_stretch(
                         jointList=[mObj.mNode for mObj in ml_ikUse],
@@ -4201,8 +4209,7 @@ def rig_frame(self):
                         stretchBy=self.str_segmentStretchBy,
                         globalScalePlug=mPlug_masterScale.p_combinedName,
                         baseName='{0}_bezier'.format(self.d_module['partName']),
-                        squashStretchMain=self.d_squashStretch.get(
-                            'squashStretchMain') or 'arcLength',
+                        squashStretchMain=_squash_main,
                         extraSquashControl=(
                             mBlock.squashExtraControl if _b_ik_volume_squash else False),
                         extraInflateControl=False,
@@ -4211,6 +4218,7 @@ def rig_frame(self):
                         squashFactorMode=self.str_squashFactorMode,
                         parentGutsTo=mRigNull,
                         inflateDriveDirectParents=False,
+                        applyVolumeSquash=_b_ik_volume_squash,
                         useUndoChunk=False)
                     self.d_stretchInflateRes = d_stretchInflate
                     if mSettings and mSettings.hasAttr('squash'):

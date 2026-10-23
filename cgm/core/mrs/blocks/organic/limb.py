@@ -8337,10 +8337,10 @@ def rig_segments(self):
                 #reload(IK)
                 _d['parentDeformTo'] = ml_blendJoints[i].getMessageAsMeta('scaleJoint') or ml_blendJoints[i]
                 _d['setupAim'] = 1
-                if self.str_segmentStretchBy == 'scale':
-                    _d['setupAimScale'] = True
-                    
-                    
+                _d['setupAimScale'] = (
+                    self.str_segmentStretchBy == 'scale'
+                    and not mBlock.squashSkipAim)
+
                 if i == l_rollKeys[-1] and not self.b_extraHandles:
                     log.debug("|{0}| >> Last segment, buildEnd dag attachEndToInfluence = on".format(_str_func))                    
                     _d['attachEndToInfluence'] = True
@@ -8364,10 +8364,9 @@ def rig_segments(self):
 
             else:
                 _d['parentDeformTo'] = ml_blendJoints[i]
-                if self.str_segmentStretchBy == 'scale':
-                    _d['setupAimScale'] = True
-                else:
-                    _d['setupAimScale'] = False
+                _d['setupAimScale'] = (
+                    self.str_segmentStretchBy == 'scale'
+                    and not mBlock.squashSkipAim)
                 _d['liveSurface'] = _type == 'ribbonLive'
                 
                 pprint.pprint(_d)

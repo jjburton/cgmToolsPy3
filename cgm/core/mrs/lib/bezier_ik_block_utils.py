@@ -917,6 +917,23 @@ def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
     return str_segment_type == 'parent'
 
 
+def segment_bezier_ik_module_chain_stretch_squash_measure(
+        mBlock, str_segment_type, d_squash_share=None):
+    """
+    ``squashStretchMain`` for module **ik** ``bezier_spline_stretch``.
+
+    Non-**parent** segment types always use **arcLength** (no pointDist POCI on IK).
+    **parent** uses block ``squashMeasure`` / shared squash kwargs.
+    """
+    if not segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
+        return 'arcLength'
+    _squash_main = (
+        (d_squash_share or {}).get('squashStretchMain') or 'arcLength')
+    if mBlock and mBlock.squashMeasure:
+        return mBlock.getEnumValueString('squashMeasure') or _squash_main
+    return _squash_main
+
+
 def segment_bezier_uses_module_ik_curve(mBlock):
     """segmentType=bezier + ikSetup=bezier: segment deform shares module bezierIKCurve."""
     if not mBlock:
