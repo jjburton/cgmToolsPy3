@@ -1862,14 +1862,29 @@ def _segment_bezier_rig_segments_stretch(
                 ATTR.set(mSettings.mNode, 'squash', 0.0)
 
 
+def _segment_bezier_ik_subs_per_main_from_rig(self, mRigNull, ml_bezier_main_ik):
+    """Parallel sub lists for module IK bezier mains (rig_frame wire order)."""
+    m_slot_base = mRigNull.getMessageAsMeta('bezierIKChainStart') or ml_bezier_main_ik[0]
+    m_slot_end = mRigNull.getMessageAsMeta('bezierIKChainEnd') or ml_bezier_main_ik[-1]
+    ml_bezier_subs_per_main = []
+    for mMain in ml_bezier_main_ik:
+        str_slot = rig_shapes_bezier_main_slot_key(
+            mMain, ml_bezier_main_ik, m_slot_base, m_slot_end)
+        ml_bezier_subs_per_main.append(
+            list((self.md_bezierIKSubsBySlot or {}).get(str_slot, [])))
+    return ml_bezier_subs_per_main
+
+
 def segment_rig_segments_bezier_shared_module_curve(
         self, mRigNull, mBlock, mModule, ml_segJoints, mRoot, mSettings,
-        mModuleBezier, mModuleDriver, d_squash_share=None):
+        d_squash_share=None):
     """
-    segmentJoints ikSpline on module bezierIKCurve (wired in rig_frame).
-    No handle-joint CV wire; does not replace rigNull bezierIK* messages.
+    segmentType=bezier + ikSetup=bezier: own bezierIKCurve + driver on segmentJoints
+    (avoids DG cycles from reusing module bezier shape). CVs driven from the same
+    module IK bezier mains/subs already wired on bezierIKCurve in rig_frame.
     """
     import cgm.core.rig.ik_utils as IK
+    import cgm.core.rig.bezier_utils as RIGBEZIER
 
     _str_func = 'segment_rig_segments_bezier_shared_module_curve'
     ml_ik_use, m_ik_spline_end, mPlug_masterScale, mMasterCurve = (
@@ -1877,18 +1892,19 @@ def segment_rig_segments_bezier_shared_module_curve(
 
     ml_bezier_main_ik = bezier_ik_resolve_main_ik_list(
         mRigNull, getattr(self, 'ml_ikMidControls', None))
+    if len(ml_bezier_main_ik) < 2:
+        log.warning('|{0}| >> need 2+ module IK bezier mains'.format(_str_func))
+        return
+
+    ml_bezier_subs_per_main = _segment_bezier_ik_subs_per_main_from_rig(
+        self, mRigNull, ml_bezier_main_ik)
     int_bezier_sections = max(1, len(ml_bezier_main_ik) - 1)
-    str_base = '{0}_seg_shared'.format(self.d_module['partName'])
+    str_base = '{0}_seg_ikBezier'.format(self.d_module['partName'])
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'sharedModuleCurve:True | segJoints:{0} | moduleCurve:{1} | driver:{2} | '
-        'ikMains:{3} sections:{4}'.format(
-            len(ml_ik_use),
-            mModuleBezier.p_nameShort,
-            mModuleDriver.p_nameShort,
-            len(ml_bezier_main_ik),
-            int_bezier_sections)))
+        'parallelSegmentCurve:True | segJoints:{0} | ikMains:{1} sections:{2}'.format(
+            len(ml_ik_use), len(ml_bezier_main_ik), int_bezier_sections)))
 
     cgmGEN._reloadMod(IK)
     res_bezier = IK.bezier_spline(
@@ -1896,30 +1912,59 @@ def segment_rig_segments_bezier_shared_module_curve(
         baseName=str_base,
         bezierSections=int_bezier_sections,
         bezierAnchorMode=block_bezier_anchor_mode(mBlock),
-        useBezierCurve=mModuleBezier,
         advancedTwistSetup=True,
         moduleInstance=mModule,
         parentGutsTo=mRigNull,
         useUndoChunk=False)
 
+    m_seg_bezier = res_bezier['mBezierCurve']
     m_seg_driver = res_bezier['mDriverCurve']
     m_seg_ik_handle = res_bezier['mIKHandle']
 
     mRigNull.connectChildNode(
+        m_seg_bezier.mNode, 'segmentBezierIKCurve', 'rigNull')
+    mRigNull.connectChildNode(
+        m_seg_driver.mNode, 'segmentBezierIKDriverCurve', 'rigNull')
+    mRigNull.connectChildNode(
         m_seg_ik_handle.mNode, 'segmentBezierIKSplineHandle', 'rigNull')
 
-    ml_guts_vis = [m_seg_driver, m_seg_ik_handle, mMasterCurve]
+    res_wire = RIGBEZIER.bezier_controls_wire_from_handles(
+        m_seg_bezier,
+        ml_anchorControls=ml_bezier_main_ik,
+        ml_subs_per_main=ml_bezier_subs_per_main,
+        baseName=str_base,
+        templateCurve=True,
+        snapHandles=False)
+
+    m_seg_controls_grp = res_wire.get('mControlsGroup')
+    if m_seg_controls_grp:
+        mRigNull.connectChildNode(
+            m_seg_controls_grp.mNode, 'segmentBezierIKControlsGrp', 'rigNull')
+
+    ml_guts_vis = [
+        m_seg_bezier, m_seg_driver, m_seg_ik_handle, mMasterCurve]
+    if m_seg_controls_grp:
+        ml_guts_vis.append(m_seg_controls_grp)
     self.fnc_connect_toRigGutsVis(ml_guts_vis)
 
     if mPlug_masterScale and m_seg_driver.hasAttr('masterScale'):
         m_seg_driver.doConnectIn(
             'masterScale', mPlug_masterScale.p_combinedShortName)
 
+    bezier_ik_connect_spline_advanced_twist(
+        m_seg_driver,
+        m_seg_ik_handle,
+        mBlock,
+        self.d_orientation,
+        mWorldUpStart=ml_bezier_main_ik[0],
+        mWorldUpEnd=ml_bezier_main_ik[-1],
+        wire_driver_twist_from_mains=False)
+
     mc.pointConstraint(
         [m_ik_spline_end.mNode], ml_segJoints[-1].mNode, maintainOffset=True)
 
     _segment_bezier_rig_segments_stretch(
-        self, mBlock, mRigNull, ml_segJoints, ml_ik_use, mModuleDriver, mSettings,
+        self, mBlock, mRigNull, ml_segJoints, ml_ik_use, m_seg_driver, mSettings,
         mPlug_masterScale, d_squash_share, str_base)
 
     if mSettings and mc.attributeQuery('result_IKon', node=mSettings.mNode, exists=True):
@@ -1949,11 +1994,11 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
             bezier_ik_reinit_session_meta(self)
             segment_rig_segments_bezier_shared_module_curve(
                 self, mRigNull, mBlock, mModule, ml_segJoints, mRoot, mSettings,
-                m_module_bezier, m_module_driver, d_squash_share=d_squash_share)
+                d_squash_share=d_squash_share)
             return
         log.warning(cgmGEN.logString_msg(
             _str_func,
-            'sharedModuleCurve:False | missing module bezier on rigNull — '
+            'parallelSegmentCurve:False | missing module bezier on rigNull — '
             'fallback handle-joint bezier'))
 
     bezier_ik_reinit_session_meta(self)
