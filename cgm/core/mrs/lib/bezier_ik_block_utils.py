@@ -967,53 +967,65 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
     }
 
 
-def segment_ik_base_orient_follow_setup(m_ik_root,
+def segment_ik_base_orient_follow_setup(m_segment,
+                                        m_ik_pelvis,
                                         m_ik_base_control,
                                         str_attr='followIK',
                                         f_default=1.0):
     """
-    Hips-style root orient follow without changing ``ml_ikUse[0]``.
+    Hips ``rig_frame``: ``followIK`` orient on ``*_ikOrientFrame``; ``ml_ikUse[0]`` unchanged.
 
-    ``m_ik_base_control`` is ``rigNull.controlIKBase`` on segment ``rig_frame``.
+    ``m_segment`` — segment block build instance (``self`` in ``rig_frame``); sets
+    ``m_segment.ml_ikBlendUse[0]`` to ``*_ikOrientFrame`` for FK/IK blend.
+    ``m_ik_pelvis`` — ``ml_ikJoints[0]`` / spline IK pelvis.
+    ``m_ik_base_control`` — ``rigNull.controlIKBase``.
 
-    - **span** — ``*_ikOrientFrame`` dup; orient follow blend lands here.
-    - **follow** — dup under IK base; ``followIK`` driver **0**.
-    - **span parent** — ``ml_ikUse[0]`` ik pelvis; ``followIK`` driver **1**.
+    Builds ``{pelvis}_ikOrientFrame`` under pelvis and ``{pelvis}_splineControlStart`` under
+    IK base. ``blendChainsBy``: followIK **0** = spline control start, **1** = ik pelvis;
+    orient constraint on ``*_ikOrientFrame``.
     """
-    m_pelvis = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
-    m_base = cgmMeta.validateObjArg(m_ik_base_control, 'cgmObject', noneValid=False)
+    if not m_segment or not getattr(m_segment, 'ml_ikBlendUse', None):
+        raise ValueError(
+            'segment_ik_base_orient_follow_setup requires m_segment.ml_ikBlendUse '
+            '(copy of ikJoints from rig_frame)')
 
-    m_span = m_pelvis.doDuplicate(po=True, ic=False)
-    m_span.rename('{0}_ikOrientFrame'.format(m_pelvis.p_nameBase))
-    m_span.p_parent = m_pelvis
+    m_ik_pelvis = cgmMeta.validateObjArg(m_ik_pelvis, 'cgmObject', noneValid=False)
+    m_ik_base_control = cgmMeta.validateObjArg(
+        m_ik_base_control, 'cgmObject', noneValid=False)
 
-    m_follow = m_pelvis.doDuplicate(po=True, ic=False)
-    m_follow.rename('{0}_splineControlStart'.format(m_pelvis.p_nameBase))
-    m_follow.p_parent = m_base
+    m_ik_orient_frame = m_ik_pelvis.doDuplicate(po=True, ic=False)
+    m_ik_orient_frame.rename(
+        '{0}_ikOrientFrame'.format(m_ik_pelvis.p_nameBase))
+    m_ik_orient_frame.p_parent = m_ik_pelvis
+
+    m_orient_follow_joint = m_ik_pelvis.doDuplicate(po=True, ic=False)
+    m_orient_follow_joint.rename(
+        '{0}_splineControlStart'.format(m_ik_pelvis.p_nameBase))
+    m_orient_follow_joint.p_parent = m_ik_base_control
 
     m_plug_follow = cgmMeta.cgmAttr(
-        m_base.mNode, str_attr, attrType='float', lock=False,
+        m_ik_base_control.mNode, str_attr, attrType='float', lock=False,
         keyable=True, defaultValue=f_default)
     m_plug_follow.p_value = f_default
-    ATTR.set_default(m_base.mNode, str_attr, f_default)
+    ATTR.set_default(m_ik_base_control.mNode, str_attr, f_default)
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_base_orient_follow_setup',
-        '{0} on {1} | span:{2} follow:{3} pelvis:{4}'.format(
-            str_attr, m_base.p_nameShort, m_span.p_nameShort,
-            m_follow.p_nameShort, m_pelvis.p_nameShort)))
+        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} ikPelvis:{4}'.format(
+            str_attr, m_ik_base_control.p_nameShort,
+            m_ik_orient_frame.p_nameShort, m_orient_follow_joint.p_nameShort,
+            m_ik_pelvis.p_nameShort)))
 
-    mc.pointConstraint([m_pelvis.mNode], m_span.mNode, maintainOffset=True)
+    mc.pointConstraint(
+        [m_ik_pelvis.mNode], m_ik_orient_frame.mNode, maintainOffset=True)
     RIGCONSTRAINT.blendChainsBy(
-        m_pelvis, m_follow, m_span,
+        m_orient_follow_joint,
+        m_ik_pelvis,
+        m_ik_orient_frame,
         driver=m_plug_follow.p_combinedName,
         l_constraints=['orient'])
-    return {
-        'mSpan': m_span,
-        'mFollow': m_follow,
-        'mIkPelvis': m_pelvis,
-        'mPlug_follow': m_plug_follow,
-    }
+
+    m_segment.ml_ikBlendUse[0] = m_ik_orient_frame
 
 
 def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):

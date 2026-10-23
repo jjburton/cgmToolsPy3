@@ -2107,6 +2107,8 @@ def rig_dataBuffer(self):
         self.ml_bezierIKSubControls = []
         self.ml_bezierIKTrackCurves = []
         self.md_bezierIKSubsBySlot = {}
+        # Copy of ikJoints for FK/IK blend chain2; hips base follow sets [0] to *_ikOrientFrame.
+        self.ml_ikBlendUse = None
         
         ml_handleJoints = mPrerigNull.msgList_get('handleJoints')
         mMasterNull = self.d_module['mMasterNull']
@@ -3932,6 +3934,7 @@ def rig_frame(self):
                 raise ValueError("No controlIK found")            
             
             ml_ikJoints = mRigNull.msgList_get('ikJoints')
+            self.ml_ikBlendUse = copy.copy(ml_ikJoints)
             mPlug_FKIK = cgmMeta.cgmAttr(mSettings.mNode,'FKIK',attrType='float',lock=False,keyable=True)
             _jointOrientation = self.d_orientation['str']
             
@@ -4175,6 +4178,7 @@ def rig_frame(self):
                             mRigNull))
                     if m_follow_base:
                         BEZIERIKBLOCK.segment_ik_base_orient_follow_setup(
+                            self,
                             ml_ikJoints[0],
                             m_follow_base,
                             str_attr='followIK',
@@ -4318,6 +4322,7 @@ def rig_frame(self):
                                 mRigNull))
                         if m_follow_base:
                             BEZIERIKBLOCK.segment_ik_base_orient_follow_setup(
+                                self,
                                 ml_ikJoints[0],
                                 m_follow_base,
                                 str_attr='followIK',
@@ -4560,11 +4565,11 @@ def rig_frame(self):
                     'ribbon', 'ribbonLive', 'curve', 'bezier', 'spline']:
                 log.debug("|{0}| >> scale blend chain setup...".format(_str_func))
                 RIGCONSTRAINT.blendChainsBy(
-                    ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
+                    ml_fkAttachJoints, self.ml_ikBlendUse, ml_blendJoints,
                     driver=mPlug_FKIK.p_combinedName,
                     l_constraints=['parent'])
                 RIGCONSTRAINT.blendChainsScaleByAttr(
-                    ml_fkAttachJoints, ml_ikJoints, ml_blendJoints,
+                    ml_fkAttachJoints, self.ml_ikBlendUse, ml_blendJoints,
                     driver=mPlug_FKIK.p_combinedName)
 
                 # Ribbon / spline driver scale on IK — not bezier (stretch owns IK channels).
@@ -4609,9 +4614,10 @@ def rig_frame(self):
                     mJnt.p_parent = ml_blendJoints[0].p_parent
 
             else:
-                RIGCONSTRAINT.blendChainsBy(ml_fkAttachJoints,ml_ikJoints,ml_blendJoints,
-                                            driver = mPlug_FKIK.p_combinedName,
-                                            l_constraints=['parent'])
+                RIGCONSTRAINT.blendChainsBy(
+                    ml_fkAttachJoints, self.ml_ikBlendUse, ml_blendJoints,
+                    driver=mPlug_FKIK.p_combinedName,
+                    l_constraints=['parent'])
         
 
         #cgmGEN.func_snapShot(vars())
