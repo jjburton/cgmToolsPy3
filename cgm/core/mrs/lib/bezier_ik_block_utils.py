@@ -22,7 +22,7 @@ import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.lib.string_utils as CORESTRING
 import cgm.core.tools.lib.snap_calls as SNAPCALLS
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
-import cgm.core.rig.constraint_utils as CONSTRAINT
+import cgm.core.lib.constraint_utils as CONSTRAINT
 
 log = logging.getLogger(__name__)
 
