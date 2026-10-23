@@ -4114,17 +4114,10 @@ def rig_frame(self):
                 for i, mJnt in enumerate(ml_ikJoints[1:]):
                     mJnt.p_parent = ml_ikJoints[i]
 
-                m_ikSplineRoot = None
-                ml_ikUse = copy.copy(ml_ikJoints)
-                if str_ikBase == 'hips':
-                    m_blendBase, m_ikSplineRoot = (
-                        BEZIERIKBLOCK.segment_ik_hips_base_spline_chain_split(
-                            ml_ikJoints))
-                    ml_ikUse = [m_ikSplineRoot] + list(ml_ikJoints[1:])
-
                 mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
                 mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
 
+                ml_ikUse = copy.copy(ml_ikJoints)
                 ml_ikUse[-1] = mIKSplineEnd
 
                 mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
@@ -4175,20 +4168,6 @@ def rig_frame(self):
                     str_attr='followIK',
                     f_default=1.0,
                     b_start=False)
-                if str_ikBase == 'hips' and m_ikSplineRoot:
-                    m_base_follow = (
-                        mRigNull.getMessageAsMeta('bezierIKChainStart')
-                        or mIKBaseControl)
-                    if m_base_follow:
-                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                            ml_ikJoints[0],
-                            m_ikSplineRoot,
-                            m_base_follow,
-                            str_attr='followIK',
-                            f_default=1.0,
-                            b_start=True,
-                            b_point_constraint=False)
-
                 if (self.b_scaleSetup
                         and mBlock.getEnumValueString('squash') == 'simple'):
                     mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
@@ -4280,17 +4259,10 @@ def rig_frame(self):
                     for i,mJnt in enumerate(ml_ikJoints[1:]):
                         mJnt.p_parent = ml_ikJoints[i]
 
-                    m_ikSplineRoot = None
-                    ml_ikUse = copy.copy(ml_ikJoints)
-                    if str_ikBase == 'hips':
-                        m_blendBase, m_ikSplineRoot = (
-                            BEZIERIKBLOCK.segment_ik_hips_base_spline_chain_split(
-                                ml_ikJoints))
-                        ml_ikUse = [m_ikSplineRoot] + list(ml_ikJoints[1:])
-                        
                     mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
                     mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
                     
+                    ml_ikUse = copy.copy(ml_ikJoints)
                     ml_ikUse[-1] = mIKSplineEnd
                     
                     mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
@@ -4325,20 +4297,6 @@ def rig_frame(self):
                         str_attr='followIK',
                         f_default=0.0,
                         b_start=False)
-                    if str_ikBase == 'hips' and m_ikSplineRoot:
-                        m_base_follow = (
-                            mRigNull.getMessageAsMeta('bezierIKChainStart')
-                            or mIKBaseControl)
-                        if m_base_follow:
-                            BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                                ml_ikJoints[0],
-                                m_ikSplineRoot,
-                                m_base_follow,
-                                str_attr='followIK',
-                                f_default=0.0,
-                                b_start=True,
-                                b_point_constraint=False)
-                    
                 else:
                     _d_ribbonShare = {'connectBy':'constraint',
                                       'extendEnds':True,
