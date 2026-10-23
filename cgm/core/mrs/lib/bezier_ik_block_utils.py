@@ -903,6 +903,41 @@ def segment_bezier_ik_uses_hips_chain_mains(mBlock):
     return True
 
 
+def _segment_ik_follow_control_skip_bezier_chain_main(m_ctrl, m_rig_null, str_label):
+    """``controlIK*`` must not be the hips/parent bezier CV main on ``bezierIKChain*``."""
+    if not m_ctrl or not m_rig_null:
+        return m_ctrl
+    for str_msg in ('bezierIKChainStart', 'bezierIKChainEnd'):
+        m_chain = m_rig_null.getMessageAsMeta(str_msg)
+        if not m_chain:
+            continue
+        if m_chain.mNode == m_ctrl.mNode:
+            log.warning(cgmGEN.logString_msg(
+                'segment_ik_follow_control',
+                '{0} is bezierIKChain main ({1}) — skip follow attr'.format(
+                    str_label, str_msg)))
+            return None
+    return m_ctrl
+
+
+def segment_ik_module_follow_end_control(m_rig_null):
+    """Module end IK anim control (``rigNull.controlIK``) — not ``bezierIKChainEnd``."""
+    if not m_rig_null:
+        return None
+    m_ctrl = m_rig_null.getMessageAsMeta('controlIK')
+    return _segment_ik_follow_control_skip_bezier_chain_main(
+        m_ctrl, m_rig_null, 'controlIK')
+
+
+def segment_ik_module_follow_base_control(m_rig_null):
+    """Module base IK anim control (``rigNull.controlIKBase``) — not ``bezierIKChainStart``."""
+    if not m_rig_null:
+        return None
+    m_ctrl = m_rig_null.getMessageAsMeta('controlIKBase')
+    return _segment_ik_follow_control_skip_bezier_chain_main(
+        m_ctrl, m_rig_null, 'controlIKBase')
+
+
 def segment_ik_spline_orient_follow_setup(m_skin_joint,
                                           m_spline_span_joint,
                                           m_follow_influence,
@@ -911,6 +946,9 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
                                           b_start=False):
     """
     Spline IK orient follow on a skin joint (tip or root).
+
+    ``m_follow_influence`` must be the module IK control (``controlIK`` / ``controlIKBase``),
+    not ``bezierIKChain*`` CV handles.
 
     ``followIK`` / ``followEnd`` driver: **0** = solver span orient, **1** = follow
     the influence transform hierarchy (swapped ``blendChainsBy`` chain order).
@@ -933,12 +971,61 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
     m_plug_follow.p_value = f_default
     ATTR.set_default(m_infl.mNode, str_attr, f_default)
 
+    log.info(cgmGEN.logString_msg(
+        'segment_ik_spline_orient_follow_setup',
+        '{0} on {1} | skin:{2} span:{3}'.format(
+            str_attr, m_infl.p_nameShort, m_skin.p_nameShort, m_span.p_nameShort)))
+
     RIGCONSTRAINT.blendChainsBy(
         m_spline_control, m_span, m_skin,
         driver=m_plug_follow.p_combinedName,
         l_constraints=['orient'])
     return {
         'mSplineControl': m_spline_control,
+        'mPlug_follow': m_plug_follow,
+    }
+
+
+def segment_ik_base_orient_follow_setup(m_ik_root,
+                                        m_ik_base_control,
+                                        str_attr='followIK',
+                                        f_default=1.0):
+    """
+    Hips-style root orient follow without changing ``ml_ikUse[0]``.
+
+    ``m_ik_base_control`` is ``rigNull.controlIKBase`` only (not a bezier CV main).
+    Dup under the IK root (blend frame), second dup under that IK base control for
+    follow orient; blend solver root vs follow onto the child dup.
+    """
+    m_root = cgmMeta.validateObjArg(m_ik_root, 'cgmObject', noneValid=False)
+    m_base = cgmMeta.validateObjArg(m_ik_base_control, 'cgmObject', noneValid=False)
+
+    m_blend_frame = m_root.doDuplicate(po=True, ic=False)
+    m_blend_frame.rename('{0}_ikOrientFrame'.format(m_root.p_nameBase))
+    m_blend_frame.p_parent = m_root
+
+    m_follow_orient = m_root.doDuplicate(po=True, ic=False)
+    m_follow_orient.rename('{0}_splineControlStart'.format(m_root.p_nameBase))
+    m_follow_orient.p_parent = m_base
+
+    m_plug_follow = cgmMeta.cgmAttr(
+        m_base.mNode, str_attr, attrType='float', lock=False,
+        keyable=True, defaultValue=f_default)
+    m_plug_follow.p_value = f_default
+    ATTR.set_default(m_base.mNode, str_attr, f_default)
+
+    log.info(cgmGEN.logString_msg(
+        'segment_ik_base_orient_follow_setup',
+        '{0} on {1} | ikRoot:{2}'.format(
+            str_attr, m_base.p_nameShort, m_root.p_nameShort)))
+
+    RIGCONSTRAINT.blendChainsBy(
+        m_follow_orient, m_root, m_blend_frame,
+        driver=m_plug_follow.p_combinedName,
+        l_constraints=['orient'])
+    return {
+        'mIkOrientFrame': m_blend_frame,
+        'mSplineControlStart': m_follow_orient,
         'mPlug_follow': m_plug_follow,
     }
 

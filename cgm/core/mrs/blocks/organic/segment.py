@@ -4159,15 +4159,26 @@ def rig_frame(self):
                     ATTR.set_default(mSettings.mNode, 'twistType', 1)
                     ATTR.set(mSettings.mNode, 'twistType', 1)
 
-                m_end_follow = (
-                    mRigNull.getMessageAsMeta('bezierIKChainEnd') or mIKControl)
-                BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                    ml_ikJoints[-1],
-                    mIKSplineEnd,
-                    m_end_follow,
-                    str_attr='followIK',
-                    f_default=1.0,
-                    b_start=False)
+                m_follow_end = BEZIERIKBLOCK.segment_ik_module_follow_end_control(
+                    mRigNull)
+                if m_follow_end:
+                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                        ml_ikJoints[-1],
+                        mIKSplineEnd,
+                        m_follow_end,
+                        str_attr='followIK',
+                        f_default=1.0,
+                        b_start=False)
+                if str_ikBase == 'hips':
+                    m_follow_base = (
+                        BEZIERIKBLOCK.segment_ik_module_follow_base_control(
+                            mRigNull))
+                    if m_follow_base:
+                        BEZIERIKBLOCK.segment_ik_base_orient_follow_setup(
+                            ml_ikJoints[0],
+                            m_follow_base,
+                            str_attr='followIK',
+                            f_default=1.0)
                 if (self.b_scaleSetup
                         and mBlock.getEnumValueString('squash') == 'simple'):
                     mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
@@ -4290,13 +4301,27 @@ def rig_frame(self):
                         ATTR.set(mSettings.mNode,'twistType',1)
                         
                         
-                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                        ml_ikJoints[-1],
-                        mIKSplineEnd,
-                        mIKControl,
-                        str_attr='followIK',
-                        f_default=0.0,
-                        b_start=False)
+                    m_follow_end = (
+                        BEZIERIKBLOCK.segment_ik_module_follow_end_control(
+                            mRigNull))
+                    if m_follow_end:
+                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                            ml_ikJoints[-1],
+                            mIKSplineEnd,
+                            m_follow_end,
+                            str_attr='followIK',
+                            f_default=0.0,
+                            b_start=False)
+                    if str_ikBase == 'hips':
+                        m_follow_base = (
+                            BEZIERIKBLOCK.segment_ik_module_follow_base_control(
+                                mRigNull))
+                        if m_follow_base:
+                            BEZIERIKBLOCK.segment_ik_base_orient_follow_setup(
+                                ml_ikJoints[0],
+                                m_follow_base,
+                                str_attr='followIK',
+                                f_default=0.0)
                 else:
                     _d_ribbonShare = {'connectBy':'constraint',
                                       'extendEnds':True,
