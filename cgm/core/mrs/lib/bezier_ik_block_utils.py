@@ -903,12 +903,29 @@ def segment_bezier_ik_uses_hips_chain_mains(mBlock):
     return True
 
 
+def segment_ik_hips_base_spline_chain_split(ml_ik_joints):
+    """
+    Hips ``ikBase``: keep ``ml_ik_joints[0]`` as orient-blend skin root; hang the
+    solver chain on a child ``*_ikSplineRoot`` so ``ml_ikUse`` stays a valid span.
+    """
+    ml_ik = cgmMeta.validateObjListArg(
+        ml_ik_joints, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    m_blend_base = ml_ik[0]
+    m_ik_spline_root = m_blend_base.doDuplicate(po=True, ic=False)
+    m_ik_spline_root.rename('{0}_ikSplineRoot'.format(m_blend_base.p_nameBase))
+    m_ik_spline_root.p_parent = m_blend_base
+    if len(ml_ik) > 1:
+        ml_ik[1].p_parent = m_ik_spline_root
+    return m_blend_base, m_ik_spline_root
+
+
 def segment_ik_spline_orient_follow_setup(m_skin_joint,
                                           m_spline_span_joint,
                                           m_follow_influence,
                                           str_attr='followIK',
                                           f_default=1.0,
-                                          b_start=False):
+                                          b_start=False,
+                                          b_point_constraint=True):
     """
     Spline IK orient follow on a skin joint (tip or root).
 
@@ -919,7 +936,8 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
     m_span = cgmMeta.validateObjArg(m_spline_span_joint, 'cgmObject', noneValid=False)
     m_infl = cgmMeta.validateObjArg(m_follow_influence, 'cgmObject', noneValid=False)
 
-    mc.pointConstraint([m_span.mNode], m_skin.mNode, maintainOffset=True)
+    if b_point_constraint:
+        mc.pointConstraint([m_span.mNode], m_skin.mNode, maintainOffset=True)
     m_spline_control = m_skin.doDuplicate()
     if b_start:
         m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
