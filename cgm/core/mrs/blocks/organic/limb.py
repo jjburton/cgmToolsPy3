@@ -5835,9 +5835,6 @@ def rig_skeleton(self):
                 #ATTR.delete(mJnt.mNode,'cgmTypeModifier')
             if self.str_segmentType == 'bezier':
                 mJnt.doStore('cgmTypeModifier','bezier')
-                if mJnt == ml_handleJoints[-1]:
-                    mJnt.p_orient = ml_handleJoints[-2].p_orient
-                    JOINT.freezeOrientation(mJnt.mNode)
             else:   
                 mJnt.doStore('cgmTypeModifier','seg')
             mJnt.doName()
