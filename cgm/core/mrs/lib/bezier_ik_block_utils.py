@@ -89,10 +89,14 @@ def _bezier_inflate_volume_scale_attrs(d_stretch_res, aim_axis):
 
 def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
     """
-    Wire inflate scale onto parents of direct rig controls (FK-visible).
+    Wire inflate scale onto direct rig controls (FK-visible).
 
-    l_entries: list of dicts with keys m_rig, m_parent (null parents under this),
-        str_plug (inflate scale source).
+    Hierarchy insertion only — capture ``masterGroup``'s DAG parent, parent the
+    inflate null there, then parent ``masterGroup`` under the inflate null::
+
+        existingParent -> {rig}_inflateScale -> masterGroup -> ...
+
+    l_entries: m_rig, str_plug; optional m_parent if ``masterGroup`` has no parent yet.
     """
     _str_func = 'bezier_inflate_parent_direct_controls'
     if not d_stretch_res or not d_stretch_res.get('inflateDriveDirectParents'):
@@ -105,19 +109,40 @@ def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
     for d_entry in l_entries:
         m_rig = cgmMeta.validateObjArg(
             d_entry.get('m_rig'), 'cgmObject', noneValid=True)
-        m_parent = cgmMeta.validateObjArg(
+        m_parent_fallback = cgmMeta.validateObjArg(
             d_entry.get('m_parent'), 'cgmObject', noneValid=True)
         str_scale_plug = d_entry.get('str_plug')
-        if not m_rig or not m_parent or not str_scale_plug:
+        if not m_rig or not str_scale_plug:
             continue
 
-        m_inflate = m_parent.doCreateAt('null')
-        m_inflate.rename('{0}_inflateScale'.format(m_rig.p_nameBase))
+        m_master = m_rig.getMessageAsMeta('masterGroup')
+        if m_master:
+            m_dag_parent = m_master.getParent(asMeta=True)
+            m_inflate = m_master.doCreateAt('null')
+            m_inflate.rename('{0}_inflateScale'.format(m_rig.p_nameBase))
+            if m_dag_parent:
+                m_inflate.p_parent = m_dag_parent
+            elif m_parent_fallback:
+                m_inflate.p_parent = m_parent_fallback
+            else:
+                m_inflate.p_parent = False
+            m_master.p_parent = m_inflate
+        else:
+            m_dag_parent = m_rig.getParent(asMeta=True)
+            m_inflate = m_rig.doCreateAt('null')
+            m_inflate.rename('{0}_inflateScale'.format(m_rig.p_nameBase))
+            if m_dag_parent:
+                m_inflate.p_parent = m_dag_parent
+            elif m_parent_fallback:
+                m_inflate.p_parent = m_parent_fallback
+            else:
+                m_inflate.p_parent = False
+            m_rig.p_parent = m_inflate
+
         if not m_inflate.hasAttr('cgmTypeModifier'):
             m_inflate.addAttr('cgmTypeModifier', 'inflateScale', lock=True)
         else:
             ATTR.set(m_inflate.mNode, 'cgmTypeModifier', 'inflateScale')
-        m_inflate.p_parent = m_parent
 
         for str_attr in l_volume_scale:
             ATTR.connect(
@@ -125,12 +150,6 @@ def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
                 '{0}.{1}'.format(m_inflate.mNode, str_attr))
 
         m_rig.connectChildNode(m_inflate, 'inflateScale', 'rigJoint')
-
-        m_master = m_rig.getMessageAsMeta('masterGroup')
-        if m_master:
-            m_master.p_parent = m_inflate
-        else:
-            m_rig.p_parent = m_inflate
 
         ml_inflate_nodes.append(m_inflate)
 
@@ -142,13 +161,12 @@ def bezier_inflate_parent_direct_controls(d_stretch_res, aim_axis, l_entries):
 def bezier_inflate_parent_segment_direct_controls(
         mRigNull, d_stretch_res, ml_blendJoints, ml_rigJoints, aim_axis):
     """
-    Inflate `{rigJoint}_inflateScale` above direct rig controls (FK-visible).
+    Inflate `{rigJoint}_inflateScale` inserted above each direct ``masterGroup``.
 
-    `ml_blendJoints` arg is the per-index DAG parent for the inflate null:
-    **blendJoints** when `segmentType=parent`, **segmentJoints** when segment
-    bezier deform drives seg chain.
+    ``ml_blendJoints`` is a per-index fallback parent only when ``masterGroup`` is
+    not parented yet at wire time. Does not replace existing control DAG parents.
 
-    Expects bezier_spline_stretch with inflateDriveDirectParents and l_inflateDirectPlugs.
+    Expects ``inflateDriveDirectParents`` and ``l_inflateDirectPlugs`` on stretch result.
     """
     _str_func = 'bezier_inflate_parent_segment_direct_controls'
     l_plugs = (d_stretch_res or {}).get('l_inflateDirectPlugs') or []

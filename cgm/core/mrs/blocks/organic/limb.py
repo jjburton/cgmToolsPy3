@@ -4785,7 +4785,7 @@ def _limb_rig_segments_bezier_squash_stretch(
 
 def _limb_bezier_inflate_parent_direct_controls(
         self, mRigNull, ml_blendJoints, l_rollKeys):
-    """Bezier roll sections: inflateScale under seg IK joint → rig masterGroup."""
+    """Bezier roll sections: inflateScale inserted above rig direct masterGroup (DAG parent preserved)."""
     _str_func = '_limb_bezier_inflate_parent_direct_controls'
     md_stretch = getattr(self, 'md_limbBezierStretchBySection', None) or {}
     if not md_stretch:
@@ -4831,7 +4831,6 @@ def _limb_bezier_inflate_parent_direct_controls(
                     section_idx, int_i, m_seg.p_nameShort, m_rig.p_nameShort)))
             l_entries.append({
                 'm_rig': m_rig,
-                'm_parent': m_seg,
                 'str_plug': str_scale_plug,
             })
 
