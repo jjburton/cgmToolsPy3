@@ -5009,9 +5009,14 @@ def _limb_rig_segments_bezier_section(
         mPlug_masterScale, l_rollKeys, str_base, _d_ribbonShare)
 
     int_rig_handle_end = len(ml_handleJoints) - 1
-    if section_idx + 1 == int_rig_handle_end:
+    # Culled rig end main (ankle before ball/toe): ball/leverEnd profiles.
+    if (mBlock.addBall or mBlock.addLeverEnd) and section_idx + 1 == int_rig_handle_end:
         _limb_rig_segments_bezier_end_main_follow_root(
             self, section_idx, ml_handleJoints[int_rig_handle_end],
+            ml_handleJoints, ml_blendJoints, mBlock, _jointOrientation)
+    elif section_idx == l_rollKeys[-1]:
+        _limb_rig_segments_bezier_end_main_follow_root(
+            self, section_idx, ml_mains[-1],
             ml_handleJoints, ml_blendJoints, mBlock, _jointOrientation)
 
     log.debug(cgmGEN._str_subLine)
@@ -5835,6 +5840,9 @@ def rig_skeleton(self):
                 #ATTR.delete(mJnt.mNode,'cgmTypeModifier')
             if self.str_segmentType == 'bezier':
                 mJnt.doStore('cgmTypeModifier','bezier')
+                if mJnt == ml_handleJoints[-1]:
+                    mJnt.p_orient = ml_handleJoints[-2].p_orient
+                    JOINT.freezeOrientation(mJnt.mNode)
             else:   
                 mJnt.doStore('cgmTypeModifier','seg')
             mJnt.doName()
