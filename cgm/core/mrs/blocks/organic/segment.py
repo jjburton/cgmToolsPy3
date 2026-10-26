@@ -134,7 +134,7 @@ d_attrStateMask = {'define':['baseSizeX','baseSizeY','baseSizeZ'],
                    'prerig':[],
                    'skeleton':['numJoints','skeletonMode'],
                    'squashStretch':['squashSkipAim','segmentStretchBy'],
-                   'space':['ikMidDynParentMode','ikMidDynScaleMode'],
+                   'space':['ikBaseDynParentMode','ikMidDynParentMode','ikMidDynScaleMode'],
                    'rig':['segmentType','special_swim','ikEndShape','ikSplineAimEnd','ikSplineTwistEndConnect','ikSplineExtendEnd','ikSplineParentSegEnd','ikMidSetup','ikMidControlNum','ikSplineTwistAxis',
                           'ikSplineTwistUpStart','ikSplineTwistUpEnd',
                           'ribbonExtendEnds','ribbonAttachEndsToInfluence','reverseSetup',
@@ -678,6 +678,7 @@ l_attrsStandard = ['side',
                    'numJoints',
                    'ikOrientToWorld',
                    'ikDynParentMode',
+                   'ikBaseDynParentMode',
                    #'buildProfile',
                    'blockProfile',
                    'parentToDriver',
@@ -737,6 +738,7 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ribbonExtendEnds':'bool',
                  'ikMidControlNum':'int',
                  'ikMidSetup':'none:ribbon:prntConstraint:linearTrack:cubicTrack',
+                 'ikBaseDynParentMode':BLOCKSHARE._d_attrsTo_make['dynParentMode'],
                  'ikMidDynParentMode':BLOCKSHARE._d_attrsTo_make['dynParentMode'],
                  'ikMidDynScaleMode':BLOCKSHARE._d_attrsTo_make['dynParentScaleMode'],
                  'reverseSetup':'none:fkOnly',
@@ -825,6 +827,7 @@ d_defaultSettings = {'version':__version__,
                      'special_swim':'none',
                      'segmentType':'ribbon',
                      'ikDynParentMode':'space',
+                     'ikBaseDynParentMode':'space',
                      'ikSplineParentSegEnd':False,
                      #'blockProfile':'spine',
                      'scaleSetup':False,
@@ -3963,8 +3966,27 @@ def rig_frame(self):
             
             mIKGroup.parent = mRoot
             mIKGroup.dagLock(True)
-            mIKControl.masterGroup.parent = mIKGroup
-            mIKBaseControl.masterGroup.parent = mIKGroup
+
+            if (_ikSetup == 'bezier'
+                    and str_ikBase not in ['hips', 'head']):
+                m_bez_ik_start, m_bez_ik_end = (
+                    BEZIERIKBLOCK.segment_bezier_ik_module_start_end_controls(
+                        mRigNull, self.ml_ikMidControls, mBlock))
+                if m_bez_ik_start:
+                    mIKBaseControl = m_bez_ik_start
+                if m_bez_ik_end:
+                    mIKControl = m_bez_ik_end
+                    mIKHandleDriver = mIKControl
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'bezier module IK start/end | base:{0} end:{1}'.format(
+                        mIKBaseControl.p_nameShort if mIKBaseControl else None,
+                        mIKControl.p_nameShort if mIKControl else None)))
+
+            if mIKControl:
+                mIKControl.masterGroup.parent = mIKGroup
+            if mIKBaseControl:
+                mIKBaseControl.masterGroup.parent = mIKGroup
             mSplineDriverCurve = None
 
             if (_ikSetup == 'bezier'
@@ -4169,7 +4191,7 @@ def rig_frame(self):
                     ATTR.set(mSettings.mNode, 'twistType', 1)
 
                 m_follow_end = BEZIERIKBLOCK.segment_ik_module_follow_end_control(
-                    mRigNull)
+                    mRigNull, mBlock, self.ml_ikMidControls)
                 if m_follow_end:
                     BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
                         ml_ikJoints[-1],
@@ -4313,7 +4335,7 @@ def rig_frame(self):
                         
                     m_follow_end = (
                         BEZIERIKBLOCK.segment_ik_module_follow_end_control(
-                            mRigNull))
+                            mRigNull, mBlock, self.ml_ikMidControls))
                     if m_follow_end:
                         BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
                             ml_ikJoints[-1],
@@ -4956,26 +4978,52 @@ def rig_cleanUp(self):
         
         ml_ikControls = []
         mControlIK = mRigNull.getMessageAsMeta('controlIK')
-        
-        if mControlIK:
-            ml_ikControls.append(mControlIK)
         mControlIKBase = mRigNull.getMessageAsMeta('controlIKBase')
-        if mControlIKBase:
-            ml_ikControls.append(mControlIKBase)
-        
+        str_ikSetup = mBlock.getEnumValueString('ikSetup')
         str_ikBase = mBlock.getEnumValueString('ikBase')
+
+        if (str_ikSetup == 'bezier'
+                and str_ikBase not in ['hips', 'head']):
+            m_bez_ik_start, m_bez_ik_end = (
+                BEZIERIKBLOCK.segment_bezier_ik_module_start_end_controls(
+                    mRigNull, getattr(self, 'ml_ikMidControls', None), mBlock))
+            if m_bez_ik_start:
+                ml_ikControls.append(m_bez_ik_start)
+            if m_bez_ik_end and m_bez_ik_end not in ml_ikControls:
+                ml_ikControls.append(m_bez_ik_end)
+        else:
+            if mControlIK:
+                ml_ikControls.append(mControlIK)
+            if mControlIKBase:
+                ml_ikControls.append(mControlIKBase)
+
+        m_base_ik = mControlIKBase
+        if (str_ikSetup == 'bezier'
+                and str_ikBase not in ['hips', 'head']):
+            m_bez_ik_start, _m_bez_ik_end = (
+                BEZIERIKBLOCK.segment_bezier_ik_module_start_end_controls(
+                    mRigNull, getattr(self, 'ml_ikMidControls', None), mBlock))
+            if m_bez_ik_start:
+                m_base_ik = m_bez_ik_start
+
         for mHandle in ml_ikControls:
             log.debug("|{0}| >>  IK Handle: {1}".format(_str_func,mHandle))
             
             
             if b_ikOrientToWorld:
-                if mHandle == mControlIKBase and str_ikBase not in ['hips','head']:
+                if m_base_ik and mHandle.mNode == m_base_ik.mNode and str_ikBase not in ['hips','head']:
                     pass
                 else:
                     BUILDUTILS.control_convertToWorldIK(mHandle)
             
             mDynGroup = cgmRigMeta.cgmDynParentGroup(dynChild=mHandle,dynMode=0)
-            mDynGroup.dynMode = mBlock.ikDynParentMode#0
+            if m_base_ik and mHandle.mNode == m_base_ik.mNode:
+                if mBlock.hasAttr('ikBaseDynParentMode'):
+                    mDynGroup.dynMode = mBlock.ikBaseDynParentMode
+                else:
+                    mDynGroup.dynMode = mBlock.ikDynParentMode
+            else:
+                mDynGroup.dynMode = mBlock.ikDynParentMode
             
             
             ml_targetDynParents = ml_baseDynParents + [self.md_dynTargetsParent['attachDriver']] + ml_endDynParents

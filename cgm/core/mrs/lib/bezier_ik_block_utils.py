@@ -1054,7 +1054,30 @@ def segment_bezier_module_ik_mid_uses_bezier_span(mBlock):
     return segment_bezier_uses_module_ik_curve(mBlock)
 
 
-def segment_ik_module_follow_end_control(m_rig_null):
+def segment_bezier_ik_module_start_end_controls(mRigNull,
+                                                  ml_ik_mid_controls=None,
+                                                  mBlock=None):
+    """
+    Segment module IK spline start/end anim controls for ``rig_frame`` / ``rig_cleanUp``.
+
+    ``ikSetup=bezier`` and ``ikBase`` not **hips** / **head**: first and last entries from
+    ``bezier_ik_resolve_main_ik_list`` (bezier CV mains — ``controlIKBase`` / mids / ``controlIK``).
+    Hips/head keep ``rigNull.controlIKBase`` / ``controlIK`` (chain CVs are separate on hips).
+    """
+    if not mRigNull:
+        return None, None
+    if mBlock and mBlock.getEnumValueString('ikSetup') == 'bezier':
+        str_ik_base = mBlock.getEnumValueString('ikBase') or ''
+        if str_ik_base not in ('hips', 'head'):
+            ml_mains = bezier_ik_resolve_main_ik_list(mRigNull, ml_ik_mid_controls)
+            if ml_mains:
+                return ml_mains[0], ml_mains[-1]
+    return (
+        mRigNull.getMessageAsMeta('controlIKBase'),
+        mRigNull.getMessageAsMeta('controlIK'))
+
+
+def segment_ik_module_follow_end_control(m_rig_null, m_block=None, ml_ik_mid_controls=None):
     """
     Module end IK anim control for segment ``rig_frame`` follow (``rigNull.controlIK``).
 
@@ -1063,7 +1086,9 @@ def segment_ik_module_follow_end_control(m_rig_null):
     """
     if not m_rig_null:
         return None
-    return m_rig_null.getMessageAsMeta('controlIK')
+    _start, m_end = segment_bezier_ik_module_start_end_controls(
+        m_rig_null, ml_ik_mid_controls, m_block)
+    return m_end or m_rig_null.getMessageAsMeta('controlIK')
 
 
 def segment_ik_module_follow_base_control(m_rig_null):
