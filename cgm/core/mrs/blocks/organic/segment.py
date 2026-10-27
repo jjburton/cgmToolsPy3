@@ -1659,7 +1659,15 @@ def attachToCurve(mHandle,mCrv,mShape = None,parentTo=None,pct = None, blend = T
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    _poci = CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1)
+    if not _poci:
+        raise ValueError(
+            'attachToCurve failed to create pointOnCurveInfo for {0} on {1}'.format(
+                mCrv.p_nameShort, mHandle.p_nameShort))
+    mPointOnCurve = cgmMeta.asMeta(_poci)
     
     
     if blend:
@@ -1837,8 +1845,7 @@ def create_jointHelpers(self,cnt=None, force = False):
     #IKMid Handle ---------------------------------------------------------------------
     _trackCurve,l_clusters = CORERIG.create_at([mObj.mNode for mObj in ml_jointHelpers],'linearTrack',baseName = "{0}_drivenCrv".format(self.p_nameBase))
     mCrv = cgmMeta.asMeta(_trackCurve)
-    mShape = cgmMeta.asMeta(mCrv.getShapes()[0])
-    _shape = mShape.mNode
+    mShape = cgmMeta.asMeta(CURVES.nurbs_curve_shape_get(mCrv.mNode))
     
     """
     _node = mc.rebuildCurve(mCrv.mNode, d=3, keepControlPoints=False,

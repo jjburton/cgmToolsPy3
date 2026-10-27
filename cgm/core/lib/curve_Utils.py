@@ -662,16 +662,19 @@ def nurbs_curve_shape_get(curve):
         return NAMES.get_long(_shape)
 
     _transform = SEARCH.get_transform(_node)
-    _l = [
-        s for s in TRANS.shapes_get(_transform, True)
-        if cgmValid.get_mayaType(s) == 'nurbsCurve'
-    ]
+    _l = []
+    for s in TRANS.shapes_get(_transform, True):
+        if cgmValid.get_mayaType(s) != 'nurbsCurve':
+            continue
+        if ATTR.get(s, 'intermediateObject'):
+            continue
+        _l.append(s)
     if not _l:
         raise ValueError('No nurbsCurve shape found: {0}'.format(_transform))
     if len(_l) > 1:
-        raise ValueError(
-            'Multiple nurbsCurve shapes on transform; use one per transform: {0}'.format(
-                _transform))
+        log.warning(
+            '|{0}| >> multiple non-intermediate nurbsCurve shapes on {1}; using {2}'.format(
+                _str_func, _transform, _l[0]))
     return NAMES.get_long(SHAPES.get_nonintermediate(_l[0]))
 
 

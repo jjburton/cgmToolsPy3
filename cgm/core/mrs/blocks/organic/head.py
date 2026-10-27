@@ -1551,7 +1551,15 @@ def attachToCurve(mHandle,mCrv,mShape = None,parentTo=None,pct = None, blend = T
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    _poci = CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1)
+    if not _poci:
+        raise ValueError(
+            'attachToCurve failed to create pointOnCurveInfo for {0} on {1}'.format(
+                mCrv.p_nameShort, mHandle.p_nameShort))
+    mPointOnCurve = cgmMeta.asMeta(_poci)
     
     
     if blend:
@@ -1804,7 +1812,12 @@ def create_jointHelpers(self,cnt=None, force = False):
         mPlug.value = pct
         mPlug.p_defaultValue = pct
         
-        mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+        _poci = CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1)
+        if not _poci:
+            raise ValueError(
+                'attachToCurve failed to create pointOnCurveInfo for {0} on {1}'.format(
+                    mCrv.p_nameShort, mHandle.p_nameShort))
+        mPointOnCurve = cgmMeta.asMeta(_poci)
         mPointOnCurve.doConnectIn('parameter',mPlug.p_combinedName)
         
         mTrackLoc = mHandle.doLoc()
