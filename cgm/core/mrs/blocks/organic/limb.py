@@ -137,6 +137,7 @@ d_attrStateMask = {'define':[],
                    'squashStretch':['squashSkipAim','segmentStretchBy'],
                    'skeleton':[],
                    'rig':[ 'ikExtendSetup','ikLeverEndLock','ikRollSetup', 'ikRPAim','ikOrientEndTo','segmentType',
+                           'segmentEndHandleUp',
                            'ikRP_pos_mult','segmentMidIKSetup','ikSplineBezierMode',
                            'mainRotAxis',  'followParentBank',],
                    'vis':['visRotatePlane']}
@@ -947,6 +948,7 @@ d_attrsToMake = {'visMeasure':'bool',
                      'squashInflateFactorMode'),
                  'squashSkipAim':'bool',
                  'segmentMidIKSetup':'none:ribbon:ribbonLive:prntConstraint:linearTrack:cubicTrack',
+                 'segmentEndHandleUp':'stableUp:last',
                  #'buildSpacePivots':'bool',
                  #'nameIter':'string',
                  #'numControls':'int',
@@ -983,6 +985,7 @@ d_defaultSettings = {'version':__version__,
                      'addLeverEnd':'none',                     
                      'visLabels':True,
                      'segmentStretchBy':'scale',
+                     'segmentEndHandleUp':'stableUp',
                      'ikSplineBezierMode':'uniform',
                      'settingsDirection':'up',
                      'numSpacePivots':2,
@@ -4199,6 +4202,17 @@ def _limb_rig_controls_bezier_segment(
     log.debug(cgmGEN._str_subLine)
 
 
+def _limb_segment_end_back_aimer_world_up_node(
+        mBlock, mStableUp, ml_handleJoints, idx_parent):
+    """World-up driver for last-segment back aimer aimConstraint (stableEnd upObj vs prior main)."""
+    str_mode = 'stableUp'
+    if mBlock and mBlock.hasAttr('segmentEndHandleUp'):
+        str_mode = mBlock.getEnumValueString('segmentEndHandleUp') or str_mode
+    if str_mode == 'last':
+        return ml_handleJoints[idx_parent - 1]
+    return mStableUp
+
+
 def _limb_rig_segments_bezier_end_main_follow_root(
         self, section_idx, mParent, ml_handleJoints, ml_blendJoints, mBlock,
         _jointOrientation):
@@ -4263,11 +4277,12 @@ def _limb_rig_segments_bezier_end_main_follow_root(
     mc.orientConstraint(
         mBlendParentsParent.mNode, mConstrain.mNode, maintainOffset=False)
     mStableUp.p_parent = mConstrain
-    mWorldUpSectionStart = ml_handleJoints[section_idx]
+    mWorldUp = _limb_segment_end_back_aimer_world_up_node(
+        mBlock, mStableUp, ml_handleJoints, idx_parent)
     mc.aimConstraint(
         _aim_back, mAimBack.mNode, maintainOffset=False,
         aimVector=[0, 0, -1], upVector=self.v_twistUp,
-        worldUpObject=mWorldUpSectionStart.mNode,
+        worldUpObject=mWorldUp.mNode,
         worldUpType='objectrotation',
         worldUpVector=self.v_twistUp)
 
@@ -8136,10 +8151,11 @@ def rig_segments(self):
                     mc.orientConstraint(mBlendParentsParent.mNode, mConstrain.mNode,
                                         maintainOffset = False)
                     mStableUp.p_parent = mConstrain
-                    
+                    mWorldUp = _limb_segment_end_back_aimer_world_up_node(
+                        mBlock, mStableUp, ml_handleJoints, idx_parent)
                     mc.aimConstraint(_aimBack, mAimBack.mNode, maintainOffset = False,
                                      aimVector = [0,0,-1], upVector = self.v_twistUp,#[-1,0,0], 
-                                     worldUpObject = mStableUp.mNode,
+                                     worldUpObject = mWorldUp.mNode,
                                      worldUpType = 'objectrotation', 
                                      worldUpVector = self.v_twistUp)#[-1,0,0])
                 
