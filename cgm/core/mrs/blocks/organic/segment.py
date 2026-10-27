@@ -857,8 +857,7 @@ d_controlDat_links = {
             'controlBallRotation','leverIK',
             'controlIKBallHinge','controlIKBall','controlIKToe',
             'controlIKMid','leverIK','eyeLookAt','lookAt',
-            'ikBase',
-            'controlsSegmentBezier'],
+            'ikBase'],
     'root' : ['cog','rigRoot','scaleRoot'],
 }
 
@@ -5505,9 +5504,6 @@ def controller_getDat(self):
     _str_func = 'controller_getDat'
     log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
     mRigNull = self.rigNull
-
-    BEZIERIKBLOCK.bezier_ik_ensure_aggregate_ik_msglist(
-        mRigNull, BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_SEGMENT)
     
     def checkList(l):
         ml = []
@@ -5543,15 +5539,8 @@ def controller_getDat(self):
     
     #IK... (same plug order as d_controlDat_links — controlsIK msgList = bezier pickwalk)
     md['ik'] = checkList(d_controlDat_links['ik'])
-    #seg...
-    md['segmentHandles'] = mRigNull.msgList_get('handleJoints')
-    if mRigNull.msgList_get('controlsSegmentBezier'):
-        md['segmentHandles'] = (
-            BEZIERIKBLOCK.controller_getDat_ik_merge_bezier_msglist(
-                md.get('segmentHandles') or [],
-                mRigNull,
-                str_msglist=BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB))
-        
+    #seg... (controlsIK module bezier + controlsSegmentBezier segmentType=bezier — build-time msgLists)
+    md['segmentHandles'] = BEZIERIKBLOCK.controller_getDat_segment_handles_lane(mRigNull)
         
     return md
     

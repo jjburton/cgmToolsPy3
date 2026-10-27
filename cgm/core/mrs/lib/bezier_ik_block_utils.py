@@ -1377,10 +1377,46 @@ def bezier_ik_filter_pickwalk_dags(ml_pickwalk, ml_mains=None):
     return ml_dags
 
 
+def controller_getDat_limb_segment_handles_lane(mRigNull):
+    """
+    Read-only segmentHandles lane for limb modules (controller_verify).
+    Roll handleJoints + controlSegMidIK interleave; append controlsSegmentBezier when built.
+    Does not repair or write rigNull — use rig_controls / bezier_ik_ensure_aggregate_ik_msglist.
+    """
+    ml_use = []
+    ml_handles = mRigNull.msgList_get('handleJoints')
+    ml_mid = mRigNull.msgList_get('controlSegMidIK')
+    if ml_handles:
+        for i, mObj in enumerate(ml_handles):
+            ml_use.append(mObj)
+            if ml_mid:
+                try:
+                    ml_use.append(ml_mid[i])
+                except Exception:
+                    pass
+    return controller_getDat_ik_merge_bezier_msglist(
+        ml_use, mRigNull, str_msglist=BEZIER_IK_AGGREGATE_MSGLIST_LIMB)
+
+
+def controller_getDat_segment_handles_lane(mRigNull):
+    """
+    Read-only segmentHandles lane for segment modules (controller_verify).
+    handleJoints, then append build-time pickwalk from controlsIK (module ikSetup=bezier)
+    and controlsSegmentBezier (segmentType=bezier deform CVs). Read-only — no repair.
+    """
+    ml_lane = list(mRigNull.msgList_get('handleJoints') or [])
+    ml_lane = controller_getDat_ik_merge_bezier_msglist(
+        ml_lane, mRigNull, str_msglist=BEZIER_IK_AGGREGATE_MSGLIST_SEGMENT)
+    ml_lane = controller_getDat_ik_merge_bezier_msglist(
+        ml_lane, mRigNull, str_msglist=BEZIER_IK_AGGREGATE_MSGLIST_LIMB)
+    return ml_lane
+
+
 def bezier_ik_ensure_aggregate_ik_msglist(mRigNull, str_tag=BEZIER_IK_AGGREGATE_MSGLIST_SEGMENT):
     """
-    Repair ordered IK pickwalk msgList on rigNull from mains/subs (no block/session).
-    No-op when list exists, referenced, or no bezier data.
+    Repair ordered IK pickwalk msgList on rigNull from mains/subs (explicit repair / tooling).
+    Not for controller_getDat — that path must stay read-only. No-op when list exists,
+    referenced, or no bezier data.
     """
     if not mRigNull:
         return []

@@ -11349,29 +11349,6 @@ def get_handleIndices(self):
 
 # segmentType bezier: per-section bezierIKSubControls_{i}; aggregate bezierIKSubControls,
 # controlsSegmentBezier (pickwalk) written in rig_controls closeout.
-def _limb_bezier_ensure_aggregate_ik_msglist(mModule, mRigNull):
-    """Repair controlsSegmentBezier on rigNull when empty (no rig block / session)."""
-    if not mRigNull:
-        return []
-    try:
-        if mRigNull.isReferenced():
-            return mRigNull.msgList_get(
-                BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB) or []
-    except Exception:
-        pass
-    if mRigNull.msgList_get(BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB):
-        return mRigNull.msgList_get(
-            BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB) or []
-    if not _limb_bezier_has_sub_controls(mRigNull, None):
-        ml_seg = mRigNull.msgList_get(
-            BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB)
-        if ml_seg:
-            return ml_seg
-        return []
-    _limb_bezier_connect_control_msglists(mModule, mRigNull)
-    return mRigNull.msgList_get(
-        BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB) or []
-
 
 d_controlDat_links = {
     'fk' : ['leverFK','fkJoints','controlsFK','controlFK','controlFKReverse'],
@@ -11381,11 +11358,8 @@ d_controlDat_links = {
             'controlIKEnd','controlIK',
             'controlBallRotation','leverIK',
             'controlIKBallHinge','controlIKBall','controlIKToe',
-            'eyeLookAt','lookAt',
-            'ikBase',
-            'controlsSegmentBezier'],
-    'segmentHandles' : ['controlsSegmentBezier', 'bezierIKSubControls',
-                        'handleJoints', 'controlSegMidIK'],
+            'controlIKMid','leverIK','eyeLookAt','lookAt',
+            'ikBase'],
     'root' : ['cog','rigRoot','limbRoot'],
 }
 
@@ -11393,8 +11367,6 @@ def controller_getDat(self):
     _str_func = 'controller_getDat'
     log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
     mRigNull = self.rigNull
-
-    _limb_bezier_ensure_aggregate_ik_msglist(self, mRigNull)
     
     def checkList(l):
         ml = []
@@ -11427,29 +11399,11 @@ def controller_getDat(self):
     
     md['noHide'] = md['root'] + md['settings']
     
-    #IK... (controlsSegmentBezier msgList = segment bezier pickwalk when present)
+    #IK...
     md['ik'] = checkList(d_controlDat_links['ik'])
-    #seg...
-    ml_use = mRigNull.msgList_get(
-        BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_LIMB) or []
-    if ml_use:
-        md['segmentHandles'] = list(ml_use)
-    else:
-        ml_handles = mRigNull.msgList_get('handleJoints')
-        ml_mid = mRigNull.msgList_get('controlSegMidIK')
-
-        if ml_handles:
-            ml_use = []
-            for i, mObj in enumerate(ml_handles):
-                ml_use.append(mObj)
-
-                if ml_mid:
-                    try:
-                        ml_use.append(ml_mid[i])
-                    except Exception:
-                        pass
-
-            md['segmentHandles'] = ml_use
+    #seg... (bezier roll pickwalk on controlsSegmentBezier — build-time msgList only)
+    md['segmentHandles'] = BEZIERIKBLOCK.controller_getDat_limb_segment_handles_lane(
+        mRigNull)
 
     return md
 

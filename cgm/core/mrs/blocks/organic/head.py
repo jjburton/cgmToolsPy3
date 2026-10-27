@@ -5918,10 +5918,6 @@ def controller_getDat(self):
     log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
     mRigNull = self.rigNull
 
-    if (self.neckIK and self.getEnumValueString('neckIK') == 'bezier'):
-        BEZIERIKBLOCK.bezier_ik_ensure_aggregate_ik_msglist(
-            mRigNull, BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_NECK)
-
     def checkList(l):
         ml = []
         for o in l:
