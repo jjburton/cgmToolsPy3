@@ -11374,7 +11374,7 @@ def _limb_bezier_ensure_aggregate_ik_msglist(mModule, mRigNull):
 
 
 d_controlDat_links = {
-    'fk' : ['leverFK','controlsFK','controlFK','controlFKReverse'],
+    'fk' : ['leverFK','fkJoints','controlsFK','controlFK','controlFKReverse'],
     'ik' : ['leverFK',
             'controlIKBase',
             'controlIKMid',
