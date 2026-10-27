@@ -3992,12 +3992,18 @@ def _limb_bezier_section_pickwalk_one_section(ml_mains, md_subs):
     int_last = len(ml_mains) - 1
     _str_sub_attr = BEZIERIKBLOCK.BEZIER_IK_MAIN_SUB_MSGLIST
     for i, mMain in enumerate(ml_mains):
-        ml_subs_on_main = mMain.msgList_get(_str_sub_attr)
-        if ml_subs_on_main:
-            ml_subs = ml_subs_on_main
+        str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
+        ml_subs = (md_subs or {}).get(str_slot, []) or []
+        if not ml_subs:
+            ml_subs = mMain.msgList_get(_str_sub_attr) or []
         else:
-            str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
-            ml_subs = (md_subs or {}).get(str_slot, []) or []
+            ml_on_main = mMain.msgList_get(_str_sub_attr) or []
+            if ml_on_main:
+                set_long = {m.p_nameLong for m in ml_subs}
+                for m in ml_on_main:
+                    if m.p_nameLong not in set_long:
+                        ml_subs.append(m)
+                        set_long.add(m.p_nameLong)
         BEZIERIKBLOCK.bezier_ik_pickwalk_append_main_index(
             ml_out, i, int_last, mMain, ml_subs)
     return ml_out

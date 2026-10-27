@@ -1449,6 +1449,33 @@ def bezier_ik_subs_pickwalk_order_for_anchor(i_main, int_last, ml_subs):
     return list(ml_back) + list(ml_fwd)
 
 
+def bezier_ik_subs_for_main_pickwalk(
+        mMain, ml_mains, md_subs_by_slot, m_base=None, m_end=None, slot_key_fn=None):
+    """
+    Subs list for pickwalk append: prefer md_subs_by_slot / rig_shapes (complete back+forward on mids).
+    Fall back to bezierIKSubs on main. Merge slot + main when both exist (shared roll joints).
+    """
+    if slot_key_fn:
+        str_slot = slot_key_fn(mMain, ml_mains)
+    else:
+        str_slot = rig_shapes_bezier_main_slot_key(mMain, ml_mains, m_base, m_end)
+    ml_slot = (md_subs_by_slot or {}).get(str_slot) or []
+    ml_on_main = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST) or []
+    if not ml_slot and not ml_on_main:
+        return []
+    if not ml_on_main:
+        return list(ml_slot)
+    if not ml_slot:
+        return list(ml_on_main)
+    ml_combined = list(ml_slot)
+    set_long = {m.p_nameLong for m in ml_combined}
+    for m in ml_on_main:
+        if m.p_nameLong not in set_long:
+            ml_combined.append(m)
+            set_long.add(m.p_nameLong)
+    return ml_combined
+
+
 def bezier_ik_pickwalk_append_main_index(ml_out, i_main, int_last, mMain, ml_subs):
     """
     Append one main anchor to aggregate IK pickwalk:
@@ -1481,8 +1508,15 @@ def bezier_ik_connect_main_sub_msglists_for_mains(
         ml_subs = (md_subs_by_slot or {}).get(str_slot) or []
         if not ml_subs:
             continue
+        ml_existing = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST) or []
+        ml_combined = list(ml_existing)
+        set_long = {m.p_nameLong for m in ml_combined}
+        for m in ml_subs:
+            if m.p_nameLong not in set_long:
+                ml_combined.append(m)
+                set_long.add(m.p_nameLong)
         ml_ordered = bezier_ik_subs_pickwalk_order_for_anchor(
-            i, int_last, ml_subs)
+            i, int_last, ml_combined)
         ml_ordered = [m for m in ml_ordered if _bezier_ik_pickwalk_dag(m)]
         if ml_ordered:
             mMain.msgList_connect(
@@ -1594,12 +1628,8 @@ def bezier_ik_pickwalk_controls(mRigNull, md_subs_by_slot=None):
     ml_out = []
     int_last = len(ml_mains) - 1
     for i, mMain in enumerate(ml_mains):
-        str_slot = rig_shapes_bezier_main_slot_key(mMain, ml_mains, mBase, mEnd)
-        ml_subs_on_main = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST)
-        if ml_subs_on_main:
-            ml_subs = ml_subs_on_main
-        else:
-            ml_subs = md_subs.get(str_slot, []) or []
+        ml_subs = bezier_ik_subs_for_main_pickwalk(
+            mMain, ml_mains, md_subs, m_base=mBase, m_end=mEnd)
         bezier_ik_pickwalk_append_main_index(ml_out, i, int_last, mMain, ml_subs)
     return ml_out
 
@@ -1828,12 +1858,8 @@ def bezier_ik_pickwalk_controls_from_mains(ml_mains, md_subs_by_slot=None):
     int_last = len(ml_mains) - 1
     md_subs = dict(md_subs_by_slot or {})
     for i, mMain in enumerate(ml_mains):
-        str_slot = segment_bezier_main_slot_key(mMain, ml_mains)
-        ml_subs_on_main = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST)
-        if ml_subs_on_main:
-            ml_subs = ml_subs_on_main
-        else:
-            ml_subs = md_subs.get(str_slot, []) or []
+        ml_subs = bezier_ik_subs_for_main_pickwalk(
+            mMain, ml_mains, md_subs, slot_key_fn=segment_bezier_main_slot_key)
         bezier_ik_pickwalk_append_main_index(ml_out, i, int_last, mMain, ml_subs)
     return ml_out
 
