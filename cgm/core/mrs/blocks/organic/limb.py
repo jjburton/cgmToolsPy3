@@ -4670,8 +4670,9 @@ def _limb_bezier_should_run_spline_stretch(self, mBlock):
 
 def _limb_bezier_inflate_slide_global_spec(mRigNull, l_rollKeys):
     """
-    Squash joint count across roll sections for squashInflate slide (not volume squash).
-    Returns (total_squash_joints, {section_idx: start_index}).
+    Span count across roll sections for squashInflate slide (one slot per stretch span).
+    Limb-end wrist tip inflate is skipped on the last roll section (see skipTipInflate).
+    Returns (total_span_slots, {section_idx: start_index}).
     """
     md_start = {}
     int_run = 0
@@ -4769,6 +4770,7 @@ def _limb_rig_segments_bezier_squash_stretch(
         inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
         parentGutsTo=mRigNull,
         inflateDriveDirectParents=_b_inflate_direct_parents,
+        skipTipInflate=(section_idx == l_rollKeys[-1]),
         useUndoChunk=False)
 
     if d_stretch:

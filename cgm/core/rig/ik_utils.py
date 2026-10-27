@@ -6365,6 +6365,8 @@ def bezier_spline_stretch(ml_joints=None,
                           volume_squash_inflate_only=None,
                           applyVolumeSquash=True,
                           apply_volume_squash=None,
+                          skipTipInflate=False,
+                          skip_tip_inflate=None,
                           useUndoChunk=True):
     """
     Exact arc-length stretch for IK.bezier_spline joint chains.
@@ -6399,6 +6401,7 @@ def bezier_spline_stretch(ml_joints=None,
         parentGutsTo | rigNull (or group): parent transform DAG (inflate floorUtil, etc.)
         inflateDriveDirectParents | Volume squash on IK joints only; full inflate plugs in
             l_inflateDirectPlugs for direct-control parents (Segment FK)
+        skipTipInflate | When True, do not wire chain-tip inflate or tip inflateScale direct plugs
 
     :returns:
         dict of meta nodes and plugs
@@ -6471,6 +6474,9 @@ def bezier_spline_stretch(ml_joints=None,
         volumeSquashInflateOnly = volume_squash_inflate_only
     if apply_volume_squash is not None:
         applyVolumeSquash = apply_volume_squash
+    if skip_tip_inflate is not None:
+        skipTipInflate = skip_tip_inflate
+    b_skip_tip_inflate = bool(skipTipInflate)
     b_volume_only = bool(volumeSquashInflateOnly)
     b_apply_volume_squash = bool(applyVolumeSquash)
     if b_volume_only:
@@ -6488,7 +6494,7 @@ def bezier_spline_stretch(ml_joints=None,
 
     log.info(cgmGEN.logString_msg(
         _str_func,
-        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6} volumeOnly:{7} applyVolumeSquash:{8}'.format(
+        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6} volumeOnly:{7} applyVolumeSquash:{8} skipTipInflate:{9}'.format(
             cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
             cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
             if _settings else '(driver)',
@@ -6498,7 +6504,8 @@ def bezier_spline_stretch(ml_joints=None,
             extraInflateControl,
             inflateDriveDirectParents,
             b_volume_only,
-            b_apply_volume_squash)))
+            b_apply_volume_squash,
+            b_skip_tip_inflate)))
 
     mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
     if not mDriver.getShapes(asMeta=False):
@@ -6818,12 +6825,13 @@ def bezier_spline_stretch(ml_joints=None,
                                 '{0}_volTip'.format(str_base),
                                 l_seg_final_ratio[-1], not b_stretch_scale))
                         ml_squash_dg.extend([_m_tip_ratio, _m_tip_vol])
-                        _bezier_stretch_wire_chain_tip_inflate(
-                            str_base, ml_joints, _str_tip_vol_drv, mPlug_squash,
-                            mPlug_inflate, int_inflate_max_factor_idx,
-                            str_inflate_shift, md_inflate_factor_plugs_prepared,
-                            inflateDriveDirectParents, l_inflateDirectPlugs,
-                            l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
+                        if not b_skip_tip_inflate:
+                            _bezier_stretch_wire_chain_tip_inflate(
+                                str_base, ml_joints, _str_tip_vol_drv, mPlug_squash,
+                                mPlug_inflate, int_inflate_max_factor_idx,
+                                str_inflate_shift, md_inflate_factor_plugs_prepared,
+                                inflateDriveDirectParents, l_inflateDirectPlugs,
+                                l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
 
                 if ml_inflate_dg:
                     ml_squash_dg.extend(ml_inflate_dg)
@@ -6964,12 +6972,13 @@ def bezier_spline_stretch(ml_joints=None,
                                 mJnt, l_volume_scale, str_vol_scale,
                                 str_inflate_scale, inflateDriveDirectParents,
                                 l_inflateDirectPlugs, i)
-                        _bezier_stretch_wire_chain_tip_inflate(
-                            str_base, ml_joints, str_volume_driver, mPlug_squash,
-                            mPlug_inflate, int_inflate_max_factor_idx,
-                            str_inflate_shift, md_inflate_factor_plugs_prepared,
-                            inflateDriveDirectParents, l_inflateDirectPlugs,
-                            l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
+                        if not b_skip_tip_inflate:
+                            _bezier_stretch_wire_chain_tip_inflate(
+                                str_base, ml_joints, str_volume_driver, mPlug_squash,
+                                mPlug_inflate, int_inflate_max_factor_idx,
+                                str_inflate_shift, md_inflate_factor_plugs_prepared,
+                                inflateDriveDirectParents, l_inflateDirectPlugs,
+                                l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
                     if ml_inflate_dg:
                         ml_squash_dg.extend(ml_inflate_dg)
                     ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
