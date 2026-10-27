@@ -4003,7 +4003,7 @@ def prerig(self):
             mShape.p_position = p_shape                
         
             md_handles[_tag] = mDag
-            md_handles[_tag] = mDag
+            _muzzle_teeth_proxy_geo_follow_prerig(self, 'Upr', mDag)
             
     if _teethLwrSetup:
         log.debug(cgmGEN.logString_sub(_str_func,'teeth lwr: {0}'.format(_teethUprSetup)))
@@ -4032,7 +4032,7 @@ def prerig(self):
             mShape.p_position = p_shape                
         
             md_handles[_tag] = mDag
-            md_handles[_tag] = mDag
+            _muzzle_teeth_proxy_geo_follow_prerig(self, 'Lwr', mDag)
     
     if self.chinSetup:# chin setup ============================================================
         log.debug(cgmGEN.logString_sub(_str_func,'chin setup'))
@@ -7660,6 +7660,134 @@ def rig_cleanUp(self):
     self.UTILS.rigNodes_store(self)
 
 
+#=============================================================================================================
+# Teeth proxy geo (form+) — separate upper / lower slots
+#=============================================================================================================
+_d_teeth_proxy_slots = {
+    'Upr': {'msgList': 'teethUprMeshProxy', 'groupMsg': 'teethUprGeoGroup', 'gumTag': 'uprGum', 'teethTag': 'teethUpr'},
+    'Lwr': {'msgList': 'teethLwrMeshProxy', 'groupMsg': 'teethLwrGeoGroup', 'gumTag': 'lwrGum', 'teethTag': 'teethLwr'},
+}
+
+
+def _muzzle_teeth_geo_slot(which):
+    if which not in _d_teeth_proxy_slots:
+        raise ValueError("teeth proxy slot must be 'Upr' or 'Lwr', got: {0}".format(which))
+    return _d_teeth_proxy_slots[which]
+
+
+def teethProxyGeo_state_ok(mBlock):
+    try:
+        return int(mBlock.blockState) >= 1
+    except Exception:
+        return False
+
+
+def _muzzle_form_handle_for_teeth_geo(mBlock, gum_tag):
+    for mH in mBlock.msgList_get('formHandles', asMeta=True) or []:
+        if getattr(mH, 'handleTag', None) == gum_tag:
+            return mH
+    return None
+
+
+def _muzzle_rig_joint_from_rig_null(mRigNull, name_token):
+    if not mRigNull:
+        return None
+    for mJnt in mRigNull.msgList_get('rigJoints', asMeta=True) or []:
+        if mJnt.getMayaAttr('cgmName') == name_token:
+            return mJnt
+        if name_token in mJnt.p_nameShort:
+            return mJnt
+    return None
+
+
+def _muzzle_teeth_influence_joint(mBlock, mRigNull, mPrerigNull, which):
+    _str_func = '_muzzle_teeth_influence_joint'
+    _slot = _muzzle_teeth_geo_slot(which)
+    _teeth_tag = _slot['teethTag']
+    mJnt = None
+    if mPrerigNull:
+        mSkin = mPrerigNull.getMessageAsMeta(_teeth_tag + 'Joint')
+        if mSkin:
+            mJnt = mSkin.getMessageAsMeta('rigJoint') or mSkin
+    if not mJnt:
+        mJnt = _muzzle_rig_joint_from_rig_null(mRigNull, _teeth_tag)
+    if not mJnt:
+        if which == 'Upr':
+            for _fallback in ('jawUpr', 'jaw'):
+                mJnt = _muzzle_rig_joint_from_rig_null(mRigNull, _fallback)
+                if mJnt:
+                    break
+        else:
+            mJnt = _muzzle_rig_joint_from_rig_null(mRigNull, 'jaw')
+        if mJnt:
+            log.warning("|{0}| >> teeth {1} proxy geo skin fallback: {2}".format(
+                _str_func, which, mJnt.p_nameShort))
+    if not mJnt:
+        log.error("|{0}| >> No influence joint for teeth {1} proxy geo".format(_str_func, which))
+    return mJnt
+
+
+def _muzzle_teeth_proxy_geo_follow_prerig(mBlock, which, mDagHelper):
+    _str_func = '_muzzle_teeth_proxy_geo_follow_prerig'
+    if not teethProxyGeo_state_ok(mBlock):
+        return
+    _slot = _muzzle_teeth_geo_slot(which)
+    mGroup = mBlock.getMessageAsMeta(_slot['groupMsg'])
+    if not mGroup or not mDagHelper:
+        return
+    _dag = mDagHelper.mNode if hasattr(mDagHelper, 'mNode') else mDagHelper
+    _grp = mGroup.mNode
+    _existing = mc.listRelatives(_grp, type='parentConstraint') or []
+    for _cnst in _existing:
+        _targets = mc.parentConstraint(_cnst, q=True, targetList=True) or []
+        if _dag in _targets:
+            return
+    mc.parentConstraint(_dag, _grp, maintainOffset=True)
+    log.debug("|{0}| >> {1} teeth proxy geo follows {2}".format(_str_func, which, mDagHelper))
+
+
+def _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, which, _str_func):
+    _slot = _muzzle_teeth_geo_slot(which)
+    ml_src = mBlock.msgList_get(_slot['msgList'], asMeta=True) or []
+    if not ml_src:
+        return
+    mInfluence = _muzzle_teeth_influence_joint(mBlock, mRigNull, mPrerigNull, which)
+    if not mInfluence:
+        return
+    _inf = mInfluence.mNode
+    for mSrc in ml_src:
+        if not mSrc.getMayaAttr('v'):
+            continue
+        _dup = mc.duplicate(mSrc.mNode, po=False, ic=False)
+        if not _dup:
+            continue
+        mObj = cgmMeta.validateObjArg(_dup[0], 'cgmObject', setClass=True)
+        if not mObj.getShapes():
+            mObj.delete()
+            continue
+        mObj.p_parent = False
+        mObj.doStore('cgmName', _slot['teethTag'])
+        mObj.doName()
+        for s in TRANS.shapes_get(mObj.mNode, True):
+            GEO.normalCheck(s)
+        log.debug("|{0}| >> teeth {1} proxy skin: {2} -> {3}".format(
+            _str_func, which, mObj.p_nameShort, mInfluence.p_nameShort))
+        mSkinCluster = cgmMeta.validateObjArg(
+            mc.skinCluster([_inf],
+                           mObj.mNode,
+                           tsb=True,
+                           maximumInfluences=1,
+                           heatmapFalloff=1.0,
+                           bindMethod=0,
+                           normalizeWeights=1,
+                           dropoffRate=10.0),
+            'cgmNode',
+            setClass=True)
+        mSkinCluster.doStore('cgmName', mObj)
+        mSkinCluster.doName()
+        ml_proxy.append(mObj)
+
+
 def create_simpleMesh(self, deleteHistory=True, skin=True, parent=False, **kws):
     _str_func = 'create_simpleMesh'
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
@@ -7755,10 +7883,6 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
                 ml_use.append(mObj)
         ml_rigJoints = ml_use
 
-        mTeethUpr = mPrerigNull.getMessageAsMeta('teethUprJoint')
-        if mTeethUpr:
-            log.debug("|{0}| >> mTeethUpr".format(_str_func)+'-'*40)
-
         for lnk in ['jaw','nose','uprLip','lwrLip','overLip','underLip','noseToCheekLeft','noseToCheekRight',
                     'lipToChin','uprJoinLeft','uprJoinRight']:
             mBase = mBlock.getMessageAsMeta(lnk+'FormLoft')
@@ -7809,6 +7933,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
 
                 ml_proxy.append(mNew)
 
+        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Upr', _str_func)
+        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Lwr', _str_func)
+
     def _wireProxyVis(ml_targets):
         _sideShader = _side if _side not in ['none', ''] else 'center'
         for mProxy in ml_targets:
@@ -7851,6 +7978,117 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
 
 
 #UI ================================================================================================
+def teethProxyGeo_getGroup(self, which, select=False):
+    _str_func = 'teethProxyGeo_getGroup'
+    if not teethProxyGeo_state_ok(self):
+        return log.error("|{0}| >> block must be form state or above".format(_str_func))
+    _slot = _muzzle_teeth_geo_slot(which)
+    mGroup = self.getMessageAsMeta(_slot['groupMsg'])
+    if not mGroup:
+        mGroup = cgmMeta.cgmObject(mc.group(em=True))
+        mGroup.rename('teeth{0}ProxyGeo'.format(which))
+        mGroup.connectParentNode(self, 'rigBlock', _slot['groupMsg'])
+        mAnchor = _muzzle_form_handle_for_teeth_geo(self, _slot['gumTag'])
+        if mAnchor:
+            mGroup.p_parent = mAnchor
+        else:
+            mFormNull = BLOCKUTILS.formNull_verify(self)
+            mGroup.p_parent = mFormNull
+            log.warning("|{0}| >> missing form handle {1}; parented teeth geo group to formNull".format(
+                _str_func, _slot['gumTag']))
+        mGroup.overrideEnabled = 1
+        mGroup.overrideDisplayType = 2
+    log.debug("|{0}| >> {1}: {2}".format(_str_func, which, mGroup))
+    if select:
+        mc.select(mGroup.mNode)
+    return mGroup
+
+
+def teethProxyGeo_add(self, which, arg=None):
+    _str_func = 'teethProxyGeo_add'
+    if not teethProxyGeo_state_ok(self):
+        return log.error("|{0}| >> block must be form state or above".format(_str_func))
+    if not arg:
+        arg = mc.ls(sl=1)
+    ml_stuff = cgmMeta.validateObjListArg(arg)
+    if not ml_stuff:
+        return log.error("|{0}| add | Nothing selected and no arg offered".format(self.p_nameShort))
+    _slot = _muzzle_teeth_geo_slot(which)
+    mProxyGeoGrp = teethProxyGeo_getGroup(self, which)
+    _side = self.UTILS.get_side(self)
+    mHandleFactory = self.asHandleFactory()
+    for mObj in ml_stuff:
+        mProxy = mObj.doDuplicate(po=False)
+        mProxy = cgmMeta.validateObjArg(mProxy, 'cgmObject', setClass=True)
+        mHandleFactory.color(mProxy.mNode, _side, 'sub', transparent=True)
+        mProxy.p_parent = mProxyGeoGrp
+        self.msgList_append(_slot['msgList'], mProxy, 'block')
+        mProxy.rename('teeth{0}_{1}_proxyGeo'.format(which, mProxy.p_nameBase))
+
+
+def teethProxyGeo_remove(self, which, arg=None):
+    if not teethProxyGeo_state_ok(self):
+        return log.error("teethProxyGeo_remove | block must be form state or above")
+    if not arg:
+        arg = mc.ls(sl=1)
+    ml_stuff = cgmMeta.validateObjListArg(arg)
+    if not ml_stuff:
+        return log.error("|{0}| remove | Nothing selected and no arg offered".format(self.p_nameShort))
+    _slot = _muzzle_teeth_geo_slot(which)
+    for mObj in ml_stuff:
+        if self.msgList_remove(_slot['msgList'], mObj):
+            mObj.p_parent = False
+            mObj.rename(mObj.p_nameBase.replace('_proxyGeo', '_geo'))
+            mObj.overrideEnabled = 0
+            for mShape in mObj.getShapes(asMeta=1):
+                mShape.overrideEnabled = 0
+
+
+def teethProxyGeo_replace(self, which, arg=None):
+    if not teethProxyGeo_state_ok(self):
+        return log.error("teethProxyGeo_replace | block must be form state or above")
+    if not arg:
+        arg = mc.ls(sl=1)
+    ml_stuff = cgmMeta.validateObjListArg(arg)
+    if not ml_stuff:
+        return log.error("|{0}| replace | Nothing selected and no arg offered".format(self.p_nameShort))
+    _slot = _muzzle_teeth_geo_slot(which)
+    ml_current = self.msgList_get(_slot['msgList']) or []
+    for mObj in ml_current:
+        if mObj not in ml_stuff:
+            mObj.p_parent = False
+    try:
+        self.msgList_purge(_slot['msgList'])
+    except Exception:
+        pass
+    teethProxyGeo_add(self, which, ml_stuff)
+
+
+def _ui_teeth_proxy_geo_menu(self, parent, which, label, _short):
+    _en = teethProxyGeo_state_ok(self)
+    _sub = mc.menuItem(parent=parent, en=_en, subMenu=True, tearOff=True, label=label)
+    mc.menuItem(parent=_sub,
+                ann='[{0}] Report {1} teeth proxy geo group'.format(_short, label),
+                c=cgmGEN.Callback(teethProxyGeo_getGroup, self, which),
+                label='Report Group')
+    mc.menuItem(parent=_sub,
+                ann='[{0}] Add selected to {1} teeth proxy geo'.format(_short, label),
+                c=cgmGEN.Callback(teethProxyGeo_add, self, which),
+                label='Add selected')
+    mc.menuItem(parent=_sub,
+                ann='[{0}] Replace {1} teeth proxy geo with selected'.format(_short, label),
+                c=cgmGEN.Callback(teethProxyGeo_replace, self, which),
+                label='Replace with selected')
+    mc.menuItem(parent=_sub,
+                ann='[{0}] Remove selected from {1} teeth proxy geo'.format(_short, label),
+                c=cgmGEN.Callback(teethProxyGeo_remove, self, which),
+                label='Remove selected')
+    mc.menuItem(parent=_sub,
+                ann='[{0}] Select {1} teeth proxy geo group'.format(_short, label),
+                c=cgmGEN.Callback(teethProxyGeo_getGroup, self, which, True),
+                label='Select Group')
+
+
 def uiFunc_getDefineScaleSpace(self):
     ml_handles = self.msgList_get('defineSubHandles')
     for mObj in ml_handles:
@@ -7982,6 +8220,10 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] Match local rotate from mTrackBase to mTrackSeal (p_rotate); not world orient.'.format(_short),
                 c = cgmGEN.Callback(uiFunc_matchSealRotateToBase,self),
                 label = "Match Seal Rotate to Base")
+
+    mc.menuItem(parent=parent, en=False, divider=True, label='Teeth Proxy Geo')
+    _ui_teeth_proxy_geo_menu(self, parent, 'Upr', 'Upper', _short)
+    _ui_teeth_proxy_geo_menu(self, parent, 'Lwr', 'Lower', _short)
     
     
     """
