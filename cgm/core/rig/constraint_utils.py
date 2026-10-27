@@ -70,7 +70,11 @@ def attach_toCurveTrack(mHandle,mCrv, mTrackTarget = None, mShape = None,parentT
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    mPointOnCurve = cgmMeta.asMeta(
+        CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1))
     
     
     if blend:

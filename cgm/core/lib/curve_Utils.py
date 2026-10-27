@@ -644,24 +644,51 @@ def _closestPointOnShape(shape, position):
     mc.delete(_node)
     return _pos, _u
 
-    
+
+def nurbs_curve_shape_get(curve):
+    """
+    Single non-intermediate nurbsCurve shape long DAG path (transform or shape input).
+    Use for mc.connectAttr curve plugs (e.g. pointOnCurveInfo.inputCurve).
+    """
+    _str_func = 'nurbs_curve_shape_get'
+    if type(curve) in [list, tuple]:
+        curve = curve[0]
+    _node = cgmValid.mNodeString(curve)
+    if cgmValid.is_shape(_node):
+        _shape = SHAPES.get_nonintermediate(_node)
+        if cgmValid.get_mayaType(_shape) != 'nurbsCurve':
+            raise ValueError(
+                '|{0}| >> not a nurbsCurve shape: {1}'.format(_str_func, _shape))
+        return NAMES.get_long(_shape)
+
+    _transform = SEARCH.get_transform(_node)
+    _l = [
+        s for s in TRANS.shapes_get(_transform, True)
+        if cgmValid.get_mayaType(s) == 'nurbsCurve'
+    ]
+    if not _l:
+        raise ValueError('No nurbsCurve shape found: {0}'.format(_transform))
+    if len(_l) > 1:
+        raise ValueError(
+            'Multiple nurbsCurve shapes on transform; use one per transform: {0}'.format(
+                _transform))
+    return NAMES.get_long(SHAPES.get_nonintermediate(_l[0]))
+
+
 def create_pointOnInfoNode(crvShape,parameter= None,turnOnPercentage=None):
     _str_func = 'create_pointOnInfoNode'
     if type(crvShape) in [list,tuple]:crvShape = crvShape[0]
-    if cgmValid.get_mayaType(crvShape) != 'nurbsCurve':
-        log.warning("|{0}| >> not a nurbsCurve. Skipping {1}({2})...".format(_str_func,crvShape,cgmValid.get_mayaType(crvShape)))
+    try:
+        _shape_long = nurbs_curve_shape_get(crvShape)
+    except ValueError as err:
+        log.warning("|{0}| >> {1}".format(_str_func, err))
         return False
-    
-    if cgmValid.is_shape(crvShape):
-        _shape = crvShape
-    else:
-        _shapes = mc.listRelatives(SEARCH.get_transform(crvShape), shapes=True) or []
-        if not _shapes:
-            log.warning("|{0}| >> no nurbsCurve shape on {1}. Skipping...".format(_str_func, crvShape))
-            return False
-        _shape = _shapes[0]
+
     _infoNode = mc.createNode('pointOnCurveInfo')
-    mc.connectAttr((_shape + '.worldSpace[0]'), (_infoNode + '.inputCurve'))
+    _poci_long = NAMES.get_long(_infoNode)
+    mc.connectAttr(
+        '{0}.worldSpace[0]'.format(_shape_long),
+        '{0}.inputCurve'.format(_poci_long))
     
     if turnOnPercentage is not None:
         ATTR.set(_infoNode,'turnOnPercentage',turnOnPercentage)
@@ -2851,16 +2878,7 @@ def distribute(target=None, comp='ep', closed=True, rebuild=0):
 
 def _nurbs_curve_shape_for_closest(curve):
     """Single non-intermediate nurbsCurve shape on a transform (for closest-point queries)."""
-    _l = [
-        s for s in TRANS.shapes_get(curve, True)
-        if cgmValid.get_mayaType(s) == 'nurbsCurve'
-    ]
-    if not _l:
-        raise ValueError('No nurbsCurve shape found: {0}'.format(curve))
-    if len(_l) > 1:
-        raise ValueError(
-            'Multiple nurbsCurve shapes on transform; use one per transform: {0}'.format(curve))
-    return SHAPES.get_nonintermediate(_l[0])
+    return nurbs_curve_shape_get(curve)
 
 
 def _get_edit_point_count(shape):
