@@ -1226,9 +1226,9 @@ def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
     """
     ``ikSetup=bezier`` volume squash + settings ramp on the module **ik** chain.
 
-    ``segmentType=parent``: IK bezier owns squash (joints follow handles).
-    Any other segment deform (ribbon, segment bezier, …): squash stays on
-    **segmentJoints** only; module IK gets arc-length stretch without volume.
+    ``segmentType=parent``: IK bezier owns squash/stretch on **ikJoints** (``rig_frame``).
+    Any other ``segmentType``: no module IK ``bezier_spline_stretch``; deform chain
+    in ``rig_segments`` owns squash/stretch on **segmentJoints**.
     """
     if not mBlock or not mBlock.ikSetup:
         return False

@@ -2063,11 +2063,6 @@ def rig_prechecks(self):
             if str_neckIK not in _l_neckIK_ok:
                 self.l_precheckErrors.append(
                     "Haven't setup neck mode: {0}".format(str_neckIK))
-            if str_neckIK == 'bezier':
-                if mBlock.getEnumValueString('segmentType') != 'parent':
-                    self.l_precheckErrors.append(
-                        'neckIK bezier (phase 1) requires segmentType parent')
-            
                 
         for mObj in mBlock.moduleTarget.rigNull.msgList_get('moduleJoints'):
             if not mObj.p_parent:
@@ -4531,13 +4526,13 @@ def rig_frame(self):
                                 driver=mPlug_followIK.p_combinedName,
                                 l_constraints=['orient'])
 
+                        # Module ikJoints: squash/stretch only when segmentType=parent.
+                        _b_ik_chain_squash_stretch = (self.str_segmentType == 'parent')
                         if (self.b_scaleSetup
-                                and mBlock.getEnumValueString('squash') == 'simple'):
+                                and mBlock.getEnumValueString('squash') == 'simple'
+                                and _b_ik_chain_squash_stretch):
                             mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
                             _str_aim = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
-                            _b_ik_volume_squash = (
-                                BEZIERIKBLOCK.segment_bezier_ik_module_chain_volume_squash(
-                                    mBlock, self.str_segmentType))
                             _squash_main = (
                                 BEZIERIKBLOCK.segment_bezier_ik_module_chain_stretch_squash_measure(
                                     mBlock, self.str_segmentType, self.d_squashStretch))
@@ -4550,7 +4545,7 @@ def rig_frame(self):
                                     len(ml_ikUse),
                                     self.str_segmentType,
                                     _squash_main,
-                                    _b_ik_volume_squash)))
+                                    True)))
                             d_bezierStretch = IK.bezier_spline_stretch(
                                 jointList=[mObj.mNode for mObj in ml_ikUse],
                                 mDriverCurve=mBezierDriver,
@@ -4560,24 +4555,27 @@ def rig_frame(self):
                                 globalScalePlug=mPlug_masterScale.p_combinedName,
                                 baseName='{0}_bezier'.format(self.d_module['partName']),
                                 squashStretchMain=_squash_main,
-                                extraSquashControl=(
-                                    mBlock.squashExtraControl if _b_ik_volume_squash else False),
+                                extraSquashControl=mBlock.squashExtraControl,
                                 extraInflateControl=False,
                                 squashFactorMin=mBlock.squashFactorMin,
                                 squashFactorMax=mBlock.squashFactorMax,
                                 squashFactorMode=self.str_squashFactorMode,
                                 parentGutsTo=mRigNull,
                                 inflateDriveDirectParents=False,
-                                applyVolumeSquash=_b_ik_volume_squash,
+                                applyVolumeSquash=True,
                                 useUndoChunk=False)
                             self.d_stretchInflateRes = d_bezierStretch
                             if mSettings and mSettings.hasAttr('squash'):
-                                if _b_ik_volume_squash:
-                                    ATTR.set_default(mSettings.mNode, 'squash', 1.0)
-                                    ATTR.set(mSettings.mNode, 'squash', 1.0)
-                                else:
-                                    ATTR.set_default(mSettings.mNode, 'squash', 0.0)
-                                    ATTR.set(mSettings.mNode, 'squash', 0.0)
+                                ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+                                ATTR.set(mSettings.mNode, 'squash', 1.0)
+                        elif (self.b_scaleSetup
+                                and mBlock.getEnumValueString('squash') == 'simple'
+                                and not _b_ik_chain_squash_stretch):
+                            log.info(cgmGEN.logString_msg(
+                                _str_func,
+                                'skip neck IK bezier_spline_stretch | segmentType:{0} '
+                                '(squash/stretch on segmentJoints in rig_segments)'.format(
+                                    self.str_segmentType)))
            
                     else:
                         raise ValueError("Not implemented {0} ik setup".format(_ikNeck))                    
