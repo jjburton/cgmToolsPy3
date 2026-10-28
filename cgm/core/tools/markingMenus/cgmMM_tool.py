@@ -570,12 +570,11 @@ class cgmMarkingMenu(cgmUI.markingMenu):
                         
             mc.menuItem(l='Hide',
                         c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
-
-            mc.menuItem(l='Segment Scale Compensate*', subMenu=True)
-            mc.menuItem(l='On',
+            mc.menuItem(divider=True)
+            mc.menuItem(l='SSC On',
                         ann='Enable segment scale compensate by current context',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint'))
-            mc.menuItem(l='Off',
+            mc.menuItem(l='SSC Off',
                         ann='Disable segment scale compensate by current context',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint'))
                         
