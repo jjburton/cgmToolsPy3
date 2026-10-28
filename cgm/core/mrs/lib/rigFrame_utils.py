@@ -1004,9 +1004,7 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
 
         mTwistStart = mIKBaseControl
         mTwistEnd = mTwistEndControl or mIKControl
-        if ml_bezierMainIK:
-            mTwistStart = ml_bezierMainIK[0]
-            mTwistEnd = mTwistEndControl or ml_bezierMainIK[-1]
+        # Driver twist add + advanced WU: module end/base IK (controlIK*), not bezier CV chain mains.
         if ikEndTwistConnect and mTwistEnd and mTwistStart:
             _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
             mPlug_addEnd = cgmMeta.cgmAttr(
