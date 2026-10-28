@@ -489,9 +489,7 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
             ml_curves = []
     
             if ikEnd == 'tipBase':
-                mCastDag = _ik_end_cast_source_dag(
-                    self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints, ml_fkCastTargets)
-                mIKCrv = mCastDag.doCreateAt()
+                mIKCrv = ml_handleTargets[self.int_handleEndIdx].doCreateAt()
             elif ikEnd == 'tipMid':
                 mIKCrv =  mBlock.ikEndHandle.doCreateAt()
                 
