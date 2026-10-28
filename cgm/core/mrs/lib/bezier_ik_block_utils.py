@@ -1222,19 +1222,59 @@ def segment_ik_base_orient_follow_setup(m_segment,
     m_segment.ml_ikBlendUse[0] = m_ik_orient_frame
 
 
+def block_uses_bezier_module_ik(mBlock):
+    """Segment ``ikSetup=bezier`` or Head ``neckIK=bezier`` module IK spline."""
+    if not mBlock:
+        return False
+    if mBlock.ikSetup and mBlock.getEnumValueString('ikSetup') == 'bezier':
+        return True
+    if getattr(mBlock, 'neckIK', None) and mBlock.getEnumValueString('neckIK') == 'bezier':
+        return True
+    return False
+
+
 def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
     """
-    ``ikSetup=bezier`` volume squash + settings ramp on the module **ik** chain.
+    Full volume squash on module **ikJoints** in ``rig_frame`` ``bezier_spline_stretch``.
 
-    ``segmentType=parent``: IK bezier owns squash/stretch on **ikJoints** (``rig_frame``).
-    Any other ``segmentType``: no module IK ``bezier_spline_stretch``; deform chain
-    in ``rig_segments`` owns squash/stretch on **segmentJoints**.
+    ``segmentType=parent`` only. Other segment types: IK gets translate stretch only;
+    **segmentJoints** / ribbon own block ``segmentStretchBy`` and volume squash.
     """
-    if not mBlock or not mBlock.ikSetup:
-        return False
-    if mBlock.getEnumValueString('ikSetup') != 'bezier':
+    if not block_uses_bezier_module_ik(mBlock):
         return False
     return str_segment_type == 'parent'
+
+
+def segment_bezier_module_ik_spline_stretch_profile(
+        self, mBlock, str_segment_type, d_squash_stretch=None):
+    """
+    ``bezier_spline_stretch`` options for module **ik** chain in ``rig_frame``.
+
+    **parent** — block ``segmentStretchBy``, measure, volume squash.
+    **Other segmentType** — ``translate`` + arcLength only (no volume on ikJoints).
+    """
+    _str_aim = bezier_ik_stretch_aim_axis(self)
+    if str_segment_type == 'parent':
+        _squash_main = segment_bezier_ik_module_chain_stretch_squash_measure(
+            mBlock, str_segment_type, d_squash_stretch)
+        return {
+            'aimAxis': _str_aim,
+            'stretchBy': self.str_segmentStretchBy,
+            'squashStretchMain': _squash_main,
+            'extraSquashControl': mBlock.squashExtraControl,
+            'applyVolumeSquash': True,
+            'settingsSquashDefault': 1.0,
+            'ikVolumeSquash': True,
+        }
+    return {
+        'aimAxis': _str_aim,
+        'stretchBy': 'translate',
+        'squashStretchMain': 'arcLength',
+        'extraSquashControl': False,
+        'applyVolumeSquash': False,
+        'settingsSquashDefault': 0.0,
+        'ikVolumeSquash': False,
+    }
 
 
 def segment_bezier_ik_module_chain_stretch_squash_measure(

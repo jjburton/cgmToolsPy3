@@ -4219,57 +4219,45 @@ def rig_frame(self):
                             m_follow_base,
                             str_attr='followIK',
                             f_default=1.0)
-                # Module ikJoints: squash/stretch only when segmentType=parent.
-                # Any other segmentType owns deform in rig_segments (segmentJoints).
-                _b_ik_chain_squash_stretch = (self.str_segmentType == 'parent')
-                if (self.b_scaleSetup
-                        and mBlock.getEnumValueString('squash') == 'simple'
-                        and _b_ik_chain_squash_stretch):
+                if BEZIERIKBLOCK._segment_bezier_should_run_spline_stretch(self, mBlock):
                     mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
-                    _str_aim = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
-                    _squash_main = (
-                        BEZIERIKBLOCK.segment_bezier_ik_module_chain_stretch_squash_measure(
-                            mBlock, self.str_segmentType, self.d_squashStretch))
+                    _d_stretch = BEZIERIKBLOCK.segment_bezier_module_ik_spline_stretch_profile(
+                        self, mBlock, self.str_segmentType, self.d_squashStretch)
                     log.info(cgmGEN.logString_msg(
                         _str_func,
                         'bezier_spline_stretch | aim:{0} stretchBy:{1} joints:{2} '
                         'segmentType:{3} measure:{4} ikVolumeSquash:{5}'.format(
-                            _str_aim,
-                            self.str_segmentStretchBy,
+                            _d_stretch['aimAxis'],
+                            _d_stretch['stretchBy'],
                             len(ml_ikUse),
                             self.str_segmentType,
-                            _squash_main,
-                            True)))
+                            _d_stretch['squashStretchMain'],
+                            _d_stretch['ikVolumeSquash'])))
                     d_stretchInflate = IK.bezier_spline_stretch(
                         jointList=[mObj.mNode for mObj in ml_ikUse],
                         mDriverCurve=mBezierDriver,
                         mSettings=mSettings,
-                        aimAxis=_str_aim,
-                        stretchBy=self.str_segmentStretchBy,
+                        aimAxis=_d_stretch['aimAxis'],
+                        stretchBy=_d_stretch['stretchBy'],
                         globalScalePlug=mPlug_masterScale.p_combinedName,
                         baseName='{0}_bezier'.format(self.d_module['partName']),
-                        squashStretchMain=_squash_main,
-                        extraSquashControl=mBlock.squashExtraControl,
+                        squashStretchMain=_d_stretch['squashStretchMain'],
+                        extraSquashControl=_d_stretch['extraSquashControl'],
                         extraInflateControl=False,
                         squashFactorMin=mBlock.squashFactorMin,
                         squashFactorMax=mBlock.squashFactorMax,
                         squashFactorMode=self.str_squashFactorMode,
                         parentGutsTo=mRigNull,
                         inflateDriveDirectParents=False,
-                        applyVolumeSquash=True,
+                        applyVolumeSquash=_d_stretch['applyVolumeSquash'],
                         useUndoChunk=False)
-                    self.d_stretchInflateRes = d_stretchInflate
+                    if _d_stretch['ikVolumeSquash']:
+                        self.d_stretchInflateRes = d_stretchInflate
                     if mSettings and mSettings.hasAttr('squash'):
-                        ATTR.set_default(mSettings.mNode, 'squash', 1.0)
-                        ATTR.set(mSettings.mNode, 'squash', 1.0)
-                elif (self.b_scaleSetup
-                        and mBlock.getEnumValueString('squash') == 'simple'
-                        and not _b_ik_chain_squash_stretch):
-                    log.info(cgmGEN.logString_msg(
-                        _str_func,
-                        'skip module IK bezier_spline_stretch | segmentType:{0} '
-                        '(squash/stretch on segmentJoints in rig_segments)'.format(
-                            self.str_segmentType)))
+                        ATTR.set_default(
+                            mSettings.mNode, 'squash', _d_stretch['settingsSquashDefault'])
+                        ATTR.set(
+                            mSettings.mNode, 'squash', _d_stretch['settingsSquashDefault'])
 
             elif _ikSetup in ['spline','curve']:# ==============================================================================
                 log.debug("|{0}| >> {1} setup...".format(_str_func,_ikSetup))
