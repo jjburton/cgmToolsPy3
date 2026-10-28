@@ -2806,7 +2806,7 @@ def rig_shapes(self):
                 if str_ikEndShape == 'locator':
                     d_ikEnd = {'shapeArg':'locatorForm'}
                 elif str_ikEndShape == 'cast':
-                    use_ikEnd = str_ikEnd
+                    d_ikEnd = {'shapeArg': 'cast'}
                 else:
                     d_ikEnd = {'shapeArg':str_ikEndShape}
                     

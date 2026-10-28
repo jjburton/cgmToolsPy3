@@ -43,6 +43,7 @@ import cgm.core.mrs.lib.builder_utils as BUILDUTILS
 import cgm.core.lib.shapeCaster as SHAPECASTER
 import cgm.core.lib.surface_Utils as SURF
 import cgm.core.lib.position_utils as POS
+import cgm.core.lib.string_utils as CORESTRING
 
 """
 from Red9.core import Red9_Meta as r9Meta
@@ -82,7 +83,14 @@ from cgm.core import cgm_Meta as cgmMeta
 __version__ = 'alpha.1.09122018'
 def log_start(str_func):
     log.debug("|{0}| >> ...".format(str_func)+'/'*60)
-    
+
+
+def _rig_shapes_cast_aim_vector(self):
+    _castVector = self.mBlock.getEnumValueString('castVector')
+    return self.d_orientation.get(
+        'vector{0}'.format(CORESTRING.capFirst(_castVector)))
+
+
 def ik_bankRollShapes(self):
     try:
         _str_func = 'bankRollShapes'
@@ -488,7 +496,24 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
             else:
                 mIKCrv =  mBlock.ikEndHandle.doCreateAt()
                 
-            if shapeArg is not None:
+            if shapeArg == 'cast':
+                _aimVector = _rig_shapes_cast_aim_vector(self)
+                log.info("|{0}| >> ikEnd cast | ikEnd={1} | target={2} | pos={3}".format(
+                    _str_func, ikEnd, mIKCrv.p_nameShort, mIKCrv.p_position))
+                ml_cast = self.atBuilderUtils(
+                    'shapes_fromCast',
+                    targets=[mIKCrv],
+                    mode='singleCast',
+                    offset=self.v_offset,
+                    aimVector=_aimVector)
+                if ml_cast:
+                    CORERIG.shapeParent_in_place(
+                        mIKCrv.mNode, ml_cast[0].mNode, True, replaceShapes=True)
+                else:
+                    log.warning("|{0}| >> ikEnd cast empty | fallback fkShapes[-1]".format(
+                        _str_func))
+                    CORERIG.shapeParent_in_place(mIKCrv.mNode, ml_fkShapes[-1].mNode, True)
+            elif shapeArg is not None:
                 mIK_formHandle = ml_formHandles[ self.int_handleEndIdx] #self.int_handleEndIdx ]
                 bb_ik = POS.get_bb_size(mIK_formHandle.mNode,True,mode='max')
                 _ik_shape = CURVES.create_fromName(shapeArg, size = bb_ik * 1.5)
