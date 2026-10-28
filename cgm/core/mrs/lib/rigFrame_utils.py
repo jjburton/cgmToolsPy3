@@ -1002,25 +1002,37 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
             mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
 
-        mTwistStart = mIKBaseControl
-        mTwistEnd = mTwistEndControl or mIKControl
-        # Driver twist add + advanced WU: module end/base IK (controlIK*), not bezier CV chain mains.
-        if ikEndTwistConnect and mTwistEnd and mTwistStart:
+        # twistBaseAdd / twistEndAdd on module IK (hip/chest), not bezier CV mains.
+        mTwistAddStart = mIKBaseControl
+        mTwistAddEnd = mTwistEndControl or mIKControl
+        if not mTwistAddStart and ml_bezierMainIK:
+            mTwistAddStart = ml_bezierMainIK[0]
+        if not mTwistAddEnd and ml_bezierMainIK:
+            mTwistAddEnd = ml_bezierMainIK[-1]
+
+        # Advanced twist WU — unchanged from pre–twist-add fix (bezier CV span / resolve list).
+        mWorldUpStart = mIKBaseControl
+        mWorldUpEnd = mTwistEndControl or mIKControl
+        if ml_bezierMainIK:
+            mWorldUpStart = ml_bezierMainIK[0]
+            mWorldUpEnd = mTwistEndControl or ml_bezierMainIK[-1]
+
+        if ikEndTwistConnect and mTwistAddEnd and mTwistAddStart:
             _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
             mPlug_addEnd = cgmMeta.cgmAttr(
-                mTwistEnd.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
+                mTwistAddEnd.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
             arg1 = "{}.twistEnd = {}.r{} + {}".format(
                 mDriverCurve.mNode,
-                mTwistEnd.mNode,
+                mTwistAddEnd.mNode,
                 _twistAxis,
                 mPlug_addEnd.p_combinedName)
             NODEFACTORY.argsToNodes(arg1).doBuild()
 
             mPlug_addStart = cgmMeta.cgmAttr(
-                mTwistStart.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
+                mTwistAddStart.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
             arg1 = "{}.twistStart = {}.r{} + {}".format(
                 mDriverCurve.mNode,
-                mTwistStart.mNode,
+                mTwistAddStart.mNode,
                 _twistAxis,
                 mPlug_addStart.p_combinedName)
             NODEFACTORY.argsToNodes(arg1).doBuild()
@@ -1031,14 +1043,14 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         if mSettings and mDriverCurve.hasAttr('twistType'):
             ATTR.copy_to(mDriverCurve.mNode, 'twistType', mSettings.mNode, driven='source')
 
-        if mTwistStart and mTwistEnd:
+        if mWorldUpStart and mWorldUpEnd:
             BEZIERIKBLOCK.bezier_ik_connect_spline_advanced_twist(
                 mDriverCurve,
                 mIKHandle,
                 self.mBlock,
                 self.d_orientation,
-                mWorldUpStart=mTwistStart,
-                mWorldUpEnd=mTwistEnd,
+                mWorldUpStart=mWorldUpStart,
+                mWorldUpEnd=mWorldUpEnd,
                 str_mainRotAxis=getattr(self, 'str_mainRotAxis', None),
                 wire_driver_twist_from_mains=False)
 
