@@ -885,25 +885,37 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
 
     
 def uiSection_joints(parent = None):
-    uiJoints = mc.menuItem(parent=parent, l='Joints', subMenu=True, tearOff=True)
+    uiJoints = mc.menuItem(parent=parent, l='Joints', subMenu=True, tearOff=True,
+                           ann='Joint display attributes and joint utilities')
+
+    _d_contextAnn = {
+        'selection': 'Current selection only',
+        'children': 'Joint children of the selected transform(s)',
+        'heirarchy': 'All joints under the selected hierarchy',
+        'scene': 'Every joint in the scene',
+    }
 
     _l_jointAttrMenus = [
         ('Axis', 'displayLocalAxis', 'Show', 'Hide', 1, 0,
-         'Show axis for all joints in {0}',
-         'Hide axis for all joints in {0}'),
+         'Show or hide local axis display on joints by context',
+         'Show local axis on joints — {0}',
+         'Hide local axis on joints — {0}'),
         ('SSC', 'segmentScaleCompensate', 'On', 'Off', 1, 0,
-         'Enable segment scale compensate on all joints in {0}',
-         'Disable segment scale compensate on all joints in {0}'),
+         'Toggle segmentScaleCompensate on joints by context. '
+         'On: parent scale affects child segment length. '
+         'Off: segment length ignores parent scale (common on rig ik/fk chains).',
+         'Enable segmentScaleCompensate — {0}. Parent scale stretches child segments.',
+         'Disable segmentScaleCompensate — {0}. Child segment length ignores parent scale.'),
     ]
-    for _subLabel, _attr, _onLbl, _offLbl, _onVal, _offVal, _onAnn, _offAnn in _l_jointAttrMenus:
-        _sub = mc.menuItem(parent=uiJoints, l=_subLabel, subMenu=True)
+    for _subLabel, _attr, _onLbl, _offLbl, _onVal, _offVal, _subAnn, _onAnn, _offAnn in _l_jointAttrMenus:
+        _sub = mc.menuItem(parent=uiJoints, l=_subLabel, subMenu=True, ann=_subAnn)
         for ctxt in ['selection', 'children', 'heirarchy', 'scene']:
-            mc.menuItem(p=_sub, l=ctxt, subMenu=True)
+            mc.menuItem(p=_sub, l=ctxt, subMenu=True, ann=_d_contextAnn[ctxt])
             mc.menuItem(l=_onLbl,
-                        ann=_onAnn.format(ctxt),
+                        ann=_onAnn.format(_d_contextAnn[ctxt]),
                         c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _onVal, ctxt, 'joint'))
             mc.menuItem(l=_offLbl,
-                        ann=_offAnn.format(ctxt),
+                        ann=_offAnn.format(_d_contextAnn[ctxt]),
                         c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _offVal, ctxt, 'joint'))
 
     mc.menuItem(parent = uiJoints,

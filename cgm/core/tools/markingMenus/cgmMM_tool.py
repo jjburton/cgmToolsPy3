@@ -561,20 +561,27 @@ class cgmMarkingMenu(cgmUI.markingMenu):
 
         
         if 'joint' in self._l_contextTypes or _contextMode != 'selection':
-            uiJoints = mc.menuItem(parent = parent, l='Joints', subMenu=True)
+            uiJoints = mc.menuItem(parent=parent, l='Joints', subMenu=True,
+                                   ann='Joint display attributes and joint utilities')
 
-            _axis = mc.menuItem(parent=uiJoints, l='Axis*', subMenu=True)
+            _axis = mc.menuItem(parent=uiJoints, l='Axis*', subMenu=True,
+                                ann='Show or hide local axis display on joints (uses Setup context)')
             mc.menuItem(parent=_axis, l='Show',
-                        c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',1,self.var_contextTD.value,'joint'))
+                        ann='Show local axis on joints in the current context',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',1,self.var_contextTD.value,'joint'))
             mc.menuItem(parent=_axis, l='Hide',
-                        c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
+                        ann='Hide local axis on joints in the current context',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
 
-            _ssc = mc.menuItem(parent=uiJoints, l='SSC*', subMenu=True)
+            _ssc = mc.menuItem(parent=uiJoints, l='SSC*', subMenu=True,
+                               ann='Toggle segmentScaleCompensate on joints (uses Setup context). '
+                                    'On: parent scale affects child segment length. '
+                                    'Off: segment length ignores parent scale.')
             mc.menuItem(parent=_ssc, l='On',
-                        ann='Enable segment scale compensate by current context',
+                        ann='Enable segmentScaleCompensate — parent scale stretches child segments',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint'))
             mc.menuItem(parent=_ssc, l='Off',
-                        ann='Disable segment scale compensate by current context',
+                        ann='Disable segmentScaleCompensate — child segment length ignores parent scale',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint'))
 
             mc.menuItem(parent = uiJoints,
