@@ -562,22 +562,21 @@ class cgmMarkingMenu(cgmUI.markingMenu):
         
         if 'joint' in self._l_contextTypes or _contextMode != 'selection':
             uiJoints = mc.menuItem(parent = parent, l='Joints', subMenu=True)
-            
-                           
-            mc.menuItem(l='Axis*', subMenu = True)
-            mc.menuItem(l='Show',
+
+            _axis = mc.menuItem(parent=uiJoints, l='Axis*', subMenu=True)
+            mc.menuItem(parent=_axis, l='Show',
                         c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',1,self.var_contextTD.value,'joint'))
-                        
-            mc.menuItem(l='Hide',
+            mc.menuItem(parent=_axis, l='Hide',
                         c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
-            mc.menuItem(divider=True)
-            mc.menuItem(l='SSC On',
+
+            _ssc = mc.menuItem(parent=uiJoints, l='SSC*', subMenu=True)
+            mc.menuItem(parent=_ssc, l='On',
                         ann='Enable segment scale compensate by current context',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint'))
-            mc.menuItem(l='SSC Off',
+            mc.menuItem(parent=_ssc, l='Off',
                         ann='Disable segment scale compensate by current context',
                         c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint'))
-                        
+
             mc.menuItem(parent = uiJoints,
                         l='cometJO',
                         c=lambda *a: mel.eval('cometJointOrient'),
