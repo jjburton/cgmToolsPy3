@@ -1924,7 +1924,8 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     'limbSegmentHandle',
                     'limbSegmentHandleBack',
                     'simpleCast',
-                    'singleCast']:
+                    'singleCast',
+                    'ikEndFrameHandle']:
             #Get our cast mesh        
             ml_handles = self.mBlock.msgList_get('prerigHandles',asMeta = True)
 
@@ -1969,7 +1970,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     ml_shapes.append(cgmMeta.validateObjArg(baseCrv))
                     
             elif mode in ['segmentHandle','ikHandle','frameHandle','castHandle','limbHandle','limbSegmentHandleBack','limbSegmentHandle','simpleCast','singleCast',
-                          'ikEnd','ikBase']:
+                          'ikEnd','ikBase','ikEndFrameHandle']:
                 
                
                 if targets:
@@ -2143,6 +2144,40 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                                                     curvesConnect=True,
                                                     connectionPoints=connectionPoints,
                                                     offset=offset)
+                    ml_shapes = cgmMeta.validateObjListArg(l_curves)
+
+                elif mode == 'ikEndFrameHandle':#=============================================================
+                    # FK frameHandle span for the last handle, but cast U from one DAG (ikEnd rule).
+                    ml_castTargets = cgmMeta.validateObjListArg(targets, 'cgmObject')
+                    if len(ml_castTargets) != 1:
+                        return log.error(
+                            "|{0}| >> ikEndFrameHandle requires one cast target".format(_str_func))
+                    mCastTar = ml_castTargets[0]
+                    _failU = MATH.average([minU, maxU])
+                    _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_aim)
+                    log.debug("|{0}| >> ikEndFrameHandle cast {1} ...".format(
+                        _str_func, mCastTar.p_nameShort))
+                    try:
+                        _v = _d['uvsRaw'][str_meshShape][0][0]
+                    except Exception:
+                        try:
+                            log.debug("|{0}| >> ikEndFrameHandle fail | trying up".format(_str_func))
+                            _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_up)
+                            _v = _d['uvsRaw'][str_meshShape][0][0]
+                        except Exception:
+                            log.warning("|{0}| >> ikEndFrameHandle fail | failSafe u".format(_str_func))
+                            _v = _failU
+                    l_curves = SURF.get_splitValues(
+                        str_meshShape,
+                        [_v],
+                        mode='u',
+                        insertMax=True,
+                        preInset=f_factor * .25,
+                        postInset=-f_factor * .25,
+                        curvesCreate=True,
+                        curvesConnect=True,
+                        connectionPoints=connectionPoints,
+                        offset=offset)
                     ml_shapes = cgmMeta.validateObjListArg(l_curves)
                      
                 elif mode == 'castHandle':#================================================================

@@ -91,6 +91,19 @@ def _rig_shapes_cast_aim_vector(self):
         'vector{0}'.format(CORESTRING.capFirst(_castVector)))
 
 
+def _ik_end_cast_source_dag(self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints,
+                            ml_fkCastTargets=None):
+    """Scene DAG whose world position drives ikEnd cast rays (not a fresh control duplicate)."""
+    ml_cast = ml_fkCastTargets if ml_fkCastTargets else ml_handleTargets
+    if ikEnd == 'helper':
+        return mBlock.ikEndHandle
+    if ikEnd == 'tipBase':
+        return ml_cast[self.int_handleEndIdx]
+    if ikEnd == 'tipEnd':
+        return ml_rigJoints[-1]
+    return None
+
+
 def ik_bankRollShapes(self):
     try:
         _str_func = 'bankRollShapes'
@@ -441,7 +454,7 @@ def rootOrCog(self,mHandle = None):
        
 
 def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkShapes = None,
-          ml_ikJoints = None, ml_fkJoints = None,shapeArg = None):
+          ml_ikJoints = None, ml_fkJoints = None,shapeArg = None, ml_fkCastTargets = None):
     try:
         _str_func = 'ik_end'
         #Mid IK...---------------------------------------------------------------------------------
@@ -476,8 +489,9 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
             ml_curves = []
     
             if ikEnd == 'tipBase':
-                mIKCrv = ml_handleTargets[self.int_handleEndIdx].doCreateAt()                
-                #mIKCrv = mBlock.ikEndHandle.doCreateAt()#ml_handleTargets[self.int_handleEndIdx]
+                mCastDag = _ik_end_cast_source_dag(
+                    self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints, ml_fkCastTargets)
+                mIKCrv = mCastDag.doCreateAt()
             elif ikEnd == 'tipMid':
                 mIKCrv =  mBlock.ikEndHandle.doCreateAt()
                 
@@ -498,21 +512,28 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
                 
             if shapeArg == 'cast':
                 _aimVector = _rig_shapes_cast_aim_vector(self)
-                log.info("|{0}| >> ikEnd cast | ikEnd={1} | target={2} | pos={3}".format(
-                    _str_func, ikEnd, mIKCrv.p_nameShort, mIKCrv.p_position))
+                mCastDag = _ik_end_cast_source_dag(
+                    self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints, ml_fkCastTargets)
+                if mCastDag is None:
+                    mCastDag = mIKCrv
+                log.info(
+                    "|{0}| >> ikEnd cast | ikEnd={1} | endIdx={2} | castDag={3} | pos={4}".format(
+                        _str_func, ikEnd, self.int_handleEndIdx,
+                        mCastDag.p_nameShort, mCastDag.p_position))
                 ml_cast = self.atBuilderUtils(
                     'shapes_fromCast',
-                    targets=[mIKCrv],
-                    mode='singleCast',
+                    targets=[mCastDag],
+                    mode='ikEndFrameHandle',
                     offset=self.v_offset,
                     aimVector=_aimVector)
                 if ml_cast:
                     CORERIG.shapeParent_in_place(
                         mIKCrv.mNode, ml_cast[0].mNode, True, replaceShapes=True)
                 else:
-                    log.warning("|{0}| >> ikEnd cast empty | fallback fkShapes[-1]".format(
+                    log.warning("|{0}| >> ikEnd cast empty | fallback fkShapes[endIdx]".format(
                         _str_func))
-                    CORERIG.shapeParent_in_place(mIKCrv.mNode, ml_fkShapes[-1].mNode, True)
+                    CORERIG.shapeParent_in_place(
+                        mIKCrv.mNode, ml_fkShapes[self.int_handleEndIdx].mNode, True)
             elif shapeArg is not None:
                 mIK_formHandle = ml_formHandles[ self.int_handleEndIdx] #self.int_handleEndIdx ]
                 bb_ik = POS.get_bb_size(mIK_formHandle.mNode,True,mode='max')

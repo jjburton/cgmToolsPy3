@@ -2811,7 +2811,9 @@ def rig_shapes(self):
                     d_ikEnd = {'shapeArg':str_ikEndShape}
                     
                 #print str_ikEnd
-                RIGSHAPES.ik_end(self,str_ikEnd,ml_handleTargets,ml_rigJoints,ml_fkShapes,ml_ikJoints,ml_fkJoints,**d_ikEnd)
+                RIGSHAPES.ik_end(
+                    self, str_ikEnd, ml_handleTargets, ml_rigJoints, ml_fkShapes,
+                    ml_ikJoints, ml_fkJoints, ml_fkCastTargets=ml_fkCastTargets, **d_ikEnd)
         
         
             if mBlock.ikBase:
