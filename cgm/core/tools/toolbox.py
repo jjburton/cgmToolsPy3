@@ -986,8 +986,19 @@ def buildSection_rigging(self,parent):
               l = '*Hide x',
               ann = "Hide the joint axis by current context",                                        
               c= lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint',select=False),
-              )     
-
+              )
+    mc.button(parent=_row_joints,
+              ut = 'cgmUITemplate',
+              l = '*SSC On',
+              ann = "Enable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint',select=False),
+              )
+    mc.button(parent=_row_joints,
+              ut = 'cgmUITemplate',
+              l = '*SSC Off',
+              ann = "Disable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint',select=False),
+              )
 
     mc.button(parent = _row_joints,
               ut = 'cgmUITemplate',                                                                                                

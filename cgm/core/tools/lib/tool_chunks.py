@@ -887,18 +887,25 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
 def uiSection_joints(parent = None):
     uiJoints = mc.menuItem(parent = parent, l='Joints', subMenu=True, tearOff = True)
 
-    _axis = mc.menuItem(l='Axis', subMenu = True)
-    
-    for ctxt in ['selection','children','heirarchy','scene']:
-            mc.menuItem(p=_axis, l=ctxt,subMenu=True)
-            mc.menuItem(l='Show',
-                        ann = "Show axis for all joints in {0}".format(ctxt),                        
-                        c=cgmGEN.Callback(MMCONTEXT.set_attrs,None,'displayLocalAxis',1,ctxt,'joint'))
-        
-            mc.menuItem(l='Hide',
-                        ann = "Hide axis for all joints in {0}".format(ctxt),                                                
-                        c=cgmGEN.Callback(MMCONTEXT.set_attrs,None,'displayLocalAxis',0,ctxt,'joint'))
-            
+    _l_jointAttrMenus = [
+        ('Axis', 'displayLocalAxis', 'Show', 'Hide', 1, 0,
+         'Show axis for all joints in {0}',
+         'Hide axis for all joints in {0}'),
+        ('Segment Scale Compensate', 'segmentScaleCompensate', 'On', 'Off', 1, 0,
+         'Enable segment scale compensate on all joints in {0}',
+         'Disable segment scale compensate on all joints in {0}'),
+    ]
+    for _subLabel, _attr, _onLbl, _offLbl, _onVal, _offVal, _onAnn, _offAnn in _l_jointAttrMenus:
+        _sub = mc.menuItem(l=_subLabel, subMenu=True)
+        for ctxt in ['selection', 'children', 'heirarchy', 'scene']:
+            mc.menuItem(p=_sub, l=ctxt, subMenu=True)
+            mc.menuItem(l=_onLbl,
+                        ann=_onAnn.format(ctxt),
+                        c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _onVal, ctxt, 'joint'))
+            mc.menuItem(l=_offLbl,
+                        ann=_offAnn.format(ctxt),
+                        c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _offVal, ctxt, 'joint'))
+
     mc.menuItem(parent = uiJoints,
                 l='cgmJointTools',
                 c=lambda *a: TOOLCALLS.jointTools(),

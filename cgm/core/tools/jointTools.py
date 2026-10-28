@@ -379,7 +379,22 @@ def buildColumn_main(self,parent, asScroll = False):
               c= lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint',select=False),
               )     
 
-    _row_axis.layout()            
+    _row_axis.layout()
+
+    _row_ssc = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+    mc.button(parent=_row_ssc,
+              ut = 'cgmUITemplate',
+              l = '* SSC On',
+              ann = "Enable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint',select=False),
+              )
+    mc.button(parent=_row_ssc,
+              ut = 'cgmUITemplate',
+              l = '* SSC Off',
+              ann = "Disable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint',select=False),
+              )
+    _row_ssc.layout()
 
     #Axis ==================================================================================================    
     mc.setParent(_inside)    
