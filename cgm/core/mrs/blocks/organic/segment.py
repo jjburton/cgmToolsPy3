@@ -131,7 +131,7 @@ _d_attrStateOff = {0:[],
 d_attrStateMask = {'define':['baseSizeX','baseSizeY','baseSizeZ'],
                    'form':['formEndAim','loftShape',
                            'loftShapeEnd','loftShapeStart'],
-                   'prerig':[],
+                   'prerig':['buildEnd'],
                    'skeleton':['numJoints','skeletonMode'],
                    'squashStretch':['squashSkipAim','segmentStretchBy'],
                    'space':['ikBaseDynParentMode','ikMidDynParentMode','ikMidDynScaleMode'],
@@ -141,7 +141,7 @@ d_attrStateMask = {'define':['baseSizeX','baseSizeY','baseSizeZ'],
                           'ikBaseExtend','ikEndExtend','ikEndLever','followParentBank','ikSplineBezierMode',
                           'ikBezierControlShape',]}
 
-l_createUI_attrs = ['attachPoint','attachIndex','nameIter','numControls','numJoints',
+l_createUI_attrs = ['attachPoint','attachIndex','nameIter','numControls','numJoints','buildEnd',
                     'addCog','addPivot','followParentBank','numSubShapers','segmentType',
                     'loftSetup','scaleSetup','loftShape',
                     'numControls',
@@ -194,6 +194,7 @@ d_block_profiles = {
               'numControls':4,
               'numJoints':6,
               'nameList':['start','end'],
+              'buildEnd':'dag',
               'squash':'both',
               'squashExtraControl':True,
               'squashMeasure':'pointDist',
@@ -713,6 +714,7 @@ l_attrsStandard = ['side',
 
 d_attrsToMake = {'visMeasure':'bool',
                  'followParentBank':'bool',
+                 'buildEnd':'dag:joint',
                  'proxyShape':'cube:sphere:cylinder',
                  'numSubShapers':'int',
                  'squashMeasure' : 'none:arcLength:pointDist',
@@ -811,7 +813,8 @@ d_defaultSettings = {'version':__version__,
                      'proxyGeoRoot':1,
                      'meshBuild':True,
                      'ikBase':'cube',
-                     'ikEnd':'helper',                     
+                     'ikEnd':'helper',
+                     'buildEnd':'joint',
                      'ikOrientToWorld':True,
                      'ikSetup':'ribbon',
                      'numJoints':5,
@@ -1896,6 +1899,11 @@ def prerigDelete(self):
 
 
 def skeleton_check(self):
+    if self.getEnumValueString('buildEnd') != 'joint' and self.numJoints < 2:
+        log.warning(cgmGEN.logString_msg(
+            'skeleton_check',
+            '{0} | buildEnd dag with numJoints < 2 yields no skin chain'.format(
+                self.p_nameShort)))
     return True
 
 def skeleton_build(self, forceNew = True):
@@ -1977,6 +1985,13 @@ def skeleton_build(self, forceNew = True):
                 mJoint.doStore(t,tag)
         mJoint.doName()
         #mJoint.rename(_l_names[i])
+        
+    if self.getEnumValueString('buildEnd') != 'joint':
+        if len(ml_joints) > 1:
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'buildEnd dag | removing terminal module joint'))
+            ml_joints[-1].delete()
+            ml_joints.pop(-1)
         
     #End Fixing --------------------------------
     #if len(ml_handleJoints) > self.numControls:
@@ -2128,7 +2143,7 @@ def rig_dataBuffer(self):
             log.warning("|{0}| >> Mid control unavilable with count: joint: {1} | controls: {2}".format(_str_func,mBlock.numJoints, mBlock.numControls))  
             mBlock.ikMidSetup = 0
             
-        for k in ['segmentType','settingsPlace','ikEndShape','ikEnd','ikBase','ikMidSetup','ribbonAttachEndsToInfluence','segmentStretchBy','squashFactorMode','squashInflateFactorMode','reverseSetup','addPivot']:
+        for k in ['segmentType','settingsPlace','ikEndShape','ikEnd','ikBase','ikMidSetup','ribbonAttachEndsToInfluence','segmentStretchBy','squashFactorMode','squashInflateFactorMode','reverseSetup','addPivot','buildEnd']:
             self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)
                 
         #Vector ====================================================================================
@@ -2221,23 +2236,16 @@ def rig_dataBuffer(self):
         
         if str_ikEnd in ['foot','hand']:
             raise NotImplemented("not done")
-            if mBlock.hasEndJoint:
-                self.mToe = self.ml_handleTargets.pop(-1)
-                log.debug("|{0}| >> mToe: {1}".format(_str_func,self.mToe))
-                self.int_handleEndIdx -=1
-            if mBlock.hasBallJoint:
-                self.mBall = self.ml_handleTargets.pop(-1)
-                log.debug("|{0}| >> mBall: {1}".format(_str_func,self.mBall))        
-                self.int_handleEndIdx -=1
         elif str_ikEnd in ['tipEnd','tipBase']:
-            log.debug("|{0}| >> tip setup...".format(_str_func))        
-            #if not mBlock.hasEndJoint:
-                #self.b_ikNeedEnd = True
-                #log.debug("|{0}| >> Need IK end joint".format(_str_func))
-            #else:
-            if str_ikEnd == 'tipBase':
-                self.int_handleEndIdx -=1
-                
+            log.debug("|{0}| >> tip setup...".format(_str_func))
+            if str_ikEnd == 'tipEnd':
+                if mBlock.buildEnd == 0:
+                    self.b_ikNeedEnd = True
+                    log.debug("|{0}| >> Need IK end joint".format(_str_func))
+            elif str_ikEnd == 'tipBase':
+                if mBlock.buildEnd == 1:
+                    self.int_handleEndIdx -=1
+                    
         log.debug("|{0}| >> self.int_handleEndIdx: {1}".format(_str_func,self.int_handleEndIdx))
         
         
@@ -2481,7 +2489,14 @@ def rig_skeleton(self):
             mFollowBase.p_position = mk_fkUse[0].p_position
             
             mFollowMid = mFollowBase.doDuplicate(po=True)
-            mFollowMid.p_position = ml_jointHelpers[self.int_handleEndIdx].p_position
+            if mBlock.buildEnd == 1:
+                _idxUse = -1
+            else:
+                _idxUse = -2
+            if len(ml_jointHelpers) >= abs(_idxUse):
+                mFollowMid.p_position = ml_jointHelpers[_idxUse].p_position
+            else:
+                mFollowMid.p_position = ml_jointHelpers[self.int_handleEndIdx].p_position
             mFollowMid.p_parent = mFollowBase
             
             mFollowEnd = mFollowBase.doDuplicate(po=True)
@@ -2726,6 +2741,9 @@ def rig_shapes(self):
         ml_fkCastTargets = self.mRigNull.msgList_get('fkAttachJoints')
         if not ml_fkCastTargets:
             ml_fkCastTargets = copy.copy(ml_fkJoints)
+        if mBlock.buildEnd == 1 and len(ml_fkCastTargets) > 1:
+            ml_fkCastTargets = copy.copy(ml_fkCastTargets)
+            ml_fkCastTargets.pop(-1)
             
             
         #...get our aim vector ----------------------------------------------------------------------
