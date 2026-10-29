@@ -1263,6 +1263,77 @@ def segment_ik_base_orient_follow_setup(m_segment,
     m_segment.ml_ikBlendUse[0] = m_ik_orient_frame
 
 
+def segment_ik_end_orient_follow_setup(m_segment,
+                                       m_ik_module_end,
+                                       m_ik_end_control,
+                                       str_attr='followIK',
+                                       f_default=1.0):
+    """
+    Module end ``rig_frame`` when ``buildEnd=dag``: orient follow on ``*_ikOrientFrame``,
+    same pattern as ``segment_ik_base_orient_follow_setup`` (not direct ik joint orient).
+
+    ``m_ik_module_end`` — module-end ik joint (parent of appended ikEnd when ``b_ikNeedEnd``).
+    ``m_ik_end_control`` — end IK anim control (``followIK`` driver).
+    Updates ``m_segment.ml_ikBlendUse`` at the module-end index to the orient frame.
+    """
+    if not m_segment or not getattr(m_segment, 'ml_ikBlendUse', None):
+        raise ValueError(
+            'segment_ik_end_orient_follow_setup requires m_segment.ml_ikBlendUse '
+            '(copy of ikJoints from rig_frame)')
+
+    m_end = cgmMeta.validateObjArg(m_ik_module_end, 'cgmObject', noneValid=False)
+    m_ctrl = cgmMeta.validateObjArg(m_ik_end_control, 'cgmObject', noneValid=False)
+
+    m_ik_orient_frame = m_end.doDuplicate(po=True, ic=False)
+    m_ik_orient_frame.rename('{0}_ikOrientFrame'.format(m_end.p_nameBase))
+    m_ik_orient_frame.p_parent = m_end
+
+    m_orient_follow_joint = m_end.doDuplicate(po=True, ic=False)
+    m_orient_follow_joint.rename('{0}_splineControl'.format(m_end.p_nameBase))
+    m_orient_follow_joint.p_parent = m_ctrl
+
+    m_plug_follow = cgmMeta.cgmAttr(
+        m_ctrl.mNode, str_attr, attrType='float', lock=False,
+        keyable=True, defaultValue=f_default)
+    m_plug_follow.p_value = f_default
+    ATTR.set_default(m_ctrl.mNode, str_attr, f_default)
+
+    log.info(cgmGEN.logString_msg(
+        'segment_ik_end_orient_follow_setup',
+        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} moduleEnd:{4}'.format(
+            str_attr, m_ctrl.p_nameShort,
+            m_ik_orient_frame.p_nameShort, m_orient_follow_joint.p_nameShort,
+            m_end.p_nameShort)))
+
+    mc.pointConstraint(
+        [m_end.mNode], m_ik_orient_frame.mNode, maintainOffset=True)
+    RIGCONSTRAINT.blendChainsBy(
+        m_orient_follow_joint,
+        m_end,
+        m_ik_orient_frame,
+        driver=m_plug_follow.p_combinedName,
+        l_constraints=['orient'])
+
+    _i_blend = None
+    for _i, _m in enumerate(m_segment.ml_ikBlendUse):
+        if _m.mNode == m_end.mNode:
+            _i_blend = _i
+            break
+    if _i_blend is None:
+        log.warning(cgmGEN.logString_msg(
+            'segment_ik_end_orient_follow_setup',
+            'module end not in ml_ikBlendUse; skip blend list update | {0}'.format(
+                m_end.p_nameShort)))
+    else:
+        m_segment.ml_ikBlendUse[_i_blend] = m_ik_orient_frame
+
+    return {
+        'mIkOrientFrame': m_ik_orient_frame,
+        'mOrientFollowJoint': m_orient_follow_joint,
+        'mPlug_follow': m_plug_follow,
+    }
+
+
 def block_uses_bezier_module_ik(mBlock):
     """Segment ``ikSetup=bezier`` or Head ``neckIK=bezier`` module IK spline."""
     if not mBlock:

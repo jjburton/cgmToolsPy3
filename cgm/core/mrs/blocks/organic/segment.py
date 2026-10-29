@@ -1906,18 +1906,14 @@ def skeleton_check(self):
                 self.p_nameShort)))
     return True
 
-def _segment_ik_follow_orient_skin_and_span(self, ml_ikJoints, mIKSplineEnd):
-    """
-    buildEnd dag: orient follow on parent of last ik joint (module end), not ikUse tip.
-    """
-    if getattr(self, 'str_buildEnd', None) == 'dag' and ml_ikJoints:
-        m_skin = ml_ikJoints[-1].getParent(asMeta=True)
-        if not m_skin:
-            return ml_ikJoints[-1], mIKSplineEnd
-        m_span = m_skin.doDuplicate()
-        m_span.rename('{0}_splineEnd'.format(m_skin.p_nameBase))
-        return m_skin, m_span
-    return ml_ikJoints[-1], mIKSplineEnd
+def _segment_ik_module_end_for_dag_follow(self, ml_ikJoints):
+    """Module-end ik joint for buildEnd dag end follow (parent of appended ikEnd)."""
+    if not ml_ikJoints:
+        return None
+    if getattr(self, 'str_buildEnd', None) == 'dag':
+        m_end = ml_ikJoints[-1].getParent(asMeta=True)
+        return m_end or ml_ikJoints[-1]
+    return ml_ikJoints[-1]
 
 def skeleton_build(self, forceNew = True):
     #try:
@@ -4280,16 +4276,23 @@ def rig_frame(self):
                 m_follow_end = BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                     mRigNull, mBlock, self.ml_ikMidControls)
                 if m_follow_end:
-                    m_orient_skin, m_orient_span = (
-                        _segment_ik_follow_orient_skin_and_span(
-                            self, ml_ikJoints, mIKSplineEnd))
-                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_create_parts(
-                        m_orient_skin,
-                        m_orient_span,
-                        m_follow_end,
-                        str_attr='followIK',
-                        f_default=1.0,
-                        b_start=False)
+                    if getattr(self, 'str_buildEnd', None) == 'dag':
+                        m_module_end = _segment_ik_module_end_for_dag_follow(
+                            self, ml_ikJoints)
+                        BEZIERIKBLOCK.segment_ik_end_orient_follow_setup(
+                            self,
+                            m_module_end,
+                            m_follow_end,
+                            str_attr='followIK',
+                            f_default=1.0)
+                    else:
+                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                            ml_ikJoints[-1],
+                            mIKSplineEnd,
+                            m_follow_end,
+                            str_attr='followIK',
+                            f_default=1.0,
+                            b_start=False)
                 if str_ikBase == 'hips':
                     m_follow_base = (
                         BEZIERIKBLOCK.segment_ik_module_follow_base_control(
@@ -4419,16 +4422,23 @@ def rig_frame(self):
                         BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                             mRigNull, mBlock, self.ml_ikMidControls))
                     if m_follow_end:
-                        m_orient_skin, m_orient_span = (
-                            _segment_ik_follow_orient_skin_and_span(
-                                self, ml_ikJoints, mIKSplineEnd))
-                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_create_parts(
-                            m_orient_skin,
-                            m_orient_span,
-                            m_follow_end,
-                            str_attr='followIK',
-                            f_default=0.0,
-                            b_start=False)
+                        if getattr(self, 'str_buildEnd', None) == 'dag':
+                            m_module_end = _segment_ik_module_end_for_dag_follow(
+                                self, ml_ikJoints)
+                            BEZIERIKBLOCK.segment_ik_end_orient_follow_setup(
+                                self,
+                                m_module_end,
+                                m_follow_end,
+                                str_attr='followIK',
+                                f_default=0.0)
+                        else:
+                            BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                                ml_ikJoints[-1],
+                                mIKSplineEnd,
+                                m_follow_end,
+                                str_attr='followIK',
+                                f_default=0.0,
+                                b_start=False)
                     if str_ikBase == 'hips':
                         m_follow_base = (
                             BEZIERIKBLOCK.segment_ik_module_follow_base_control(
