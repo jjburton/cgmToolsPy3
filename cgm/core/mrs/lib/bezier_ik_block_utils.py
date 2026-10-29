@@ -1802,15 +1802,12 @@ def bezier_ik_wire_handle_twist_from_controls(
         mIKHandle,
         mTwistAddStart,
         mTwistAddEnd,
-        str_twist_axis,
         ik_end_twist_connect=True,
-        mSettings=None,
-        b_include_twist_add=True):
+        mSettings=None):
     """
-    Bezier IK: drive ikSpline handle dTwistStart/End from start/end IK controls.
+    Bezier IK: drive ikSpline handle dTwistStart/End from twistBaseAdd / twistEndAdd only.
 
-    When ik_end_twist_connect and b_include_twist_add: r{axis} + twistBaseAdd / twistEndAdd.
-    When ik_end_twist_connect and not b_include_twist_add: r{axis} only (segment handle mains).
+    Main twist comes from advanced-twist world-up objects; these adds are artist offsets.
     """
     _str_func = 'bezier_ik_wire_handle_twist_from_controls'
     if not mIKHandle:
@@ -1822,28 +1819,14 @@ def bezier_ik_wire_handle_twist_from_controls(
         return
 
     if ik_end_twist_connect and mTwistAddStart and mTwistAddEnd:
-        if b_include_twist_add:
-            mPlug_add_end = cgmMeta.cgmAttr(
-                mTwistAddEnd.mNode, 'twistEndAdd',
-                attrType='float', keyable=True, hidden=False)
-            mPlug_add_start = cgmMeta.cgmAttr(
-                mTwistAddStart.mNode, 'twistBaseAdd',
-                attrType='float', keyable=True, hidden=False)
-            NODEFACTORY.argsToNodes(
-                '{0}.dTwistEnd = {1}.r{2} + {3}'.format(
-                    _ik, mTwistAddEnd.mNode, str_twist_axis,
-                    mPlug_add_end.p_combinedName)).doBuild()
-            NODEFACTORY.argsToNodes(
-                '{0}.dTwistStart = {1}.r{2} + {3}'.format(
-                    _ik, mTwistAddStart.mNode, str_twist_axis,
-                    mPlug_add_start.p_combinedName)).doBuild()
-        else:
-            NODEFACTORY.argsToNodes(
-                '{0}.dTwistEnd = {1}.r{2}'.format(
-                    _ik, mTwistAddEnd.mNode, str_twist_axis)).doBuild()
-            NODEFACTORY.argsToNodes(
-                '{0}.dTwistStart = {1}.r{2}'.format(
-                    _ik, mTwistAddStart.mNode, str_twist_axis)).doBuild()
+        mPlug_add_end = cgmMeta.cgmAttr(
+            mTwistAddEnd.mNode, 'twistEndAdd',
+            attrType='float', keyable=True, hidden=False)
+        mPlug_add_start = cgmMeta.cgmAttr(
+            mTwistAddStart.mNode, 'twistBaseAdd',
+            attrType='float', keyable=True, hidden=False)
+        mPlug_add_end.doConnectOut('{0}.dTwistEnd'.format(_ik))
+        mPlug_add_start.doConnectOut('{0}.dTwistStart'.format(_ik))
     elif mSettings:
         ATTR.copy_to(_ik, 'dTwistEnd', mSettings.mNode, driven='source')
         ATTR.copy_to(_ik, 'dTwistStart', mSettings.mNode, driven='source')
@@ -1865,7 +1848,8 @@ def bezier_ik_connect_spline_advanced_twist(
     (Start/End), dForwardAxis / dWorldUpAxis, WU matrices from start/end controls.
 
     Segment/Head: call after rig_frame bezier handle twist wiring (wire_driver_twist_from_mains=False).
-    Limb roll sections: wire_driver_twist_from_mains=True (direct r-axis from section mains on handle).
+    Limb roll sections: wire_driver_twist_from_mains=True is legacy kw only — no handle twist
+    from section mains (world-up objects carry twist).
     """
     _str_func = 'bezier_ik_connect_spline_advanced_twist'
     if not mDriverCurve or not mIKHandle:
@@ -1874,25 +1858,6 @@ def bezier_ik_connect_spline_advanced_twist(
         log.warning(cgmGEN.logString_msg(
             _str_func, 'skip | missing world up start/end controls'))
         return
-
-    _str_twist = str_mainRotAxis
-    if not _str_twist and mBlock and mBlock.hasAttr('ikSplineTwistAxis'):
-        _str_twist = mBlock.getEnumValueString('ikSplineTwistAxis')
-    if not _str_twist:
-        _str_twist = (d_orientation or {}).get('str', 'xyz')[2]
-
-    if wire_driver_twist_from_mains:
-        bezier_ik_wire_handle_twist_from_controls(
-            mIKHandle,
-            mWorldUpStart,
-            mWorldUpEnd,
-            _str_twist,
-            ik_end_twist_connect=True,
-            mSettings=None,
-            b_include_twist_add=False)
-        if mDriverCurve and mDriverCurve.hasAttr('twistType'):
-            ATTR.set_default(mDriverCurve.mNode, 'twistType', 1)
-            ATTR.set(mDriverCurve.mNode, 'twistType', 1)
 
     if v_worldUpStart is None and v_worldUpEnd is None and mBlock:
         v_worldUpStart, v_worldUpEnd = bezier_ik_block_twist_world_up_vectors(mBlock)

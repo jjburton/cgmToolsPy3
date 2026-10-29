@@ -1018,21 +1018,17 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
             mWorldUpEnd = mTwistEndControl or ml_bezierMainIK[-1]
 
         if ikEndTwistConnect and mTwistAddEnd and mTwistAddStart:
-            _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
             BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
                 mIKHandle,
                 mTwistAddStart,
                 mTwistAddEnd,
-                _twistAxis,
                 ik_end_twist_connect=True,
-                mSettings=mSettings,
-                b_include_twist_add=True)
+                mSettings=mSettings)
         elif mSettings:
             BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
                 mIKHandle,
                 None,
                 None,
-                'z',
                 ik_end_twist_connect=False,
                 mSettings=mSettings)
 
