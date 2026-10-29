@@ -2245,6 +2245,30 @@ def rig_dataBuffer(self):
             elif str_ikEnd == 'tipBase':
                 if mBlock.buildEnd == 1:
                     self.int_handleEndIdx -=1
+
+        ml_moduleJoints = mRigNull.msgList_get('moduleJoints', asMeta=True) or []
+        len_moduleJoints = len(ml_moduleJoints)
+        len_prerigHandles = len(ml_prerigHandles) if ml_prerigHandles else 0
+
+        if len_prerigHandles > len_moduleJoints and len_moduleJoints < 3:
+            self.b_ikNeedEnd = True
+
+        if mBlock.numControls <= 2 and len_moduleJoints <= 2 and len_moduleJoints == 1:
+            self.b_ikNeedEnd = True
+
+        if (mBlock.ikSetup
+                and self.str_buildEnd == 'dag'
+                and len_moduleJoints):
+            ml_jointHelpers = mBlock.msgList_get('jointHelpers', asMeta=True) or []
+            if len(ml_jointHelpers) > len_moduleJoints:
+                self.b_ikNeedEnd = True
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'buildEnd dag | IK need end joint | jointHelpers {0} > moduleJoints {1}'.format(
+                        len(ml_jointHelpers), len_moduleJoints)))
+
+        log.debug("|{0}| >> IK Need End | self.b_ikNeedEnd: {1} ".format(
+            _str_func, self.b_ikNeedEnd))
                     
         log.debug("|{0}| >> self.int_handleEndIdx: {1}".format(_str_func,self.int_handleEndIdx))
         
@@ -2532,10 +2556,34 @@ def rig_skeleton(self):
             for i,mJnt in enumerate(ml_ikJoints):
                 if mJnt not in [ml_ikJoints[0],ml_ikJoints[-1]]:
                     mJnt.preferredAngle = mJnt.jointOrient
+
+            if self.b_ikNeedEnd:
+                log.info(cgmGEN.logString_msg(
+                    _str_func, 'Creating IK end joint | b_ikNeedEnd'))
+                ml_prerigHandles = mBlock.msgList_get('prerigHandles', asMeta=True) or []
+                ml_jointHelpers = mBlock.msgList_get('jointHelpers', asMeta=True) or []
+                if ml_jointHelpers and len(ml_jointHelpers) > len(ml_ikJoints):
+                    mEndSource = ml_jointHelpers[-1]
+                elif ml_prerigHandles:
+                    mEndSource = ml_prerigHandles[-1]
+                else:
+                    mEndSource = None
+                if not mEndSource:
+                    log.warning(cgmGEN.logString_msg(
+                        _str_func, 'b_ikNeedEnd set but no end source for IK joint'))
+                else:
+                    mEndIK = mEndSource.doCreateAt('joint', setClass=True)
+                    mEndIK.p_parent = ml_ikJoints[-1]
+                    ml_ikJoints.append(mEndIK)
+                    mEndIK.rotate = 0, 0, 0
+                    JOINT.orientChain(
+                        ml_ikJoints[-1:],
+                        relativeOrient=False,
+                        worldUpAxis=self.mVec_up)
+                    mRigNull.msgList_connect('ikJoints', ml_ikJoints)
                     
             
-            
-        #cgmGEN.func_snapShot(vars())        
+        #cgmGEN.func_snapShot(vars())
         """
         if mBlock.numControls > 1:
             log.debug("|{0}| >> Handles...".format(_str_func))            
