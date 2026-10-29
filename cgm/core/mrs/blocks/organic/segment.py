@@ -1906,6 +1906,32 @@ def skeleton_check(self):
                 self.p_nameShort)))
     return True
 
+def _segment_ik_chain_end_joints(self, ml_ikJoints, mRigNull=None):
+    """
+    With b_ikNeedEnd, last ikJoint is appended tip extension; end followIK /
+    ikSplineParentSegEnd use the module-end joint (last handle / pre-append ik end).
+    Returns (m_follow_skin, m_solve_tip).
+    """
+    if not ml_ikJoints:
+        return None, None
+    m_solve_tip = ml_ikJoints[-1]
+    m_follow = getattr(self, 'm_ikModuleEndJoint', None)
+    if m_follow:
+        try:
+            m_follow = cgmMeta.validateObjArg(m_follow, 'cgmObject', noneValid=True)
+        except Exception:
+            m_follow = None
+    if not m_follow and getattr(self, 'b_ikNeedEnd', False):
+        if mRigNull:
+            ml_handle = mRigNull.msgList_get('handleJoints', asMeta=True) or []
+            if ml_handle:
+                m_follow = ml_handle[-1]
+        if not m_follow and len(ml_ikJoints) > 1:
+            m_follow = ml_ikJoints[-2]
+    if not m_follow:
+        m_follow = ml_ikJoints[-1]
+    return m_follow, m_solve_tip
+
 def skeleton_build(self, forceNew = True):
     #try:
     _short = self.mNode
@@ -2229,6 +2255,7 @@ def rig_dataBuffer(self):
         self.mBall = False
         self.int_handleEndIdx = -1
         self.b_ikNeedEnd = False
+        self.m_ikModuleEndJoint = None
         l= []
         
         str_ikEnd = ATTR.get_enumValueString(mBlock.mNode,'ikEnd')
@@ -2572,6 +2599,7 @@ def rig_skeleton(self):
                     log.warning(cgmGEN.logString_msg(
                         _str_func, 'b_ikNeedEnd set but no end source for IK joint'))
                 else:
+                    self.m_ikModuleEndJoint = ml_ikJoints[-1]
                     mEndIK = mEndSource.doCreateAt('joint', setClass=True)
                     mEndIK.p_parent = ml_ikJoints[-1]
                     ml_ikJoints.append(mEndIK)
@@ -2598,8 +2626,11 @@ def rig_skeleton(self):
         _ikSetup = mBlock.getEnumValueString('ikSetup')
         
         if mBlock.ikSetup > 1:#...ribbon/spline
-            log.debug("|{0}| >> IK Drivers...".format(_str_func))            
-            ml_ribbonIKDrivers = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,ml_ikJoints, None, mRigNull,'ribbonIKDrivers', cgmType = 'ribbonIKDriver', indices=[0,-1])
+            log.debug("|{0}| >> IK Drivers...".format(_str_func))
+            _ribbon_end_idx = -2 if getattr(self, 'm_ikModuleEndJoint', None) else -1
+            ml_ribbonIKDrivers = BLOCKUTILS.skeleton_buildDuplicateChain(
+                mBlock, ml_ikJoints, None, mRigNull, 'ribbonIKDrivers',
+                cgmType='ribbonIKDriver', indices=[0, _ribbon_end_idx])
             
             for i,mJnt in enumerate(ml_ribbonIKDrivers):
                 mJnt.parent = False
@@ -4012,6 +4043,14 @@ def rig_frame(self):
             
             ml_ikJoints = mRigNull.msgList_get('ikJoints')
             self.ml_ikBlendUse = copy.copy(ml_ikJoints)
+            m_ik_follow_skin, m_ik_solve_tip = _segment_ik_chain_end_joints(
+                self, ml_ikJoints, mRigNull)
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'ik chain end | follow:{0} solveTip:{1} | b_ikNeedEnd:{2}'.format(
+                    m_ik_follow_skin.p_nameShort if m_ik_follow_skin else None,
+                    m_ik_solve_tip.p_nameShort if m_ik_solve_tip else None,
+                    getattr(self, 'b_ikNeedEnd', False))))
             mPlug_FKIK = cgmMeta.cgmAttr(mSettings.mNode,'FKIK',attrType='float',lock=False,keyable=True)
             _jointOrientation = self.d_orientation['str']
             
@@ -4219,16 +4258,16 @@ def rig_frame(self):
                 for i, mJnt in enumerate(ml_ikJoints[1:]):
                     mJnt.p_parent = ml_ikJoints[i]
 
-                mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
-                mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
+                mIKSplineEnd = m_ik_solve_tip.doDuplicate()
+                mIKSplineEnd.rename("{}_splineEnd".format(m_ik_solve_tip.p_nameBase))
 
                 ml_ikUse = copy.copy(ml_ikJoints)
                 ml_ikUse[-1] = mIKSplineEnd
 
-                mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
+                mIKSplineEnd.p_parent = m_ik_solve_tip.p_parent
 
                 if mBlock.ikSplineParentSegEnd:
-                    ml_ikJoints[-1].p_parent = mIKControl
+                    m_ik_follow_skin.p_parent = mIKControl
 
                 BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
                 ml_bezierMainIK = BEZIERIKBLOCK.bezier_ik_resolve_main_ik_list(
@@ -4267,9 +4306,12 @@ def rig_frame(self):
                 m_follow_end = BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                     mRigNull, mBlock, self.ml_ikMidControls)
                 if m_follow_end:
+                    mIKSplineFollowEnd = m_ik_follow_skin.doDuplicate()
+                    mIKSplineFollowEnd.rename(
+                        "{0}_splineEnd".format(m_ik_follow_skin.p_nameBase))
                     BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                        ml_ikJoints[-1],
-                        mIKSplineEnd,
+                        m_ik_follow_skin,
+                        mIKSplineFollowEnd,
                         m_follow_end,
                         str_attr='followIK',
                         f_default=1.0,
@@ -4368,16 +4410,16 @@ def rig_frame(self):
                     for i,mJnt in enumerate(ml_ikJoints[1:]):
                         mJnt.p_parent = ml_ikJoints[i]
 
-                    mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
-                    mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
+                    mIKSplineEnd = m_ik_solve_tip.doDuplicate()
+                    mIKSplineEnd.rename("{}_splineEnd".format(m_ik_solve_tip.p_nameBase))
                     
                     ml_ikUse = copy.copy(ml_ikJoints)
                     ml_ikUse[-1] = mIKSplineEnd
                     
-                    mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
+                    mIKSplineEnd.p_parent = m_ik_solve_tip.p_parent
                     
                     if mBlock.ikSplineParentSegEnd:
-                        ml_ikJoints[-1].p_parent = mIKControl#...to get free orient
+                        m_ik_follow_skin.p_parent = mIKControl#...to get free orient
                     
                     #pprint.pprint(ml_ikJoints)
                     _d_spline_frame = RIGFRAME.spline(self, ml_ikUse,
@@ -4403,9 +4445,12 @@ def rig_frame(self):
                         BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                             mRigNull, mBlock, self.ml_ikMidControls))
                     if m_follow_end:
+                        mIKSplineFollowEnd = m_ik_follow_skin.doDuplicate()
+                        mIKSplineFollowEnd.rename(
+                            "{0}_splineEnd".format(m_ik_follow_skin.p_nameBase))
                         BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                            ml_ikJoints[-1],
-                            mIKSplineEnd,
+                            m_ik_follow_skin,
+                            mIKSplineFollowEnd,
                             m_follow_end,
                             str_attr='followIK',
                             f_default=0.0,
@@ -4532,10 +4577,10 @@ def rig_frame(self):
                 d_ik.update(self.d_squashStretchIK)
                 res_ribbon = IK.ribbon(**d_ik)
                     
-                const = ml_ikJoints[-1].getConstraintsTo(asMeta=True)
+                const = m_ik_follow_skin.getConstraintsTo(asMeta=True)
                 for mConst in const:
                     mConst.delete()
-                mc.parentConstraint([mIKControl.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)
+                mc.parentConstraint([mIKControl.mNode], m_ik_follow_skin.mNode, maintainOffset = True)
                 
                 """
                 #...ribbon skinCluster ---------------------------------------------------------------------
@@ -4683,7 +4728,7 @@ def rig_frame(self):
                             ml_ikScaleTargets.append(mRoot)
 
                         mc.scaleConstraint(
-                            mIKControl.mNode, ml_ikJoints[-1].mNode,
+                            mIKControl.mNode, m_ik_follow_skin.mNode,
                             maintainOffset=True)
 
                         _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
