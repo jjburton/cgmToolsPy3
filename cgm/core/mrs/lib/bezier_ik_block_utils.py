@@ -1116,6 +1116,47 @@ def segment_ik_module_follow_base_control(m_rig_null):
     return m_rig_null.getMessageAsMeta('controlIKBase')
 
 
+def segment_ik_spline_orient_follow_create_parts(m_skin_joint,
+                                                 m_spline_span_joint,
+                                                 m_follow_influence,
+                                                 str_attr='followIK',
+                                                 f_default=1.0,
+                                                 b_start=False):
+    """
+    End follow IK nodes only — no pointConstraint or orient blend (manual test wiring).
+
+    Creates ``*_splineControl`` under the influence and the ``followIK`` plug.
+    """
+    m_skin = cgmMeta.validateObjArg(m_skin_joint, 'cgmObject', noneValid=False)
+    m_span = cgmMeta.validateObjArg(m_spline_span_joint, 'cgmObject', noneValid=False)
+    m_infl = cgmMeta.validateObjArg(m_follow_influence, 'cgmObject', noneValid=False)
+
+    m_spline_control = m_skin.doDuplicate()
+    if b_start:
+        m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
+    else:
+        m_spline_control.rename('{0}_splineControl'.format(m_skin.p_nameBase))
+    m_spline_control.p_parent = m_infl
+
+    m_plug_follow = cgmMeta.cgmAttr(
+        m_infl.mNode, str_attr, attrType='float', lock=False,
+        keyable=True, defaultValue=f_default)
+    m_plug_follow.p_value = f_default
+    ATTR.set_default(m_infl.mNode, str_attr, f_default)
+
+    log.info(cgmGEN.logString_msg(
+        'segment_ik_spline_orient_follow_create_parts',
+        '{0} on {1} | skin:{2} span:{3} | setup skipped'.format(
+            str_attr, m_infl.p_nameShort, m_skin.p_nameShort, m_span.p_nameShort)))
+
+    return {
+        'mSkinJoint': m_skin,
+        'mSplineSpanJoint': m_span,
+        'mSplineControl': m_spline_control,
+        'mPlug_follow': m_plug_follow,
+    }
+
+
 def segment_ik_spline_orient_follow_setup(m_skin_joint,
                                           m_spline_span_joint,
                                           m_follow_influence,

@@ -4283,7 +4283,7 @@ def rig_frame(self):
                     m_orient_skin, m_orient_span = (
                         _segment_ik_follow_orient_skin_and_span(
                             self, ml_ikJoints, mIKSplineEnd))
-                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                    BEZIERIKBLOCK.segment_ik_spline_orient_follow_create_parts(
                         m_orient_skin,
                         m_orient_span,
                         m_follow_end,
@@ -4422,7 +4422,7 @@ def rig_frame(self):
                         m_orient_skin, m_orient_span = (
                             _segment_ik_follow_orient_skin_and_span(
                                 self, ml_ikJoints, mIKSplineEnd))
-                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
+                        BEZIERIKBLOCK.segment_ik_spline_orient_follow_create_parts(
                             m_orient_skin,
                             m_orient_span,
                             m_follow_end,
