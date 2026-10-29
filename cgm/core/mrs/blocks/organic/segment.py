@@ -1906,12 +1906,6 @@ def skeleton_check(self):
                 self.p_nameShort)))
     return True
 
-def _segment_ik_follow_orient_joint(self, ml_ikJoints):
-    """End followIK orient targets module-end ik joint, not appended ikEnd."""
-    if getattr(self, 'b_ikNeedEnd', False) and len(ml_ikJoints) > 1:
-        return ml_ikJoints[-2]
-    return ml_ikJoints[-1]
-
 def skeleton_build(self, forceNew = True):
     #try:
     _short = self.mNode
@@ -4273,14 +4267,9 @@ def rig_frame(self):
                 m_follow_end = BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                     mRigNull, mBlock, self.ml_ikMidControls)
                 if m_follow_end:
-                    m_ik_follow_orient = _segment_ik_follow_orient_joint(
-                        self, ml_ikJoints)
-                    mIKSplineFollowEnd = m_ik_follow_orient.doDuplicate()
-                    mIKSplineFollowEnd.rename(
-                        "{0}_splineEnd".format(m_ik_follow_orient.p_nameBase))
                     BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                        m_ik_follow_orient,
-                        mIKSplineFollowEnd,
+                        ml_ikJoints[-1],
+                        mIKSplineEnd,
                         m_follow_end,
                         str_attr='followIK',
                         f_default=1.0,
@@ -4414,14 +4403,9 @@ def rig_frame(self):
                         BEZIERIKBLOCK.segment_ik_module_follow_end_control(
                             mRigNull, mBlock, self.ml_ikMidControls))
                     if m_follow_end:
-                        m_ik_follow_orient = _segment_ik_follow_orient_joint(
-                            self, ml_ikJoints)
-                        mIKSplineFollowEnd = m_ik_follow_orient.doDuplicate()
-                        mIKSplineFollowEnd.rename(
-                            "{0}_splineEnd".format(m_ik_follow_orient.p_nameBase))
                         BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
-                            m_ik_follow_orient,
-                            mIKSplineFollowEnd,
+                            ml_ikJoints[-1],
+                            mIKSplineEnd,
                             m_follow_end,
                             str_attr='followIK',
                             f_default=0.0,
