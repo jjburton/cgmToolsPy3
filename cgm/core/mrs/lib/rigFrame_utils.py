@@ -1019,29 +1019,25 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
 
         if ikEndTwistConnect and mTwistAddEnd and mTwistAddStart:
             _twistAxis = self.mBlock.getEnumValueString('ikSplineTwistAxis')
-            mPlug_addEnd = cgmMeta.cgmAttr(
-                mTwistAddEnd.mNode, 'twistEndAdd', attrType='float', keyable=True, hidden=False)
-            arg1 = "{}.twistEnd = {}.r{} + {}".format(
-                mDriverCurve.mNode,
-                mTwistAddEnd.mNode,
+            BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
+                mIKHandle,
+                mTwistAddStart,
+                mTwistAddEnd,
                 _twistAxis,
-                mPlug_addEnd.p_combinedName)
-            NODEFACTORY.argsToNodes(arg1).doBuild()
-
-            mPlug_addStart = cgmMeta.cgmAttr(
-                mTwistAddStart.mNode, 'twistBaseAdd', attrType='float', keyable=True, hidden=False)
-            arg1 = "{}.twistStart = {}.r{} + {}".format(
-                mDriverCurve.mNode,
-                mTwistAddStart.mNode,
-                _twistAxis,
-                mPlug_addStart.p_combinedName)
-            NODEFACTORY.argsToNodes(arg1).doBuild()
+                ik_end_twist_connect=True,
+                mSettings=mSettings,
+                b_include_twist_add=True)
         elif mSettings:
-            ATTR.copy_to(mDriverCurve.mNode, 'twistEnd', mSettings.mNode, driven='source')
-            ATTR.copy_to(mDriverCurve.mNode, 'twistStart', mSettings.mNode, driven='source')
+            BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
+                mIKHandle,
+                None,
+                None,
+                'z',
+                ik_end_twist_connect=False,
+                mSettings=mSettings)
 
-        if mSettings and mDriverCurve.hasAttr('twistType'):
-            ATTR.copy_to(mDriverCurve.mNode, 'twistType', mSettings.mNode, driven='source')
+        if mSettings and mc.attributeQuery('twistType', node=mIKHandle.mNode, exists=True):
+            ATTR.copy_to(mIKHandle.mNode, 'twistType', mSettings.mNode, driven='source')
 
         if mWorldUpStart and mWorldUpEnd:
             BEZIERIKBLOCK.bezier_ik_connect_spline_advanced_twist(

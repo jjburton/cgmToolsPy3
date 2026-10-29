@@ -235,6 +235,9 @@ _d_simple_axis_to_ikSpline_worldUp_axis_enum = {
 _d_simple_axis_to_ikSpline_twist_axis_enum = _d_simple_axis_to_ikSpline_forward_axis_enum
 # dWorldUpType enum: 4 = Object Rotation Up (Start/End) — see Maya ikHandle node docs
 _ikSpline_worldUpType_objectRotationUpStartEnd = 4
+# dTwistValueType on ikSpline handles — Maya ikHandle node docs
+_ikSpline_dTwistValueType_startEnd = 1
+_ikSpline_dTwistValueType_startEndRamped = 2
 
 _d_axis_vector_to_string = {'(1,0,0)':'x+',
                            '(-1,0,0)':'x-',

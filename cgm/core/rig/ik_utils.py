@@ -43,6 +43,7 @@ import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
 import cgm.core.lib.constraint_utils as CONSTRAINT
+import cgm.core.lib.shared_data as SHARED
 import cgm.core.rig.create_utils as RIGCREATE
 import cgm.core.rig.general_utils as RIGGEN
 import cgm.core.lib.list_utils as LISTS
@@ -5318,7 +5319,7 @@ def bezier_spline(jointList=None,
         bezierClampHandles(bool) | bend mode — clamp handles to local joint segment lengths
         driverSampleMode(str) | uniform (default) — driver CVs; joints — driver CV at each joint + chord-length U on Bezier
         bezierAuthorPause(bool) | After auto Bezier build (not useBezierCurve), select curve and wait for Continue before driver + IK
-        advancedTwistSetup(bool) | Pass through to IKHandle_addSplineIKTwist
+        advancedTwistSetup(bool) | Bezier: handle Start/End twist (not ramp). Pass through to IKHandle_addSplineIKTwist twistSetupMode='startEnd'.
         moduleInstance(cgmRigModule) | Optional; MRS rigNull parenting (omit for native Maya tests)
         parentGutsTo(transform) | Parent setup group under an existing transform
         useUndoChunk(bool) | Wrap build in mc.undoInfo chunk
@@ -5548,7 +5549,11 @@ def bezier_spline(jointList=None,
         mDriverCurve.msgList_append('ikHandles', mIKHandle.mNode, 'segmentCurve')
         mIKHandle.msgList_connect('drivenJoints', [mJ.mNode for mJ in ml_joints], 'ikHandle')
 
-        d_twist = IKHandle_addSplineIKTwist(mIKHandle.mNode, VALID.boolArg(advancedTwistSetup))
+        _b_adv_twist = VALID.boolArg(advancedTwistSetup)
+        d_twist = IKHandle_addSplineIKTwist(
+            mIKHandle.mNode,
+            advancedTwistSetup=_b_adv_twist,
+            twistSetupMode='startEnd' if _b_adv_twist else None)
 
         # POCI / vectorProduct are DG nodes (cgmNode) — no DAG parent; leave unparented like spline stretch nodes.
         ml_toConnect = [mDriverCurve, mIKHandle, mIKEffector] + ml_poci + ml_wtl
@@ -7612,10 +7617,12 @@ def spline_ik_curve_add_wave_blend(base_curve=None,
             mc.undoInfo(closeChunk=True)
 
 
-def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
+def IKHandle_addSplineIKTwist(ikHandle, advancedTwistSetup=False, twistSetupMode=None):
     """
     ikHandle(arg)
-    advancedTwistSetup(bool) -- Whether to setup ramp setup or not (False)
+    advancedTwistSetup(bool) -- When twistSetupMode is None: True = ramped advanced twist.
+    twistSetupMode(str|None): 'startEnd' (Bezier IK — handle dTwistStart/End, no ramp),
+        'ramp' (classic spline IK), or None (derive from advancedTwistSetup bool).
     """
     #>>> Data gather and arg check
     mi_ikHandle = cgmMeta.validateObjArg(ikHandle,cgmMeta.cgmObject,noneValid=False)
@@ -7627,32 +7634,39 @@ def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
 
     mPlug_start = cgmMeta.cgmAttr(mi_crv.mNode,'twistStart',attrType='float',keyable=True, hidden=False)
     mPlug_end = cgmMeta.cgmAttr(mi_crv.mNode,'twistEnd',attrType='float',keyable=True, hidden=False)
-    #mPlug_equalizedRoll = cgmMeta.cgmAttr(mi_ikHandle.mNode,'result_twistEqualized',attrType='float',keyable=True, hidden=False)
-    d_return = {"mi_plug_start":mPlug_start,"mi_plug_end":mPlug_end}    
-    
-    if not advancedTwistSetup:
-        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle.mNode,'twist',attrType='float',keyable=True, hidden=False)	
-    else:
+    d_return = {"mi_plug_start":mPlug_start,"mi_plug_end":mPlug_end}
+
+    _str_mode = twistSetupMode
+    if _str_mode is None:
+        _str_mode = 'ramp' if advancedTwistSetup else 'simple'
+
+    mi_ramp = None
+    mPlug_twist = None
+
+    if _str_mode == 'startEnd':
         mi_ikHandle.dTwistControlEnable = True
-        mi_ikHandle.dTwistValueType = 2
+        mi_ikHandle.dTwistValueType = SHARED._ikSpline_dTwistValueType_startEnd
+    elif _str_mode == 'ramp':
+        mi_ikHandle.dTwistControlEnable = True
+        mi_ikHandle.dTwistValueType = SHARED._ikSpline_dTwistValueType_startEndRamped
         mi_ikHandle.dWorldUpType = 7
         mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle,'dTwistRampMult')
         mi_ramp = cgmMeta.cgmNode(nodeType= 'ramp')
         mi_ramp.doStore('cgmName',mi_ikHandle)
         mi_ramp.doName()
-
-        #Fix Ramp
         ATTR.connect("%s.outColor"%mi_ramp.mNode,"%s.dTwistRamp"%mi_ikHandle.mNode)
         d_return['mi_ramp'] = mi_ramp
+    else:
+        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle.mNode,'twist',attrType='float',keyable=True, hidden=False)
 
-    mPlug_start.doConnectOut("%s.roll"%mi_ikHandle.mNode)
-    d_return['mi_plug_twist']=mPlug_twist
-    #ikHandle1.twist = (ikHandle1.roll *-.77) + curve4.twistEnd # to implement
-    arg1 = "%s = %s - %s"%(mPlug_twist.p_combinedShortName,mPlug_end.p_combinedShortName,mPlug_start.p_combinedShortName)
-    log.debug("arg1: '%s'"%arg1)    
-    log.debug( NODEFAC.argsToNodes(arg1).doBuild() )       
+    if _str_mode != 'startEnd':
+        mPlug_start.doConnectOut("%s.roll"%mi_ikHandle.mNode)
+        d_return['mi_plug_twist']=mPlug_twist
+        arg1 = "%s = %s - %s"%(mPlug_twist.p_combinedShortName,mPlug_end.p_combinedShortName,mPlug_start.p_combinedShortName)
+        log.debug("arg1: '%s'"%arg1)
+        log.debug( NODEFAC.argsToNodes(arg1).doBuild() )
 
-    if advancedTwistSetup:
+    if _str_mode == 'ramp':
         mc.select(mi_ramp.mNode)
         log.debug( mc.attributeInfo("%s.colorEntryList"%mi_ramp.mNode) )
         for c in mc.ls("%s.colorEntryList[*]"%mi_ramp.mNode,flatten = True):
@@ -7664,10 +7678,16 @@ def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
 
         mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ramp,'interpolation')
         mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
-        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)
+    elif _str_mode == 'startEnd':
+        mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
+        mPlug_twistType = cgmMeta.cgmAttr(
+            mi_crv.mNode, 'twistType', attrType='enum',
+            enum=":".join(mPlug_existingTwistType.p_enum))
+        mPlug_twistType.twistType = 'linear'
     else:
         mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
         mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
-        mPlug_twistType.twistType = 'linear'	
-        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+        mPlug_twistType.twistType = 'linear'
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)
     return d_return
