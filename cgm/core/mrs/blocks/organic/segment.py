@@ -2607,30 +2607,33 @@ def rig_skeleton(self):
         _ikSetup = mBlock.getEnumValueString('ikSetup')
         
         if mBlock.ikSetup > 1:#...ribbon/spline
-            log.debug("|{0}| >> IK Drivers...".format(_str_func))            
-            ml_ribbonIKDrivers = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,ml_ikJoints, None, mRigNull,'ribbonIKDrivers', cgmType = 'ribbonIKDriver', indices=[0,-1])
-            
-            for i,mJnt in enumerate(ml_ribbonIKDrivers):
-                mJnt.parent = False
-                
-                mTar = ml_blendJoints[0]
-                if i == 0:
+            if _ikSetup != 'bezier':
+                log.debug("|{0}| >> IK Drivers...".format(_str_func))
+                ml_ribbonIKDrivers = BLOCKUTILS.skeleton_buildDuplicateChain(mBlock,ml_ikJoints, None, mRigNull,'ribbonIKDrivers', cgmType = 'ribbonIKDriver', indices=[0,-1])
+
+                for i,mJnt in enumerate(ml_ribbonIKDrivers):
+                    mJnt.parent = False
+
                     mTar = ml_blendJoints[0]
-                else:
-                    mTar = ml_blendJoints[-1]
-                    
-                mJnt.doCopyNameTagsFromObject(mTar.mNode,ignore=['cgmType'])
-                mJnt.doName()
-            
-            
-            for i,mObj in enumerate(ml_ribbonIKDrivers):
-                if not i:
-                    mObj.doSnapTo(mBlock.ikStartHandle)
-                else:
-                    mObj.doSnapTo(mBlock.ikEndHandle)
-            
-            ml_jointsToConnect.extend(ml_ribbonIKDrivers)
-            
+                    if i == 0:
+                        mTar = ml_blendJoints[0]
+                    else:
+                        mTar = ml_blendJoints[-1]
+
+                    mJnt.doCopyNameTagsFromObject(mTar.mNode,ignore=['cgmType'])
+                    mJnt.doName()
+
+
+                for i,mObj in enumerate(ml_ribbonIKDrivers):
+                    if not i:
+                        mObj.doSnapTo(mBlock.ikStartHandle)
+                    else:
+                        mObj.doSnapTo(mBlock.ikEndHandle)
+
+                ml_jointsToConnect.extend(ml_ribbonIKDrivers)
+            else:
+                log.debug("|{0}| >> ikSetup bezier: skip ribbonIKDrivers".format(_str_func))
+
             self.ml_ikMidControls = []            
             if self.ml_ikMidHelpers:
                 for i,mHelper in enumerate(self.ml_ikMidHelpers):
@@ -4204,29 +4207,10 @@ def rig_frame(self):
                     BEZIERIKBLOCK.rig_frame_bezier_segment_hips_chain_master_groups(
                         mRigNull, mBlock)
 
-                ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
-                if not ml_ribbonIkHandles:
-                    raise ValueError("No ribbon IKDriversFound")
-
-                if mIKBaseControl:
-                    ml_ribbonIkHandles[0].parent = mIKBaseControl
-                else:
-                    ml_ribbonIkHandles[0].parent = mSpinGroup
-
-                ml_ribbonIkHandles[-1].parent = mIKControl
-
                 if self.ml_ikMidControls and mBlock.ikMidSetup:
-                    if BEZIERIKBLOCK.segment_bezier_module_ik_mid_uses_bezier_span(
-                            mBlock):
-                        BEZIERIKBLOCK.segment_bezier_module_ik_mid_setup(
-                            self, mIKGroup, mIKBaseControl, mIKControl,
-                            ml_ikJoints)
-                    else:
-                        ml_segMidDrivers = copy.copy(ml_ribbonIkHandles)
-                        RIGFRAME.segment_mid(
-                            self, self.ml_ikMidControls,
-                            ml_segMidDrivers, mIKGroup,
-                            mIKBaseControl, mIKControl, ml_ikJoints)
+                    BEZIERIKBLOCK.segment_bezier_module_ik_mid_setup(
+                        self, mIKGroup, mIKBaseControl, mIKControl,
+                        ml_ikJoints)
 
                 for i, mJnt in enumerate(ml_ikJoints[1:]):
                     mJnt.p_parent = ml_ikJoints[i]
@@ -4287,7 +4271,8 @@ def rig_frame(self):
                             m_module_end,
                             m_follow_end,
                             str_attr='followIK',
-                            f_default=1.0)
+                            f_default=1.0,
+                            b_spline_control=False)
                     else:
                         BEZIERIKBLOCK.segment_ik_spline_orient_follow_setup(
                             ml_ikJoints[-1],
@@ -4295,7 +4280,8 @@ def rig_frame(self):
                             m_follow_end,
                             str_attr='followIK',
                             f_default=1.0,
-                            b_start=False)
+                            b_start=False,
+                            b_spline_control=False)
                 if str_ikBase == 'hips':
                     m_follow_base = (
                         BEZIERIKBLOCK.segment_ik_module_follow_base_control(
@@ -4306,7 +4292,8 @@ def rig_frame(self):
                             ml_ikJoints[0],
                             m_follow_base,
                             str_attr='followIK',
-                            f_default=1.0)
+                            f_default=1.0,
+                            b_spline_control=False)
                 if BEZIERIKBLOCK._segment_bezier_should_run_spline_stretch(self, mBlock):
                     mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
                     _d_stretch = BEZIERIKBLOCK.segment_bezier_module_ik_spline_stretch_profile(

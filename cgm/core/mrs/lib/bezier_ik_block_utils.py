@@ -1065,11 +1065,7 @@ def segment_bezier_module_ik_mid_uses_bezier_span(mBlock):
     """Segment bezier rig_frame: mid follow uses bezier mains, not ribbonIKDrivers."""
     if not mBlock or not mBlock.ikSetup:
         return False
-    if mBlock.getEnumValueString('ikSetup') != 'bezier':
-        return False
-    if mBlock.getEnumValueString('segmentType') == 'parent':
-        return True
-    return segment_bezier_uses_module_ik_curve(mBlock)
+    return mBlock.getEnumValueString('ikSetup') == 'bezier'
 
 
 def segment_bezier_ik_module_start_end_controls(mRigNull,
@@ -1162,24 +1158,33 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
                                           m_follow_influence,
                                           str_attr='followIK',
                                           f_default=1.0,
-                                          b_start=False):
+                                          b_start=False,
+                                          b_spline_control=True):
     """
     Spline IK orient follow on a skin joint (tip or root).
 
     ``followIK`` / ``followEnd`` driver: **0** = solver span orient, **1** = follow
     the influence transform hierarchy (swapped ``blendChainsBy`` chain order).
+
+    ``b_spline_control`` False: orient source is the follow influence (no
+    ``_splineControl`` / ``_splineControlStart`` dup). Segment ``ikSetup=bezier``.
     """
     m_skin = cgmMeta.validateObjArg(m_skin_joint, 'cgmObject', noneValid=False)
     m_span = cgmMeta.validateObjArg(m_spline_span_joint, 'cgmObject', noneValid=False)
     m_infl = cgmMeta.validateObjArg(m_follow_influence, 'cgmObject', noneValid=False)
 
     mc.pointConstraint([m_span.mNode], m_skin.mNode, maintainOffset=True)
-    m_spline_control = m_skin.doDuplicate()
-    if b_start:
-        m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
+    m_spline_control = None
+    if b_spline_control:
+        m_spline_control = m_skin.doDuplicate()
+        if b_start:
+            m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
+        else:
+            m_spline_control.rename('{0}_splineControl'.format(m_skin.p_nameBase))
+        m_spline_control.p_parent = m_infl
+        m_orient_source = m_spline_control
     else:
-        m_spline_control.rename('{0}_splineControl'.format(m_skin.p_nameBase))
-    m_spline_control.p_parent = m_infl
+        m_orient_source = m_infl
 
     m_plug_follow = cgmMeta.cgmAttr(
         m_infl.mNode, str_attr, attrType='float', lock=False,
@@ -1189,11 +1194,12 @@ def segment_ik_spline_orient_follow_setup(m_skin_joint,
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_spline_orient_follow_setup',
-        '{0} on {1} | skin:{2} span:{3}'.format(
-            str_attr, m_infl.p_nameShort, m_skin.p_nameShort, m_span.p_nameShort)))
+        '{0} on {1} | skin:{2} span:{3} splineControl:{4}'.format(
+            str_attr, m_infl.p_nameShort, m_skin.p_nameShort, m_span.p_nameShort,
+            bool(b_spline_control))))
 
     RIGCONSTRAINT.blendChainsBy(
-        m_spline_control, m_span, m_skin,
+        m_orient_source, m_span, m_skin,
         driver=m_plug_follow.p_combinedName,
         l_constraints=['orient'])
     return {
@@ -1206,7 +1212,8 @@ def segment_ik_base_orient_follow_setup(m_segment,
                                         m_ik_pelvis,
                                         m_ik_base_control,
                                         str_attr='followIK',
-                                        f_default=1.0):
+                                        f_default=1.0,
+                                        b_spline_control=True):
     """
     Hips ``rig_frame``: ``followIK`` orient on ``*_ikOrientFrame``; ``ml_ikUse[0]`` unchanged.
 
@@ -1215,8 +1222,10 @@ def segment_ik_base_orient_follow_setup(m_segment,
     ``m_ik_pelvis`` — ``ml_ikJoints[0]`` / spline IK pelvis.
     ``m_ik_base_control`` — ``rigNull.controlIKBase``.
 
-    Builds ``{pelvis}_ikOrientFrame`` under pelvis and ``{pelvis}_splineControlStart`` under
-    IK base. ``blendChainsBy``: followIK **0** = spline control start, **1** = ik pelvis;
+    Builds ``{pelvis}_ikOrientFrame`` under pelvis. ``b_spline_control`` True also
+    builds ``{pelvis}_splineControlStart`` under IK base (spline ``ikSetup``).
+    Bezier passes False and uses ``controlIKBase`` as the orient source.
+    ``blendChainsBy``: followIK **0** = orient source, **1** = ik pelvis;
     orient constraint on ``*_ikOrientFrame``.
     """
     if not m_segment or not getattr(m_segment, 'ml_ikBlendUse', None):
@@ -1233,10 +1242,15 @@ def segment_ik_base_orient_follow_setup(m_segment,
         '{0}_ikOrientFrame'.format(m_ik_pelvis.p_nameBase))
     m_ik_orient_frame.p_parent = m_ik_pelvis
 
-    m_orient_follow_joint = m_ik_pelvis.doDuplicate(po=True, ic=False)
-    m_orient_follow_joint.rename(
-        '{0}_splineControlStart'.format(m_ik_pelvis.p_nameBase))
-    m_orient_follow_joint.p_parent = m_ik_base_control
+    m_orient_follow_joint = None
+    if b_spline_control:
+        m_orient_follow_joint = m_ik_pelvis.doDuplicate(po=True, ic=False)
+        m_orient_follow_joint.rename(
+            '{0}_splineControlStart'.format(m_ik_pelvis.p_nameBase))
+        m_orient_follow_joint.p_parent = m_ik_base_control
+        m_orient_source = m_orient_follow_joint
+    else:
+        m_orient_source = m_ik_base_control
 
     m_plug_follow = cgmMeta.cgmAttr(
         m_ik_base_control.mNode, str_attr, attrType='float', lock=False,
@@ -1246,15 +1260,17 @@ def segment_ik_base_orient_follow_setup(m_segment,
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_base_orient_follow_setup',
-        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} ikPelvis:{4}'.format(
+        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} ikPelvis:{4} splineControl:{5}'.format(
             str_attr, m_ik_base_control.p_nameShort,
-            m_ik_orient_frame.p_nameShort, m_orient_follow_joint.p_nameShort,
-            m_ik_pelvis.p_nameShort)))
+            m_ik_orient_frame.p_nameShort,
+            m_orient_follow_joint.p_nameShort if m_orient_follow_joint else None,
+            m_ik_pelvis.p_nameShort,
+            bool(b_spline_control))))
 
     mc.pointConstraint(
         [m_ik_pelvis.mNode], m_ik_orient_frame.mNode, maintainOffset=True)
     RIGCONSTRAINT.blendChainsBy(
-        m_orient_follow_joint,
+        m_orient_source,
         m_ik_pelvis,
         m_ik_orient_frame,
         driver=m_plug_follow.p_combinedName,
@@ -1267,7 +1283,8 @@ def segment_ik_end_orient_follow_setup(m_segment,
                                        m_ik_module_end,
                                        m_ik_end_control,
                                        str_attr='followIK',
-                                       f_default=1.0):
+                                       f_default=1.0,
+                                       b_spline_control=True):
     """
     Module end ``rig_frame`` when ``buildEnd=dag``: orient follow on ``*_ikOrientFrame``,
     same pattern as ``segment_ik_base_orient_follow_setup`` (not direct ik joint orient).
@@ -1288,9 +1305,14 @@ def segment_ik_end_orient_follow_setup(m_segment,
     m_ik_orient_frame.rename('{0}_ikOrientFrame'.format(m_end.p_nameBase))
     m_ik_orient_frame.p_parent = m_end
 
-    m_orient_follow_joint = m_end.doDuplicate(po=True, ic=False)
-    m_orient_follow_joint.rename('{0}_splineControl'.format(m_end.p_nameBase))
-    m_orient_follow_joint.p_parent = m_ctrl
+    m_orient_follow_joint = None
+    if b_spline_control:
+        m_orient_follow_joint = m_end.doDuplicate(po=True, ic=False)
+        m_orient_follow_joint.rename('{0}_splineControl'.format(m_end.p_nameBase))
+        m_orient_follow_joint.p_parent = m_ctrl
+        m_orient_source = m_orient_follow_joint
+    else:
+        m_orient_source = m_ctrl
 
     m_plug_follow = cgmMeta.cgmAttr(
         m_ctrl.mNode, str_attr, attrType='float', lock=False,
@@ -1300,15 +1322,17 @@ def segment_ik_end_orient_follow_setup(m_segment,
 
     log.info(cgmGEN.logString_msg(
         'segment_ik_end_orient_follow_setup',
-        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} moduleEnd:{4}'.format(
+        '{0} on {1} | ikOrientFrame:{2} orientFollow:{3} moduleEnd:{4} splineControl:{5}'.format(
             str_attr, m_ctrl.p_nameShort,
-            m_ik_orient_frame.p_nameShort, m_orient_follow_joint.p_nameShort,
-            m_end.p_nameShort)))
+            m_ik_orient_frame.p_nameShort,
+            m_orient_follow_joint.p_nameShort if m_orient_follow_joint else None,
+            m_end.p_nameShort,
+            bool(b_spline_control))))
 
     mc.pointConstraint(
         [m_end.mNode], m_ik_orient_frame.mNode, maintainOffset=True)
     RIGCONSTRAINT.blendChainsBy(
-        m_orient_follow_joint,
+        m_orient_source,
         m_end,
         m_ik_orient_frame,
         driver=m_plug_follow.p_combinedName,
