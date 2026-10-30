@@ -2866,8 +2866,9 @@ def rig_shapes(self):
                 else:
                     BEZIERIKBLOCK.rig_shapes_bezier_segment_handles(
                         self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
-            elif BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock):
-                log.debug("|{0}| >> hips bezier: skip segment_handles on handleJoints".format(
+            elif (str_ikSetup == 'bezier'
+                    or BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock)):
+                log.debug("|{0}| >> ikSetup bezier: skip segment_handles on handleJoints".format(
                     _str_func))
             else:
                 RIGSHAPES.segment_handles(self, ml_handleJoints)
@@ -3394,6 +3395,7 @@ def rig_controls(self):
         #>> handleJoints ========================================================================================
         ml_handleJoints = self.mRigNull.msgList_get('handleJoints')
         if (ml_handleJoints
+                and str_ikSetup != 'bezier'
                 and self.str_segmentType != 'bezier'
                 and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock)):
             log.debug("|{0}| >> Found Handle Joints...".format(_str_func))
@@ -3985,6 +3987,7 @@ def rig_frame(self):
         
         #>> handleJoints =====================================================================================
         if (ml_handleJoints
+                and mBlock.getEnumValueString('ikSetup') != 'bezier'
                 and not BEZIERIKBLOCK.segment_bezier_ik_uses_hips_chain_mains(mBlock)
                 and not BEZIERIKBLOCK.segment_bezier_uses_module_ik_curve(mBlock)):
             log.debug("|{0}| >> Handles setup...".format(_str_func))
@@ -5337,6 +5340,11 @@ def rig_cleanUp(self):
         
         
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
+        if str_ikSetup == 'bezier' and ml_handleJoints:
+            log.debug("|{0}| >> hide handle joints".format(_str_func))
+            for mHandle in ml_handleJoints:
+                mHandle.drawStyle = 2
+                ATTR.set(mHandle.mNode, 'radius', 0)
         """
         if ml_handleJoints:
             #ATTR.set_default(ml_handleJoints[-1].mNode, 'followRoot', 1.0)
@@ -5374,9 +5382,10 @@ def rig_cleanUp(self):
             log.debug("|{0}| >> No scale".format(_str_func))
             ml_controlsToLock = copy.copy(ml_controls)
             if self.b_squashSetup:
-                ml_handles = self.mRigNull.msgList_get('handleJoints')
+                ml_handles = self.mRigNull.msgList_get('handleJoints') or []
                 for mHandle in ml_handles:
-                    ml_controlsToLock.remove(mHandle)
+                    if mHandle in ml_controlsToLock:
+                        ml_controlsToLock.remove(mHandle)
                     
                 """
                 if self.md_roll:
