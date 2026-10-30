@@ -3041,7 +3041,13 @@ def rig_controls(self):
         
         #>> vis Drivers ====================================================================================
         
-        mPlug_visSub = self.atBuilderUtils('build_visModuleMD','visSub')
+        if str_ikSetup == 'bezier':
+            mPlug_visSub = self.atBuilderUtils(
+                'build_visModuleMD', 'visSub', defaultValue=True)
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            ATTR.set(mSettings.mNode, 'visSub', True)
+        else:
+            mPlug_visSub = self.atBuilderUtils('build_visModuleMD', 'visSub')
         mPlug_visDirect = self.atBuilderUtils('build_visModuleMD','visDirect')
         self.atBuilderUtils('build_visModuleProxy')#...proxyVis wiring
         
@@ -5328,6 +5334,9 @@ def rig_cleanUp(self):
         log.debug("|{0}| >> Settings...".format(_str_func))
         mSettings.visRoot = 0
         mSettings.visDirect = 0
+        if str_ikSetup == 'bezier':
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            mSettings.visSub = True
         
         
         ml_handleJoints = mRigNull.msgList_get('handleJoints')

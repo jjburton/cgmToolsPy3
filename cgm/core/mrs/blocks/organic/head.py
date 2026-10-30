@@ -2948,7 +2948,15 @@ def rig_controls(self):
             mPlug_FKIK = cgmMeta.cgmAttr(mSettings.mNode,'FKIK',attrType='float',minValue=0,maxValue=1,lock=False,keyable=True)
     
         #>> vis Drivers ==============================================================================	
-        mPlug_visSub = self.atBuilderUtils('build_visModuleMD','visSub')
+        _str_neck_ik_vis = (
+            mBlock.getEnumValueString('neckIK') if mBlock.neckIK else None)
+        if _str_neck_ik_vis == 'bezier':
+            mPlug_visSub = self.atBuilderUtils(
+                'build_visModuleMD', 'visSub', defaultValue=True)
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            ATTR.set(mSettings.mNode, 'visSub', True)
+        else:
+            mPlug_visSub = self.atBuilderUtils('build_visModuleMD', 'visSub')
         mPlug_visRoot = self.atBuilderUtils('build_visModuleMD','visRoot')
 
 
@@ -5250,6 +5258,11 @@ def rig_cleanUp(self):
         log.debug("|{0}| >> Settings...".format(_str_func))
         mSettings.visRoot = 0
         mSettings.visDirect = 0
+        if (mBlock.neckBuild and mBlock.neckIK
+                and mBlock.getEnumValueString('neckIK') == 'bezier'
+                and mSettings.hasAttr('visSub')):
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            mSettings.visSub = True
         
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
         #if ml_handleJoints:
