@@ -3632,6 +3632,8 @@ def rig_segments(self):
               'driverSetup':mBlock.getEnumValueString('ribbonAim'),
               'skipAim':mBlock.squashSkipAim,
               'moduleInstance':mModule}
+        if getattr(self, 'str_buildEnd', None) == 'dag':
+            _d['zeroTipAimFactor'] = False
         
         
         if self.str_ribbonAttachEndsToInfluence == 'both':
@@ -4532,6 +4534,8 @@ def rig_frame(self):
                         'liveSurface':False if _ikSetup == 'ribbon' else True,
                         'influences':ml_skinDrivers,
                         'moduleInstance' : self.mModule}
+                if getattr(self, 'str_buildEnd', None) == 'dag':
+                    d_ik['zeroTipAimFactor'] = False
                 
                 if self.str_ribbonAttachEndsToInfluence == 'both':
                     d_ik['attachEndsToInfluences'] = True

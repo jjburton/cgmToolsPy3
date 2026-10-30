@@ -963,7 +963,8 @@ def ribbon(jointList = None,
            attachEndToInfluence = None,
            moduleInstance = None,
            parentDeformTo = False,
-           parentGutsTo = None):
+           parentGutsTo = None,
+           zeroTipAimFactor = True):
 
     """
     Root of the segment setup.
@@ -1029,6 +1030,7 @@ def ribbon(jointList = None,
         advancedTwistSetup(bool - False) | Whether to do the cgm advnaced twist setup
         addMidTwist(bool - True) | Whether to setup a mid twist on the segment
         skipAim(bool - True) | Whether to setup the aim scale or not
+        zeroTipAimFactor(bool - True) | When True, last joint ``aimFactor`` is 0 (legacy ribbon tip). False = tip ``aimFactor`` 1.0 (e.g. Segment ``buildEnd=dag``).
         
         influences(joints - None) | List or metalist of joints to skin our objects to
         attachEndsToInfluences(bool) - Connect the first and last joint to the influence 0,-1. Still use scale setup.
@@ -1972,7 +1974,7 @@ def ribbon(jointList = None,
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
-                if mJnt == ml_joints[-1]:
+                if zeroTipAimFactor and mJnt == ml_joints[-1]:
                     v_aimFactor = 0
                 else:
                     v_aimFactor = 1.0
@@ -2117,7 +2119,7 @@ def ribbon(jointList = None,
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
-                if mJnt == ml_joints[-1]:
+                if zeroTipAimFactor and mJnt == ml_joints[-1]:
                     v_aimFactor = 0
                 else:
                     v_aimFactor = 1.0
