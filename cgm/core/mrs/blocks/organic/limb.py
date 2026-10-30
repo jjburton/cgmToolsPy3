@@ -7322,8 +7322,12 @@ def rig_shapes(self):
 
     if self.str_segmentType == 'bezier':
         log.info(cgmGEN.logString_sub(_str_func, 'segmentType bezier | segment CV shapes'))
+        # ml_fkShapeTargetDags, not ml_fkCastTargets (fkAttachJoints) — nearest-shape lookup
+        # indexes directly into ml_fkShapes, which is cast 1:1 from ml_fkShapeTargetDags.
+        # fkAttachJoints carries an extra parent-attach entry (e.g. clavicle) that shifts
+        # indices past the end of ml_fkShapes for the last handle (wrist/ankle).
         _limb_rig_shapes_bezier_segments(
-            self, ml_fkShapes, ml_fkCastTargets, mHandleFactory,
+            self, ml_fkShapes, self.ml_fkShapeTargetDags, mHandleFactory,
             _offset, _aimVector)
     
     log.debug("|{0}| >> FK...".format(_str_func))    
