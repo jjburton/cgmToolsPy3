@@ -3345,7 +3345,7 @@ example:
 
         mUI.MelButton(_row,
                       label='Query',ut='cgmUITemplate',
-                      c=lambda *a: SCENEUTILS.find_tmpFiles( self. self.directory),
+                      c=lambda *a: SCENEUTILS.find_tmpFiles( self.directory),
                        ann='Query trash files')    
         mUI.MelButton(_row,
                       label='Clean',ut='cgmUITemplate',
