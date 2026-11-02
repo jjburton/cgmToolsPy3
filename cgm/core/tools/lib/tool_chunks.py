@@ -2164,6 +2164,20 @@ def uiSection_snap(parent, selection = None ):
                 l = 'Orient',
                 c = lambda *a:SNAPCALLS.snap_action(selection,'orient'),
                 ann = "Orient snap in a from:to selection")
+
+    _closestWorld = mc.menuItem(parent=parent, subMenu=True, tearOff=True,
+                                l='Closest World Orient',
+                                ann=SNAPCALLS._ann_closestWorldOrient)
+    _closestWorldRC = mc.radioMenuItemCollection(parent=_closestWorld)
+    _closestWorldAxis = str(SNAPCALLS.var_closestWorldAxis.value).lower()
+    for _axis in ('x', 'y', 'z'):
+        mc.menuItem(parent=_closestWorld,
+                    collection=_closestWorldRC,
+                    l=_axis.upper(),
+                    rb=(_closestWorldAxis == _axis),
+                    c=cgmGEN.Callback(SNAPCALLS.snap_action, selection, 'closestWorldOrient',
+                                      **{'worldAxis': _axis}),
+                    ann=SNAPCALLS._ann_closestWorldOrient)
     
     #>>Point Special ----------------------------------------------------------------------------------------
     mc.menuItem(parent=_pointSpecial,

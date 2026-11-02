@@ -57,6 +57,11 @@ var_aimMode = cgmMeta.cgmOptionVar('cgmVar_aimMode', defaultValue = 'world')
 var_snapPivotMode = cgmMeta.cgmOptionVar('cgmVar_snapPivotMode', defaultValue = 0)        
 var_objDefaultAimAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultAimAxis', defaultValue = 2)
 var_objDefaultUpAxis = cgmMeta.cgmOptionVar('cgmVar_objDefaultUpAxis', defaultValue = 1)
+var_closestWorldAxis = cgmMeta.cgmOptionVar('cgmVar_closestWorldAxis', defaultValue = 'z')
+
+_ann_closestWorldOrient = (
+    "Orient each selected object so the local axis closest to the chosen world axis "
+    "aims along that world axis. Z matches MRS ikOrientToWorld.")
 
 #var_resetMode = cgmMeta.cgmOptionVar('cgmVar_ChannelResetMode', defaultValue = 0)
 #var_rayCastOrientMode = cgmMeta.cgmOptionVar('cgmVar_rayCastOrientMode', defaultValue = 0)
@@ -99,6 +104,19 @@ def snap_action(objects = None, snapMode = 'point',selectionMode = 'eachToLast',
         
         elif snapMode == 'ground':
             MMCONTEXT.func_process(SNAP.to_ground, objects ,'each', 'Snap')
+
+        elif snapMode == 'closestWorldOrient':
+            _worldAxis = kws.get('worldAxis')
+            if _worldAxis:
+                _worldAxis = str(_worldAxis).lower().strip()
+                if _worldAxis[:1] in ('x', 'y', 'z'):
+                    _worldAxis = _worldAxis[0]
+                var_closestWorldAxis.setValue(_worldAxis)
+            else:
+                _worldAxis = var_closestWorldAxis.value
+            log.info("|{0}| >> closestWorldOrient | world {1}".format(_str_func, _worldAxis))
+            MMCONTEXT.func_process(SNAP.orient_closest_world, objects, 'each', 'Snap',
+                                   **{'worldAxis': _worldAxis})
             
         elif snapMode in ['axisBox',
                           'boundingBox','boundingBoxShapes','boundingBoxEach',

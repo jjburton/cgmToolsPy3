@@ -523,7 +523,33 @@ def buildSection_snap(self,parent):
               ut = 'cgmUITemplate',                                                        
               c = lambda *a:SNAPCALLS.raySnap_start(None),
               ann = "RayCast snap selected objects")
-    _row_base.layout() 
+    _row_base.layout()
+
+    try:self.var_closestWorldAxis
+    except:self.var_closestWorldAxis = cgmMeta.cgmOptionVar('cgmVar_closestWorldAxis', defaultValue='z')
+
+    _row_closestWorld = mUI.MelHSingleStretchLayout(_inside, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_closestWorld, w=5)
+    mUI.MelLabel(_row_closestWorld, l='Closest World:')
+    _row_closestWorld.setStretchWidget(mUI.MelSeparator(_row_closestWorld))
+
+    _closestWorldRC = mUI.MelRadioCollection()
+    _closestWorldOn = str(self.var_closestWorldAxis.value).lower()
+    for _axis in ('x', 'y', 'z'):
+        _closestWorldRC.createButton(
+            _row_closestWorld,
+            label=_axis.upper(),
+            sl=(_closestWorldOn == _axis),
+            onCommand=cgmGEN.Callback(self.var_closestWorldAxis.setValue, _axis))
+        mUI.MelSpacer(_row_closestWorld, w=2)
+
+    mc.button(parent=_row_closestWorld,
+              l='Closest World Orient',
+              ut='cgmUITemplate',
+              c=lambda *a: SNAPCALLS.snap_action(None, 'closestWorldOrient'),
+              ann=SNAPCALLS._ann_closestWorldOrient)
+    mUI.MelSpacer(_row_closestWorld, w=5)
+    _row_closestWorld.layout() 
 
     
     """

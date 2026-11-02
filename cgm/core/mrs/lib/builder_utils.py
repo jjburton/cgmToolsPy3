@@ -774,48 +774,10 @@ def control_convertToWorldIK(mCtrl=None):
     _str_func = 'control_convertToWorldIK'
     rot = mCtrl.p_orient
     mGrp_zero = mCtrl.doGroup(True,True,asMeta=True,typeModifier = 'worldOrient')
-    
 
-    xDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.forward())
-    yDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.forward())
-    zDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.forward())
-    
-    xUpDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.up())
-    yUpDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.up())
-    zUpDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.up())
-    
-    #Get our up and vector
-    closestForward = "x"
-    closestUp = "x"
-    highestDot = xDot
-    highestUpDot = xUpDot
-    
-    if(abs(yDot) > abs(highestDot)):
-        closestForward = "y"
-        highestDot = yDot
-    
-    if(abs(zDot) > abs(highestDot)):
-        closestForward = "z"
-        highestDot = zDot
-    
-    if(abs(yUpDot) > abs(highestUpDot)):
-        closestUp = "y"
-        highestUpDot = yUpDot
-    
-    if(abs(zUpDot) > abs(highestUpDot)):
-        closestUp = "z"
-        highestUpDot = zUpDot
-    
-    if(highestDot < 0):
-        closestForward = "{0}-".format(closestForward)
-    if(highestUpDot < 0):
-        closestUp = "{0}-".format(closestUp)
-        
-    log.debug('closest forward axis is "%s" and closest up axis is "%s"' % (closestForward, closestUp))    
-    pos_aim = DIST.get_pos_by_vec_dist(mCtrl.p_position, [0,0,1], 10.0)
-    
-    SNAP.aim_atPoint(mGrp_zero.mNode, pos_aim, closestForward, mode='world', vectorUp=[0,1,0] )
-    
+    log.debug("|{0}| >> {1}".format(_str_func, mCtrl.p_nameShort))
+    SNAP.orient_closest_world(mGrp_zero.mNode, 'z')
+
     mCtrl.p_orient = rot
     d = {'rotateX':mCtrl.rotateX,'rotateY':mCtrl.rotateY,'rotateZ':mCtrl.rotateZ}
     mCtrl.addAttr('defaultValues',d)
