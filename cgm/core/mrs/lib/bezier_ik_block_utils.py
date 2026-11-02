@@ -1276,6 +1276,8 @@ def segment_ik_base_orient_follow_setup(m_segment,
         driver=m_plug_follow.p_combinedName,
         l_constraints=['orient'])
 
+    # ml_ikBlendUse[0] becomes the orient-only frame for point/orient; ml_ikScaleUse[0] is left
+    # pointing at m_ik_pelvis (the frame's parent) since the frame's .scale is never driven.
     m_segment.ml_ikBlendUse[0] = m_ik_orient_frame
 
 
@@ -1349,6 +1351,8 @@ def segment_ik_end_orient_follow_setup(m_segment,
             'module end not in ml_ikBlendUse; skip blend list update | {0}'.format(
                 m_end.p_nameShort)))
     else:
+        # ml_ikBlendUse[idx] becomes the orient-only frame for point/orient; ml_ikScaleUse[idx]
+        # is left pointing at m_end (the frame's parent) since the frame's .scale is never driven.
         m_segment.ml_ikBlendUse[_i_blend] = m_ik_orient_frame
 
     return {

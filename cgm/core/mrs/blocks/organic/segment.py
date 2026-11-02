@@ -2140,8 +2140,12 @@ def rig_dataBuffer(self):
         self.ml_bezierIKSubControls = []
         self.ml_bezierIKTrackCurves = []
         self.md_bezierIKSubsBySlot = {}
-        # Copy of ikJoints for FK/IK blend chain2; hips base follow sets [0] to *_ikOrientFrame.
+        # Copy of ikJoints for FK/IK blend chain2 point/orient; hips base / buildEnd=dag end follow
+        # sets that index to *_ikOrientFrame.
         self.ml_ikBlendUse = None
+        # Parallel copy of ikJoints for FK/IK scale blend only — stays on the real ik joint even
+        # where ml_ikBlendUse has been swapped to an *_ikOrientFrame (orient frame has no driven scale).
+        self.ml_ikScaleUse = None
         
         ml_handleJoints = mPrerigNull.msgList_get('handleJoints')
         mMasterNull = self.d_module['mMasterNull']
@@ -4035,6 +4039,7 @@ def rig_frame(self):
             
             ml_ikJoints = mRigNull.msgList_get('ikJoints')
             self.ml_ikBlendUse = copy.copy(ml_ikJoints)
+            self.ml_ikScaleUse = copy.copy(ml_ikJoints)
             mPlug_FKIK = cgmMeta.cgmAttr(mSettings.mNode,'FKIK',attrType='float',lock=False,keyable=True)
             _jointOrientation = self.d_orientation['str']
             
@@ -4692,7 +4697,7 @@ def rig_frame(self):
                     driver=mPlug_FKIK.p_combinedName,
                     l_constraints=['parent'])
                 RIGCONSTRAINT.blendChainsScaleByAttr(
-                    ml_fkAttachJoints, self.ml_ikBlendUse, ml_blendJoints,
+                    ml_fkAttachJoints, self.ml_ikScaleUse, ml_blendJoints,
                     driver=mPlug_FKIK.p_combinedName)
 
                 # Ribbon / spline driver scale on IK — not bezier (stretch owns IK channels).
