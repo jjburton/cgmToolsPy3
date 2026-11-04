@@ -741,6 +741,42 @@ def _ui_arrange_ratio(parent, snapMenu=False):
         ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
 
 
+def _ui_arrange_layout(parent, snapMenu=False):
+    """Layout section — pack selection along a world axis by bounding box."""
+    mUI.MelMenuItemDiv(parent, l='Layout')
+    _kws = {'noSelect': 0} if snapMenu else {}
+    _ann = ARRANGE._d_arrangeLine_ann
+    for _axis in ('x', 'y', 'z'):
+        mc.menuItem(
+            parent=parent,
+            l=_axis.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
+                **_kws, **{'axis': _axis}),
+            ann=_ann.get('layoutBB' + _axis.upper()))
+
+
+def buildRow_layout_arrange(parent):
+    """Toolbox row — pack selection along world X, Y, or Z by bounding box."""
+    _ann = ARRANGE._d_arrangeLine_ann
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Layout:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    for _axis in ('x', 'y', 'z'):
+        mc.button(
+            parent=_row,
+            l=_axis.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
+                **{'axis': _axis}),
+            ann=_ann.get('layoutBB' + _axis.upper()))
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
 def uiSection_arrange(parent = None, selection = None, pairSelected = True):
     #>>Arrange ----------------------------------------------------------------------------------------
     _arrange= mc.menuItem(parent=parent,subMenu = True,
@@ -748,6 +784,8 @@ def uiSection_arrange(parent = None, selection = None, pairSelected = True):
                           ann = "Ordered layout of selected items")    
 
     _ui_arrange_ratio(_arrange)
+
+    _ui_arrange_layout(_arrange)
 
     mUI.MelMenuItemDiv(_arrange, l='Linear')
 
@@ -2221,6 +2259,8 @@ def uiSection_snap(parent, selection = None ):
                           ann = "Ordered layout of selected items")
     
     _ui_arrange_ratio(_arrange, snapMenu=True)
+
+    _ui_arrange_layout(_arrange, snapMenu=True)
 
     mUI.MelMenuItemDiv(_arrange,l='Linear')
     mc.menuItem(parent=_arrange,

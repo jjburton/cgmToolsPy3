@@ -88,8 +88,62 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
         for obj in row:
             mc.xform(obj,os=True,t=[bufferX,bufferY,startZ])
             bufferX += sizeX
-        bufferY -= sizeY  
-        
+        bufferY -= sizeY
+
+
+_d_layout_bb_axis = {'x': (0, 3), 'y': (1, 4), 'z': (2, 5)}
+_LAYOUT_BB_GAP_RATIO = 0.02
+_LAYOUT_BB_GAP_MIN = 1e-4
+
+
+def layout_by_bb(objList=None, axis='x'):
+    """
+    Pack objects in selection order along one world axis so bounding boxes are close
+    and do not overlap. The first object stays.
+
+    Uses POS.get_bb_size(mode='raw') — the same world box advanced-snap boundingBox
+    faces come from. World axis is indexed directly (not get_bb_pos y+/y-, which
+    follows scene up).
+    """
+    _str_func = 'layout_by_bb'
+    objList = VALID.mNodeStringList(objList)
+    objListBase = copy.copy(objList)
+    _len = len(objList)
+    if _len < 2:
+        raise ValueError("|{0}| >> Need at least 2 objects".format(_str_func))
+
+    _axis = str(axis or 'x').lower().strip()
+    if _axis[:1] in _d_layout_bb_axis:
+        _axis = _axis[0]
+    if _axis not in _d_layout_bb_axis:
+        raise ValueError("|{0}| >> axis must be x, y, or z. Got {1}".format(_str_func, axis))
+
+    _i = {'x': 0, 'y': 1, 'z': 2}[_axis]
+    _i_min, _i_max = _d_layout_bb_axis[_axis]
+    _pos_first = POS.get(objList[0])
+    _pos_last = POS.get(objList[-1])
+    _dir = -1.0 if (_pos_last[_i] - _pos_first[_i]) < 0 else 1.0
+    log.info("|{0}| >> count {1} | axis {2} | dir {3}".format(_str_func, _len, _axis, _dir))
+
+    _prev_box = POS.get_bb_size(objList[0], mode='raw')
+    for _obj in objList[1:]:
+        _box = POS.get_bb_size(_obj, mode='raw')
+        _ext_prev = _prev_box[_i_max] - _prev_box[_i_min]
+        _ext = _box[_i_max] - _box[_i_min]
+        _gap = max(_LAYOUT_BB_GAP_RATIO * ((_ext_prev + _ext) * 0.5), _LAYOUT_BB_GAP_MIN)
+        if _dir > 0:
+            _delta = (_prev_box[_i_max] + _gap) - _box[_i_min]
+        else:
+            _delta = (_prev_box[_i_min] - _gap) - _box[_i_max]
+        _pos = list(POS.get(_obj))
+        _pos[_i] = _pos[_i] + _delta
+        POS.set(_obj, _pos)
+        _prev_box = POS.get_bb_size(_obj, mode='raw')
+
+    mc.select(objListBase)
+    return True
+
+
 _d_arrangeLine_ann = {'linearEven':"Layout on line from first to last item evenly",
                       'linearSpaced':'Layout on line from first to last item closest as possible to original position',
                       'cubicEven':'Layout evenly on a curve created from the list',
@@ -100,7 +154,10 @@ _d_arrangeLine_ann = {'linearEven':"Layout on line from first to last item evenl
                       'cubicRebuild2Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild3Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild2Spaced':'Layout spaced on a 2 span rebuild curve from the list.',
-                      'cubicRebuild3Spaced':'Layout spaced on a 2 span rebuild curve from the list.'}
+                      'cubicRebuild3Spaced':'Layout spaced on a 2 span rebuild curve from the list.',
+                      'layoutBBX':'Pack selection along world X using bounding boxes so neighbors are close and do not overlap. First stays.',
+                      'layoutBBY':'Pack selection along world Y using bounding boxes so neighbors are close and do not overlap. First stays.',
+                      'layoutBBZ':'Pack selection along world Z using bounding boxes so neighbors are close and do not overlap. First stays.'}
 
 PHI = 1.618033988749895
 

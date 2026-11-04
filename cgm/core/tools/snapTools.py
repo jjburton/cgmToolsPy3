@@ -619,6 +619,7 @@ def buildSection_snap(self,parent):
     mUI.MelSpacer(_row_arrange,w=5)                                              
     _row_arrange.layout()
 
+    UICHUNKS.buildRow_layout_arrange(_inside)
     UICHUNKS.buildRow_to_curve_arrange(_inside)
     UICHUNKS.buildRows_ratio_arrange(_inside, ui=self)
 
