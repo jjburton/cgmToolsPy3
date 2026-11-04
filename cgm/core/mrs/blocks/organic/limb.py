@@ -3996,9 +3996,10 @@ def _limb_bezier_section_pickwalk_one_section(ml_mains, md_subs):
     _str_sub_attr = BEZIERIKBLOCK.BEZIER_IK_MAIN_SUB_MSGLIST
     for i, mMain in enumerate(ml_mains):
         str_slot = _limb_bezier_main_slot_key(mMain, ml_mains)
-        ml_subs = (md_subs or {}).get(str_slot, []) or []
+        # Copy. md_subs lists are the rig slot data rig_segments snaps and constrains.
+        ml_subs = list((md_subs or {}).get(str_slot) or [])
         if not ml_subs:
-            ml_subs = mMain.msgList_get(_str_sub_attr) or []
+            ml_subs = list(mMain.msgList_get(_str_sub_attr) or [])
         else:
             ml_on_main = mMain.msgList_get(_str_sub_attr) or []
             if ml_on_main:
