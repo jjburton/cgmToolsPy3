@@ -1688,15 +1688,10 @@ def bezier_ik_connect_main_sub_msglists_for_mains(
         ml_subs = (md_subs_by_slot or {}).get(str_slot) or []
         if not ml_subs:
             continue
-        ml_existing = mMain.msgList_get(BEZIER_IK_MAIN_SUB_MSGLIST) or []
-        ml_combined = list(ml_existing)
-        set_long = {m.p_nameLong for m in ml_combined}
-        for m in ml_subs:
-            if m.p_nameLong not in set_long:
-                ml_combined.append(m)
-                set_long.add(m.p_nameLong)
+        # This section's slot only. Do not merge bezierIKSubs already on the main.
+        # Pickwalk reads both; rewriting the main's list is rig data, not wiring.
         ml_ordered = bezier_ik_subs_pickwalk_order_for_anchor(
-            i, int_last, ml_combined)
+            i, int_last, ml_subs)
         ml_ordered = [m for m in ml_ordered if _bezier_ik_pickwalk_dag(m)]
         if ml_ordered:
             mMain.msgList_connect(
