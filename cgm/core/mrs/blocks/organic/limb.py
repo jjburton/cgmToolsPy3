@@ -4500,7 +4500,8 @@ def _limb_rig_segments_bezier_shoulder_stable(
 
 def _limb_bezier_create_seg_aim_handle(mParent, section_idx, str_end, mRigNull):
     """Ribbon-style segmentHandle DAG parented to main handle (not the artist main orient)."""
-    mSegHandle = mParent.doDuplicate(po=True)
+    # inputConnections off: doDuplicate defaults ic=True and would copy the main's dynParent graph.
+    mSegHandle = mParent.doDuplicate(po=True, inputConnections=False)
     mSegHandle.p_parent = mParent
     mSegHandle.doStore('cgmTypeModifier', 'bezierSegAim_{0}_{1}'.format(section_idx, str_end))
     mSegHandle.doStore('cgmType', 'segHandle')
@@ -4588,12 +4589,19 @@ def _limb_bezier_seg_handle_reg_curve(
 
 
 def _limb_bezier_drive_subs_from_seg_handle(ml_subs, mSegHandle):
-    """Sub Bezier CV controls follow seg aim DAG (position + orient)."""
+    """Orient-follow the seg aim. Translation stays on masterGroup under the main.
+
+    The seg aim is a duplicate sitting on the main pivot. A parent constraint
+    onto it collapses the tangent offset onto the elbow/knee main.
+    """
     for mSub in ml_subs or []:
         if not mSub:
             continue
-        mc.parentConstraint(
-            mSegHandle.mNode, mSub.masterGroup.mNode, maintainOffset=True)
+        mMaster = mSub.getMessageAsMeta('masterGroup')
+        if not mMaster:
+            continue
+        mc.orientConstraint(
+            mSegHandle.mNode, mMaster.mNode, maintainOffset=True)
 
 
 def _limb_rig_segments_bezier_section_seg_aims(
@@ -4601,7 +4609,8 @@ def _limb_rig_segments_bezier_section_seg_aims(
         md_subs):
     """
     Per-section segment aim drivers at interior mains (elbow): curveSeg_{section}
-    on the main handle, orient on segHandle DAG, subs parented to segHandle.
+    on the main handle, orient on segHandle DAG. Subs stay under the main;
+    masterGroup orient-follows the seg aim (no parent constraint).
     """
     _str_func = '_limb_rig_segments_bezier_section_seg_aims'
     if not ml_mains or len(ml_handleJoints) < 3:
