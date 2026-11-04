@@ -4519,7 +4519,9 @@ def _limb_bezier_create_seg_aim_handle(mParent, section_idx, str_end, mRigNull, 
     mSegHandle.doStore('cgmTypeModifier', 'bezierSegAim_{0}_{1}'.format(section_idx, str_end))
     mSegHandle.doStore('cgmType', 'segHandle')
     mSegHandle.doName()
-    ATTR.set_hidden(mSegHandle.mNode, 'radius', True)
+    # Tangent masterGroup duplicates are transforms. Joint mains still carry radius.
+    if mc.attributeQuery('radius', node=mSegHandle.mNode, exists=True):
+        ATTR.set_hidden(mSegHandle.mNode, 'radius', True)
     str_attr = 'bezierSegAim_{0}_{1}'.format(section_idx, str_end)
     mRigNull.connectChildNode(mSegHandle.mNode, str_attr, 'rigNull')
     return mSegHandle
