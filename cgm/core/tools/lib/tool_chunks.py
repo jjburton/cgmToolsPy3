@@ -911,8 +911,6 @@ def uiSection_arrange(parent = None, selection = None, pairSelected = True):
 
     _ui_arrange_ratio(_arrange)
 
-    _ui_arrange_layout(_arrange)
-
     mUI.MelMenuItemDiv(_arrange, l='Linear')
 
     mc.menuItem(parent=_arrange,
@@ -977,6 +975,8 @@ def uiSection_arrange(parent = None, selection = None, pairSelected = True):
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'spaced','curve':'target'}),
               ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))
+
+    _ui_arrange_layout(_arrange)
 
 def uiSection_distance(parent = None, selection = None, pairSelected = True):
     _p = mc.menuItem(parent=parent, subMenu = True,tearOff = True,
@@ -2386,8 +2386,6 @@ def uiSection_snap(parent, selection = None ):
     
     _ui_arrange_ratio(_arrange, snapMenu=True)
 
-    _ui_arrange_layout(_arrange, snapMenu=True)
-
     mUI.MelMenuItemDiv(_arrange,l='Linear')
     mc.menuItem(parent=_arrange,
                   l = 'Even',
@@ -2467,6 +2465,8 @@ def uiSection_snap(parent, selection = None ):
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None,'all', 'AlongRatio',noSelect = 0, **{'curve':'target','defaultStyle':'golden'}),
               ann = ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
+
+    _ui_arrange_layout(_arrange, snapMenu=True)
     
     
     #>>Match ----------------------------------------------------------------------------------------
