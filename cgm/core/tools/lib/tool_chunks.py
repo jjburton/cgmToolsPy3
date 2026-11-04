@@ -742,7 +742,7 @@ def _ui_arrange_ratio(parent, snapMenu=False):
 
 
 def _ui_arrange_layout(parent, snapMenu=False):
-    """Layout section — pack selection along a world axis by bounding box."""
+    """Layout section — axis pack plus grid planes. Settings are the Snap layout fields."""
     mUI.MelMenuItemDiv(parent, l='Layout')
     _kws = {'noSelect': 0} if snapMenu else {}
     _ann = ARRANGE._d_arrangeLine_ann
@@ -755,6 +755,112 @@ def _ui_arrange_layout(parent, snapMenu=False):
                 MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
                 **_kws, **{'axis': _axis}),
             ann=_ann.get('layoutBB' + _axis.upper()))
+    mUI.MelMenuItemDiv(parent, l='Grid')
+    mc.menuItem(
+        parent=parent,
+        l='Guess',
+        ut='cgmUITemplate',
+        c=cgmGEN.Callback(uiFunc_layout_guess),
+        ann=_ann.get('layoutGuess'))
+    for _plane in ('xy', 'xz', 'yx', 'yz', 'zx', 'zy'):
+        mc.menuItem(
+            parent=parent,
+            l=_plane.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_grid, None, 'all', 'LayoutGrid',
+                **_kws, **{'plane': _plane}),
+            ann=_ann.get('layoutGrid' + _plane.upper()))
+
+
+_d_layout_fields = {}
+
+
+def uiFunc_layout_commit_int(which, *a):
+    _field = _d_layout_fields.get(which)
+    if not _field or not mc.intField(_field, exists=True):
+        return
+    _v = max(1, int(mc.intField(_field, q=True, value=True)))
+    _name = ARRANGE.VAR_LAYOUT_ROWS if which == 'rows' else ARRANGE.VAR_LAYOUT_COLUMNS
+    cgmMeta.cgmOptionVar(_name, defaultValue=1).setValue(_v)
+
+
+def uiFunc_layout_commit_padding(*a):
+    _field = _d_layout_fields.get('padding')
+    if not _field or not mc.floatField(_field, exists=True):
+        return
+    _v = max(0.0, float(mc.floatField(_field, q=True, value=True)))
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_PADDING, defaultValue=1.0).setValue(_v)
+
+
+def uiFunc_layout_set_origin(origin):
+    _origin = 'center' if str(origin).lower() == 'center' else 'first'
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ORIGIN, defaultValue='first').setValue(_origin)
+
+
+def uiFunc_layout_guess(*a):
+    _rows, _cols = ARRANGE.layout_guess_rows_columns()
+    _rows_field = _d_layout_fields.get('rows')
+    _cols_field = _d_layout_fields.get('columns')
+    if _rows_field and mc.intField(_rows_field, exists=True):
+        mc.intField(_rows_field, e=True, value=int(_rows))
+    if _cols_field and mc.intField(_cols_field, exists=True):
+        mc.intField(_cols_field, e=True, value=int(_cols))
+    return _rows, _cols
+
+
+def buildRow_layout_settings(parent):
+    """Snap-frame settings shared by axis layout and grid."""
+    _rows_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ROWS, defaultValue=1)
+    _cols_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_COLUMNS, defaultValue=1)
+    _pad_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_PADDING, defaultValue=1.0)
+    _origin_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ORIGIN, defaultValue='first')
+    try:
+        _rows_val = max(1, int(_rows_var.value))
+    except (TypeError, ValueError):
+        _rows_val = 1
+    try:
+        _cols_val = max(1, int(_cols_var.value))
+    except (TypeError, ValueError):
+        _cols_val = 1
+    try:
+        _pad_val = max(0.0, float(_pad_var.value))
+    except (TypeError, ValueError):
+        _pad_val = 1.0
+    _origin_val = 'center' if str(_origin_var.value or 'first').lower() == 'center' else 'first'
+
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Rows:')
+    _d_layout_fields['rows'] = mc.intField(
+        parent=_row, minValue=1, value=_rows_val, width=40,
+        annotation='Grid row count',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_int, 'rows'))
+    mUI.MelLabel(_row, l='Cols:')
+    _d_layout_fields['columns'] = mc.intField(
+        parent=_row, minValue=1, value=_cols_val, width=40,
+        annotation='Grid column count',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_int, 'columns'))
+    mc.button(
+        parent=_row, l='Guess', ut='cgmUITemplate',
+        c=cgmGEN.Callback(uiFunc_layout_guess),
+        ann=ARRANGE._d_arrangeLine_ann.get('layoutGuess'))
+    mUI.MelLabel(_row, l='Pad:')
+    _d_layout_fields['padding'] = mc.floatField(
+        parent=_row, minValue=0.0, value=_pad_val, precision=3, width=56,
+        annotation='Space between bounding boxes for axis layout and grid',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_padding))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelLabel(_row, l='From:')
+    _origin_rc = mUI.MelRadioCollection()
+    for _label, _value in (('First', 'first'), ('Center', 'center')):
+        _origin_rc.createButton(
+            _row, label=_label, sl=(_origin_val == _value),
+            annotation='Flow the layout from the first selected object or from the selection center',
+            onCommand=cgmGEN.Callback(uiFunc_layout_set_origin, _value))
+        mUI.MelSpacer(_row, w=2)
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
 
 
 def buildRow_layout_arrange(parent):
@@ -773,6 +879,26 @@ def buildRow_layout_arrange(parent):
                 MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
                 **{'axis': _axis}),
             ann=_ann.get('layoutBB' + _axis.upper()))
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
+def buildRow_layout_grid(parent):
+    """Toolbox row — grid planes. First letter is columns, second is rows."""
+    _ann = ARRANGE._d_arrangeLine_ann
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Grid:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    for _plane in ('xy', 'xz', 'yx', 'yz', 'zx', 'zy'):
+        mc.button(
+            parent=_row,
+            l=_plane.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_grid, None, 'all', 'LayoutGrid',
+                **{'plane': _plane}),
+            ann=_ann.get('layoutGrid' + _plane.upper()))
     mUI.MelSpacer(_row, w=5)
     _row.layout()
 
