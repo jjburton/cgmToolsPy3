@@ -293,48 +293,35 @@ def uiSection_query(parent = None):
 def buildRows_ratio_arrange(parent, ui=None):
     """Ratio arrange button rows for cgmToolbox / snapTools snap sections."""
     _ann = ARRANGE._d_arrangeRatio_ann
-    _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row_preset, w=5)
-    mUI.MelLabel(_row_preset, l='Ratio:')
-    _row_preset.setStretchWidget(mUI.MelSeparator(_row_preset))
-    mc.button(
-        parent=_row_preset, l='Golden', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'linear'}),
-        ann=_ann.get('ratioGoldenLinear'))
-    mc.button(
-        parent=_row_preset, l='Golden | Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'cubic'}),
-        ann=_ann.get('ratioGoldenCubic'))
-    mc.button(
-        parent=_row_preset, l='Finger', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'linear'}),
-        ann=_ann.get('ratioFingerLinear'))
-    mc.button(
-        parent=_row_preset, l='Finger | Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'cubic'}),
-        ann=_ann.get('ratioFingerCubic'))
-    mc.button(
-        parent=_row_preset, l='Golden | To Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'target'}),
-        ann=_ann.get('ratioGoldenTarget'))
-    mc.button(
-        parent=_row_preset, l='Finger | To Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'target'}),
-        ann=_ann.get('ratioFingerTarget'))
-    mUI.MelSpacer(_row_preset, w=5)
-    _row_preset.layout()
+    # Three rows so the preset labels do not set the toolbox window width.
+    _l_ratio_rows = (
+        ('Ratio:', (
+            ('Golden', 'golden_all', 'linear', 'ratioGoldenLinear'),
+            ('Finger', 'finger', 'linear', 'ratioFingerLinear'),
+        )),
+        ('Ratio | Curve:', (
+            ('Golden | Curve', 'golden_all', 'cubic', 'ratioGoldenCubic'),
+            ('Finger | Curve', 'finger', 'cubic', 'ratioFingerCubic'),
+        )),
+        ('Ratio | To Curve:', (
+            ('Golden | To Curve', 'golden_all', 'target', 'ratioGoldenTarget'),
+            ('Finger | To Curve', 'finger', 'target', 'ratioFingerTarget'),
+        )),
+    )
+    for _label, _buttons in _l_ratio_rows:
+        _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+        mUI.MelSpacer(_row_preset, w=5)
+        mUI.MelLabel(_row_preset, l=_label)
+        _row_preset.setStretchWidget(mUI.MelSeparator(_row_preset))
+        for _btn_label, _preset, _curve, _ann_key in _buttons:
+            mc.button(
+                parent=_row_preset, l=_btn_label, ut='cgmUITemplate',
+                c=cgmGEN.Callback(
+                    MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+                    **{'preset': _preset, 'curve': _curve}),
+                ann=_ann.get(_ann_key))
+        mUI.MelSpacer(_row_preset, w=5)
+        _row_preset.layout()
 
     _row_custom = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row_custom, w=5)
