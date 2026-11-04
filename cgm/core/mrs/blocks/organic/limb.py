@@ -4498,23 +4498,10 @@ def _limb_rig_segments_bezier_shoulder_stable(
     log.debug('|{0}| >> shoulder stable section {1}'.format(_str_func, section_idx))
 
 
-def _limb_bezier_seg_aim_pos_source(mSub):
-    """Transform that already sits on the tangent (masterGroup, else the sub)."""
-    if not mSub:
-        return None
-    return mSub.getMessageAsMeta('masterGroup') or mSub
-
-
-def _limb_bezier_create_seg_aim_handle(mParent, section_idx, str_end, mRigNull, mAt=None):
-    """Seg-aim DAG under the main, placed at the tangent sub when mAt is set.
-
-    Duplicating the main leaves this node on the main pivot. A parent constraint
-    from that pivot onto the tangent masterGroup snaps the sub onto the elbow/knee.
-    inputConnections off — doDuplicate defaults ic=True and would copy dynParent.
-    Control masterGroups are dag-locked later, in rig_cleanUp controls_lockDown.
-    """
-    mSource = mAt or mParent
-    mSegHandle = mSource.doDuplicate(po=True, inputConnections=False)
+def _limb_bezier_create_seg_aim_handle(mParent, section_idx, str_end, mRigNull):
+    """Ribbon-style segmentHandle DAG parented to main handle (not the artist main orient)."""
+    # inputConnections off: doDuplicate defaults ic=True and would copy the main's dynParent graph.
+    mSegHandle = mParent.doDuplicate(po=True, inputConnections=False)
     mSegHandle.p_parent = mParent
     mSegHandle.doStore('cgmTypeModifier', 'bezierSegAim_{0}_{1}'.format(section_idx, str_end))
     mSegHandle.doStore('cgmType', 'segHandle')
@@ -4602,9 +4589,10 @@ def _limb_bezier_seg_handle_reg_curve(
 
 
 def _limb_bezier_drive_subs_from_seg_handle(ml_subs, mSegHandle):
-    """Parent-constrain tangent masterGroups to the seg aim (position + orient).
+    """Orient-follow the seg aim. Translation stays on masterGroup under the main.
 
-    mSegHandle must already sit on the tangent. The main pivot is the wrong target.
+    The seg aim is a duplicate sitting on the main pivot. A parent constraint
+    onto it collapses the tangent offset onto the elbow/knee main.
     """
     for mSub in ml_subs or []:
         if not mSub:
@@ -4612,7 +4600,7 @@ def _limb_bezier_drive_subs_from_seg_handle(ml_subs, mSegHandle):
         mMaster = mSub.getMessageAsMeta('masterGroup')
         if not mMaster:
             continue
-        mc.parentConstraint(
+        mc.orientConstraint(
             mSegHandle.mNode, mMaster.mNode, maintainOffset=True)
 
 
@@ -4621,8 +4609,8 @@ def _limb_rig_segments_bezier_section_seg_aims(
         md_subs):
     """
     Per-section segment aim drivers at interior mains (elbow): curveSeg_{section}
-    on the main handle, orient on a seg-aim DAG built at the tangent sub.
-    Sub masterGroups parent-constrain to that seg aim, not to the main pivot.
+    on the main handle, orient on segHandle DAG. Subs stay under the main;
+    masterGroup orient-follows the seg aim (no parent constraint).
     """
     _str_func = '_limb_rig_segments_bezier_section_seg_aims'
     if not ml_mains or len(ml_handleJoints) < 3:
@@ -4637,15 +4625,14 @@ def _limb_rig_segments_bezier_section_seg_aims(
     # Section end main (e.g. elbow on shoulder–elbow span): back subs + ii=1
     if _is_interior(mEnd):
         idx_parent = ml_handleJoints.index(mEnd)
-        str_slot = _limb_bezier_main_slot_key(mEnd, ml_mains)
-        ml_back, _ml_fwd = BEZIERIKBLOCK.bezier_ik_subs_split_by_modifier(
-            (md_subs or {}).get(str_slot, []))
         mSeg = _limb_bezier_create_seg_aim_handle(
-            mEnd, section_idx, 'end', mRigNull,
-            mAt=_limb_bezier_seg_aim_pos_source(ml_back[0] if ml_back else None))
+            mEnd, section_idx, 'end', mRigNull)
         _limb_bezier_seg_handle_reg_curve(
             self, section_idx, mSeg, mEnd, idx_parent, ml_handleJoints,
             ml_blendJoints, ii_seg=1, mWorldUpMain=mStart)
+        str_slot = _limb_bezier_main_slot_key(mEnd, ml_mains)
+        ml_back, _ml_fwd = BEZIERIKBLOCK.bezier_ik_subs_split_by_modifier(
+            (md_subs or {}).get(str_slot, []))
         _limb_bezier_drive_subs_from_seg_handle(ml_back, mSeg)
         log.debug('|{0}| >> section {1} end | {2} | back subs {3}'.format(
             _str_func, section_idx, mEnd.p_nameShort, len(ml_back)))
@@ -4653,15 +4640,14 @@ def _limb_rig_segments_bezier_section_seg_aims(
     # Section start main (e.g. elbow on elbow–wrist span): forward subs + ii=0
     if section_idx > 0 and _is_interior(mStart):
         idx_parent = ml_handleJoints.index(mStart)
-        str_slot = _limb_bezier_main_slot_key(mStart, ml_mains)
-        _ml_back, ml_fwd = BEZIERIKBLOCK.bezier_ik_subs_split_by_modifier(
-            (md_subs or {}).get(str_slot, []))
         mSeg = _limb_bezier_create_seg_aim_handle(
-            mStart, section_idx, 'start', mRigNull,
-            mAt=_limb_bezier_seg_aim_pos_source(ml_fwd[0] if ml_fwd else None))
+            mStart, section_idx, 'start', mRigNull)
         _limb_bezier_seg_handle_reg_curve(
             self, section_idx, mSeg, mStart, idx_parent, ml_handleJoints,
             ml_blendJoints, ii_seg=0, mWorldUpMain=mStart)
+        str_slot = _limb_bezier_main_slot_key(mStart, ml_mains)
+        _ml_back, ml_fwd = BEZIERIKBLOCK.bezier_ik_subs_split_by_modifier(
+            (md_subs or {}).get(str_slot, []))
         _limb_bezier_drive_subs_from_seg_handle(ml_fwd, mSeg)
         log.debug('|{0}| >> section {1} start | {2} | forward subs {3}'.format(
             _str_func, section_idx, mStart.p_nameShort, len(ml_fwd)))
