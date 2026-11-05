@@ -1312,7 +1312,6 @@ def prerig(self):
                                                          plugDag= 'jointHelper',
                                                          plugShape= 'directShape',
                                                          nameDict= d_use)"""
-                        cgmGEN._reloadMod(BLOCKSHAPES)
                         mShape, mDag = BLOCKSHAPES.create_face_handle(self,
                                                                       p,tag,None,side,
                                                                       mDriver=mDriver,

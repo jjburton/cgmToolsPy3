@@ -2482,7 +2482,11 @@ def attachHandleToCurve(mHandle,mCrv,mShape = None,parentTo=None,pct = None, ble
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    mPointOnCurve = cgmMeta.asMeta(
+        CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1))
     
     
     if blend:
@@ -2724,7 +2728,11 @@ def attachToCurve(mHandle,mCrv,mShape = None,parentTo=None,pct = None, blend = T
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    mPointOnCurve = cgmMeta.asMeta(
+        CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1))
     
     
     if blend:

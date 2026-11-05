@@ -176,7 +176,61 @@ def to_ground(obj=None):
 
     p_pivot[_idx] = p_pivot[_idx] - p_bottom[_idx]
     POS.set(_obj, p_pivot)
-    
+
+
+def orient_closest_world(obj=None, worldAxis='z'):
+    """
+    Aim obj so the local axis closest to worldAxis points along that world axis.
+
+    worldAxis 'z' matches BUILDERUTILS.control_convertToWorldIK: scene up, up axis y+.
+    'x' uses that same scene-up aim. 'y' uses a world-Z up vector so the aim is not
+    parallel to scene up. If that local aim axis is also Z, local up is x+.
+    """
+    _str_func = 'orient_closest_world'
+    # transform_utils imports this module at load; import here to avoid that cycle.
+    import cgm.core.lib.transform_utils as TRANS
+
+    _obj = VALID.objString(obj, noneValid=False,
+                           calledFrom=__name__ + _str_func + ">> validate obj")
+    _axis = str(worldAxis or 'z').lower().strip()
+    if _axis[:1] in ('x', 'y', 'z'):
+        _axis = _axis[0]
+    if _axis not in ('x', 'y', 'z'):
+        raise ValueError("|{0}| >> worldAxis must be x, y, or z. Got {1}".format(_str_func, worldAxis))
+
+    _worldVec = {'x': MATH.Vector3.right(),
+                 'y': MATH.Vector3.up(),
+                 'z': MATH.Vector3.forward()}[_axis]
+    _aimVec = {'x': [1, 0, 0],
+               'y': [0, 1, 0],
+               'z': [0, 0, 1]}[_axis]
+
+    _dots = {}
+    for _name, _local in (('x', MATH.Vector3.right()),
+                          ('y', MATH.Vector3.up()),
+                          ('z', MATH.Vector3.forward())):
+        _dots[_name] = TRANS.transformDirection(_obj, _local).dot(_worldVec)
+
+    closest = 'x'
+    highest = _dots['x']
+    if abs(_dots['y']) > abs(highest):
+        closest = 'y'
+        highest = _dots['y']
+    if abs(_dots['z']) > abs(highest):
+        closest = 'z'
+        highest = _dots['z']
+    if highest < 0:
+        closest = '{0}-'.format(closest)
+
+    log.info("|{0}| >> {1} | world {2} | aim {3}".format(
+        _str_func, NAMES.get_short(_obj), _axis, closest))
+
+    pos_aim = DIST.get_pos_by_vec_dist(POS.get(_obj), _aimVec, 10.0)
+    if _axis == 'y':
+        _upAxis = 'x+' if closest[0] == 'z' else 'z+'
+        return aim_atPoint(_obj, pos_aim, closest, _upAxis, mode='vector', vectorUp=[0, 0, 1])
+    return aim_atPoint(_obj, pos_aim, closest, mode='world', vectorUp=[0, 1, 0])
+
 def aim_atPoint(obj = None, position = [0,0,0], aimAxis = "z+", upAxis = "y+", mode = 'local',vectorUp = None,ignoreAimAttrs = True):
     """
     Aim functionality.

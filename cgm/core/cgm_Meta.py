@@ -5165,7 +5165,8 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
             raise ValueError("Invalid arg({0}). noneValid = False".format(arg))
     else:
         if arg in [None,False]:
-            if arg not in [None,False]:log.warning("%s arg fail: %s"%(__str_reportStart,arg))
+            if arg not in [None,False]:
+                log.warning("|{0}| >> arg fail: {1}".format(_str_func, arg))
             return False
     try:
         arg.mNode
@@ -5197,7 +5198,9 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
         str_type = VALID.get_mayaType(_arg)
         if str_type not in l_mayaTypes:
             if noneValid:
-                log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(__str_reportStart,_argShort,str_type,l_mayaTypes))
+                log.warning(
+                    "|{0}| >> '{1}' mayaType: '{2}' not in: '{3}'".format(
+                        _str_func, _argShort, str_type, l_mayaTypes))
                 return False
             raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
         t2 = time.time()

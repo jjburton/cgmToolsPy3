@@ -774,48 +774,10 @@ def control_convertToWorldIK(mCtrl=None):
     _str_func = 'control_convertToWorldIK'
     rot = mCtrl.p_orient
     mGrp_zero = mCtrl.doGroup(True,True,asMeta=True,typeModifier = 'worldOrient')
-    
 
-    xDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.forward())
-    yDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.forward())
-    zDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.forward())
-    
-    xUpDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.up())
-    yUpDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.up())
-    zUpDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.up())
-    
-    #Get our up and vector
-    closestForward = "x"
-    closestUp = "x"
-    highestDot = xDot
-    highestUpDot = xUpDot
-    
-    if(abs(yDot) > abs(highestDot)):
-        closestForward = "y"
-        highestDot = yDot
-    
-    if(abs(zDot) > abs(highestDot)):
-        closestForward = "z"
-        highestDot = zDot
-    
-    if(abs(yUpDot) > abs(highestUpDot)):
-        closestUp = "y"
-        highestUpDot = yUpDot
-    
-    if(abs(zUpDot) > abs(highestUpDot)):
-        closestUp = "z"
-        highestUpDot = zUpDot
-    
-    if(highestDot < 0):
-        closestForward = "{0}-".format(closestForward)
-    if(highestUpDot < 0):
-        closestUp = "{0}-".format(closestUp)
-        
-    log.debug('closest forward axis is "%s" and closest up axis is "%s"' % (closestForward, closestUp))    
-    pos_aim = DIST.get_pos_by_vec_dist(mCtrl.p_position, [0,0,1], 10.0)
-    
-    SNAP.aim_atPoint(mGrp_zero.mNode, pos_aim, closestForward, mode='world', vectorUp=[0,1,0] )
-    
+    log.debug("|{0}| >> {1}".format(_str_func, mCtrl.p_nameShort))
+    SNAP.orient_closest_world(mGrp_zero.mNode, 'z')
+
     mCtrl.p_orient = rot
     d = {'rotateX':mCtrl.rotateX,'rotateY':mCtrl.rotateY,'rotateZ':mCtrl.rotateZ}
     mCtrl.addAttr('defaultValues',d)
@@ -1776,6 +1738,53 @@ def scaleSetup_dynParentDefaultIndex(self, mChild, mDynGroup, idx=1, mBlock=None
         ATTR.set(mDynChild.mNode, _a, _label)
 
 
+SEGMENT_HANDLE_CAST_SPACING_DIVISOR = 4.0
+
+
+def segment_handle_cast_spacing_joint_chain(mRigNull):
+    """Dense module joint chain for segment handle semiSphere cast sizing."""
+    if not mRigNull:
+        return []
+    for str_attr in ('moduleJoints', 'skinJoints', 'segmentJoints'):
+        ml = mRigNull.msgList_get(str_attr) or []
+        if len(ml) >= 2:
+            return list(ml)
+    return []
+
+
+def segment_handle_cast_semisphere_size(
+        mBlock, mRigNull, offset, ml_chain=None, scale=1.0):
+    """
+    Default radius for limbSegmentHandle / segment handle semiSphere casts:
+    mean adjacent joint span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR, capped by
+    block jointRadius. ``ml_chain`` defaults to moduleJoints on rigNull.
+    """
+    _str_func = 'segment_handle_cast_semisphere_size'
+    f_joint_cap = None
+    if mBlock and mBlock.hasAttr('jointRadius'):
+        f_joint_cap = mBlock.getMayaAttr('jointRadius')
+    if f_joint_cap is None and offset is not None:
+        f_joint_cap = offset
+
+    if not ml_chain and mRigNull:
+        ml_chain = segment_handle_cast_spacing_joint_chain(mRigNull)
+
+    if ml_chain and len(ml_chain) >= 2:
+        try:
+            f_avg_span = DIST.get_distance_between_targets(
+                [mObj.mNode for mObj in ml_chain], average=True)
+            f_size = f_avg_span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR
+            if f_joint_cap is not None:
+                return min(f_size, f_joint_cap)
+            return f_size
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'chain spacing failed | {0}'.format(err)))
+
+    f_base = f_joint_cap if f_joint_cap is not None else (offset or 1.0)
+    return f_base * scale
+
+
 #@cgmGEN.Timer
 def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, upVector = None, uValues = [], offset = None, size = None,f_factor = None,connectionPoints=6):
     """
@@ -1877,7 +1886,8 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     'limbSegmentHandle',
                     'limbSegmentHandleBack',
                     'simpleCast',
-                    'singleCast']:
+                    'singleCast',
+                    'ikEndFrameHandle']:
             #Get our cast mesh        
             ml_handles = self.mBlock.msgList_get('prerigHandles',asMeta = True)
 
@@ -1922,7 +1932,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     ml_shapes.append(cgmMeta.validateObjArg(baseCrv))
                     
             elif mode in ['segmentHandle','ikHandle','frameHandle','castHandle','limbHandle','limbSegmentHandleBack','limbSegmentHandle','simpleCast','singleCast',
-                          'ikEnd','ikBase']:
+                          'ikEnd','ikBase','ikEndFrameHandle']:
                 
                
                 if targets:
@@ -2096,6 +2106,40 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                                                     curvesConnect=True,
                                                     connectionPoints=connectionPoints,
                                                     offset=offset)
+                    ml_shapes = cgmMeta.validateObjListArg(l_curves)
+
+                elif mode == 'ikEndFrameHandle':#=============================================================
+                    # FK frameHandle span for the last handle, but cast U from one DAG (ikEnd rule).
+                    ml_castTargets = cgmMeta.validateObjListArg(targets, 'cgmObject')
+                    if len(ml_castTargets) != 1:
+                        return log.error(
+                            "|{0}| >> ikEndFrameHandle requires one cast target".format(_str_func))
+                    mCastTar = ml_castTargets[0]
+                    _failU = MATH.average([minU, maxU])
+                    _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_aim)
+                    log.debug("|{0}| >> ikEndFrameHandle cast {1} ...".format(
+                        _str_func, mCastTar.p_nameShort))
+                    try:
+                        _v = _d['uvsRaw'][str_meshShape][0][0]
+                    except Exception:
+                        try:
+                            log.debug("|{0}| >> ikEndFrameHandle fail | trying up".format(_str_func))
+                            _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_up)
+                            _v = _d['uvsRaw'][str_meshShape][0][0]
+                        except Exception:
+                            log.warning("|{0}| >> ikEndFrameHandle fail | failSafe u".format(_str_func))
+                            _v = _failU
+                    l_curves = SURF.get_splitValues(
+                        str_meshShape,
+                        [_v],
+                        mode='u',
+                        insertMax=True,
+                        preInset=f_factor * .25,
+                        postInset=-f_factor * .25,
+                        curvesCreate=True,
+                        curvesConnect=True,
+                        connectionPoints=connectionPoints,
+                        offset=offset)
                     ml_shapes = cgmMeta.validateObjListArg(l_curves)
                      
                 elif mode == 'castHandle':#================================================================
@@ -2463,7 +2507,11 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                         l_shapes = []
                         
                         dist = offset * 5
-                        size_sphere = self.mBlock.getMayaAttr('jointRadius') or offset
+                        if size is not None:
+                            size_sphere = size
+                        else:
+                            size_sphere = segment_handle_cast_semisphere_size(
+                                self.mBlock, mRigNull, offset)
                         pos_obj = mObj.p_position
                         crvBase = CURVES.create_fromName(name='semiSphere',
                                                      direction = 'z+',

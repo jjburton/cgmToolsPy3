@@ -1719,7 +1719,6 @@ def rig_shapes(self):
             
     #Pivots =======================================================================================
     if mBlock.getMessage('pivotHelper'):
-        cgmGEN._reloadMod(RIGSHAPES)
 
         if self.str_addPivot == 'wobbleOnly':
             #_l = ['center','front','spin','tilt']

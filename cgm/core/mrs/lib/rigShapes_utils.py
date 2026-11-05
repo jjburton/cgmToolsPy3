@@ -43,6 +43,7 @@ import cgm.core.mrs.lib.builder_utils as BUILDUTILS
 import cgm.core.lib.shapeCaster as SHAPECASTER
 import cgm.core.lib.surface_Utils as SURF
 import cgm.core.lib.position_utils as POS
+import cgm.core.lib.string_utils as CORESTRING
 
 """
 from Red9.core import Red9_Meta as r9Meta
@@ -82,7 +83,27 @@ from cgm.core import cgm_Meta as cgmMeta
 __version__ = 'alpha.1.09122018'
 def log_start(str_func):
     log.debug("|{0}| >> ...".format(str_func)+'/'*60)
-    
+
+
+def _rig_shapes_cast_aim_vector(self):
+    _castVector = self.mBlock.getEnumValueString('castVector')
+    return self.d_orientation.get(
+        'vector{0}'.format(CORESTRING.capFirst(_castVector)))
+
+
+def _ik_end_cast_source_dag(self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints,
+                            ml_fkCastTargets=None):
+    """Scene DAG whose world position drives ikEnd cast rays (not a fresh control duplicate)."""
+    ml_cast = ml_fkCastTargets if ml_fkCastTargets else ml_handleTargets
+    if ikEnd == 'helper':
+        return mBlock.ikEndHandle
+    if ikEnd == 'tipBase':
+        return ml_cast[self.int_handleEndIdx]
+    if ikEnd == 'tipEnd':
+        return ml_rigJoints[-1]
+    return None
+
+
 def ik_bankRollShapes(self):
     try:
         _str_func = 'bankRollShapes'
@@ -433,7 +454,7 @@ def rootOrCog(self,mHandle = None):
        
 
 def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkShapes = None,
-          ml_ikJoints = None, ml_fkJoints = None,shapeArg = None):
+          ml_ikJoints = None, ml_fkJoints = None,shapeArg = None, ml_fkCastTargets = None):
     try:
         _str_func = 'ik_end'
         #Mid IK...---------------------------------------------------------------------------------
@@ -468,8 +489,7 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
             ml_curves = []
     
             if ikEnd == 'tipBase':
-                mIKCrv = ml_handleTargets[self.int_handleEndIdx].doCreateAt()                
-                #mIKCrv = mBlock.ikEndHandle.doCreateAt()#ml_handleTargets[self.int_handleEndIdx]
+                mIKCrv = ml_handleTargets[self.int_handleEndIdx].doCreateAt()
             elif ikEnd == 'tipMid':
                 mIKCrv =  mBlock.ikEndHandle.doCreateAt()
                 
@@ -488,7 +508,31 @@ def ik_end(self,ikEnd=None,ml_handleTargets = None, ml_rigJoints = None,ml_fkSha
             else:
                 mIKCrv =  mBlock.ikEndHandle.doCreateAt()
                 
-            if shapeArg is not None:
+            if shapeArg == 'cast':
+                _aimVector = _rig_shapes_cast_aim_vector(self)
+                mCastDag = _ik_end_cast_source_dag(
+                    self, ikEnd, mBlock, ml_handleTargets, ml_rigJoints, ml_fkCastTargets)
+                if mCastDag is None:
+                    mCastDag = mIKCrv
+                log.info(
+                    "|{0}| >> ikEnd cast | ikEnd={1} | endIdx={2} | castDag={3} | pos={4}".format(
+                        _str_func, ikEnd, self.int_handleEndIdx,
+                        mCastDag.p_nameShort, mCastDag.p_position))
+                ml_cast = self.atBuilderUtils(
+                    'shapes_fromCast',
+                    targets=[mCastDag],
+                    mode='ikEndFrameHandle',
+                    offset=self.v_offset,
+                    aimVector=_aimVector)
+                if ml_cast:
+                    CORERIG.shapeParent_in_place(
+                        mIKCrv.mNode, ml_cast[0].mNode, True, replaceShapes=True)
+                else:
+                    log.warning("|{0}| >> ikEnd cast empty | fallback fkShapes[endIdx]".format(
+                        _str_func))
+                    CORERIG.shapeParent_in_place(
+                        mIKCrv.mNode, ml_fkShapes[self.int_handleEndIdx].mNode, True)
+            elif shapeArg is not None:
                 mIK_formHandle = ml_formHandles[ self.int_handleEndIdx] #self.int_handleEndIdx ]
                 bb_ik = POS.get_bb_size(mIK_formHandle.mNode,True,mode='max')
                 _ik_shape = CURVES.create_fromName(shapeArg, size = bb_ik * 1.5)

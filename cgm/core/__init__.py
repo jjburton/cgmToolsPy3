@@ -90,9 +90,38 @@ from cgm.core.cgmPy import os_Utils as cgmOS
 #reload(cgmOS)
 import importlib
 import pprint
+import time
 
-@cgmGEN.Timer
-def _reload(stepConfirm=False):
+def _reload_summary_warning(_d_failed, _str_func='_reload'):
+    _n_failed = len(_d_failed)
+    if _d_failed:
+        log.info(cgmGEN._str_subLine)
+        cgmGEN.log_info_dict(
+            _d_failed,
+            "|{0}| >> {1} modules failed to import".format(_str_func, _n_failed),
+        )
+
+        for k in _d_failed.keys():
+            print("import {}".format(k))
+
+    if _n_failed:
+        if _n_failed <= 8:
+            _failed_list = ", ".join(sorted(_d_failed.keys()))
+            _msg = "|{0}| >> CGM Core Reload finished with {1} failure(s): {2}".format(
+                _str_func, _n_failed, _failed_list
+            )
+        else:
+            _msg = "|{0}| >> CGM Core Reload finished with {1} module import failure(s). See Script Editor.".format(
+                _str_func, _n_failed
+            )
+    else:
+        _msg = "|{0}| >> CGM Core Reload complete".format(_str_func)
+
+    log.warning(_msg)
+    mc.warning(_msg)
+
+
+def _reload_work(stepConfirm=False):
     """
     import Red9.core
     from Red9.core import (Red9_General,
@@ -212,18 +241,23 @@ def _reload(stepConfirm=False):
                 
                     if result != 'OK':
                         log.error("Cancelled at: {0}".format(m))
-                        return False                    
-                    
-    if _d_failed:   
-        log.info(cgmGEN._str_subLine)        
-        #log.info("|{0}| >> {1} modules failed to import".format(_str_func,len(_d_failed.keys())))  
-        cgmGEN.log_info_dict(_d_failed,"|{0}| >> {1} modules failed to import".format(_str_func,len(list(_d_failed.keys()))))
-        
-        for k in _d_failed.keys():
-            print("import {}".format(k))
-    print('CGM Core Reload complete')     
+                        return False
 
-        
+    return _d_failed
+
+
+def _reload(stepConfirm=False):
+    t1 = time.time()
+    _d_failed = _reload_work(stepConfirm)
+    t2 = time.time()
+    print(
+        "|{0}._reload| >> Time >> = {1}".format(
+            __name__, cgmGEN.get_timeLogString(t2 - t1)
+        )
+    )
+    if _d_failed is False:
+        return False
+    _reload_summary_warning(_d_failed)
 
 
 #========================================================================

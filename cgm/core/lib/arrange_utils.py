@@ -88,8 +88,234 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
         for obj in row:
             mc.xform(obj,os=True,t=[bufferX,bufferY,startZ])
             bufferX += sizeX
-        bufferY -= sizeY  
-        
+        bufferY -= sizeY
+
+
+VAR_LAYOUT_ROWS = 'cgmVar_layoutRows'
+VAR_LAYOUT_COLUMNS = 'cgmVar_layoutColumns'
+VAR_LAYOUT_PADDING = 'cgmVar_layoutPadding'
+VAR_LAYOUT_ORIGIN = 'cgmVar_layoutOrigin'
+
+
+def _layout_option_vars():
+    # Deferred: keeps cgm_Meta out of this low-level module's load-time dependencies.
+    import cgm.core.cgm_Meta as cgmMeta
+    return (
+        cgmMeta.cgmOptionVar(VAR_LAYOUT_ROWS, defaultValue=1),
+        cgmMeta.cgmOptionVar(VAR_LAYOUT_COLUMNS, defaultValue=1),
+        cgmMeta.cgmOptionVar(VAR_LAYOUT_PADDING, defaultValue=1.0),
+        cgmMeta.cgmOptionVar(VAR_LAYOUT_ORIGIN, defaultValue='first'),
+    )
+
+
+def layout_padding_get():
+    _rows, _cols, _pad, _origin = _layout_option_vars()
+    try:
+        return max(0.0, float(_pad.value))
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def layout_origin_get():
+    _rows, _cols, _pad, _origin = _layout_option_vars()
+    return 'center' if str(_origin.value or 'first').lower() == 'center' else 'first'
+
+
+def layout_rows_columns_get():
+    _rows, _cols, _pad, _origin = _layout_option_vars()
+    try:
+        rows = max(1, int(_rows.value))
+    except (TypeError, ValueError):
+        rows = 1
+    try:
+        cols = max(1, int(_cols.value))
+    except (TypeError, ValueError):
+        cols = 1
+    return rows, cols
+
+
+def layout_guess_rows_columns(objList=None):
+    """Square-ish rows and columns from the selection count. Stores the optionVars."""
+    _str_func = 'layout_guess_rows_columns'
+    if not objList:
+        objList = mc.ls(os=True, flatten=True) or []
+    n = len(objList)
+    if n < 1:
+        rows, cols = 1, 1
+    else:
+        cols = int(n ** 0.5)
+        if cols * cols < n:
+            cols += 1
+        if cols < 1:
+            cols = 1
+        rows = (n + cols - 1) // cols
+    _rows, _cols, _pad, _origin = _layout_option_vars()
+    _rows.setValue(int(rows))
+    _cols.setValue(int(cols))
+    log.info("|{0}| >> count {1} | rows {2} | columns {3}".format(_str_func, n, rows, cols))
+    return rows, cols
+
+
+def _layout_axis_index(axis):
+    _axis = str(axis or 'x').lower().strip()
+    if _axis[:1] in SHARED._d_axis_to_bbox_indices:
+        _axis = _axis[0]
+    if _axis not in SHARED._d_axis_to_bbox_indices:
+        raise ValueError("axis must be x, y, or z. Got {0}".format(axis))
+    return _axis, SHARED._d_axis_to_index[_axis], SHARED._d_axis_to_bbox_indices[_axis]
+
+
+def layout_by_bb(objList=None, axis='x', padding=None, origin=None):
+    """
+    Pack objects in selection order along one world axis so bounding boxes do not overlap.
+
+    Padding and origin come from cgmVar_layoutPadding / cgmVar_layoutOrigin when omitted.
+    origin 'first' leaves the first object and flows toward world positive.
+    origin 'center' uses that same pack, then shifts the chain so its box center
+    matches the selection's original box center on that axis.
+
+    Uses POS.get_bb_size(mode='raw'). World axis is indexed directly.
+    """
+    _str_func = 'layout_by_bb'
+    objList = VALID.mNodeStringList(objList)
+    objListBase = copy.copy(objList)
+    _len = len(objList)
+    if _len < 2:
+        raise ValueError("|{0}| >> Need at least 2 objects".format(_str_func))
+
+    _axis, _i, (_i_min, _i_max) = _layout_axis_index(axis)
+    if padding is None:
+        padding = layout_padding_get()
+    else:
+        padding = max(0.0, float(padding))
+    if origin is None:
+        origin = layout_origin_get()
+    else:
+        origin = 'center' if str(origin).lower() == 'center' else 'first'
+
+    _boxes = [POS.get_bb_size(_o, mode='raw') for _o in objList]
+    _orig = [list(POS.get(_o)) for _o in objList]
+    _center_before = None
+    if origin == 'center':
+        _center_before = (min(_b[_i_min] for _b in _boxes) + max(_b[_i_max] for _b in _boxes)) * 0.5
+
+    _new = [list(_p) for _p in _orig]
+    _running_max = _boxes[0][_i_max]
+    for _idx in range(1, _len):
+        _box = _boxes[_idx]
+        _delta = (_running_max + padding) - _box[_i_min]
+        _new[_idx][_i] = _orig[_idx][_i] + _delta
+        _running_max = _box[_i_max] + _delta
+
+    if origin == 'center':
+        _mins = []
+        _maxs = []
+        for _idx, _box in enumerate(_boxes):
+            _shift = _new[_idx][_i] - _orig[_idx][_i]
+            _mins.append(_box[_i_min] + _shift)
+            _maxs.append(_box[_i_max] + _shift)
+        _shift_all = _center_before - ((min(_mins) + max(_maxs)) * 0.5)
+        for _pos in _new:
+            _pos[_i] = _pos[_i] + _shift_all
+
+    log.info("|{0}| >> count {1} | axis {2} | origin {3} | padding {4}".format(
+        _str_func, _len, _axis, origin, padding))
+    for _obj, _pos in zip(objList, _new):
+        POS.set(_obj, _pos)
+    mc.select(objListBase)
+    return True
+
+
+def layout_grid(objList=None, plane='xy', padding=None, origin=None, rows=None, columns=None):
+    """
+    Pack the selection on a world plane. plane 'xy' means columns along X and rows along Y.
+
+    Cell size is the max box extent in that column or row. Padding is the gap between cells.
+    Extra items grow the row count. origin 'first' keeps the first object's box min as the
+    grid corner. origin 'center' centers the grid on the selection's original box center.
+    """
+    _str_func = 'layout_grid'
+    objList = VALID.mNodeStringList(objList)
+    objListBase = copy.copy(objList)
+    _len = len(objList)
+    if _len < 1:
+        raise ValueError("|{0}| >> Need at least 1 object".format(_str_func))
+
+    _plane = str(plane or 'xy').lower().strip()
+    if _plane not in SHARED._d_plane_to_axes:
+        raise ValueError("|{0}| >> plane must be one of {1}. Got {2}".format(
+            _str_func, ', '.join(sorted(SHARED._d_plane_to_axes)), plane))
+    _axis_col, _axis_row = SHARED._d_plane_to_axes[_plane]
+    _i_col = SHARED._d_axis_to_index[_axis_col]
+    _i_row = SHARED._d_axis_to_index[_axis_row]
+    _col_min, _col_max = SHARED._d_axis_to_bbox_indices[_axis_col]
+    _row_min, _row_max = SHARED._d_axis_to_bbox_indices[_axis_row]
+
+    if padding is None:
+        padding = layout_padding_get()
+    else:
+        padding = max(0.0, float(padding))
+    if origin is None:
+        origin = layout_origin_get()
+    else:
+        origin = 'center' if str(origin).lower() == 'center' else 'first'
+    if rows is None or columns is None:
+        _rows_opt, _cols_opt = layout_rows_columns_get()
+        if rows is None:
+            rows = _rows_opt
+        if columns is None:
+            columns = _cols_opt
+    columns = max(1, int(columns))
+    rows = max(1, int(rows))
+    _need_rows = (_len + columns - 1) // columns
+    if _need_rows > rows:
+        rows = _need_rows
+
+    _boxes = [POS.get_bb_size(_o, mode='raw') for _o in objList]
+    _orig = [list(POS.get(_o)) for _o in objList]
+    _slots = []
+    _col_w = [0.0] * columns
+    _row_h = [0.0] * rows
+    for _idx in range(_len):
+        _c = _idx % columns
+        _r = _idx // columns
+        _slots.append((_c, _r))
+        _ext_c = _boxes[_idx][_col_max] - _boxes[_idx][_col_min]
+        _ext_r = _boxes[_idx][_row_max] - _boxes[_idx][_row_min]
+        if _ext_c > _col_w[_c]:
+            _col_w[_c] = _ext_c
+        if _ext_r > _row_h[_r]:
+            _row_h[_r] = _ext_r
+
+    _used_cols = min(columns, _len)
+    _col_start = [0.0] * columns
+    for _c in range(1, _used_cols):
+        _col_start[_c] = _col_start[_c - 1] + _col_w[_c - 1] + padding
+    _row_start = [0.0] * rows
+    for _r in range(1, _need_rows):
+        _row_start[_r] = _row_start[_r - 1] + _row_h[_r - 1] + padding
+
+    if origin == 'center':
+        _span_c = _col_start[_used_cols - 1] + _col_w[_used_cols - 1]
+        _span_r = _row_start[_need_rows - 1] + _row_h[_need_rows - 1]
+        _anchor_c = ((min(_b[_col_min] for _b in _boxes) + max(_b[_col_max] for _b in _boxes)) * 0.5) - (_span_c * 0.5)
+        _anchor_r = ((min(_b[_row_min] for _b in _boxes) + max(_b[_row_max] for _b in _boxes)) * 0.5) - (_span_r * 0.5)
+    else:
+        _anchor_c = _boxes[0][_col_min]
+        _anchor_r = _boxes[0][_row_min]
+
+    log.info("|{0}| >> count {1} | plane {2} | rows {3} | columns {4} | origin {5} | padding {6}".format(
+        _str_func, _len, _plane, rows, columns, origin, padding))
+    for _idx, _obj in enumerate(objList):
+        _c, _r = _slots[_idx]
+        _pos = list(_orig[_idx])
+        _pos[_i_col] = _orig[_idx][_i_col] + ((_anchor_c + _col_start[_c]) - _boxes[_idx][_col_min])
+        _pos[_i_row] = _orig[_idx][_i_row] + ((_anchor_r + _row_start[_r]) - _boxes[_idx][_row_min])
+        POS.set(_obj, _pos)
+    mc.select(objListBase)
+    return True
+
+
 _d_arrangeLine_ann = {'linearEven':"Layout on line from first to last item evenly",
                       'linearSpaced':'Layout on line from first to last item closest as possible to original position',
                       'cubicEven':'Layout evenly on a curve created from the list',
@@ -100,7 +326,17 @@ _d_arrangeLine_ann = {'linearEven':"Layout on line from first to last item evenl
                       'cubicRebuild2Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild3Even':'Layout evenly on a 2 span rebuild curve from the list.',
                       'cubicRebuild2Spaced':'Layout spaced on a 2 span rebuild curve from the list.',
-                      'cubicRebuild3Spaced':'Layout spaced on a 2 span rebuild curve from the list.'}
+                      'cubicRebuild3Spaced':'Layout spaced on a 2 span rebuild curve from the list.',
+                      'layoutBBX':'Pack selection along world X by bounding box. Padding and First/Center come from the Snap layout settings. First flows toward world +X.',
+                      'layoutBBY':'Pack selection along world Y by bounding box. Padding and First/Center come from the Snap layout settings. First flows toward world +Y.',
+                      'layoutBBZ':'Pack selection along world Z by bounding box. Padding and First/Center come from the Snap layout settings. First flows toward world +Z.',
+                      'layoutGridXY':'Grid on world XY. Columns along X, rows along Y. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGridXZ':'Grid on world XZ. Columns along X, rows along Z. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGridYX':'Grid on world YX. Columns along Y, rows along X. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGridYZ':'Grid on world YZ. Columns along Y, rows along Z. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGridZX':'Grid on world ZX. Columns along Z, rows along X. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGridZY':'Grid on world ZY. Columns along Z, rows along Y. Uses Snap rows, columns, padding, and First/Center.',
+                      'layoutGuess':'Set rows and columns from the selection count (as square as possible).'}
 
 PHI = 1.618033988749895
 

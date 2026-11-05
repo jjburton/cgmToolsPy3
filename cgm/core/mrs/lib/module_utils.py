@@ -803,7 +803,7 @@ d_controlLinks = {'root':['cog','rigRoot','scaleRoot','limbRoot'],
                   'fkReverse':['fkReverseControls'],
                   'ikEnd':['controlIK'],
                   'ik':['controlsIK','controlIK','controlIKEnd','controlBallRotation',
-                        'controlIKBase','controlFollowParentBank','controlSegMidIK'
+                        'controlIKBase','controlFollowParentBank','controlSegMidIK',
                         'controlIKBall','controlIKBallHinge','controlIKToe',
                         'controlIKMid','leverIK','eyeLookAt','lookAt'],
                   'face':['controlsFace'],
