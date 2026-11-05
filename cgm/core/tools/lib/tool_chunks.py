@@ -787,12 +787,17 @@ def uiFunc_layout_set_origin(origin):
 
 def uiFunc_layout_guess(*a):
     _rows, _cols = ARRANGE.layout_guess_rows_columns()
+    _rows = max(1, int(_rows))
+    _cols = max(1, int(_cols))
+    #Editing a field does not fire its changeCommand, so commit the vars directly.
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ROWS, defaultValue=1).setValue(_rows)
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_COLUMNS, defaultValue=1).setValue(_cols)
     _rows_field = _d_layout_fields.get('rows')
     _cols_field = _d_layout_fields.get('columns')
     if _rows_field and mc.intField(_rows_field, exists=True):
-        mc.intField(_rows_field, e=True, value=int(_rows))
+        mc.intField(_rows_field, e=True, value=_rows)
     if _cols_field and mc.intField(_cols_field, exists=True):
-        mc.intField(_cols_field, e=True, value=int(_cols))
+        mc.intField(_cols_field, e=True, value=_cols)
     return _rows, _cols
 
 

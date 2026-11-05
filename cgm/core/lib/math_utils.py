@@ -1020,3 +1020,9 @@ def get_fixedTimeDelta(fps= None):
 
 
 
+
+
+def smoothstep(f_value):
+    """Hermite smoothstep: clamp f_value to 0..1, return 3t^2 - 2t^3."""
+    f_value = max(0.0, min(1.0, float(f_value)))
+    return f_value * f_value * (3.0 - (2.0 * f_value))

@@ -5376,20 +5376,18 @@ def bezier_spline(jointList=None,
     else:
         _sections = max(1, int(bezierSections))
 
-    if _driver_mode == 'joints':
-        if len(ml_joints) < 4:
-            log.warning(cgmGEN.logString_msg(
-                _str_func,
-                'driverSampleMode joints needs at least 4 joints; using uniform driver.'))
-            _driver_mode = 'uniform'
-        elif sampleCount is None:
-            _sample_count = len(ml_joints)
-        else:
-            _sample_count = max(4, int(sampleCount))
-    elif sampleCount is None:
-        _sample_count = max(len(ml_joints), (_sections * 3) + 1, 8)
-    else:
+    if _driver_mode == 'joints' and len(ml_joints) < 4:
+        log.warning(cgmGEN.logString_msg(
+            _str_func,
+            'driverSampleMode joints needs at least 4 joints; using uniform driver.'))
+        _driver_mode = 'uniform'
+
+    if sampleCount is not None:
         _sample_count = max(4, int(sampleCount))
+    elif _driver_mode == 'joints':
+        _sample_count = len(ml_joints)
+    else:
+        _sample_count = max(len(ml_joints), (_sections * 3) + 1, 8)
 
     log.info(cgmGEN.logString_msg(
         _str_func,
@@ -5866,24 +5864,6 @@ def _bezier_stretch_seg_final_ratio_network(str_base,
     return str_final_ratio, ml_nodes, f_rest
 
 
-def _bezier_stretch_scalar_abs_plug(str_base, str_suffix, str_sub_plug):
-    """DG abs for a scalar plug (condition + negate mult)."""
-    m_cond = cgmMeta.cgmNode(
-        nodeType='condition',
-        name='{0}_{1}_abs_cond'.format(str_base, str_suffix))
-    m_cond.operation = 2
-    ATTR.connect(str_sub_plug, m_cond.mNode + '.firstTerm')
-    ATTR.set(m_cond.mNode, 'secondTerm', 0.0)
-    ATTR.connect(str_sub_plug, m_cond.mNode + '.colorIfTrueR')
-    m_neg = cgmMeta.cgmNode(
-        nodeType='multDL',
-        name='{0}_{1}_abs_neg_mdl'.format(str_base, str_suffix))
-    ATTR.set(m_neg.mNode, 'input2', -1.0)
-    ATTR.connect(str_sub_plug, m_neg.mNode + '.input1')
-    ATTR.connect(m_neg.mNode + '.output', m_cond.mNode + '.colorIfFalseR')
-    return m_cond.mNode + '.outColorR', [m_cond, m_neg]
-
-
 def _bezier_stretch_inflate_global_index(i_joint, inflate_slide_global_start):
     int_g = int(i_joint)
     if inflate_slide_global_start is not None:
@@ -5952,8 +5932,15 @@ def _bezier_stretch_guts_group(str_base, parent_guts_to):
     if not m_parent:
         return None
     str_grp = '{0}_bezierStretch_grp'.format(str_base)
-    if mc.objExists(str_grp):
-        return cgmMeta.cgmObject(str_grp)
+    # doName() below renames the node from its cgmName/cgmTypeModifier tags (no cgmType
+    # tag is set, so no '_grp' suffix survives) -- find an existing one by tags, not name.
+    for str_child in mc.listRelatives(
+            m_parent.mNode, children=True, type='transform', fullPath=True) or []:
+        if (mc.objExists(str_child + '.cgmTypeModifier')
+                and mc.getAttr(str_child + '.cgmTypeModifier') == 'bezierStretch'
+                and mc.objExists(str_child + '.cgmName')
+                and mc.getAttr(str_child + '.cgmName') == str(str_base)):
+            return cgmMeta.cgmObject(str_child)
     m_grp = m_parent.doCreateAt('null')
     m_grp.rename(str_grp)
     m_grp.addAttr('cgmName', str(str_base), lock=True)
@@ -6134,25 +6121,6 @@ def _bezier_stretch_settings_inflate_plugs(mSettings, extra_keyable):
             keyable=extra_keyable, hidden=False, initialValue=0.0,
             defaultValue=0.0, minValue=-2.0, maxValue=2.0)
     return mPlug_inflate, mPlug_offset
-
-
-def _bezier_stretch_inflate_factor_for_joint(mSettings,
-                                             str_factor_base,
-                                             i_joint,
-                                             l_inflate_factors,
-                                             inflate_slide_global_start,
-                                             extra_keyable=None):
-    int_g = int(i_joint)
-    if inflate_slide_global_start is not None:
-        int_g = int(inflate_slide_global_start) + int_g
-    try:
-        v_factor = l_inflate_factors[int_g]
-    except Exception as err:
-        log.error(
-            "inflate factor idx fail ({0}). Using 1.0 | {1}".format(int_g, err))
-        v_factor = 1.0
-    return _bezier_stretch_inflate_factor_plug(
-        mSettings, str_factor_base, int_g, v_factor)
 
 
 def _bezier_stretch_inflate_factor_plug(mSettings,
@@ -7092,10 +7060,13 @@ def _spline_ik_nurbs_curve_xform_and_shape(source):
 def _spline_ik_world_point_object_local(str_parent_xform, v_world):
     """World point as object-space translate relative to str_parent_xform."""
     str_tmp = mc.createNode('transform')
-    mc.parent(str_tmp, str_parent_xform)
-    mc.xform(str_tmp, worldSpace=True, translation=v_world)
-    v_local = mc.xform(str_tmp, query=True, objectSpace=True, translation=True)
-    mc.delete(str_tmp)
+    try:
+        mc.parent(str_tmp, str_parent_xform)
+        mc.xform(str_tmp, worldSpace=True, translation=v_world)
+        v_local = mc.xform(str_tmp, query=True, objectSpace=True, translation=True)
+    finally:
+        if mc.objExists(str_tmp):
+            mc.delete(str_tmp)
     return v_local
 
 
@@ -7441,11 +7412,6 @@ def spline_ik_curve_add_sine(source_curve=None,
             mc.undoInfo(closeChunk=True)
 
 
-def _spline_ik_smoothstep(f_value):
-    f_value = max(0.0, min(1.0, float(f_value)))
-    return f_value * f_value * (3.0 - (2.0 * f_value))
-
-
 def spline_ik_curve_add_wave_blend(base_curve=None,
                                    wave_target_curve=None,
                                    ik_handle=None,
@@ -7573,7 +7539,7 @@ def spline_ik_curve_add_wave_blend(base_curve=None,
             elif i_cv >= i_root_fade:
                 f_w = 1.0
             else:
-                f_w = _spline_ik_smoothstep(float(i_cv) / float(i_root_fade))
+                f_w = MATH.smoothstep(float(i_cv) / float(i_root_fade))
             mc.percent(mBlendShape.mNode, str_component, v=f_w)
             l_cv_weights.append(f_w)
 
@@ -7686,7 +7652,7 @@ def IKHandle_addSplineIKTwist(ikHandle, advancedTwistSetup=False, twistSetupMode
         mPlug_twistType = cgmMeta.cgmAttr(
             mi_crv.mNode, 'twistType', attrType='enum',
             enum=":".join(mPlug_existingTwistType.p_enum))
-        mPlug_twistType.twistType = 'linear'
+        mPlug_twistType.p_value = 'linear'
     else:
         mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
         mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))

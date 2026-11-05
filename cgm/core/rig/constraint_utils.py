@@ -685,7 +685,11 @@ def blendChainsScaleByAttr(l_jointChain1=None,
     d_driver = cgmMeta.validateAttrArg(driver, noneValid=True)
     if not d_driver:
         raise ValueError("Invalid driver: {0}".format(driver))
-    mi_driver = d_driver.get('mi_plug') or False
+    mi_driver = d_driver.get('mi_plug')
+    if not mi_driver:
+        raise ValueError(
+            "|{0}| >> driver has no 'mi_plug' (cgmAttr) | driver: {1} | d_driver: {2}".format(
+                _str_func, driver, d_driver))
 
     if (len(ml_jointChain1) < len(ml_blendChain)
             or len(ml_jointChain2) < len(ml_blendChain)):

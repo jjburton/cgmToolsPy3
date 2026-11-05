@@ -91,15 +91,6 @@ def layout_byColumn(objList,columns=3,startPos = [0,0,0]):
         bufferY -= sizeY
 
 
-_d_layout_bb_axis = {'x': (0, 3), 'y': (1, 4), 'z': (2, 5)}
-_d_layout_plane = {
-    'xy': ('x', 'y'),
-    'xz': ('x', 'z'),
-    'yx': ('y', 'x'),
-    'yz': ('y', 'z'),
-    'zx': ('z', 'x'),
-    'zy': ('z', 'y'),
-}
 VAR_LAYOUT_ROWS = 'cgmVar_layoutRows'
 VAR_LAYOUT_COLUMNS = 'cgmVar_layoutColumns'
 VAR_LAYOUT_PADDING = 'cgmVar_layoutPadding'
@@ -107,6 +98,7 @@ VAR_LAYOUT_ORIGIN = 'cgmVar_layoutOrigin'
 
 
 def _layout_option_vars():
+    # Deferred: keeps cgm_Meta out of this low-level module's load-time dependencies.
     import cgm.core.cgm_Meta as cgmMeta
     return (
         cgmMeta.cgmOptionVar(VAR_LAYOUT_ROWS, defaultValue=1),
@@ -166,11 +158,11 @@ def layout_guess_rows_columns(objList=None):
 
 def _layout_axis_index(axis):
     _axis = str(axis or 'x').lower().strip()
-    if _axis[:1] in _d_layout_bb_axis:
+    if _axis[:1] in SHARED._d_axis_to_bbox_indices:
         _axis = _axis[0]
-    if _axis not in _d_layout_bb_axis:
+    if _axis not in SHARED._d_axis_to_bbox_indices:
         raise ValueError("axis must be x, y, or z. Got {0}".format(axis))
-    return _axis, {'x': 0, 'y': 1, 'z': 2}[_axis], _d_layout_bb_axis[_axis]
+    return _axis, SHARED._d_axis_to_index[_axis], SHARED._d_axis_to_bbox_indices[_axis]
 
 
 def layout_by_bb(objList=None, axis='x', padding=None, origin=None):
@@ -250,14 +242,14 @@ def layout_grid(objList=None, plane='xy', padding=None, origin=None, rows=None, 
         raise ValueError("|{0}| >> Need at least 1 object".format(_str_func))
 
     _plane = str(plane or 'xy').lower().strip()
-    if _plane not in _d_layout_plane:
+    if _plane not in SHARED._d_plane_to_axes:
         raise ValueError("|{0}| >> plane must be one of {1}. Got {2}".format(
-            _str_func, ', '.join(sorted(_d_layout_plane)), plane))
-    _axis_col, _axis_row = _d_layout_plane[_plane]
-    _i_col = {'x': 0, 'y': 1, 'z': 2}[_axis_col]
-    _i_row = {'x': 0, 'y': 1, 'z': 2}[_axis_row]
-    _col_min, _col_max = _d_layout_bb_axis[_axis_col]
-    _row_min, _row_max = _d_layout_bb_axis[_axis_row]
+            _str_func, ', '.join(sorted(SHARED._d_plane_to_axes)), plane))
+    _axis_col, _axis_row = SHARED._d_plane_to_axes[_plane]
+    _i_col = SHARED._d_axis_to_index[_axis_col]
+    _i_row = SHARED._d_axis_to_index[_axis_row]
+    _col_min, _col_max = SHARED._d_axis_to_bbox_indices[_axis_col]
+    _row_min, _row_max = SHARED._d_axis_to_bbox_indices[_axis_row]
 
     if padding is None:
         padding = layout_padding_get()

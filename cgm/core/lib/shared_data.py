@@ -257,6 +257,16 @@ _l_axis_by_string = ('x+','y+','z+','x-','y-','z-') #Used for several menus and 
 _d_short_axis_to_long = {'x':'x+',
                          'y':'y+',
                          'z':'z+'}
+_d_axis_to_index = {'x':0, 'y':1, 'z':2}  #bare axis letter -> vector component index
+# bare axis letter -> (min, max) indices into mc.exactWorldBoundingBox / bbox lists [xmin,ymin,zmin,xmax,ymax,zmax]
+_d_axis_to_bbox_indices = {'x': (0, 3), 'y': (1, 4), 'z': (2, 5)}
+# 2d layout plane -> (column axis, row axis)
+_d_plane_to_axes = {'xy': ('x', 'y'),
+                    'xz': ('x', 'z'),
+                    'yx': ('y', 'x'),
+                    'yz': ('y', 'z'),
+                    'zx': ('z', 'x'),
+                    'zy': ('z', 'y')}
 
 d_vectorToString = {
     '(1, 0, 0)' :'x+',

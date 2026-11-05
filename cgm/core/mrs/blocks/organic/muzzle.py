@@ -4066,7 +4066,6 @@ def prerig(self):
                 'ml_jointHandles':ml_jointHandles,
             }
             d_handleKWS.update(d_baseHandeKWS)
-            cgmGEN._reloadMod(BLOCKSHAPES)
             mAnchor,mShape,mDag = BLOCKSHAPES.create_face_anchorHandleCombo(self,
                                                                             p_chinBase,
                                                                             _tag,
@@ -7560,7 +7559,6 @@ def rig_lipSegments(self):
         d_lips.update(self.d_squashStretch)
     
     #pprint.pprint(d_test)
-    cgmGEN._reloadMod(IK)
     #pprint.pprint(d_lips)
        
     IK.ribbon_seal(**d_lips)
@@ -7692,9 +7690,12 @@ def _muzzle_form_handle_for_teeth_geo(mBlock, gum_tag):
 def _muzzle_rig_joint_from_rig_null(mRigNull, name_token):
     if not mRigNull:
         return None
-    for mJnt in mRigNull.msgList_get('rigJoints', asMeta=True) or []:
+    ml_rigJoints = mRigNull.msgList_get('rigJoints', asMeta=True) or []
+    for mJnt in ml_rigJoints:
         if mJnt.getMayaAttr('cgmName') == name_token:
             return mJnt
+    #Only fall back to a name match once no joint tags itself with the token.
+    for mJnt in ml_rigJoints:
         if name_token in mJnt.p_nameShort:
             return mJnt
     return None

@@ -10,7 +10,6 @@ import maya.cmds as mc
 
 import cgm.core.cgm_General as cgmGEN
 import cgm.core.cgm_Meta as cgmMeta
-import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.rig.dynamic_utils as RIGDYN
 from cgm.core.cgmPy import validateArgs as VALID
@@ -599,8 +598,8 @@ def rig_shapes_bezier_main_cast_box_size(self, mMain, offset=None):
     if not mMesh:
         log.warning(cgmGEN.logString_msg(_str_func, 'no cast mesh'))
         return None
-    str_meshShape = mMesh.getShapes()[0]
     try:
+        str_meshShape = mMesh.getShapes()[0]
         md_span = rig_shapes_bezier_cast_mesh_spans(
             self, mMain, str_meshShape, offset)
     except Exception as err:
@@ -689,6 +688,11 @@ def rig_shapes_bezier_ik_apply_from_fk(
     int_handle_end = getattr(self, 'int_handleEndIdx', -1)
     int_seg_base = getattr(self, 'int_segBaseIdx', 0)
     offset = getattr(self, 'v_offset', None)
+
+    if not ml_fkShapes:
+        log.warning(cgmGEN.logString_msg(
+            'rig_shapes_bezier_ik_apply_from_fk', 'skip | missing fk shapes'))
+        return
 
     def _shape_main(mIKControl, mSnapSource, mFKShape):
         if str_shape_mode == 'segmentHandle':
@@ -1041,9 +1045,9 @@ def segment_bezier_module_ik_mid_setup(
         for m_obj in [m_crv] + ml_clusters:
             m_obj.overrideEnabled = 1
             cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsVis', lock=False).doConnectOut(
-                '%s.%s' % (_track_curve, 'overrideVisibility'))
+                '%s.%s' % (m_obj.mNode, 'overrideVisibility'))
             cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsLock', lock=False).doConnectOut(
-                '%s.%s' % (_track_curve, 'overrideDisplayType'))
+                '%s.%s' % (m_obj.mNode, 'overrideDisplayType'))
         m_crv.p_parent = mModule.rigNull.mNode
         for mHandle in ml_handles:
             BLOCKSHAPES.attachToCurve(
@@ -1110,47 +1114,6 @@ def segment_ik_module_follow_base_control(m_rig_null):
     if not m_rig_null:
         return None
     return m_rig_null.getMessageAsMeta('controlIKBase')
-
-
-def segment_ik_spline_orient_follow_create_parts(m_skin_joint,
-                                                 m_spline_span_joint,
-                                                 m_follow_influence,
-                                                 str_attr='followIK',
-                                                 f_default=1.0,
-                                                 b_start=False):
-    """
-    End follow IK nodes only — no pointConstraint or orient blend (manual test wiring).
-
-    Creates ``*_splineControl`` under the influence and the ``followIK`` plug.
-    """
-    m_skin = cgmMeta.validateObjArg(m_skin_joint, 'cgmObject', noneValid=False)
-    m_span = cgmMeta.validateObjArg(m_spline_span_joint, 'cgmObject', noneValid=False)
-    m_infl = cgmMeta.validateObjArg(m_follow_influence, 'cgmObject', noneValid=False)
-
-    m_spline_control = m_skin.doDuplicate()
-    if b_start:
-        m_spline_control.rename('{0}_splineControlStart'.format(m_skin.p_nameBase))
-    else:
-        m_spline_control.rename('{0}_splineControl'.format(m_skin.p_nameBase))
-    m_spline_control.p_parent = m_infl
-
-    m_plug_follow = cgmMeta.cgmAttr(
-        m_infl.mNode, str_attr, attrType='float', lock=False,
-        keyable=True, defaultValue=f_default)
-    m_plug_follow.p_value = f_default
-    ATTR.set_default(m_infl.mNode, str_attr, f_default)
-
-    log.info(cgmGEN.logString_msg(
-        'segment_ik_spline_orient_follow_create_parts',
-        '{0} on {1} | skin:{2} span:{3} | setup skipped'.format(
-            str_attr, m_infl.p_nameShort, m_skin.p_nameShort, m_span.p_nameShort)))
-
-    return {
-        'mSkinJoint': m_skin,
-        'mSplineSpanJoint': m_span,
-        'mSplineControl': m_spline_control,
-        'mPlug_follow': m_plug_follow,
-    }
 
 
 def segment_ik_spline_orient_follow_setup(m_skin_joint,
@@ -1502,7 +1465,7 @@ def _bezier_ik_pickwalk_dag(mObj):
             return False
     except Exception:
         return False
-    if mc.objectType(mObj.mNode) != 'transform':
+    if not mc.objectType(mObj.mNode, isAType='transform'):
         return False
     if 'bezierSubTrack' in mObj.mNode:
         return False
@@ -1847,6 +1810,11 @@ def rig_shapes_bezier_ik_subs(self, ml_fkShapes, ml_fkCastTargets, mHandleFactor
     if len(ml_bezierMainIK) < 2:
         return
 
+    if not ml_fkShapes:
+        log.warning(cgmGEN.logString_msg(
+            'rig_shapes_bezier_ik_subs', 'skip | missing fk shapes'))
+        return
+
     str_shape_mode = block_ik_bezier_control_shape(mBlock)
     offset = getattr(self, 'v_offset', None)
     aim_vector = (
@@ -2088,6 +2056,11 @@ def rig_shapes_bezier_segment_handles(self, ml_fkShapes, ml_fkCastTargets, mHand
     if len(ml_mains) < 2:
         log.warning('rig_shapes_bezier_segment_handles | need 2+ handleJoints, got {0}'.format(
             len(ml_mains)))
+        return
+
+    if not ml_fkShapes:
+        log.warning(cgmGEN.logString_msg(
+            'rig_shapes_bezier_segment_handles', 'skip | missing fk shapes'))
         return
 
     str_shape_mode = block_ik_bezier_control_shape(mBlock)
@@ -2496,7 +2469,6 @@ def segment_rig_segments_bezier_shared_module_curve(
         'parallelSegmentCurve:True | segJoints:{0} | ikMains:{1} sections:{2}'.format(
             len(ml_ik_use), len(ml_bezier_main_ik), int_bezier_sections)))
 
-    cgmGEN._reloadMod(IK)
     res_bezier = IK.bezier_spline(
         jointList=[mObj.mNode for mObj in ml_ik_use],
         baseName=str_base,
@@ -2624,7 +2596,6 @@ def segment_rig_segments_bezier(self, mRigNull, mBlock, mModule, ml_segJoints,
             len(ml_ik_use),
             int_bezier_sections)))
 
-    cgmGEN._reloadMod(IK)
     res_bezier = IK.bezier_spline(
         jointList=[mObj.mNode for mObj in ml_ik_use],
         baseName=str_base,

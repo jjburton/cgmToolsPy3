@@ -558,22 +558,33 @@ def _bezier_track_cluster_cvs(mCrv, obj, str_baseName):
     l_clusters = []
     _n_obj = len(obj)
 
-    for _i, _cv in enumerate(l_cv):
-        if _n_obj <= 1:
-            _driver = obj[0]
-        else:
-            _block = _i // 3
-            _rem = _i % 3
-            if _rem == 2:
-                _idx = min(_block + 1, _n_obj - 1)
+    try:
+        for _i, _cv in enumerate(l_cv):
+            if _n_obj <= 1:
+                _driver = obj[0]
             else:
-                _idx = min(_block, _n_obj - 1)
-            _driver = obj[_idx]
+                _block = _i // 3
+                _rem = _i % 3
+                if _rem == 2:
+                    _idx = min(_block + 1, _n_obj - 1)
+                else:
+                    _idx = min(_block, _n_obj - 1)
+                _driver = obj[_idx]
 
-        _res = mc.cluster(_cv, n='{0}_{1}_cluster'.format(str_baseName, _i))
-        TRANS.parent_set('|{0}'.format(_res[1]), _driver)
-        ATTR.set(_res[1], 'visibility', False)
-        l_clusters.append(_res)
+            _res = mc.cluster(_cv, n='{0}_{1}_cluster'.format(str_baseName, _i))
+            l_clusters.append(_res)  # appended first so a failed parent/set below is still cleaned up
+            TRANS.parent_set('|{0}'.format(_res[1]), _driver)
+            ATTR.set(_res[1], 'visibility', False)
+    except Exception:
+        # Don't leave the curve half-driven by clusters from earlier iterations.
+        for _res in l_clusters:
+            for _node in _res:
+                if mc.objExists(_node):
+                    try:
+                        mc.delete(_node)
+                    except Exception as _err:
+                        log.warning('|_bezier_track_cluster_cvs| >> cleanup failed for {0}: {1}'.format(_node, _err))
+        raise
 
     return l_clusters
 
@@ -589,11 +600,20 @@ def create_bezier_curve_from_objects(obj=None,
     if not obj:
         raise ValueError('|{0}| >> No objects passed.'.format(_str_func))
 
+    # Coincident positions give zero-length spans, so drop them (within tolerance) and say so.
+    _tol = 0.0001  # same default as geo_Utils.is_equivalent
     l_pos = []
+    l_dropped = []
     for _o in obj:
         _p = TRANS.position_get(_o)
-        if _p not in l_pos:
+        if any(math.dist(_p, _q) <= _tol for _q in l_pos):
+            l_dropped.append(_o)
+        else:
             l_pos.append(_p)
+    if l_dropped:
+        log.warning('|{0}| >> {1} object(s) share a position with an earlier one and were skipped; '
+                    'using {2} of {3} positions: {4}'.format(
+                        _str_func, len(l_dropped), len(l_pos), len(obj), l_dropped))
 
     mCrv = create_bezier_curve_from_positions(
         l_pos,
@@ -711,16 +731,7 @@ def nurbs_percent_sampler(curve):
     """
     from maya.api import OpenMaya as om2
 
-    _shape = curve
-    if isinstance(_shape, (list, tuple)):
-        _shape = _shape[0]
-    _shape = cgmValid.mNodeString(_shape)
-    if cgmValid.get_mayaType(_shape) != 'nurbsCurve':
-        _shapes = TRANS.shapes_get(_shape, True) or []
-        _nurbs = [s for s in _shapes if cgmValid.get_mayaType(s) == 'nurbsCurve']
-        if not _nurbs:
-            raise ValueError('nurbs_percent_sampler: no nurbsCurve on {0}'.format(_shape))
-        _shape = _nurbs[0]
+    _shape = nurbs_curve_shape_get(curve)  # non-intermediate, so deformed curves sample the deformed shape
 
     _sel = om2.MSelectionList()
     _sel.add(_shape)

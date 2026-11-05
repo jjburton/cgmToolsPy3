@@ -2059,7 +2059,7 @@ def rig_prechecks(self):
             
         if mBlock.neckBuild and mBlock.neckIK:
             str_neckIK = mBlock.getEnumValueString('neckIK')
-            _l_neckIK_ok = ['rp', 'spring', 'spline', 'ribbon', 'ribbonLive', 'curve', 'bezier']
+            _l_neckIK_ok = ['rp', 'spline', 'ribbon', 'ribbonLive', 'curve', 'bezier']
             if str_neckIK not in _l_neckIK_ok:
                 self.l_precheckErrors.append(
                     "Haven't setup neck mode: {0}".format(str_neckIK))
@@ -2163,6 +2163,7 @@ def rig_dataBuffer(self):
     
         #self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
         self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
+        self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
         self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
         _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
             mBlock)
@@ -3492,9 +3493,7 @@ def rig_segments(self):
         _d.update(BLOCKSHARE.squash_stretch_ik_share_kwargs(self.d_squashStretch))
         
         if self.str_segmentType in ['ribbon','ribbonLive']:
-            _d['setupAimScale'] = (
-                self.str_segmentStretchBy == 'scale'
-                and not mBlock.squashSkipAim)
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
                 
             _d['liveSurface'] = False if self.str_segmentType == 'ribbon' else True
                 
@@ -3505,15 +3504,12 @@ def rig_segments(self):
             elif self.str_ribbonAttachEndsToInfluence == 'end':
                 _d['attachEndToInfluence'] = True            
             
-            cgmGEN._reloadMod(IK)
             res_ribbon = IK.ribbon(**_d)
             #ml_surfaces = res_ribbon['mlSurfaces']
         else:
             _l_segJoints = _d['jointList']
             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)
-            _d['setupAimScale'] = (
-                self.str_segmentStretchBy == 'scale'
-                and not mBlock.squashSkipAim)
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
             _d['setupAim'] = 1                
             #_d['attachEndToInfluence'] = False                
             pprint.pprint(_d)
@@ -4304,7 +4300,6 @@ def rig_frame(self):
                             
 
                         ml_ribbonIkHandles[-1].parent = mIKControl
-                        cgmGEN._reloadMod(RIGFRAME)
 
                         if _ikNeck == 'spline':
                             for i,mJnt in enumerate(ml_ikJoints[1:]):
@@ -4416,7 +4411,6 @@ def rig_frame(self):
                             _d['parentDeformTo'] = mIKGroup
                             _d['setupAim'] = 1
                             
-                            cgmGEN._reloadMod(IK)
                             #_l_segJoints = _d['jointList']
                             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                             IK.curve(**_d)                                  
@@ -5033,7 +5027,6 @@ def rig_cleanUp(self):
                 mDynGroup.addDynParent(mTar)
             mDynGroup.rebuild()
             mDynGroup.dynFollow.p_parent = self.mDeformNull
-            ml_targetDynParents = ml_headIkDynParents
             
         if ml_targetDynParents:
             log.debug("|{0}| >>  IK targets...".format(_str_func))

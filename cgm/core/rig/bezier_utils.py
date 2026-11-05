@@ -347,6 +347,10 @@ def bezier_controls_wire_from_handles(mCurve=None,
                     _tan_cv = _cv_index - 1
                 else:
                     continue
+                if _tan_cv < 0 or _tan_cv >= _cv_count:
+                    log.warning('|{0}| >> Skip snap of sub {1} — tangent CV {2} out of range (0..{3}).'.format(
+                        _str_func, mSub.p_nameShort, _tan_cv, _cv_count - 1))
+                    continue
                 _bezier_snap_handle_to_cv(mSub, str_shape, _tan_cv)
 
     for _anchor_num, mMain in enumerate(ml_anchorControls):
@@ -368,6 +372,10 @@ def bezier_controls_wire_from_handles(mCurve=None,
             else:
                 log.warning('|{0}| >> Skip sub {1} — cgmNameModifier not forward/back.'.format(
                     _str_func, mSub.p_nameShort))
+                continue
+            if _tan_cv < 0 or _tan_cv >= _cv_count:
+                log.warning('|{0}| >> Skip sub {1} — tangent CV {2} out of range (0..{3}).'.format(
+                    _str_func, mSub.p_nameShort, _tan_cv, _cv_count - 1))
                 continue
             l_sub_wire.append((_anchor_num, _name_mod, _tan_cv, mSub))
 

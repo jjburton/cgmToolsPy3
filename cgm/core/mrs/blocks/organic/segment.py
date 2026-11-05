@@ -2989,7 +2989,6 @@ def rig_shapes(self):
         #Pivots =======================================================================================
         if mBlock.getMessage('pivotHelper'):
             if self.str_addPivot == 'wobbleOnly':
-                cgmGEN._reloadMod(RIGSHAPES)
                 #_l = ['center','front','spin','tilt']
                 _l = ['spin','tilt','center']
                 RIGSHAPES.pivotShapes(self,mBlock.pivotHelper, _l)
@@ -3558,8 +3557,6 @@ def rig_controls(self):
 
 #@cgmGEN.Timer
 def rig_segments(self):
-    cgmGEN._reloadMod(DIST)
-    cgmGEN._reloadMod(IK)
     _short = self.d_block['shortName']
     _str_func = 'rig_segments'
     log.debug("|{0}| >>  ".format(_str_func)+ '-'*80)
@@ -3662,7 +3659,6 @@ def rig_segments(self):
             
             
             
-        cgmGEN._reloadMod(IK)
 
         
         _d.update(BLOCKSHARE.squash_stretch_ik_share_kwargs(self.d_squashStretch))
@@ -3670,9 +3666,7 @@ def rig_segments(self):
 
         
         if self.str_segmentType in ['ribbon', 'ribbonLive']:
-            _d['setupAimScale'] = (
-                self.str_segmentStretchBy == 'scale'
-                and not mBlock.squashSkipAim)
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
 
             _d['liveSurface'] = self.str_segmentType == 'ribbonLive'
             #log.info(cgmGEN.logString_sub,_str_func,"segment dict...")
@@ -3747,9 +3741,7 @@ def rig_segments(self):
             _l_segJoints = _d['jointList']
             _ml_segTmp = cgmMeta.asMeta(_l_segJoints)
             _d['setupAim'] = 1
-            _d['setupAimScale'] = (
-                self.str_segmentStretchBy == 'scale'
-                and not mBlock.squashSkipAim)
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
             #_d['attachEndToInfluence'] = False                
             pprint.pprint(_d)
             IK.curve(**_d)
@@ -3916,7 +3908,6 @@ def rig_frame(self):
         mRigNull = self.mRigNull
         mRootParent = self.mDeformNull
         mModule = self.mModule
-        cgmGEN._reloadMod(IK)
         ml_rigJoints = mRigNull.msgList_get('rigJoints')
         ml_fkJoints = mRigNull.msgList_get('fkJoints')
         ml_controlsFK = mRigNull.msgList_get('controlsFK')
@@ -4475,7 +4466,6 @@ def rig_frame(self):
                     _d['parentDeformTo'] = mIKGroup
                     _d['setupAim'] = 1
                     
-                    cgmGEN._reloadMod(IK)
                     #_l_segJoints = _d['jointList']
                     #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                     IK.curve(**_d)                                    
@@ -4508,7 +4498,6 @@ def rig_frame(self):
                 
                     
                     
-                cgmGEN._reloadMod(IK)
                 log.debug("|{0}| >> ribbon ik handles...".format(_str_func))
                 
                 if mIKBaseControl:

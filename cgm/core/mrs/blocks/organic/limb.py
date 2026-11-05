@@ -3740,8 +3740,8 @@ def _limb_rig_shapes_bezier_main_cast_box_size(self, mMain, offset=None):
     if not mMesh:
         log.warning('|{0}| >> no cast mesh'.format(_str_func))
         return None
-    str_meshShape = mMesh.getShapes()[0]
     try:
+        str_meshShape = mMesh.getShapes()[0]
         md_span = _limb_shapes_limb_segment_cast_spans(
             self, mMain, str_meshShape, offset)
     except Exception as err:
@@ -4790,9 +4790,9 @@ def _limb_rig_segments_bezier_squash_stretch(
         useUndoChunk=False)
 
     if d_stretch:
-        if getattr(self, 'md_limbBezierStretchBySection', None) is None:
-            self.md_limbBezierStretchBySection = {}
-        self.md_limbBezierStretchBySection[section_idx] = d_stretch
+        if getattr(self, 'd_limbBezierStretchBySection', None) is None:
+            self.d_limbBezierStretchBySection = {}
+        self.d_limbBezierStretchBySection[section_idx] = d_stretch
 
     if mSettings:
         if mSettings.hasAttr('stretch'):
@@ -4811,14 +4811,14 @@ def _limb_bezier_inflate_parent_direct_controls(
         self, mRigNull, ml_blendJoints, l_rollKeys):
     """Bezier roll sections: inflateScale inserted above rig direct masterGroup (DAG parent preserved)."""
     _str_func = '_limb_bezier_inflate_parent_direct_controls'
-    md_stretch = getattr(self, 'md_limbBezierStretchBySection', None) or {}
-    if not md_stretch:
+    d_stretchBySection = getattr(self, 'd_limbBezierStretchBySection', None) or {}
+    if not d_stretchBySection:
         return []
 
     _str_aim = BEZIERIKBLOCK.bezier_ik_stretch_aim_axis(self)
     ml_inflate_nodes = []
     for section_idx in l_rollKeys:
-        d_stretch = md_stretch.get(section_idx)
+        d_stretch = d_stretchBySection.get(section_idx)
         if not d_stretch or not d_stretch.get('inflateDriveDirectParents'):
             continue
         l_plugs = d_stretch.get('l_inflateDirectPlugs') or []
@@ -4978,7 +4978,6 @@ def _limb_rig_segments_bezier_section(
             len(ml_ikUse),
             int_bezier_sections)))
 
-    cgmGEN._reloadMod(IK)
     _str_bezier_mode = BEZIERIKBLOCK.block_bezier_anchor_mode(mBlock)
     res_bezier = IK.bezier_spline(
         jointList=[mObj.mNode for mObj in ml_ikUse],
@@ -6189,7 +6188,6 @@ def rig_digitShapes(self):
             
             _ikEnd = mBlock.getEnumValueString('ikEnd')
             if _ikEnd == 'wobble':
-                cgmGEN._reloadMod(RIGSHAPES)
                 #_l = ['center','front','spin','tilt']
                 _l = ['spin','tilt','center']
                 RIGSHAPES.pivotShapes(self,mPivotHolderHandle.pivotHelper, _l, mode = 'wobble')
@@ -6897,7 +6895,6 @@ def rig_shapes(self):
         
         _ikEnd = mBlock.getEnumValueString('ikEnd')
         if _ikEnd == 'wobble':
-            cgmGEN._reloadMod(RIGSHAPES)
             #_l = ['center','front','spin','tilt']
             _l = ['spin','tilt','center']
             RIGSHAPES.pivotShapes(self,mPivotHolderHandle.pivotHelper, _l, mode = 'wobble')
@@ -7868,12 +7865,10 @@ def rig_controls(self):
 @cgmGEN.Timer
 def rig_segments(self):
     _short = self.d_block['shortName']
-    cgmGEN._reloadMod(RIGCONSTRAINT)
     _str_func = 'rig_segments'
     log.debug("|{0}| >> ...".format(_str_func)+cgmGEN._str_hardBreak)
     log.debug(self)
     
-    cgmGEN._reloadMod(IK)
     mBlock = self.mBlock
     mRigNull = self.mRigNull
     ml_rigJoints = mRigNull.msgList_get('rigJoints')
@@ -7952,7 +7947,7 @@ def rig_segments(self):
             self._limbBezierInflateSlideGlobalStarts = _starts
 
         if _type == 'bezier':
-            self.md_limbBezierStretchBySection = {}
+            self.d_limbBezierStretchBySection = {}
             
         for i in l_rollKeys:
 
@@ -8370,15 +8365,12 @@ def rig_segments(self):
                 #reload(IK)
                 _d['parentDeformTo'] = ml_blendJoints[i].getMessageAsMeta('scaleJoint') or ml_blendJoints[i]
                 _d['setupAim'] = 1
-                _d['setupAimScale'] = (
-                    self.str_segmentStretchBy == 'scale'
-                    and not mBlock.squashSkipAim)
+                _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
 
                 if i == l_rollKeys[-1] and not self.b_extraHandles:
                     log.debug("|{0}| >> Last segment, buildEnd dag attachEndToInfluence = on".format(_str_func))                    
                     _d['attachEndToInfluence'] = True
                     
-                cgmGEN._reloadMod(IK)
                 _l_segJoints = _d['jointList']
                 _ml_segTmp = cgmMeta.asMeta(_l_segJoints)
                 pprint.pprint(_d)
@@ -8397,9 +8389,7 @@ def rig_segments(self):
 
             else:
                 _d['parentDeformTo'] = ml_blendJoints[i]
-                _d['setupAimScale'] = (
-                    self.str_segmentStretchBy == 'scale'
-                    and not mBlock.squashSkipAim)
+                _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
                 _d['liveSurface'] = _type == 'ribbonLive'
                 
                 pprint.pprint(_d)
@@ -8434,14 +8424,14 @@ def rig_segments(self):
         if (_type == 'bezier'
                 and getattr(self, 'b_scaleSetup', False)
                 and BEZIERIKBLOCK.block_squash_inflate_control(mBlock)):
-            md_stretch = getattr(self, 'md_limbBezierStretchBySection', None) or {}
+            d_stretchBySection = getattr(self, 'd_limbBezierStretchBySection', None) or {}
             m_settings = mRigNull.getMessageAsMeta('settings')
             log.info(cgmGEN.logString_msg(
                 _str_func,
                 'inflate direct parents | sections:{0} plugs:{1} | squashInflate default:{2}'.format(
-                    len(md_stretch),
+                    len(d_stretchBySection),
                     sum(len((d or {}).get('l_inflateDirectPlugs') or [])
-                        for d in md_stretch.values()),
+                        for d in d_stretchBySection.values()),
                     ATTR.get_default(m_settings.mNode, 'squashInflate')
                     if m_settings and m_settings.hasAttr('squashInflate')
                     else None)))
@@ -9092,7 +9082,6 @@ def rig_frame(self):
                         'nameSuffix':'ikFull',
                         'controlObject':mIKControl.mNode,
                         'moduleInstance':self.mModule.mNode}
-                cgmGEN._reloadMod(IK)
                 
                 if self.str_ikExtendSetup == 'rpFull':
                     _d_ik['solverType'] = 'ikRPsolver'
