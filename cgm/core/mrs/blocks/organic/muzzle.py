@@ -5731,6 +5731,9 @@ def rig_prechecks(self):
     if str_chinSetup not in ['none','single']:
         self.l_precheckErrors.append("Chin setup not completed: {0}".format(str_chinSetup))
     
+    if mBlock.scaleSetup:
+        self.l_precheckWarnings.append("scaleSetup: ribbon_seal ignores additiveScaleEnds, so end scale compensation will not be built.")
+
     if mBlock.scaleSetup and str_lipSetup not in ['none']:
         str_ribbonParam = mBlock.getEnumValueString('ribbonParam')
         str_squashMeasure = mBlock.getEnumValueString('squashMeasure')
@@ -5755,8 +5758,12 @@ def rig_dataBuffer(self):
     mMasterNull = self.d_module['mMasterNull']
 
     
-    self.b_scaleSetup = mBlock.scaleSetup
-    
+    _b_scaleSetup = mBlock.scaleSetup
+    if _b_scaleSetup:
+        log.warning("|{0}| >> scaleSetup on but ribbon_seal ignores additiveScaleEnds - forcing off for this build".format(_str_func))
+        _b_scaleSetup = False
+    self.b_scaleSetup = _b_scaleSetup
+
     #Squash stretch logic  =================================================================================
     log.debug("|{0}| >> Squash stretch..".format(_str_func))
     self.b_squashSetup = False
@@ -5774,7 +5781,7 @@ def rig_dataBuffer(self):
     self.d_squashStretch['squashStretchMain'] = _squashMeasure
     
     self.d_squashStretch['driverSetup'] = None
-    self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
+    self.d_squashStretch['additiveScaleEnds'] = _b_scaleSetup
     self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
     self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
     self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
@@ -7341,7 +7348,6 @@ def rig_frame(self):
                     l_values = DIST.get_normalizedWeightsByDistanceToObj(mdD[k].mNode,l_targets)
                     for i,v in enumerate(l_values):
                         ATTR.set(_c,targetWeights[i],v)
-                    ATTR.set(_c,targetWeights[0],1.25)
                     #ATTR.set(_c,targetWeights[1],.9)
                     
                     mc.parentConstraint(mTrack.mNode,
@@ -7640,7 +7646,7 @@ def rig_cleanUp(self):
     ml_controls = mRigNull.msgList_get('controlsAll')
     self.UTILS.controls_lockDown(ml_controls)
     
-    if not mBlock.scaleSetup:
+    if not self.b_scaleSetup:
         log.debug("|{0}| >> No scale".format(_str_func))
         ml_controlsToLock = copy.copy(ml_controls)
         for mCtrl in ml_controlsToLock:
@@ -7747,7 +7753,7 @@ def _muzzle_teeth_proxy_geo_follow_prerig(mBlock, which, mDagHelper):
     log.debug("|{0}| >> {1} teeth proxy geo follows {2}".format(_str_func, which, mDagHelper))
 
 
-def _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, which, _str_func):
+def _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, which, _str_func, skin=True):
     _slot = _muzzle_teeth_geo_slot(which)
     ml_src = mBlock.msgList_get(_slot['msgList'], asMeta=True) or []
     if not ml_src:
@@ -7771,21 +7777,22 @@ def _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_
         mObj.doName()
         for s in TRANS.shapes_get(mObj.mNode, True):
             GEO.normalCheck(s)
-        log.debug("|{0}| >> teeth {1} proxy skin: {2} -> {3}".format(
-            _str_func, which, mObj.p_nameShort, mInfluence.p_nameShort))
-        mSkinCluster = cgmMeta.validateObjArg(
-            mc.skinCluster([_inf],
-                           mObj.mNode,
-                           tsb=True,
-                           maximumInfluences=1,
-                           heatmapFalloff=1.0,
-                           bindMethod=0,
-                           normalizeWeights=1,
-                           dropoffRate=10.0),
-            'cgmNode',
-            setClass=True)
-        mSkinCluster.doStore('cgmName', mObj)
-        mSkinCluster.doName()
+        if skin:
+            log.debug("|{0}| >> teeth {1} proxy skin: {2} -> {3}".format(
+                _str_func, which, mObj.p_nameShort, mInfluence.p_nameShort))
+            mSkinCluster = cgmMeta.validateObjArg(
+                mc.skinCluster([_inf],
+                               mObj.mNode,
+                               tsb=True,
+                               maximumInfluences=1,
+                               heatmapFalloff=1.0,
+                               bindMethod=0,
+                               normalizeWeights=1,
+                               dropoffRate=10.0),
+                'cgmNode',
+                setClass=True)
+            mSkinCluster.doStore('cgmName', mObj)
+            mSkinCluster.doName()
         ml_proxy.append(mObj)
 
 
@@ -7824,8 +7831,10 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
     mModule = self.moduleTarget
     mRigNull = mModule.rigNull
     mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl
-    mPuppetSettings = mMaster.controlSettings
+    mMaster = mPuppet.masterControl if mPuppet else None
+    mPuppetSettings = mMaster.controlSettings if mMaster else None
+    if not mPuppetSettings:
+        log.debug("|{0}| >> No puppet/masterControl/controlSettings. Skipping proxyLock wiring.".format(_str_func))
     str_partName = mModule.get_partNameBase()
     mPrerigNull = mBlock.prerigNull
 
@@ -7833,7 +7842,10 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
 
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError("No rigJoints connected")
+        if skin:
+            raise ValueError("No rigJoints connected")
+        log.debug("|{0}| >> No rigJoints connected. Unskinned build.".format(_str_func))
+        ml_rigJoints = []
 
     if simpleMeshMode:
         puppetMeshMode = False
@@ -7903,39 +7915,40 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
                 mNew.doName()
                 for s in TRANS.shapes_get(mNew.mNode, True):
                     GEO.normalCheck(s)
-                ml_use = copy.copy(ml_rigJoints)
-                ml_remove = []
-                if lnk in ['uprLip','overLip']:
-                    for mObj in ml_use:
-                        if 'lwrLip' in mObj.mNode:
-                            log.debug("|{0}| >> removing: {1}".format(_str_func,mObj))
-                            ml_remove.append(mObj)
-                if lnk in ['lwrLip','underLip']:
-                    for mObj in ml_use:
-                        if 'uprLip' in mObj.mNode:
-                            log.debug("|{0}| >> removing: {1}".format(_str_func,mObj))
-                            ml_remove.append(mObj)
+                if skin:
+                    ml_use = copy.copy(ml_rigJoints)
+                    ml_remove = []
+                    if lnk in ['uprLip','overLip']:
+                        for mObj in ml_use:
+                            if 'lwrLip' in mObj.mNode:
+                                log.debug("|{0}| >> removing: {1}".format(_str_func,mObj))
+                                ml_remove.append(mObj)
+                    if lnk in ['lwrLip','underLip']:
+                        for mObj in ml_use:
+                            if 'uprLip' in mObj.mNode:
+                                log.debug("|{0}| >> removing: {1}".format(_str_func,mObj))
+                                ml_remove.append(mObj)
 
-                for mObj in ml_remove:
-                    ml_use.remove(mObj)
-                log.debug("|{0}| >> Skinning surface: {1}".format(_str_func,mNew))
-                mSkinCluster = cgmMeta.validateObjArg(mc.skinCluster ([mObj.mNode for mObj in ml_use],
-                                                                      mNew.mNode,
-                                                                      tsb=True,
-                                                                      maximumInfluences = 3,
-                                                                      heatmapFalloff = 1.0,
-                                                                      bindMethod = 0,
-                                                                      normalizeWeights = 1,dropoffRate=10.0),
-                                                      'cgmNode',
-                                                      setClass=True)
+                    for mObj in ml_remove:
+                        ml_use.remove(mObj)
+                    log.debug("|{0}| >> Skinning surface: {1}".format(_str_func,mNew))
+                    mSkinCluster = cgmMeta.validateObjArg(mc.skinCluster ([mObj.mNode for mObj in ml_use],
+                                                                          mNew.mNode,
+                                                                          tsb=True,
+                                                                          maximumInfluences = 3,
+                                                                          heatmapFalloff = 1.0,
+                                                                          bindMethod = 0,
+                                                                          normalizeWeights = 1,dropoffRate=10.0),
+                                                          'cgmNode',
+                                                          setClass=True)
 
-                mSkinCluster.doStore('cgmName', mNew)
-                mSkinCluster.doName()
+                    mSkinCluster.doStore('cgmName', mNew)
+                    mSkinCluster.doName()
 
                 ml_proxy.append(mNew)
 
-        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Upr', _str_func)
-        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Lwr', _str_func)
+        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Upr', _str_func, skin=skin)
+        _muzzle_build_teeth_proxy_pieces_for_slot(mBlock, mRigNull, mPrerigNull, ml_proxy, 'Lwr', _str_func, skin=skin)
 
     def _wireProxyVis(ml_targets):
         _sideShader = _side if _side not in ['none', ''] else 'center'
@@ -7943,10 +7956,12 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
             CORERIG.color_mesh(mProxy.mNode,_sideShader,'main',transparent=False,proxy=True)
             mProxy.overrideEnabled = 1
             ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
-            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
+            if mPuppetSettings:
+                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
             for mShape in mProxy.getShapes(asMeta=1):
                 mShape.overrideEnabled = 0
-                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
+                if mPuppetSettings:
+                    ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
 
     if puppetMeshMode:
         log.debug("|{0}| >> puppetMesh setup...".format(_str_func))

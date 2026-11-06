@@ -878,8 +878,27 @@ class SimChainSetup(CGMDAT.data):
             if _hn:
                 RIGDYN.hair_system_register(mSetup, _hn, setDefault=False)
 
+        # chain_deleteByIdx compacts the msgList, so delete stale chains up front in
+        # descending index order; interleaved delete/create would hit shifted indices.
+        _ml_existing = mSetup.msgList_get('chain') or []
+        _keepIdx = set()
+        _delIdx = set()
         for _chainDat in _dat.get('chains') or []:
-            self._apply_chain(mSetup, _chainDat, recreateChains=recreateChains)
+            _i = _chainDat.get('index')
+            if _i is None or _i >= len(_ml_existing):
+                continue
+            if not recreateChains and self._chain_matches(_ml_existing[_i], _chainDat):
+                _keepIdx.add(_i)
+            else:
+                _delIdx.add(_i)
+        for _i in sorted(_delIdx, reverse=True):
+            try:
+                mSetup.chain_deleteByIdx(_i)
+            except Exception:
+                pass
+
+        for _chainDat in _dat.get('chains') or []:
+            self._apply_chain(mSetup, _chainDat, recreateChains=recreateChains, keepIdx=_keepIdx)
 
         if applyPresets:
             _refs = copy.deepcopy(_dat.get('presetRefs') or {})
@@ -893,7 +912,7 @@ class SimChainSetup(CGMDAT.data):
         log.info(cgmGEN.logString_msg(_str_func, 'Setup applied: {0}'.format(mSetup.p_nameBase)))
         return mSetup
 
-    def _apply_chain(self, mSetup, chainDat, recreateChains=True):
+    def _apply_chain(self, mSetup, chainDat, recreateChains=True, keepIdx=None):
         _str_func = 'SimChainSetup._apply_chain'
         _targets = []
         for ref in chainDat.get('targets') or []:
@@ -915,7 +934,13 @@ class SimChainSetup(CGMDAT.data):
         _name = chainDat.get('name') or ml_targets[-1].p_nameBase
         _idx = chainDat.get('index')
 
-        if not recreateChains and _idx is not None:
+        if keepIdx is not None:
+            # apply() already deleted stale chains (descending) and verified the kept ones
+            if _idx in keepIdx:
+                log.info(cgmGEN.logString_msg(
+                    _str_func, 'Chain {0} verified — skip recreate'.format(_idx)))
+                return True
+        elif not recreateChains and _idx is not None:
             ml_chains = mSetup.msgList_get('chain') or []
             if _idx < len(ml_chains):
                 mGrp = ml_chains[_idx]
@@ -924,7 +949,7 @@ class SimChainSetup(CGMDAT.data):
                         _str_func, 'Chain {0} verified — skip recreate'.format(_idx)))
                     return True
 
-        if _idx is not None:
+        if keepIdx is None and _idx is not None:
             try:
                 mSetup.chain_deleteByIdx(_idx)
             except Exception:

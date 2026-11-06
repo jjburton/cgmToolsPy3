@@ -729,75 +729,79 @@ class AnimClip(CGMDAT.data):
         timeOffset = float(atFrame) if clip.get('relative') else 0.0
         dests = _match_destinations(objects, mapping, clip.get('namespace') or '',
                                    dests=dests)
-        layer_node = ANIMCLIPCURVE.ensure_anim_layer(layer, override=layerOverride)
-        if layer_node:
-            dest_ok = []
-            for d in dests:
-                if d and mc.objExists(d) and d not in dest_ok:
-                    dest_ok.append(d)
-            ANIMCLIPCURVE.anim_layer_add_nodes(layer_node, dest_ok)
-            for d in dest_ok:
-                if not SEARCH.animLayer_contains(layer_node, d):
-                    log.warning(log_msg(_str_func,
-                                        'Not on animLayer {} | {}'.format(layer_node, d)))
-        nApplied = 0
-        nTotal = _clip_curve_count(clip)
-        _pb = _progress_begin(nTotal, 'cgmAnimClip | Paste...') if nTotal else None
-        iStep = 0
+        mc.undoInfo(openChunk=True)
         try:
-            for obj, dest in zip(objects, dests):
-                name = obj.get('shortName') or obj.get('longName') or '--'
-                chans = obj.get('channels') or []
-                destShort = NAMES.get_base(dest) if dest else name
-                if not dest or not mc.objExists(dest):
-                    log.warning(log_msg(_str_func, 'No match | {}'.format(name)))
-                    iStep += len(chans)
-                    if _progress_tick(_pb, iStep, nTotal,
-                                      'cgmAnimClip | Paste {0}/{1} | skip {2}'.format(
-                                          iStep, nTotal, name)):
-                        log.warning(log_msg(_str_func, 'Paste cancelled'))
-                        break
-                    continue
-                for ch in chans:
-                    iStep += 1
-                    attr = ch.get('attr')
-                    curveDat = ch.get('curve')
-                    if _progress_tick(_pb, iStep, nTotal,
-                                      'cgmAnimClip | Paste {0}/{1} | {2}.{3}'.format(
-                                          iStep, nTotal, destShort, attr or '--')):
-                        log.warning(log_msg(_str_func, 'Paste cancelled'))
-                        return nApplied
-                    if not attr or not curveDat:
+            layer_node = ANIMCLIPCURVE.ensure_anim_layer(layer, override=layerOverride)
+            if layer_node:
+                dest_ok = []
+                for d in dests:
+                    if d and mc.objExists(d) and d not in dest_ok:
+                        dest_ok.append(d)
+                ANIMCLIPCURVE.anim_layer_add_nodes(layer_node, dest_ok)
+                for d in dest_ok:
+                    if not SEARCH.animLayer_contains(layer_node, d):
+                        log.warning(log_msg(_str_func,
+                                            'Not on animLayer {} | {}'.format(layer_node, d)))
+            nApplied = 0
+            nTotal = _clip_curve_count(clip)
+            _pb = _progress_begin(nTotal, 'cgmAnimClip | Paste...') if nTotal else None
+            iStep = 0
+            try:
+                for obj, dest in zip(objects, dests):
+                    name = obj.get('shortName') or obj.get('longName') or '--'
+                    chans = obj.get('channels') or []
+                    destShort = NAMES.get_base(dest) if dest else name
+                    if not dest or not mc.objExists(dest):
+                        log.warning(log_msg(_str_func, 'No match | {}'.format(name)))
+                        iStep += len(chans)
+                        if _progress_tick(_pb, iStep, nTotal,
+                                          'cgmAnimClip | Paste {0}/{1} | skip {2}'.format(
+                                              iStep, nTotal, name)):
+                            log.warning(log_msg(_str_func, 'Paste cancelled'))
+                            break
                         continue
-                    if not mc.attributeQuery(attr, node=dest, exists=True):
-                        log.warning(log_msg(_str_func, 'Missing attr | {}.{}'.format(dest, attr)))
-                        continue
-                    driver = ATTR.get_driver(dest, attr, getNode=True, skipConversionNodes=True)
-                    if driver and not ANIMCLIPCURVE.is_time_curve(driver):
-                        ntype = ''
-                        try:
-                            ntype = mc.nodeType(driver) or ''
-                        except Exception:
-                            pass
-                        allow_blend = bool(layer_node) and ntype.startswith('animBlend')
-                        if not allow_blend:
-                            log.warning(log_msg(_str_func,
-                                                'Skip {}.{} | driver is {}'.format(
-                                                    dest, attr, ntype or driver)))
+                    for ch in chans:
+                        iStep += 1
+                        attr = ch.get('attr')
+                        curveDat = ch.get('curve')
+                        if _progress_tick(_pb, iStep, nTotal,
+                                          'cgmAnimClip | Paste {0}/{1} | {2}.{3}'.format(
+                                              iStep, nTotal, destShort, attr or '--')):
+                            log.warning(log_msg(_str_func, 'Paste cancelled'))
+                            return nApplied
+                        if not attr or not curveDat:
                             continue
-                    try:
-                        ANIMCLIPCURVE.apply_to_plug(curveDat, dest, attr,
-                                                    timeOffset=timeOffset, mode=mode,
-                                                    animLayer=layer_node)
-                        nApplied += 1
-                    except Exception as err:
-                        log.warning(log_msg(_str_func, '{}.{} | {}'.format(dest, attr, err)))
+                        if not mc.attributeQuery(attr, node=dest, exists=True):
+                            log.warning(log_msg(_str_func, 'Missing attr | {}.{}'.format(dest, attr)))
+                            continue
+                        driver = ATTR.get_driver(dest, attr, getNode=True, skipConversionNodes=True)
+                        if driver and not ANIMCLIPCURVE.is_time_curve(driver):
+                            ntype = ''
+                            try:
+                                ntype = mc.nodeType(driver) or ''
+                            except Exception:
+                                pass
+                            allow_blend = bool(layer_node) and ntype.startswith('animBlend')
+                            if not allow_blend:
+                                log.warning(log_msg(_str_func,
+                                                    'Skip {}.{} | driver is {}'.format(
+                                                        dest, attr, ntype or driver)))
+                                continue
+                        try:
+                            ANIMCLIPCURVE.apply_to_plug(curveDat, dest, attr,
+                                                        timeOffset=timeOffset, mode=mode,
+                                                        animLayer=layer_node)
+                            nApplied += 1
+                        except Exception as err:
+                            log.warning(log_msg(_str_func, '{}.{} | {}'.format(dest, attr, err)))
+            finally:
+                _progress_end(_pb)
+            extra = ' | {}'.format(layer_node) if layer_node else ''
+            log.info(log_msg(_str_func, '{} curves | {} at {} | {}{}'.format(
+                nApplied, mode, atFrame, mapping, extra)))
+            return nApplied
         finally:
-            _progress_end(_pb)
-        extra = ' | {}'.format(layer_node) if layer_node else ''
-        log.info(log_msg(_str_func, '{} curves | {} at {} | {}{}'.format(
-            nApplied, mode, atFrame, mapping, extra)))
-        return nApplied
+            mc.undoInfo(closeChunk=True)
 
 
 class ui(CGMDAT.ui):

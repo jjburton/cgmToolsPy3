@@ -39,8 +39,8 @@ class ui(ANIMCLIPDAT.ui):
 
     def reload(self):
         cgmGEN._reloadMod(MRSANIMUTILS)
-        cgmGEN._reloadMod(ANIMCLIPDAT)
         ANIMCLIPDAT.reload_dependencies()
+        cgmGEN._reloadMod(ANIMCLIPDAT)
         import cgm.core.mrs.mrsAnimClip as MRSANIMCLIP
         cgmGEN._reloadMod(MRSANIMCLIP)
         CGMUI.cgmGUI.reload(self)

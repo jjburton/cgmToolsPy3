@@ -9826,7 +9826,12 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 ml_mesh.append(mMesh)
                 mMesh.dagLock(True)
         elif ml_skinned:
-            ml_mesh.extend(ml_skinned)
+            if len(ml_skinned)>1:
+                _united = mc.polyUnite([mObj.mNode for mObj in ml_skinned], ch=False)[0]
+                _ml_united = cgmMeta.validateObjListArg(_united, 'cgmObject', setClass=True)
+                ml_mesh.extend(_ml_united)
+            else:
+                ml_mesh.extend(ml_skinned)
 
         if ml_proxy and not _skinUnify:
             if len(ml_proxy)>1:
@@ -10030,6 +10035,11 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     if uSplit == None:
         uSplit = self.loftSides
         
+    _b_loftCollapseCap = cap
+    if cap and self.blockType in _l_simpleLoftOpenCapBlockTypes:
+        # create_loftMesh collapse caps on multi-profile limb lofts add extra end geo.
+        _b_loftCollapseCap = False
+
     b_doPivot = True
     str_addPivot = self.getEnumValueString('addPivot')
     str_ikEnd = self.getEnumValueString('ikEnd')
@@ -10039,15 +10049,10 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
         b_doPivot = False
     elif str_ikEnd and str_ikEnd in ['ball']:
         b_doPivot = False
-    if cap:
+    if _b_loftCollapseCap:
         # Pivot foot/top loft sections at the end are separate geometry; synthetic
         # create_loftMesh caps on the same span read as a double cap.
         b_doPivot = False
-
-    _b_loftCollapseCap = cap
-    if cap and self.blockType in _l_simpleLoftOpenCapBlockTypes:
-        # create_loftMesh collapse caps on multi-profile limb lofts add extra end geo.
-        _b_loftCollapseCap = False
     log.info(cgmGEN.logString_msg(
         _str_func,
         'loft plan | cap={0} create_loftMesh collapseCap={1} | degree={2} form={3} uSplit={4} vSplit={5} '

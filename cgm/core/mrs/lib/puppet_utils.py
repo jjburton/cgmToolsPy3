@@ -2387,7 +2387,12 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 ml_mesh.append(mMesh)
                 mMesh.dagLock(True)
         elif ml_skinned:
-            ml_mesh.extend(ml_skinned)
+            if len(ml_skinned)>1:
+                _united = mc.polyUnite([mObj.mNode for mObj in ml_skinned], ch=False)[0]
+                _ml_united = cgmMeta.validateObjListArg(_united, 'cgmObject', setClass=True)
+                ml_mesh.extend(_ml_united)
+            else:
+                ml_mesh.extend(ml_skinned)
 
         if ml_proxy and not _skinUnify:
             if len(ml_proxy)>1:

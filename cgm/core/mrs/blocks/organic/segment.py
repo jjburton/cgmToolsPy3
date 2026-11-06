@@ -5438,8 +5438,10 @@ def build_proxyMesh(self, forceNew = True,  puppetMeshMode = False, skin = False
     mRigNull = mModule.rigNull
     mSettings = mRigNull.settings
     mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl
-    mPuppetSettings = mMaster.controlSettings
+    mMaster = mPuppet.masterControl if mPuppet else None
+    mPuppetSettings = mMaster.controlSettings if mMaster else None
+    if not mPuppetSettings:
+        log.debug("|{0}| >> No puppet/masterControl/controlSettings. Skipping proxyLock wiring.".format(_str_func))
     str_partName = mModule.get_partNameBase()
     
     directProxy = mBlock.proxyDirect
@@ -5585,11 +5587,13 @@ def build_proxyMesh(self, forceNew = True,  puppetMeshMode = False, skin = False
         #Vis connect -----------------------------------------------------------------------
         mProxy.overrideEnabled = 1
         ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
-        ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )        
+        if mPuppetSettings:
+            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )        
         for mShape in mProxy.getShapes(asMeta=1):
             str_shape = mShape.mNode
             mShape.overrideEnabled = 0
-            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
+            if mPuppetSettings:
+                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
         
     BLOCKUTILS.puppetMesh_normalCheck(ml_segProxy)
     mRigNull.msgList_connect('proxyMesh', ml_segProxy)

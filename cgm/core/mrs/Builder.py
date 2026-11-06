@@ -224,8 +224,6 @@ def blockCreate_open():
     log.info("|{0}| >> Reloading Helpers...".format(_str_func))
     cgmGEN._reloadMod(HELPERS)
     import cgm.core.mrs.Builder as BUILDER_MOD
-    log.info("|{0}| >> Reloading Builder...".format(_str_func))
-    cgmGEN._reloadMod(BUILDER_MOD)
     return BUILDER_MOD.ui_createBlock()
 
 

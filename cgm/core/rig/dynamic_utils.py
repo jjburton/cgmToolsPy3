@@ -2642,9 +2642,11 @@ def hair_system_resolve_for_create(mSetup, mode=None, chainName=None):
     """
     Resolve hairSystem for Make Dynamic Chain.
 
-    :param mode: ``new`` | ``default`` | registered short name / index string
+    :param mode: ``new`` | ``default`` | hairSystem (or its transform) node string | registered
+        short name / index string
     :returns: ``(mHairSysShape or None, b_join_existing_for_mcd)``
     """
+    _str_func = 'hair_system_resolve_for_create'
     mode = (mode or 'default').strip()
     mSetup = cgmMeta.validateObjArg(mSetup, noneValid=True)
     if not mSetup:
@@ -2666,7 +2668,21 @@ def hair_system_resolve_for_create(mSetup, mode=None, chainName=None):
         _idx = int(mode)
         if 0 <= _idx < len(ml_reg):
             return ml_reg[_idx], True
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'Registry index {0} out of range (registered={1})'.format(_idx, len(ml_reg))))
         return None, False
+
+    # Node identity first — the UI resolves its menu selection to a hairSystem node string by index,
+    # so an ambiguous short name (two namespaces / references) can't pick the wrong system here.
+    if mc.objExists(mode):
+        for mHair in ml_reg:
+            if mHair.mNode == mode:
+                return mHair, True
+            mDag = mHair.getTransform(asMeta=True)
+            if mDag and mDag.mNode == mode:
+                return mHair, True
+        log.warning(cgmGEN.logString_msg(
+            _str_func, '{0} exists but is not registered on {1}'.format(mode, mSetup.mNode)))
 
     _mode_low = mode.lower()
     for mHair in ml_reg:
@@ -2678,7 +2694,12 @@ def hair_system_resolve_for_create(mSetup, mode=None, chainName=None):
 
     mHair = hair_system_get_default(mSetup)
     if mHair:
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'No registered hairSystem matched mode {0!r} — falling back to setup default {1}'.format(
+                mode, mHair.mNode)))
         return mHair, True
+    log.warning(cgmGEN.logString_msg(
+        _str_func, 'No registered hairSystem matched mode {0!r} and no setup default'.format(mode)))
     return None, False
 
 
@@ -3575,7 +3596,17 @@ class cgmDynFK(cgmMeta.cgmObject):
         #fwdAxis = simpleAxis(fwd)
         #upAxis = simpleAxis(up)
 
-        fwdAxis = TRANS.closestAxisTowardObj_get(ml[0], ml[1])
+        if len(ml) < 2 and upSetup != 'manual':
+            log.error(cgmGEN.logString_msg(_str_func, 'Single count. Must use manual upSetup and aim/up args'))
+            _idxGrp = chain_setup_index(self, mGrp)
+            if _idxGrp is not None:
+                self.chain_deleteByIdx(_idxGrp)
+            return None
+
+        if len(ml) < 2:
+            fwdAxis = simpleAxis(fwd)
+        else:
+            fwdAxis = TRANS.closestAxisTowardObj_get(ml[0], ml[1])
         upAxis = TRANS.crossAxis_get(fwdAxis)
 
         mGrp.doStore('fwd', fwdAxis.p_string)
@@ -4127,7 +4158,7 @@ def _cut_input_joint_keys_in_range(nodes, startFrame, endFrame):
 
 def _input_bake_dg_isolate_begin(mSetup):
     """Pause nucleus/hair solve and viewport refresh during one input bakeResults."""
-    _state = {'nucleus_enable': None, 'hair_sim_method': [], 'refresh_suspend': None}
+    _state = {'nucleus_enable': None, 'hair_sim_method': [], 'refresh_suspend': False}
     mNucleus = mSetup.getMessageAsMeta('mNucleus')
     if mNucleus and mc.objExists(mNucleus.mNode):
         if mc.attributeQuery('enable', node=mNucleus.mNode, exists=True):
@@ -4147,10 +4178,10 @@ def _input_bake_dg_isolate_begin(mSetup):
             _state['hair_sim_method'].append((mHairSysShape.mNode, mc.getAttr(_plug)))
             mc.setAttr(_plug, 0)
     try:
-        _state['refresh_suspend'] = mc.refresh(query=True, suspend=True)
         mc.refresh(suspend=True)
+        _state['refresh_suspend'] = True
     except Exception:
-        _state['refresh_suspend'] = None
+        _state['refresh_suspend'] = False
     return _state
 
 
@@ -4168,12 +4199,12 @@ def _input_bake_dg_isolate_end(isolate_state):
             mc.setAttr('{0}.enable'.format(_nucleus[0]), _nucleus[1])
         except Exception:
             pass
-    _refresh_su = isolate_state.get('refresh_suspend')
-    if _refresh_su is not None:
+    if isolate_state.get('refresh_suspend'):
+        # We always suspend in begin; there is no prior state to restore, so unsuspend unconditionally.
         try:
-            mc.refresh(suspend=_refresh_su)
-        except Exception:
             mc.refresh(suspend=False)
+        except Exception:
+            pass
 
 
 def _input_bake_progress_step(progressBar, status, step=1):

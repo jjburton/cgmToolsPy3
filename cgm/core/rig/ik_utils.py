@@ -3412,6 +3412,33 @@ def _ribbon_applySquashStretch(ml_joints,
                                                       initialValue=0,
                                                       lock=True,
                                                       minValue=0)
+                    mPlug_aimFactor = cgmMeta.cgmAttr(mSettings.mNode,
+                                                      "{0}_aimFactor_{1}".format(str_baseName, i),
+                                                      attrType='float',
+                                                      hidden=False,
+                                                      initialValue=1.0,
+                                                      defaultValue=1.0,
+                                                      keyable=False,
+                                                      lock=False,
+                                                      minValue=0)
+
+                    #TODO: ribbon_seal has no zeroTipAimFactor equivalent, so the tip aimFactor stays 1.0.
+                    #...deliberate open item to revisit.
+
+                    #Blend between two values...
+                    mBlendNode = cgmMeta.cgmNode(nodeType='blendTwoAttr')
+                    mBlendNode.rename("{0}_aimScaleResult_{1}_blendTwoAttr".format(str_baseName, i))
+                    mBlendNode.addAttr('baseOne', value=1.0)
+
+                    mPlug_aimFactor.doConnectOut("{0}.attributesBlender".format(mBlendNode.mNode))
+                    mBlendNode.doConnectIn('input[0]', 'baseOne')
+
+                    mPlug_aimResult.p_locked = False
+                    mPlug_aimResult.doConnectIn("{0}.output".format(mBlendNode.mNode))
+
+                    l_argBuild.append("{0}.input[1] = {1} * {2}".format(mBlendNode.mNode,
+                                                                        mPlug_aimNormalized.p_combinedName,
+                                                                        mPlug_segScale.p_combinedName))
                 else:
                     mPlug_aimResult = mPlug_aimNormalized
             else:

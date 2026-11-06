@@ -1902,7 +1902,8 @@ def rig_prechecks(self):
         self.l_precheckErrors.append("Brow setup not completed: {0}".format(str_browType))
     
     if mBlock.scaleSetup:
-        
+        self.l_precheckWarnings.append("scaleSetup: ribbon_seal ignores additiveScaleEnds, so end scale compensation will not be built.")
+
         str_ribbonParam = mBlock.getEnumValueString('ribbonParam')
         str_squashMeasure = mBlock.getEnumValueString('squashMeasure')
         if str_squashMeasure in ['pointDist']:
@@ -1933,8 +1934,12 @@ def rig_dataBuffer(self):
     
     self.mRootFormHandle = mEyeFormHandle
     ml_formHandles = [mEyeFormHandle]
-    
-    self.b_scaleSetup = mBlock.scaleSetup
+
+    _b_scaleSetup = mBlock.scaleSetup
+    if _b_scaleSetup:
+        log.warning("|{0}| >> scaleSetup on but ribbon_seal ignores additiveScaleEnds - forcing off for this build".format(_str_func))
+        _b_scaleSetup = False
+    self.b_scaleSetup = _b_scaleSetup
     
     #self.str_browSetup = False
     #if mBlock.browSetup:
@@ -1957,8 +1962,8 @@ def rig_dataBuffer(self):
     
     #Squash stretch logic  =================================================================================
     log.debug("|{0}| >> Squash stretch..".format(_str_func))
-    self.b_scaleSetup = mBlock.scaleSetup
-    
+    self.b_scaleSetup = _b_scaleSetup
+
     self.b_squashSetup = False
     
     self.d_squashStretch = {}
@@ -1979,7 +1984,7 @@ def rig_dataBuffer(self):
         _driverSetup =  mBlock.getEnumValueString('ribbonAim')
     self.d_squashStretch['driverSetup'] = _driverSetup
 
-    self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
+    self.d_squashStretch['additiveScaleEnds'] = _b_scaleSetup
     self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
     self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
     self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
@@ -2717,7 +2722,7 @@ def rig_cleanUp(self):
     ml_controls = mRigNull.msgList_get('controlsAll')
     self.UTILS.controls_lockDown(ml_controls)
     
-    if not mBlock.scaleSetup:
+    if not self.b_scaleSetup:
         log.debug("|{0}| >> No scale".format(_str_func))
         ml_controlsToLock = copy.copy(ml_controls)
         for mCtrl in ml_controlsToLock:
@@ -2772,15 +2777,20 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
     mDeformNull = mModule.deformNull
 
     mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl
-    mPuppetSettings = mMaster.controlSettings
+    mMaster = mPuppet.masterControl if mPuppet else None
+    mPuppetSettings = mMaster.controlSettings if mMaster else None
+    if not mPuppetSettings:
+        log.debug("|{0}| >> No puppet/masterControl/controlSettings. Skipping proxyLock wiring.".format(_str_func))
     str_partName = mModule.get_partNameBase()
 
     _side = BLOCKUTILS.get_side(self)
 
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError("No rigJoints connected")
+        if skin:
+            raise ValueError("No rigJoints connected")
+        log.debug("|{0}| >> No rigJoints connected. Unskinned build.".format(_str_func))
+        ml_rigJoints = []
 
     if simpleMeshMode:
         puppetMeshMode = False
@@ -2858,13 +2868,14 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
 
         mRigNull.msgList_connect('proxyJoints', ml_proxyJoints)
 
-        mc.skinCluster ([mJnt.mNode for mJnt in ml_rigJoints + ml_proxyJoints],
-                        mMesh.mNode,
-                        tsb=True,
-                        bm=1,
-                        sm=0,
-                        maximumInfluences = 5,
-                        normalizeWeights = 1, dropoffRate=4)
+        if skin:
+            mc.skinCluster ([mJnt.mNode for mJnt in ml_rigJoints + ml_proxyJoints],
+                            mMesh.mNode,
+                            tsb=True,
+                            bm=1,
+                            sm=0,
+                            maximumInfluences = 5,
+                            normalizeWeights = 1, dropoffRate=4)
 
     def _wireProxyVis(ml_targets):
         _sideShader = _side if _side not in ['none', ''] else 'center'
@@ -2873,10 +2884,12 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, simpleMeshMod
             mc.makeIdentity(mProxy.mNode, apply = True, t=1, r=1,s=1,n=0,pn=1)
             mProxy.overrideEnabled = 1
             ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
-            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
+            if mPuppetSettings:
+                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
             for mShape in mProxy.getShapes(asMeta=1):
                 mShape.overrideEnabled = 0
-                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
+                if mPuppetSettings:
+                    ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
 
     if puppetMeshMode:
         log.debug("|{0}| >> puppetMesh setup...".format(_str_func))

@@ -24,6 +24,10 @@ import maya.cmds as mc
 from cgm.core.lib import attribute_utils as ATTR
 
 
+def _norm(path):
+    return os.path.normcase(os.path.normpath(path))
+
+
 def _project_user_paths():
     from cgm.core import cgm_Meta as cgmMeta
     from cgm.core.tools import Project as Project
@@ -89,6 +93,7 @@ def localize(content=None, export=None):
     if not content:
         raise ValueError('Need project content path')
     content = os.path.normpath(content)
+    content_cmp = _norm(content)
 
     scene_path = mc.file(q=True, loc=True)
     scene_dir = os.path.dirname(scene_path) if scene_path else ''
@@ -97,7 +102,7 @@ def localize(content=None, export=None):
         texture_name = ATTR.get(node, 'fileTextureName') or ''
         if not texture_name:
             continue
-        if content in texture_name:
+        if content_cmp in _norm(texture_name):
             continue
         if not (os.path.exists(texture_name) and os.path.isfile(texture_name)):
             continue

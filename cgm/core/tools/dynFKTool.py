@@ -1931,53 +1931,144 @@ def uiFunc_hair_system_menu_value_to_mode(menu_val):
     return _val
 
 
+def uiFunc_hair_system_menu_metas(self):
+    """Parallel meta list for Create → Hair system menu (``None`` where an item maps to no hairSystem)."""
+    return getattr(self, '_ml_hairSystemMenu', None) or []
+
+
+def uiFunc_hair_system_menu_meta_at_index(self, idx, ml_hairSystems=None):
+    """Live mHairSystem for a Create menu index — ``None`` for 'New' or a dead/unmapped entry."""
+    ml_hairSystems = ml_hairSystems if ml_hairSystems is not None else uiFunc_hair_system_menu_metas(self)
+    if idx is None or idx < 0 or idx >= len(ml_hairSystems):
+        return None
+    mHair = ml_hairSystems[idx]
+    if not mHair:
+        return None
+    try:
+        if not mc.objExists(mHair.mNode):
+            return None
+    except Exception:
+        return None
+    return mHair
+
+
+def uiFunc_hair_system_menu_index_for_meta(self, mHair, ml_hairSystems=None):
+    """Create menu index holding a given hairSystem, or ``None`` when it isn't in the menu."""
+    if not mHair:
+        return None
+    try:
+        _node = mHair.mNode
+    except Exception:
+        return None
+    if not _node or not mc.objExists(_node):
+        return None
+    ml_hairSystems = ml_hairSystems if ml_hairSystems is not None else uiFunc_hair_system_menu_metas(self)
+    for _i, mItem in enumerate(ml_hairSystems):
+        if not mItem:
+            continue
+        try:
+            if mItem.mNode == _node:
+                return _i
+        except Exception:
+            continue
+    return None
+
+
+def uiFunc_hair_system_menu_selected_meta(self):
+    """Live mHairSystem behind the current Create → Hair system selection (index based)."""
+    if not hasattr(self, 'options_hairSystemMode'):
+        return None
+    try:
+        _idx = self.options_hairSystemMode.getSelectedIdx()
+    except Exception:
+        return None
+    return uiFunc_hair_system_menu_meta_at_index(self, _idx)
+
+
 def uiFunc_refresh_hair_system_create_menu(self):
-    """Rebuild Create → Hair system menu: New, then default (+ suffix), then other registered systems."""
+    """Rebuild Create → Hair system menu: New, then default (+ suffix), then other registered systems.
+
+    Keeps ``self._ml_hairSystemMenu`` as a parallel meta list, one entry per menu item
+    (``None`` for 'New', and for the default item when the setup has no default yet), so
+    selection resolves by index rather than by matching the display label.
+    """
     if not hasattr(self, 'options_hairSystemMode'):
         return
     _menu = self.options_hairSystemMode
     _current = (_menu.getValue() or '').strip()
+    mPrior = uiFunc_hair_system_menu_selected_meta(self)
     if _current == 'Default':
         _current = uiFunc_hair_system_default_menu_label(
             RIGDYN.hair_system_get_default(self._mDynFK) if self._mDynFK else None)
 
     _menu.clear()
+    ml_hairSystems = []
     _menu.append('New')
+    ml_hairSystems.append(None)
 
     mDefault = RIGDYN.hair_system_get_default(self._mDynFK) if self._mDynFK else None
     _default_label = uiFunc_hair_system_default_menu_label(mDefault)
     _menu.append(_default_label)
+    ml_hairSystems.append(mDefault)
 
     if self._mDynFK:
         for mHair in RIGDYN.hair_system_list_registered(self._mDynFK):
             if mDefault and mHair.mNode == mDefault.mNode:
                 continue
             _menu.append(mHair.p_nameShort)
+            ml_hairSystems.append(mHair)
+
+    self._ml_hairSystemMenu = ml_hairSystems
 
     try:
         _items = _menu.getItems()
     except Exception:
         _items = ['New', _default_label]
 
-    _pick = None
-    if _current in _items:
-        _pick = _current
-    else:
-        _saved = (self.var_SimChainHairSystemMode.value or 'New').strip()
-        if _saved == 'Default':
-            _saved = _default_label
-        if _saved in _items:
-            _pick = _saved
-        elif uiFunc_hair_system_menu_value_to_mode(_saved) == 'default':
-            _pick = _default_label
-    _menu.setValue(_pick if _pick else 'New')
+    _idx = uiFunc_hair_system_menu_index_for_meta(self, mPrior, ml_hairSystems)
+    if _idx is None:
+        _pick = None
+        if _current in _items:
+            _pick = _current
+        else:
+            _saved = (self.var_SimChainHairSystemMode.value or 'New').strip()
+            if _saved == 'Default':
+                _saved = _default_label
+            if _saved in _items:
+                _pick = _saved
+            elif uiFunc_hair_system_menu_value_to_mode(_saved) == 'default':
+                _pick = _default_label
+        _idx = _items.index(_pick) if (_pick and _pick in _items) else 0
+    try:
+        _menu.selectByIdx(_idx)
+    except Exception:
+        _menu.setValue('New')
 
 
 def uiFunc_hair_system_create_mode(self):
-    """Create panel hairSystemMode kw for chain_create_hair."""
+    """Create panel hairSystemMode kw for chain_create_hair, resolved by menu index."""
     if not hasattr(self, 'options_hairSystemMode'):
         return 'default'
-    return uiFunc_hair_system_menu_value_to_mode(self.options_hairSystemMode.getValue())
+    _str_func = 'uiFunc_hair_system_create_mode'
+    ml_hairSystems = uiFunc_hair_system_menu_metas(self)
+    try:
+        _idx = self.options_hairSystemMode.getSelectedIdx()
+    except Exception:
+        _idx = None
+    if _idx is None or not ml_hairSystems or _idx >= len(ml_hairSystems):
+        log.warning(cgmGEN.logString_msg(
+            _str_func, 'No parallel hairSystem list for menu index {0!r} — falling back to label'.format(_idx)))
+        return uiFunc_hair_system_menu_value_to_mode(self.options_hairSystemMode.getValue())
+    if _idx == 0:
+        return 'new'
+    mHair = uiFunc_hair_system_menu_meta_at_index(self, _idx, ml_hairSystems)
+    if mHair:
+        return mHair.mNode
+    if _idx == 1:
+        return 'default'
+    log.warning(cgmGEN.logString_msg(
+        _str_func, 'Menu index {0} has no live hairSystem — using setup default'.format(_idx)))
+    return 'default'
 
 
 def uiFunc_hair_system_create_menu_label_for_chain(mSetup, mGrp):
@@ -1999,18 +2090,23 @@ def uiFunc_set_hair_system_create_menu_from_chain(self, mGrp):
     """Sync Create → Hair system enum to match a chain grp's hairSystem wiring."""
     if not hasattr(self, 'options_hairSystemMode'):
         return False
+    _str_func = 'uiFunc_set_hair_system_create_menu_from_chain'
     uiFunc_refresh_hair_system_create_menu(self)
-    _label = uiFunc_hair_system_create_menu_label_for_chain(self._mDynFK, mGrp)
-    try:
-        _items = self.options_hairSystemMode.getItems()
-    except Exception:
-        _items = []
-    if _label not in _items:
+    mSetup = cgmMeta.validateObjArg(self._mDynFK, noneValid=True)
+    mGrp = cgmMeta.validateObjArg(mGrp, noneValid=True)
+    mHair = None
+    if mSetup and mGrp:
+        mHair = RIGDYN.hair_system_resolve_for_chain(mGrp, mSetup, backfill=True)
+    if not mHair:
+        self.options_hairSystemMode.selectByIdx(0)
+        return True
+    _idx = uiFunc_hair_system_menu_index_for_meta(self, mHair)
+    if _idx is None:
         log.warning(cgmGEN.logString_msg(
-            'uiFunc_set_hair_system_create_menu_from_chain',
-            'Hair system menu missing {0!r} — refresh setup hair registry'.format(_label)))
+            _str_func,
+            'Hair system menu missing {0} — refresh setup hair registry'.format(mHair.mNode)))
         return False
-    self.options_hairSystemMode.setValue(_label)
+    self.options_hairSystemMode.selectByIdx(_idx)
     return True
 
 

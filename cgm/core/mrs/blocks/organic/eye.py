@@ -5926,8 +5926,10 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
         mRoot = mDeformNull
         
     mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl    
-    mPuppetSettings = mMaster.controlSettings
+    mMaster = mPuppet.masterControl if mPuppet else None
+    mPuppetSettings = mMaster.controlSettings if mMaster else None
+    if not mPuppetSettings:
+        log.debug("|{0}| >> No puppet/masterControl/controlSettings. Skipping proxyLock wiring.".format(_str_func))
     str_partName = mModule.get_partNameBase()
     mPrerigNull = mBlock.prerigNull
     #directProxy = mBlock.proxyDirect
@@ -5936,7 +5938,10 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
     
     ml_rigJoints = mRigNull.msgList_get('rigJoints',asMeta = True)
     if not ml_rigJoints:
-        raise ValueError("No rigJoints connected")
+        if skin:
+            raise ValueError("No rigJoints connected")
+        log.debug("|{0}| >> No rigJoints connected. Unskinned build.".format(_str_func))
+        ml_rigJoints = []
 
     if simpleMeshMode:
         puppetMeshMode = False
@@ -6312,16 +6317,17 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
                     ml_noFreeze.append(mMesh)
                     CORERIG.colorControl(mMesh.mNode,_side,'main',transparent=False,proxy=True)
                 
-                    mc.skinCluster ([mJnt.mNode for mJnt in md_map[k] + md_map['lidCorner'] + _d_joints[k]],
-                                    mMesh.mNode,
-                                    tsb=True,
-                                    bm=0,
-                                    wd=0,
-                                    sm=0,
-                                    maximumInfluences = 4,
-                                    heatmapFalloff = 1.0,
-                                    dropoffRate=4,                            
-                                    normalizeWeights = 1)            
+                    if skin:
+                        mc.skinCluster ([mJnt.mNode for mJnt in md_map[k] + md_map['lidCorner'] + _d_joints[k]],
+                                        mMesh.mNode,
+                                        tsb=True,
+                                        bm=0,
+                                        wd=0,
+                                        sm=0,
+                                        maximumInfluences = 4,
+                                        heatmapFalloff = 1.0,
+                                        dropoffRate=4,                            
+                                        normalizeWeights = 1)            
 
     else:
         ml_proxy = list(ml_proxyExisting)
@@ -6333,10 +6339,12 @@ def build_proxyMesh(self, forceNew = True, skin = False, puppetMeshMode = False,
 
             mProxy.overrideEnabled = 1
             ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
-            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
+            if mPuppetSettings:
+                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
             for mShape in mProxy.getShapes(asMeta=1):
                 mShape.overrideEnabled = 0
-                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
+                if mPuppetSettings:
+                    ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(mShape.mNode) )
 
     if puppetMeshMode:
         log.debug("|{0}| >> puppetMesh setup...".format(_str_func))

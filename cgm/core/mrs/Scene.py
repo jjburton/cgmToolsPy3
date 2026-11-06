@@ -3993,7 +3993,6 @@ example:
 
 
     def RemapTextures(self, *args):
-        cgmGEN._reloadMod(TEXTURE)
         d_userPaths = self.mDat.userPaths_get()
         TEXTURE.remap_missing(content=d_userPaths.get('content'),
                               export=d_userPaths.get('export'))
@@ -5172,11 +5171,13 @@ example:
         if result == 'OK':
             variationName = mc.promptDialog(query=True, text=True)
             variationDir = os.path.normpath( os.path.join(self.path_set, variationName) )
-            if not os.path.exists(variationDir):
+            _is_new_variation = not os.path.exists(variationDir)
+            if _is_new_variation:
                 os.mkdir(PATHS.get_dir(variationDir))
 
             self._republish_navigation_lists(from_level='variation', focus_path=variationDir)
-            self.CreateStartingFile()
+            if _is_new_variation:
+                self.CreateStartingFile()
 
 
 
@@ -6077,14 +6078,18 @@ example:
             # Check if "workspace.mel" exists in the export directory before setting the project path
             workspace_mel_path = os.path.join(export_dir, "workspace.mel")
             had_workspace_mel = os.path.isfile(workspace_mel_path)
+            original_dir = os.getcwd()
             
             try:
                 log.info("Changing directory to: {0}".format(export_dir))
-                if self._mel_set_project_safe(export_dir):
-                    mel.eval('ExportSelection')
-                else:
-                    mel.eval('ExportSelection')
+                if not self._mel_set_project_safe(export_dir):
+                    log.warning("ExportSelection | Could not set project/cwd to {0}, exporting from current location".format(export_dir))
+                mel.eval('ExportSelection')
             finally:
+                try:
+                    os.chdir(original_dir)
+                except Exception as err:
+                    log.warning("ExportSelection | Failed to restore cwd {0} | {1}".format(original_dir, err))
                 if content_root:
                     log.info("Restoring project to content: {0}".format(content_root))
                     self._mel_set_project_safe(content_root)
