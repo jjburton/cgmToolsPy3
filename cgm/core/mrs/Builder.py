@@ -69,9 +69,11 @@ from cgm.core.mrs.lib import blockShapes_utils as BLOCKSHAPES
 from cgm.core.mrs.lib import ModuleControlFactory as MODULECONTROLFACTORY
 from cgm.core.mrs.lib import ModuleShapeCaster as MODULESHAPECASTER
 from cgm.core.rig import ik_utils as IK
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.tools.lib.tool_calls as TOOLCALLS
 
 from cgm.core.mrs.lib import rigFrame_utils as RIGFRAME
+import cgm.core.mrs.lib.bezier_ik_block_utils as BEZIERIKBLOCK
 import cgm.core.lib.string_utils as CORESTRINGS
 
 from cgm.core.mrs.lib import general_utils as BLOCKGEN
@@ -139,7 +141,8 @@ _sidePadding = 25
 
 def reloadMRSStuff():
     log.info("reloading...")
-    for m in [BLOCKGEN,MRSPOST,RIGSHAPES]:
+    for m in [BLOCKGEN, MRSPOST, RIGSHAPES, HELPERS, RIGBEZIER, IK, BEZIERIKBLOCK, RIGFRAME]:
+        log.info("|reloadMRSStuff| >> {0}".format(getattr(m, '__name__', m)))
         cgmGEN._reloadMod(m)
     BLOCKGEN.reloadMRSStuff()
 
@@ -213,6 +216,16 @@ def blockPicker_get(mBlock=None):
         return  BLOCKPICKER
             
     return ui_blockPicker(mBlock)
+
+
+def blockCreate_open():
+    """Launch BlockCreate with fresh Helpers + Builder modules (scene helpers re-read in insert_init)."""
+    _str_func = 'blockCreate_open'
+    log.info("|{0}| >> Reloading Helpers...".format(_str_func))
+    cgmGEN._reloadMod(HELPERS)
+    import cgm.core.mrs.Builder as BUILDER_MOD
+    return BUILDER_MOD.ui_createBlock()
+
 
 class ui_blockPicker(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
@@ -3511,6 +3524,32 @@ class ui_stepBuild(cgmUI.cgmGUI):
 
                 
 
+    def _uiFunc_rigPrechecks(self):
+        """Rig factory prechecks without raising (mode=prechecks)."""
+        return self.mBlock.asRigFactory(autoBuild=False, mode='prechecks')
+
+    def _uiFunc_layoutPrecheckFailure(self, parent, mRigFacPre):
+        _l_errors = mRigFacPre.l_precheckErrors or []
+        _n = len(_l_errors)
+        self.uiStatus(
+            edit=True, vis=True,
+            label='Prechecks failed ({0}) — fix block settings'.format(_n))
+        mc.setParent(parent)
+        cgmUI.add_Header('Precheck errors')
+        _bgc = SHARED._d_gui_state_colors.get('warning')
+        for i, _err in enumerate(_l_errors):
+            mUI.MelLabel(
+                parent,
+                label='{0} | {1}'.format(i, _err),
+                align='left',
+                bgc=_bgc,
+                h=20)
+        log.error(
+            '|{0}| >> Step build prechecks failed on {1} ({2} errors)'.format(
+                'ui_stepBuild', self.mBlock.p_nameShort, _n))
+        for i, _err in enumerate(_l_errors):
+            log.error('   {0} | {1}'.format(i, _err))
+
     def uiFunc_updateStatus(self):
         if not self.mBlock:
             self.uiStatus(edit=1,
@@ -3562,19 +3601,46 @@ class ui_stepBuild(cgmUI.cgmGUI):
             self.uiStatus(edit=True,vis=True,label="Block must be skeleton state")            
             return log.error("{0} Block must be skeleton state. Found: {1}".format(self.mBlock.p_nameShort,_blockState))
             pass
-        
+
+        mRigFacPre = self._uiFunc_rigPrechecks()
+        if not mRigFacPre.b_prechecks:
+            self._uiFunc_layoutPrecheckFailure(_inside, mRigFacPre)
+            mc.setParent(_MainForm)
+            _MainForm(edit=True,
+                      af=[(_inside, 'top', 0),
+                          (_inside, 'left', 0),
+                          (_inside, 'right', 0),
+                          (self.uiStatus, 'left', 0),
+                          (self.uiStatus, 'right', 0),
+                          (self.uiStatus, 'bottom', 0)],
+                      ac=[(_inside, 'bottom', 0, self.uiStatus)],
+                      attachNone=[(self.uiStatus, 'top')])
+            return
+
         mRigFac = self.mBlock.asRigFactory(autoBuild=False)
         self.mRigFac = mRigFac
         mModule = mRigFac.d_block['buildModule']
         
         
         def reloadStuff():
-            cgmGEN._reloadMod(mModule)
-            cgmGEN._reloadMod(BUILDERUTILS)
-            cgmGEN._reloadMod(BLOCKGEN)
-            cgmGEN._reloadMod(BLOCKSHARE)
-            cgmGEN._reloadMod(BLOCKUTILS)
-            cgmGEN._reloadMod(RIGFRAME)
+            _l_step_reload = (
+                (mModule, 'block module'),
+                (BUILDERUTILS, 'builder_utils'),
+                (BLOCKGEN, 'general_utils'),
+                (BLOCKSHARE, 'shared_dat'),
+                (BLOCKUTILS, 'block_utils'),
+                (RIGBEZIER, 'bezier_utils'),
+                (IK, 'ik_utils'),
+                (BEZIERIKBLOCK, 'bezier_ik_block_utils'),
+                (RIGFRAME, 'rigFrame_utils'),
+                (RIGSHAPES, 'rigShapes_utils'),
+            )
+            log.info("|ui_stepBuild.reloadStuff| >> start")
+            for m, _label in _l_step_reload:
+                log.info("|ui_stepBuild.reloadStuff| >> {0}".format(_label))
+                cgmGEN._reloadMod(m)
+            log.info("|ui_stepBuild.reloadStuff| >> done")
+            log.info(cgmGEN._str_subLine)
         
         #SingleChecks======================================================================
         mRow_buttons = mUI.MelHLayout(_inside,ut='cgmUISubTemplate',padding = 2)
@@ -4034,53 +4100,79 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         _str_func = 'uiFunc_process[{0}]'.format(self.__class__.TOOLNAME)
         log.debug("|{0}| >>...".format(_str_func))
         cgmGEN._reloadMod(MRSBATCH)
-                
-        ml_masters = r9Meta.getMetaNodes(mTypes = 'cgmRigBlock',
-                                         nTypes=['transform','network'],
-                                         mAttrs='blockType=master')
-        log.info(
-            cgmGEN.logString_msg(
-                _str_func,
-                "Rig block prechecks (current scene) | master blocks: {0}".format(
-                    len(ml_masters) if ml_masters else 0
-                ),
-            )
-        )
 
-        l_fails = []
-        ml_fails = []
-        for mMaster in ml_masters:    
-            ml_context = BLOCKGEN.get_rigBlock_heirarchy_context(mMaster,'below',True,False)
-    
-            for mSubBlock in ml_context:
-                l_fails.append(mSubBlock.asRigFactory(**{'mode':'prechecks'}).b_prechecks)
-                if not l_fails[-1]: ml_fails.append(mSubBlock)
-        
-        if False in l_fails:
-            #self.uiScrollList_blocks.selectByObj(ml_fails[0])
-            result = mc.confirmDialog(title="Prchecks failed. Verify",
-                                      message= "{0} Blocks failed prechecks. \n Check scriptEditor".format(len(ml_fails)),
-                                      button=['OK'],
-                                      defaultButton='OK',
-                                      #cancelButton='Cancel',
-                                      dismissString='OK')
-            
-            #if result != 'OK':
-            #    log.error("|{0}| >> Cancelled | {1} | {2}.".format(_str_func,_state_target,self))
-            #    return False            
-            return (
-                log.warning(
-                    "{0} | Aborted before batch file step (rig prechecks failed in current scene; "
-                    "queued files were not processed). Check script editor.".format(_str_func)
-                )
-            )
-        
-        log.info("Batch file creating...")        
         log.debug(self.l_files)
         if not f:
             f = copy.deepcopy(self.l_files)
-            self.l_files = []#empty this as we're we don't want it staying stored after we've grabbed it
-        
+            self.l_files = []  # empty after grab — do not keep queued paths on the UI instance
+
+        l_check = VALID.listArg(f)
+        if not l_check:
+            log.info(cgmGEN.logString_msg(_str_func, "No file passed. Using current"))
+            l_check = [mc.file(q=True, sn=True)]
+
+        _open_raw = mc.file(q=True, loc=True) or mc.file(q=True, sn=True)
+        _open_norm = os.path.normpath(_open_raw) if _open_raw else None
+        open_matches_queue = False
+        if _open_norm:
+            for _queued in l_check:
+                if _queued and os.path.normpath(_queued) == _open_norm:
+                    open_matches_queue = True
+                    break
+
+        skip_prechecks = bool(l_check) and not open_matches_queue
+        if skip_prechecks:
+            log.info(
+                cgmGEN.logString_msg(
+                    _str_func,
+                    "Skipping rig prechecks (queued file(s) do not match open scene; "
+                    "batch will open file in mayapy) | queue={0} | open={1}".format(
+                        l_check, _open_raw,
+                    ),
+                )
+            )
+        else:
+            ml_masters = r9Meta.getMetaNodes(
+                mTypes='cgmRigBlock',
+                nTypes=['transform', 'network'],
+                mAttrs='blockType=master',
+            )
+            log.info(
+                cgmGEN.logString_msg(
+                    _str_func,
+                    "Rig block prechecks (current scene) | master blocks: {0}".format(
+                        len(ml_masters) if ml_masters else 0
+                    ),
+                )
+            )
+
+            l_fails = []
+            ml_fails = []
+            for mMaster in ml_masters:
+                ml_context = BLOCKGEN.get_rigBlock_heirarchy_context(mMaster, 'below', True, False)
+
+                for mSubBlock in ml_context:
+                    l_fails.append(mSubBlock.asRigFactory(**{'mode': 'prechecks'}).b_prechecks)
+                    if not l_fails[-1]:
+                        ml_fails.append(mSubBlock)
+
+            if False in l_fails:
+                result = mc.confirmDialog(
+                    title="Prchecks failed. Verify",
+                    message="{0} Blocks failed prechecks. \n Check scriptEditor".format(len(ml_fails)),
+                    button=['OK'],
+                    defaultButton='OK',
+                    dismissString='OK',
+                )
+                return (
+                    log.warning(
+                        "{0} | Aborted before batch file step (rig prechecks failed in current scene; "
+                        "queued files were not processed). Check script editor.".format(_str_func)
+                    )
+                )
+
+        log.info("Batch file creating...")
+
         #try:
         
         
@@ -4111,18 +4203,10 @@ class ui_toStandAlone(cgmUI.cgmGUI):
         
         l_paths = []
         l_dirs = []
-        l_check = VALID.listArg(f)
         l_mFiles = []
         l_batch = []
-        if not l_check:
-            log.info(cgmGEN.logString_msg(_str_func,"No file passed. Using current"))
-            l_check = [mc.file(q=True, sn=True)]
         log.info(cgmGEN.logString_msg(_str_func, "Files to batch | {0}".format(l_check)))
-            
-        
-        _current = os.path.normpath(mc.file(q=True, sn=True))
-        
-        
+
         for f in l_check:
             mFile = PATHS.Path(f)
             if not mFile.exists():
@@ -4130,16 +4214,20 @@ class ui_toStandAlone(cgmUI.cgmGUI):
                     "{0} | Skip — path does not exist | {1}".format(_str_func, f)
                 )
                 continue
-            
-            if os.path.normpath(f) == _current:
-                if VALID.fileDirtyCheck() == False:
-                    log.info(
-                        "{0} | Skip — unsaved scene dialog cancelled or save aborted | {1}".format(
-                            _str_func, f
-                        )
+
+            if (
+                open_matches_queue
+                and _open_norm
+                and os.path.normpath(f) == _open_norm
+                and VALID.fileDirtyCheck() is False
+            ):
+                log.info(
+                    "{0} | Skip — unsaved scene dialog cancelled or save aborted | {1}".format(
+                        _str_func, f
                     )
-                    continue
-            
+                )
+                continue
+
             log.debug(cgmGEN.logString_sub(_str_func))
             
             _path = mFile.asFriendly()
@@ -4473,7 +4561,8 @@ class ui(cgmUI.cgmGUI):
             
             global UI
             UI = self
-            
+
+            self.setSceneChangeCB(cgmGEN.Callback(self.uiFunc_on_scene_change))
             
     def build_menus(self):
         self.uiMenu_options = mUI.MelMenu( l='Options', pmc=self.buildMenu_options)                        
@@ -5870,7 +5959,7 @@ class ui(cgmUI.cgmGUI):
         self.uiMenu_add.clear()
         
         mUI.MelMenuItem(self.uiMenu_add, label = 'Create UI', 
-                        c = lambda *a:ui_createBlock())
+                        c = lambda *a:blockCreate_open())
         
         
         mUI.MelMenuItemDiv(self.uiMenu_add, label = 'Old')
@@ -6705,6 +6794,30 @@ class ui(cgmUI.cgmGUI):
             return
             
         except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
+
+    def uiFunc_on_scene_change(self):
+        """scriptJob SceneOpened — defer until the new scene DAG is ready."""
+        _str_func = 'uiFunc_on_scene_change'
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'Scene opened — scheduling block list refresh'))
+        mc.evalDeferred(cgmGEN.Callback(self.uiFunc_refresh_blocks_after_scene_open), lp=True)
+
+    def uiFunc_refresh_blocks_after_scene_open(self):
+        _str_func = 'uiFunc_refresh_blocks_after_scene_open'
+        if not getattr(self, 'uiScrollList_blocks', None):
+            return
+        try:
+            self.uiFunc_block_clearActive()
+            log.info(cgmGEN.logString_msg(_str_func, 'Block list refreshed'))
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'clearActive failed ({0}); rebuilding list'.format(err)))
+            try:
+                self.uiScrollList_blocks.mActive = None
+                self.uiScrollList_blocks.rebuild()
+            except Exception as err2:
+                log.warning(cgmGEN.logString_msg(_str_func, 'rebuild failed: {0}'.format(err2)))
+
     def uiFunc_block_clearActive(self):
         #self.uiField_inspector(edit=True, label = '')
         self.uiField_report(edit=True, label = '...', en=False)        
@@ -9467,54 +9580,18 @@ class ui_createBlock(CGMUI.cgmGUI):
         # Initialize HelperDag system
         self.mHelper = HELPERS.HelperDag(self)
         self.mDag = self.mHelper.mDag
-        self.ml_helpers = VALID.listArg(self.mDag.getMessageAsMeta('helpers'))
+        self.ml_helpers = HELPERS.helpers_msglist_get(self.mDag)
         
-        # Debug: Check what we're getting from the DAG
         log.debug("|{0}| >> DAG node: {1}".format(_str_func, self.mDag.mNode))
-        log.debug("|{0}| >> Raw helpers from DAG: {1}".format(_str_func, self.mDag.getMessageAsMeta('helpers')))
-        log.debug("|{0}| >> Processed helpers list: {1}".format(_str_func, self.ml_helpers))
+        log.debug("|{0}| >> Helpers msgList: {1}".format(_str_func, len(self.ml_helpers)))
         
-        # Debug: List all objects that might be helpers
-        try:
-            all_objects = mc.ls('*helper*', type='transform')
-            log.debug("|{0}| >> All objects matching '*helper*': {1}".format(_str_func, all_objects))
-        except:
-            pass
-        
-        # Check if we have existing helpers in the scene
         if self.ml_helpers:
-            log.info("|{0}| >> Found {1} existing helpers in scene".format(_str_func, len(self.ml_helpers)))
-            # Filter out any helpers that no longer exist in the scene
-            valid_helpers = []
-            for i, mHelper in enumerate(self.ml_helpers):
-                try:
-                    # Check if helper is valid and exists
-                    if (mHelper and 
-                        hasattr(mHelper, 'mNode') and 
-                        mHelper.mNode and 
-                        mc.objExists(mHelper.mNode)):
-                        valid_helpers.append(mHelper)
-                        log.debug("|{0}| >> Helper {1} is valid".format(_str_func, mHelper.mNode))
-                    else:
-                        log.warning("|{0}| >> Helper at index {1} ({2}) no longer exists, removing from list".format(_str_func, i, mHelper))
-                except Exception as e:
-                    log.warning("|{0}| >> Error validating helper at index {1} ({2}): {3}".format(_str_func, i, mHelper, str(e)))
-            
-            self.ml_helpers = valid_helpers
-            self.mDag.helpers = self.ml_helpers  # Update the DAG with valid helpers
-            
-            if self.ml_helpers:
-                log.info("|{0}| >> Restored {1} valid helpers".format(_str_func, len(self.ml_helpers)))
-                # Show user feedback about restored helpers
-                self._show_helper_restoration_feedback(len(self.ml_helpers))
-            else:
-                log.info("|{0}| >> No valid helpers found in DAG, trying fallback search...".format(_str_func))
-                # Fallback: search for helpers by name pattern
-                self._fallback_helper_search()
+            log.info("|{0}| >> Restored {1} helpers from mrsHelpers".format(_str_func, len(self.ml_helpers)))
+            self._show_helper_restoration_feedback(len(self.ml_helpers))
         else:
-            log.info("|{0}| >> No existing helpers found in DAG, trying fallback search...".format(_str_func))
-            # Fallback: search for helpers by name pattern
+            log.info("|{0}| >> No helpers on mrsHelpers, trying fallback search...".format(_str_func))
             self._fallback_helper_search()
+        HELPERS.helpers_ui_update_registered(self, syncFromDag=False)
     
     def _fallback_helper_search(self):
         """Fallback method to search for helpers by name pattern"""
@@ -9555,7 +9632,7 @@ class ui_createBlock(CGMUI.cgmGUI):
                     seen_nodes.add(helper.mNode)
             
             self.ml_helpers = unique_helpers
-            self.mDag.helpers = self.ml_helpers  # Update the DAG
+            HELPERS.helpers_msglist_set(self.mDag, self.ml_helpers)
             
             log.info("|{0}| >> Found {1} helpers via fallback search".format(_str_func, len(self.ml_helpers)))
             self._show_helper_restoration_feedback(len(self.ml_helpers))
@@ -9563,17 +9640,9 @@ class ui_createBlock(CGMUI.cgmGUI):
             log.info("|{0}| >> No helpers found via fallback search".format(_str_func))
     
     def _show_helper_restoration_feedback(self, count):
-        """Show user feedback about restored helpers"""
+        """Log when existing helpers were restored from mrsHelpers."""
         if count > 0:
-            # Use Maya's built-in confirmation dialog to show the user
-            result = mc.confirmDialog(
-                title='Block Helpers Restored',
-                message='Found and restored {0} existing block helpers from the scene.\n\nThese helpers are now available for block creation.'.format(count),
-                button=['OK'],
-                defaultButton='OK',
-                cancelButton='OK',
-                dismissString='OK'
-            )
+            log.info("BlockCreate | Restored {0} block helper(s) from mrsHelpers.".format(count))
     
     def uiFunc_refresh_helpers(self):
         """Manually refresh helpers from the scene"""
@@ -9582,6 +9651,7 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         # Re-initialize the helper system
         self._init_helper_system()
+        HELPERS.helpers_ui_update_registered(self, syncFromDag=False)
         
         # Show feedback
         if hasattr(self, 'ml_helpers') and self.ml_helpers:
@@ -9723,33 +9793,23 @@ class ui_createBlock(CGMUI.cgmGUI):
             ml_helpers = []
             
         for i in range(count):
+            if i >= len(ml_helpers) or not ml_helpers[i]:
+                return log.error("|{0}| >> Helper missing for index {1} (have {2})".format(
+                    _str_func, i, len(ml_helpers)))
             mHelper = ml_helpers[i]
 
             
             if mHelper and mHelper.mNode:
-                _orient = mHelper.p_orient
-                mHelper.p_orient = 0,0,0
-                _size = TRANS.bbSize_get(mHelper.mNode)
-                mHelper.p_orient = _orient
-                _cast = max(_size) * 1.5
-                #d_create['size'] = _size
-                _helper = mHelper.mNode
-                _shapeDirection = d_create.get('shapeDirection','z+')
-                
-                _d_shapeToCast = {'y':'xzy',
-                                  'x':'yzx',
-                                  'z':'xyz'}
-                _d_shapeToCast[_shapeDirection[0]][0]
-                _castSize = [RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][0],shapes = _helper, selfCast=True, maxDistance=10000),
-                             RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][1],shapes = _helper, selfCast=True, maxDistance=10000),
-                             RAYS.get_dist_from_cast_axis(_helper,_d_shapeToCast[_shapeDirection[0]][2],shapes = _helper, selfCast=True, maxDistance=10000),
-                             ]
+                _shapeDirection = d_create.get('shapeDirection', 'z+')
+                _castSize = HELPERS.helper_block_size_from_helper(mHelper, _shapeDirection)
                 d_create['size'] = _castSize
                 
                 d_create['jointRadius'] = (MATH.average(_castSize[0],_castSize[1])) * .2
                 
             pprint.pprint(d_create)
             _mBlock = cgmMeta.createMetaNode('cgmRigBlock',**d_create)
+            if mHelper and mHelper.mNode:
+                _mBlock.p_orient = mHelper.p_orient
 
             
             if _sel:

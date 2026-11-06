@@ -55,8 +55,9 @@ ml_cgmObjects[4].getAllParents(asMeta = 1)#We can get those as meta too
 ml_cgmObjects[0].getChildren()#We can get immediate children
 ml_cgmObjects[0].getChildren(asMeta = True)#as meta or full path too
 
-ml_cgmObjects[0].getAllChildren()#We can get all dag children
-ml_cgmObjects[0].getAllChildren(asMeta = True)#as meta or full path too
+ml_cgmObjects[0].getAllChildren()#We can get all dag children (short names by default)
+ml_cgmObjects[0].getAllChildren(asMeta = True)#meta; Maya query uses fullPath internally
+ml_cgmObjects[0].getAllChildren(fullPath = True)#explicit long names when returning strings
 
 ml_cgmObjects[0].getShapes()# Hmm...no shapes, let's try something with shapes
 

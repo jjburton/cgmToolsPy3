@@ -36,7 +36,11 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.attribute_utils as ATTR
 import cgm.core.lib.rigging_utils as CORERIG
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+import cgm.core.lib.constraint_utils as CONSTRAINT
+import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.rig.ik_utils as IK
+import cgm.core.rig.bezier_utils as RIGBEZIER
+import cgm.core.mrs.lib.bezier_ik_block_utils as BEZIERIKBLOCK
 import cgm.core.classes.NodeFactory as NODEFACTORY
 
 """
@@ -196,7 +200,18 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
             IK.ribbon(**d_mid)
             
         elif _str_mode == 'prntConstraint':
-            mc.parentConstraint([mObj.mNode for mObj in ml_ribbonHandles], mDriver.mNode, maintainOffset = 1)
+            _l_targets = [mObj.mNode for mObj in ml_ribbonHandles]
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'prntConstraint | mid drivers:{0} | ribbon targets:{1}'.format(
+                    len(ml_drivers),
+                    [mObj.p_nameShort for mObj in ml_ribbonHandles])))
+            for mDriver in ml_drivers:
+                _pc = mc.parentConstraint(
+                    _l_targets, mDriver.mNode, maintainOffset=True)
+                _vList = DIST.get_normalizedWeightsByDistance(
+                    mDriver.mNode, _l_targets)
+                CONSTRAINT.set_weightsByDistance(_pc[0], _vList)
         
         elif _str_mode in ['linearTrack','cubicTrack']:
             ml_track = ml_ribbonHandles
@@ -244,45 +259,189 @@ def segment_mid(self, ml_handles = None,ml_ribbonHandles= None, mGroup = None,
             for mDriver in ml_drivers:
                 RIGCONSTRAINT.attach_toShape(mDriver, mShape.mNode, 'conPoint',parentTo=mModule.rigNull.mNode, floating=False)
                 
-            
-            if len(ml_drivers) > 1:
-                for i,mDriver in enumerate(ml_drivers):
-                    if mDriver == ml_drivers[-1]:
-                        mc.aimConstraint([ml_drivers[-2].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,-1], upVector = [0,1,0],
-                                         worldUpObject = mIKEnd.mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])      
-                    elif mDriver == ml_drivers[0]:
-                        mc.aimConstraint([ml_drivers[i+1].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,-1], upVector = [0,1,0],
-                                         worldUpObject = mIKBase.mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])                              
-                    else:
-                        mc.aimConstraint([ml_drivers[i+1].mNode],
-                                         mDriver.mNode,
-                                         maintainOffset = True, #skip = 'z',
-                                         aimVector = [0,0,1], upVector = [0,1,0],
-                                         worldUpObject = ml_drivers[i-1].mNode,
-                                         worldUpType = 'objectrotation', worldUpVector = [1,0,0])
-            else:
-                mc.aimConstraint([mIKBase.mNode],
-                                 mDriver.mNode,
-                                 maintainOffset = True, #skip = 'z',
-                                 aimVector = [0,0,-1], upVector = [0,1,0],
-                                 worldUpObject = mIKEnd.mNode,
-                                 worldUpType = 'objectrotation', worldUpVector = [1,0,0])                
+            # Head: ikMidAimSetup (default off). Other blocks: legacy always aim on track modes.
+            _b_midAimSetup = True
+            if mBlock.hasAttr('ikMidAimSetup'):
+                _b_midAimSetup = bool(mBlock.ikMidAimSetup)
+
+            _b_head_linear_root_end_aim = (
+                _b_midAimSetup
+                and _str_mode == 'linearTrack'
+                and mBlock.hasAttr('ikMidAimSetup')
+                and mIKBase
+                and mIKEnd)
+
+            if _b_head_linear_root_end_aim:
+                _v_aim = self.d_orientation['vectorAim']
+                _v_up = self.d_orientation['vectorUp']
+                _v_wu = self.d_orientation.get('vectorOut')
+                if not _v_wu and getattr(self, 'v_twistUp', None):
+                    _v_wu = self.v_twistUp
+                if not _v_wu:
+                    _v_wu = [0, 1, 0]
+                mAimRef = mIKBase.doCreateAt(setClass='cgmObject')
+                mAimRef.rename('{0}_midRootEnd_aimRef'.format(self.d_module['partName']))
+                mAimRef.p_parent = mIKBase
+                mc.aimConstraint(
+                    mIKEnd.mNode,
+                    mAimRef.mNode,
+                    maintainOffset=True,
+                    aimVector=_v_aim,
+                    upVector=_v_up,
+                    worldUpObject=mIKBase.mNode,
+                    worldUpType='objectrotation',
+                    worldUpVector=_v_wu)
+                for mDriver in ml_drivers:
+                    mc.orientConstraint(
+                        mAimRef.mNode,
+                        mDriver.mNode,
+                        maintainOffset=True)
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'head linearTrack mid aim | root {0} -> end {1} | drivers {2}'.format(
+                        mIKBase.p_nameShort,
+                        mIKEnd.p_nameShort,
+                        len(ml_drivers))))
+
+            elif _b_midAimSetup:
+                if len(ml_drivers) > 1:
+                    for i,mDriver in enumerate(ml_drivers):
+                        if mDriver == ml_drivers[-1]:
+                            mc.aimConstraint([ml_drivers[-2].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,-1], upVector = [0,1,0],
+                                             worldUpObject = mIKEnd.mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])      
+                        elif mDriver == ml_drivers[0]:
+                            mc.aimConstraint([ml_drivers[i+1].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,-1], upVector = [0,1,0],
+                                             worldUpObject = mIKBase.mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])                              
+                        else:
+                            mc.aimConstraint([ml_drivers[i+1].mNode],
+                                             mDriver.mNode,
+                                             maintainOffset = True, #skip = 'z',
+                                             aimVector = [0,0,1], upVector = [0,1,0],
+                                             worldUpObject = ml_drivers[i-1].mNode,
+                                             worldUpType = 'objectrotation', worldUpVector = [1,0,0])
+                else:
+                    mc.aimConstraint([mIKBase.mNode],
+                                     mDriver.mNode,
+                                     maintainOffset = True, #skip = 'z',
+                                     aimVector = [0,0,-1], upVector = [0,1,0],
+                                     worldUpObject = mIKEnd.mNode,
+                                     worldUpType = 'objectrotation', worldUpVector = [1,0,0])
             
         else:
             raise Exception("{} | unknown mode : {}".format(_str_func, _str_mode))
             
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
+
+
+def limb_segment_mid(self, mControlMid, ml_segHandles, segmentIndex, mGroup=None, ml_trackHandles=None):
+    """
+    Per roll-segment mid IK for limb blocks — localized to ml_segHandles only.
+    Not full-chain segment_mid (spine/neck).
+    """
+    try:
+        _str_func = 'limb_segment_mid'
+        log_start(_str_func)
+        
+        mBlock = self.mBlock
+        mModule = self.mModule
+        
+        _str_mode = mBlock.getEnumValueString('segmentMidIKSetup')
+        
+        if not mControlMid or not ml_segHandles:
+            raise ValueError("{0} | mControlMid and ml_segHandles required".format(_str_func))
+        
+        mSegStart = ml_segHandles[0]
+        mSegEnd = ml_segHandles[-1]
+        _base = '{0}_segMid_{1}'.format(self.d_module['partName'], segmentIndex)
+        
+        if _str_mode in ['ribbon', 'ribbonLive']:
+            if mGroup:
+                mControlMid.masterGroup.parent = mGroup
+            
+            ml_midTrackJoints = copy.copy(ml_segHandles)
+            ml_midTrackJoints.insert(1, mControlMid)
+            
+            # Live surface: only seg end handles drive the loft; mid rides via jointList + follicles.
+            d_mid = {'jointList': [mJnt.mNode for mJnt in ml_midTrackJoints],
+                     'baseName': '{0}_midRibbon'.format(_base),
+                     'driverSetup': None,
+                     'squashStretch': None,
+                     'paramaterization': 'floating',
+                     'msgDriver': 'masterGroup',
+                     'specialMode': 'noStartEnd',
+                     'connectBy': 'constraint',
+                     'influences': ml_segHandles,
+                     'liveSurface': _str_mode == 'ribbonLive',
+                     'extendEnds': _str_mode == 'ribbonLive',
+                     'moduleInstance': mModule}
+            
+            if _str_mode == 'ribbonLive':
+                _sectionSpans = 2
+                _d_ik = getattr(self, 'd_squashStretchIK', None) or {}
+                if _d_ik.get('sectionSpans'):
+                    _sectionSpans = _d_ik['sectionSpans']
+                d_mid['sectionSpans'] = _sectionSpans
+            
+            IK.ribbon(**d_mid)
+            return
+        
+        if _str_mode == 'prntConstraint':
+            mDriver = mControlMid.doCreateAt('joint', setClass='cgmObject')
+            mDriver.rename('{0}_mainDriver'.format(mControlMid.p_nameBase))
+            mDriver.p_parent = mControlMid.masterGroup
+            mControlMid.doStore('mainDriver', mDriver.mNode, 'msg')
+            mc.parentConstraint([mObj.mNode for mObj in ml_segHandles],
+                                mDriver.mNode,
+                                maintainOffset=True)
+            return
+        
+        if _str_mode in ['linearTrack', 'cubicTrack']:
+            ml_curveThrough = ml_trackHandles or list(ml_segHandles)
+            if len(ml_curveThrough) < 2:
+                raise ValueError("{0} | need at least two segment handles for track (got {1})".format(
+                    _str_func, len(ml_curveThrough)))
+            
+            _trackCurve, _l_clusters = CORERIG.create_at(
+                [mObj.mNode for mObj in ml_curveThrough],
+                _str_mode,
+                baseName='{0}_mid{1}'.format(_base, _str_mode))
+            mCrv = cgmMeta.asMeta(_trackCurve)
+            mShape = cgmMeta.asMeta(mCrv.getShapes()[0])
+            
+            ml_clusters = cgmMeta.asMeta([s[1] for s in _l_clusters])
+            
+            for mObj in [mCrv] + ml_clusters:
+                mObj.overrideEnabled = 1
+                cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsVis', lock=False).doConnectOut(
+                    "%s.%s" % (_trackCurve, 'overrideVisibility'))
+                cgmMeta.cgmAttr(mModule.rigNull.mNode, 'gutsLock', lock=False).doConnectOut(
+                    "%s.%s" % (_trackCurve, 'overrideDisplayType'))
+            
+            for s in _l_clusters:
+                ATTR.set(s[1], 'visibility', False)
+            
+            mCrv.p_parent = mModule.rigNull.mNode
+            
+            BLOCKSHAPES.attachToCurve(mControlMid,
+                                      mCrv,
+                                      mShape,
+                                      parentTo=mModule.rigNull.mNode,
+                                      trackLink='masterGroup')
+            return
+        
+        raise ValueError("{0} | unknown segmentMidIKSetup mode: {1}".format(_str_func, _str_mode))
     
-    
-    
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err, localDat=vars())
+
 
 def ik_rp(self,mStart,mEnd,ml_ikFrame = None,
           mIKControl=None,mIKBaseControl = None,
@@ -773,11 +932,127 @@ def spline(self, ml_ikJoints = None,ml_ribbonIkHandles=None,mIKControl=None,
 
         
         #mc.orientConstraint(mIKControl.mNode, ml_ikJoints[-1].mNode, maintainOffset=True)
-        
+        return {'mSplineCurve': mSplineCurve}
       
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())
-    
-    
+
+
+def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
+           mPlug_masterScale=None, ikEndTwistConnect=True, mSettings=None,
+           ml_bezierMainIK=None, ml_bezierSubsPerMain=None,
+           mTwistEndControl=None):
+    """
+    Bezier IK driver + ikSplineSolver (IK.bezier_spline). Stretch uses bezier_spline_stretch later.
+    """
+    try:
+        _str_func = 'bezier'
+        log_start(_str_func)
+
+        mRigNull = self.mRigNull
+        _jointOrientation = self.d_orientation['str']
+        str_base = '{0}_bezier'.format(self.d_module['partName'])
+
+        if not ml_bezierMainIK:
+            ml_bezierMainIK = []
+            if mIKBaseControl:
+                ml_bezierMainIK.append(mIKBaseControl)
+            if mIKControl:
+                if mIKControl not in ml_bezierMainIK:
+                    ml_bezierMainIK.append(mIKControl)
+
+        int_bezier_sections = max(1, len(ml_bezierMainIK) - 1)
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'bezierSections={0} | main IK controls:{1}'.format(
+                int_bezier_sections, len(ml_bezierMainIK))))
+
+        _str_bezier_mode = BEZIERIKBLOCK.block_bezier_anchor_mode(self.mBlock)
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'bezierAnchorMode={0}'.format(_str_bezier_mode)))
+
+        res_bezier = IK.bezier_spline(
+            jointList=[mObj.mNode for mObj in ml_ikJoints],
+            baseName=str_base,
+            bezierSections=int_bezier_sections,
+            bezierAnchorMode=_str_bezier_mode,
+            advancedTwistSetup=True,
+            moduleInstance=self.mModule,
+            useUndoChunk=False)
+
+        mBezierCurve = res_bezier['mBezierCurve']
+        mDriverCurve = res_bezier['mDriverCurve']
+        mIKHandle = res_bezier['mIKHandle']
+
+        mRigNull.connectChildNode(mBezierCurve.mNode, 'bezierIKCurve', 'rigNull')
+        mRigNull.connectChildNode(mDriverCurve.mNode, 'bezierIKDriverCurve', 'rigNull')
+        mRigNull.connectChildNode(mIKHandle.mNode, 'ikSplineHandle', 'rigNull')
+
+        if ml_bezierMainIK:
+            res_wire = RIGBEZIER.bezier_controls_wire_from_handles(
+                mBezierCurve,
+                ml_anchorControls=ml_bezierMainIK,
+                ml_subs_per_main=ml_bezierSubsPerMain,
+                baseName=str_base,
+                templateCurve=True,
+                snapHandles=True)
+            mRigNull.connectChildNode(
+                res_wire['mControlsGroup'].mNode, 'bezierIKControlsGrp', 'rigNull')
+            res_bezier['bezierControlsWire'] = res_wire
+
+        if mPlug_masterScale and mDriverCurve.hasAttr('masterScale'):
+            mDriverCurve.doConnectIn('masterScale', mPlug_masterScale.p_combinedShortName)
+
+        # twistBaseAdd / twistEndAdd on module IK (hip/chest), not bezier CV mains.
+        mTwistAddStart = mIKBaseControl
+        mTwistAddEnd = mTwistEndControl or mIKControl
+        if not mTwistAddStart and ml_bezierMainIK:
+            mTwistAddStart = ml_bezierMainIK[0]
+        if not mTwistAddEnd and ml_bezierMainIK:
+            mTwistAddEnd = ml_bezierMainIK[-1]
+
+        # Advanced twist WU — unchanged from pre–twist-add fix (bezier CV span / resolve list).
+        mWorldUpStart = mIKBaseControl
+        mWorldUpEnd = mTwistEndControl or mIKControl
+        if ml_bezierMainIK:
+            mWorldUpStart = ml_bezierMainIK[0]
+            mWorldUpEnd = mTwistEndControl or ml_bezierMainIK[-1]
+
+        if ikEndTwistConnect and mTwistAddEnd and mTwistAddStart:
+            BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
+                mIKHandle,
+                mTwistAddStart,
+                mTwistAddEnd,
+                ik_end_twist_connect=True,
+                mSettings=mSettings)
+        elif mSettings:
+            BEZIERIKBLOCK.bezier_ik_wire_handle_twist_from_controls(
+                mIKHandle,
+                None,
+                None,
+                ik_end_twist_connect=False,
+                mSettings=mSettings)
+
+        if mSettings and mc.attributeQuery('twistType', node=mIKHandle.mNode, exists=True):
+            ATTR.copy_to(mIKHandle.mNode, 'twistType', mSettings.mNode, driven='source')
+
+        if mWorldUpStart and mWorldUpEnd:
+            BEZIERIKBLOCK.bezier_ik_connect_spline_advanced_twist(
+                mDriverCurve,
+                mIKHandle,
+                self.mBlock,
+                self.d_orientation,
+                mWorldUpStart=mWorldUpStart,
+                mWorldUpEnd=mWorldUpEnd,
+                str_mainRotAxis=getattr(self, 'str_mainRotAxis', None),
+                wire_driver_twist_from_mains=False)
+
+        log.info(cgmGEN.logString_msg(_str_func, 'done | {0}'.format(mBezierCurve.p_nameShort)))
+        return res_bezier
+
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err, localDat=vars())
+
+
 def segment_handles(self, ml_handles = None, ml_handleParents = None, mIKBaseControl=None,
                     mRoot = None, str_ikBase = None, upMode = 'asdf'):
     pprint.pprint(vars())

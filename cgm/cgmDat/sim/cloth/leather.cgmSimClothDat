@@ -1,0 +1,21 @@
+{
+    "datKind": "cloth",
+    "differential": false,
+    "profile": {
+        "bendAngleDropoff": 0.727,
+        "bendResistance": 10.0,
+        "compressionResistance": 50.0,
+        "damp": 8.0,
+        "drag": 0.05,
+        "friction": 0.6,
+        "lift": 0.05,
+        "pointMass": 3.0,
+        "pushOutRadius": 10.0,
+        "shearResistance": 50.0,
+        "stretchResistance": 50.0,
+        "tangentialDrag": 0.2
+    },
+    "profileKind": "fabric",
+    "schemaVersion": 1,
+    "section": "nc"
+}

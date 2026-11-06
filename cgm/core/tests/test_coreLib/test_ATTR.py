@@ -1,58 +1,97 @@
 """
 ------------------------------------------
-cgm_Meta: cgm.core.test.test_coreLib.test_ATTR
+cgm.core.tests.test_coreLib.test_ATTR
 Author: Josh Burton
 email: cgmonks.info@gmail.com
-
 Website : https://github.com/jjburton/cgmTools/wiki
 ------------------------------------------
 
-Unit Tests for the validateArgs.objString function
+Maya unit tests for cgm.core.lib.attribute_utils.
+Creates nodes — runner already does file-new before this module.
 ================================================================
 """
-# IMPORTS ====================================================================
 import unittest
 import logging
-import unittest.runner
-import maya.standalone
 
 try:
-    import maya.cmds as mc   
-    from Red9.core import Red9_Meta as r9Meta
-    from cgm.core import cgm_Meta as cgmMeta
-    from cgm.core.cgmPy import validateArgs as VALID
-    
+    import maya.cmds as mc
+    from cgm.core.lib import attribute_utils as ATTR
 except ImportError:
-    raise Exception('objString test can only be run in Maya')
+    raise Exception('test_ATTR can only be run in Maya')
 
-# LOGGING ====================================================================
 log = logging.getLogger(__name__.split('.')[-1])
-log.setLevel(logging.INFO)  
-    
-# CLASSES ====================================================================
-class Test_base(unittest.TestCase):            
-    def test_create(self):
-        pass
-        #raise Exception,'To do...' 
-        
-class Test_msgList(unittest.TestCase):     
-    def test_create(self):
-        pass
-        #raise Exception,'To do...' 
+log.setLevel(logging.INFO)
 
-        
-# FUNCTIONS ==================================================================       
-"""def main(**kwargs):
-    #testCases = [Test_r9Issues,]
-    
-    suite = unittest.TestSuite()
 
-    #for testCase in testCases:
-        #suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(testCase))
+class Test_crud(unittest.TestCase):
+    def setUp(self):
+        self.obj = mc.spaceLocator(name='cgmAttrTestLoc')[0]
+        ATTR.add(self.obj, 'cgmTest', 'float', value=1.5)
 
-    debug = kwargs.get('debug', False)
+    def tearDown(self):
+        if mc.objExists(self.obj):
+            mc.delete(self.obj)
 
-    if debug:
-        suite.debug()
-    else:
-        unittest.TextTestRunner(verbosity=2).run(suite)"""
+    def test_has_attr(self):
+        self.assertTrue(ATTR.has_attr(self.obj, 'cgmTest'))
+        self.assertFalse(ATTR.has_attr(self.obj, 'noSuchAttr'))
+
+    def test_get_set(self):
+        self.assertEqual(ATTR.get(self.obj, 'cgmTest'), 1.5)
+        ATTR.set(self.obj, 'cgmTest', 3.0)
+        self.assertEqual(ATTR.get(self.obj, 'cgmTest'), 3.0)
+
+    def test_type(self):
+        # Maya may report float or double; ATTR treats them as the same family.
+        self.assertTrue(
+            ATTR.validate_attrTypeMatch(ATTR.get_type(self.obj, 'cgmTest'), 'float'),
+            "float add should match float/double family, got {0}".format(
+                ATTR.get_type(self.obj, 'cgmTest')))
+
+
+class Test_message(unittest.TestCase):
+    def setUp(self):
+        self.holder = mc.spaceLocator(name='cgmMsgHolder')[0]
+        self.target = mc.spaceLocator(name='cgmMsgTarget')[0]
+        ATTR.add(self.holder, 'cgmLink', 'message')
+        ATTR.set_message(self.holder, 'cgmLink', self.target, simple=True)
+
+    def tearDown(self):
+        for o in (self.holder, self.target):
+            if mc.objExists(o):
+                mc.delete(o)
+
+    def test_returnMessageData_short(self):
+        res = ATTR.returnMessageData(self.holder, 'cgmLink', longNames=False)
+        self.assertTrue(res)
+        self.assertEqual(mc.ls(res[0], shortNames=True)[0],
+                         mc.ls(self.target, shortNames=True)[0])
+
+    def test_returnMessageData_missing(self):
+        self.assertFalse(ATTR.returnMessageData(self.holder, 'noMsg'))
+
+
+class Test_get_driver(unittest.TestCase):
+    """skipConversionNodes is a keyword. Positional True would bind to attr, not skip."""
+
+    def setUp(self):
+        self.src = mc.spaceLocator(name='cgmDrvSrc')[0]
+        self.dst = mc.spaceLocator(name='cgmDrvDst')[0]
+        mc.connectAttr(self.src + '.rx', self.dst + '.rx')
+
+    def tearDown(self):
+        for o in (self.src, self.dst):
+            if mc.objExists(o):
+                mc.delete(o)
+
+    def test_skip_conversion_keyword(self):
+        driver = ATTR.get_driver(self.dst, 'rx', skipConversionNodes=True)
+        self.assertTrue(driver)
+        self.assertIn('.rotateX', driver)
+        self.assertNotIn('unitConversion', driver)
+
+    def test_getNode(self):
+        node = ATTR.get_driver(self.dst, 'rx', getNode=True, skipConversionNodes=True)
+        self.assertTrue(node)
+        self.assertEqual(mc.ls(node, shortNames=True)[0],
+                         mc.ls(self.src, shortNames=True)[0])

@@ -19,21 +19,31 @@ log.setLevel(logging.INFO)
 
 
 
+_l_branches_py3 = ('main', 'diffusionTools')
+_l_branches_py2 = ('MRSDAILY','MRSDEV','stable','master','MRS','MRSWORKSHOP','MRSWORKSHOPDEV')
+
 _b_py3 = False
 if platform.python_version().startswith('3'):
     _b_py3 = True
     from urllib.request import Request, urlopen
-    from urllib.error import URLError    
-    
-    _pathMain = 'https://github.com/jjburton/cgmtoolsPy3/commits/'
-    _pathPull =  "https://github.com/jjburton/cgmtoolsPy3/get/"
-    
+    from urllib.error import URLError
+
+    _repoName = 'cgmToolsPy3'
+    _l_branches = _l_branches_py3
+    _l_foreign_branches = _l_branches_py2
+    _defaultBranch = 'main'
+    _pathMain = 'https://github.com/jjburton/cgmToolsPy3/commits/'
+    _pathPull =  "https://github.com/jjburton/cgmToolsPy3/get/"
     _route = 'https://api.github.com/repos/jjburton/cgmToolsPy3/commits?sha='
     _urlBase =  "https://github.com/jjburton/cgmToolsPy3/archive/"
     _urlGet = "https://bitbucket.org/jjburton/cgmtoolsPy3/get/"
 else:
     from urllib2 import Request, urlopen, URLError
-    
+
+    _repoName = 'cgmTools'
+    _l_branches = _l_branches_py2
+    _l_foreign_branches = _l_branches_py3
+    _defaultBranch = 'master'
     _pathMain = 'https://github.com/jjburton/cgmtools/commits/'
     _pathPull =  "https://github.com/jjburton/cgmtools/get/"
     _route = 'https://api.github.com/repos/jjburton/cgmTools/commits?sha='
@@ -42,9 +52,23 @@ else:
 
 def get_pyString():
     if _b_py3:
-        return '[Python 3]'
-    else:
-        return '[Python 2]'
+        return '[Python 3 | {0}]'.format(_repoName)
+    return '[Python 2 | {0}]'.format(_repoName)
+
+def branch_is_valid(branch):
+    return branch in _l_branches
+
+def branch_is_foreign(branch):
+    return branch in _l_foreign_branches
+
+def refuse_foreign_branch(branch, str_func='cgmUpdate'):
+    """True if this Python must not fetch/install that branch (other repo)."""
+    if not branch_is_foreign(branch):
+        return False
+    _other = 'cgmTools (py2)' if _b_py3 else 'cgmToolsPy3'
+    log.error("|{0}| {1} refusing [{2}] — that is a {3} branch.".format(
+        str_func, get_pyString(), branch, _other))
+    return True
     
 def print_pySetup():
     return log.warning(get_pyString())
@@ -64,7 +88,6 @@ _test = 'MRS'
 #_pathMount  = 'https://api.bitbucket.org/2.0/repositories/jjburton/cgmtools/commits/'
 #_pathRepos = 'https://api.bitbucket.org/2.0/repositories/jjburton/cgmtools/'
 
-_defaultBranch = 'main'
 _sep = os.sep
 
 global CGM_BUILDS_DAT
@@ -472,7 +495,7 @@ def get_build_bit(branch = _defaultBranch, idx = 0, mode = None):
     _zip = download(url)
     return _zip
 
-def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
+def get_dat(branch = _defaultBranch, limit = 3, update = False, reportMode=False):
     """
     
     """
@@ -480,6 +503,8 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
     _str_func = 'get_dat'
     print(('='*100))            
     print(("|{0}| >> Branch: {1}".format(_str_func,branch)))
+    if refuse_foreign_branch(branch, _str_func):
+        return []
     
     global CGM_BUILDS_DAT
     #pprint.pprint(CGM_BUILDS_DAT)
@@ -544,10 +569,11 @@ def get_dat(branch = 'master', limit = 3, update = False, reportMode=False):
         pprint.pprint(vars())
         print(('It appears this is not working...URL or Timeout Error :(', e))
         print('More than likely your internet is down or the server is.')
+        return []
     finally:
         print('...')
         
-def get_dat_bit(branch = 'master', limit = 3, update = False):
+def get_dat_bit(branch = _defaultBranch, limit = 3, update = False):
     """
     
     """
@@ -608,6 +634,7 @@ def get_dat_bit(branch = 'master', limit = 3, update = False):
     except URLError as e:
         pprint.pprint(vars())
         print(('It appears this is not working...URL or Timeout Error :(', e))
+        return []
     finally:
         print('...')
 
@@ -662,6 +689,8 @@ def here(branch = _defaultBranch, idx = 0, cleanFirst = True, run = True, reload
     """
     """
     _str_func = 'here'
+    if refuse_foreign_branch(branch, _str_func):
+        return
     _path = get_install_path(True,branch)
     if not _path:
         return log.error("|{0}| >>No Path picked...".format(_str_func,_path))

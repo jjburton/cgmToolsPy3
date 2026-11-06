@@ -530,6 +530,30 @@ def _run_batch_post_stage(_str_func, stage_name, stage_call):
         raise
 
 
+def is_mrs_build_output_scene(path_or_basename):
+    """True when *path_or_basename* is an MRS Build output scene (``*_BUILD.ma`` / ``*.mb``)."""
+    if not path_or_basename:
+        return False
+    _base = os.path.basename(str(path_or_basename))
+    _stem, _ext = os.path.splitext(_base)
+    if _ext.lower() not in ('.ma', '.mb'):
+        return False
+    return _stem.upper().endswith('_BUILD')
+
+
+def resolve_build_output_path(version_file_path):
+    """MRS Build output scene: same directory, basename + ``_BUILD`` before extension."""
+    if not version_file_path:
+        return None
+    if is_mrs_build_output_scene(version_file_path):
+        return None
+    mFile = PATHS.Path(version_file_path)
+    _name = mFile.name()
+    _d = mFile.up().asFriendly()
+    return os.path.normpath(os.path.join(
+        _d, '{0}_BUILD.{1}'.format(_name, mFile.getExtension())))
+
+
 @cgmGEN.Timer
 def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _str_func = 'process_blocks_rig'
@@ -543,14 +567,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     _path = mFile.asFriendly()
     
     log.info("Good Path: {0}".format(_path))
-    """
-    if 'template' in _path:
-        _newPath = _path.replace('template','build')
-    else:"""
-    _name = mFile.name()
-    _d = mFile.up().asFriendly()
-    log.debug(cgmGEN.logString_msg(_str_func,_name))
-    _newPath = os.path.join(_d,_name+'_BUILD.{0}'.format(mFile.getExtension()))        
+    _newPath = resolve_build_output_path(f)
 
     log.info("New Path: {0}".format(_newPath))
     
@@ -561,6 +578,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     T1 = time.time()
     
     get_time = cgmGEN.get_timeString
+    get_time_log = cgmGEN.get_timeLogString
     try:
         if not blocks:
             #cgmGEN.logString_sub(_str_func,'No blocks arg')
@@ -801,7 +819,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     
     except Exception as err:
         T2 = time.time()
-        log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
+        log.info("|{0}| >> Total Time >> = {1}".format(_str_func, get_time_log(T2-T1)))
         
     
         #cgmGEN.logString_msg(_str_func,'File Save...')
@@ -822,7 +840,7 @@ def process_blocks_rig(f = None, blocks = None, postProcesses = 1,**kws):
     #    log.error(err)
     
     T2 = time.time()
-    log.info("|{0}| >> Total Time >> = {1} seconds".format(_str_func, get_time(T2-T1))) 
+    log.info("|{0}| >> Total Time >> = {1}".format(_str_func, get_time_log(T2-T1))) 
     
 
     #cgmGEN.logString_msg(_str_func,'File Save...')

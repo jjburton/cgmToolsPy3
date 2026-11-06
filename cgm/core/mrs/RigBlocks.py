@@ -229,13 +229,17 @@ class cgmRigBlock(cgmMeta.cgmControl):
                 _callSize = get_callSize(_size,blockProfile=kws.get('blockProfile'),blockType=blockType)
             _doVerify = True
             _justCreated = True
-            if  _sel:
-                pos_target = TRANS.position_get(_sel[0])
-                log.debug("|{0}| >> pos_target: {1}".format(_str_func,pos_target))                                
-                if pos_target[0] >= .05:
-                    _side = 'left'
-                elif pos_target[0] <= -.05:
-                    _side = 'right'            
+            if _sel:
+                _src = _sel[0]
+                # Side infer needs a DAG transform. Attr plugs / components in selection
+                # (common after other tools or unit tests) are not valid xform targets.
+                if VALID.is_transform(_src):
+                    pos_target = TRANS.position_get(_src)
+                    log.debug("|{0}| >> pos_target: {1}".format(_str_func,pos_target))
+                    if pos_target[0] >= .05:
+                        _side = 'left'
+                    elif pos_target[0] <= -.05:
+                        _side = 'right' 
 
 
         #>>Verify or Initialize

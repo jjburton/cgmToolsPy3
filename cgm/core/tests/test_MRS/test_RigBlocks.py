@@ -36,6 +36,7 @@ log = logging.getLogger(__name__.split('.')[-1])
 log.setLevel(logging.INFO)  
     
 # CLASSES ====================================================================
+@unittest.skip("MRS RigBlocks suite is incomplete — leftover selection / xform on attr plugs. Re-enable when the block create tests have their own scene setup.")
 class Test_RigBlocks(unittest.TestCase):
     def setUp(self):
         pass

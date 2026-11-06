@@ -26,8 +26,6 @@ import maya.mel as mel
 
 import Red9
 
-#from cgm.lib.zoo.zooPyMaya import xferAnimUI
-
 from cgm.core import cgm_General as cgmGEN
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
@@ -37,6 +35,7 @@ import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
 #reload(RIGGING)
 from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import curve_Utils as CURVES
+import cgm.core.rig.bezier_utils as RIGBEZIER
 import cgm.core.lib.rayCaster as RAYS
 import cgm.core.lib.locator_utils as LOC
 from cgm.core.tools import meshTools
@@ -294,48 +293,35 @@ def uiSection_query(parent = None):
 def buildRows_ratio_arrange(parent, ui=None):
     """Ratio arrange button rows for cgmToolbox / snapTools snap sections."""
     _ann = ARRANGE._d_arrangeRatio_ann
-    _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
-    mUI.MelSpacer(_row_preset, w=5)
-    mUI.MelLabel(_row_preset, l='Ratio:')
-    _row_preset.setStretchWidget(mUI.MelSeparator(_row_preset))
-    mc.button(
-        parent=_row_preset, l='Golden', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'linear'}),
-        ann=_ann.get('ratioGoldenLinear'))
-    mc.button(
-        parent=_row_preset, l='Golden | Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'cubic'}),
-        ann=_ann.get('ratioGoldenCubic'))
-    mc.button(
-        parent=_row_preset, l='Finger', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'linear'}),
-        ann=_ann.get('ratioFingerLinear'))
-    mc.button(
-        parent=_row_preset, l='Finger | Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'cubic'}),
-        ann=_ann.get('ratioFingerCubic'))
-    mc.button(
-        parent=_row_preset, l='Golden | To Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'golden_all', 'curve': 'target'}),
-        ann=_ann.get('ratioGoldenTarget'))
-    mc.button(
-        parent=_row_preset, l='Finger | To Curve', ut='cgmUITemplate',
-        c=cgmGEN.Callback(
-            MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
-            **{'preset': 'finger', 'curve': 'target'}),
-        ann=_ann.get('ratioFingerTarget'))
-    mUI.MelSpacer(_row_preset, w=5)
-    _row_preset.layout()
+    # Three rows so the preset labels do not set the toolbox window width.
+    _l_ratio_rows = (
+        ('Ratio:', (
+            ('Golden', 'golden_all', 'linear', 'ratioGoldenLinear'),
+            ('Finger', 'finger', 'linear', 'ratioFingerLinear'),
+        )),
+        ('Ratio | Curve:', (
+            ('Golden | Curve', 'golden_all', 'cubic', 'ratioGoldenCubic'),
+            ('Finger | Curve', 'finger', 'cubic', 'ratioFingerCubic'),
+        )),
+        ('Ratio | To Curve:', (
+            ('Golden | To Curve', 'golden_all', 'target', 'ratioGoldenTarget'),
+            ('Finger | To Curve', 'finger', 'target', 'ratioFingerTarget'),
+        )),
+    )
+    for _label, _buttons in _l_ratio_rows:
+        _row_preset = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+        mUI.MelSpacer(_row_preset, w=5)
+        mUI.MelLabel(_row_preset, l=_label)
+        _row_preset.setStretchWidget(mUI.MelSeparator(_row_preset))
+        for _btn_label, _preset, _curve, _ann_key in _buttons:
+            mc.button(
+                parent=_row_preset, l=_btn_label, ut='cgmUITemplate',
+                c=cgmGEN.Callback(
+                    MMCONTEXT.func_process, ARRANGE.alongRatio, None, 'all', 'AlongRatio',
+                    **{'preset': _preset, 'curve': _curve}),
+                ann=_ann.get(_ann_key))
+        mUI.MelSpacer(_row_preset, w=5)
+        _row_preset.layout()
 
     _row_custom = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
     mUI.MelSpacer(_row_custom, w=5)
@@ -742,6 +728,173 @@ def _ui_arrange_ratio(parent, snapMenu=False):
         ann=ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
 
 
+def _ui_arrange_layout(parent, snapMenu=False):
+    """Layout section — axis pack plus grid planes. Settings are the Snap layout fields."""
+    mUI.MelMenuItemDiv(parent, l='Layout')
+    _kws = {'noSelect': 0} if snapMenu else {}
+    _ann = ARRANGE._d_arrangeLine_ann
+    for _axis in ('x', 'y', 'z'):
+        mc.menuItem(
+            parent=parent,
+            l=_axis.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
+                **_kws, **{'axis': _axis}),
+            ann=_ann.get('layoutBB' + _axis.upper()))
+    mUI.MelMenuItemDiv(parent, l='Grid')
+    mc.menuItem(
+        parent=parent,
+        l='Guess',
+        ut='cgmUITemplate',
+        c=cgmGEN.Callback(uiFunc_layout_guess),
+        ann=_ann.get('layoutGuess'))
+    for _plane in ('xy', 'xz', 'yx', 'yz', 'zx', 'zy'):
+        mc.menuItem(
+            parent=parent,
+            l=_plane.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_grid, None, 'all', 'LayoutGrid',
+                **_kws, **{'plane': _plane}),
+            ann=_ann.get('layoutGrid' + _plane.upper()))
+
+
+_d_layout_fields = {}
+
+
+def uiFunc_layout_commit_int(which, *a):
+    _field = _d_layout_fields.get(which)
+    if not _field or not mc.intField(_field, exists=True):
+        return
+    _v = max(1, int(mc.intField(_field, q=True, value=True)))
+    _name = ARRANGE.VAR_LAYOUT_ROWS if which == 'rows' else ARRANGE.VAR_LAYOUT_COLUMNS
+    cgmMeta.cgmOptionVar(_name, defaultValue=1).setValue(_v)
+
+
+def uiFunc_layout_commit_padding(*a):
+    _field = _d_layout_fields.get('padding')
+    if not _field or not mc.floatField(_field, exists=True):
+        return
+    _v = max(0.0, float(mc.floatField(_field, q=True, value=True)))
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_PADDING, defaultValue=1.0).setValue(_v)
+
+
+def uiFunc_layout_set_origin(origin):
+    _origin = 'center' if str(origin).lower() == 'center' else 'first'
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ORIGIN, defaultValue='first').setValue(_origin)
+
+
+def uiFunc_layout_guess(*a):
+    _rows, _cols = ARRANGE.layout_guess_rows_columns()
+    _rows = max(1, int(_rows))
+    _cols = max(1, int(_cols))
+    #Editing a field does not fire its changeCommand, so commit the vars directly.
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ROWS, defaultValue=1).setValue(_rows)
+    cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_COLUMNS, defaultValue=1).setValue(_cols)
+    _rows_field = _d_layout_fields.get('rows')
+    _cols_field = _d_layout_fields.get('columns')
+    if _rows_field and mc.intField(_rows_field, exists=True):
+        mc.intField(_rows_field, e=True, value=_rows)
+    if _cols_field and mc.intField(_cols_field, exists=True):
+        mc.intField(_cols_field, e=True, value=_cols)
+    return _rows, _cols
+
+
+def buildRow_layout_settings(parent):
+    """Snap-frame settings shared by axis layout and grid."""
+    _rows_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ROWS, defaultValue=1)
+    _cols_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_COLUMNS, defaultValue=1)
+    _pad_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_PADDING, defaultValue=1.0)
+    _origin_var = cgmMeta.cgmOptionVar(ARRANGE.VAR_LAYOUT_ORIGIN, defaultValue='first')
+    try:
+        _rows_val = max(1, int(_rows_var.value))
+    except (TypeError, ValueError):
+        _rows_val = 1
+    try:
+        _cols_val = max(1, int(_cols_var.value))
+    except (TypeError, ValueError):
+        _cols_val = 1
+    try:
+        _pad_val = max(0.0, float(_pad_var.value))
+    except (TypeError, ValueError):
+        _pad_val = 1.0
+    _origin_val = 'center' if str(_origin_var.value or 'first').lower() == 'center' else 'first'
+
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Rows:')
+    _d_layout_fields['rows'] = mc.intField(
+        parent=_row, minValue=1, value=_rows_val, width=40,
+        annotation='Grid row count',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_int, 'rows'))
+    mUI.MelLabel(_row, l='Cols:')
+    _d_layout_fields['columns'] = mc.intField(
+        parent=_row, minValue=1, value=_cols_val, width=40,
+        annotation='Grid column count',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_int, 'columns'))
+    mc.button(
+        parent=_row, l='Guess', ut='cgmUITemplate',
+        c=cgmGEN.Callback(uiFunc_layout_guess),
+        ann=ARRANGE._d_arrangeLine_ann.get('layoutGuess'))
+    mUI.MelLabel(_row, l='Pad:')
+    _d_layout_fields['padding'] = mc.floatField(
+        parent=_row, minValue=0.0, value=_pad_val, precision=3, width=56,
+        annotation='Space between bounding boxes for axis layout and grid',
+        changeCommand=cgmGEN.Callback(uiFunc_layout_commit_padding))
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    mUI.MelLabel(_row, l='From:')
+    _origin_rc = mUI.MelRadioCollection()
+    for _label, _value in (('First', 'first'), ('Center', 'center')):
+        _origin_rc.createButton(
+            _row, label=_label, sl=(_origin_val == _value),
+            annotation='Flow the layout from the first selected object or from the selection center',
+            onCommand=cgmGEN.Callback(uiFunc_layout_set_origin, _value))
+        mUI.MelSpacer(_row, w=2)
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
+def buildRow_layout_arrange(parent):
+    """Toolbox row — pack selection along world X, Y, or Z by bounding box."""
+    _ann = ARRANGE._d_arrangeLine_ann
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Layout:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    for _axis in ('x', 'y', 'z'):
+        mc.button(
+            parent=_row,
+            l=_axis.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_by_bb, None, 'all', 'LayoutBB',
+                **{'axis': _axis}),
+            ann=_ann.get('layoutBB' + _axis.upper()))
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
+def buildRow_layout_grid(parent):
+    """Toolbox row — grid planes. First letter is columns, second is rows."""
+    _ann = ARRANGE._d_arrangeLine_ann
+    _row = mUI.MelHSingleStretchLayout(parent, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row, w=5)
+    mUI.MelLabel(_row, l='Grid:')
+    _row.setStretchWidget(mUI.MelSeparator(_row))
+    for _plane in ('xy', 'xz', 'yx', 'yz', 'zx', 'zy'):
+        mc.button(
+            parent=_row,
+            l=_plane.upper(),
+            ut='cgmUITemplate',
+            c=cgmGEN.Callback(
+                MMCONTEXT.func_process, ARRANGE.layout_grid, None, 'all', 'LayoutGrid',
+                **{'plane': _plane}),
+            ann=_ann.get('layoutGrid' + _plane.upper()))
+    mUI.MelSpacer(_row, w=5)
+    _row.layout()
+
+
 def uiSection_arrange(parent = None, selection = None, pairSelected = True):
     #>>Arrange ----------------------------------------------------------------------------------------
     _arrange= mc.menuItem(parent=parent,subMenu = True,
@@ -815,25 +968,28 @@ def uiSection_arrange(parent = None, selection = None, pairSelected = True):
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongLine, None,'all', 'AlongLine', **{'mode':'spaced','curve':'target'}),
               ann = ARRANGE._d_arrangeLine_ann.get('targetClosest'))
 
+    _ui_arrange_layout(_arrange)
+
 def uiSection_distance(parent = None, selection = None, pairSelected = True):
     _p = mc.menuItem(parent=parent, subMenu = True,tearOff = True,
                      ann = 'Get info on distance',
                      l = 'Distance')
     
+    _distReport = {'resultWarning': True}
     mc.menuItem(parent=_p, 
                 l = 'Sum',
                 ann = "Get the sum distance between selected targets",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'all','Measure sum',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'all','Measure sum',True,**_distReport),                                                                      
                 )
     mc.menuItem(parent=_p, 
                 l = 'Ordered',
                 ann = "Get the distance between selected targets",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'eachToNextSet','Measure Each To Next',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_distance_between_targets, selection,'eachToNextSet','Measure Each To Next',True,**_distReport),                                                                      
                 )    
     mc.menuItem(parent=_p, 
                 l = 'Arc length',
                 ann = "Length of a curve",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_arcLen, selection,'each','Arc length',True,**{}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_arcLen, selection,'each','Arc length',True,**_distReport),                                                                      
                 )    
 
     #if pairSelected:     
@@ -845,22 +1001,22 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
     mc.menuItem(parent=_n, 
                 l = 'Target',
                 ann = "Find nearest target in from:to selection list",
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Target',True,**{'mode':'closest','resMode':'object','resultWarning':True}),                                                                      
                 )   
     mc.menuItem(parent=_n, 
                 l = 'Shape',
                 ann = "Find nearest shape in  from:to selection list",                    
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near Shape',True,**{'mode':'closest','resMode':'shape','resultWarning':True}),                                                                      
                 )               
     mc.menuItem(parent=_n, 
                 l = 'Surface Point',
                 ann = "Find nearest surface point in from:to selection list",                    
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurface','resultWarning':True}),                                                                      
                 )     
     mc.menuItem(parent=_n, 
                 l = 'Surface Loc',
                 ann = "Find nearest surface point in from:to selection list. And loc it.",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Near point on surface',True,**{'mode':'closest','resMode':'pointOnSurfaceLoc','resultWarning':True}),                                                                      
                 )               
     mc.menuItem(parent=_n,
                 l = 'Surface Nodes',
@@ -873,32 +1029,51 @@ def uiSection_distance(parent = None, selection = None, pairSelected = True):
     mc.menuItem(parent=_f, 
                 l = 'Target',
                 ann = "Find furthest taregt in from:to selection list",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Target',True,**{'mode':'far','resMode':'object','resultWarning':True}),                                                                      
                 )                  
     mc.menuItem(parent=_f, 
                 l = 'Shape',
                 ann = "Find furthest shape in from:to selection list",                                        
-                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape'}),                                                                      
+                c = cgmGEN.Callback(MMCONTEXT.func_process, DIST.get_by_dist, selection,'firstToRest','Far Shape',True,**{'mode':'far','resMode':'shape','resultWarning':True}),                                                                      
                 )      
     return _p
 
 
     
 def uiSection_joints(parent = None):
-    uiJoints = mc.menuItem(parent = parent, l='Joints', subMenu=True, tearOff = True)
+    uiJoints = mc.menuItem(parent=parent, l='Joints', subMenu=True, tearOff=True,
+                           ann='Joint display attributes and joint utilities')
 
-    _axis = mc.menuItem(l='Axis', subMenu = True)
-    
-    for ctxt in ['selection','children','heirarchy','scene']:
-            mc.menuItem(p=_axis, l=ctxt,subMenu=True)
-            mc.menuItem(l='Show',
-                        ann = "Show axis for all joints in {0}".format(ctxt),                        
-                        c=cgmGEN.Callback(MMCONTEXT.set_attrs,None,'displayLocalAxis',1,ctxt,'joint'))
-        
-            mc.menuItem(l='Hide',
-                        ann = "Hide axis for all joints in {0}".format(ctxt),                                                
-                        c=cgmGEN.Callback(MMCONTEXT.set_attrs,None,'displayLocalAxis',0,ctxt,'joint'))
-            
+    _d_contextAnn = {
+        'selection': 'Current selection only',
+        'children': 'Joint children of the selected transform(s)',
+        'heirarchy': 'All joints under the selected hierarchy',
+        'scene': 'Every joint in the scene',
+    }
+
+    _l_jointAttrMenus = [
+        ('Axis', 'displayLocalAxis', 'Show', 'Hide', 1, 0,
+         'Show or hide local axis display on joints by context',
+         'Show local axis on joints — {0}',
+         'Hide local axis on joints — {0}'),
+        ('SSC', 'segmentScaleCompensate', 'On', 'Off', 1, 0,
+         'Toggle segmentScaleCompensate on joints by context. '
+         'On: parent scale affects child segment length. '
+         'Off: segment length ignores parent scale (common on rig ik/fk chains).',
+         'Enable segmentScaleCompensate — {0}. Parent scale stretches child segments.',
+         'Disable segmentScaleCompensate — {0}. Child segment length ignores parent scale.'),
+    ]
+    for _subLabel, _attr, _onLbl, _offLbl, _onVal, _offVal, _subAnn, _onAnn, _offAnn in _l_jointAttrMenus:
+        _sub = mc.menuItem(parent=uiJoints, l=_subLabel, subMenu=True, ann=_subAnn)
+        for ctxt in ['selection', 'children', 'heirarchy', 'scene']:
+            mc.menuItem(p=_sub, l=ctxt, subMenu=True, ann=_d_contextAnn[ctxt])
+            mc.menuItem(l=_onLbl,
+                        ann=_onAnn.format(_d_contextAnn[ctxt]),
+                        c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _onVal, ctxt, 'joint'))
+            mc.menuItem(l=_offLbl,
+                        ann=_offAnn.format(_d_contextAnn[ctxt]),
+                        c=cgmGEN.Callback(MMCONTEXT.set_attrs, None, _attr, _offVal, ctxt, 'joint'))
+
     mc.menuItem(parent = uiJoints,
                 l='cgmJointTools',
                 c=lambda *a: TOOLCALLS.jointTools(),
@@ -1199,9 +1374,9 @@ def uiSection_animUtils(parent):
                 ann = "Launch cgm's dynParent Tool - a tool for assisting space switching setups and more",
                 c=lambda *a: TOOLCALLS.dynParentTool())
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())    
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())    
     mc.menuItem(parent = parent,
                 l='cgmSetTools',
                 ann = "Launch cgm's setTools - a tool for managing maya selection sets",
@@ -1282,29 +1457,6 @@ def uiSection_animUtils(parent):
                 c=lambda *a:Red9.start())
     
     
-    mc.menuItem(parent = parent,
-                l='zoo.XferAnim',
-                ann = "Tool for transferring animation - from Hamish McKenzie's zooToolbox",
-                c=lambda *a:xferAnimUI.XferAnimWindow()) 
-    mc.menuItem(parent = parent,
-                l='zoo.Keymaster',
-                ann = "from Hamish McKenzie's zooToolbox - keymaster gives you a heap of tools to manipulate keyframes - scaling around curve pivots, min/max scaling of curves/keys etc...",
-                c=lambda *a: mel.eval('source zooKeymaster; zooKeymasterWin;'))    
-
-def uiSection_layout(parent):
-    _str_func = 'uiSection_layout'  
-    
-    mc.menuItem(parent = parent,
-                l='zoo.Shots',
-                ann = "from Hamish McKenzie's zooToolbox -  zooShots is a camera management tool.  It lets you create a bunch of cameras in your scene, and 'edit' them together in time.  The master camera then cuts between each 'shot' camera.  All camera attributes are maintained over the cut - focal length, clipping planes, fstop etc...",
-                c=lambda *a: mel.eval('zooShots'))
-    mc.menuItem(parent = parent,
-            l='zoo.HUDCtrl',
-            ann = "from Hamish McKenzie's zooToolbox -  zooHUDCtrl lets you easily add stuff to your viewport HUD.",
-            c=lambda *a: mel.eval('zooHUDCtrl'))
-
-
-
 def uiSection_mrsAnim(parent):
     _str_func = 'uiSection_layout'  
     
@@ -1318,6 +1470,10 @@ def uiSection_mrsAnim(parent):
                 l='mrsPoser',
                 ann = "Pose Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsPOSER())
+    mc.menuItem(parent = parent,
+                l='mrsAnimClip',
+                ann = "MRS AnimClip — context capture/paste using cgmAnimClip",
+                c=lambda *a:TOOLCALLS.mrsANIMCLIP())
     
     mc.menuItem(parent = parent,
                 l='mrsPicker',
@@ -1352,7 +1508,11 @@ def uiSection_mrsAnim(parent):
     mc.menuItem(parent = parent,
                 l='cgmMocapBakeTool',
                 ann = "Mocap Bake Tool - A tool for retargeting and baking control transforms from an animated source",
-                c=lambda *a:TOOLCALLS.mocapBakeTool())        
+                c=lambda *a:TOOLCALLS.mocapBakeTool())
+    mc.menuItem(parent = parent,
+                l='cgmAnimClip',
+                ann = "Launch cgmAnimClip - animation clip Dat",
+                c=lambda *a:TOOLCALLS.ANIMCLIPDATui())
     mc.menuItem(parent = parent,
                 l='cgmLocinator',
                 ann = "Launch cgmLocinator - a tool for aiding in the snapping of things",
@@ -1382,9 +1542,9 @@ def uiSection_mrsDynamics(parent):
     
     
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())
 
     mc.menuItem(parent = parent,
                 l='cgmAnimFilterTool',
@@ -1553,9 +1713,9 @@ def uiSection_mrs(parent):
                 c=lambda *a: TOOLCALLS.dynParentTool())
     
     mc.menuItem(parent = parent,
-                l='cgmSimChain',
-                ann = "cgmSimChain - a tool for doing simulation on control chains",
-                c=lambda *a: TOOLCALLS.cgmSimChain())
+                l='cgmDynSimTool',
+                ann='cgmDynSimTool — dynamic chains, hair, and cloth (cgmDynFK).',
+                c=lambda *a: TOOLCALLS.cgmDynSimTool())
     
     mc.menuItem(parent = parent,
                 l='cgmSnapTools',
@@ -1580,6 +1740,10 @@ def uiSection_mrs(parent):
                 l='mrsPoser',
                 ann = "Pose Tool | Beta",
                 c=lambda *a:TOOLCALLS.mrsPOSER())
+    mc.menuItem(parent = parent,
+                l='mrsAnimClip',
+                ann = "MRS AnimClip — context capture/paste using cgmAnimClip",
+                c=lambda *a:TOOLCALLS.mrsANIMCLIP())
     mc.menuItem(parent = parent,
                 l='cgmMocapBakeTool',
                 ann = "Mocap Bake Tool - A tool for retargeting and baking control transforms from an animated source",
@@ -1624,17 +1788,11 @@ def uiSection_hotkeys(parent):
                     c=cgmGEN.Callback(HKEY.cgmHotkeyer, 'cgmMM_tool',  'cgmMarkingMenu;', 'cgmMarkingMenuKillUI;','Marking menu for working with rigging tools', 'mel','s'))          
     
     mc.menuItem(parent = parent,
-                l='zoo.Tangent Works',
-                ann = "zooTangentWks is a marking menu script that provides super fast access to common tangent based operations.  Tangent tightening, sharpening, change tangent types, changing default tangents etc...",
-                c=cgmGEN.Callback(HKEY.cgmHotkeyer, 'zooTangentWks',  'zooTangentWks;', 'zooTangentWksKillUI;','tangent works is a marking menu script to speed up working with the graph editor','mel','q'))    
-
-    mc.menuItem(parent = parent,
                 l='Reset ALL hotkeys',
                 ann = "Reset ALL hotkeys back to maya default",
                 c=cgmGEN.Callback(HKEY.hotkeys_resetAll))     
     
 
-from cgm.lib import optionVars
 #from cgm.core.lib.wing import mayaWingServer as mWingServer
 #cgmGEN._reloadMod(mWingServer)
 from cgm.core.tools.lib import cgmDeveloperLib
@@ -1722,7 +1880,7 @@ def uiSection_dev(parent):
     mc.menuItem(parent = parent,
                 l='Purge Option Vars',
                 ann = "Purge all cgm option vars. Warning will break any open tools",
-                c=lambda *a: optionVars.purgeCGM())    
+                c=lambda *a: cgmUI.purgeCGM())    
     
     #...------------------------------------------------------------------
     _wipTools = mc.menuItem(parent = parent,subMenu = True,tearOff = True,
@@ -1977,6 +2135,18 @@ def uiSection_createFromSel(parent, selection = None):
                 l = 'Curve [ Cubic Track ]',
                 ann='Create a cubic track curve from eps of the selected components or transforms',                                
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Cubic Track Curve',**{'create':'cubicTrack'}))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier ]',
+                ann='Bezier from selection (segment prompt); bend-prioritized joint anchors by default',
+                c = cgmGEN.Callback(uiFunc_createBezierCurve))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier Track ]',
+                ann='Bezier track: spans = selection count - 1; CV clusters parented to targets',
+                c = cgmGEN.Callback(uiFunc_createBezierTrackCurve))
+    mc.menuItem(parent=parent,
+                l = 'Curve [ Bezier Controls ]',
+                ann='CV controls on bezierIKCurve after IK.bezier_spline',
+                c = cgmGEN.Callback(uiFunc_addBezierControls))
     
     
     
@@ -2005,6 +2175,10 @@ def uiSection_riggingUtils(parent, selection = None):
                         l='Group',
                         ann = 'Grouping functions....',                        
                         )
+    _flags = mc.menuItem(parent=_p,subMenu=True,
+                        l='Flags',
+                        ann='DAG lock and standard transform attribute visibility',
+                        )
     _attach = mc.menuItem(parent=_p,subMenu=True,tearOff = True,
                         l='Attach by',
                         ann = 'Attach to target functions',                        
@@ -2028,6 +2202,23 @@ def uiSection_riggingUtils(parent, selection = None):
                 l = 'In Place',
                 ann = 'Group me while maintaining heirarchal position',                                                        
                 c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.group_me, None,'each','Group In Place',**{'parent':True,'maintainParent':True}))     
+
+    mc.menuItem(parent=_flags,
+                l='dagLock',
+                ann='Lock standard transform attrs (tx–sz, v) on selection',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagLock',True,**{'state':True}))
+    mc.menuItem(parent=_flags,
+                l='dagUnlock',
+                ann='Unlock standard transform attrs on selection',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagUnlock',True,**{'state':False}))
+    mc.menuItem(parent=_flags,
+                l='Hide Std',
+                ann='Lock and hide standard transform attrs (setAttrFlags defaults)',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_hide, None,'each','Hide Std Attrs',True))
+    mc.menuItem(parent=_flags,
+                l='Unhide Std',
+                ann='Unlock and unhide standard transform attrs in the channel box',
+                c=cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_unhide, None,'each','Unhide Std Attrs',True))
     
     #Copy stuff -------------------------------------------------------------------------------------------
     mc.menuItem(parent=_copy,
@@ -2129,6 +2320,20 @@ def uiSection_snap(parent, selection = None ):
                 l = 'Orient',
                 c = lambda *a:SNAPCALLS.snap_action(selection,'orient'),
                 ann = "Orient snap in a from:to selection")
+
+    _closestWorld = mc.menuItem(parent=parent, subMenu=True, tearOff=True,
+                                l='Closest World Orient',
+                                ann=SNAPCALLS._ann_closestWorldOrient)
+    _closestWorldRC = mc.radioMenuItemCollection(parent=_closestWorld)
+    _closestWorldAxis = str(SNAPCALLS.var_closestWorldAxis.value).lower()
+    for _axis in ('x', 'y', 'z'):
+        mc.menuItem(parent=_closestWorld,
+                    collection=_closestWorldRC,
+                    l=_axis.upper(),
+                    rb=(_closestWorldAxis == _axis),
+                    c=cgmGEN.Callback(SNAPCALLS.snap_action, selection, 'closestWorldOrient',
+                                      **{'worldAxis': _axis}),
+                    ann=SNAPCALLS._ann_closestWorldOrient)
     
     #>>Point Special ----------------------------------------------------------------------------------------
     mc.menuItem(parent=_pointSpecial,
@@ -2252,6 +2457,8 @@ def uiSection_snap(parent, selection = None ):
               ut = 'cgmUITemplate',
               c = cgmGEN.Callback(MMCONTEXT.func_process, ARRANGE.alongRatio_prompt, None,'all', 'AlongRatio',noSelect = 0, **{'curve':'target','defaultStyle':'golden'}),
               ann = ARRANGE._d_arrangeRatio_ann.get('ratioCustomTarget'))
+
+    _ui_arrange_layout(_arrange, snapMenu=True)
     
     
     #>>Match ----------------------------------------------------------------------------------------
@@ -2368,6 +2575,49 @@ def uiSection_rayCast(parent, selection = None):
 def uiFunc_createOneOfEach():
     var_createSizeValue = cgmMeta.cgmOptionVar('cgmVar_createSizeValue', defaultValue=1.0)        
     CURVES.create_oneOfEach(var_createSizeValue.value)
+
+
+def _uiPrompt_bezier_sections():
+    _sections = cgmUI.uiPrompt_getValue(
+        title='Bezier Curve',
+        message='How many Bezier segments:',
+        text='1')
+    if _sections is None:
+        return None
+    try:
+        return max(1, int(_sections))
+    except (TypeError, ValueError):
+        log.warning('_uiPrompt_bezier_sections | Invalid segment count: {0}'.format(_sections))
+        return None
+
+
+def uiFunc_createBezierCurve():
+    """Prompt for Bezier segment count, then build curve from current selection."""
+    _sections = _uiPrompt_bezier_sections()
+    if _sections is None:
+        return
+
+    MMCONTEXT.func_process(
+        CURVES.create_bezier_curve_from_objects,
+        None,
+        'all',
+        'Create Bezier Curve',
+        bezier_sections=_sections)
+
+
+def uiFunc_createBezierTrackCurve():
+    """Build Bezier track curve; span count from number of selected targets."""
+    MMCONTEXT.func_process(
+        CURVES.create_bezier_track_curve_from_objects,
+        None,
+        'all',
+        'Create Bezier Track Curve')
+
+
+def uiFunc_addBezierControls():
+    """Add CV controls to the selected Bezier curve."""
+    RIGBEZIER.bezier_controls_add()
+
 
 def uiFunc_createCurve():
     cgmGEN._reloadMod(CURVES)

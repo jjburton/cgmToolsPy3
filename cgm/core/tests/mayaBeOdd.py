@@ -12,14 +12,14 @@ Website : https://github.com/jjburton/cgmTools/wiki
 from cgm.core import cgm_General as cgmGeneral
 import maya.cmds as mc
 import maya.mel as mel
-from cgm.lib import curves
+from cgm.core.lib import curve_Utils as CURVES
 
 from cgm.core import cgm_Meta as cgmMeta
 from Red9.core import Red9_Meta as r9Meta
 from cgm.core.cgmPy import validateArgs as cgmValid
 import time
 #from cgm.core.rigger.lib import joint_Utils as jntUtils
-from cgm.lib import names
+from cgm.core.lib import name_utils as NAMES
 import logging
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -279,7 +279,7 @@ def speedTest_duplicateCurve(*args, **kws):
 			return cgmMeta.dupe(root)                
 
 		def _buildStuff_(self):
-			mi_root = cgmMeta.cgmObject(curves.createCurve('sphere'))
+			mi_root = cgmMeta.cgmObject(CURVES.create_fromName('sphere'))
 			mi_root.parent = False
 			self.md_rootToChildren[mi_root] = []
 			_last = mi_root		
@@ -1057,7 +1057,7 @@ def speedTest_jointDepth(*args, **kws):
 				self.md_rootToChildren[mi_rootJoint].append(mi_child)
 				mi_child.parent = _last
 				mi_child.ty = (i) * .1
-				_last = names.getShortName(mi_child.mNode)#...change for the next		
+				_last = NAMES.get_short(mi_child.mNode)#...change for the next		
 				#_last = mi_child.mNode
 
 				self.l_objects.append(mc.createNode( self.str_nodeType, n = "obj_{0}".format(i) ))

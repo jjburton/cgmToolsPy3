@@ -11,6 +11,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 # From Python =============================================================
 import copy
+import math
 import re
 import time
 import pprint
@@ -42,6 +43,7 @@ import cgm.core.lib.transform_utils as TRANS
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.rig.constraint_utils as RIGCONSTRAINTS
 import cgm.core.lib.constraint_utils as CONSTRAINT
+import cgm.core.lib.shared_data as SHARED
 import cgm.core.rig.create_utils as RIGCREATE
 import cgm.core.rig.general_utils as RIGGEN
 import cgm.core.lib.list_utils as LISTS
@@ -961,7 +963,8 @@ def ribbon(jointList = None,
            attachEndToInfluence = None,
            moduleInstance = None,
            parentDeformTo = False,
-           parentGutsTo = None):
+           parentGutsTo = None,
+           zeroTipAimFactor = True):
 
     """
     Root of the segment setup.
@@ -1027,6 +1030,7 @@ def ribbon(jointList = None,
         advancedTwistSetup(bool - False) | Whether to do the cgm advnaced twist setup
         addMidTwist(bool - True) | Whether to setup a mid twist on the segment
         skipAim(bool - True) | Whether to setup the aim scale or not
+        zeroTipAimFactor(bool - True) | When True, last joint ``aimFactor`` is 0 (legacy ribbon tip). False = tip ``aimFactor`` 1.0 (e.g. Segment ``buildEnd=dag``).
         
         influences(joints - None) | List or metalist of joints to skin our objects to
         attachEndsToInfluences(bool) - Connect the first and last joint to the influence 0,-1. Still use scale setup.
@@ -1963,13 +1967,14 @@ def ribbon(jointList = None,
         if squashStretchMain == 'arcLength':
             log.debug("|{0}| >> arcLength aim stretch setup ".format(_str_func)+cgmGEN._str_subLine)
             for i,mJnt in enumerate(ml_joints):#Nodes =======================================================
+                l_argBuild = []
                 try:
                     v_scaleFactor = l_scaleFactors[i]
                 except Exception as err:
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
-                if mJnt == ml_joints[-1]:
+                if zeroTipAimFactor and mJnt == ml_joints[-1]:
                     v_aimFactor = 0
                 else:
                     v_aimFactor = 1.0
@@ -1987,7 +1992,7 @@ def ribbon(jointList = None,
                                                         hidden = False,
                                                         initialValue=v_scaleFactor,
                                                         defaultValue=v_scaleFactor,
-                                                        keyable = extraKeyable,
+                                                        keyable=False,
                                                         lock=False,
                                                         minValue = 0)
                     
@@ -2031,7 +2036,7 @@ def ribbon(jointList = None,
                                                           hidden = False,
                                                           initialValue=v_aimFactor,
                                                           defaultValue=v_aimFactor,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -2050,7 +2055,7 @@ def ribbon(jointList = None,
                                                                             mPlug_aimNormalized.p_combinedName,
                                                                             mPlug_segScale.p_combinedName))
                     else:
-                        mPlug_aimResult = mPlug_aimNormalized
+                        mPlug_aimResult = mPlug_aimNormalized or mPlug_outResult
                         
                     
                 else:
@@ -2070,7 +2075,7 @@ def ribbon(jointList = None,
                     for axis in ['scaleX','scaleY']:
                         mPlug_outResult.doConnectOut('{0}.{1}'.format(mJnt.mNode,axis))
                         
-                if not skipAim:
+                if not skipAim and mPlug_aimResult:
                     mPlug_aimResult.doConnectOut('{0}.{1}'.format(mJnt.mNode,'scaleZ'))
                     
         elif squashStretchMain == 'pointDist':
@@ -2114,7 +2119,7 @@ def ribbon(jointList = None,
                     log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i,err))
                     v_scaleFactor = 1.0
                     
-                if mJnt == ml_joints[-1]:
+                if zeroTipAimFactor and mJnt == ml_joints[-1]:
                     v_aimFactor = 0
                 else:
                     v_aimFactor = 1.0
@@ -2187,7 +2192,7 @@ def ribbon(jointList = None,
                                                           hidden = False,
                                                           initialValue=v_aimFactor,
                                                           defaultValue=v_aimFactor,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -2241,7 +2246,7 @@ def ribbon(jointList = None,
                                                       hidden = False,
                                                       initialValue=v_scaleFactor,
                                                       defaultValue=v_scaleFactor,
-                                                      keyable = extraKeyable,
+                                                      keyable=False,
                                                       lock=False,
                                                       minValue = 0)                        
                     
@@ -2558,7 +2563,7 @@ def ribbon(jointList = None,
         
         max_influences = 2
         mode_tighten = 'twoBlend'
-        blendLength = int_lenJoints/2
+        blendLength = int_lenJoints // 2
         blendMin = 2
         _hardLength = 2
         
@@ -3106,7 +3111,7 @@ def handle_fixTwist(ikHandle, aimAxis = None):
         return 
         v_localAim = MATH.get_vector_of_two_points(mStartJoint.p_position, mStartJoint.getChildren(asMeta=True)[0].p_position)
         
-        str_localAim = dictionary.returnVectorToString(v_localAim)
+        #str_localAim = SHARED.returnVectorToString(v_localAim)
         str_localAimSingle = str_localAim[0]
         log.debug("IKHandle_fixTwist>>> vector aim: %s | str aim: %s"%(v_localAim,str_localAim))  
 
@@ -3211,6 +3216,329 @@ def get_midIK_basePos(ml_handles = [], baseAxis = 'y+', markPos = False, forceMi
     
     return pos_use
 
+def _ribbon_applySquashStretch(ml_joints,
+                               mControlSurface,
+                               mGroup,
+                               mSettings,
+                               str_baseName,
+                               masterScalePlug,
+                               squashStretch=None,
+                               squashStretchMain='arcLength',
+                               extraSquashControl=False,
+                               squashFactorMin=0.0,
+                               squashFactorMax=1.0,
+                               squashFactorMode='midPeak',
+                               ml_follicles=None,
+                               ml_influences=None,
+                               parentDeformTo=False,
+                               setupAimScale=False,
+                               skipAim=True,
+                               extraKeyable=False,
+                               mModule=None):
+    """
+    Shared squash/stretch setup for ribbon and ribbon_seal driven joint chains.
+    """
+    _str_func = '_ribbon_applySquashStretch'
+    
+    if squashStretch is None:
+        return
+    
+    if not ml_joints:
+        return
+    
+    ml_joints = cgmMeta.validateObjListArg(ml_joints, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    int_lenJoints = len(ml_joints)
+    l_influences = None
+    if ml_influences:
+        ml_influences = cgmMeta.validateObjListArg(ml_influences, mType='cgmObject', noneValid=True)
+        l_influences = [mObj.p_nameShort for mObj in ml_influences]
+    
+    if ml_follicles is None:
+        ml_follicles = []
+    
+    l_scaleFactors = None
+    if extraSquashControl:
+        l_scaleFactors = MATH.get_blendList(int_lenJoints, squashFactorMax, squashFactorMin, squashFactorMode)
+    
+    mPlug_masterScale = None
+    if masterScalePlug is not None:
+        if issubclass(type(masterScalePlug), cgmMeta.cgmAttr):
+            mPlug_masterScale = masterScalePlug
+        else:
+            d_attr = cgmMeta.validateAttrArg(masterScalePlug)
+            if not d_attr:
+                raise ValueError("Ineligible masterScalePlug: {0}".format(masterScalePlug))
+            mPlug_masterScale = d_attr['mPlug']
+    
+    if not mPlug_masterScale:
+        raise ValueError("masterScalePlug required for squash/stretch setup")
+    
+    _surf_shape = mControlSurface.getShapes()[0]
+    minU = ATTR.get(_surf_shape, 'minValueU')
+    maxU = ATTR.get(_surf_shape, 'maxValueU')
+    minV = ATTR.get(_surf_shape, 'minValueV')
+    maxV = ATTR.get(_surf_shape, 'maxValueV')
+    
+    mPlug_inverseScale = None
+    mPlug_masterAimScale = None
+    mPlug_aimNormalized = None
+    
+    if squashStretchMain == 'arcLength':
+        plug_inverse = '{0}_segInverseScale'.format(str_baseName)
+        
+        mArcLen = cgmMeta.validateObjArg(mc.createNode('arcLengthDimension'), setClass=True)
+        mArcLenDag = mArcLen.getTransform(asMeta=True)
+        mArcLen.uParamValue = MATH.average(minU, maxU)
+        mArcLen.vParamValue = maxV
+        mArcLenDag.rename('{0}_arcLengthNode'.format(str_baseName))
+        
+        plug_dim = '{0}_arcLengthDim'.format(str_baseName)
+        mControlSurface.connectChildNode(mArcLen.mNode, plug_dim, 'arcLenDim')
+        ATTR.connect("{0}.worldSpace".format(_surf_shape), "{0}.nurbsGeometry".format(mArcLen.mNode))
+        mArcLen.addAttr('baseDist', mArcLen.arcLengthInV, attrType='float', lock=True)
+        
+        mPlug_inverseScale = cgmMeta.cgmAttr(mArcLen.mNode, plug_inverse, 'float')
+        NODEFAC.argsToNodes("{0} = {2} / {1}".format(mPlug_inverseScale.p_combinedName,
+                                                      '{0}.arcLengthInV'.format(mArcLen.mNode),
+                                                      "{0}.baseDist".format(mArcLen.mNode))).doBuild()
+        
+        if setupAimScale:
+            plug_aim = '{0}_segAimScale'.format(str_baseName)
+            mPlug_masterAimScale = cgmMeta.cgmAttr(mArcLen.mNode, plug_aim, 'float')
+            NODEFAC.argsToNodes("{0} = {1} / {2}".format(mPlug_masterAimScale.p_combinedName,
+                                                          '{0}.arcLengthInV'.format(mArcLen.mNode),
+                                                          "{0}.baseDist".format(mArcLen.mNode))).doBuild()
+    
+    def createDist(mJnt, typeModifier=None):
+        mShape = cgmMeta.cgmNode(mc.createNode('distanceDimShape'))
+        mObject = mShape.getTransform(asMeta=True)
+        mObject.doStore('cgmName', mJnt)
+        if typeModifier:
+            mObject.addAttr('cgmTypeModifier', typeModifier, lock=True)
+        mObject.addAttr('cgmType', 'measureNode', lock=True)
+        mObject.doName(nameShapes=True)
+        mObject.parent = mGroup.mNode
+        mObject.overrideEnabled = 1
+        mObject.overrideVisibility = 1
+        if mModule:
+            ATTR.connect("{0}.gutsVis".format(mModule.rigNull.mNode),
+                         "{0}.overrideVisibility".format(mObject.mNode))
+            ATTR.connect("{0}.gutsLock".format(mModule.rigNull.mNode),
+                         "{0}.overrideDisplayType".format(mObject.mNode))
+        return mObject, mShape
+    
+    log.debug("|{0}| >> SquashStretch...".format(_str_func) + cgmGEN._str_subLine)
+    
+    mPlug_segScale = None
+    if extraSquashControl:
+        mPlug_segScale = cgmMeta.cgmAttr(mSettings.mNode,
+                                         "{0}_segScale".format(str_baseName),
+                                         attrType='float',
+                                         hidden=False,
+                                         initialValue=1.0,
+                                         defaultValue=1.0,
+                                         keyable=extraKeyable,
+                                         lock=False,
+                                         minValue=0)
+    
+    ml_aimInversePlugs = []
+    
+    if squashStretchMain == 'arcLength' and mPlug_inverseScale:
+        mPlug_inverseNormalized = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_normalInverse".format(str_baseName),
+                                                  attrType='float',
+                                                  hidden=False)
+        NODEFAC.argsToNodes("{0} = {1} * {2}".format(mPlug_inverseNormalized.p_combinedName,
+                                                      mPlug_inverseScale.p_combinedName,
+                                                      mPlug_masterScale.p_combinedName)).doBuild()
+        
+        if setupAimScale and mPlug_masterAimScale:
+            mPlug_aimNormalized = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_aimNormalized".format(str_baseName),
+                                                  attrType='float',
+                                                  hidden=False)
+            NODEFAC.argsToNodes("{0} = {1} / {2}".format(mPlug_aimNormalized.p_combinedName,
+                                                          mPlug_masterAimScale.p_combinedName,
+                                                          mPlug_masterScale.p_combinedName)).doBuild()
+        
+        for i, mJnt in enumerate(ml_joints):
+            try:
+                v_scaleFactor = l_scaleFactors[i]
+            except Exception as err:
+                log.error("scale factor idx fail ({0}). Using 1.0 | {1}".format(i, err))
+                v_scaleFactor = 1.0
+            
+            l_argBuild = []
+            if extraSquashControl:
+                mPlug_outResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_outScaleBaseResult_{1}".format(str_baseName, i),
+                                                  attrType='float',
+                                                  initialValue=0,
+                                                  lock=True,
+                                                  minValue=0)
+                mPlug_jointFactor = cgmMeta.cgmAttr(mSettings.mNode,
+                                                    "{0}_outFactor_{1}".format(str_baseName, i),
+                                                    attrType='float',
+                                                    hidden=False,
+                                                    initialValue=v_scaleFactor,
+                                                    defaultValue=v_scaleFactor,
+                                                    keyable=False,
+                                                    lock=False,
+                                                    minValue=0)
+                mPlug_jointRes = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                 "{0}_factorRes_{1}".format(str_baseName, i),
+                                                 attrType='float')
+                mPlug_jointDiff = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_factorDiff_{1}".format(str_baseName, i),
+                                                  attrType='float')
+                mPlug_jointMult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                  "{0}_factorMult_{1}".format(str_baseName, i),
+                                                  attrType='float')
+                mPlug_baseRes = mPlug_inverseNormalized
+                l_argBuild.append("{0} = 1 + {1}".format(mPlug_outResult.p_combinedName,
+                                                           mPlug_jointMult.p_combinedName))
+                l_argBuild.append("{0} = {1} - 1".format(mPlug_jointDiff.p_combinedName,
+                                                           mPlug_baseRes.p_combinedName))
+                l_argBuild.append("{0} = {1} * {2}".format(mPlug_jointMult.p_combinedName,
+                                                           mPlug_jointDiff.p_combinedName,
+                                                           mPlug_jointRes.p_combinedName))
+                l_argBuild.append("{0} = {1} * {2}".format(mPlug_jointRes.p_combinedName,
+                                                           mPlug_jointFactor.p_combinedName,
+                                                           mPlug_segScale.p_combinedName))
+                if setupAimScale and mPlug_aimNormalized:
+                    mPlug_aimResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                      "{0}_aimScaleResult_{1}".format(str_baseName, i),
+                                                      attrType='float',
+                                                      initialValue=0,
+                                                      lock=True,
+                                                      minValue=0)
+                    mPlug_aimFactor = cgmMeta.cgmAttr(mSettings.mNode,
+                                                      "{0}_aimFactor_{1}".format(str_baseName, i),
+                                                      attrType='float',
+                                                      hidden=False,
+                                                      initialValue=1.0,
+                                                      defaultValue=1.0,
+                                                      keyable=False,
+                                                      lock=False,
+                                                      minValue=0)
+
+                    #TODO: ribbon_seal has no zeroTipAimFactor equivalent, so the tip aimFactor stays 1.0.
+                    #...deliberate open item to revisit.
+
+                    #Blend between two values...
+                    mBlendNode = cgmMeta.cgmNode(nodeType='blendTwoAttr')
+                    mBlendNode.rename("{0}_aimScaleResult_{1}_blendTwoAttr".format(str_baseName, i))
+                    mBlendNode.addAttr('baseOne', value=1.0)
+
+                    mPlug_aimFactor.doConnectOut("{0}.attributesBlender".format(mBlendNode.mNode))
+                    mBlendNode.doConnectIn('input[0]', 'baseOne')
+
+                    mPlug_aimResult.p_locked = False
+                    mPlug_aimResult.doConnectIn("{0}.output".format(mBlendNode.mNode))
+
+                    l_argBuild.append("{0}.input[1] = {1} * {2}".format(mBlendNode.mNode,
+                                                                        mPlug_aimNormalized.p_combinedName,
+                                                                        mPlug_segScale.p_combinedName))
+                else:
+                    mPlug_aimResult = mPlug_aimNormalized
+            else:
+                mPlug_outResult = mPlug_inverseNormalized
+                mPlug_aimResult = mPlug_aimNormalized or mPlug_outResult
+            
+            for arg in l_argBuild:
+                NODEFAC.argsToNodes(arg).doBuild()
+            
+            ml_aimInversePlugs.append(mPlug_outResult)
+            
+            if squashStretch == 'simple':
+                for axis in ['scaleX', 'scaleY']:
+                    mPlug_outResult.doConnectOut('{0}.{1}'.format(mJnt.mNode, axis))
+            
+            if not skipAim and mPlug_aimResult:
+                mPlug_aimResult.doConnectOut('{0}.scaleZ'.format(mJnt.mNode))
+    
+    elif squashStretchMain == 'pointDist' and ml_follicles:
+        md_distDat = {'aim': {'active': {'mDist': []}}}
+        for i, mJnt in enumerate(ml_joints):
+            if mJnt == ml_joints[-1]:
+                continue
+            mDistanceDag, mDistanceShape = createDist(mJnt, 'active')
+            ATTR.connect(ml_follicles[i].mNode + '.translate', mDistanceShape.mNode + '.startPoint')
+            ATTR.connect(ml_follicles[i + 1].mNode + '.translate', mDistanceShape.mNode + '.endPoint')
+            md_distDat['aim']['active']['mDist'].append(mDistanceShape)
+        
+        for i, mJnt in enumerate(ml_joints):
+            if i >= len(md_distDat['aim']['active']['mDist']):
+                continue
+            mActive_aim = md_distDat['aim']['active']['mDist'][i]
+            mPlug_aimResult = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                              "{0}_aimScaleResult_{1}".format(str_baseName, i),
+                                              attrType='float',
+                                              initialValue=0,
+                                              lock=True,
+                                              minValue=0)
+            mPlug_aimBase = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                            "{0}_aimBase_{1}".format(str_baseName, i),
+                                            attrType='float',
+                                            lock=True,
+                                            value=ATTR.get('{0}.distance'.format(mActive_aim.mNode)))
+            mPlug_aimBaseNorm = cgmMeta.cgmAttr(mControlSurface.mNode,
+                                                "{0}_aimBaseNorm_{1}".format(str_baseName, i),
+                                                attrType='float',
+                                                initialValue=0,
+                                                lock=True,
+                                                minValue=0)
+            l_argBuild = ["{0} = {1} * {2}".format(mPlug_aimBaseNorm.p_combinedName,
+                                                   mPlug_aimBase.p_combinedName,
+                                                   mPlug_masterScale.p_combinedName)]
+            l_argBuild.append("{0} = {2} / {1}".format(mPlug_aimResult.p_combinedName,
+                                                         mPlug_aimBaseNorm.p_combinedName,
+                                                         "{0}.distance".format(mActive_aim.mNode)))
+            for arg in l_argBuild:
+                NODEFAC.argsToNodes(arg).doBuild()
+            
+            if squashStretch not in ['single', 'both']:
+                for axis in ['scaleX', 'scaleY']:
+                    mPlug_aimResult.doConnectOut('{0}.{1}'.format(mJnt.mNode, axis))
+    
+    if squashStretch == 'simple' and l_influences:
+        cgmGEN._reloadMod(CONSTRAINT)
+        for i, mJnt in enumerate(ml_joints):
+            str_joint = mJnt.mNode
+            if mJnt == ml_joints[0]:
+                l_targets = [l_influences[0]]
+            elif mJnt == ml_joints[-1]:
+                l_targets = [l_influences[-1]]
+            else:
+                l_targets = l_influences
+            
+            if len(l_targets) > 4:
+                l_targets = [t[0] for t in DIST.get_targetsOrderedByDist(mJnt.mNode, l_targets)[:3]]
+            
+            mScaleReader = mJnt.doCreateAt(setClass=True)
+            mScaleReader.rename("{0}_scaleReader".format(mJnt.p_nameBase))
+            mScaleReader.parent = parentDeformTo or mGroup.mNode
+            
+            _scale = mc.scaleConstraint(l_targets,
+                                        mScaleReader.mNode,
+                                        maintainOffset=1)
+            if len(l_targets) > 1:
+                _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode, l_targets)
+                CONSTRAINT.set_weightsByDistance(_scale[0], _vList)
+            
+            mAdditiveScale = cgmMeta.cgmNode(nodeType='multiplyDivide')
+            mAdditiveScale.operation = 1
+            mAdditiveScale.rename("{}_additiveScale_mdNode".format(str_joint))
+            _mdNode = mAdditiveScale.mNode
+            for axis in ['X', 'Y', 'Z']:
+                plug = ATTR.get_driver(str_joint, "scale" + axis)
+                if plug:
+                    ATTR.connect(plug, "{}.input1{}".format(_mdNode, axis))
+                    ATTR.connect("{}.scale{}".format(mScaleReader.mNode, axis),
+                                 "{}.input2{}".format(_mdNode, axis))
+                    ATTR.connect("{}.output.output{}".format(_mdNode, axis),
+                                 "{}.scale{}".format(str_joint, axis))
+
 def ribbon_seal(driven1 = None,
                 driven2 = None,
 
@@ -3253,6 +3581,18 @@ def ribbon_seal(driven1 = None,
                 moduleInstance = None,
                 parentGutsTo = None,
                 paramaterization='blend',
+                
+                squashStretchMain = 'arcLength',
+                squashStretch = None,
+                masterScalePlug = None,
+                additiveScaleEnds = False,
+                extraSquashControl = False,
+                squashFactorMode = 'midPeak',
+                squashFactorMin = 0.0,
+                squashFactorMax = 1.0,
+                setupAimScale = False,
+                skipAim = True,
+                parentDeformTo = False,
                 
                 **kws):
     """
@@ -3866,6 +4206,28 @@ def ribbon_seal(driven1 = None,
                     dat['mPlug_sealOff'].doConnectOut('%s.%s' % (_const,targetWeights[0]))
                     dat['mPlug_sealOn'].doConnectOut('%s.%s' % (_const,targetWeights[1]))
 
+            if squashStretch is not None and masterScalePlug is not None:
+                _ribbonBaseName = baseName1 if idx == 1 else baseName2
+                ml_folliclesOrdered = [md_follicles[mObj] for mObj in dat['driven'] if mObj in md_follicles]
+                _ribbon_applySquashStretch(dat['driven'],
+                                         dat['mSurf'],
+                                         mGroup,
+                                         mSettings,
+                                         _ribbonBaseName,
+                                         masterScalePlug,
+                                         squashStretch=squashStretch,
+                                         squashStretchMain=squashStretchMain,
+                                         extraSquashControl=extraSquashControl,
+                                         squashFactorMin=squashFactorMin,
+                                         squashFactorMax=squashFactorMax,
+                                         squashFactorMode=squashFactorMode,
+                                         ml_follicles=ml_folliclesOrdered,
+                                         ml_influences=dat['mInfluences'],
+                                         parentDeformTo=parentDeformTo,
+                                         setupAimScale=setupAimScale,
+                                         skipAim=skipAim,
+                                         mModule=mModule)
+
             log.debug("|{0}| >> Blend drivers...".format(_str_func))
 
 
@@ -4427,7 +4789,7 @@ def curve(jointList = None,
                                                         hidden = False,
                                                         initialValue=v_scaleFactor,
                                                         defaultValue=v_scaleFactor,
-                                                        keyable = extraKeyable,
+                                                        keyable=False,
                                                         lock=False,
                                                         minValue = 0)
                     
@@ -4472,7 +4834,7 @@ def curve(jointList = None,
                                                           hidden = False,
                                                           initialValue=1.0,
                                                           defaultValue=1.0,
-                                                          keyable = extraKeyable,
+                                                          keyable=False,
                                                           lock=False,
                                                           minValue = 0)                        
                         
@@ -4807,7 +5169,7 @@ def curve(jointList = None,
         log.debug("|{0}| >> Influences found. Attempting to skin...".format(_str_func)+cgmGEN._str_subLine)            
         max_influences = 2
         mode_tighten = 'twoBlend'
-        blendLength = int_lenJoints/2
+        blendLength = int_lenJoints // 2
         blendMin = 2
         _hardLength = 2
         
@@ -4888,11 +5250,2374 @@ def curve(jointList = None,
     return _res
 
 
+def _bezier_joint_chain_from_root(mRoot):
+    """Single-child joint chain from root; raises if a joint branches."""
+    mRoot = cgmMeta.validateObjArg(mRoot, mayaType=['joint'], noneValid=False)
+    ml_chain = [mRoot]
+    mCurrent = mRoot
+    while True:
+        ml_children = [
+            mChild for mChild in (mCurrent.getChildren(asMeta=True) or [])
+            if mc.nodeType(mChild.mNode) == 'joint']
+        if not ml_children:
+            break
+        if len(ml_children) > 1:
+            raise ValueError(
+                'Joint "{0}" has multiple joint children. '
+                'Use a non-branching chain.'.format(mCurrent.p_nameLong))
+        mCurrent = ml_children[0]
+        ml_chain.append(mCurrent)
+    return ml_chain
 
-def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
+
+def _bezier_bind_driver_cvs_from_bezier(mBezierCurve,
+                                        mDriverCurve,
+                                        sample_count,
+                                        str_baseName,
+                                        l_bezier_parameters=None):
+    """Drive hidden spline-IK CVs from samples on the Bezier curve (uniform or per-CV U)."""
+    _bezier_shape = mBezierCurve.getShapes(asMeta=False)[0]
+    _driver_shape = mDriverCurve.getShapes(asMeta=False)[0]
+    ml_poci = []
+    ml_wtl = []
+
+    if l_bezier_parameters is not None:
+        if len(l_bezier_parameters) != sample_count:
+            raise ValueError(
+                'bezier driver parameter list length {0} must match sample count {1}.'.format(
+                    len(l_bezier_parameters), sample_count))
+
+    for _index in range(sample_count):
+        if l_bezier_parameters is not None:
+            _parameter = float(l_bezier_parameters[_index])
+        else:
+            _parameter = float(_index) / float(sample_count - 1)
+
+        mPoci = cgmMeta.cgmNode(
+            nodeType='pointOnCurveInfo',
+            name='{0}_{1:02d}_poci'.format(str_baseName, _index))
+        mWtl = cgmMeta.cgmNode(
+            nodeType='vectorProduct',
+            name='{0}_{1:02d}_wtlVP'.format(str_baseName, _index))
+
+        ATTR.set(mWtl.mNode, 'operation', 4)
+        ATTR.set(mWtl.mNode, 'normalizeOutput', 0)
+
+        ATTR.connect(_bezier_shape + '.worldSpace[0]', mPoci.mNode + '.inputCurve')
+        ATTR.set(mPoci.mNode, 'turnOnPercentage', 1)
+        ATTR.set(mPoci.mNode, 'parameter', _parameter)
+
+        ATTR.connect(mPoci.mNode + '.position', mWtl.mNode + '.input1')
+        ATTR.connect(mDriverCurve.mNode + '.worldInverseMatrix[0]', mWtl.mNode + '.matrix')
+        ATTR.connect(
+            mWtl.mNode + '.output',
+            '{0}.controlPoints[{1}]'.format(_driver_shape, _index))
+
+        ml_poci.append(mPoci)
+        ml_wtl.append(mWtl)
+
+    return ml_poci, ml_wtl
+
+
+def bezier_spline(jointList=None,
+                  baseName=None,
+                  bezierSections=None,
+                  sampleCount=None,
+                  useBezierCurve=None,
+                  bezierAnchorMode='uniform',
+                  driverSampleMode='uniform',
+                  bezierTension=0.15,
+                  bezierClampHandles=True,
+                  bezierAuthorPause=False,
+                  advancedTwistSetup=False,
+                  moduleInstance=None,
+                  parentGutsTo=None,
+                  useUndoChunk=True,
+                  **kws):
+    """
+    Bezier-authored curve driving a hidden nurbs curve for ikSplineSolver.
+
+    :parameters:
+        jointList(joints) | Root joint or ordered chain metas. Selection used when None.
+        baseName(str) | Node base name
+        bezierSections(int) | Editable Bezier sections (default from joint count, max 4)
+        sampleCount(int) | CV count on hidden driver curve
+        useBezierCurve(nurbsCurve) | Existing Bezier curve; skips auto CV build when set
+        bezierAnchorMode(str) | bend (default) — joint anchors + bend-prioritized sections; uniform; joints; polyline
+        bezierTension(float) | bend mode handle length (0–1, default 0.15 — higher = shorter handles)
+        bezierClampHandles(bool) | bend mode — clamp handles to local joint segment lengths
+        driverSampleMode(str) | uniform (default) — driver CVs; joints — driver CV at each joint + chord-length U on Bezier
+        bezierAuthorPause(bool) | After auto Bezier build (not useBezierCurve), select curve and wait for Continue before driver + IK
+        advancedTwistSetup(bool) | Bezier: handle Start/End twist (not ramp). Pass through to IKHandle_addSplineIKTwist twistSetupMode='startEnd'.
+        moduleInstance(cgmRigModule) | Optional; MRS rigNull parenting (omit for native Maya tests)
+        parentGutsTo(transform) | Parent setup group under an existing transform
+        useUndoChunk(bool) | Wrap build in mc.undoInfo chunk
+
+    :returns:
+        dict with mIKHandle, mIKEffector, mBezierCurve, mDriverCurve, mSetupGroup, ml_joints, ...
+    """
+    _str_func = 'bezier_spline'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    _anchor_mode = VALID.stringArg(bezierAnchorMode, noneValid=False).lower()
+    if _anchor_mode in ('bendpriority', 'bend_prioritized'):
+        _anchor_mode = 'bend'
+    _driver_mode = VALID.stringArg(driverSampleMode, noneValid=False).lower()
+    if _anchor_mode not in ('uniform', 'joints', 'polyline', 'bend'):
+        raise ValueError(
+            'bezierAnchorMode must be "bend", "uniform", "joints", or "polyline".')
+    _bezier_tension = VALID.valueArg(bezierTension, noneValid=False)
+    _bezier_clamp_handles = VALID.boolArg(bezierClampHandles)
+    if _driver_mode not in ('uniform', 'joints'):
+        raise ValueError('driverSampleMode must be "uniform" or "joints".')
+    _author_pause = VALID.boolArg(bezierAuthorPause)
+
+    if jointList is None:
+        _sel = mc.ls(sl=True, type='joint', long=True) or []
+        if not _sel:
+            raise ValueError('Select the root joint of a chain or pass jointList.')
+        ml_joints = _bezier_joint_chain_from_root(_sel[0])
+    else:
+        ml_joints = cgmMeta.validateObjListArg(
+            jointList, mType='cgmObject', mayaType=['joint'], noneValid=False)
+        if len(ml_joints) == 1:
+            ml_joints = _bezier_joint_chain_from_root(ml_joints[0])
+
+    if len(ml_joints) < 2:
+        raise ValueError('Bezier spline IK needs at least two joints.')
+
+    mModule = cgmMeta.validateObjArg(moduleInstance, 'cgmRigModule', noneValid=True)
+    str_baseName = VALID.stringArg(baseName, noneValid=True)
+    if not str_baseName and mModule:
+        str_baseName = mModule.getPartNameBase()
+    if not str_baseName:
+        str_baseName = 'bezierSpline'
+    mi_rigNull = mModule.rigNull if mModule else False
+
+    l_positions = [mJnt.p_position for mJnt in ml_joints]
+
+    if _anchor_mode in ('joints', 'polyline') and bezierSections is None:
+        _sections = max(1, len(ml_joints) - 1)
+    elif bezierSections is None:
+        _sections = max(1, min(len(ml_joints) - 1, 4))
+    else:
+        _sections = max(1, int(bezierSections))
+
+    if _driver_mode == 'joints' and len(ml_joints) < 4:
+        log.warning(cgmGEN.logString_msg(
+            _str_func,
+            'driverSampleMode joints needs at least 4 joints; using uniform driver.'))
+        _driver_mode = 'uniform'
+
+    if sampleCount is not None:
+        _sample_count = max(4, int(sampleCount))
+    elif _driver_mode == 'joints':
+        _sample_count = len(ml_joints)
+    else:
+        _sample_count = max(len(ml_joints), (_sections * 3) + 1, 8)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'joints={0} sections={1} sampleCount={2} | bezierAnchorMode={3} driverSampleMode={4} '
+        'bezierAuthorPause={5}'.format(
+            len(ml_joints),
+            _sections,
+            _sample_count,
+            _anchor_mode,
+            _driver_mode,
+            _author_pause)))
+
+    if parentGutsTo is None:
+        mSetupGroup = cgmMeta.cgmObject(name='{0}_setup_grp'.format(str_baseName))
+        mSetupGroup.addAttr('cgmName', str_baseName, lock=True)
+        mSetupGroup.addAttr('cgmTypeModifier', 'bezierIKStuff', lock=True)
+        mSetupGroup.doName()
+    else:
+        mSetupGroup = cgmMeta.validateObjArg(parentGutsTo, 'cgmObject', noneValid=False)
+
+    if mi_rigNull:
+        mSetupGroup.p_parent = mi_rigNull
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        mi_useBezier = cgmMeta.validateObjArg(
+            useBezierCurve, mayaType=['nurbsCurve', 'bezierCurve'], noneValid=True)
+
+        if mi_useBezier:
+            mBezierCurve = mi_useBezier
+            _bez_shapes = mBezierCurve.getShapes(asMeta=False) or []
+            if not any(mc.nodeType(_s) == 'bezierCurve' for _s in _bez_shapes):
+                raise ValueError(
+                    '{0} | useBezierCurve needs a bezierCurve shape. Got: {1}'.format(
+                        _str_func, [mc.nodeType(_s) for _s in _bez_shapes]))
+        else:
+            if _anchor_mode == 'bend':
+                _d_bend = CURVES.bezier_cvs_from_bend_prioritized(
+                    l_positions,
+                    _sections,
+                    tension=_bezier_tension,
+                    clamp_handles=_bezier_clamp_handles)
+                l_bezier_cvs = _d_bend['bezierCVs']
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'bend anchors | sections={0} indices={1}'.format(
+                        _sections, _d_bend['anchorIndices'])))
+            elif _anchor_mode == 'uniform':
+                l_anchor_u = [
+                    float(_i) / float(_sections)
+                    for _i in range(_sections + 1)]
+                l_anchors = [
+                    CURVES.sample_polyline_by_parameter(l_positions, _t)
+                    for _t in l_anchor_u]
+                l_bezier_cvs = CURVES.bezier_cvs_from_anchors(l_anchors)
+            elif _anchor_mode == 'joints':
+                l_anchor_u = CURVES.polyline_length_fractions(l_positions)
+                l_bezier_cvs = CURVES.bezier_cvs_from_polyline_anchors(
+                    l_positions, l_anchor_u)
+            else:
+                l_anchor_u = [
+                    float(_i) / float(_sections)
+                    for _i in range(_sections + 1)]
+                l_bezier_cvs = CURVES.bezier_cvs_from_polyline_anchors(
+                    l_positions, l_anchor_u)
+            _bezier_xform = CURVES.create_bezier_nurbs_curve(
+                '{0}_bezier_crv'.format(str_baseName),
+                l_bezier_cvs)
+            mBezierCurve = cgmMeta.asMeta(_bezier_xform, 'cgmObject', setClass=True)
+            mBezierCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+            mBezierCurve.addAttr('cgmType', 'bezierIKCurve', attrType='string', lock=True)
+            mBezierCurve.doName()
+
+        mBezierCurve.p_parent = mSetupGroup
+
+        if _author_pause and not mi_useBezier:
+            mc.select(mBezierCurve.mNode, replace=True)
+            _btn = mc.confirmDialog(
+                title='Bezier spline IK',
+                message=(
+                    'Adjust Bezier CVs (component mode) to match the joint chain, '
+                    'then Continue.\n\nCancel leaves the Bezier only (no IK driver yet).'),
+                button=['Continue', 'Cancel'],
+                defaultButton='Continue',
+                cancelButton='Cancel',
+                dismissString='Cancel')
+            if _btn != 'Continue':
+                log.info(cgmGEN.logString_msg(
+                    _str_func,
+                    'author pause cancelled | bezier only: {0}'.format(mBezierCurve.p_nameShort)))
+                return {
+                    'mBezierCurve': mBezierCurve,
+                    'mSetupGroup': mSetupGroup,
+                    'ml_joints': ml_joints,
+                    'bezierAuthorCancelled': True,
+                }
+
+        l_driver_bezier_u = None
+        if _driver_mode == 'joints':
+            l_driver_pts = [list(_p) for _p in l_positions]
+            l_driver_bezier_u = CURVES.polyline_length_fractions(l_positions)
+            if len(l_driver_pts) != _sample_count:
+                raise ValueError(
+                    'driverSampleMode joints: sampleCount must match joint count ({0}).'.format(
+                        len(ml_joints)))
+        else:
+            l_driver_pts = []
+            for _i in range(_sample_count):
+                _t = float(_i) / float(_sample_count - 1)
+                l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
+
+        _driver_xform = mc.curve(
+            name='{0}_ikDriver_crv'.format(str_baseName),
+            degree=3,
+            point=l_driver_pts)
+        mDriverCurve = cgmMeta.asMeta(_driver_xform, 'cgmObject', setClass=True)
+        mDriverCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mDriverCurve.addAttr('cgmType', 'splineIKCurve', attrType='string', lock=True)
+        mDriverCurve.doName()
+        mDriverCurve.p_parent = mSetupGroup
+
+        ml_poci, ml_wtl = _bezier_bind_driver_cvs_from_bezier(
+            mBezierCurve,
+            mDriverCurve,
+            _sample_count,
+            str_baseName,
+            l_bezier_parameters=l_driver_bezier_u)
+
+        _buffer = mc.ikHandle(
+            sj=ml_joints[0].mNode,
+            ee=ml_joints[-1].mNode,
+            name='{0}_ikh'.format(str_baseName),
+            solver='ikSplineSolver',
+            curve=mDriverCurve.mNode,
+            createCurve=False,
+            parentCurve=False,
+            rootOnCurve=True,
+            simplifyCurve=False,
+            forceSolver=True,
+            snapHandleFlagToggle=True)
+
+        mIKHandle = cgmMeta.validateObjArg(_buffer[0], 'cgmObject', setClass=True)
+        mIKHandle.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mIKHandle.doName()
+
+        mIKEffector = cgmMeta.validateObjArg(_buffer[1], 'cgmObject', setClass=True)
+        mIKEffector.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+        mIKEffector.doName()
+        mIKEffector.rename('{0}_effector'.format(str_baseName))
+
+        mIKHandle.p_parent = mSetupGroup
+        mc.setAttr(mDriverCurve.mNode + '.visibility', 0)
+
+        mBezierCurve.connectChildNode(mDriverCurve.mNode, 'ikDriverCurve', 'bezierIKCurve')
+        mDriverCurve.msgList_append('ikHandles', mIKHandle.mNode, 'segmentCurve')
+        mIKHandle.msgList_connect('drivenJoints', [mJ.mNode for mJ in ml_joints], 'ikHandle')
+
+        _b_adv_twist = VALID.boolArg(advancedTwistSetup)
+        d_twist = IKHandle_addSplineIKTwist(
+            mIKHandle.mNode,
+            advancedTwistSetup=_b_adv_twist,
+            twistSetupMode='startEnd' if _b_adv_twist else None)
+
+        # POCI / vectorProduct are DG nodes (cgmNode) — no DAG parent; leave unparented like spline stretch nodes.
+        ml_toConnect = [mDriverCurve, mIKHandle, mIKEffector] + ml_poci + ml_wtl
+        if mi_rigNull:
+            _str_rigNull = mi_rigNull.mNode
+            for mObj in ml_toConnect:
+                mObj.overrideEnabled = 1
+                cgmMeta.cgmAttr(_str_rigNull, 'gutsVis', lock=False).doConnectOut(
+                    '{0}.overrideVisibility'.format(mObj.mNode))
+                cgmMeta.cgmAttr(_str_rigNull, 'gutsLock', lock=False).doConnectOut(
+                    '{0}.overrideDisplayType'.format(mObj.mNode))
+
+        _res = {
+            'mIKHandle': mIKHandle,
+            'mIKEffector': mIKEffector,
+            'mBezierCurve': mBezierCurve,
+            'mDriverCurve': mDriverCurve,
+            'mSplineCurve': mDriverCurve,
+            'mSetupGroup': mSetupGroup,
+            'ml_joints': ml_joints,
+            'ml_pointOnCurveInfo': ml_poci,
+            'ml_worldToLocalVP': ml_wtl,
+        }
+        _res.update(d_twist)
+        log.info(cgmGEN.logString_msg(_str_func, 'done | {0}'.format(mBezierCurve.p_nameShort)))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def _bezier_stretch_axis_data(str_aim_axis):
+    str_aim = str_aim_axis.lower()
+    if str_aim == 'x':
+        return 'translateX', 'scaleX', ('scaleY', 'scaleZ')
+    if str_aim == 'y':
+        return 'translateY', 'scaleY', ('scaleX', 'scaleZ')
+    if str_aim == 'z':
+        return 'translateZ', 'scaleZ', ('scaleX', 'scaleY')
+    raise ValueError('aimAxis must be "x", "y" or "z".')
+
+
+def _bezier_stretch_disconnect_incoming(str_plug):
+    for _src in mc.listConnections(
+            str_plug, source=True, destination=False, plugs=True) or []:
+        mc.disconnectAttr(_src, str_plug)
+
+
+def _bezier_stretch_volume_driver(str_base, str_final_ratio, b_translate_stretch):
+    """
+    Perpendicular squash scale driver from length ratio (always positive).
+
+    translate stretch — linear 1/ratio (MRS simple squash; stable with SSC + translate).
+    scale stretch — ratio^-0.5 (volume-style).
+    """
+    mRatioClamp = cgmMeta.cgmNode(
+        nodeType='clamp', name='{0}_stretch_ratioClamp'.format(str_base))
+    ATTR.set(mRatioClamp.mNode, 'minR', 0.0001)
+    ATTR.set(mRatioClamp.mNode, 'maxR', 1000000.0)
+    ATTR.connect(str_final_ratio, mRatioClamp.mNode + '.inputR')
+    str_clamped = mRatioClamp.mNode + '.outputR'
+
+    if b_translate_stretch:
+        mVolDriver = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_volumeInv_md'.format(str_base))
+        ATTR.set(mVolDriver.mNode, 'operation', 2)
+        ATTR.set(mVolDriver.mNode, 'input1X', 1.0)
+        ATTR.connect(str_clamped, mVolDriver.mNode + '.input2X')
+        return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
+
+    mVolDriver = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch_volumePow_md'.format(str_base))
+    ATTR.set(mVolDriver.mNode, 'operation', 3)
+    ATTR.connect(str_clamped, mVolDriver.mNode + '.input1X')
+    ATTR.set(mVolDriver.mNode, 'input2X', -0.5)
+    return mRatioClamp, mVolDriver, mVolDriver.mNode + '.outputX'
+
+
+def _bezier_stretch_poci_measure_per_joint(str_base,
+                                          ml_joints,
+                                          mDriver,
+                                          str_shape,
+                                          b_track_joint_parameter=False):
+    """
+    pointOnCurveInfo per joint on the driver (pointDist segment lengths).
+
+    Distances use POCI.position on the curve — not joint worldPosition — so
+    stretch/squash scale drivers do not feed back through child joint pivots.
+
+    Optional b_track_joint_parameter: nearestPointOnCurve from the joint world
+    matrix drives POCI.parameter. Bezier stretch pointDist keeps this off
+    (bind-time U only) so translate stretch does not feedback through distanceDim.
+    """
+    ml_poci = []
+    ml_track_dg = []
+    _min_u = ATTR.get(str_shape, 'minValue')
+    _max_u = ATTR.get(str_shape, 'maxValue')
+
+    for _i, mJnt in enumerate(ml_joints):
+        param = CURVES.getUParamOnCurveFromObj(mJnt.mNode, mDriver.mNode)
+        mPoci = cgmMeta.cgmNode(
+            nodeType='pointOnCurveInfo',
+            name='{0}_stretch_poci_{1:02d}'.format(str_base, _i))
+        ATTR.connect(str_shape + '.worldSpace[0]', mPoci.mNode + '.inputCurve')
+        mPoci.turnOnPercentage = True
+        mPoci.parameter = MATH.get_normalized_parameter(_min_u, _max_u, param)
+
+        if b_track_joint_parameter:
+            mNpoc = cgmMeta.cgmNode(
+                mc.createNode('nearestPointOnCurve'),
+                setClass=True)
+            mNpoc.rename('{0}_stretch_npoc_{1:02d}'.format(str_base, _i))
+            mDecomp = cgmMeta.cgmNode(
+                nodeType='decomposeMatrix',
+                name='{0}_stretch_wt_{1:02d}'.format(str_base, _i))
+            ATTR.connect(str_shape + '.worldSpace[0]', mNpoc.mNode + '.inputCurve')
+            ATTR.connect(
+                mJnt.mNode + '.worldMatrix[0]', mDecomp.mNode + '.inputMatrix')
+            ATTR.connect(
+                mDecomp.mNode + '.outputTranslate', mNpoc.mNode + '.inPosition')
+            ATTR.connect(
+                mNpoc.mNode + '.parameter', mPoci.mNode + '.parameter')
+            ml_track_dg.extend([mNpoc, mDecomp])
+
+        ml_poci.append(mPoci)
+
+    return ml_poci, ml_track_dg
+
+
+def _bezier_stretch_point_dist_shapes(str_base, ml_curve_pts, mParent):
+    """Distance between consecutive on-curve closest points (per segment)."""
+    ml_shapes = []
+    ml_dags = []
+    for _i in range(len(ml_curve_pts) - 1):
+        mShape = cgmMeta.cgmNode(mc.createNode('distanceDimShape'))
+        mDag = mShape.getTransform(asMeta=True)
+        mDag.doStore('cgmName', '{0}_segDist'.format(str_base))
+        mDag.addAttr('cgmTypeModifier', '{0:02d}'.format(_i), lock=True)
+        mDag.addAttr('cgmType', 'measureNode', lock=True)
+        mDag.doName(nameShapes=True)
+        if mParent:
+            mDag.parent = mParent
+        mDag.overrideEnabled = 1
+        mDag.overrideVisibility = 0
+        ATTR.connect(
+            ml_curve_pts[_i].mNode + '.position', mShape.mNode + '.startPoint')
+        ATTR.connect(
+            ml_curve_pts[_i + 1].mNode + '.position',
+            mShape.mNode + '.endPoint')
+        ml_shapes.append(mShape)
+        ml_dags.append(mDag)
+    return ml_shapes, ml_dags
+
+
+_BEZIER_STRETCH_BIND_REST_EPS = 0.000001
+
+
+def _bezier_stretch_point_dist_bind_rest(m_dist_shape, m_jnt_a, m_jnt_b):
+    """Bind rest segment length for pointDist (evaluate measure or joint span)."""
+    mc.refresh()
+    try:
+        f_dist = float(ATTR.get(m_dist_shape.mNode, 'distance'))
+    except Exception:
+        f_dist = 0.0
+    if f_dist > _BEZIER_STRETCH_BIND_REST_EPS:
+        return f_dist
+    try:
+        f_span = float(DIST.get_distance_between_points(
+            m_jnt_a.p_position, m_jnt_b.p_position))
+    except Exception:
+        f_span = 0.0
+    if f_span > _BEZIER_STRETCH_BIND_REST_EPS:
+        return f_span
+    return _BEZIER_STRETCH_BIND_REST_EPS
+
+
+def _bezier_stretch_curve_blend_network(str_base,
+                                        str_match_ratio_plug,
+                                        mPlug_stretch,
+                                        str_name_mid=''):
+    """
+    curveBlend = 1 + stretch * (matchRatio - 1)
+
+    str_name_mid: '' for global arcLength, '_seg_00' for per-segment pointDist nodes.
+    """
+    ml_nodes = []
+
+    m_delta = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch{1}_ratioDelta_pma'.format(str_base, str_name_mid))
+    m_delta.operation = 2
+    ATTR.connect(str_match_ratio_plug, m_delta.mNode + '.input1D[0]')
+    ATTR.set(m_delta.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_delta)
+
+    m_weight = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_stretch{1}_weight_mdl'.format(str_base, str_name_mid))
+    mPlug_stretch.doConnectOut(m_weight.mNode + '.input1')
+    ATTR.connect(m_delta.mNode + '.output1D', m_weight.mNode + '.input2')
+    ml_nodes.append(m_weight)
+
+    m_curve_blend = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_stretch{1}_finalRatio_pma'.format(str_base, str_name_mid))
+    m_curve_blend.operation = 1
+    ATTR.connect(m_weight.mNode + '.output', m_curve_blend.mNode + '.input1D[0]')
+    ATTR.set(m_curve_blend.mNode, 'input1D[1]', 1.0)
+    ml_nodes.append(m_curve_blend)
+
+    return m_curve_blend.mNode + '.output1D', ml_nodes, m_curve_blend
+
+
+def _bezier_stretch_apply_length_scale(str_base,
+                                       str_curve_blend_plug,
+                                       mPlug_lengthScale,
+                                       str_name_mid=''):
+    """finalRatio = curveBlend * lengthScale"""
+    m_md = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch{1}_lengthScale_md'.format(str_base, str_name_mid))
+    ATTR.set(m_md.mNode, 'operation', 1)
+    ATTR.connect(str_curve_blend_plug, m_md.mNode + '.input1X')
+    mPlug_lengthScale.doConnectOut(m_md.mNode + '.input2X')
+    return m_md.mNode + '.outputX', m_md
+
+
+def _bezier_stretch_seg_final_ratio_network(str_base,
+                                            seg_i,
+                                            mDistShape,
+                                            mPlug_stretch,
+                                            mPlug_lengthScale,
+                                            str_master_scale=None,
+                                            f_rest_bind=None):
+    """
+    Per-segment stretch ratio from distanceDim (pointDist).
+
+    segRatio = (dist / masterScale) / restDist when masterScale is set — same contract
+    as arcLength (normalize live measure only; bind rest stays fixed). Ribbon pointDist
+    used rest * masterScale in the denominator via aimBaseNorm.
+
+    curveBlend = 1 + stretch * (segRatio - 1); finalRatio = curveBlend * lengthScale
+    """
+    str_dist = mDistShape.mNode + '.distance'
+    if f_rest_bind is not None:
+        f_rest = max(float(f_rest_bind), _BEZIER_STRETCH_BIND_REST_EPS)
+    else:
+        f_rest = float(ATTR.get(mDistShape.mNode, 'distance'))
+        if f_rest <= _BEZIER_STRETCH_BIND_REST_EPS:
+            f_rest = _BEZIER_STRETCH_BIND_REST_EPS
+
+    ml_nodes = []
+
+    if str_master_scale:
+        m_ms_clamp = cgmMeta.cgmNode(
+            nodeType='clamp',
+            name='{0}_stretch_seg_{1:02d}_msClamp'.format(str_base, seg_i))
+        ATTR.set(m_ms_clamp.mNode, 'minR', _BEZIER_STRETCH_BIND_REST_EPS)
+        ATTR.set(m_ms_clamp.mNode, 'maxR', 1000000.0)
+        ATTR.connect(str_master_scale, m_ms_clamp.mNode + '.inputR')
+        str_ms_safe = m_ms_clamp.mNode + '.outputR'
+        ml_nodes.append(m_ms_clamp)
+
+        m_dist_norm = cgmMeta.cgmNode(
+            nodeType='multiplyDivide',
+            name='{0}_stretch_seg_{1:02d}_distNorm_md'.format(str_base, seg_i))
+        ATTR.set(m_dist_norm.mNode, 'operation', 2)
+        ATTR.connect(str_dist, m_dist_norm.mNode + '.input1X')
+        ATTR.connect(str_ms_safe, m_dist_norm.mNode + '.input2X')
+        str_dist_num = m_dist_norm.mNode + '.outputX'
+        ml_nodes.append(m_dist_norm)
+    else:
+        str_dist_num = str_dist
+
+    m_seg_ratio = cgmMeta.cgmNode(
+        nodeType='multiplyDivide',
+        name='{0}_stretch_seg_{1:02d}_ratio_md'.format(str_base, seg_i))
+    ATTR.set(m_seg_ratio.mNode, 'operation', 2)
+    ATTR.connect(str_dist_num, m_seg_ratio.mNode + '.input1X')
+    ATTR.set(m_seg_ratio.mNode, 'input2X', f_rest)
+    ml_nodes.append(m_seg_ratio)
+
+    m_seg_ratio_clamp = cgmMeta.cgmNode(
+        nodeType='clamp',
+        name='{0}_stretch_seg_{1:02d}_ratioClamp'.format(str_base, seg_i))
+    ATTR.set(m_seg_ratio_clamp.mNode, 'minR', _BEZIER_STRETCH_BIND_REST_EPS)
+    ATTR.set(m_seg_ratio_clamp.mNode, 'maxR', 1000000.0)
+    ATTR.connect(m_seg_ratio.mNode + '.outputX', m_seg_ratio_clamp.mNode + '.inputR')
+    str_seg_ratio_plug = m_seg_ratio_clamp.mNode + '.outputR'
+    ml_nodes.append(m_seg_ratio_clamp)
+
+    str_name_mid = '_seg_{0:02d}'.format(seg_i)
+    str_curve_blend, ml_blend_nodes, _m_curve_blend = (
+        _bezier_stretch_curve_blend_network(
+            str_base,
+            str_seg_ratio_plug,
+            mPlug_stretch,
+            str_name_mid=str_name_mid))
+    ml_nodes.extend(ml_blend_nodes)
+
+    str_final_ratio, m_length_scale_md = _bezier_stretch_apply_length_scale(
+        str_base, str_curve_blend, mPlug_lengthScale, str_name_mid=str_name_mid)
+    ml_nodes.append(m_length_scale_md)
+
+    return str_final_ratio, ml_nodes, f_rest
+
+
+def _bezier_stretch_inflate_global_index(i_joint, inflate_slide_global_start):
+    int_g = int(i_joint)
+    if inflate_slide_global_start is not None:
+        int_g = int(inflate_slide_global_start) + int_g
+    return int_g
+
+
+def _bezier_stretch_inflate_max_factor_index(int_chain_joint_count,
+                                             inflate_slide_global_count):
+    """
+    Max settings ``inflateFactor`` index (0..max inclusive).
+
+    One ramp slot per IK joint in the chain — not the N-1 volume ``outFactor`` span count.
+    """
+    if (inflate_slide_global_count is not None
+            and int(inflate_slide_global_count) > 0):
+        return max(0, int(inflate_slide_global_count) - 1)
+    return max(0, int(int_chain_joint_count) - 1)
+
+
+def _bezier_stretch_inflate_offset_shared(str_base, mPlug_offset, int_max_idx):
+    """
+    offset * (maxIdx / 2): squashInflateOffset ±2 shifts the factor ramp one full chain.
+    """
+    if int_max_idx <= 0:
+        return {'str_shift': None, 'ml_nodes': []}
+    m_span = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_inflateOffset_span_mdl'.format(str_base))
+    ATTR.set(m_span.mNode, 'input1', float(int_max_idx) / 2.0)
+    mPlug_offset.doConnectOut(m_span.mNode + '.input2')
+    return {'str_shift': m_span.mNode + '.output', 'ml_nodes': [m_span]}
+
+
+def _bezier_stretch_inflate_factor_plugs_ensure(mSettings,
+                                                str_factor_base,
+                                                l_inflate_factors,
+                                                int_max_idx,
+                                                extra_keyable=None):
+    """Create every settings inflateFactor_0..max_idx (needed for offset sampling)."""
+    md_plugs = {}
+    for int_k in range(int(int_max_idx) + 1):
+        try:
+            v_factor = l_inflate_factors[int_k]
+        except Exception:
+            v_factor = l_inflate_factors[-1] if l_inflate_factors else 1.0
+        md_plugs[int_k] = _bezier_stretch_inflate_factor_plug(
+            mSettings, str_factor_base, int_k, v_factor)
+    return md_plugs
+
+
+def _bezier_stretch_inflate_choice_wire_inputs(m_choice, md_factor_plugs, int_max_idx):
+    for int_k in range(int(int_max_idx) + 1):
+        mPlug = md_factor_plugs.get(int_k)
+        if not mPlug:
+            continue
+        mc.connectAttr(
+            mPlug.p_combinedShortName,
+            '{0}.input[{1}]'.format(m_choice.mNode, int_k),
+            force=True)
+
+
+def _bezier_stretch_guts_group(str_base, parent_guts_to):
+    """Null under rigNull (or caller parent) for bezier stretch DAG transforms."""
+    m_parent = cgmMeta.validateObjArg(parent_guts_to, 'cgmObject', noneValid=True)
+    if not m_parent:
+        return None
+    str_grp = '{0}_bezierStretch_grp'.format(str_base)
+    # doName() below renames the node from its cgmName/cgmTypeModifier tags (no cgmType
+    # tag is set, so no '_grp' suffix survives) -- find an existing one by tags, not name.
+    for str_child in mc.listRelatives(
+            m_parent.mNode, children=True, type='transform', fullPath=True) or []:
+        if (mc.objExists(str_child + '.cgmTypeModifier')
+                and mc.getAttr(str_child + '.cgmTypeModifier') == 'bezierStretch'
+                and mc.objExists(str_child + '.cgmName')
+                and mc.getAttr(str_child + '.cgmName') == str(str_base)):
+            return cgmMeta.cgmObject(str_child)
+    m_grp = m_parent.doCreateAt('null')
+    m_grp.rename(str_grp)
+    m_grp.addAttr('cgmName', str(str_base), lock=True)
+    m_grp.addAttr('cgmTypeModifier', 'bezierStretch', lock=True)
+    m_grp.doName()
+    m_grp.p_parent = m_parent
+    mc.setAttr(m_grp.mNode + '.visibility', 0)
+    return m_grp
+
+
+def _bezier_stretch_parent_dag_under(ml_nodes, m_parent):
+    """Parent transform DAG nodes (e.g. inflate floorUtil) so rig cleanUp keeps them."""
+    m_parent = cgmMeta.validateObjArg(m_parent, 'cgmObject', noneValid=True)
+    if not m_parent or not ml_nodes:
+        return
+    for m_node in ml_nodes:
+        m_obj = cgmMeta.validateObjArg(m_node, noneValid=True)
+        if not m_obj:
+            continue
+        if mc.nodeType(m_obj.mNode) in ('transform', 'joint'):
+            m_obj.p_parent = m_parent
+
+
+def _bezier_stretch_dg_named_node(str_node_type, str_name):
+    """
+    Create a DG node, wrap as cgmNode, and rename to str_name.
+    cgmNode(nodeType=...) does not create all DG types (e.g. floatMath).
+    """
+    if mc.objExists(str_name):
+        if mc.nodeType(str_name) != str_node_type:
+            mc.delete(str_name)
+        else:
+            return cgmMeta.cgmNode(str_name)
+    m_node = cgmMeta.cgmNode(mc.createNode(str_node_type, skipSelect=True))
+    m_node.rename(str_name)
+    if mc.nodeType(m_node.mNode) != str_node_type:
+        raise ValueError(
+            '|dg_named_node| >> {0} expected type {1}, got {2}'.format(
+                m_node.mNode, str_node_type, mc.nodeType(m_node.mNode)))
+    return m_node
+
+
+def _bezier_stretch_inflate_floor_plug(str_base, i_joint, str_s_plug):
+    """floor(s) for clamped non-negative s — util + expression (floatMath unreliable here)."""
+    str_legacy_fm = '{0}_inflateSample_{1:02d}_floor_fm'.format(str_base, i_joint)
+    if mc.objExists(str_legacy_fm):
+        mc.delete(str_legacy_fm)
+    str_util = '{0}_inflateSample_{1:02d}_floorUtil'.format(str_base, i_joint)
+    str_expr = '{0}_expr'.format(str_util)
+    if mc.objExists(str_expr):
+        mc.delete(str_expr)
+    m_util = _bezier_stretch_dg_named_node('transform', str_util)
+    mc.setAttr(m_util.mNode + '.visibility', 0)
+    mPlug_s = cgmMeta.cgmAttr(
+        m_util.mNode, 'sampleS', attrType='float',
+        keyable=False, hidden=True, lock=True)
+    mPlug_floor = cgmMeta.cgmAttr(
+        m_util.mNode, 'floorIdx', attrType='float',
+        keyable=False, hidden=True, lock=False)
+    ATTR.connect(str_s_plug, mPlug_s.p_combinedShortName)
+    mc.expression(
+        name=str_expr,
+        object=m_util.mNode,
+        string='{0}.floorIdx = floor({0}.sampleS);'.format(m_util.mNode),
+        alwaysEvaluate=True,
+        unitConversion='none')
+    return mPlug_floor.p_combinedShortName, m_util
+
+
+def _bezier_stretch_inflate_offset_sample_network(str_base,
+                                                  i_joint,
+                                                  int_global_idx,
+                                                  int_max_idx,
+                                                  str_shift_plug,
+                                                  md_factor_plugs):
+    """
+    Lerp inflateFactor[floor(s)] and inflateFactor[ceil(s)] with s = g - shift.
+    DG (choice + blendTwoAttr); floor via util expression — ribbon_seal-style ramp slide.
+    """
+    ml_nodes = []
+    if int_max_idx <= 0:
+        mPlug = md_factor_plugs.get(0)
+        if not mPlug:
+            raise ValueError(
+                '|inflate_offset_sample| >> missing inflateFactor_0 plug.')
+        return mPlug.p_combinedShortName, ml_nodes
+
+    m_shifted = _bezier_stretch_dg_named_node(
+        'plusMinusAverage',
+        '{0}_inflateSample_{1:02d}_idx_pma'.format(str_base, i_joint))
+    ATTR.set(m_shifted.mNode, 'operation', 2)
+    ATTR.set(m_shifted.mNode, 'input1D[0]', float(int_global_idx))
+    ATTR.connect(str_shift_plug, m_shifted.mNode + '.input1D[1]')
+
+    m_clamp = _bezier_stretch_dg_named_node(
+        'clamp',
+        '{0}_inflateSample_{1:02d}_idxClamp'.format(str_base, i_joint))
+    ATTR.set(m_clamp.mNode, 'minR', 0.0)
+    ATTR.set(m_clamp.mNode, 'maxR', float(int_max_idx))
+    ATTR.connect(m_shifted.mNode + '.output1D', m_clamp.mNode + '.inputR')
+    str_s = m_clamp.mNode + '.outputR'
+    ml_nodes.extend([m_shifted, m_clamp])
+
+    str_floor, m_floor = _bezier_stretch_inflate_floor_plug(
+        str_base, i_joint, str_s)
+    ml_nodes.append(m_floor)
+
+    m_ceil_add = _bezier_stretch_dg_named_node(
+        'plusMinusAverage',
+        '{0}_inflateSample_{1:02d}_ceil_pma'.format(str_base, i_joint))
+    ATTR.set(m_ceil_add.mNode, 'operation', 1)
+    ATTR.connect(str_floor, m_ceil_add.mNode + '.input1D[0]')
+    ATTR.set(m_ceil_add.mNode, 'input1D[1]', 1.0)
+    m_ceil_clamp = _bezier_stretch_dg_named_node(
+        'clamp',
+        '{0}_inflateSample_{1:02d}_ceilClamp'.format(str_base, i_joint))
+    ATTR.set(m_ceil_clamp.mNode, 'minR', 0.0)
+    ATTR.set(m_ceil_clamp.mNode, 'maxR', float(int_max_idx))
+    ATTR.connect(m_ceil_add.mNode + '.output1D', m_ceil_clamp.mNode + '.inputR')
+    str_ceil = m_ceil_clamp.mNode + '.outputR'
+    ml_nodes.extend([m_ceil_add, m_ceil_clamp])
+
+    m_frac = _bezier_stretch_dg_named_node(
+        'plusMinusAverage',
+        '{0}_inflateSample_{1:02d}_frac_pma'.format(str_base, i_joint))
+    ATTR.set(m_frac.mNode, 'operation', 2)
+    ATTR.connect(str_s, m_frac.mNode + '.input1D[0]')
+    ATTR.connect(str_floor, m_frac.mNode + '.input1D[1]')
+    str_frac = m_frac.mNode + '.output1D'
+    ml_nodes.append(m_frac)
+
+    m_choice_lo = _bezier_stretch_dg_named_node(
+        'choice',
+        '{0}_inflateSample_{1:02d}_choiceLo'.format(str_base, i_joint))
+    m_choice_hi = _bezier_stretch_dg_named_node(
+        'choice',
+        '{0}_inflateSample_{1:02d}_choiceHi'.format(str_base, i_joint))
+    _bezier_stretch_inflate_choice_wire_inputs(
+        m_choice_lo, md_factor_plugs, int_max_idx)
+    _bezier_stretch_inflate_choice_wire_inputs(
+        m_choice_hi, md_factor_plugs, int_max_idx)
+    ATTR.connect(str_floor, m_choice_lo.mNode + '.selector')
+    ATTR.connect(str_ceil, m_choice_hi.mNode + '.selector')
+    ml_nodes.extend([m_choice_lo, m_choice_hi])
+
+    m_blend = _bezier_stretch_dg_named_node(
+        'blendTwoAttr',
+        '{0}_inflateSample_{1:02d}_lerp_blend'.format(str_base, i_joint))
+    ATTR.connect(m_choice_lo.mNode + '.output', m_blend.mNode + '.input[0]')
+    ATTR.connect(m_choice_hi.mNode + '.output', m_blend.mNode + '.input[1]')
+    ATTR.connect(str_frac, m_blend.mNode + '.attributesBlender')
+    ml_nodes.append(m_blend)
+
+    return m_blend.mNode + '.output', ml_nodes
+
+
+def _bezier_stretch_settings_inflate_plugs(mSettings, extra_keyable):
+    """Get or create settings squashInflate + squashInflateOffset (extra squash only)."""
+    m_node = cgmMeta.validateObjArg(mSettings, noneValid=False)
+    if m_node.hasAttr('squashInflate'):
+        mPlug_inflate = cgmMeta.cgmAttr(m_node.mNode, 'squashInflate')
+    else:
+        mPlug_inflate = cgmMeta.cgmAttr(
+            m_node.mNode, 'squashInflate', attrType='float',
+            keyable=extra_keyable, hidden=False, initialValue=0.0,
+            defaultValue=0.0)
+    if m_node.hasAttr('squashInflateOffset'):
+        mPlug_offset = cgmMeta.cgmAttr(m_node.mNode, 'squashInflateOffset')
+        try:
+            mc.addAttr(
+                m_node.mNode + '.squashInflateOffset',
+                edit=True, min=-2.0, max=2.0)
+        except Exception:
+            pass
+    else:
+        mPlug_offset = cgmMeta.cgmAttr(
+            m_node.mNode, 'squashInflateOffset', attrType='float',
+            keyable=extra_keyable, hidden=False, initialValue=0.0,
+            defaultValue=0.0, minValue=-2.0, maxValue=2.0)
+    return mPlug_inflate, mPlug_offset
+
+
+def _bezier_stretch_inflate_factor_plug(mSettings,
+                                        str_factor_base,
+                                        i_global,
+                                        v_factor,
+                                        extra_keyable=None):
+    """Per-joint inflate ramp factor on settings (separate from volume outFactor)."""
+    str_attr = '{0}_inflateFactor_{1}'.format(str_factor_base, i_global)
+    m_node = cgmMeta.validateObjArg(mSettings, noneValid=False)
+    mPlug = cgmMeta.cgmAttr(
+        m_node.mNode, str_attr, attrType='float',
+        hidden=False, initialValue=v_factor, defaultValue=v_factor,
+        keyable=False, lock=False)
+    log.info(cgmGEN.logString_msg(
+        '_bezier_stretch_inflate_factor_plug',
+        '{0}.{1} = {2}'.format(m_node.p_nameShort, str_attr, v_factor)))
+    return mPlug
+
+
+def _bezier_stretch_tip_inflate_volume_plug(str_base, str_volume_driver, mPlug_squash):
+    """Chain-tip volume squash for inflate (no ``outFactor`` attr on tip)."""
+    m_blend = cgmMeta.cgmNode(
+        nodeType='blendTwoAttr',
+        name='{0}_squash_tip_vol_blend'.format(str_base))
+    ATTR.set(m_blend.mNode, 'input[0]', 1.0)
+    ATTR.connect(str_volume_driver, m_blend.mNode + '.input[1]')
+    mPlug_squash.doConnectOut(m_blend.mNode + '.attributesBlender')
+    return m_blend.mNode + '.output', [m_blend]
+
+
+def _bezier_stretch_wire_chain_tip_inflate(
+        str_base, ml_joints, str_tip_volume_driver, mPlug_squash, mPlug_inflate,
+        int_inflate_max_factor_idx, str_inflate_shift, md_factor_plugs,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, l_volume_scale,
+        inflate_slide_global_start, ml_inflate_dg):
+    """Last IK joint: inflate ramp slot + direct-parent inflateScale (no outFactor span)."""
+    if (not mPlug_inflate or not inflate_drive_direct_parents
+            or not md_factor_plugs or not str_tip_volume_driver):
+        return
+    if len(ml_joints) < 1:
+        return
+    int_tip = len(ml_joints) - 1
+    m_tip = ml_joints[int_tip]
+    str_tip_vol, ml_tip_vol = _bezier_stretch_tip_inflate_volume_plug(
+        str_base, str_tip_volume_driver, mPlug_squash)
+    ml_inflate_dg.extend(ml_tip_vol)
+    int_g = _bezier_stretch_inflate_global_index(
+        int_tip, inflate_slide_global_start)
+    str_factor_sample, ml_sample = (
+        _bezier_stretch_inflate_offset_sample_network(
+            str_base, int_tip, int_g, int_inflate_max_factor_idx,
+            str_inflate_shift, md_factor_plugs))
+    ml_inflate_dg.extend(ml_sample)
+    d_inflate = _bezier_stretch_joint_inflate_additive_network(
+        str_base, int_tip, str_tip_vol, str_factor_sample, mPlug_inflate)
+    str_inflate_scale = d_inflate['str_scale']
+    ml_inflate_dg.extend(d_inflate['ml_nodes'])
+    _bezier_stretch_connect_inflate_joint_or_direct(
+        m_tip, l_volume_scale, str_tip_vol, str_inflate_scale,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, int_tip)
+
+
+def _bezier_stretch_connect_inflate_joint_or_direct(
+        m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+        inflate_drive_direct_parents, l_inflate_direct_plugs, i_joint):
+    """IK joint gets volume-only or full scale; optional direct-parent inflate plugs."""
+    if inflate_drive_direct_parents:
+        l_inflate_direct_plugs.append({
+            'i': i_joint,
+            'str_plug': str_inflate_scale,
+            'm_ikJoint': m_jnt,
+            'str_vol_scale': str_vol_scale,
+        })
+        str_joint_scale = str_vol_scale
+    else:
+        str_joint_scale = str_inflate_scale
+    for _attr in l_volume_scale:
+        ATTR.connect(
+            str_joint_scale,
+            '{0}.{1}'.format(m_jnt.mNode, _attr))
+
+
+def _bezier_stretch_joint_inflate_additive_network(str_base,
+                                                   i_joint,
+                                                   str_vol_scale_plug,
+                                                   str_inflate_factor_sample,
+                                                   mPlug_inflate):
+    """
+    Optional additive layer: volScale + factorSample * squashInflate.
+    factorSample comes from offset-shifted inflateFactor ramp (not volume outFactor).
+    Negative factorSample (or squashInflate) contracts vs volume squash on that joint.
+    """
+    ml_nodes = []
+    m_inflate_mdl = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_inflateAdd_{1:02d}_mdl'.format(str_base, i_joint))
+    ATTR.connect(str_inflate_factor_sample, m_inflate_mdl.mNode + '.input1')
+    mPlug_inflate.doConnectOut(m_inflate_mdl.mNode + '.input2')
+    m_final = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_inflateAdd_{1:02d}_pma'.format(str_base, i_joint))
+    m_final.operation = 1
+    ATTR.connect(str_vol_scale_plug, m_final.mNode + '.input1D[0]')
+    ATTR.connect(m_inflate_mdl.mNode + '.output', m_final.mNode + '.input1D[1]')
+    ml_nodes.extend([m_inflate_mdl, m_final])
+    return {
+        'str_scale': m_final.mNode + '.output1D',
+        'ml_nodes': ml_nodes,
+    }
+
+
+def _bezier_stretch_joint_squash_scale_network(str_base,
+                                               i_joint,
+                                               str_volume_driver,
+                                               mPlug_squash,
+                                               mSettings,
+                                               v_scale_factor,
+                                               extra_keyable=None):
+    """
+    Per-joint volume squash: 1 + (volBase - 1) * outFactor * squash.
+
+    Matches ribbon arcLength extraSquashControl (one factor per joint on settings).
+    """
+    str_out_attr = '{0}_outFactor_{1}'.format(str_base, i_joint)
+    mPlug_joint_factor = cgmMeta.cgmAttr(
+        mSettings.mNode,
+        str_out_attr,
+        attrType='float',
+        hidden=False,
+        initialValue=v_scale_factor,
+        defaultValue=v_scale_factor,
+        keyable=False,
+        lock=False,
+        minValue=0)
+
+    m_diff = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_squash_{1:02d}_volDiff_pma'.format(str_base, i_joint))
+    m_diff.operation = 2
+    ATTR.connect(str_volume_driver, m_diff.mNode + '.input1D[0]')
+    ATTR.set(m_diff.mNode, 'input1D[1]', 1.0)
+
+    m_res = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_squash_{1:02d}_factorRes_mdl'.format(str_base, i_joint))
+    mPlug_joint_factor.doConnectOut(m_res.mNode + '.input1')
+    mPlug_squash.doConnectOut(m_res.mNode + '.input2')
+
+    m_mult = cgmMeta.cgmNode(
+        nodeType='multDL',
+        name='{0}_squash_{1:02d}_volMult_mdl'.format(str_base, i_joint))
+    ATTR.connect(m_diff.mNode + '.output1D', m_mult.mNode + '.input1')
+    ATTR.connect(m_res.mNode + '.output', m_mult.mNode + '.input2')
+
+    m_out = cgmMeta.cgmNode(
+        nodeType='plusMinusAverage',
+        name='{0}_squash_{1:02d}_volOut_pma'.format(str_base, i_joint))
+    m_out.operation = 1
+    ATTR.set(m_out.mNode, 'input1D[0]', 1.0)
+    ATTR.connect(m_mult.mNode + '.output', m_out.mNode + '.input1D[1]')
+
+    return {
+        'mPlug_jointFactor': mPlug_joint_factor,
+        'ml_nodes': [m_diff, m_res, m_mult, m_out],
+        'str_scale': m_out.mNode + '.output1D',
+    }
+
+
+def bezier_spline_stretch(ml_joints=None,
+                          root_joint=None,
+                          jointList=None,
+                          mDriverCurve=None,
+                          driver_curve=None,
+                          mSettings=None,
+                          settings_node=None,
+                          aimAxis='x',
+                          aim_axis=None,
+                          stretchBy='translate',
+                          stretch_by=None,
+                          globalScalePlug=None,
+                          baseName=None,
+                          name=None,
+                          replaceExisting=True,
+                          replace_existing=None,
+                          extraSquashControl=False,
+                          extra_squash_control=None,
+                          extraInflateControl=None,
+                          extra_inflate_control=None,
+                          squashFactorMin=0.0,
+                          squash_factor_min=None,
+                          squashFactorMax=1.0,
+                          squash_factor_max=None,
+                          squashFactorMode='midPeak',
+                          squash_factor_mode=None,
+                          extraKeyable=True,
+                          extra_keyable=None,
+                          squashStretchMain='arcLength',
+                          squash_stretch_main=None,
+                          inflateSlideGlobalCount=None,
+                          inflate_slide_global_count=None,
+                          inflateSlideGlobalStart=None,
+                          inflate_slide_global_start=None,
+                          inflateFactorMin=0.0,
+                          inflate_factor_min=None,
+                          inflateFactorMax=1.0,
+                          inflate_factor_max=None,
+                          inflateFactorMode='midPeak',
+                          inflate_factor_mode=None,
+                          inflateFactorBaseName=None,
+                          inflate_factor_base_name=None,
+                          parentGutsTo=None,
+                          parent_guts_to=None,
+                          inflateDriveDirectParents=False,
+                          inflate_drive_direct_parents=None,
+                          volumeSquashInflateOnly=False,
+                          volume_squash_inflate_only=None,
+                          applyVolumeSquash=True,
+                          apply_volume_squash=None,
+                          skipTipInflate=False,
+                          skip_tip_inflate=None,
+                          useUndoChunk=True):
+    """
+    Exact arc-length stretch for IK.bezier_spline joint chains.
+
+    Uses stretch / squash on settings (bezierIKCurve recommended).
+
+    curveBlend = 1 + stretch * (arcRatio - 1)
+    finalRatio = curveBlend * lengthScale
+    stretch=1 matches measured curve arc length; stretch=0 rest bind; stretch less than 0 shrinks
+    (opposite of arc length delta). lengthScale=1 default; uniform length when arc ratio is 1.
+    squash=1 applies volume compensation on secondary scales
+    (translate stretch: linear 1/ratio; scale stretch: ratio^-0.5).
+
+    curveInfo measures driver_curve / mDriverCurve — the curve whose length drives stretch.
+    When spline_ik_curve_add_sine is used, pass the **sine output** (same curve wired to
+    ikHandle.inCurve), not the hidden undeformed POCI driver.
+
+    :parameters:
+        ml_joints | Joint chain metas (root to tip); same order as bezier_spline return
+        root_joint(joint) | Build ml_joints from a non-branching chain root
+        jointList(joints) | Ordered chain; overrides root_joint when set
+        driver_curve / mDriverCurve | Measured arc-length source (sine output when deformed)
+        settings_node / mSettings | Attr holder for stretch / squash
+        aim_axis / aimAxis | Local segment length axis x|y|z
+        stretch_by / stretchBy | translate | scale — segment length via translate or aim-axis scale
+        globalScalePlug | Optional uniform scale plug to remove from measured length
+        name / baseName | Network node base name
+        replace_existing / replaceExisting | Disconnect existing drivers on stretch channels
+        extraSquashControl | Per-joint `{base}_outFactor_i` on settings (ramp from squashFactorMin/Max/Mode)
+        squashStretchMain | arcLength (global curveInfo) | pointDist (per-segment distance on driver)
+        useUndoChunk | Wrap in undo chunk
+        parentGutsTo | rigNull (or group): parent transform DAG (inflate floorUtil, etc.)
+        inflateDriveDirectParents | Volume squash on IK joints only; full inflate plugs in
+            l_inflateDirectPlugs for direct-control parents (Segment FK)
+        skipTipInflate | When True, do not wire chain-tip inflate or tip inflateScale direct plugs
+
+    :returns:
+        dict of meta nodes and plugs
+    """
+    _str_func = 'bezier_spline_stretch'
+
+    if jointList is not None:
+        ml_joints = cgmMeta.validateObjListArg(
+            jointList, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    elif ml_joints is not None:
+        ml_joints = cgmMeta.validateObjListArg(
+            ml_joints, mType='cgmObject', mayaType=['joint'], noneValid=False)
+    elif root_joint is not None:
+        ml_joints = _bezier_joint_chain_from_root(root_joint)
+    else:
+        raise ValueError(
+            '|{0}| >> Pass ml_joints, jointList, or root_joint.'.format(_str_func))
+
+    if len(ml_joints) < 2:
+        raise ValueError('|{0}| >> At least two joints required.'.format(_str_func))
+
+    _length_curve = mDriverCurve if mDriverCurve is not None else driver_curve
+    if _length_curve is None:
+        raise ValueError(
+            '|{0}| >> Pass driver_curve or mDriverCurve (sine output when deformed).'.format(
+                _str_func))
+
+    _settings = mSettings if mSettings is not None else settings_node
+    if aim_axis is not None:
+        aimAxis = aim_axis
+    str_stretch_by = VALID.stringArg(stretch_by, noneValid=True)
+    if not str_stretch_by:
+        str_stretch_by = VALID.stringArg(stretchBy, noneValid=True) or 'translate'
+    b_stretch_scale = str_stretch_by.lower() in ['scale', 's']
+    str_base = VALID.stringArg(name, noneValid=True) or VALID.stringArg(
+        baseName, noneValid=True)
+    if replace_existing is not None:
+        replaceExisting = replace_existing
+    if extra_squash_control is not None:
+        extraSquashControl = extra_squash_control
+    if extra_inflate_control is not None:
+        extraInflateControl = extra_inflate_control
+    elif extraInflateControl is None:
+        extraInflateControl = extraSquashControl
+    if squash_factor_min is not None:
+        squashFactorMin = squash_factor_min
+    if squash_factor_max is not None:
+        squashFactorMax = squash_factor_max
+    if squash_factor_mode is not None:
+        squashFactorMode = squash_factor_mode
+    if extra_keyable is not None:
+        extraKeyable = extra_keyable
+    if squash_stretch_main is not None:
+        squashStretchMain = squash_stretch_main
+    if inflate_slide_global_count is not None:
+        inflateSlideGlobalCount = inflate_slide_global_count
+    if inflate_slide_global_start is not None:
+        inflateSlideGlobalStart = inflate_slide_global_start
+    if inflate_factor_min is not None:
+        inflateFactorMin = inflate_factor_min
+    if inflate_factor_max is not None:
+        inflateFactorMax = inflate_factor_max
+    if inflate_factor_mode is not None:
+        inflateFactorMode = inflate_factor_mode
+    if parent_guts_to is not None:
+        parentGutsTo = parent_guts_to
+    if inflate_drive_direct_parents is not None:
+        inflateDriveDirectParents = inflate_drive_direct_parents
+    if volume_squash_inflate_only is not None:
+        volumeSquashInflateOnly = volume_squash_inflate_only
+    if apply_volume_squash is not None:
+        applyVolumeSquash = apply_volume_squash
+    if skip_tip_inflate is not None:
+        skipTipInflate = skip_tip_inflate
+    b_skip_tip_inflate = bool(skipTipInflate)
+    b_volume_only = bool(volumeSquashInflateOnly)
+    b_apply_volume_squash = bool(applyVolumeSquash)
+    if b_volume_only:
+        b_apply_volume_squash = True
+    str_inflate_factor_base = VALID.stringArg(inflate_factor_base_name, noneValid=True)
+    if not str_inflate_factor_base:
+        str_inflate_factor_base = VALID.stringArg(inflateFactorBaseName, noneValid=True)
+    str_squash_main = (
+        VALID.stringArg(squashStretchMain, noneValid=True) or 'arcLength').lower()
+    if not b_apply_volume_squash and str_squash_main in ['pointdist', 'point_dist']:
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'squashStretchMain pointDist ignored — applyVolumeSquash=False; using arcLength'))
+        str_squash_main = 'arclength'
+
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'start | measure:{0} settings:{1} stretchBy:{2} squashMain:{3} extraSquash:{4} extraInflate:{5} inflateDirectParents:{6} volumeOnly:{7} applyVolumeSquash:{8} skipTipInflate:{9}'.format(
+            cgmMeta.validateObjArg(_length_curve, noneValid=False).p_nameShort,
+            cgmMeta.validateObjArg(_settings, noneValid=True).p_nameShort
+            if _settings else '(driver)',
+            str_stretch_by,
+            str_squash_main,
+            extraSquashControl,
+            extraInflateControl,
+            inflateDriveDirectParents,
+            b_volume_only,
+            b_apply_volume_squash,
+            b_skip_tip_inflate)))
+
+    mDriver = cgmMeta.validateObjArg(_length_curve, 'cgmObject', noneValid=False)
+    if not mDriver.getShapes(asMeta=False):
+        raise ValueError(
+            '|{0}| >> mDriverCurve has no curve shape.'.format(_str_func))
+    mSettings = cgmMeta.validateObjArg(
+        _settings or mDriver, 'cgmObject', noneValid=False)
+
+    if not str_base:
+        str_base = mSettings.p_nameBase
+    str_translate, str_aim_scale, l_volume_scale = _bezier_stretch_axis_data(aimAxis)
+
+    str_shape = mDriver.getShapes(asMeta=False)[0]
+    ml_segments = ml_joints[1:]
+
+    l_rest_translate = []
+    for mJnt in ml_segments:
+        l_rest_translate.append(float(ATTR.get(mJnt.mNode, str_translate)))
+
+    f_rest_length = sum(abs(_v) for _v in l_rest_translate)
+    if f_rest_length <= 0.000001:
+        raise ValueError(
+            '|{0}| >> Joint chain has no length along local {1}.'.format(
+                _str_func, aimAxis))
+
+    l_affected = []
+    if b_volume_only:
+        for mJnt in ml_joints[:-1]:
+            for _attr in l_volume_scale:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
+    else:
+        if b_stretch_scale:
+            for mJnt in ml_joints[:-1]:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+        else:
+            for mJnt in ml_segments:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_translate))
+        for mJnt in ml_joints[:-1]:
+            if not b_stretch_scale:
+                l_affected.append('{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+            if b_apply_volume_squash:
+                for _attr in l_volume_scale:
+                    l_affected.append('{0}.{1}'.format(mJnt.mNode, _attr))
+
+    l_existing = []
+    for _plug in l_affected:
+        for _src in mc.listConnections(
+                _plug, source=True, destination=False, plugs=True) or []:
+            l_existing.append((_src, _plug))
+
+    if l_existing and not replaceExisting:
+        raise ValueError(
+            '|{0}| >> Existing connections on stretch channels; use replaceExisting=True.'.format(
+                _str_func))
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        if replaceExisting:
+            for _plug in l_affected:
+                _bezier_stretch_disconnect_incoming(_plug)
+
+        if not b_volume_only and not b_stretch_scale:
+            for mJnt in ml_joints[:-1]:
+                ATTR.set(mJnt.mNode, str_aim_scale, 1.0)
+
+        if mSettings.hasAttr('stretch'):
+            mPlug_stretch = cgmMeta.cgmAttr(mSettings.mNode, 'stretch')
+        else:
+            mPlug_stretch = cgmMeta.cgmAttr(
+                mSettings.mNode, 'stretch', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0)
+            ATTR.set_default(mSettings.mNode, 'stretch', 1.0)
+            if not mc.listConnections(
+                    '{0}.stretch'.format(mSettings.mNode), source=True, plugs=True):
+                ATTR.set(mSettings.mNode, 'stretch', 1.0)
+        if mSettings.hasAttr('lengthScale'):
+            mPlug_lengthScale = cgmMeta.cgmAttr(mSettings.mNode, 'lengthScale')
+        else:
+            mPlug_lengthScale = cgmMeta.cgmAttr(
+                mSettings.mNode, 'lengthScale', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0001)
+            ATTR.set_default(mSettings.mNode, 'lengthScale', 1.0)
+            if not mc.listConnections(
+                    '{0}.lengthScale'.format(mSettings.mNode), source=True, plugs=True):
+                ATTR.set(mSettings.mNode, 'lengthScale', 1.0)
+        if not b_volume_only:
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'lengthScale attr on settings: {0}'.format(
+                    mSettings.p_nameShort)))
+        if mSettings.hasAttr('squash'):
+            mPlug_squash = cgmMeta.cgmAttr(mSettings.mNode, 'squash')
+        else:
+            mPlug_squash = cgmMeta.cgmAttr(
+                mSettings.mNode, 'squash', attrType='float', keyable=True,
+                hidden=False, initialValue=1.0, defaultValue=1.0, minValue=0.0)
+        ATTR.set_default(mSettings.mNode, 'squash', 1.0)
+        if not mc.listConnections(
+                '{0}.squash'.format(mSettings.mNode), source=True, plugs=True):
+            ATTR.set(mSettings.mNode, 'squash', 1.0)
+        mPlug_inflate = None
+        mPlug_inflate_offset = None
+        d_inflate_offset_shared = None
+        int_inflate_max_factor_idx = 0
+        ml_inflate_dg = []
+        l_inflate_factors = None
+        if extraInflateControl:
+            mPlug_inflate, mPlug_inflate_offset = (
+                _bezier_stretch_settings_inflate_plugs(mSettings, extraKeyable))
+            int_inflate_max_factor_idx = _bezier_stretch_inflate_max_factor_index(
+                len(ml_joints), inflateSlideGlobalCount)
+            d_inflate_offset_shared = _bezier_stretch_inflate_offset_shared(
+                str_base, mPlug_inflate_offset, int_inflate_max_factor_idx)
+            ml_inflate_dg.extend(d_inflate_offset_shared['ml_nodes'])
+            if not str_inflate_factor_base:
+                str_inflate_factor_base = str_base
+            int_inflate_blend = len(ml_joints)
+            if (inflateSlideGlobalCount is not None
+                    and int(inflateSlideGlobalCount) > 0):
+                int_inflate_blend = int(inflateSlideGlobalCount) + 1
+            l_inflate_factors = MATH.get_blendList(
+                int_inflate_blend, inflateFactorMax, inflateFactorMin,
+                inflateFactorMode)
+            log.info("|{0}| >> inflateFactor ramp ({1}): {2} | mode:{3} min:{4} max:{5} | base:{6}".format(
+                _str_func, int_inflate_blend, l_inflate_factors,
+                inflateFactorMode, inflateFactorMin, inflateFactorMax,
+                str_inflate_factor_base))
+
+        md_inflate_factor_plugs_prepared = None
+        if extraInflateControl and l_inflate_factors:
+            md_inflate_factor_plugs_prepared = (
+                _bezier_stretch_inflate_factor_plugs_ensure(
+                    mSettings, str_inflate_factor_base, l_inflate_factors,
+                    int_inflate_max_factor_idx, extraKeyable))
+
+        if not mDriver.hasAttr('masterScale'):
+            mDriver.addAttr('masterScale', value=1.0, minValue=0.0001, attrType='float')
+
+        str_master_scale = None
+        if globalScalePlug:
+            d_ms = cgmMeta.validateAttrArg(globalScalePlug, noneValid=True)
+            if d_ms:
+                str_master_scale = d_ms.get('combined')
+                if str_master_scale and not mc.listConnections(
+                        mDriver.mNode + '.masterScale', source=True, plugs=True):
+                    ATTR.connect(str_master_scale, mDriver.mNode + '.masterScale')
+        if not str_master_scale:
+            str_master_scale = '{0}.masterScale'.format(mDriver.mNode)
+
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'masterScale plug: {0}'.format(str_master_scale)))
+
+        b_point_dist = str_squash_main in ['pointdist', 'point_dist']
+
+        mCurveInfo = None
+        mRatioMd = None
+        mRatioDelta = None
+        mStretchWeight = None
+        mFinalRatio = None
+        mLengthScaleMd = None
+        mGlobalMd = None
+        ml_cpoc = []
+        ml_dist_shapes = []
+        ml_dist_dags = []
+        ml_measure_dg = []
+        ml_segment_mdl = []
+        ml_squash_dg = []
+        l_inflateDirectPlugs = []
+        ml_joint_factor_plugs = []
+        l_scale_factors = None
+        mSquashBlend = None
+        l_seg_final_ratio = []
+
+        if b_point_dist:
+            m_measure_grp = mDriver.doCreateAt()
+            m_measure_grp.rename('{0}_stretchMeasure_grp'.format(str_base))
+            m_measure_grp.parent = mDriver.getParent(asMeta=True) or mDriver
+            mc.setAttr(m_measure_grp.mNode + '.visibility', 0)
+
+            # Bind-time POCI U only — do not NPOT-track joints (feedback with translate stretch).
+            ml_poci, ml_track_dg = _bezier_stretch_poci_measure_per_joint(
+                str_base,
+                ml_joints,
+                mDriver,
+                str_shape,
+                b_track_joint_parameter=False)
+            ml_dist_shapes, ml_dist_dags = _bezier_stretch_point_dist_shapes(
+                str_base, ml_poci, m_measure_grp)
+            ml_measure_dg = ml_poci + ml_track_dg + ml_dist_dags
+
+            for _i, m_dist in enumerate(ml_dist_shapes):
+                f_rest_seg = _bezier_stretch_point_dist_bind_rest(
+                    m_dist, ml_joints[_i], ml_joints[_i + 1])
+                str_seg_ratio, ml_seg_nodes, _f_rest_seg = (
+                    _bezier_stretch_seg_final_ratio_network(
+                        str_base, _i, m_dist, mPlug_stretch, mPlug_lengthScale,
+                        str_master_scale, f_rest_bind=f_rest_seg))
+                l_seg_final_ratio.append(str_seg_ratio)
+                ml_measure_dg.extend(ml_seg_nodes)
+
+                if not b_volume_only:
+                    if b_stretch_scale:
+                        m_jnt = ml_joints[_i]
+                        m_mdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        _f_rest_scale = float(ATTR.get(m_jnt.mNode, str_aim_scale))
+                        if abs(_f_rest_scale) < 0.000001:
+                            _f_rest_scale = 1.0
+                        ATTR.set(m_mdl.mNode, 'input1', _f_rest_scale)
+                        ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                        ATTR.connect(
+                            m_mdl.mNode + '.output',
+                            '{0}.{1}'.format(m_jnt.mNode, str_aim_scale))
+                        ml_segment_mdl.append(m_mdl)
+                    else:
+                        m_jnt = ml_segments[_i]
+                        m_mdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        ATTR.set(m_mdl.mNode, 'input1', l_rest_translate[_i])
+                        ATTR.connect(str_seg_ratio, m_mdl.mNode + '.input2')
+                        ATTR.connect(
+                            m_mdl.mNode + '.output',
+                            '{0}.{1}'.format(m_jnt.mNode, str_translate))
+                        ml_segment_mdl.append(m_mdl)
+
+            if b_apply_volume_squash:
+                if extraSquashControl:
+                    l_scale_factors = MATH.get_blendList(
+                        len(ml_joints), squashFactorMax, squashFactorMin,
+                        squashFactorMode)
+
+                ml_inflate_pending = []
+                for _i, m_jnt in enumerate(ml_joints[:-1]):
+                    str_seg_ratio = l_seg_final_ratio[_i]
+                    m_ratio_clamp, m_vol_driver, str_vol = (
+                        _bezier_stretch_volume_driver(
+                            '{0}_volJ{1:02d}'.format(str_base, _i),
+                            str_seg_ratio, not b_stretch_scale))
+                    ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
+                    if extraSquashControl:
+                        try:
+                            v_factor = l_scale_factors[_i]
+                        except Exception as err:
+                            log.error(
+                                "squash factor idx fail ({0}). Using 1.0 | {1}".format(
+                                    _i, err))
+                            v_factor = 1.0
+                        d_joint_squash = (
+                            _bezier_stretch_joint_squash_scale_network(
+                                str_base, _i, str_vol, mPlug_squash, mSettings,
+                                v_factor, extraKeyable))
+                        ml_joint_factor_plugs.append(
+                            d_joint_squash['mPlug_jointFactor'])
+                        ml_squash_dg.extend(d_joint_squash['ml_nodes'])
+                        str_scale_out = d_joint_squash['str_scale']
+                        if mPlug_inflate:
+                            ml_inflate_pending.append({
+                                'i': _i,
+                                'm_jnt': m_jnt,
+                                'str_scale': str_scale_out,
+                            })
+                        else:
+                            for _attr in l_volume_scale:
+                                ATTR.connect(
+                                    str_scale_out,
+                                    '{0}.{1}'.format(m_jnt.mNode, _attr))
+                    else:
+                        m_blend = cgmMeta.cgmNode(
+                            nodeType='blendTwoAttr',
+                            name='{0}_squash_j{1:02d}_blend'.format(
+                                str_base, _i))
+                        ATTR.set(m_blend.mNode, 'input[0]', 1.0)
+                        ATTR.connect(str_vol, m_blend.mNode + '.input[1]')
+                        mPlug_squash.doConnectOut(
+                            m_blend.mNode + '.attributesBlender')
+                        ml_squash_dg.append(m_blend)
+                        str_scale_out = m_blend.mNode + '.output'
+                        for _attr in l_volume_scale:
+                            ATTR.connect(
+                                str_scale_out,
+                                '{0}.{1}'.format(m_jnt.mNode, _attr))
+
+                if (mPlug_inflate and ml_inflate_pending
+                        and md_inflate_factor_plugs_prepared):
+                    str_inflate_shift = (
+                        d_inflate_offset_shared['str_shift']
+                        if d_inflate_offset_shared else None)
+                    for _d_pending in ml_inflate_pending:
+                        _i = _d_pending['i']
+                        m_jnt = _d_pending['m_jnt']
+                        str_vol_scale = _d_pending['str_scale']
+                        int_g = _bezier_stretch_inflate_global_index(
+                            _i, inflateSlideGlobalStart)
+                        str_factor_sample, ml_sample = (
+                            _bezier_stretch_inflate_offset_sample_network(
+                                str_base, _i, int_g, int_inflate_max_factor_idx,
+                                str_inflate_shift, md_inflate_factor_plugs_prepared))
+                        ml_inflate_dg.extend(ml_sample)
+                        d_inflate = _bezier_stretch_joint_inflate_additive_network(
+                            str_base, _i, str_vol_scale,
+                            str_factor_sample, mPlug_inflate)
+                        str_inflate_scale = d_inflate['str_scale']
+                        ml_inflate_dg.extend(d_inflate['ml_nodes'])
+                        _bezier_stretch_connect_inflate_joint_or_direct(
+                            m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
+                            inflateDriveDirectParents, l_inflateDirectPlugs, _i)
+                    if extraSquashControl and l_seg_final_ratio:
+                        _m_tip_ratio, _m_tip_vol, _str_tip_vol_drv = (
+                            _bezier_stretch_volume_driver(
+                                '{0}_volTip'.format(str_base),
+                                l_seg_final_ratio[-1], not b_stretch_scale))
+                        ml_squash_dg.extend([_m_tip_ratio, _m_tip_vol])
+                        if not b_skip_tip_inflate:
+                            _bezier_stretch_wire_chain_tip_inflate(
+                                str_base, ml_joints, _str_tip_vol_drv, mPlug_squash,
+                                mPlug_inflate, int_inflate_max_factor_idx,
+                                str_inflate_shift, md_inflate_factor_plugs_prepared,
+                                inflateDriveDirectParents, l_inflateDirectPlugs,
+                                l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
+
+                if ml_inflate_dg:
+                    ml_squash_dg.extend(ml_inflate_dg)
+
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'pointDist | segments:{0} restChain:{1}'.format(
+                    len(ml_dist_shapes), f_rest_length)))
+
+        else:
+            mCurveInfo = cgmMeta.cgmNode(
+                nodeType='curveInfo',
+                name='{0}_stretch_curveInfo'.format(str_base))
+            ATTR.connect(
+                str_shape + '.worldSpace[0]', mCurveInfo.mNode + '.inputCurve')
+
+            str_length = mCurveInfo.mNode + '.arcLength'
+            if globalScalePlug:
+                mGlobalMd = cgmMeta.cgmNode(
+                    nodeType='multiplyDivide',
+                    name='{0}_stretch_globalScale_md'.format(str_base))
+                ATTR.set(mGlobalMd.mNode, 'operation', 2)
+                ATTR.connect(str_length, mGlobalMd.mNode + '.input1X')
+                ATTR.connect(globalScalePlug, mGlobalMd.mNode + '.input2X')
+                str_length = mGlobalMd.mNode + '.outputX'
+
+            mRatioMd = cgmMeta.cgmNode(
+                nodeType='multiplyDivide',
+                name='{0}_stretch_lengthRatio_md'.format(str_base))
+            ATTR.set(mRatioMd.mNode, 'operation', 2)
+            ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
+            ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
+
+            str_curve_blend, ml_curve_blend_nodes, mFinalRatio = (
+                _bezier_stretch_curve_blend_network(
+                    str_base,
+                    mRatioMd.mNode + '.outputX',
+                    mPlug_stretch,
+                    str_name_mid=''))
+            mRatioDelta = ml_curve_blend_nodes[0]
+            mStretchWeight = ml_curve_blend_nodes[1]
+
+            str_final_ratio, mLengthScaleMd = _bezier_stretch_apply_length_scale(
+                str_base, str_curve_blend, mPlug_lengthScale, str_name_mid='')
+            l_seg_final_ratio = [str_final_ratio]
+
+            if not b_volume_only:
+                if b_stretch_scale:
+                    for _i, mJnt in enumerate(ml_joints[:-1]):
+                        mMdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        _f_rest_scale = float(ATTR.get(mJnt.mNode, str_aim_scale))
+                        if abs(_f_rest_scale) < 0.000001:
+                            _f_rest_scale = 1.0
+                        ATTR.set(mMdl.mNode, 'input1', _f_rest_scale)
+                        ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                        ATTR.connect(
+                            mMdl.mNode + '.output',
+                            '{0}.{1}'.format(mJnt.mNode, str_aim_scale))
+                        ml_segment_mdl.append(mMdl)
+                else:
+                    for _i, mJnt in enumerate(ml_segments):
+                        mMdl = cgmMeta.cgmNode(
+                            nodeType='multDL',
+                            name='{0}_stretch_seg_{1:02d}_mdl'.format(
+                                str_base, _i))
+                        ATTR.set(mMdl.mNode, 'input1', l_rest_translate[_i])
+                        ATTR.connect(str_final_ratio, mMdl.mNode + '.input2')
+                        ATTR.connect(
+                            mMdl.mNode + '.output',
+                            '{0}.{1}'.format(mJnt.mNode, str_translate))
+                        ml_segment_mdl.append(mMdl)
+
+            if b_apply_volume_squash:
+                m_ratio_clamp, m_vol_driver, str_volume_driver = (
+                    _bezier_stretch_volume_driver(
+                        str_base, str_final_ratio, not b_stretch_scale))
+
+                if extraSquashControl:
+                    l_scale_factors = MATH.get_blendList(
+                        len(ml_joints), squashFactorMax, squashFactorMin,
+                        squashFactorMode)
+                    log.debug("|{0}| >> squash outFactors: {1}".format(
+                        _str_func, l_scale_factors))
+                    ml_inflate_pending = []
+                    for i, mJnt in enumerate(ml_joints[:-1]):
+                        try:
+                            v_factor = l_scale_factors[i]
+                        except Exception as err:
+                            log.error(
+                                "squash factor idx fail ({0}). Using 1.0 | {1}".format(
+                                    i, err))
+                            v_factor = 1.0
+                        d_joint_squash = (
+                            _bezier_stretch_joint_squash_scale_network(
+                                str_base, i, str_volume_driver, mPlug_squash,
+                                mSettings, v_factor, extraKeyable))
+                        ml_joint_factor_plugs.append(
+                            d_joint_squash['mPlug_jointFactor'])
+                        ml_squash_dg.extend(d_joint_squash['ml_nodes'])
+                        str_scale_out = d_joint_squash['str_scale']
+                        if mPlug_inflate:
+                            ml_inflate_pending.append({
+                                'i': i,
+                                'm_jnt': mJnt,
+                                'str_scale': str_scale_out,
+                            })
+                        else:
+                            for _attr in l_volume_scale:
+                                ATTR.connect(
+                                    str_scale_out,
+                                    '{0}.{1}'.format(mJnt.mNode, _attr))
+                    if (mPlug_inflate and ml_inflate_pending
+                            and md_inflate_factor_plugs_prepared):
+                        str_inflate_shift = (
+                            d_inflate_offset_shared['str_shift']
+                            if d_inflate_offset_shared else None)
+                        for _d_pending in ml_inflate_pending:
+                            i = _d_pending['i']
+                            mJnt = _d_pending['m_jnt']
+                            str_vol_scale = _d_pending['str_scale']
+                            int_g = _bezier_stretch_inflate_global_index(
+                                i, inflateSlideGlobalStart)
+                            str_factor_sample, ml_sample = (
+                                _bezier_stretch_inflate_offset_sample_network(
+                                    str_base, i, int_g, int_inflate_max_factor_idx,
+                                    str_inflate_shift, md_inflate_factor_plugs_prepared))
+                            ml_inflate_dg.extend(ml_sample)
+                            d_inflate = (
+                                _bezier_stretch_joint_inflate_additive_network(
+                                    str_base, i, str_vol_scale,
+                                    str_factor_sample, mPlug_inflate))
+                            str_inflate_scale = d_inflate['str_scale']
+                            ml_inflate_dg.extend(d_inflate['ml_nodes'])
+                            _bezier_stretch_connect_inflate_joint_or_direct(
+                                mJnt, l_volume_scale, str_vol_scale,
+                                str_inflate_scale, inflateDriveDirectParents,
+                                l_inflateDirectPlugs, i)
+                        if not b_skip_tip_inflate:
+                            _bezier_stretch_wire_chain_tip_inflate(
+                                str_base, ml_joints, str_volume_driver, mPlug_squash,
+                                mPlug_inflate, int_inflate_max_factor_idx,
+                                str_inflate_shift, md_inflate_factor_plugs_prepared,
+                                inflateDriveDirectParents, l_inflateDirectPlugs,
+                                l_volume_scale, inflateSlideGlobalStart, ml_inflate_dg)
+                    if ml_inflate_dg:
+                        ml_squash_dg.extend(ml_inflate_dg)
+                    ml_squash_dg.extend([m_ratio_clamp, m_vol_driver])
+                else:
+                    mSquashBlend = cgmMeta.cgmNode(
+                        nodeType='blendTwoAttr',
+                        name='{0}_squash_blend'.format(str_base))
+                    ATTR.set(mSquashBlend.mNode, 'input[0]', 1.0)
+                    ATTR.connect(
+                        str_volume_driver, mSquashBlend.mNode + '.input[1]')
+                    mPlug_squash.doConnectOut(
+                        mSquashBlend.mNode + '.attributesBlender')
+                    str_volume_scale = mSquashBlend.mNode + '.output'
+                    for mJnt in ml_joints[:-1]:
+                        for _attr in l_volume_scale:
+                            ATTR.connect(
+                                str_volume_scale,
+                                '{0}.{1}'.format(mJnt.mNode, _attr))
+                    ml_squash_dg.extend(
+                        [m_ratio_clamp, m_vol_driver, mSquashBlend])
+
+            f_arc = float(ATTR.get(mCurveInfo.mNode, 'arcLength'))
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'arcLength | restLength:{0} arcLength:{1}'.format(
+                    f_rest_length, f_arc)))
+
+        ml_dg = ml_measure_dg + ml_segment_mdl + ml_squash_dg
+        if mCurveInfo:
+            ml_dg = [
+                mCurveInfo, mRatioMd, mRatioDelta, mStretchWeight, mFinalRatio,
+            ] + ml_dg
+            if mLengthScaleMd:
+                ml_dg.insert(5, mLengthScaleMd)
+        if mGlobalMd:
+            ml_dg.insert(1, mGlobalMd)
+
+        if parentGutsTo:
+            m_guts_grp = _bezier_stretch_guts_group(str_base, parentGutsTo)
+            if m_guts_grp:
+                _bezier_stretch_parent_dag_under(ml_dg, m_guts_grp)
+
+        _res = {
+            'mDriverCurve': mDriver,
+            'mSettings': mSettings,
+            'mPlug_stretch': mPlug_stretch,
+            'mPlug_lengthScale': mPlug_lengthScale,
+            'mPlug_squash': mPlug_squash,
+            'mLengthScaleMd': mLengthScaleMd,
+            'squashStretchMain': str_squash_main,
+            'mCurveInfo': mCurveInfo,
+            'mRatioMd': mRatioMd,
+            'mRatioDelta': mRatioDelta,
+            'mStretchWeight': mStretchWeight,
+            'mFinalRatio': mFinalRatio,
+            'mSquashBlend': mSquashBlend,
+            'ml_closestOnCurve': ml_cpoc,
+            'ml_distShapes': ml_dist_shapes,
+            'ml_jointFactorPlugs': ml_joint_factor_plugs,
+            'l_scaleFactors': l_scale_factors,
+            'l_segFinalRatioPlugs': l_seg_final_ratio,
+            'mGlobalScaleMd': mGlobalMd,
+            'ml_segmentMdl': ml_segment_mdl,
+            'restChainLength': f_rest_length,
+            'ml_joints': ml_joints,
+            'extraSquashControl': extraSquashControl,
+            'l_inflateDirectPlugs': l_inflateDirectPlugs,
+            'inflateDriveDirectParents': inflateDriveDirectParents,
+            'l_volumeScaleAttrs': l_volume_scale,
+            'str_base': str_base,
+        }
+        log.info(cgmGEN.logString_msg(_str_func, 'done'))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def _spline_ik_nurbs_curve_xform_and_shape(source):
+    """
+    Resolve a transform and nurbsCurve shape from a curve transform or shape DAG name.
+
+    :returns:
+        (str_xform, str_shape) long paths
+    """
+    mSrc = cgmMeta.validateObjArg(source, noneValid=False)
+    str_node = mSrc.mNode
+    if mc.nodeType(str_node) == 'nurbsCurve':
+        str_shape = str_node
+        str_xform = mc.listRelatives(str_shape, parent=True, fullPath=True)[0]
+    else:
+        str_xform = str_node
+        l_shapes = mc.listRelatives(
+            str_xform, shapes=True, noIntermediate=True, fullPath=True) or []
+        l_shapes = [s for s in l_shapes if mc.nodeType(s) == 'nurbsCurve']
+        if not l_shapes:
+            raise ValueError(
+                'No NURBS curve shape under {0}.'.format(str_xform))
+        str_shape = l_shapes[0]
+    return str_xform, str_shape
+
+
+def _spline_ik_world_point_object_local(str_parent_xform, v_world):
+    """World point as object-space translate relative to str_parent_xform."""
+    str_tmp = mc.createNode('transform')
+    try:
+        mc.parent(str_tmp, str_parent_xform)
+        mc.xform(str_tmp, worldSpace=True, translation=v_world)
+        v_local = mc.xform(str_tmp, query=True, objectSpace=True, translation=True)
+    finally:
+        if mc.objExists(str_tmp):
+            mc.delete(str_tmp)
+    return v_local
+
+
+def _spline_ik_lock_curve_transform_to_driver(str_follower_xform, str_driver_xform):
+    """
+    Keep follower curve transform aligned with the clean driver (local blendShape
+    only transfers shape deformation when world transforms match).
+    """
+    if not mc.objExists(str_follower_xform) or not mc.objExists(str_driver_xform):
+        return
+    if str_follower_xform == str_driver_xform:
+        return
+
+    l_driver_parent = mc.listRelatives(str_driver_xform, parent=True, fullPath=True) or []
+    l_follower_parent = mc.listRelatives(str_follower_xform, parent=True, fullPath=True) or []
+    str_driver_parent = l_driver_parent[0] if l_driver_parent else None
+    str_follower_parent = l_follower_parent[0] if l_follower_parent else None
+
+    if str_driver_parent != str_follower_parent:
+        if str_driver_parent:
+            mc.parent(str_follower_xform, str_driver_parent)
+        else:
+            mc.parent(str_follower_xform, world=True)
+
+    mc.matchTransform(str_follower_xform, str_driver_xform, pos=True, rot=True, scl=True)
+
+    for str_attr in ('translate', 'rotate', 'scale'):
+        mc.connectAttr(
+            '{0}.{1}'.format(str_driver_xform, str_attr),
+            '{0}.{1}'.format(str_follower_xform, str_attr),
+            force=True)
+
+
+def spline_ik_sine_handle_fit_to_curve(curve=None,
+                                       sine_handle=None,
+                                       sine_deformer=None,
+                                       parent_handle_to=None,
+                                       amplitude=None,
+                                       wavelength=None,
+                                       baseName=None,
+                                       useUndoChunk=True):
+    """
+    Aim sine handle local Y from first CV toward last CV and scale Y so
+    lowBound/highBound (-1, 1) span the straight start-to-end distance.
+
+    :parameters:
+        curve(transform|nurbsCurve) | Curve to measure (driver or sine output)
+        sine_handle(transform) | nonLinear sine handle transform
+        sine_deformer(nonLinear) | Sine deformer node
+        parent_handle_to(transform) | Parent for handle (sine output curve); required for stable deformation
+        amplitude/wavelength(float) | Optional overrides on deformer after fit
+        baseName(str) | Temp aim-target naming token
+        useUndoChunk(bool) | Wrap in mc.undoInfo chunk
+
+    :returns:
+        dict — straightLength, mSineHandle, mSineDeformer
+    """
+    _str_func = 'spline_ik_sine_handle_fit_to_curve'
+
+    if curve is None:
+        raise ValueError('|{0}| >> curve is required.'.format(_str_func))
+    if sine_handle is None or sine_deformer is None:
+        raise ValueError(
+            '|{0}| >> sine_handle and sine_deformer are required.'.format(_str_func))
+
+    _str_xform, str_shape = _spline_ik_nurbs_curve_xform_and_shape(curve)
+    mSineHandle = cgmMeta.validateObjArg(sine_handle, 'cgmObject', noneValid=False)
+    mSineDeformer = cgmMeta.validateObjArg(sine_deformer, noneValid=False)
+
+    l_cvs = mc.ls(str_shape + '.cv[*]', flatten=True) or []
+    if len(l_cvs) < 2:
+        raise ValueError(
+            '|{0}| >> Curve needs at least two CVs: {1}'.format(_str_func, str_shape))
+
+    v_start = mc.pointPosition(l_cvs[0], world=True)
+    v_end = mc.pointPosition(l_cvs[-1], world=True)
+    v_dir = [
+        v_end[0] - v_start[0],
+        v_end[1] - v_start[1],
+        v_end[2] - v_start[2],
+    ]
+    f_straight = math.sqrt(v_dir[0] ** 2 + v_dir[1] ** 2 + v_dir[2] ** 2)
+    if f_straight <= 0.000001:
+        raise ValueError(
+            '|{0}| >> Curve start and end CV positions are identical.'.format(_str_func))
+
+    v_norm = [v / f_straight for v in v_dir]
+    v_mid = [
+        (v_start[i] + v_end[i]) * 0.5 for i in range(3)]
+
+    f_dot_y = abs(v_norm[1])
+    v_world_up = (0.0, 1.0, 0.0) if f_dot_y < 0.95 else (0.0, 0.0, 1.0)
+
+    str_host = parent_handle_to
+    if str_host is None:
+        str_host = _str_xform
+    else:
+        str_host = cgmMeta.validateObjArg(parent_handle_to, noneValid=False).mNode
+
+    str_base = VALID.stringArg(baseName, noneValid=True) or 'sineFit'
+    str_handle = mSineHandle.mNode
+    str_deformer = mSineDeformer.mNode
+
+    v_mid_local = _spline_ik_world_point_object_local(str_host, v_mid)
+    v_end_local = _spline_ik_world_point_object_local(str_host, v_end)
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_handle = mc.parent(str_handle, str_host)[0]
+        mSineHandle = cgmMeta.asMeta(str_handle, 'cgmObject', setClass=True)
+
+        mc.setAttr(
+            str_handle + '.translate',
+            v_mid_local[0], v_mid_local[1], v_mid_local[2],
+            type='double3')
+        mc.setAttr(str_handle + '.rotate', 0.0, 0.0, 0.0, type='double3')
+        mc.setAttr(str_handle + '.scale', 1.0, 1.0, 1.0, type='double3')
+
+        str_target = mc.createNode(
+            'transform', name='{0}_sineFit_aimTarget'.format(str_base))
+        mc.parent(str_target, str_host)
+        mc.setAttr(
+            str_target + '.translate',
+            v_end_local[0], v_end_local[1], v_end_local[2],
+            type='double3')
+
+        str_constraint = mc.aimConstraint(
+            str_target,
+            str_handle,
+            aimVector=(0.0, 1.0, 0.0),
+            upVector=(0.0, 0.0, 1.0),
+            worldUpType='vector',
+            worldUpVector=v_world_up,
+            maintainOffset=False)[0]
+        mc.delete(str_constraint, str_target)
+
+        mc.setAttr(str_handle + '.scaleY', f_straight * 0.5)
+
+        ATTR.set(str_deformer, 'lowBound', -1.0)
+        ATTR.set(str_deformer, 'highBound', 1.0)
+        ATTR.set(str_deformer, 'envelope', 1.0)
+        if mc.objExists(str_deformer + '.dropoff'):
+            ATTR.set(str_deformer, 'dropoff', 0.0)
+
+        if amplitude is not None:
+            ATTR.set(str_deformer, 'amplitude', float(amplitude))
+        if wavelength is not None:
+            ATTR.set(str_deformer, 'wavelength', float(wavelength))
+
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'handle:{0} span:{1}'.format(mSineHandle.p_nameShort, f_straight)))
+
+        return {
+            'straightLength': f_straight,
+            'mSineHandle': mSineHandle,
+            'mSineDeformer': mSineDeformer,
+        }
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def spline_ik_curve_add_sine(source_curve=None,
+                             ik_handle=None,
+                             baseName=None,
+                             amplitude=1.0,
+                             wavelength=4.0,
+                             offset=0.0,
+                             orientation=(0.0, 0.0, 0.0),
+                             fit_handle=True,
+                             hide_source=True,
+                             useUndoChunk=True):
+    """
+    Duplicate a spline IK driver curve, run a sine deformer on the duplicate, and
+    optionally drive spline IK from the deformed curve.
+
+    The duplicate shape is fed from the source via create/local so POCI-driven
+    drivers (e.g. IK.bezier_spline hidden driver) stay live.
+
+    :parameters:
+        source_curve(transform|nurbsCurve) | Driver curve; selection when None
+        ik_handle(ikHandle) | Spline IK handle to rewire to deformed curve
+        baseName(str) | Name token for created nodes
+        amplitude/wavelength/offset(float) | Initial sine deformer values
+        orientation(double3) | Local rotate when fit_handle=False (legacy bbox center)
+        fit_handle(bool) | Aim/scale handle along first-to-last CV (recommended)
+        hide_source(bool) | Hide undeformed source driver only (output curve stays visible)
+        useUndoChunk(bool) | Wrap in mc.undoInfo chunk
+
+    :returns:
+        dict — mSourceCurve, mOutputCurve, mSineDeformer, mSineHandle, mIKHandle (if set)
+    """
+    _str_func = 'spline_ik_curve_add_sine'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    if source_curve is None:
+        l_sel = mc.ls(sl=True, long=True) or []
+        if not l_sel:
+            raise ValueError('Select the spline-driver NURBS curve or pass source_curve.')
+        source_curve = l_sel[0]
+
+    str_src_xform, str_src_shape = _spline_ik_nurbs_curve_xform_and_shape(source_curve)
+    mSourceCurve = cgmMeta.asMeta(str_src_xform, 'cgmObject', setClass=True)
+
+    mIKHandle = cgmMeta.validateObjArg(ik_handle, 'cgmObject', noneValid=True)
+    if mIKHandle and not mc.objExists(mIKHandle.mNode):
+        raise ValueError('IK handle does not exist: {0}'.format(mIKHandle.mNode))
+
+    str_base = VALID.stringArg(baseName, noneValid=True)
+    if not str_base:
+        str_base = mSourceCurve.p_nameBase
+        if str_base.endswith('_ikDriver_crv'):
+            str_base = str_base[:-len('_ikDriver_crv')]
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_output_xform = mc.duplicate(
+            str_src_xform,
+            name='{0}_sineOutput_crv'.format(str_base),
+            returnRootsOnly=True)[0]
+        mOutputCurve = cgmMeta.asMeta(str_output_xform, 'cgmObject', setClass=True)
+        mOutputCurve.addAttr('cgmName', str_base, attrType='string', lock=True)
+        mOutputCurve.addAttr('cgmType', 'splineIKSineCurve', attrType='string', lock=True)
+        mOutputCurve.doName()
+
+        str_output_xform = mOutputCurve.mNode
+        str_output_shape = mOutputCurve.getShapes(asMeta=False)[0]
+        if not str_output_shape:
+            raise ValueError(
+                '|{0}| >> Sine output curve has no shape after duplicate.'.format(
+                    _str_func))
+
+        # Duplicate inherits visibility from hidden ikDriver; keep output drawable.
+        mc.setAttr(str_output_xform + '.visibility', 1)
+
+        _spline_ik_lock_curve_transform_to_driver(str_output_xform, str_src_xform)
+
+        mc.connectAttr(
+            str_src_shape + '.local',
+            str_output_shape + '.create',
+            force=True)
+
+        l_nonlinear = mc.nonLinear(
+            str_output_xform,
+            type='sine',
+            name='{0}_sine'.format(str_base))
+        mSineDeformer = cgmMeta.asMeta(l_nonlinear[0], setClass=True)
+        mSineHandle = cgmMeta.asMeta(l_nonlinear[1], 'cgmObject', setClass=True)
+        mSineHandle.rename('{0}_sineHandle'.format(str_base))
+        mc.setAttr(mSineHandle.mNode + '.visibility', 1)
+
+        if fit_handle:
+            _d_fit = spline_ik_sine_handle_fit_to_curve(
+                curve=str_src_xform,
+                parent_handle_to=str_output_xform,
+                sine_handle=mSineHandle,
+                sine_deformer=mSineDeformer,
+                amplitude=amplitude,
+                wavelength=wavelength,
+                baseName=str_base,
+                useUndoChunk=False)
+            mSineHandle = _d_fit['mSineHandle']
+            ATTR.set(mSineDeformer.mNode, 'offset', float(offset))
+        else:
+            ATTR.set(mSineDeformer.mNode, 'amplitude', float(amplitude))
+            ATTR.set(mSineDeformer.mNode, 'wavelength', float(wavelength))
+            ATTR.set(mSineDeformer.mNode, 'offset', float(offset))
+            mc.setAttr(
+                mSineHandle.mNode + '.rotate',
+                orientation[0], orientation[1], orientation[2],
+                type='double3')
+            l_bbox = mc.exactWorldBoundingBox(str_src_xform)
+            v_center = [
+                (l_bbox[0] + l_bbox[3]) * 0.5,
+                (l_bbox[1] + l_bbox[4]) * 0.5,
+                (l_bbox[2] + l_bbox[5]) * 0.5,
+            ]
+            mc.xform(mSineHandle.mNode, worldSpace=True, translation=v_center)
+
+        l_wave_attrs = (
+            ('waveAmplitude', float(amplitude)),
+            ('waveLength', float(wavelength)),
+            ('waveOffset', float(offset)),
+        )
+        for str_attr, f_default in l_wave_attrs:
+            str_plug = '{0}.{1}'.format(mOutputCurve.mNode, str_attr)
+            if not mc.objExists(str_plug):
+                mc.addAttr(
+                    mOutputCurve.mNode,
+                    longName=str_attr,
+                    attributeType='double',
+                    defaultValue=f_default,
+                    keyable=True)
+            str_deformer_attr = {
+                'waveAmplitude': 'amplitude',
+                'waveLength': 'wavelength',
+                'waveOffset': 'offset',
+            }[str_attr]
+            mc.connectAttr(
+                str_plug,
+                '{0}.{1}'.format(mSineDeformer.mNode, str_deformer_attr),
+                force=True)
+
+        if mIKHandle:
+            str_ikh = mIKHandle.mNode
+            for str_existing in mc.listConnections(
+                    str_ikh + '.inCurve',
+                    source=True,
+                    destination=False,
+                    plugs=True) or []:
+                mc.disconnectAttr(str_existing, str_ikh + '.inCurve')
+            mc.connectAttr(
+                str_output_shape + '.worldSpace[0]',
+                str_ikh + '.inCurve',
+                force=True)
+
+        if hide_source:
+            mc.setAttr(str_src_xform + '.visibility', 0)
+
+        _res = {
+            'mSourceCurve': mSourceCurve,
+            'mOutputCurve': mOutputCurve,
+            'mSineDeformer': mSineDeformer,
+            'mSineHandle': mSineHandle,
+            'mIKHandle': mIKHandle,
+        }
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'done | {0}'.format(mOutputCurve.p_nameShort)))
+        return _res
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def spline_ik_curve_add_wave_blend(base_curve=None,
+                                   wave_target_curve=None,
+                                   ik_handle=None,
+                                   baseName=None,
+                                   root_fade_cvs=3,
+                                   wave_weight=1.0,
+                                   hide_internal_curves=True,
+                                   useUndoChunk=True):
+    """
+    Final IK curve: live base via create/local plus local-space blendShape from
+    the sine wave target. Root CV pinned; following CVs smoothstep into full wave.
+
+    Typical inputs after spline_ik_curve_add_sine:
+        base_curve — clean Bezier-driven driver (hidden ikDriver)
+        wave_target_curve — sine output (mOutputCurve from add_sine)
+
+    :parameters:
+        base_curve(transform) | Undeformed driver transform or shape
+        wave_target_curve(transform) | Sine-deformed duplicate transform
+        ik_handle(ikHandle) | Spline IK handle; rewired to blended output
+        baseName(str) | Node name token
+        root_fade_cvs(int) | CV count for root fade-in (min 1)
+        wave_weight(float) | Initial blendShape target weight
+        hide_internal_curves(bool) | Hide base and wave-target transforms
+        useUndoChunk(bool) | Wrap in undo chunk
+
+    :returns:
+        dict — mBaseCurve, mWaveTargetCurve, mOutputCurve, mBlendShape, mIKHandle, ...
+    """
+    _str_func = 'spline_ik_curve_add_wave_blend'
+    log.info(cgmGEN.logString_msg(_str_func, 'start'))
+
+    if base_curve is None or wave_target_curve is None:
+        raise ValueError(
+            '|{0}| >> base_curve and wave_target_curve are required.'.format(_str_func))
+
+    str_base_xform, str_base_shape = _spline_ik_nurbs_curve_xform_and_shape(base_curve)
+    str_wave_xform, str_wave_shape = _spline_ik_nurbs_curve_xform_and_shape(
+        wave_target_curve)
+    mBaseCurve = cgmMeta.asMeta(str_base_xform, 'cgmObject', setClass=True)
+    mWaveTargetCurve = cgmMeta.asMeta(str_wave_xform, 'cgmObject', setClass=True)
+
+    mIKHandle = cgmMeta.validateObjArg(ik_handle, 'cgmObject', noneValid=True)
+    if mIKHandle and not mc.objExists(mIKHandle.mNode):
+        raise ValueError('IK handle does not exist: {0}'.format(mIKHandle.mNode))
+
+    str_token = VALID.stringArg(baseName, noneValid=True)
+    if not str_token:
+        str_token = mBaseCurve.p_nameBase
+        if str_token.endswith('_ikDriver_crv'):
+            str_token = str_token[:-len('_ikDriver_crv')]
+
+    l_base_cvs = mc.ls(str_base_shape + '.cv[*]', flatten=True) or []
+    l_wave_cvs = mc.ls(str_wave_shape + '.cv[*]', flatten=True) or []
+    if len(l_base_cvs) != len(l_wave_cvs):
+        raise ValueError(
+            '|{0}| >> Base and wave curves need matching CV counts ({1} vs {2}).'.format(
+                _str_func, len(l_base_cvs), len(l_wave_cvs)))
+    if not l_base_cvs:
+        raise ValueError('|{0}| >> No curve CVs found.'.format(_str_func))
+
+    i_root_fade = max(1, int(root_fade_cvs))
+
+    _undo_open = False
+    if useUndoChunk:
+        mc.undoInfo(openChunk=True)
+        _undo_open = True
+
+    try:
+        str_output_xform = mc.duplicate(
+            str_base_xform,
+            name='{0}_waveOutput_crv'.format(str_token),
+            returnRootsOnly=True)[0]
+        mOutputCurve = cgmMeta.asMeta(str_output_xform, 'cgmObject', setClass=True)
+        mOutputCurve.addAttr('cgmName', str_token, attrType='string', lock=True)
+        mOutputCurve.addAttr('cgmType', 'splineIKWaveOutputCurve', attrType='string', lock=True)
+        mOutputCurve.doName()
+
+        str_output_xform = mOutputCurve.mNode
+        str_output_shape = mOutputCurve.getShapes(asMeta=False)[0]
+        mc.setAttr(str_output_xform + '.visibility', 1)
+
+        _spline_ik_lock_curve_transform_to_driver(str_wave_xform, str_base_xform)
+        _spline_ik_lock_curve_transform_to_driver(str_output_xform, str_base_xform)
+
+        for str_src in mc.listConnections(
+                str_output_shape + '.create',
+                source=True,
+                destination=False,
+                plugs=True) or []:
+            mc.disconnectAttr(str_src, str_output_shape + '.create')
+
+        mc.connectAttr(
+            str_base_shape + '.local',
+            str_output_shape + '.create',
+            force=True)
+
+        # Shape target, after create — transfers sine shape delta only (not a second curve in space).
+        l_bs = mc.blendShape(
+            str_wave_shape,
+            str_output_shape,
+            name='{0}_wave_blendShape'.format(str_token),
+            origin='local',
+            frontOfChain=False)
+        mBlendShape = cgmMeta.asMeta(l_bs[0], setClass=True)
+
+        l_aliases = mc.aliasAttr(mBlendShape.mNode, query=True) or []
+        str_target_attr = None
+        for i in range(0, len(l_aliases), 2):
+            str_alias = l_aliases[i]
+            str_plug = l_aliases[i + 1]
+            if str_plug.startswith('weight['):
+                str_target_attr = '{0}.{1}'.format(mBlendShape.mNode, str_alias)
+                break
+        if str_target_attr is None:
+            str_target_attr = '{0}.weight[0]'.format(mBlendShape.mNode)
+
+        ATTR.set(str_target_attr, float(wave_weight))
+
+        l_output_cvs = mc.ls(str_output_shape + '.cv[*]', flatten=True) or []
+        l_cv_weights = []
+        for i_cv, str_component in enumerate(l_output_cvs):
+            if i_cv == 0:
+                f_w = 0.0
+            elif i_cv >= i_root_fade:
+                f_w = 1.0
+            else:
+                f_w = MATH.smoothstep(float(i_cv) / float(i_root_fade))
+            mc.percent(mBlendShape.mNode, str_component, v=f_w)
+            l_cv_weights.append(f_w)
+
+        mPlug_waveAmount = cgmMeta.cgmAttr(
+            mOutputCurve.mNode, 'waveAmount', attrType='float', keyable=True,
+            hidden=False, initialValue=float(wave_weight), minValue=0.0, maxValue=1.0)
+        mPlug_waveAmount.doConnectOut(str_target_attr)
+
+        if mIKHandle:
+            str_ikh = mIKHandle.mNode
+            for str_existing in mc.listConnections(
+                    str_ikh + '.inCurve',
+                    source=True,
+                    destination=False,
+                    plugs=True) or []:
+                mc.disconnectAttr(str_existing, str_ikh + '.inCurve')
+            mc.connectAttr(
+                str_output_shape + '.worldSpace[0]',
+                str_ikh + '.inCurve',
+                force=True)
+
+        if hide_internal_curves:
+            mc.setAttr(str_base_xform + '.visibility', 0)
+            mc.setAttr(str_wave_xform + '.visibility', 0)
+
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'done | {0} fadeCVs:{1}'.format(mOutputCurve.p_nameShort, i_root_fade)))
+
+        return {
+            'mBaseCurve': mBaseCurve,
+            'mWaveTargetCurve': mWaveTargetCurve,
+            'mOutputCurve': mOutputCurve,
+            'mBlendShape': mBlendShape,
+            'mPlug_waveAmount': mPlug_waveAmount,
+            'str_blendTargetAttr': str_target_attr,
+            'l_cvWeights': l_cv_weights,
+            'mIKHandle': mIKHandle,
+        }
+
+    finally:
+        if _undo_open:
+            mc.undoInfo(closeChunk=True)
+
+
+def IKHandle_addSplineIKTwist(ikHandle, advancedTwistSetup=False, twistSetupMode=None):
     """
     ikHandle(arg)
-    advancedTwistSetup(bool) -- Whether to setup ramp setup or not (False)
+    advancedTwistSetup(bool) -- When twistSetupMode is None: True = ramped advanced twist.
+    twistSetupMode(str|None): 'startEnd' (Bezier IK — handle dTwistStart/End, no ramp),
+        'ramp' (classic spline IK), or None (derive from advancedTwistSetup bool).
     """
     #>>> Data gather and arg check
     mi_ikHandle = cgmMeta.validateObjArg(ikHandle,cgmMeta.cgmObject,noneValid=False)
@@ -4904,32 +7629,39 @@ def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
 
     mPlug_start = cgmMeta.cgmAttr(mi_crv.mNode,'twistStart',attrType='float',keyable=True, hidden=False)
     mPlug_end = cgmMeta.cgmAttr(mi_crv.mNode,'twistEnd',attrType='float',keyable=True, hidden=False)
-    #mPlug_equalizedRoll = cgmMeta.cgmAttr(mi_ikHandle.mNode,'result_twistEqualized',attrType='float',keyable=True, hidden=False)
-    d_return = {"mi_plug_start":mPlug_start,"mi_plug_end":mPlug_end}    
-    
-    if not advancedTwistSetup:
-        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle.mNode,'twist',attrType='float',keyable=True, hidden=False)	
-    else:
+    d_return = {"mi_plug_start":mPlug_start,"mi_plug_end":mPlug_end}
+
+    _str_mode = twistSetupMode
+    if _str_mode is None:
+        _str_mode = 'ramp' if advancedTwistSetup else 'simple'
+
+    mi_ramp = None
+    mPlug_twist = None
+
+    if _str_mode == 'startEnd':
         mi_ikHandle.dTwistControlEnable = True
-        mi_ikHandle.dTwistValueType = 2
+        mi_ikHandle.dTwistValueType = SHARED._ikSpline_dTwistValueType_startEnd
+    elif _str_mode == 'ramp':
+        mi_ikHandle.dTwistControlEnable = True
+        mi_ikHandle.dTwistValueType = SHARED._ikSpline_dTwistValueType_startEndRamped
         mi_ikHandle.dWorldUpType = 7
         mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle,'dTwistRampMult')
         mi_ramp = cgmMeta.cgmNode(nodeType= 'ramp')
         mi_ramp.doStore('cgmName',mi_ikHandle)
         mi_ramp.doName()
-
-        #Fix Ramp
         ATTR.connect("%s.outColor"%mi_ramp.mNode,"%s.dTwistRamp"%mi_ikHandle.mNode)
         d_return['mi_ramp'] = mi_ramp
+    else:
+        mPlug_twist = cgmMeta.cgmAttr(mi_ikHandle.mNode,'twist',attrType='float',keyable=True, hidden=False)
 
-    mPlug_start.doConnectOut("%s.roll"%mi_ikHandle.mNode)
-    d_return['mi_plug_twist']=mPlug_twist
-    #ikHandle1.twist = (ikHandle1.roll *-.77) + curve4.twistEnd # to implement
-    arg1 = "%s = %s - %s"%(mPlug_twist.p_combinedShortName,mPlug_end.p_combinedShortName,mPlug_start.p_combinedShortName)
-    log.debug("arg1: '%s'"%arg1)    
-    log.debug( NODEFAC.argsToNodes(arg1).doBuild() )       
+    if _str_mode != 'startEnd':
+        mPlug_start.doConnectOut("%s.roll"%mi_ikHandle.mNode)
+        d_return['mi_plug_twist']=mPlug_twist
+        arg1 = "%s = %s - %s"%(mPlug_twist.p_combinedShortName,mPlug_end.p_combinedShortName,mPlug_start.p_combinedShortName)
+        log.debug("arg1: '%s'"%arg1)
+        log.debug( NODEFAC.argsToNodes(arg1).doBuild() )
 
-    if advancedTwistSetup:
+    if _str_mode == 'ramp':
         mc.select(mi_ramp.mNode)
         log.debug( mc.attributeInfo("%s.colorEntryList"%mi_ramp.mNode) )
         for c in mc.ls("%s.colorEntryList[*]"%mi_ramp.mNode,flatten = True):
@@ -4941,10 +7673,16 @@ def IKHandle_addSplineIKTwist(ikHandle,advancedTwistSetup = False):
 
         mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ramp,'interpolation')
         mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
-        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)
+    elif _str_mode == 'startEnd':
+        mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
+        mPlug_twistType = cgmMeta.cgmAttr(
+            mi_crv.mNode, 'twistType', attrType='enum',
+            enum=":".join(mPlug_existingTwistType.p_enum))
+        mPlug_twistType.p_value = 'linear'
     else:
         mPlug_existingTwistType = cgmMeta.cgmAttr(mi_ikHandle,'twistType')
         mPlug_twistType = cgmMeta.cgmAttr(mi_crv,'twistType', attrType = 'enum', enum = ":".join(mPlug_existingTwistType.p_enum))
-        mPlug_twistType.twistType = 'linear'	
-        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)	
+        mPlug_twistType.twistType = 'linear'
+        mPlug_twistType.doConnectOut(mPlug_existingTwistType.p_combinedShortName)
     return d_return

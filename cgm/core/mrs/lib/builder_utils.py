@@ -774,48 +774,10 @@ def control_convertToWorldIK(mCtrl=None):
     _str_func = 'control_convertToWorldIK'
     rot = mCtrl.p_orient
     mGrp_zero = mCtrl.doGroup(True,True,asMeta=True,typeModifier = 'worldOrient')
-    
 
-    xDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.forward())
-    yDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.forward())
-    zDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.forward())
-    
-    xUpDot = mCtrl.getTransformDirection(MATH.Vector3.right()).dot(MATH.Vector3.up())
-    yUpDot = mCtrl.getTransformDirection(MATH.Vector3.up()).dot(MATH.Vector3.up())
-    zUpDot = mCtrl.getTransformDirection(MATH.Vector3.forward()).dot(MATH.Vector3.up())
-    
-    #Get our up and vector
-    closestForward = "x"
-    closestUp = "x"
-    highestDot = xDot
-    highestUpDot = xUpDot
-    
-    if(abs(yDot) > abs(highestDot)):
-        closestForward = "y"
-        highestDot = yDot
-    
-    if(abs(zDot) > abs(highestDot)):
-        closestForward = "z"
-        highestDot = zDot
-    
-    if(abs(yUpDot) > abs(highestUpDot)):
-        closestUp = "y"
-        highestUpDot = yUpDot
-    
-    if(abs(zUpDot) > abs(highestUpDot)):
-        closestUp = "z"
-        highestUpDot = zUpDot
-    
-    if(highestDot < 0):
-        closestForward = "{0}-".format(closestForward)
-    if(highestUpDot < 0):
-        closestUp = "{0}-".format(closestUp)
-        
-    log.debug('closest forward axis is "%s" and closest up axis is "%s"' % (closestForward, closestUp))    
-    pos_aim = DIST.get_pos_by_vec_dist(mCtrl.p_position, [0,0,1], 10.0)
-    
-    SNAP.aim_atPoint(mGrp_zero.mNode, pos_aim, closestForward, mode='world', vectorUp=[0,1,0] )
-    
+    log.debug("|{0}| >> {1}".format(_str_func, mCtrl.p_nameShort))
+    SNAP.orient_closest_world(mGrp_zero.mNode, 'z')
+
     mCtrl.p_orient = rot
     d = {'rotateX':mCtrl.rotateX,'rotateY':mCtrl.rotateY,'rotateZ':mCtrl.rotateZ}
     mCtrl.addAttr('defaultValues',d)
@@ -1116,6 +1078,9 @@ def create_loftMesh(targets = None, name = 'test', degree = 2, uSplit = 0,vSplit
     if planar:
         log.debug(cgmGEN.logString_sub(_str_func,"planar"))                
         mc.polySetToFaceNormal(_res_body[0],setUserNormal = True)#THIS WILL MAKE GEO SMOOTH
+
+    for s in TRANS.shapes_get(_res[0], True):
+        GEO.normalCheck(s)
         
     return _res[0]    
 
@@ -1512,6 +1477,314 @@ def get_dynParentTargetsDat(self,allParents=True):
     log.debug(cgmGEN._str_subLine)    
 
 
+def scaleSetup_scaleSpacePuppetDefault(self, mChild, mBlock, scaleModeAttr='root_dynParentScaleMode', allow=True):
+    """
+    scaleSetup + dyn parent scale mode 'space' (enum 2): set scaleSpace to puppet on mChild.
+    Skipped when parentToDriver is on or allow is False (e.g. limb digit).
+    """
+    if not allow:
+        return
+    if not getattr(self, 'b_scaleSetup', False):
+        return
+    if not mChild or not mBlock:
+        return
+    if getattr(mBlock, 'parentToDriver', False):
+        return
+    if getattr(mBlock, scaleModeAttr, 0) != 2:
+        return
+    if not mChild.hasAttr('scaleSpace'):
+        return
+    mChild.scaleSpace = 'puppet'
+    ATTR.set_default(mChild.mNode, 'scaleSpace', 'puppet')
+
+
+def _scaleSetup_dynParentModeInt(mDynGroup, mBlock=None):
+    _d_mode = {'space': 0, 'orient': 1, 'follow': 2, 'point': 3}
+    # Block attrs are authoritative at rig build (dyn group may still read default 'space').
+    if mBlock:
+        for _attr in ('root_dynParentMode', 'dynParentMode'):
+            if not getattr(mBlock, 'hasAttr', None) or not mBlock.hasAttr(_attr):
+                continue
+            try:
+                _s = mBlock.getEnumValueString(_attr)
+                if _s in _d_mode:
+                    return _d_mode[_s]
+            except Exception:
+                pass
+    if mDynGroup and hasattr(mDynGroup, 'getEnumValueString'):
+        try:
+            _s = mDynGroup.getEnumValueString('dynMode')
+            if _s in _d_mode:
+                return _d_mode[_s]
+        except Exception:
+            pass
+    _raw = mDynGroup.dynMode if mDynGroup else 0
+    if isinstance(_raw, str):
+        return _d_mode.get(_raw, 2)
+    try:
+        return int(_raw)
+    except (TypeError, ValueError):
+        return 2
+
+
+def _scaleSetup_joint_to_dyn_parent_target(mJnt):
+    if not mJnt:
+        return None
+    _mg = mJnt.getMessage('masterGroup')
+    if _mg:
+        return cgmMeta.asMeta(_mg[0])
+    _dg = mJnt.getMessage('dynParentGroup')
+    if _dg:
+        return cgmMeta.asMeta(_dg[0])
+    return mJnt
+
+
+def _scaleSetup_dyn_parent_is_cog(mObj):
+    """Match parent cog rigRoot entries added in get_dynParentTargetsDat ('cog' in name)."""
+    if not mObj:
+        return False
+    _parts = []
+    try:
+        _parts.append(mObj.p_nameBase or '')
+    except Exception:
+        pass
+    try:
+        if getattr(mObj, 'hasAttr', None) and mObj.hasAttr('cgmName'):
+            _parts.append(str(mObj.cgmName or ''))
+    except Exception:
+        pass
+    try:
+        _alias = mObj.getNameAlias()
+        if _alias:
+            _parts.append(str(_alias))
+    except Exception:
+        pass
+    for _s in _parts:
+        if _s and 'cog' in _s.lower():
+            return True
+    return False
+
+
+def _scaleSetup_own_module_cog_dyn_parent(self):
+    """This module's cog rigRoot only — not parent-module cog from ml_dynParentsAbove."""
+    mRigNull = getattr(self, 'mRigNull', None)
+    mBlock = getattr(self, 'mBlock', None)
+    if not mRigNull:
+        return None
+    mRoot = mRigNull.getMessageAsMeta('rigRoot')
+    if not mRoot:
+        return None
+    if _scaleSetup_dyn_parent_is_cog(mRoot):
+        return mRoot
+    if mBlock and getattr(mBlock, 'addCog', False):
+        return mRoot
+    return None
+
+
+def _scaleSetup_index_in_dyn_parents(mTar, ml_parents):
+    if not mTar or not ml_parents:
+        return None
+
+    def _node_str(mObj):
+        if not mObj:
+            return None
+        return mObj.mNode if hasattr(mObj, 'mNode') else mObj
+
+    _want = _node_str(mTar)
+    if not _want:
+        return None
+    for i, mO in enumerate(ml_parents):
+        if mO == mTar or _node_str(mO) == _want:
+            return i
+    try:
+        _alias = mTar.getNameAlias()
+        if _alias:
+            for i, mO in enumerate(ml_parents):
+                if hasattr(mO, 'getNameAlias') and mO.getNameAlias() == _alias:
+                    return i
+    except Exception:
+        pass
+    return None
+
+
+def _scaleSetup_walk_parent_nondigit_driver_point(mModule, attach_mode):
+    """Digit/finger under hand/arm: driver from first ancestor whose rigSetup is not digit."""
+    if attach_mode not in ('base', 'end'):
+        return None
+    mP = mModule.getMessageAsMeta('moduleParent')
+    while mP:
+        mBlk = mP.getMessageAsMeta('rigBlock')
+        _setup = ''
+        if mBlk and getattr(mBlk, 'hasAttr', None) and mBlk.hasAttr('rigSetup'):
+            _setup = mBlk.getEnumValueString('rigSetup') or ''
+        if _setup != 'digit':
+            try:
+                return mP.atUtils('get_driverPoint', attach_mode)
+            except Exception:
+                pass
+        mP = mP.getMessageAsMeta('moduleParent')
+    return None
+
+
+def _scaleSetup_attach_driver_target(self, mChild, mBlock, attach_mode):
+    """Dyn-parent list entry for block attachPoint (parent IK drivers vs own limb rigJoints on rigRoot)."""
+    mModule = getattr(self, 'mModule', None)
+    mRigNull = getattr(self, 'mRigNull', None)
+    if not mModule or not mBlock:
+        return None
+    if attach_mode not in ('base', 'end', 'closest', 'index'):
+        return None
+
+    str_rig_setup = getattr(self, 'str_rigSetup', None)
+    if not str_rig_setup and mBlock and getattr(mBlock, 'hasAttr', None) and mBlock.hasAttr('rigSetup'):
+        try:
+            str_rig_setup = mBlock.getEnumValueString('rigSetup')
+        except Exception:
+            str_rig_setup = None
+    mRoot = mRigNull.getMessageAsMeta('rigRoot') if mRigNull else None
+
+    if str_rig_setup == 'digit' and attach_mode in ('base', 'end'):
+        mDigit = _scaleSetup_walk_parent_nondigit_driver_point(mModule, attach_mode)
+        if mDigit:
+            return mDigit
+
+    try:
+        if attach_mode == 'index' and mBlock.hasAttr('attachIndex'):
+            return mModule.atUtils('get_driverPoint', 'index', mBlock.attachIndex)
+        if attach_mode in ('base', 'end', 'closest'):
+            return mModule.atUtils('get_driverPoint', attach_mode)
+    except Exception:
+        pass
+
+    if mChild and mRoot and mChild == mRoot and str_rig_setup != 'digit':
+        ml_j = mRigNull.msgList_get('rigJoints', asMeta=True, cull=True) if mRigNull else []
+        if ml_j and attach_mode == 'base':
+            return _scaleSetup_joint_to_dyn_parent_target(ml_j[0])
+        if ml_j and attach_mode == 'end':
+            return _scaleSetup_joint_to_dyn_parent_target(ml_j[-1])
+    return None
+
+
+def scaleSetup_dynParentDefaultIndexFromAttach(self, mDynGroup, mChild=None, mBlock=None, fallbackIdx=1):
+    """
+    scaleSetup: dyn parent enum index from block attachPoint on the rebuilt dynParents list.
+    """
+    if not mDynGroup:
+        return fallbackIdx
+    ml_parents = mDynGroup.msgList_get('dynParents', cull=True, asMeta=True) or []
+    if len(ml_parents) < 2:
+        return fallbackIdx
+    if mBlock is None:
+        mBlock = getattr(self, 'mBlock', None)
+    ml_above = getattr(self, 'ml_dynParentsAbove', []) or []
+
+    _mOwnCog = _scaleSetup_own_module_cog_dyn_parent(self)
+    if _mOwnCog:
+        _cog_idx = _scaleSetup_index_in_dyn_parents(_mOwnCog, ml_parents)
+        if _cog_idx is not None:
+            return _cog_idx
+
+    _attach = 'end'
+    if mBlock and getattr(mBlock, 'hasAttr', None) and mBlock.hasAttr('attachPoint'):
+        _attach = mBlock.getEnumValueString('attachPoint') or 'end'
+
+    _mTar = _scaleSetup_attach_driver_target(self, mChild, mBlock, _attach)
+    _idx = _scaleSetup_index_in_dyn_parents(_mTar, ml_parents)
+
+    if _idx is None and ml_above and _attach in ('base', 'end'):
+        _idxs = []
+        for mA in ml_above:
+            _ix = _scaleSetup_index_in_dyn_parents(mA, ml_parents)
+            if _ix is not None:
+                _idxs.append(_ix)
+        if _idxs:
+            if _attach == 'base':
+                _idx = _idxs[0]
+            elif len(_idxs) >= 2:
+                # shoulder, wrist, … — attach end is wrist (second parent driver), not limb root last
+                _idx = _idxs[1]
+            else:
+                _idx = _idxs[-1]
+
+    if _idx is None:
+        return fallbackIdx
+    return _idx
+
+
+def scaleSetup_dynParentDefaultIndex(self, mChild, mDynGroup, idx=1, mBlock=None, ml_targetDynParents=None):
+    """scaleSetup: default dyn parent enum (rigRoot, handle main, …) without reordering the parent list."""
+    if not getattr(self, 'b_scaleSetup', False):
+        return
+    if not (mChild and mDynGroup):
+        return
+    if mBlock is None and getattr(self, 'mBlock', None):
+        mBlock = self.mBlock
+    idx = scaleSetup_dynParentDefaultIndexFromAttach(
+        self, mDynGroup, mChild=mChild, mBlock=mBlock, fallbackIdx=idx)
+    mDynChild = mDynGroup.getMessageAsMeta('dynChild') or mChild
+    _mode = _scaleSetup_dynParentModeInt(mDynGroup, mBlock)
+    if _mode == 2:
+        _attrs = ['orientTo', 'follow']
+    else:
+        _attrs = cgmRIGMETA.d_DynParentGroupModeAttrs.get(_mode, ['space'])
+    for _a in _attrs:
+        if not mDynChild.hasAttr(_a):
+            continue
+        _l = ATTR.get_enum(mDynChild.mNode, _a).split(':')
+        if idx >= len(_l):
+            continue
+        _label = _l[idx]
+        ATTR.set_default(mDynChild.mNode, _a, _label)
+        ATTR.set(mDynChild.mNode, _a, _label)
+
+
+SEGMENT_HANDLE_CAST_SPACING_DIVISOR = 4.0
+
+
+def segment_handle_cast_spacing_joint_chain(mRigNull):
+    """Dense module joint chain for segment handle semiSphere cast sizing."""
+    if not mRigNull:
+        return []
+    for str_attr in ('moduleJoints', 'skinJoints', 'segmentJoints'):
+        ml = mRigNull.msgList_get(str_attr) or []
+        if len(ml) >= 2:
+            return list(ml)
+    return []
+
+
+def segment_handle_cast_semisphere_size(
+        mBlock, mRigNull, offset, ml_chain=None, scale=1.0):
+    """
+    Default radius for limbSegmentHandle / segment handle semiSphere casts:
+    mean adjacent joint span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR, capped by
+    block jointRadius. ``ml_chain`` defaults to moduleJoints on rigNull.
+    """
+    _str_func = 'segment_handle_cast_semisphere_size'
+    f_joint_cap = None
+    if mBlock and mBlock.hasAttr('jointRadius'):
+        f_joint_cap = mBlock.getMayaAttr('jointRadius')
+    if f_joint_cap is None and offset is not None:
+        f_joint_cap = offset
+
+    if not ml_chain and mRigNull:
+        ml_chain = segment_handle_cast_spacing_joint_chain(mRigNull)
+
+    if ml_chain and len(ml_chain) >= 2:
+        try:
+            f_avg_span = DIST.get_distance_between_targets(
+                [mObj.mNode for mObj in ml_chain], average=True)
+            f_size = f_avg_span / SEGMENT_HANDLE_CAST_SPACING_DIVISOR
+            if f_joint_cap is not None:
+                return min(f_size, f_joint_cap)
+            return f_size
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'chain spacing failed | {0}'.format(err)))
+
+    f_base = f_joint_cap if f_joint_cap is not None else (offset or 1.0)
+    return f_base * scale
+
+
 #@cgmGEN.Timer
 def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, upVector = None, uValues = [], offset = None, size = None,f_factor = None,connectionPoints=6):
     """
@@ -1613,7 +1886,8 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     'limbSegmentHandle',
                     'limbSegmentHandleBack',
                     'simpleCast',
-                    'singleCast']:
+                    'singleCast',
+                    'ikEndFrameHandle']:
             #Get our cast mesh        
             ml_handles = self.mBlock.msgList_get('prerigHandles',asMeta = True)
 
@@ -1658,7 +1932,7 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                     ml_shapes.append(cgmMeta.validateObjArg(baseCrv))
                     
             elif mode in ['segmentHandle','ikHandle','frameHandle','castHandle','limbHandle','limbSegmentHandleBack','limbSegmentHandle','simpleCast','singleCast',
-                          'ikEnd','ikBase']:
+                          'ikEnd','ikBase','ikEndFrameHandle']:
                 
                
                 if targets:
@@ -1832,6 +2106,40 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                                                     curvesConnect=True,
                                                     connectionPoints=connectionPoints,
                                                     offset=offset)
+                    ml_shapes = cgmMeta.validateObjListArg(l_curves)
+
+                elif mode == 'ikEndFrameHandle':#=============================================================
+                    # FK frameHandle span for the last handle, but cast U from one DAG (ikEnd rule).
+                    ml_castTargets = cgmMeta.validateObjListArg(targets, 'cgmObject')
+                    if len(ml_castTargets) != 1:
+                        return log.error(
+                            "|{0}| >> ikEndFrameHandle requires one cast target".format(_str_func))
+                    mCastTar = ml_castTargets[0]
+                    _failU = MATH.average([minU, maxU])
+                    _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_aim)
+                    log.debug("|{0}| >> ikEndFrameHandle cast {1} ...".format(
+                        _str_func, mCastTar.p_nameShort))
+                    try:
+                        _v = _d['uvsRaw'][str_meshShape][0][0]
+                    except Exception:
+                        try:
+                            log.debug("|{0}| >> ikEndFrameHandle fail | trying up".format(_str_func))
+                            _d = RAYS.cast(str_meshShape, mCastTar.mNode, str_up)
+                            _v = _d['uvsRaw'][str_meshShape][0][0]
+                        except Exception:
+                            log.warning("|{0}| >> ikEndFrameHandle fail | failSafe u".format(_str_func))
+                            _v = _failU
+                    l_curves = SURF.get_splitValues(
+                        str_meshShape,
+                        [_v],
+                        mode='u',
+                        insertMax=True,
+                        preInset=f_factor * .25,
+                        postInset=-f_factor * .25,
+                        curvesCreate=True,
+                        curvesConnect=True,
+                        connectionPoints=connectionPoints,
+                        offset=offset)
                     ml_shapes = cgmMeta.validateObjListArg(l_curves)
                      
                 elif mode == 'castHandle':#================================================================
@@ -2199,7 +2507,11 @@ def shapes_fromCast(self, targets = None, mode = 'default', aimVector = None, up
                         l_shapes = []
                         
                         dist = offset * 5
-                        size_sphere = self.mBlock.getMayaAttr('jointRadius') or offset
+                        if size is not None:
+                            size_sphere = size
+                        else:
+                            size_sphere = segment_handle_cast_semisphere_size(
+                                self.mBlock, mRigNull, offset)
                         pos_obj = mObj.p_position
                         crvBase = CURVES.create_fromName(name='semiSphere',
                                                      direction = 'z+',

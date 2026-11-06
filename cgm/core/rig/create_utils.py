@@ -30,6 +30,8 @@ from cgm.core import cgm_General as cgmGEN
 import cgm.core.lib.snap_utils as SNAP
 import cgm.core.lib.rigging_utils as RIG
 import cgm.core.lib.distance_utils as DIST
+import cgm.core.lib.geo_Utils as GEO
+import cgm.core.lib.transform_utils as TRANS
 #reload(DIST)
 
 
@@ -114,6 +116,9 @@ def get_meshFromNurbs(nurbSurface = None, mode = 'default', uNumber = 10, vNumbe
 
     #for s in newShapes:
     mDup.delete()
+
+    for s in TRANS.shapes_get(mNew.mNode, True):
+        GEO.normalCheck(s)
     
     return mNew
 

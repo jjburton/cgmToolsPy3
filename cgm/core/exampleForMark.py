@@ -1,7 +1,7 @@
 # From Red9 =============================================================
 from Red9.core import Red9_Meta as r9Meta
 from Red9.core import Red9_AnimationUtils as r9Anim
-from cgm.lib import attributes
+from cgm.core.lib import attribute_utils as ATTR
 import maya.cmds as mc
 #=========================================================================
 import logging
@@ -33,7 +33,7 @@ class ChildClass(r9Meta.MetaClass):
         if _setClass:
             log.info("Preinitialize, setClass | default {0} | Maybe you shouldn't do this...".format(type(self).__name__))	
             try:#>>> TO CHECK IF WE NEED TO CLEAR CACHE ---------------------------------------------------------
-                _currentMClass = attributes.doGetAttr(node,'mClass')#...use to avoid exceptions	
+                _currentMClass = ATTR.get(node,'mClass') if mc.objExists('{0}.mClass'.format(node)) else False
         
                 if _setClass in [True, 1]:
                     _setClass = type(self).__name__	
@@ -46,8 +46,8 @@ class ChildClass(r9Meta.MetaClass):
                         if _currentMClass != _setClass:#...if not the same, replace
                             log.warning("mClasses don't match. Changing to '{0}'".format(_setClass))				    
                             #mc.setAttr('%s.mClass' %(node), value = _setClass)	
-                            attributes.doSetAttr(node,'mClass',_setClass,True)				
-                            attributes.doSetAttr(node,'UUID','',True)
+                            ATTR.set(node,'mClass',_setClass,lock=True)				
+                            ATTR.set(node,'UUID','',lock=True)
                             _setMClass = True
                         else:
                             log.info("mClasses match. ignoring...")				    		
@@ -56,11 +56,11 @@ class ChildClass(r9Meta.MetaClass):
                         _setMClass = True
                     if _setMClass:
                         if not mc.objExists("{0}.mClass".format(node)):
-                            attributes.doAddAttr(node, 'mClass', 'string')
+                            ATTR.add(node, 'mClass', 'string')
                         if not mc.objExists("{0}.UUID".format(node)):
-                            attributes.doAddAttr(node, 'UUID', 'string')				
-                        attributes.doSetAttr(node,'UUID','',True)
-                        attributes.doSetAttr(node,'mClass',_setClass,True)			    
+                            ATTR.add(node, 'UUID', 'string')				
+                        ATTR.set(node,'UUID','',lock=True)
+                        ATTR.set(node,'mClass',_setClass,lock=True)			    
             except Exception as error:
                 log.error("pre setClass fail >> %s"%error)
            

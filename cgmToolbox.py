@@ -231,7 +231,7 @@ def uiMainMenu_add():
     if not hasattr(maya,'_cgmMenu'):
         log.debug('No _cgmMenu found')
 
-        menu = mUI.MelMainMenu(l='CGM', pmc=build, tearOff = True, postMenuCommandOnce=True)
+        menu = mUI.MelMainMenu(l='CGM', pmc=build, tearOff = True, postMenuCommandOnce=False)
         setattr(maya,'_cgmMenu',menu)
 
 def uiMainMenu_rebuild():
@@ -531,8 +531,7 @@ def uiBuild_cgmMenu( *args ):
     UICHUNKS.uiSection_utils(_utils)
 
     #>>>Anim ----------------------------------------------------------------------
-    UICHUNKS.uiSection_animUtils(_anim) 
-    UICHUNKS.uiSection_layout(_anim)
+    UICHUNKS.uiSection_animUtils(_anim)
 
     #>>Layout ----------------------------------------------------------------------
     #_layout = mc.menuItem(p=menu,l='Layout',subMenu = True, tearOff = True)

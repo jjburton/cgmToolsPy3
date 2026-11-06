@@ -116,27 +116,285 @@ for k,color in list(d_state_colors.items()):
 __version__ =  cgmGEN.__RELEASESTRING
 _sidePadding = 25
 
+_MSG_LIST_ATTR = 'helpers'
+_ATTR_HEIGHT_BASELINE = 'cgmHelperHeightBaseline'
+_ATTR_SHAPE_DIRECTION = 'cgmHelperShapeDirection'
+_SHAPE_DIR_TO_BB_ORDER = {'y': 'xzy', 'x': 'yzx', 'z': 'xyz'}
+_AXIS_BB_IDX = {'x': 0, 'y': 1, 'z': 2}
+_UNIT_CUBE_HALF = 0.5
+
+
+def _helpers_migrate_legacy_message(mDag):
+    """Move singular ``helpers`` message links onto indexed msgList slots."""
+    if not helpers_mDag_valid(mDag):
+        return
+    if not mDag.hasAttr(_MSG_LIST_ATTR):
+        return
+    if mDag.msgList_exists(_MSG_LIST_ATTR):
+        return
+    _l_legacy = VALID.listArg(mDag.getMessage(_MSG_LIST_ATTR))
+    if _l_legacy:
+        mDag.msgList_connect(_MSG_LIST_ATTR, _l_legacy)
+    try:
+        mc.deleteAttr('{0}.{1}'.format(mDag.mNode, _MSG_LIST_ATTR))
+    except Exception as err:
+        log.debug("|_helpers_migrate_legacy_message| >> Could not delete legacy attr: {0}".format(err))
+
+
+def helpers_mDag_valid(mDag):
+    return bool(mDag and getattr(mDag, 'mNode', None) and mc.objExists(mDag.mNode))
+
+
+def helpers_ensure_mDag(ui):
+    """Re-bind mrsHelpers after module reload or stale UI handles."""
+    if helpers_mDag_valid(getattr(ui, 'mDag', None)):
+        return ui.mDag
+    ui.mHelper = HelperDag(ui)
+    ui.mDag = ui.mHelper.mDag
+    return ui.mDag
+
+
+def helpers_msglist_get(mDag, clean=True):
+    if not helpers_mDag_valid(mDag):
+        return []
+    _helpers_migrate_legacy_message(mDag)
+    if clean:
+        mDag.msgList_clean(_MSG_LIST_ATTR)
+    return mDag.msgList_get(_MSG_LIST_ATTR) or []
+
+
+def helpers_msglist_set(mDag, ml_helpers):
+    if not helpers_mDag_valid(mDag):
+        return False
+    _helpers_migrate_legacy_message(mDag)
+    mDag.msgList_connect(_MSG_LIST_ATTR, ml_helpers or [])
+    return True
+
+
+def helper_height_baseline_normalize(heightBaseline=0):
+    try:
+        _hb = int(heightBaseline)
+    except (TypeError, ValueError):
+        _hb = 0
+    if _hb not in (-1, 0, 1):
+        _hb = 0
+    return _hb
+
+
+def helper_stamp_height_baseline(mHelper, heightBaseline=0):
+    _node = mHelper.mNode if hasattr(mHelper, 'mNode') else mHelper
+    _hb = helper_height_baseline_normalize(heightBaseline)
+    if not mc.attributeQuery(_ATTR_HEIGHT_BASELINE, node=_node, exists=True):
+        mc.addAttr(_node, longName=_ATTR_HEIGHT_BASELINE, attributeType='long', defaultValue=0)
+    mc.setAttr('{0}.{1}'.format(_node, _ATTR_HEIGHT_BASELINE), _hb)
+
+
+def helper_get_height_baseline(mHelper):
+    _node = mHelper.mNode if hasattr(mHelper, 'mNode') else mHelper
+    if not mc.attributeQuery(_ATTR_HEIGHT_BASELINE, node=_node, exists=True):
+        return 0
+    return int(mc.getAttr('{0}.{1}'.format(_node, _ATTR_HEIGHT_BASELINE)))
+
+
+def helper_stamp_shape_direction(mHelper, shapeDirection='y+'):
+    _node = mHelper.mNode if hasattr(mHelper, 'mNode') else mHelper
+    _sd = (shapeDirection or 'y+').strip()
+    if not mc.attributeQuery(_ATTR_SHAPE_DIRECTION, node=_node, exists=True):
+        mc.addAttr(_node, longName=_ATTR_SHAPE_DIRECTION, dataType='string')
+    mc.setAttr('{0}.{1}'.format(_node, _ATTR_SHAPE_DIRECTION), _sd, type='string')
+
+
+def helper_get_shape_direction(mHelper, default='y+'):
+    _node = mHelper.mNode if hasattr(mHelper, 'mNode') else mHelper
+    if not mc.attributeQuery(_ATTR_SHAPE_DIRECTION, node=_node, exists=True):
+        return default
+    _v = mc.getAttr('{0}.{1}'.format(_node, _ATTR_SHAPE_DIRECTION))
+    return _v or default
+
+
+def helper_ui_shape_direction(ui, default='y+'):
+    _d = getattr(ui, 'd_uiAttrs', None) or {}
+    _ui = _d.get('shapeDirection')
+    if not _ui:
+        return default
+    try:
+        _v = _ui.getValue()
+        return _v or default
+    except Exception:
+        return default
+
+
+def _helper_baseline_pivot_object_space(shapeDirection='y+', heightBaseline=0):
+    """Pivot on unit cube in object space: -1 base, 0 center, +1 tip along shapeDirection."""
+    _hb = helper_height_baseline_normalize(heightBaseline)
+    if not _hb:
+        return [0.0, 0.0, 0.0]
+    _sd = (shapeDirection or 'y+').lower()
+    _axis = _sd[0] if _sd else 'z'
+    _sign = 1.0 if '+' in _sd else -1.0
+    _along = {-1: -_sign, 1: _sign}[_hb]
+    _p = [0.0, 0.0, 0.0]
+    _p[_AXIS_BB_IDX[_axis]] = _along * _UNIT_CUBE_HALF
+    return _p
+
+
+def helper_block_size_from_helper(mHelper, shapeDirection='z+'):
+    """Block baseSize in helper local XYZ (centered unit cube * scale).
+
+    Temporarily zero orient so world bbox matches object-local extents * scale;
+    helper rotation is applied on the block after create, not here.
+    """
+    _node = mHelper.mNode
+    _orient = mHelper.p_orient
+    try:
+        mHelper.p_orient = 0, 0, 0
+        _bb = TRANS.bbSize_get(_node, shapes=True)
+    finally:
+        mHelper.p_orient = _orient
+    _axis = shapeDirection[0] if shapeDirection else 'z'
+    _order = _SHAPE_DIR_TO_BB_ORDER.get(_axis, 'xyz')
+    _size = [_bb[_AXIS_BB_IDX[a]] for a in _order]
+    log.info(
+        cgmGEN.logString_msg(
+            'helper_block_size_from_helper',
+            '{0} | shapeDirection {1} | baseSize {2}'.format(
+                mHelper.p_nameShort, shapeDirection, _size)))
+    return _size
+
+
+def helper_snap_block_to_helper(mBlock, mHelper, shapeDirection='y+'):
+    """Place block from helper; rotation matches helper."""
+    _shapeDirection = shapeDirection or helper_get_shape_direction(mHelper)
+    _targetMode = _shapeDirection
+    if _targetMode.count('+'):
+        _targetMode = _targetMode.replace('+', '-')
+    else:
+        _targetMode = _targetMode.replace('-', '+')
+    if mBlock.blockType == 'head':
+        mBlock.p_position = mHelper.p_position
+        return
+    mBlock.p_orient = mHelper.p_orient
+    _baseline = helper_get_height_baseline(mHelper)
+    _targetPivot = 'rp' if _baseline else 'castNear'
+    SNAPCALLS.snap(
+        mBlock.mNode, mHelper.mNode,
+        objPivot='rp', targetPivot=_targetPivot, targetMode=_targetMode,
+        position=True, rotation=False,
+    )
+
+
+def helper_apply_height_baseline(mHelper, heightBaseline=0, shapeDirection='y+'):
+    """Place helper pivot on shapeDirection axis (-1 base, 0 center, +1 tip). Unit-cube helpers."""
+    _node = mHelper.mNode if hasattr(mHelper, 'mNode') else mHelper
+    _hb = helper_height_baseline_normalize(heightBaseline)
+    _sd = shapeDirection or 'y+'
+    helper_stamp_height_baseline(mHelper, _hb)
+    helper_stamp_shape_direction(mHelper, _sd)
+    _pivot = _helper_baseline_pivot_object_space(_sd, _hb)
+    mc.xform(_node, os=True, absolute=True, pivots=_pivot)
+    log.info(
+        cgmGEN.logString_msg(
+            'helper_apply_height_baseline',
+            '{0} | shapeDirection {1} | baseline {2} | pivot os {3}'.format(
+                mHelper.p_nameShort if hasattr(mHelper, 'p_nameShort') else _node, _sd, _hb, _pivot)))
+
+
+def _helpers_registered_names(ml_helpers):
+    _names = []
+    for mHelper in ml_helpers or []:
+        try:
+            if mHelper and getattr(mHelper, 'mNode', None) and mc.objExists(mHelper.mNode):
+                _names.append(mHelper.p_nameShort)
+        except Exception:
+            pass
+    return _names
+
+
+def _helpers_registered_summary(ml_helpers):
+    _ml = ml_helpers or []
+    _n = len(_ml)
+    if not _n:
+        return 'No helpers registered on mrsHelpers'
+    _names = _helpers_registered_names(_ml)
+    if _names:
+        _name_str = ', '.join(_names)
+        if len(_name_str) > 100:
+            _name_str = '{0}...'.format(_name_str[:97])
+        return '{0} helper(s)  |  {1}'.format(_n, _name_str)
+    return '{0} helper(s) registered on mrsHelpers'.format(_n)
+
+
+def helpers_ui_update_registered(self, syncFromDag=True):
+    """Refresh helper count readout (animClip_dat status-row pattern)."""
+    if syncFromDag:
+        helpers_ensure_mDag(self)
+        self.ml_helpers = helpers_msglist_get(self.mDag)
+    _n = len(self.ml_helpers or [])
+    _label = _helpers_registered_summary(self.ml_helpers)
+    _names = _helpers_registered_names(self.ml_helpers)
+    if _names:
+        _ann = 'Registered on mrsHelpers:\n{0}'.format('\n'.join(_names))
+    else:
+        _ann = 'Block placement helpers wired on mrsHelpers via msgList (helpers_0, helpers_1, …).'
+    if getattr(self, 'uiTF_helpersRegistered', None):
+        self.uiTF_helpersRegistered(edit=True, label=_label, ann=_ann)
+    if getattr(self, 'uiFrame_helpers', None):
+        try:
+            self.uiFrame_helpers(edit=True,
+                                 label='Helpers ({0})'.format(_n) if _n else 'Helpers')
+        except Exception:
+            pass
+    if getattr(self, 'mButton_helpersBuild', None):
+        self.mButton_helpersBuild(edit=True, en=_n > 0)
+    if getattr(self, 'mButton_helpersSelect', None):
+        self.mButton_helpersSelect(edit=True, en=_n > 0)
+    return _n
+
+
+def uiFunc_helpers_select(self):
+    """Select helpers registered on mrsHelpers."""
+    _str_func = 'uiFunc_helpers_select'
+    helpers_ensure_mDag(self)
+    self.ml_helpers = helpers_msglist_get(self.mDag)
+    helpers_ui_update_registered(self, syncFromDag=False)
+
+    _sel = []
+    for mHelper in self.ml_helpers or []:
+        try:
+            if mHelper and getattr(mHelper, 'mNode', None) and mc.objExists(mHelper.mNode):
+                _sel.append(mHelper.mNode)
+        except Exception:
+            pass
+    if not _sel:
+        return log.warning("|{0}| >> No helpers to select".format(_str_func))
+    mc.select(_sel, r=True)
+    log.info("|{0}| >> Selected {1} helper(s)".format(_str_func, len(_sel)))
+
         
 def uiFunc_helper_initialize(self):
     _str_func = 'uiFunc_helper_initialize[{0}]'.format(self.__class__.TOOLNAME)
     log.info("|{0}| >>...".format(_str_func))
-    
+
+    helpers_ensure_mDag(self)
     
     if self.ml_helpers:
-        #print.pprint(self.ml_helpers)
-        self.mButton_helpersBuild(edit=True, en=True)
         for mObj in self.ml_helpers:
             try:mObj.delete()
             except:
-                try:mc.delete(mObj)
+                try:mc.delete(mObj.mNode)
                 except:
                     pass
+        helpers_msglist_set(self.mDag, [])
+        self.ml_helpers = []
+        helpers_ui_update_registered(self, syncFromDag=False)
                 
     d_make = {'count':self.uiIF_helperCount.getValue(),
               'mode':self.var_helperCreateMode.getValue(),
               'baseSize' : [self.uifloat_baseSizeX.getValue() or 1,
                         self.uifloat_baseSizeY.getValue() or 1,
-                        self.uifloat_baseSizeZ.getValue() or 1],              
+                        self.uifloat_baseSizeZ.getValue() or 1],
+              'heightBaseline': self.var_helperHeightBaseline.value,
+              'shapeDirection': helper_ui_shape_direction(self),
               }
     #d_make = {}
     pprint.pprint(d_make)
@@ -171,22 +429,9 @@ def uiFunc_helper_build(self):
     for i,mObj in enumerate(ml_helpers):
         mBlock = self.ml_blocksMade[i]
         cgmGEN._reloadMod(SNAPCALLS)
-        
-        
-        _shapeDirection = self.d_blockCreate.get('shapeDirection','y+')
-        #print (_shapeDirection)
-        
-        if _shapeDirection.count('+'):
-            _shapeDirection= _shapeDirection.replace('+','-')
-        else:
-            _shapeDirection= _shapeDirection.replace('-','+')
-                
-        #print (_shapeDirection)
-        
-        if mBlock.blockType == 'head':
-            mBlock.p_position = mObj.p_position
-        else:
-            SNAPCALLS.snap(mBlock.mNode, mObj.mNode, objPivot='rp', targetPivot='castNear',targetMode= _shapeDirection)
+        helper_snap_block_to_helper(
+            mBlock, mObj,
+            self.d_blockCreate.get('shapeDirection') or helper_get_shape_direction(mObj))
         
         
     
@@ -203,8 +448,7 @@ class HelperDag(object):
         self.mUI = mUI
         self.mDag = mDag
         
-        mDag.addAttr('helpers', initialValue=[], attrType='message')
-        self.ml_helpers = mDag.getMessageAsMeta('helpers')
+        self.ml_helpers = helpers_msglist_get(mDag)
         
     def dat_get(self):
         _str_func = 'dat_get[{0}]'.format(self.__class__)                    
@@ -228,7 +472,11 @@ def buildFrame_helpers(self,parent,changeCommand = ''):
     
     try:self.var_rayCastOffsetDist
     except:self.create_guiOptionVar('rayCastOffsetDist',defaultValue = 1.0)"""
-    self.ml_helpers = []
+    if not getattr(self, 'ml_helpers', None) and getattr(self, 'mDag', None):
+        self.ml_helpers = helpers_msglist_get(self.mDag)
+    elif not getattr(self, 'ml_helpers', None):
+        self.ml_helpers = []
+    _helper_count = len(self.ml_helpers) if self.ml_helpers else 1
     
     self.var_rayCastMode = cgmMeta.cgmOptionVar('cgmVar_rayCastMode', defaultValue=0)
     self.var_rayCastOffsetMode = cgmMeta.cgmOptionVar('cgmVar_rayCastOffsetMode', defaultValue=0)
@@ -240,16 +488,49 @@ def buildFrame_helpers(self,parent,changeCommand = ''):
     
     mVar_frame = self.var_helpersFrameCollapse
     
-    _frame = mUI.MelFrameLayout(parent,label = 'Helpers',vis=True,
+    _frameLabel = 'Helpers ({0})'.format(len(self.ml_helpers)) if self.ml_helpers else 'Helpers'
+    _frame = mUI.MelFrameLayout(parent,label = _frameLabel,vis=True,
                                 collapse=mVar_frame.value,
                                 collapsable=True,
                                 enable=True,
                                 useTemplate = 'cgmUIHeaderTemplate',
                                 expandCommand = lambda:mVar_frame.setValue(0),
                                 collapseCommand = lambda:mVar_frame.setValue(1)
-                                )	
+                                )
+    self.uiFrame_helpers = _frame
     
-    _inside = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate') 
+    _inside = mUI.MelColumnLayout(_frame,useTemplate = 'cgmUISubTemplate')
+
+    _row_status = mUI.MelHSingleStretchLayout(_inside, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_status, w=5)
+    self.uiTF_helpersRegistered = mUI.MelButton(
+        _row_status,
+        label=_helpers_registered_summary(self.ml_helpers),
+        h=20,
+        align='left',
+        en=False,
+        bgc=SHARED._d_gui_state_colors.get('help'),
+        ann='Block placement helpers on mrsHelpers (msgList).',
+    )
+    _row_status.setStretchWidget(self.uiTF_helpersRegistered)
+    mUI.MelButton(
+        _row_status,
+        label='Refresh',
+        ut='cgmUITemplate',
+        ann='Re-read registered helpers from mrsHelpers',
+        c=cgmGEN.Callback(helpers_ui_update_registered, self, True),
+    )
+    _select_en = bool(self.ml_helpers)
+    self.mButton_helpersSelect = mUI.MelButton(
+        _row_status,
+        label='Select',
+        ut='cgmUITemplate',
+        en=_select_en,
+        ann='Select registered block helper(s) in the scene',
+        c=cgmGEN.Callback(uiFunc_helpers_select, self),
+    )
+    mUI.MelSpacer(_row_status, w=5)
+    _row_status.layout()
     
     #Create Mode =========================================================================
     
@@ -280,18 +561,43 @@ def buildFrame_helpers(self,parent,changeCommand = ''):
         mUI.MelSpacer(_row1,w=2)
         
     mUI.MelLabel(_row1, label = 'Count')
-    self.uiIF_helperCount = mUI.MelIntField(_row1, min = 1)
+    self.uiIF_helperCount = mUI.MelIntField(_row1, min = 1, v=_helper_count)
 
     mUI.MelLabel(_row1, label = ' || ')
     
     self.mButton_helpersInitialize = mUI.MelButton(_row1, label='Initialize', ut='cgmUITemplate',
                                                    c = lambda *a:uiFunc_helper_initialize(self))
-    self.mButton_helpersBuild = mUI.MelButton(_row1, label='Build', ut='cgmUITemplate', en=True,
+    _build_en = bool(self.ml_helpers)
+    self.mButton_helpersBuild = mUI.MelButton(_row1, label='Build', ut='cgmUITemplate', en=_build_en,
                                               c = lambda *a:uiFunc_helper_build(self))
     
     mUI.MelSpacer(_row1,w=2)    
 
-    _row1.layout()     
+    _row1.layout()
+
+    try:self.var_helperHeightBaseline
+    except:self.create_guiOptionVar('helperHeightBaseline', defaultValue=0)
+
+    _row_heightBaseline = mUI.MelHSingleStretchLayout(_inside, ut='cgmUISubTemplate', padding=5)
+    mUI.MelSpacer(_row_heightBaseline, w=5)
+    mUI.MelLabel(
+        _row_heightBaseline,
+        l='Height baseline',
+        ann='Pivot along block shapeDirection: -1 base, 0 center, +1 tip (e.g. y+/-1 = bottom Y; z-/-1 = +Z).',
+    )
+    _row_heightBaseline.setStretchWidget(mUI.MelSeparator(_row_heightBaseline))
+    uiRC_heightBaseline = mUI.MelRadioCollection()
+    _on_heightBaseline = int(self.var_helperHeightBaseline.value)
+    for _hb in (-1, 0, 1):
+        uiRC_heightBaseline.createButton(
+            _row_heightBaseline,
+            label=str(_hb),
+            sl=_on_heightBaseline == _hb,
+            onCommand=cgmGEN.Callback(self.var_helperHeightBaseline.setValue, _hb),
+        )
+        mUI.MelSpacer(_row_heightBaseline, w=2)
+    mUI.MelSpacer(_row_heightBaseline, w=5)
+    _row_heightBaseline.layout()
     
     #Raycast =============================================================================
     mc.setParent(_inside)
@@ -349,10 +655,16 @@ def buildFrame_helpers(self,parent,changeCommand = ''):
     
     _row_offset.layout()
 
+    helpers_ui_update_registered(self, syncFromDag=False)
+
     
-def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1], name = 'block'):
+def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1], name = 'block',
+                      heightBaseline=0, shapeDirection='y+'):
     _str_func = 'uiFunc_createHelper'
-    log.info("|{}| >>... {} | {} | {}".format(_str_func, count, mode,baseSize))
+    log.info("|{}| >>... {} | {} | {} | heightBaseline {} | shapeDirection {}".format(
+        _str_func, count, mode, baseSize, heightBaseline, shapeDirection))
+
+    helpers_ensure_mDag(self)
     
     self.ml_helpers = []
     
@@ -363,6 +675,7 @@ def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1]
             mHelper = cgmMeta.asMeta(mc.polyCube(depth=1, height=1, width=1, name='block_{}_helper'.format(i), ch=False)[0])
             
             mHelper.scale = baseSize
+            helper_apply_height_baseline(mHelper, heightBaseline, shapeDirection=shapeDirection)
             
             self.ml_helpers.append(mHelper)
 
@@ -370,7 +683,12 @@ def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1]
         #reload(SNAPCALLS)
         #mHelper = cgmMeta.asMeta(mc.polySphere(radius=1, name='ref_helper', ch=False)[0])
         #mHelper.select()
-        mCaster = helpers_raycast(self, None,'duplicate',False,toCreate = ['{}_{}_helper'.format(name, i) for i in range(count)])
+        mCaster = helpers_raycast(
+            self, None, 'duplicate', False,
+            toCreate=['{}_{}_helper'.format(name, i) for i in range(count)],
+            heightBaseline=heightBaseline,
+            shapeDirection=shapeDirection,
+        )
         #mHelper.delete()
         #pprint.pprint(mCaster.l_created)
         #self._l_toDuplicate
@@ -382,15 +700,13 @@ def createBlockHelper(self = None, count= 1, mode = 'simple', baseSize = [1,1,1]
                                toCreate = ['block_{}_helper'.format(i) for i in range(count)])"""          
         
         
-    print((self.ml_helpers))
-    print((self.mDag))
     if self.ml_helpers:
-        self.mButton_helpersBuild(edit=True, en=True)
-        self.mDag.helpers = self.ml_helpers
-        
+        helpers_msglist_set(self.mDag, self.ml_helpers)
+    helpers_ui_update_registered(self, syncFromDag=False)
 
     
-def helpers_raycast(self = None, targets = [], create = None, drag = False, snap=True, aim=False, toCreate=[], kwsOnly = False):
+def helpers_raycast(self = None, targets = [], create = None, drag = False, snap=True, aim=False, toCreate=[],
+                    kwsOnly = False, heightBaseline=0, shapeDirection='y+'):
     '''
     self = data storage
     '''
@@ -399,6 +715,8 @@ def helpers_raycast(self = None, targets = [], create = None, drag = False, snap
         """Sublass to get the functs we need in there"""
         def __init__(self,mStorage = None,**kws):
             if kws:log.info("kws: %s"%str(kws))
+            self._heightBaseline = kws.pop('heightBaseline', 0)
+            self._shapeDirection = kws.pop('shapeDirection', 'y+')
 
             super(helperRayCaster, self).__init__(**kws)
             self.mStorage = mStorage
@@ -439,6 +757,15 @@ def helpers_raycast(self = None, targets = [], create = None, drag = False, snap
             log.info("returnList: %s"% self.l_return)
             log.info("createdList: %s"% self.l_created)  
             self.mStorage.ml_helpers = cgmMeta.asMeta( self.l_created )
+            _heightBaseline = getattr(self, '_heightBaseline', 0)
+            _shapeDirection = getattr(self, '_shapeDirection', 'y+')
+            if self.mStorage.ml_helpers:
+                for mHelper in self.mStorage.ml_helpers:
+                    helper_apply_height_baseline(
+                        mHelper, _heightBaseline, shapeDirection=_shapeDirection)
+            if self.mStorage.ml_helpers and getattr(self.mStorage, 'mDag', None):
+                helpers_msglist_set(self.mStorage.mDag, self.mStorage.ml_helpers)
+                helpers_ui_update_registered(self.mStorage, syncFromDag=False)
             
             buffer = [] #self.mStorage.templateNull.templateStarterData
             log.info("starting data: %s"% buffer)
@@ -573,6 +900,8 @@ def helpers_raycast(self = None, targets = [], create = None, drag = False, snap
         kws['offsetMode'] = 'snapCast'
     elif _rayCastOffsetMode != 0:
         log.warning("|{0}| >> Unknown rayCast offset mode: {1}!".format(_str_func,_rayCastOffsetMode))
+    kws['heightBaseline'] = heightBaseline
+    kws['shapeDirection'] = shapeDirection
     cgmGEN.log_info_dict(kws,"RayCast args")
     
     #pprint.pprint(kws)

@@ -35,20 +35,17 @@ from cgm.core.cgmPy import validateArgs as VALID
 #reload(VALID)
 from cgm.core.lib import selection_Utils as selUtils
 from cgm.core.cgmPy import OM_Utils as cgmOM
-from cgm.lib import guiFactory
-from cgm.lib import cgmMath
+from cgm.core.classes import GuiFactory as guiFactory
 from cgm.core.lib import attribute_utils as ATTR
 from cgm.core.lib import rayCaster as cgmRAYS
 #reload(cgmRAYS)
 from cgm.core.lib import search_utils as SEARCH
 import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.math_utils as MATH
+from cgm.core.lib import name_utils as NAMES
+import cgm.core.lib.position_utils as POS
+import cgm.core.lib.transform_utils as TRANS
 #import cgm.core.lib.locator_utils as LOC
-
-from cgm.lib import search
-from cgm.lib import distance
-from cgm.lib import names
-from cgm.lib import attributes
 
 import logging
 logging.basicConfig()
@@ -303,7 +300,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
         """
     #Validate our expand amount =======================================================================================================
     if expandAmount == 'default':
-        expandAmount = distance.returnBoundingBoxSizeToAverage(sourceObj)    
+        expandAmount = DIST.get_bb_average(sourceObj)    
 
     #Get our objects if we don't have them
     if sourceObj is None and targets is None:
@@ -489,11 +486,11 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
             _l_created = []
             for o,l in list(_d_sort.items()):
                 #Dupliate the mesh =======================================================================================================
-                _dup = mc.duplicate(o, po = False, n = "{0}_to_{1}_proximesh".format(names.getBaseName(o),
-                                                                                     names.getBaseName(sourceObj)))[0]
+                _dup = mc.duplicate(o, po = False, n = "{0}_to_{1}_proximesh".format(NAMES.get_base(o),
+                                                                                     NAMES.get_base(sourceObj)))[0]
                 log.debug("Dup: {0}".format(_dup))
 
-                _longNameDup = names.getShortName(_dup)
+                _longNameDup = NAMES.get_short(_dup)
 
                 #Split out the faces we want =======================================================================================================
                 _datNew = ["{0}.{1}".format(_longNameDup,f) for f in l]    
@@ -508,7 +505,7 @@ def get_proximityGeo(sourceObj= None, targets = None, mode = 1, returnMode = 0,
                     mc.delete(mc.ls(sl=True))   
                 _l_created.append(_dup)
             if len(_l_created) == 1:
-                attributes.storeInfo(sourceObj, 'proximityMesh', _dup)
+                ATTR.set_message(sourceObj, 'proximityMesh', _dup, simple=True)
             matching = _l_created
 
     if _selectReturn and matching:
@@ -547,7 +544,7 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
     #Validate our expand amount =======================================================================================================
     _expandAmount = expandAmount
     if expandAmount == 'default':
-        _expandAmount = distance.returnBoundingBoxSizeToAverage(sourceObj)
+        _expandAmount = DIST.get_bb_average(sourceObj)
 
     #Get our faces =======================================================================================================
     _dat = get_proximityGeo(sourceObj, target, mode = mode, returnMode = 1, expandBy = expandBy, expandAmount = _expandAmount)
@@ -556,11 +553,11 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
         raise ValueError("No data found on get_contained call!")
 
     #Dupliate the mesh =======================================================================================================
-    _dup = mc.duplicate(target, po = False, n = "{0}_proximesh".format(names.getBaseName(target)))[0]
+    _dup = mc.duplicate(target, po = False, n = "{0}_proximesh".format(NAMES.get_base(target)))[0]
     log.debug("Dup: {0}".format(_dup))
 
     _key = _dat[0].split('.')[0]
-    _longNameDup = names.getShortName(_dup)
+    _longNameDup = NAMES.get_short(_dup)
 
     #Split out the faces we want =======================================================================================================
     _datNew = [ o.replace(_key, _longNameDup) for o in _dat]    
@@ -575,7 +572,7 @@ def create_proximityMeshFromTarget(sourceObj= None, target = None, mode = 1, exp
         mc.delete(mc.ls(sl=True))
     mc.select(_dup)
 
-    attributes.storeInfo(sourceObj, 'proximityMesh', _dup)
+    ATTR.set_message(sourceObj, 'proximityMesh', _dup, simple=True)
     return _dup
 
 def get_deltaBaseLine(mNode = None, excludeDeformers = True):
@@ -603,9 +600,9 @@ def get_deltaBaseLine(mNode = None, excludeDeformers = True):
     for mDef in _deformers:
         _d = {}
         _envelopeAttr = "{0}.envelope".format(mDef.mNode)
-        _plug = attributes.returnDriverAttribute(_envelopeAttr) or False
+        _plug = ATTR.get_driver(_envelopeAttr) or False
         if _plug:
-            attributes.doBreakConnection(_envelopeAttr)
+            ATTR.break_connection(_envelopeAttr)
         _d['plug'] = _plug
         _d['value'] = mDef.envelope
         _d['attr'] = _envelopeAttr
@@ -622,7 +619,7 @@ def get_deltaBaseLine(mNode = None, excludeDeformers = True):
     for mDef in list(_d_wiring.keys()):
         _d = _d_wiring[mDef]
         if _d.get('plug'):
-            attributes.doConnectAttr( _d.get('plug'),_d['attr'])
+            ATTR.connect( _d.get('plug'),_d['attr'])
         else:
             mDef.envelope = _d.get('value')
     return _result
@@ -796,11 +793,11 @@ def meshMath_OLD(sourceObj = None, target = None, mode = 'blend', space = 'objec
         if _mode == 'flip':                   
             for v in _symDict['symMap']:
                 _buffer = _symDict['symMap'][v]
-                _vBuffer = cgmMath.multiplyLists([_l_pos_obj[v],_v_flip])
+                _vBuffer = MATH.multiplyLists([_l_pos_obj[v],_v_flip])
                 for v2 in _buffer:
                     _l_toApply[v2] = _vBuffer
             for v in _symDict['center']:
-                _l_toApply[v] = cgmMath.multiplyLists([_l_pos_obj[v],_v_flip])
+                _l_toApply[v] = MATH.multiplyLists([_l_pos_obj[v],_v_flip])
         else:
             if _mode == 'symPos':
                 _l = _symDict['positive']
@@ -808,12 +805,12 @@ def meshMath_OLD(sourceObj = None, target = None, mode = 'blend', space = 'objec
                 _l = _symDict['negative']
             for v in _l:
                 _buffer = _symDict['symMap'][v]
-                _vBuffer = cgmMath.multiplyLists([_l_pos_obj[v],_v_flip])
+                _vBuffer = MATH.multiplyLists([_l_pos_obj[v],_v_flip])
                 for v2 in _buffer:
                     _l_toApply[v2] = _vBuffer            
             for v in _symDict['center']:
                 _v1 = _l_pos_obj[v]
-                _v2 = cgmMath.multiplyLists([_l_pos_obj[v],_v_flip])
+                _v2 = MATH.multiplyLists([_l_pos_obj[v],_v_flip])
                 _av = []
                 for ii,vv in enumerate(_v1):
                     _av.append( (vv + _v2[ii])/2 )
@@ -981,8 +978,8 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
 
     for i in _l_targetsGood:
         log.info("{0} : '{1}'".format(i,_l_targets[i]))
-        _l_baseNames.append(names.getBaseName(_l_targets[i]))
-        _l_longNames.append(names.getLongName(_l_targets[i]))
+        _l_baseNames.append(NAMES.get_base(_l_targets[i]))
+        _l_longNames.append(NAMES.get_long(_l_targets[i]))
 
     log.debug("mode: {0}".format(_mode))	
     log.debug("space: {0}".format(_space))
@@ -1038,11 +1035,11 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
             if _mode == 'flip':                   
                 for v in _symDict['symMap']:
                     _buffer = _symDict['symMap'][v]
-                    _vBuffer = cgmMath.multiplyLists([_posDat[v],_v_flip])
+                    _vBuffer = MATH.multiplyLists([_posDat[v],_v_flip])
                     for v2 in _buffer:
                         _l_toApply[v2] = _vBuffer
                 for v in _symDict['center']:
-                    _l_toApply[v] = cgmMath.multiplyLists([_posDat[v],_v_flip])
+                    _l_toApply[v] = MATH.multiplyLists([_posDat[v],_v_flip])
             else:
                 if _mode == 'symPos':
                     _l = _symDict['positive']
@@ -1050,12 +1047,12 @@ def meshMath(targets = None, mode = 'blend', space = 'object',
                     _l = _symDict['negative']
                 for v in _l:
                     _buffer = _symDict['symMap'][v]
-                    _vBuffer = cgmMath.multiplyLists([_posDat[v],_v_flip])
+                    _vBuffer = MATH.multiplyLists([_posDat[v],_v_flip])
                     for v2 in _buffer:
                         _l_toApply[v2] = _vBuffer            
                 for v in _symDict['center']:
                     _v1 = _posDat[v]
-                    _v2 = cgmMath.multiplyLists([_posDat[v],_v_flip])
+                    _v2 = MATH.multiplyLists([_posDat[v],_v_flip])
                     _av = []
                     for ii,vv in enumerate(_v1):
                         _av.append( (vv + _v2[ii])/2 )
@@ -1303,11 +1300,11 @@ def meshMath_values(sourceValues = None, targetValues = None, mode = 'blend', mu
                 
             if _mode == 'add':
                 #if _ssv is not None:pos = [p * _ssv for p in pos]                
-                _nPos = cgmMath.list_add(pos, sourceValues[i])
+                _nPos = MATH.list_add(pos, sourceValues[i])
                 _nPos = [(p * _multiplier) for p in _nPos]
             elif _mode == 'subtract':
                 #if _ssv is not None:pos = [p * _ssv for p in pos]                
-                _nPos = cgmMath.list_subtract(pos, sourceValues[i])
+                _nPos = MATH.list_subtract(pos, sourceValues[i])
                 _nPos = [p * _multiplier for p in _nPos]                
             elif _mode == 'multiply':
                 #if _ssv is not None:pos = [p * _ssv for p in pos]                
@@ -1497,7 +1494,7 @@ def get_symmetryDict(sourceObj = None, center = 'pivot', axis = 'x',
         _xRes = mc.xform(_mesh, q=True, ws = True, t = True)
         _mid = _xRes[_ax]
     elif _center == 'boundingBox':
-        _mid = distance.returnCenterPivotPosition(_mesh)[_ax]
+        _mid = POS.get_bb_center(_mesh)[_ax]
     else:
         _mid = 0.0
 
@@ -1736,8 +1733,18 @@ def apply_shape_world_data(shape, data):
 
 #@cgmGEN.Timer
 def normalCheck(mesh,ch=0):
-    if is_reversed(mesh):
-        mc.polyNormal(mesh, normalMode = 0, userNormalMode=1,ch=ch)
+    if not mesh or not mc.objExists(mesh):
+        return False
+    _node = VALID.mNodeString(mesh)
+    if mc.nodeType(_node) == 'transform':
+        _shapes = TRANS.shapes_get(_node, True) or []
+        if not _shapes or mc.nodeType(_shapes[0]) != 'mesh':
+            return False
+        _node = _shapes[0]
+    elif mc.nodeType(_node) != 'mesh':
+        return False
+    if is_reversed(_node):
+        mc.polyNormal(_node, normalMode = 0, userNormalMode=1,ch=ch)
         return True
     return False
 
@@ -1755,6 +1762,16 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
         if mesh is None:
             _sel = mc.ls(sl=True)
             mesh = _sel[0]
+
+        _node = VALID.mNodeString(mesh)
+        if mc.nodeType(_node) == 'transform':
+            _shapes = TRANS.shapes_get(_node, True) or []
+            if not _shapes:
+                return False
+            _node = _shapes[0]
+        if mc.nodeType(_node) != 'mesh':
+            return False
+        mesh = _node
             
         from maya.api import OpenMaya as OM2
         
@@ -1811,7 +1828,7 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
             #vert = iter.position(OM.MSpace.kWorld)
             #mNormal = fnMesh.getClosestNormal(vert,OM.MSpace.kWorld)
             pos = mc.pointPosition("{0}.vtx[{1}]".format(mesh,v),world=True)
-            mPoint_hit = OM2.MPoint( pos ) 
+            mPoint_hit = OM2.MPoint(pos)
 
             try:
                 mNormal = fnMesh.getClosestNormal(mPoint_hit,OM2.MSpace.kWorld)
@@ -1820,10 +1837,14 @@ def is_reversed(mesh, factorCheck = .1, threshold = .4, method = 'bokser', markH
                 print(('error while processing getFaceVertexNormal | {0}'.format( err)))        
                 raise err 
             
-            _vec = [v for v in mNormal[0]]
-            #_vec = MATH.normalizeList(_vec)
-            
-            d = cgmRAYS.cast(mesh,startPoint=pos,vector= _vec,firstHit=False)
+            _vec = [float(v) for v in mNormal[0]]
+            _mag = MATH.mag(_vec)
+            if _mag < 1e-8:
+                continue
+            _vec = [v / _mag for v in _vec]
+            # Offset ray origin along the normal so thin proxy tubes do not self-hit at the vtx.
+            _rayStart = [pos[i] + (_vec[i] * 0.005) for i in range(3)]
+            d = cgmRAYS.cast(mesh, startPoint=_rayStart, vector=_vec, firstHit=False)
             _hits = d.get('hits')
             if _hits:
                 if method == 'bokser':

@@ -8,6 +8,7 @@ __MAYALOCAL = 'CURVES'
 
 # From Python =============================================================
 import copy
+import math
 import pprint
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -39,19 +40,6 @@ from cgm.core.lib import attribute_utils as ATTR
 
 import cgm.core.lib.math_utils as MATH
 import cgm.core.lib.list_utils as LISTS
-from cgm.lib import (distance,
-                     #locators,
-                     attributes,
-                     curves,
-                     deformers,
-                     lists,
-                     rigging,
-                     skinning,
-                     dictionary,
-                     search,
-                     nodes,
-                     joints,
-                     cgmMath)
 
 #>>> Utilities
 #===================================================================    
@@ -130,6 +118,538 @@ def get_shapeArcLength(shape):
     return _len
 
 
+def polyline_length_fractions(l_positions):
+    """Return 0-1 cumulative fractions along a polyline (chord-length, not curve U).
+
+    Used to place pointOnCurveInfo with turnOnPercentage on linear joint chains so
+    each sample matches joint spacing.
+    """
+    if not l_positions:
+        return []
+    if len(l_positions) == 1:
+        return [0.0]
+    _cumulative = [0.0]
+    _total = 0.0
+    for i in range(1, len(l_positions)):
+        _total += DIST.get_distance_between_points(l_positions[i - 1], l_positions[i])
+        _cumulative.append(_total)
+    if _total <= 0.0001:
+        _den = float(max(len(l_positions) - 1, 1))
+        return [float(i) / _den for i in range(len(l_positions))]
+    return [v / _total for v in _cumulative]
+
+
+def sample_polyline_by_parameter(l_positions, parameter):
+    """Return [x, y, z] on a polyline by normalized arc length (0 = start, 1 = end)."""
+    if not l_positions:
+        raise ValueError('sample_polyline_by_parameter requires at least one position')
+
+    _param = float(parameter)
+    if _param <= 0.0:
+        return list(l_positions[0])
+    if _param >= 1.0:
+        return list(l_positions[-1])
+    if len(l_positions) == 1:
+        return list(l_positions[0])
+
+    _segment_lengths = []
+    _total = 0.0
+    for _i in range(len(l_positions) - 1):
+        _seg = DIST.get_distance_between_points(l_positions[_i], l_positions[_i + 1])
+        _segment_lengths.append(_seg)
+        _total += _seg
+
+    if _total <= 0.000001:
+        return list(l_positions[0])
+
+    _target = _total * _param
+    _accum = 0.0
+    for _i, _seg in enumerate(_segment_lengths):
+        _next = _accum + _seg
+        if _target <= _next:
+            if _seg <= 0.000001:
+                return list(l_positions[_i])
+            _local = (_target - _accum) / _seg
+            _a = l_positions[_i]
+            _b = l_positions[_i + 1]
+            return [
+                _a[0] + ((_b[0] - _a[0]) * _local),
+                _a[1] + ((_b[1] - _a[1]) * _local),
+                _a[2] + ((_b[2] - _a[2]) * _local),
+            ]
+        _accum = _next
+
+    return list(l_positions[-1])
+
+
+def polyline_tangent_at_parameter(l_positions, parameter, delta=0.002):
+    """Unit tangent on the chord-length joint polyline at normalized parameter."""
+    if len(l_positions) < 2:
+        raise ValueError('polyline_tangent_at_parameter requires at least two positions.')
+
+    _param = float(parameter)
+    _delta = max(float(delta), 1e-6)
+    _t0 = max(0.0, _param - _delta)
+    _t1 = min(1.0, _param + _delta)
+    if _t0 >= _t1:
+        _t1 = min(1.0, _t0 + _delta)
+
+    _p0 = sample_polyline_by_parameter(l_positions, _t0)
+    _p1 = sample_polyline_by_parameter(l_positions, _t1)
+    _vx = _p1[0] - _p0[0]
+    _vy = _p1[1] - _p0[1]
+    _vz = _p1[2] - _p0[2]
+    _mag = (_vx * _vx + _vy * _vy + _vz * _vz) ** 0.5
+    if _mag <= 1e-8:
+        _a = l_positions[0]
+        _b = l_positions[1]
+        _vx = _b[0] - _a[0]
+        _vy = _b[1] - _a[1]
+        _vz = _b[2] - _a[2]
+        _mag = (_vx * _vx + _vy * _vy + _vz * _vz) ** 0.5
+        if _mag <= 1e-8:
+            return [1.0, 0.0, 0.0]
+    return [_vx / _mag, _vy / _mag, _vz / _mag]
+
+
+def bezier_cvs_from_polyline_anchors(l_positions, l_anchor_parameters):
+    """
+    Cubic Bezier CVs with anchors on a joint polyline and tangents along it.
+
+    l_anchor_parameters: normalized chord-length values (0 = root, 1 = tip), e.g.
+    uniform section splits or polyline_length_fractions per joint.
+    """
+    if len(l_anchor_parameters) < 2:
+        raise ValueError('At least two anchor parameters are required.')
+
+    l_anchor_pts = [
+        sample_polyline_by_parameter(l_positions, float(_t))
+        for _t in l_anchor_parameters]
+    l_tangents = [
+        polyline_tangent_at_parameter(l_positions, float(_t))
+        for _t in l_anchor_parameters]
+
+    l_cvs = [list(l_anchor_pts[0])]
+    for _i in range(len(l_anchor_pts) - 1):
+        _start = l_anchor_pts[_i]
+        _end = l_anchor_pts[_i + 1]
+        _third = DIST.get_distance_between_points(_start, _end) / 3.0
+        l_cvs.append([
+            _start[_axis] + (l_tangents[_i][_axis] * _third)
+            for _axis in range(3)])
+        l_cvs.append([
+            _end[_axis] - (l_tangents[_i + 1][_axis] * _third)
+            for _axis in range(3)])
+        l_cvs.append(list(_end))
+    return l_cvs
+
+
+def bezier_cvs_from_anchors(anchor_points):
+    """Cubic Bezier CV list from anchor positions (3n + 1 CVs)."""
+    if len(anchor_points) < 2:
+        raise ValueError('At least two Bezier anchors are required.')
+
+    l_tangents = []
+    for _i in range(len(anchor_points)):
+        if _i == 0:
+            l_tangents.append([
+                anchor_points[1][_axis] - anchor_points[0][_axis]
+                for _axis in range(3)])
+        elif _i == len(anchor_points) - 1:
+            l_tangents.append([
+                anchor_points[-1][_axis] - anchor_points[-2][_axis]
+                for _axis in range(3)])
+        else:
+            l_tangents.append([
+                (anchor_points[_i + 1][_axis] - anchor_points[_i - 1][_axis]) * 0.5
+                for _axis in range(3)])
+
+    l_cvs = [list(anchor_points[0])]
+    for _i in range(len(anchor_points) - 1):
+        _start = anchor_points[_i]
+        _end = anchor_points[_i + 1]
+        l_cvs.append([
+            _start[_axis] + (l_tangents[_i][_axis] / 3.0)
+            for _axis in range(3)])
+        l_cvs.append([
+            _end[_axis] - (l_tangents[_i + 1][_axis] / 3.0)
+            for _axis in range(3)])
+        l_cvs.append(list(_end))
+    return l_cvs
+
+
+# Bend-prioritized Bezier (anchors on joints; section count honored) -----------------
+
+_BEZIER_BEND_DEFAULT_TENSION = 0.15
+
+
+def _bezier_bend_vec_subtract(vector_a, vector_b):
+    return [vector_a[i] - vector_b[i] for i in range(3)]
+
+
+def _bezier_bend_vec_add(vector_a, vector_b):
+    return [vector_a[i] + vector_b[i] for i in range(3)]
+
+
+def _bezier_bend_vec_scale(vector, value):
+    return [vector[i] * value for i in range(3)]
+
+
+def _bezier_bend_vec_length(vector):
+    return math.sqrt(sum(value * value for value in vector))
+
+
+def _bezier_bend_vec_normalize(vector):
+    length = _bezier_bend_vec_length(vector)
+    if length <= 0.000001:
+        return [1.0, 0.0, 0.0]
+    return [value / length for value in vector]
+
+
+def _bezier_bend_vec_dot(vector_a, vector_b):
+    return sum(vector_a[i] * vector_b[i] for i in range(3))
+
+
+def _bezier_bend_path_length(l_positions, start_index, end_index):
+    path_length = 0.0
+    for index in range(start_index, end_index):
+        path_length += DIST.get_distance_between_points(
+            l_positions[index],
+            l_positions[index + 1])
+    return path_length
+
+
+def bezier_bend_joint_data(l_positions):
+    """Per-interior-joint bend angle (radians) and local segment context."""
+    bend_data = []
+    for index in range(1, len(l_positions) - 1):
+        previous_point = l_positions[index - 1]
+        current_point = l_positions[index]
+        next_point = l_positions[index + 1]
+
+        incoming_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(current_point, previous_point))
+        outgoing_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(next_point, current_point))
+
+        alignment = max(-1.0, min(1.0, _bezier_bend_vec_dot(
+            incoming_direction, outgoing_direction)))
+        bend_angle = math.acos(alignment)
+
+        previous_length = DIST.get_distance_between_points(
+            previous_point, current_point)
+        next_length = DIST.get_distance_between_points(
+            current_point, next_point)
+
+        bend_data.append({
+            'index': index,
+            'angleRadians': bend_angle,
+            'angleDegrees': math.degrees(bend_angle),
+            'affectedLength': min(previous_length, next_length),
+        })
+    return bend_data
+
+
+def bezier_bend_select_anchor_indices(l_positions, section_count):
+    """
+    section_count + 1 anchors on joint indices: root, tip, and strongest interior bends.
+    """
+    joint_count = len(l_positions)
+    if joint_count < 2:
+        raise ValueError('At least two joint positions are required.')
+
+    section_count = max(1, min(int(section_count), joint_count - 1))
+    interior_anchor_count = section_count - 1
+
+    if interior_anchor_count <= 0:
+        return [0, joint_count - 1]
+
+    bend_data = bezier_bend_joint_data(l_positions)
+    bend_data.sort(
+        key=lambda item: (item['angleRadians'], item['affectedLength']),
+        reverse=True)
+
+    selected_indices = [
+        item['index'] for item in bend_data[:interior_anchor_count]]
+    selected_indices.extend([0, joint_count - 1])
+    return sorted(set(selected_indices))
+
+
+def bezier_bend_build_cvs(l_positions,
+                          anchor_indices,
+                          tension=_BEZIER_BEND_DEFAULT_TENSION,
+                          clamp_handles=True):
+    """
+    Cubic Bezier CVs with anchors on joints; per-span handles follow entering/leaving segments.
+    """
+    tension = max(0.0, min(1.0, float(tension)))
+    handle_scale = 1.0 - tension
+
+    anchors = [list(l_positions[index]) for index in anchor_indices]
+    bezier_cvs = [list(anchors[0])]
+    sections = []
+
+    for section_index in range(len(anchor_indices) - 1):
+        start_index = anchor_indices[section_index]
+        end_index = anchor_indices[section_index + 1]
+
+        start_anchor = l_positions[start_index]
+        end_anchor = l_positions[end_index]
+
+        outgoing_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(
+                l_positions[start_index + 1],
+                l_positions[start_index]))
+        incoming_direction = _bezier_bend_vec_normalize(
+            _bezier_bend_vec_subtract(
+                l_positions[end_index],
+                l_positions[end_index - 1]))
+
+        path_length = _bezier_bend_path_length(
+            l_positions, start_index, end_index)
+        base_handle_length = path_length * handle_scale / 3.0
+
+        outgoing_length = base_handle_length
+        incoming_length = base_handle_length
+
+        if clamp_handles:
+            first_segment_length = DIST.get_distance_between_points(
+                l_positions[start_index],
+                l_positions[start_index + 1])
+            last_segment_length = DIST.get_distance_between_points(
+                l_positions[end_index - 1],
+                l_positions[end_index])
+            outgoing_length = min(outgoing_length, first_segment_length)
+            incoming_length = min(incoming_length, last_segment_length)
+
+        outgoing_handle = _bezier_bend_vec_add(
+            start_anchor,
+            _bezier_bend_vec_scale(outgoing_direction, outgoing_length))
+        incoming_handle = _bezier_bend_vec_add(
+            end_anchor,
+            _bezier_bend_vec_scale(incoming_direction, -incoming_length))
+
+        bezier_cvs.extend([
+            outgoing_handle,
+            incoming_handle,
+            list(end_anchor),
+        ])
+        sections.append({
+            'startAnchorIndex': start_index,
+            'endAnchorIndex': end_index,
+            'pathLength': path_length,
+        })
+
+    return {
+        'anchors': anchors,
+        'bezierCVs': bezier_cvs,
+        'sections': sections,
+        'anchorIndices': anchor_indices,
+    }
+
+
+def bezier_cvs_from_bend_prioritized(l_positions,
+                                     section_count,
+                                     tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                     clamp_handles=True):
+    """CV list for a limited-section Bezier fitted to a joint position chain."""
+    anchor_indices = bezier_bend_select_anchor_indices(l_positions, section_count)
+    return bezier_bend_build_cvs(
+        l_positions,
+        anchor_indices,
+        tension=tension,
+        clamp_handles=clamp_handles)
+
+
+def create_bezier_nurbs_curve(str_name, l_points):
+    """Create a multi-span degree-3 Maya Bezier NURBS curve transform name."""
+    _degree = 3
+    if (len(l_points) - 1) % _degree:
+        raise ValueError(
+            'Cubic Bezier requires 3n + 1 CVs. Received {0}.'.format(len(l_points)))
+
+    _section_count = (len(l_points) - 1) // _degree
+    l_knots = [0.0] * _degree
+    for _section_index in range(1, _section_count):
+        l_knots.extend([float(_section_index)] * _degree)
+    l_knots.extend([float(_section_count)] * _degree)
+
+    if len(l_knots) != len(l_points) + _degree - 1:
+        raise ValueError('Invalid Bezier knot count for {0} CVs.'.format(len(l_points)))
+
+    return mc.curve(
+        name=str_name,
+        degree=_degree,
+        point=l_points,
+        knot=l_knots,
+        bezier=True)
+
+
+def create_bezier_curve_from_positions(l_positions,
+                                       bezier_sections=1,
+                                       baseName='bezierCrv',
+                                       track=False,
+                                       l_anchors=None,
+                                       bezier_build_mode='bend',
+                                       bezier_tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                       bezier_clamp_handles=True):
+    """
+    Build a Maya Bezier curve from ordered positions (e.g. joint chain).
+
+    bezier_build_mode:
+        bend (default) — anchors on joints; interior picks strongest bends; honors bezier_sections
+        uniform — arc-length anchor samples + chord tangents
+        polyline — arc-length anchors + tangents along the polyline
+    """
+    if not l_positions or len(l_positions) < 2:
+        raise ValueError('At least two positions are required to create a Bezier curve.')
+
+    _build_mode = cgmValid.stringArg(bezier_build_mode, noneValid=False).lower()
+    if _build_mode in ('bendpriority', 'bend_prioritized'):
+        _build_mode = 'bend'
+
+    if l_anchors is not None:
+        if len(l_anchors) < 2:
+            raise ValueError('At least two Bezier anchors are required.')
+        _sections = len(l_anchors) - 1
+        l_cvs = bezier_cvs_from_anchors(l_anchors)
+    elif _build_mode == 'bend':
+        _sections = max(1, min(int(bezier_sections), len(l_positions) - 1))
+        _d_bend = bezier_cvs_from_bend_prioritized(
+            l_positions,
+            _sections,
+            tension=bezier_tension,
+            clamp_handles=bezier_clamp_handles)
+        l_cvs = _d_bend['bezierCVs']
+        log.info(cgmGEN.logString_msg(
+            'create_bezier_curve_from_positions',
+            'bend | sections={0} anchorIndices={1}'.format(
+                _sections, _d_bend['anchorIndices'])))
+    elif _build_mode == 'polyline':
+        _sections = max(1, int(bezier_sections))
+        l_anchor_u = [
+            float(_i) / float(_sections) for _i in range(_sections + 1)]
+        l_cvs = bezier_cvs_from_polyline_anchors(l_positions, l_anchor_u)
+    else:
+        _sections = max(1, int(bezier_sections))
+        l_anchors = []
+        for _i in range(_sections + 1):
+            _t = float(_i) / float(_sections)
+            l_anchors.append(sample_polyline_by_parameter(l_positions, _t))
+        l_cvs = bezier_cvs_from_anchors(l_anchors)
+
+    str_name = '{0}_split{1}'.format(baseName, _sections)
+    if track:
+        str_name = '{0}_track'.format(str_name)
+    _crv = create_bezier_nurbs_curve(str_name, l_cvs)
+    mCrv = cgmMeta.asMeta(_crv, 'cgmObject', setClass=True)
+    mCrv.addAttr('cgmName', str_name, attrType='string', lock=True)
+    mCrv.addAttr('cgmType', 'bezierIKCurve', attrType='string', lock=True)
+    mCrv.doName()
+    return mCrv
+
+
+def _bezier_track_cluster_cvs(mCrv, obj, str_baseName):
+    """Cluster each Bezier CV to the matching selection driver (anchors + tangents)."""
+    l_cv = mc.ls(['{0}.cv[*]'.format(mCrv.mNode)], flatten=True) or []
+    if not l_cv:
+        raise ValueError('No CVs found on Bezier track curve: {0}'.format(mCrv.mNode))
+
+    l_clusters = []
+    _n_obj = len(obj)
+
+    try:
+        for _i, _cv in enumerate(l_cv):
+            if _n_obj <= 1:
+                _driver = obj[0]
+            else:
+                _block = _i // 3
+                _rem = _i % 3
+                if _rem == 2:
+                    _idx = min(_block + 1, _n_obj - 1)
+                else:
+                    _idx = min(_block, _n_obj - 1)
+                _driver = obj[_idx]
+
+            _res = mc.cluster(_cv, n='{0}_{1}_cluster'.format(str_baseName, _i))
+            l_clusters.append(_res)  # appended first so a failed parent/set below is still cleaned up
+            TRANS.parent_set('|{0}'.format(_res[1]), _driver)
+            ATTR.set(_res[1], 'visibility', False)
+    except Exception:
+        # Don't leave the curve half-driven by clusters from earlier iterations.
+        for _res in l_clusters:
+            for _node in _res:
+                if mc.objExists(_node):
+                    try:
+                        mc.delete(_node)
+                    except Exception as _err:
+                        log.warning('|_bezier_track_cluster_cvs| >> cleanup failed for {0}: {1}'.format(_node, _err))
+        raise
+
+    return l_clusters
+
+
+def create_bezier_curve_from_objects(obj=None,
+                                     bezier_sections=1,
+                                     baseName='bezierCrv',
+                                     bezier_build_mode='bend',
+                                     bezier_tension=_BEZIER_BEND_DEFAULT_TENSION,
+                                     bezier_clamp_handles=True):
+    """Create Bezier curve from selection positions (ordered list of DAG/components)."""
+    _str_func = 'create_bezier_curve_from_objects'
+    if not obj:
+        raise ValueError('|{0}| >> No objects passed.'.format(_str_func))
+
+    # Coincident positions give zero-length spans, so drop them (within tolerance) and say so.
+    _tol = 0.0001  # same default as geo_Utils.is_equivalent
+    l_pos = []
+    l_dropped = []
+    for _o in obj:
+        _p = TRANS.position_get(_o)
+        if any(math.dist(_p, _q) <= _tol for _q in l_pos):
+            l_dropped.append(_o)
+        else:
+            l_pos.append(_p)
+    if l_dropped:
+        log.warning('|{0}| >> {1} object(s) share a position with an earlier one and were skipped; '
+                    'using {2} of {3} positions: {4}'.format(
+                        _str_func, len(l_dropped), len(l_pos), len(obj), l_dropped))
+
+    mCrv = create_bezier_curve_from_positions(
+        l_pos,
+        bezier_sections=bezier_sections,
+        baseName=baseName,
+        track=False,
+        bezier_build_mode=bezier_build_mode,
+        bezier_tension=bezier_tension,
+        bezier_clamp_handles=bezier_clamp_handles)
+    mc.select(mCrv.mNode, replace=True)
+    return mCrv.mNode
+
+
+def create_bezier_track_curve_from_objects(obj=None, baseName='bezierCrv'):
+    """Bezier track curve: one anchor per target; span count = len(targets) - 1."""
+    _str_func = 'create_bezier_track_curve_from_objects'
+    if not obj:
+        raise ValueError('|{0}| >> No objects passed.'.format(_str_func))
+
+    l_pos = [TRANS.position_get(_o) for _o in obj]
+    if len(l_pos) < 2:
+        raise ValueError('|{0}| >> At least two targets required for Bezier track.'.format(_str_func))
+
+    _sections = len(obj) - 1
+    str_name = '{0}_split{1}_track'.format(baseName, _sections)
+
+    mCrv = create_bezier_curve_from_positions(
+        l_pos,
+        baseName=baseName,
+        track=True,
+        l_anchors=l_pos)
+    l_clusters = _bezier_track_cluster_cvs(mCrv, obj, str_name)
+    mc.select(mCrv.mNode, replace=True)
+    return mCrv.mNode, l_clusters
+
+
 def _closestPointOnShape(shape, position):
     """Closest world position and U parameter on a nurbsCurve shape."""
     _node = mc.createNode('nearestPointOnCurve')
@@ -144,17 +664,54 @@ def _closestPointOnShape(shape, position):
     mc.delete(_node)
     return _pos, _u
 
-    
+
+def nurbs_curve_shape_get(curve):
+    """
+    Single non-intermediate nurbsCurve shape long DAG path (transform or shape input).
+    Use for mc.connectAttr curve plugs (e.g. pointOnCurveInfo.inputCurve).
+    """
+    _str_func = 'nurbs_curve_shape_get'
+    if type(curve) in [list, tuple]:
+        curve = curve[0]
+    _node = cgmValid.mNodeString(curve)
+    if cgmValid.is_shape(_node):
+        _shape = SHAPES.get_nonintermediate(_node)
+        if cgmValid.get_mayaType(_shape) != 'nurbsCurve':
+            raise ValueError(
+                '|{0}| >> not a nurbsCurve shape: {1}'.format(_str_func, _shape))
+        return NAMES.get_long(_shape)
+
+    _transform = SEARCH.get_transform(_node)
+    _l = []
+    for s in TRANS.shapes_get(_transform, True):
+        if cgmValid.get_mayaType(s) != 'nurbsCurve':
+            continue
+        if ATTR.get(s, 'intermediateObject'):
+            continue
+        _l.append(s)
+    if not _l:
+        raise ValueError('No nurbsCurve shape found: {0}'.format(_transform))
+    if len(_l) > 1:
+        log.warning(
+            '|{0}| >> multiple non-intermediate nurbsCurve shapes on {1}; using {2}'.format(
+                _str_func, _transform, _l[0]))
+    return NAMES.get_long(SHAPES.get_nonintermediate(_l[0]))
+
+
 def create_pointOnInfoNode(crvShape,parameter= None,turnOnPercentage=None):
     _str_func = 'create_pointOnInfoNode'
     if type(crvShape) in [list,tuple]:crvShape = crvShape[0]
-    if cgmValid.get_mayaType(crvShape) != 'nurbsCurve':
-        log.warning("|{0}| >> not a nurbsCurve. Skipping {1}({2})...".format(_str_func,crvShape,cgmValid.get_mayaType(crvShape)))
+    try:
+        _shape_long = nurbs_curve_shape_get(crvShape)
+    except ValueError as err:
+        log.warning("|{0}| >> {1}".format(_str_func, err))
         return False
-    
-    _transform = SEARCH.get_transform(crvShape)
+
     _infoNode = mc.createNode('pointOnCurveInfo')
-    mc.connectAttr((_transform+'.worldSpace'),(_infoNode+'.inputCurve'))
+    _poci_long = NAMES.get_long(_infoNode)
+    mc.connectAttr(
+        '{0}.worldSpace[0]'.format(_shape_long),
+        '{0}.inputCurve'.format(_poci_long))
     
     if turnOnPercentage is not None:
         ATTR.set(_infoNode,'turnOnPercentage',turnOnPercentage)
@@ -174,16 +731,7 @@ def nurbs_percent_sampler(curve):
     """
     from maya.api import OpenMaya as om2
 
-    _shape = curve
-    if isinstance(_shape, (list, tuple)):
-        _shape = _shape[0]
-    _shape = cgmValid.mNodeString(_shape)
-    if cgmValid.get_mayaType(_shape) != 'nurbsCurve':
-        _shapes = TRANS.shapes_get(_shape, True) or []
-        _nurbs = [s for s in _shapes if cgmValid.get_mayaType(s) == 'nurbsCurve']
-        if not _nurbs:
-            raise ValueError('nurbs_percent_sampler: no nurbsCurve on {0}'.format(_shape))
-        _shape = _nurbs[0]
+    _shape = nurbs_curve_shape_get(curve)  # non-intermediate, so deformed curves sample the deformed shape
 
     _sel = om2.MSelectionList()
     _sel.add(_shape)
@@ -1405,7 +1953,7 @@ def getUSplitList(curve=None, points=3, markPoints=False,
                 mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
             if len(ml_built)>1:
-                try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+                try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
                 except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                 try:
                     for o in ml_built:
@@ -1592,7 +2140,7 @@ def returnSplitCurveList(*args, **kws):
                         mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
                     if len(ml_built)>1:
-                        try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+                        try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
                         except Exception as error:raise Exception("Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error))
                         try:
                             for o in ml_built:
@@ -1708,7 +2256,7 @@ def returnSplitCurveList(curve = None,points = 3, markPoints = False, startSplit
 		    log.debug("%s >> created : %s | at: %s"%(_str_funcName,ml_built[-1].p_nameShort,pos))              											
 		    mc.xform(ml_built[-1].mNode, t = (pos[0],pos[1],pos[2]), ws=True)
 
-		try:f_distance = distance.returnAverageDistanceBetweenObjects([o.mNode for o in ml_built]) * .5
+		try:f_distance = DIST.get_distance_between_targets([o.mNode for o in ml_built], average=True) * .5
 		except StandardError,error:raise StandardError,"Average distance fail. Objects: %s| error: %s"%([o.mNode for o in ml_built],error)
 		try:
 		    for o in ml_built:
@@ -1734,7 +2282,7 @@ def attachObjToCurve(obj = None, crv = None):
     try:
 	obj = cgmValid.objString(obj,isTransform=True)
 	crv = cgmValid.objString(crv,mayaType='nurbsCurve')	
-	d_returnBuff = distance.returnNearestPointOnCurveInfo(obj,crv)
+	d_returnBuff = DIST.get_closest_point_data(targetSurface=crv, targetObj=obj)
 	mi_poci = cgmMeta.cgmNode(nodeType = 'pointOnCurveInfo')
 	mc.connectAttr("%s.worldSpace"%d_returnBuff['shape'],"%s.inputCurve"%mi_poci.mNode)
 	mi_poci.parameter = d_returnBuff['parameter']
@@ -1756,7 +2304,7 @@ def attachObjToCurve(obj = None, crv = None):
 
     obj = cgmValid.objString(obj,isTransform=True)
     crv = cgmValid.objString(crv,mayaType='nurbsCurve')	
-    d_returnBuff = distance.returnNearestPointOnCurveInfo(obj,crv)
+    d_returnBuff = DIST.get_closest_point_data(targetSurface=crv, targetObj=obj)
     mi_poci = cgmMeta.cgmNode(nodeType = 'pointOnCurveInfo')
     mc.connectAttr("%s.worldSpace"%d_returnBuff['shape'],"%s.inputCurve"%mi_poci.mNode)
     mi_poci.parameter = d_returnBuff['parameter']
@@ -1941,7 +2489,7 @@ def convertCurve(*args, **kws):
                 l_pos = []
                 for cv in mi_crv.getComponents('cv'):
                     locatorName = CORERIG.simpleLoc(cv)
-                    pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
+                    pos = DIST.get_closest_point(locatorName, mi_crv.mNode)[0]
                     mc.delete(locatorName)
                     l_pos.append( pos )	
                 if not self.b_keepOriginal:mi_crv.delete()
@@ -2044,7 +2592,7 @@ def mirrorCurve(*args, **kws):
 
                     #l_newCurvePos = l_epPos + l_otherSide
                     l_newCurvePos = l_otherSide
-                    l_newCurvePos = lists.returnListNoDuplicates(l_newCurvePos)
+                    l_newCurvePos = LISTS.get_noDuplicates(l_newCurvePos)
 
                     self.mi_created = cgmMeta.cgmObject( mc.curve(d=2,p=l_newCurvePos,os = True) )
                     self.mi_created.rename( mi_base.p_nameBase + '_mirrored')
@@ -2091,7 +2639,7 @@ def mirrorCurve(*args, **kws):
 
             #> First see our push direction ----------------------------------------------------------
             try:
-                if cgmMath.isFloatEquivalent( d_return['f_bbMax'], d_return['f_bbMin']):
+                if MATH.is_float_equivalent( d_return['f_bbMax'], d_return['f_bbMin']):
                     d_return['b_balanced'] = 1
 
                 if d_return['f_bbMax'] > d_return['f_bbMin']:
@@ -2129,7 +2677,7 @@ def mirrorCurve(*args, **kws):
                         l_cvPos.append( mc.pointPosition(cv,w=True) )	 
                         #Get an ep value
                         locatorName = CORERIG.simpleLoc(cv)
-                        pos = distance.returnClosestUPosition(locatorName,mi_crv.mNode)
+                        pos = DIST.get_closest_point(locatorName, mi_crv.mNode)[0]
                         mc.delete(locatorName)
                         l_epPos.append( pos )	 
 
@@ -2344,16 +2892,7 @@ def distribute(target=None, comp='ep', closed=True, rebuild=0):
 
 def _nurbs_curve_shape_for_closest(curve):
     """Single non-intermediate nurbsCurve shape on a transform (for closest-point queries)."""
-    _l = [
-        s for s in TRANS.shapes_get(curve, True)
-        if cgmValid.get_mayaType(s) == 'nurbsCurve'
-    ]
-    if not _l:
-        raise ValueError('No nurbsCurve shape found: {0}'.format(curve))
-    if len(_l) > 1:
-        raise ValueError(
-            'Multiple nurbsCurve shapes on transform; use one per transform: {0}'.format(curve))
-    return SHAPES.get_nonintermediate(_l[0])
+    return nurbs_curve_shape_get(curve)
 
 
 def _get_edit_point_count(shape):

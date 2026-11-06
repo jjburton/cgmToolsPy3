@@ -70,6 +70,7 @@ log_start = cgmGEN.logString_start
 
 
 _l_startDirModes = ('workspace','file','dev')
+_l_libraryDirModes = ('dev', 'workspace')
 
 
 def startDir_getBase(mode = 'workspace', devList = []):
@@ -96,6 +97,116 @@ def startDir_getBase(mode = 'workspace', devList = []):
         
     else:
         raise ValueError("Unknown mode: {}".format(mode))
+
+
+def library_modes_normalize(modes=None, default=('dev',)):
+    """Return ordered unique library modes from modes (str or sequence)."""
+    if modes is None:
+        modes = default
+    if isinstance(modes, str):
+        modes = [modes]
+    _out = []
+    for m in modes:
+        if m in _l_libraryDirModes and m not in _out:
+            _out.append(m)
+    return _out or list(default)
+
+
+def library_options_merge(mode_to_options):
+    """
+    Merge per-mode option dicts into menu rows.
+
+    mode_to_options: {mode: {key: filepath}}
+    Returns list of dicts:
+      key, filepath, mode, display (leaf name; ``name [mode]`` on key collisions)
+    Ordered by key, then mode order in _l_libraryDirModes.
+    """
+    _entries = []
+    _key_counts = {}
+    for mode in _l_libraryDirModes:
+        _opts = mode_to_options.get(mode) or {}
+        for key, fpath in list(_opts.items()):
+            _key_counts[key] = _key_counts.get(key, 0) + 1
+            _entries.append((key, fpath, mode))
+
+    _rows = []
+    for key, fpath, mode in _entries:
+        _leaf = key.split('.')[-1] if key else key
+        _display = _leaf if _key_counts.get(key, 0) <= 1 else '{0} [{1}]'.format(_leaf, mode)
+        _rows.append({
+            'key': key,
+            'filepath': fpath,
+            'mode': mode,
+            'display': _display,
+        })
+    _mode_rank = {m: i for i, m in enumerate(_l_libraryDirModes)}
+    _rows.sort(key=lambda r: (r['key'], _mode_rank.get(r['mode'], 99)))
+    return _rows
+
+
+def get_ext_options_multi(modes=None, path_join=None, force=False, extensions=None, skipRoot=True):
+    """
+    Scan multiple library roots and return merged menu rows.
+
+    path_join: path parts under each mode base (e.g. ['cgmDat','mrs'] or ['cgmDat','sim']).
+    Returns (rows, by_mode) where rows is library_options_merge output and
+    by_mode is {mode: (options_dict, types_dict)}.
+    """
+    if extensions is None:
+        extensions = ['cgmBlockConfig', 'cgmBlockDat', 'cgmShapeDat']
+    if path_join is None:
+        path_join = ['cgmDat', 'mrs']
+    modes = library_modes_normalize(modes)
+    _by_mode = {}
+    _mode_to_options = {}
+    for mode in modes:
+        _base = startDir_getBase(mode)
+        if not _base:
+            continue
+        _path = os.path.join(_base, *path_join)
+        if not os.path.isdir(_path):
+            _by_mode[mode] = ({}, {})
+            _mode_to_options[mode] = {}
+            continue
+        _opts, _types = get_ext_options(
+            force, path=_path, skipRoot=skipRoot, extensions=list(extensions))
+        _by_mode[mode] = (_opts, _types)
+        _mode_to_options[mode] = _opts or {}
+    return library_options_merge(_mode_to_options), _by_mode
+
+
+def uiMenu_addLibrarySaveSearchDirs(
+        parentMenu, saveMode, searchModes, saveCallback, searchToggleCallback,
+        modes=None):
+    """
+    Build SaveDir (radio) + SearchDir (checkboxes) under a library/presets menu.
+
+    saveCallback(mode), searchToggleCallback(mode) — callers own optionVars;
+    searchToggleCallback toggles one mode and must keep >=1 SearchDir on.
+    """
+    if modes is None:
+        modes = _l_libraryDirModes
+    searchModes = library_modes_normalize(searchModes, default=list(modes))
+    if saveMode not in modes:
+        saveMode = modes[0]
+
+    mUI.MelMenuItemDiv(parentMenu, l='Dirs')
+    _saveMenu = mUI.MelMenuItem(parentMenu, l='SaveDir', subMenu=True, tearOff=True)
+    _rc = mc.radioMenuItemCollection()
+    for item in modes:
+        mUI.MelMenuItem(
+            _saveMenu, l=item, collection=_rc, rb=(item == saveMode),
+            ann='Save / capture dialogs open under this root',
+            c=cgmGEN.Callback(saveCallback, item),
+        )
+
+    _searchMenu = mUI.MelMenuItem(parentMenu, l='SearchDir', subMenu=True, tearOff=True)
+    for item in modes:
+        mUI.MelMenuItem(
+            _searchMenu, l=item, checkBox=(item in searchModes),
+            ann='Include this root when listing library presets',
+            c=cgmGEN.Callback(searchToggleCallback, item),
+        )
 
 class batch(object):
     def __init__(self, mNodes, dataClass = None, mode = None):
@@ -593,10 +704,11 @@ class ui(CGMUI.cgmGUI):
         
         mUI.MelMenuItemDiv(self.uiMenu_FileMenu, l="Utils")
 
+        _hasPath = bool(self._loadedFile or (self.uiDat and self.uiDat.str_filepath))
         mUI.MelMenuItem( self.uiMenu_FileMenu, l="Save",
+                         en=_hasPath,
+                         ann='Save to the current file. Use Save As when no file is loaded.',
                          c = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_dat_save)))
-                         
-                        # c = lambda *a:mc.evalDeferred(cgmGEN.Callback(uiFunc_save_actions,self)))
 
         mUI.MelMenuItem( self.uiMenu_FileMenu, l="Save As",
                          c = lambda *a:mc.evalDeferred(cgmGEN.Callback(self.uiFunc_dat_saveAs)))
@@ -655,17 +767,33 @@ class ui(CGMUI.cgmGUI):
                 string = CORESTRINGS.short(self._loadedFile,max=40,start=10)
             self.uiStatus_top(edit=True,bgc = CORESHARE._d_gui_state_colors.get('connected'),label = string )            
             self.uiUpdate_data()
+
+    def uiFunc_dat_path_commit(self):
+        """File bar, LastLoaded, and Recent after a successful Dat write or read."""
+        _path = self.uiDat.str_filepath
+        if not _path:
+            return False
+        self._loadedFile = _path
+        self.var_LastLoaded.setValue(_path)
+        self.mPathList_recent.append_recent(_path)
+        self.uiStatus_refresh()
+        return True
             
     def uiFunc_dat_save(self):
         _str_func = 'uiFunc_dat_save[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
-        self.uiDat.write(update=True,startDirMode = self._l_startDirModes[self.var_startDirMode.value])
+        if not (self._loadedFile or (self.uiDat and self.uiDat.str_filepath)):
+            log.warning('No file path. Use Save As.')
+            return
+        if self.uiDat.write(update=True,startDirMode = self._l_startDirModes[self.var_startDirMode.value]):
+            self.uiFunc_dat_path_commit()
         return
     
     def uiFunc_dat_saveAs(self):
         _str_func = 'uiFunc_dat_saveAs[{0}]'.format(self.__class__.TOOLNAME)            
         log.debug("|{0}| >>...".format(_str_func))
-        self.uiDat.write(startDirMode = self._l_startDirModes[self.var_startDirMode.value], forcePrompt=True)
+        if self.uiDat.write(startDirMode = self._l_startDirModes[self.var_startDirMode.value], forcePrompt=True):
+            self.uiFunc_dat_path_commit()
         return
     
     def uiFunc_dat_load(self,*args,**kws):
@@ -678,18 +806,13 @@ class ui(CGMUI.cgmGUI):
         
         
         if self.uiDat.read(**kws):
-            self._loadedFile = self.uiDat.str_filepath
-            self.var_LastLoaded.setValue(self.uiDat.str_filepath)
             log.info(cgmGEN.logString_msg(_str_func,"Read: {}".format(self.uiDat.str_filepath)))
-            self.mPathList_recent.append_recent(self.uiDat.str_filepath)
+            self.uiFunc_dat_path_commit()
             
         else:
             self._loadedFile = ''
             self.var_LastLoaded.setValue('')
-            
-            
-            
-        self.uiStatus_refresh()
+            self.uiStatus_refresh()
         return
     
     def uiData_checkState(self):
@@ -778,8 +901,14 @@ class ui(CGMUI.cgmGUI):
             pprint.pprint(sDat[mode])
   
     def uiStatus_fileClear(self):
-        self.uiStatus_top(edit=True,bgc = CORESHARE._d_gui_state_colors.get('help'),label = '' )
-        self._loadedFile = ""
+        self._loadedFile = ''
+        try:
+            self.var_LastLoaded.setValue('')
+        except Exception:
+            pass
+        if getattr(self, 'uiDat', None):
+            self.uiDat.str_filepath = None
+        self.uiStatus_refresh()
         
     def build_layoutWrapper(self,parent):
         _str_func = 'build_layoutWrapper[{0}]'.format(self.__class__.TOOLNAME)            

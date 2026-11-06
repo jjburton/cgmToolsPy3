@@ -565,6 +565,9 @@ def find_valueInList(v,l,mode='near'):
     if mode in ['near','previous','next']:return _d[min(_l)]
     elif mode == 'far':return _d[max(_l)]
 
+_d_midBulge_dist_weight = {0: 1.0, 1: 0.6, 2: 0.2}
+
+
 @cgmGEN.Timer
 def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
     '''
@@ -578,6 +581,7 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
             min
             max
             midPeak - ease to peak and back
+            midBulge - center 1.0, ±1 → 0.6, ±2 → 0.2, farther → min (e.g. count 7: 0,.2,.6,1,.6,.2,0)
             midBlendDown - max to mid then blend down
             midBlendUp  - blend from min to max then max
             blendUp
@@ -588,6 +592,7 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
 
         examples - all with example with count 5, min 0, max 1
             midPeak - [0.0, 0.5, 1.0, 0.5, 0.0]
+            midBulge (count 7) - [0.0, 0.2, 0.6, 1.0, 0.6, 0.2, 0.0]
             midBlendDown - [1.0, 1.0, 1.0, 0.5, 0.0]
             midBlendUp - [0.0, 0.5, 1.0, 1.0, 1.0]
             blendUp - [0.0, 0.25, 0.5, 0.75, 1.0]
@@ -610,6 +615,18 @@ def get_blendList(count, maxValue=1.0, minValue = 0.0, mode = 'midPeak'):
 
         if mode == 'blendDown':
             _res.reverse()
+
+    elif mode == 'midBulge':
+        if count < 1:
+            return []
+        if maxValue == minValue:
+            return [maxValue for i in range(count)]
+        idx_mid = get_midIndex(count)
+        f_span = float(maxValue) - float(minValue)
+        for i in range(count):
+            int_dist = abs(i - idx_mid)
+            f_weight = _d_midBulge_dist_weight.get(int_dist, 0.0)
+            _res.append(float(minValue) + (f_weight * f_span))
 
     elif mode in ['midPeak','midBlendUp','midBlendDown']:
         if count == 2:
@@ -681,6 +698,8 @@ def normalizeListToSum(L, normalizeTo=1.0):
     """
 
     #return [float(i)/normalizeTo for i in [float(i)/sum(L) for i in L]]
+    # Core wins vs lib cgmMath.normSumList: lib divided by normalizeTo (wrong for sum==N).
+    # At normalizeTo=1.0 both match. Old name: normSumList.
     norm = normalizeList(L)
     normSum = [float(i)/sum(L) for i in L]
     return [i * normalizeTo for i in normSum]
@@ -842,6 +861,13 @@ def list_mult(l1,l2):
         l_return.append( x*l2[i])
     return l_return
 
+def multiplyLists(lists, allowZeros=True):
+    """Old cgm.lib.cgmMath name: multiply corresponding elements of a sequence of lists."""
+    acc = lists[0]
+    for nxt in lists[1:]:
+        acc = list_mult(acc, nxt)
+    return acc
+
 def list_div(l1,l2):
     """ 
     """
@@ -935,6 +961,15 @@ def length(v):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python    
     return math.sqrt(dotproduct(v, v))
 
+def mag(v):
+    """
+    Vector magnitude for a list/tuple. Old cgm.lib.cgmMath name.
+    Do not alias to length() — length goes through euclidVector3Arg.
+    """
+    if type(v) not in (list, tuple):
+        raise TypeError("mag>>> arg must be vector")
+    return math.sqrt(sum(i**2 for i in v))
+
 def angleBetweenVectors(v1, v2):
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python    
     return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
@@ -985,3 +1020,9 @@ def get_fixedTimeDelta(fps= None):
 
 
 
+
+
+def smoothstep(f_value):
+    """Hermite smoothstep: clamp f_value to 0..1, return 3t^2 - 2t^3."""
+    f_value = max(0.0, min(1.0, float(f_value)))
+    return f_value * f_value * (3.0 - (2.0 * f_value))

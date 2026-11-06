@@ -557,7 +557,10 @@ def find_tmpFiles(path = None, level = None, cleanFiles = False,
         _mRoot = PATH.Path(root)
         _split = _mRoot.split()
         _subRoot = _split[-1]
-        _splitUp = _split[_split.index(_base):]
+        if _base in _split:
+            _splitUp = _split[_split.index(_base):]
+        else:
+            _splitUp = _split
         
         log.debug("|{0}| >> On subroot: {1} | path: {2}".format(_str_func,_subRoot,root))   
         log.debug("|{0}| >> On split: {1}".format(_str_func,_splitUp))   
@@ -582,14 +585,14 @@ def find_tmpFiles(path = None, level = None, cleanFiles = False,
             if len(_extension) > 3:
                 if _extension.startswith('ma') or _extension.startswith('mb'):
                     _l_weirdFiles.append(f)
-                    _d_weirdFiles[f] = os.path.join(root,f)
+                    _d_weirdFiles[_long] = _long
                     continue
             
             for s in endMatch:
                 if f.endswith(s):
                     _l_weirdFiles.append(f)
-                    _d_weirdFiles[f] = os.path.join(root,f)
-                    continue                
+                    _d_weirdFiles[_long] = _long
+                    break                
             
 
         if level is not None and _i >= level:break 

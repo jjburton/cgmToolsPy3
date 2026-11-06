@@ -2906,7 +2906,11 @@ class ui_post_designer_spring_column(ui_post_filter):
 
 def uiBuild_ActionsColumn(self):
     _str_func = 'uiBuild_ActionsColumn[{0}]'.format(self.__class__.TOOLNAME)            
-    log.info("|{0}| >>...".format(_str_func)) 
+    log.info("|{0}| >>...".format(_str_func))
+
+    col = getattr(self, '_actionsColumn', None)
+    if not col or not col.exists():
+        return
 
     self._actionsColumn.clear()
     self._actionFrames = []

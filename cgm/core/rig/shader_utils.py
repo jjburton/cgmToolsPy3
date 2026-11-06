@@ -281,7 +281,7 @@ def create_uvPickerNetworkBAK(target = None, name = 'iris', split = 9):
         #i_node.colorIfTrueR = 0
 
         mAttr.doConnectOut('%s.firstTerm'%i_node.mNode)
-        attributes.doConnectAttr('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))        
+        ATTR.connect('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))        
 
     
     
@@ -314,8 +314,8 @@ class build_conditionNetworkFromGroup(object):
         if not mc.objExists(group):
             log.error("Group doesn't exist: '%s'"%group)
             return
-        elif not search.returnObjectType(group) == 'group':
-            log.error("Object is not a group: '%s'"%search.returnObjectType(group))
+        elif not SEARCH.get_mayaType(group) == 'group':
+            log.error("Object is not a group: '%s'"%SEARCH.get_mayaType(group))
             return
         self.i_group = cgmMeta.cgmObject(group)
         if not self.i_group.getChildren():
@@ -351,7 +351,7 @@ class build_conditionNetworkFromGroup(object):
         for i,c in enumerate(children[1:]):
             i_c = cgmMeta.cgmNode(c)
             #see if the node exists
-            condNodeTest = attributes.returnDriverObject('%s.%s'%(c,self.connectToAttr))
+            condNodeTest = ATTR.get_driver('%s.%s'%(c,self.connectToAttr), getNode=True)
             if condNodeTest:
                 i_node = cgmMeta.cgmNode(condNodeTest)
             else:
@@ -363,13 +363,13 @@ class build_conditionNetworkFromGroup(object):
             i_node.addAttr('cgmType','condNode')
             i_node.doName()
             i_node.secondTerm = i+1
-            attributes.doSetAttr(i_node.mNode,'colorIfTrueR',1)
-            attributes.doSetAttr(i_node.mNode,'colorIfFalseR',0)
+            ATTR.set(i_node.mNode,'colorIfTrueR',1)
+            ATTR.set(i_node.mNode,'colorIfFalseR',0)
             #i_node.colorIfTrueR = 1
             #i_node.colorIfTrueR = 0
 
             self.i_attr.doConnectOut('%s.firstTerm'%i_node.mNode)
-            attributes.doConnectAttr('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))
+            ATTR.connect('%s.outColorR'%i_node.mNode,'%s.%s'%(c,self.connectToAttr))
 
         return True
     

@@ -1811,6 +1811,22 @@ def do_purgeOptionVar(varName):
         print(("'%s' removed"%varName))
         return True
     return False
+
+def purgeCGM():
+    """
+    Old cgm.lib.optionVars name. Removes every Maya optionVar whose name
+    contains 'cgm'. Destructive — do not call from unittest.
+    """
+    optionVars = mc.optionVar(list=True)
+    retList = []
+    for var in optionVars:
+        if 'cgm' in var:
+            if do_purgeOptionVar(var):
+                retList.append(var)
+    if retList:
+        return retList
+    return False
+
 #=========================================================================
 # Standard Layout stuff
 #=========================================================================
@@ -2655,4 +2671,33 @@ def uiPrompt_removeDir(path = None):
         return True
     
     
-    
+def doProgressWindow(winName='Progress Window', statusMessage='Progress...', startingProgress=0, interruptableState=True):
+    """Maya progressWindow start. Counterpart to cgm.lib.guiFactory.doProgressWindow."""
+    return mc.progressWindow(title=winName,
+                             progress=startingProgress,
+                             status=statusMessage,
+                             isInterruptable=interruptableState)
+
+def doUpdateProgressWindow(statusMessage, stepInterval, stepRange, reportItem=False):
+    """Maya progressWindow update. Returns 'break' if cancelled or complete."""
+    maxRange = int(stepRange)
+    percent = (float(stepInterval) / maxRange)
+    progressAmount = int(percent * 100)
+
+    if mc.progressWindow(query=True, isCancelled=True):
+        if reportItem != False:
+            log.warning('%s%s' % ('Stopped at ', str(reportItem)))
+            return 'break'
+        log.warning('%s%s%s' % ('Stopped at ', str(progressAmount), '%'))
+        return 'break'
+
+    if mc.progressWindow(query=True, progress=True) >= 100:
+        return 'break'
+
+    if reportItem != False:
+        mc.progressWindow(edit=True, progress=progressAmount, status=(statusMessage + str(reportItem)))
+    else:
+        mc.progressWindow(edit=True, progress=progressAmount, status=(statusMessage + repr(stepInterval)))
+
+def doCloseProgressWindow():
+    mc.progressWindow(endProgress=1) 

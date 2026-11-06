@@ -431,6 +431,8 @@ class BaseMelLayout(BaseMelUI):
         '''
         returns a list of all children UI items
         '''
+        if not self.exists():
+            return []
         children = self( q=True, ca=True ) or []
         children = [ BaseMelUI.FromStr( c ) for c in children ]
 
@@ -450,6 +452,8 @@ class BaseMelLayout(BaseMelUI):
         '''
         deletes all children from the layout
         '''
+        if not self.exists():
+            return
         for childUI in self.getChildren():
             cmd.deleteUI( childUI )
 
@@ -1969,7 +1973,7 @@ class MelTreeView(BaseMelWidget):
 
         #construct the mel proc
         melCmd = """global proc %s( string $str, int $index ) {
-		python( "from cgm.lib.zoo.zooPyMaya import baseMelUI; baseMelUI.BaseMelUI.FromStr( '%s' )._executePressCB( %d, '"+ $str +"', "+ $index +" );" );
+		python( "from cgm.core.lib.zoo import baseMelUI; baseMelUI.BaseMelUI.FromStr( '%s' )._executePressCB( %d, '"+ $str +"', "+ $index +" );" );
 		}""" % (melCmdName, self, buttonIndex)
 
         #execute the proc we just constructed
@@ -2507,15 +2511,23 @@ class BaseMelWindow(BaseMelUI):
         '''
         return cls.FromStr( cls.WINDOW_NAME )
     @classmethod
-    def Close( cls ):
+    def Close( cls, *args, **kwargs ):
         '''
         closes the window (if it exists)
+
+        skipVerify=True: skip confirmClose() when VERIFY_CLOSE is set.
+        Maya closeCommand may pass extra args; only the keyword skips verify.
         '''
-        if getattr( cls, 'VERIFY_CLOSE', False ) and not cls.confirmClose():
+        skipVerify = kwargs.pop('skipVerify', False)
+        if (not skipVerify
+                and getattr( cls, 'VERIFY_CLOSE', False )
+                and not cls.confirmClose()):
             cls.restoreAfterCloseCancelled()
             return
         try:
             if cmd.window(cls.WINDOW_NAME,ex=True):
+                if skipVerify:
+                    cmd.window(cls.WINDOW_NAME, e=True, closeCommand=doNothing)
                 cmd.window(cls.WINDOW_NAME, e=True, visible=False )
         except:pass
         """

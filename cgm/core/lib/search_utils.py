@@ -32,10 +32,8 @@ from cgm.core.cgmPy import validateArgs as VALID
 from cgm.core.lib import shared_data as CORESHARE
 from cgm.core.lib import name_utils as NAME
 from cgm.core.lib import attribute_utils as ATTR
-#import cgm.core.lib.transform_utils as TRANS #CAN'T IMPORT 
-from cgm.lib import attributes
-
-from cgm.lib import lists
+from cgm.core.lib import list_utils as LISTS
+#import cgm.core.lib.transform_utils as TRANS #CAN'T IMPORT
 #>>> Utilities
 #===================================================================   
 is_shape = VALID.is_shape
@@ -46,20 +44,114 @@ log_msg = cgmGEN.logString_msg
 log_sub = cgmGEN.logString_sub
 log_start = cgmGEN.logString_start
 
+def select_check():
+    """Return True if anything is selected. Alias: selectCheck."""
+    return bool(mc.ls(sl=True))
+selectCheck = select_check
+returnObjectType = get_mayaType
+
 
 def animLayers_getSelected():
     layers= []
-    for layer in mc.ls(type='animLayer'):
-        if mc.animLayer(layer,query=True, selected=True):
-            layers.append(layer)
+    for layer in animLayers_get(includeBase=True):
+        try:
+            if mc.animLayer(layer, query=True, selected=True):
+                layers.append(layer)
+        except Exception:
+            pass
     if layers:return layers
     return False
 
-def animLayer_contains(layer_name, obj):
-    for a in mc.animLayer(layer_name, query=True, attribute=True):
-        if a.split('.')[0] == mc.ls(obj,sn=True)[0]:
+def animLayers_get(includeBase=False):
+    """Maya animLayer short names. Walks root + children; ls(type) alone can miss nested layers."""
+    found = []
+    seen = set()
+    walked = set()
+
+    def _short(name):
+        if not name:
+            return ''
+        return str(name).split('|')[-1]
+
+    def _walk(name):
+        if not name:
+            return
+        key = str(name)
+        if key in walked:
+            return
+        walked.add(key)
+        short = _short(name)
+        sl = short.lower()
+        if sl and sl not in seen:
+            if includeBase or sl not in ('baseanimation', 'base'):
+                seen.add(sl)
+                found.append(short)
+        try:
+            kids = mc.animLayer(name, query=True, children=True) or []
+        except Exception:
+            kids = []
+        for k in kids:
+            _walk(k)
+
+    try:
+        for n in mc.ls(type='animLayer') or []:
+            _walk(n)
+    except Exception:
+        pass
+    try:
+        root = mc.animLayer(query=True, root=True)
+    except Exception:
+        root = None
+    if root:
+        _walk(root)
+    return found
+
+def animLayer_contains(layer_name, obj, attr=None):
+    """True if obj is a member of the animLayer. If attr, that plug must be on the layer."""
+    if not layer_name or not obj:
+        return False
+    try:
+        plugs = mc.animLayer(layer_name, query=True, attribute=True) or []
+    except Exception:
+        return False
+    if not plugs:
+        return False
+    obj_names = set()
+    try:
+        obj_names.add((mc.ls(obj, shortNames=True) or [obj])[0])
+    except Exception:
+        pass
+    try:
+        obj_names.add((mc.ls(obj, long=True) or [obj])[0])
+    except Exception:
+        pass
+    obj_names.add(str(obj).split('|')[-1])
+    attr_names = set()
+    if attr:
+        attr_names.add(attr)
+        try:
+            ln = mc.attributeQuery(attr, node=obj, longName=True)
+            if ln:
+                attr_names.add(ln)
+        except Exception:
+            pass
+        try:
+            sn = mc.attributeQuery(attr, node=obj, shortName=True)
+            if sn:
+                attr_names.add(sn)
+        except Exception:
+            pass
+    for plug in plugs:
+        node_part, _, attr_part = str(plug).partition('.')
+        node_short = node_part.split('|')[-1]
+        if node_part not in obj_names and node_short not in obj_names:
+            continue
+        if not attr:
             return True
-        
+        if attr_part in attr_names:
+            return True
+    return False
+
 
 def get_nodeTagInfo(node = None, tag = None):
     """
@@ -78,12 +170,12 @@ def get_nodeTagInfo(node = None, tag = None):
         messageQuery = (mc.attributeQuery (tag,node=_node,msg=True))
         if messageQuery == True:
             log.debug("|{0}| >> message...".format(_str_func))
-            returnBuffer = attributes.returnMessageData(_node,tag,False)
+            returnBuffer = ATTR.returnMessageData(_node,tag,False)
             if not returnBuffer:
                 return False
             elif VALID.get_mayaType(returnBuffer[0]) == 'reference':
-                if attributes.repairMessageToReferencedTarget(_node,tag):
-                    return attributes.returnMessageData(_node,tag,False)[0]
+                if ATTR.repairMessageToReferencedTarget(_node,tag):
+                    return ATTR.returnMessageData(_node,tag,False)[0]
                 return returnBuffer[0]
             return returnBuffer[0]
         else:
@@ -649,7 +741,7 @@ def get_key_indices_from(node = None, mode = 'all'):
         raise ValueError("Unknown mode: {0}".format(mode))
     
     #mc.currentTime(initialTimeState)
-    return lists.returnListNoDuplicates(keyFrames)
+    return LISTS.get_noDuplicates(keyFrames)
     
 def get_anim_value_by_time(node = None, attributes = [], time = 0.0):
     _str_func = 'get_anim_value_by_time'    
@@ -745,22 +837,12 @@ def get_selectedFromChannelBox(objects = None, attributesOnly = False, valueDict
             return _res
     return False 
 
-def get_referencePrefix(node = None):
-    """
-    Get the reference prefix of a node...
-
-    :parameters:
-        node(str): What you want to get the keys of
-
-    :returns
-        list of keys(list)
-    """ 
-    _str_func = 'get_referencePrefix'
-    _node =  VALID.mNodeString(node)
-    
+def get_referencePrefix(node):
+    """Reference namespace prefix, or False if the node is not referenced. Old lib name: returnReferencePrefix."""
+    _node = VALID.mNodeString(node)
     if mc.referenceQuery(_node, isNodeReferenced=True):
         splitBuffer = _node.split(':')
-        return (':'.join(splitBuffer[:-1]))
+        return ':'.join(splitBuffer[:-1])
     return False
 
 

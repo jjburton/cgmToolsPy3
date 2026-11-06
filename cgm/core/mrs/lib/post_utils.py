@@ -41,6 +41,7 @@ from cgm.core.cgmPy import validateArgs as VALID
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.classes.NodeFactory as NODEFACTORY
 import cgm.core.lib.snap_utils as SNAP
+import cgm.core.lib.node_utils as NODES
 
 """
 from cgm.core.rigger import ModuleShapeCaster as mShapeCast
@@ -349,9 +350,7 @@ def autoSwim(controlSurface = None, waveControl = None, deformer = 'wave', baseN
     mSettings.maxRadius = 2
     
     if setupCycle:
-        import cgm
-        cgmGEN._reloadMod(cgm.lib.nodes)
-        cgm.lib.nodes.offsetCycleSpeedControlNodeSetup (mDeformer.mNode,(_settings+'.speed'),cycleLength,cycleOffset)
+        NODES.setup_offset_cycle_speed(mDeformer.mNode, (_settings+'.speed'), cycleLength, cycleOffset)
     
     pprint.pprint(vars())
     
@@ -1292,7 +1291,7 @@ def setup_shapes(d_shapes = {}):
 
     - ``shape`` — preset name for ``CURVES.create_fromName(shape, size)``.
     - ``size`` — numeric size passed into that call.
-    - ``mirror`` — if truthy, applies the same recipe to ``L_{name}`` and ``R_{name}``
+    - ``mirror`` — if true, applies the same recipe to ``L_{name}`` and ``R_{name}``
       (mirror branch skips ``setAttr`` / ``process_obj`` extras compared to single).
     - ``moveOffsetAim`` — optional local Z offset (aim axis tweak while briefly parented).
     - ``setAttr`` — optional ``{attr: value}`` applied on the temp curve before shape swap.

@@ -59,6 +59,7 @@ import cgm.core.rig.constraint_utils as RIGCONSTRAINT
 import cgm.core.lib.constraint_utils as CONSTRAINT
 import cgm.core.mrs.lib.rigShapes_utils as RIGSHAPES
 import cgm.core.mrs.lib.rigFrame_utils as RIGFRAME
+import cgm.core.mrs.lib.bezier_ik_block_utils as BEZIERIKBLOCK
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 import cgm.core.lib.locator_utils as LOC
 import cgm.core.lib.list_utils as LISTS
@@ -98,7 +99,8 @@ __l_rigBuildOrder__ = ['rig_dataBuffer',
                        'rig_shapes',
                        'rig_controls',
                        'rig_frame',
-                       'rig_segments',                       
+                       'rig_segments',
+                       'rig_inflate',
                        'rig_cleanUp']
 
 d_wiring_skeleton = {'msgLinks':[],
@@ -125,19 +127,23 @@ _d_attrStateOff = {0:[],
 
 d_attrStateMask = {'define':['neckDirection'],
                    'form':['neckBuild',
-                           'neckSubShapers','neckShapers'],
+                           'neckSubShapers','neckShapers',
+                           'formAim','shapersAim','shapersAimUp'],
                    'prerig':['neckControls'],
                    'skeleton':['neckJoints','skeletonMode'],
                    'squashStretch':['segmentStretchBy'],
-                   'rig':['neckIK','headAim','neckIKRoot',
-                          'neckIKEndLever','neckIKBaseExtend','neckIKEndExtend']}
+                   'rig':['neckIK','ikSplineBezierMode','headAim','neckIKRoot',
+                          'neckIKEndLever','neckIKBaseExtend','neckIKEndExtend',
+                          'ikSplineTwistEndConnect','ikSplineTwistAxis',
+                          'ikSplineTwistUpStart','ikSplineTwistUpEnd',
+                          'ikMidSetup','ikMidControlNum','ikMidAimSetup']}
 
 l_createUI_attrs = ['attachPoint','attachIndex','nameIter','numControls','numJoints',
                     'addCog','addPivot','numSubShapers','segmentType',
                     'loftSetup','scaleSetup',
                     'numControls',
                     'numSubShapers',
-                    'ikSetup','segmentStretchBy',
+                    'ikSetup','segmentStretchBy','ikSplineBezierMode',
                     'ribbonExtendEnds','ribbonAttachEndsToInfluence',
                     'root_dynParentMode',
                     'neckIKRoot',
@@ -157,8 +163,9 @@ _d_attrStateOn = {0:[],
 d_attrProfileMask = {'box':['loftDegree','loftList','loftSetup','loftShape','loftSides','loftSplit',
                             'neckBuild','neckControls','neckDirection','neckIK',
                             'neckJoints','neckShapers','neckSubShapers',
+                            'formAim','shapersAim','shapersAimUp',
                             'proxyGeoRoot','ribbonAim','ribbonConnectBy','ribbonParam',
-                            'ikMidSetup',]}
+                            'ikMidSetup','ikMidControlNum','ikMidAimSetup',]}
 
 for k in ['simple']:
     d_attrProfileMask[k] = d_attrProfileMask['box']
@@ -283,8 +290,16 @@ d_attrsToMake = {'visMeasure':'bool',
                  'squashMeasure' : 'none:arcLength:pointDist',
                  'squash' : 'none:simple:single:both',
                  'squashExtraControl' : 'bool',
+                 'squashInflateControl' : 'bool',
                  'squashFactorMax':'float',
                  'squashFactorMin':'float',
+                 'squashFactorMode':BLOCKSHARE._d_attrsTo_make.get('squashFactorMode'),
+                 'squashInflateFactorMax':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMax'),
+                 'squashInflateFactorMin':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMin'),
+                 'squashInflateFactorMode':BLOCKSHARE._d_attrsTo_make.get(
+                     'squashInflateFactorMode'),
                  'neckSize':'double3',
                  'neckIKRoot':'bool',
                  'neckIKEndLever':'bool',
@@ -296,19 +311,28 @@ d_attrsToMake = {'visMeasure':'bool',
                  'ribbonConnectBy': 'constraint:matrix',
                  'ikMidControlNum':'int',                 
                  'ikMidSetup':'none:ribbon:prntConstraint:linearTrack:cubicTrack',
+                 'ikMidAimSetup':'bool',
                  'neckDirection':'vertical:horizontal',
                  'neckBuild':'bool',
                  'neckControls':'int',
                  'neckShapers':'int',
                  'neckSubShapers':'int',
+                 'formAim':'none:simple:chain',
+                 'shapersAim':'none:chain:orientToHandle',
+                 'shapersAimUp':'none:handle:blockOrient',
                  'neckJoints':'int',
                  'ikSplineTwistEndConnect':'bool',
+                 'ikSplineTwistAxis':'x:y:z',
+                 'ikSplineTwistUpStart':BLOCKSHARE._d_attrsTo_make['shapeDirection'],
+                 'ikSplineTwistUpEnd':BLOCKSHARE._d_attrsTo_make['shapeDirection'],
                  'ikSplineExtendEnd':'bool',                 
-                 'ikSplineAimEnd':'bool',                 
+                 'ikSplineAimEnd':'bool',
+                 'ikSplineParentSegEnd':'bool',                 
                  'blockProfile':'string',#':'.join(d_block_profiles.keys()),
                  #'blockProfile':':'.join(d_block_profiles.keys()),
                  'segmentType':'ribbon:ribbonLive:curve:linear:parent',
                  'segmentStretchBy':'translate:scale',
+                 'ikSplineBezierMode':BLOCKSHARE._d_attrsTo_make['ikSplineBezierMode'],
                  'squashSkipAim':'bool',
                  
                  'neckIK':BLOCKSHARE._d_attrsTo_make.get('ikSetup')#we wanna match this one
@@ -321,6 +345,9 @@ d_defaultSettings = {'version':__version__,
                      'neckControls': 1,
                      'neckShapers':0,
                      'neckSubShapers':2,
+                     'formAim':'simple',
+                     'shapersAim':'chain',
+                     'shapersAimUp':'handle',
                      'attachPoint':'end',
                      'loftSides': 10,
                      'loftSplit':1,
@@ -336,11 +363,17 @@ d_defaultSettings = {'version':__version__,
                      'squash':'simple',
                      'squashFactorMax':1.0,
                      'squashFactorMin':1.0,
+                     'squashFactorMode':'midPeak',
+                     'squashInflateFactorMax':1.0,
+                     'squashInflateFactorMin':0.0,
+                     'squashInflateFactorMode':'midPeak',
                      'jointRadius':.1,
                      'visJointHandle':1,
                      'ikMidSetup':1,
+                     'ikMidAimSetup':False,
                      'squash':'both',
                      'squashExtraControl':True,
+                     'squashInflateControl':True,
                      'ribbonAim':'stable',
                      'ikOrientToWorld':True,
                      'proxyShape':'cube',
@@ -348,7 +381,12 @@ d_defaultSettings = {'version':__version__,
                      'meshBuild':True,
                      'squashSkipAim':False,
                      'segmentStretchBy':'scale',
+                     'ikSplineBezierMode':'uniform',
                      'ikSplineTwistEndConnect':True,
+                     'ikSplineTwistAxis':'z',
+                     'ikSplineTwistUpStart':'y+',
+                     'ikSplineTwistUpEnd':'z-',
+                     'ikSplineParentSegEnd':False,
                      'loftList':['wideUp','circle'],
                      'root_dynParentMode':'follow',
                      'nameList':['neck','head'],#...our datList values
@@ -363,6 +401,19 @@ d_skeletonSetup = {'mode':'curveCast',
 
 d_preferredAngles = {'head':[0,-10, 10]}#In terms of aim up out for orientation relative values, stored left, if right, it will invert
 d_rotationOrders = {'head':'yxz'}
+
+d_controlDat_links = {
+    'fk': ['leverFK', 'controlsFK', 'controlFK'],
+    # Primary IK (headIK end) then neck bezier CV chain — not one list replacing the other
+    'ik': ['leverFK', 'controlsIK',
+           'controlIKNeckRoot', 'headIK',
+           'controlsNeckBezier',
+           'controlIKEnd', 'controlIK',
+           'controlBallRotation', 'leverIK',
+           'controlIKBall', 'controlIKBallHinge', 'controlIKToe',
+           'lookAt', 'eyeLookAt'],
+    'root': ['cog', 'rigRoot', 'scaleRoot'],
+}
 
 _l_hiddenAttrs = ['neckSize']
 
@@ -964,6 +1015,7 @@ def form(self):
             _loftShapeBase = self.getEnumValueString('loftShape')
             _loftShape = 'loft' + _loftShapeBase[0].capitalize() + ''.join(_loftShapeBase[1:])
             _loftSetup = self.getEnumValueString('loftSetup')
+            _shapersAimUp = self.getEnumValueString('shapersAimUp') or 'blockOrient'
             
             cgmGEN.func_snapShot(vars())
             
@@ -976,6 +1028,9 @@ def form(self):
                 aShapers = 'neckShapers',aSubShapers = 'neckSubShapers',
                 loftShape=_loftShape,l_basePos = _l_basePos, baseSize=_size_handle,
                 orientHelperPlug='orientNeckHelper',
+                formAim=self.getEnumValueString('formAim'),
+                shapersAim=self.getEnumValueString('shapersAim'),
+                shapersAimUp=_shapersAimUp,
                 sizeWidth = _size_width, sizeLoft=_size_loft,side = _side,
                 mFormNull = mFormNull,mNoTransformNull = mNoTransformNull,
                 mDefineEndObj=None)
@@ -1496,7 +1551,15 @@ def attachToCurve(mHandle,mCrv,mShape = None,parentTo=None,pct = None, blend = T
         _maxU = mShape.maxValue
         pct = MATH.get_normalized_parameter(_minU,_maxU,param)        
 
-    mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+    if not mShape:
+        mShape = mCrv.getShapes(asMeta=1)[0]
+
+    _poci = CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1)
+    if not _poci:
+        raise ValueError(
+            'attachToCurve failed to create pointOnCurveInfo for {0} on {1}'.format(
+                mCrv.p_nameShort, mHandle.p_nameShort))
+    mPointOnCurve = cgmMeta.asMeta(_poci)
     
     
     if blend:
@@ -1749,7 +1812,12 @@ def create_jointHelpers(self,cnt=None, force = False):
         mPlug.value = pct
         mPlug.p_defaultValue = pct
         
-        mPointOnCurve = cgmMeta.asMeta(CURVES.create_pointOnInfoNode(mCrv.mNode,turnOnPercentage=1))
+        _poci = CURVES.create_pointOnInfoNode(mShape.mNode, turnOnPercentage=1)
+        if not _poci:
+            raise ValueError(
+                'attachToCurve failed to create pointOnCurveInfo for {0} on {1}'.format(
+                    mCrv.p_nameShort, mHandle.p_nameShort))
+        mPointOnCurve = cgmMeta.asMeta(_poci)
         mPointOnCurve.doConnectIn('parameter',mPlug.p_combinedName)
         
         mTrackLoc = mHandle.doLoc()
@@ -1986,11 +2054,15 @@ def rig_prechecks(self):
             self.l_precheckErrors.append("Neck control count must be equal or less than neck joint count")
             
         if mBlock.getEnumValueString('squashMeasure') == 'pointDist':
-            self.l_precheckWarnings.append('pointDist squashMeasure mode not recommended')
+            self.l_precheckWarnings.append(
+                'squashMeasure pointDist is experimental — prefer arcLength for production rigs.')
             
-        if mBlock.neckIK not in [0,2,3,4]:
-            self.l_precheckErrors.append("Haven't setup neck mode: {0}".format(ATTR.get_enumValueString(mBlock.mNode,'neckIK')))
-            
+        if mBlock.neckBuild and mBlock.neckIK:
+            str_neckIK = mBlock.getEnumValueString('neckIK')
+            _l_neckIK_ok = ['rp', 'spline', 'ribbon', 'ribbonLive', 'curve', 'bezier']
+            if str_neckIK not in _l_neckIK_ok:
+                self.l_precheckErrors.append(
+                    "Haven't setup neck mode: {0}".format(str_neckIK))
                 
         for mObj in mBlock.moduleTarget.rigNull.msgList_get('moduleJoints'):
             if not mObj.p_parent:
@@ -2022,11 +2094,14 @@ def rig_dataBuffer(self):
         self.mHandleFactory = mBlock.asHandleFactory()
         self.mRootFormHandle = ml_formHandles[0]
         
-        for k in ['segmentType','settingsPlace','fkHeadOrientTo','ikMidSetup','ribbonAttachEndsToInfluence','segmentStretchBy']:
+        for k in ['segmentType','settingsPlace','fkHeadOrientTo','ikMidSetup','ikMidAimSetup','ribbonAttachEndsToInfluence','segmentStretchBy','squashFactorMode','squashInflateFactorMode']:
             self.__dict__['str_{0}'.format(k)] = ATTR.get_enumValueString(mBlock.mNode,k)
         
         self.ml_ikMidHelpers = mPrerigNull.msgList_get('ikMidHelpers')
         self.ml_ikMidControls = []
+        self.ml_bezierIKSubControls = []
+        self.ml_bezierIKTrackCurves = []
+        self.md_bezierIKSubsBySlot = {}
             
         #Vector ====================================================================================
         self.mVec_up = mBlock.atUtils('prerig_get_upVector')
@@ -2086,10 +2161,20 @@ def rig_dataBuffer(self):
             _driverSetup =  mBlock.getEnumValueString('ribbonAim')
         self.d_squashStretch['driverSetup'] = _driverSetup
     
-        self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
+        #self.d_squashStretch['additiveScaleEnds'] = mBlock.scaleSetup
         self.d_squashStretch['extraSquashControl'] = mBlock.squashExtraControl
         self.d_squashStretch['squashFactorMax'] = mBlock.squashFactorMax
         self.d_squashStretch['squashFactorMin'] = mBlock.squashFactorMin
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock)
+        self.d_squashStretch['squashInflateFactorMin'] = _f_inf_min
+        self.d_squashStretch['squashInflateFactorMax'] = _f_inf_max
+        if (mBlock.hasAttr('squashInflateFactorMode')
+                or mBlock.hasAttr('inflateFactorMode')
+                or mBlock.hasAttr('squashInflateFactorMax')
+                or mBlock.hasAttr('inflateFactorMax')):
+            self.d_squashStretch['squashInflateFactorMode'] = (
+                BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
         
         log.debug("|{0}| >> self.d_squashStretch..".format(_str_func))    
         #pprint.pprint(self.d_squashStretch)
@@ -2119,6 +2204,15 @@ def rig_dataBuffer(self):
         if str_ikBase in ['hips']:
             self.int_segBaseIdx = 1
         log.debug("|{0}| >> self.int_segBaseIdx: {1}".format(_str_func,self.int_segBaseIdx))
+
+        self.int_handleEndIdx = -1
+        if (mBlock.neckBuild and mBlock.neckIK
+                and mBlock.getEnumValueString('neckIK') == 'bezier'
+                and mBlock.neckControls > 1):
+            # Neck-end bezier IK (controlIK) is not the head anim control — size from last neck FK.
+            self.int_handleEndIdx = -2
+        log.debug("|{0}| >> self.int_handleEndIdx: {1}".format(
+            _str_func, self.int_handleEndIdx))
         
         log.debug(cgmGEN._str_subLine)
     
@@ -2206,9 +2300,15 @@ def rig_skeleton(self):
 
             
             #return mOrientHelper.getAxisVector('y+')
-            ml_fkJoints = BLOCKUTILS.skeleton_buildHandleChain(mBlock,'fk',
-                                                               'fkJoints',
-                                                               mOrientHelper=mOrientHelper)
+            # Match skeletonize (moduleJoints) when control count equals joint count —
+            # handle chain from prerig positions + orientHelper can flip jointOrient.
+            if mBlock.neckControls == mBlock.neckJoints:
+                log.debug("|{0}| >> fk from moduleJoints duplicate (parent count parity)".format(_str_func))
+                ml_fkJoints = BLOCKUTILS.skeleton_buildDuplicateChain(
+                    mBlock, ml_joints, 'fk', mRigNull, 'fkJoints')
+            else:
+                ml_fkJoints = BLOCKUTILS.skeleton_buildHandleChain(
+                    mBlock, 'fk', 'fkJoints', mOrientHelper=mOrientHelper)
             self.ml_fkJoints = ml_fkJoints
             
             if self.str_fkHeadOrientTo == 'joint':
@@ -2251,7 +2351,11 @@ def rig_skeleton(self):
                         
                         mRigNull.connectChildNode(mMidIK,'controlSegMid_{}_IK'.format(i),'rigNull')
                         
-                        self.ml_ikMidControls.append(mMidIK)                
+                        self.ml_ikMidControls.append(mMidIK)
+
+                if self.ml_ikMidControls:
+                    mRigNull.msgList_connect(
+                        'controlSegMidIK', self.ml_ikMidControls)
                 
                 """
                 if mBlock.ikMidSetup:
@@ -2357,7 +2461,12 @@ def rig_skeleton(self):
                 for i,mJnt in enumerate(ml_rigJoints):
                     mJnt.p_parent = ml_parentJoints[i]
                   
-                
+            if self.mBlock.neckIK and self.b_squashSetup:
+                ml_ikJoints = mRigNull.msgList_get('ikJoints')
+                ml_fkJoints = mRigNull.msgList_get('fkJoints')
+                ml_blendJoints = mRigNull.msgList_get('blendJoints')
+                BEZIERIKBLOCK.squash_ik_fk_blend_segment_scale_compensate(
+                    self, ml_ikJoints, ml_fkJoints, ml_blendJoints)
                 
         #...joint hide -----------------------------------------------------------------------------------
         for mJnt in ml_jointsToHide:
@@ -2532,10 +2641,27 @@ def rig_shapes(self):
                 mIKHeadDriver.p_parent = mIKHead.mNode
                 mIKHeadDriver.doName()
                 mIKHead.connectChildNode(mIKHeadDriver,'driver','control')#Connect
-                
-                
-                self.mRigNull.connectChildNode(mIKHead,'controlIK','rigNull')#Connect
+
                 self.mRigNull.connectChildNode(mIKHead,'headIK','rigNull')#Connect
+                str_neck_ik_shapes = mBlock.getEnumValueString('neckIK')
+                if (str_neck_ik_shapes == 'bezier' and mBlock.neckControls > 1):
+                    ml_ribbon_drv = mRigNull.msgList_get('ribbonIKDrivers')
+                    if not ml_ribbon_drv:
+                        raise ValueError(
+                            'neckIK bezier requires ribbonIKDrivers on rigNull')
+                    mNeckEndBezierIK = ml_ribbon_drv[-1].doCreateAt(setClass=True)
+                    mNeckEndBezierIK.doSnapTo(ml_ribbon_drv[-1])
+                    mNeckEndBezierIK.doCopyNameTagsFromObject(
+                        ml_ribbon_drv[-1].mNode,
+                        ignore=['cgmType', 'cgmTypeModifier', 'cgmAlias'])
+                    mNeckEndBezierIK.doStore('cgmTypeModifier', 'ikBezier')
+                    mNeckEndBezierIK.doStore('cgmType', 'handle')
+                    mNeckEndBezierIK.doName()
+                    self.mRigNull.connectChildNode(
+                        mNeckEndBezierIK, 'controlIK', 'rigNull')
+                else:
+                    self.mRigNull.connectChildNode(
+                        mIKHead, 'controlIK', 'rigNull')
                 
  
                 
@@ -2678,9 +2804,11 @@ def rig_shapes(self):
     
     
             #controlSegMidIK... =============================================================================
+            str_neckIK_shapes = mBlock.getEnumValueString('neckIK')
             for i,mHelper in enumerate(self.ml_ikMidControls):
-                RIGSHAPES.ik_segMid(self,mHelper)
-                CORERIG.shapeParent_in_place(mHelper.mNode, self.ml_ikMidHelpers[i].mNode, False)            
+                if str_neckIK_shapes != 'bezier':
+                    RIGSHAPES.ik_segMid(self,mHelper)
+                    CORERIG.shapeParent_in_place(mHelper.mNode, self.ml_ikMidHelpers[i].mNode, False)            
             
             """
             #controlSegMidIK =============================================================================
@@ -2716,7 +2844,16 @@ def rig_shapes(self):
             
     
             #FK/Ik =======================================================================================    
+            ml_fkCastTargets = mRigNull.msgList_get('fkAttachJoints')
+            if not ml_fkCastTargets:
+                ml_fkCastTargets = copy.copy(ml_fkJoints)
             ml_fkShapes = self.atBuilderUtils('shapes_fromCast', mode = 'frameHandle')#frameHandle
+
+            if (str_neckIK_shapes == 'bezier' and mBlock.neckControls > 1):
+                BEZIERIKBLOCK.rig_shapes_bezier_ik_apply_from_fk(
+                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
+                BEZIERIKBLOCK.rig_shapes_bezier_ik_subs(
+                    self, ml_fkShapes, ml_fkCastTargets, mHandleFactory)
     
             mHandleFactory.color(ml_fkShapes[0].mNode, controlType = 'main')        
             CORERIG.shapeParent_in_place(ml_fkJoints[0].mNode, ml_fkShapes[0].mNode, True, replaceShapes=True)
@@ -2812,7 +2949,15 @@ def rig_controls(self):
             mPlug_FKIK = cgmMeta.cgmAttr(mSettings.mNode,'FKIK',attrType='float',minValue=0,maxValue=1,lock=False,keyable=True)
     
         #>> vis Drivers ==============================================================================	
-        mPlug_visSub = self.atBuilderUtils('build_visModuleMD','visSub')
+        _str_neck_ik_vis = (
+            mBlock.getEnumValueString('neckIK') if mBlock.neckIK else None)
+        if _str_neck_ik_vis == 'bezier':
+            mPlug_visSub = self.atBuilderUtils(
+                'build_visModuleMD', 'visSub', defaultValue=True)
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            ATTR.set(mSettings.mNode, 'visSub', True)
+        else:
+            mPlug_visSub = self.atBuilderUtils('build_visModuleMD', 'visSub')
         mPlug_visRoot = self.atBuilderUtils('build_visModuleMD','visRoot')
 
 
@@ -2886,8 +3031,11 @@ def rig_controls(self):
             ATTR.set_hidden(mObj.mNode,'radius',True)
             ml_controlsFK.append(mObj)
         
+        str_neckIK = mBlock.getEnumValueString('neckIK') if mBlock.neckIK else None
+
         #IK Neck Root ----------------------------------------------------------------
         mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
+        mControlIKNeckRoot = mControlIKNeckRoot or False
         if mBlock.neckIKRoot and not mControlIKNeckRoot:
             raise ValueError("Should have a neckIKRoot shape by now")
         if mControlIKNeckRoot:
@@ -2904,7 +3052,8 @@ def rig_controls(self):
             mControlIKNeckRoot = _d['mObj']
             mControlIKNeckRoot.masterGroup.parent = mRootParent
             ml_controlsAll.append(mControlIKNeckRoot)
-            ml_controlsIK.append(mControlIKNeckRoot)
+            if str_neckIK != 'bezier':
+                ml_controlsIK.append(mControlIKNeckRoot)
             
             mRootIKParent = mControlIKNeckRoot#...this is our new root parent
             
@@ -2912,80 +3061,175 @@ def rig_controls(self):
             self.atUtils('get_switchTarget', mControlIKNeckRoot,ml_parentJoints[0])        
         else:
             mRootIKParent = mRootParent
-        
-        
-        
-        
-        
-        mControlBaseIK = mRigNull.getMessageAsMeta('controlIKBase')
-        if mControlBaseIK:
-            mControlBaseIK = mRigNull.controlIKBase
-            log.debug("|{0}| >> Found controlBaseIK : {1}".format(_str_func, mControlBaseIK))
-            
-            _d = MODULECONTROL.register(mControlBaseIK,
-                                        addDynParentGroup = True, 
-                                        mirrorSide= self.d_module['mirrorDirection'],
-                                        mirrorAxis="translateX,rotateY,rotateZ",
-                                        makeAimable = True,
-                                        **d_controlSpaces)
-                                        
-            
-            mControlBaseIK = _d['mObj']
-            mControlBaseIK.masterGroup.parent = mRootIKParent
-            ml_controlsAll.append(mControlBaseIK)
-            ml_controlsIK.append(mControlBaseIK)
-            
-            #Register our snapToTarget -------------------------------------------------------------
-            self.atUtils('get_switchTarget', mControlBaseIK,ml_parentJoints[0])
-        
-            
-        """
-        mControlSegMidIK = False
-        #controlSegMidIK =============================================================================
-        if mRigNull.getMessage('controlSegMidIK'):
-            mControlSegMidIK = mRigNull.controlSegMidIK
-            log.debug("|{0}| >> found controlSegMidIK: {1}".format(_str_func,mControlSegMidIK))
-            
-            _d = MODULECONTROL.register(mControlSegMidIK,
-                                        addDynParentGroup = True, 
-                                        mirrorSide= self.d_module['mirrorDirection'],
-                                        mirrorAxis="translateX,rotateY,rotateZ",
-                                        makeAimable = True,
-                                        **d_controlSpaces)
-            
-            
-            mControlSegMidIK = _d['mObj']
-            mControlSegMidIK.masterGroup.parent = mRootParent
-            ml_controlsAll.append(mControlSegMidIK)
-        
-            #Register our snapToTarget -------------------------------------------------------------
-            self.atUtils('get_switchTarget', mControlSegMidIK,ml_parentJoints[ MATH.get_midIndex(len(ml_parentJoints))])        
-        """
-        #Mid controls ====================
-        if self.ml_ikMidControls:
-            log.debug("|{0}| >> Found midIKControls".format(_str_func))            
-            d_mid = copy.copy(d_controlSpaces)
-            if d_mid.get('addSpacePivots'):d_mid.pop('addSpacePivots')
-            for i,mHandle in enumerate(self.ml_ikMidControls):
-                _d = MODULECONTROL.register(mHandle,
-                                            addDynParentGroup = True, 
-                                            mirrorSide= self.d_module['mirrorDirection'],
-                                            mirrorAxis="translateX,rotateY,rotateZ",
-                                            makeAimable = True,
-                                            **d_mid)
-                
-                
-                mNew = _d['mObj']
-                mNew.masterGroup.parent = mRootIKParent
-                ml_controlsAll.append(mNew)            
-                ml_controlsIK.append(mNew)            
-                self.ml_ikMidControls[i] = mNew
-                
-                self.atUtils('get_switchTarget', mNew, DIST.get_closestTarget(mNew.mNode,[mParent for mParent in ml_parentJoints]))
-                
+
+        if str_neckIK == 'bezier':
+            # ControlIK — segment.py rig_controls (ikSetup bezier) ==========================
+            mControlIK = False
+            ml_controlsIK = []
+            mHeadIK_for_neck_end = mRigNull.getMessageAsMeta('headIK')
+            mControlIK_pre = mRigNull.getMessageAsMeta('controlIK')
+            mNeckEndSwitchParent = False
+            if (mHeadIK_for_neck_end and mControlIK_pre
+                    and mHeadIK_for_neck_end.mNode != mControlIK_pre.mNode):
+                mNeckEndSwitchParent = mHeadIK_for_neck_end
+            elif ml_parentJoints:
+                mNeckEndSwitchParent = ml_parentJoints[-1]
+
+            if mRigNull.getMessage('controlIK'):
+                mControlIK = mRigNull.controlIK
+                log.debug("|{0}| >> Found controlIK : {1}".format(
+                    _str_func, mControlIK))
+
+                _d = MODULECONTROL.register(
+                    mControlIK,
+                    addDynParentGroup=True,
+                    mirrorSide=self.d_module['mirrorDirection'],
+                    mirrorAxis="translateX,rotateY,rotateZ",
+                    makeAimable=True,
+                    **d_controlSpaces)
+
+                mControlIK = _d['mObj']
+                mControlIK.masterGroup.parent = mRootIKParent
+                ml_controlsAll.append(mControlIK)
+                if mNeckEndSwitchParent:
+                    self.atUtils(
+                        'get_switchTarget',
+                        mControlIK,
+                        mNeckEndSwitchParent)
+
+            mControlBaseIK = False
+            if mRigNull.getMessage('controlIKBase'):
+                mControlBaseIK = mRigNull.controlIKBase
+                log.debug("|{0}| >> Found controlBaseIK : {1}".format(
+                    _str_func, mControlBaseIK))
+
+                _d = MODULECONTROL.register(
+                    mControlBaseIK,
+                    addDynParentGroup=True,
+                    mirrorSide=self.d_module['mirrorDirection'],
+                    mirrorAxis="translateX,rotateY,rotateZ",
+                    makeAimable=True,
+                    **d_controlSpaces)
+
+                mControlBaseIK = _d['mObj']
+                mControlBaseIK.masterGroup.parent = mRootIKParent
+                ml_controlsAll.append(mControlBaseIK)
+                self.atUtils(
+                    'get_switchTarget', mControlBaseIK, ml_parentJoints[0])
+
+            if self.ml_ikMidControls:
+                log.debug("|{0}| >> Found midIKControls".format(_str_func))
+                d_mid = copy.copy(d_controlSpaces)
+                if d_mid.get('addSpacePivots'):
+                    d_mid.pop('addSpacePivots')
+                for i, mHandle in enumerate(self.ml_ikMidControls):
+                    _d = MODULECONTROL.register(
+                        mHandle,
+                        addDynParentGroup=True,
+                        mirrorSide=self.d_module['mirrorDirection'],
+                        mirrorAxis="translateX,rotateY,rotateZ",
+                        makeAimable=True,
+                        **d_mid)
+
+                    mNew = _d['mObj']
+                    mNew.masterGroup.parent = mRootIKParent
+                    self.ml_ikMidControls[i] = mNew
+                    ml_controlsAll.append(mNew)
+                    self.atUtils(
+                        'get_switchTarget', mNew,
+                        DIST.get_closestTarget(
+                            mNew.mNode,
+                            [mParent for mParent in ml_parentJoints]))
+
+            # Bezier IK sub handles (rig_shapes) ==========================================
+            if self.ml_ikMidControls:
+                mRigNull.msgList_connect(
+                    'controlSegMidIK',
+                    [mObj.mNode for mObj in self.ml_ikMidControls])
+            ml_bezierIKSubs = mRigNull.msgList_get('bezierIKSubControls')
+            if not ml_bezierIKSubs:
+                ml_bezierIKSubs = self.ml_bezierIKSubControls or []
+            if ml_bezierIKSubs:
+                log.debug("|{0}| >> bezier IK sub controls: {1}".format(
+                    _str_func, len(ml_bezierIKSubs)))
+                if self.d_module['mirrorDirection'] == 'Centre':
+                    _bezierSubMirrorAxis = 'translateY,translateZ,rotateY,rotateZ'
+                else:
+                    _bezierSubMirrorAxis = 'translateX,translateY,translateZ'
+                for mSub in ml_bezierIKSubs:
+                    mParentMain = mSub.getParent(asMeta=True)
+                    _d = MODULECONTROL.register(
+                        mSub,
+                        addDynParentGroup=False,
+                        mirrorSide=self.d_module['mirrorDirection'],
+                        mirrorAxis=_bezierSubMirrorAxis,
+                        makeAimable=False)
+                    mSub = _d['mObj']
+                    if mc.attributeQuery('radius', node=mSub.mNode, exists=True):
+                        ATTR.set_hidden(mSub.mNode, 'radius', True)
+                    if mParentMain:
+                        mSub.masterGroup.p_parent = mParentMain
+                    ml_controlsAll.append(mSub)
+
+                BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
+            BEZIERIKBLOCK.bezier_ik_rig_controls_build_controls_ik(
+                mRigNull,
+                self.md_bezierIKSubsBySlot,
+                m_neck_root=mControlIKNeckRoot or None,
+                str_aggregate_msglist=BEZIERIKBLOCK.BEZIER_IK_AGGREGATE_MSGLIST_NECK)
+            if mControlIKNeckRoot:
+                ml_controlsIK.append(mControlIKNeckRoot)
+
+        else:
+            mControlBaseIK = mRigNull.getMessageAsMeta('controlIKBase')
+            if mControlBaseIK:
+                mControlBaseIK = mRigNull.controlIKBase
+                log.debug("|{0}| >> Found controlBaseIK : {1}".format(
+                    _str_func, mControlBaseIK))
+
+                _d = MODULECONTROL.register(
+                    mControlBaseIK,
+                    addDynParentGroup=True,
+                    mirrorSide=self.d_module['mirrorDirection'],
+                    mirrorAxis="translateX,rotateY,rotateZ",
+                    makeAimable=True,
+                    **d_controlSpaces)
+
+                mControlBaseIK = _d['mObj']
+                mRigNull.connectChildNode(mControlBaseIK, 'controlIKBase', 'rigNull')
+                mControlBaseIK.masterGroup.parent = mRootIKParent
+                ml_controlsAll.append(mControlBaseIK)
+                ml_controlsIK.append(mControlBaseIK)
+                self.atUtils(
+                    'get_switchTarget', mControlBaseIK, ml_parentJoints[0])
+
+            if self.ml_ikMidControls:
+                log.debug("|{0}| >> Found midIKControls".format(_str_func))
+                d_mid = copy.copy(d_controlSpaces)
+                if d_mid.get('addSpacePivots'):
+                    d_mid.pop('addSpacePivots')
+                for i, mHandle in enumerate(self.ml_ikMidControls):
+                    _d = MODULECONTROL.register(
+                        mHandle,
+                        addDynParentGroup=True,
+                        mirrorSide=self.d_module['mirrorDirection'],
+                        mirrorAxis="translateX,rotateY,rotateZ",
+                        makeAimable=True,
+                        **d_mid)
+
+                    mNew = _d['mObj']
+                    mNew.masterGroup.parent = mRootIKParent
+                    ml_controlsAll.append(mNew)
+                    ml_controlsIK.append(mNew)
+                    self.ml_ikMidControls[i] = mNew
+                    self.atUtils(
+                        'get_switchTarget', mNew,
+                        DIST.get_closestTarget(
+                            mNew.mNode,
+                            [mParent for mParent in ml_parentJoints]))
 
 
-    #ikHead ========================================================================================
+    #ikHead — main head anim IK (separate from neck-end bezier controlIK) ===========================
     if mHeadIK:
         log.debug("|{0}| >> Found headIK : {1}".format(_str_func, mHeadIK))
         
@@ -2997,17 +3241,21 @@ def rig_controls(self):
                                     **d_controlSpaces)
         
         mHeadIK = _d['mObj']
-        mHeadIK.masterGroup.parent = mRootIKParent
-        ml_controlsAll.append(mHeadIK)
-        
         if mBlock.neckBuild:
+            mHeadIK.masterGroup.parent = mRootIKParent
             self.atUtils('get_switchTarget', mHeadIK, ml_parentJoints[-1])
-            
-        if self.ml_ikMidControls:#we need the ik end to process in swtiching other other stuff before the mids
-            _idx = ml_controlsIK.index(self.ml_ikMidControls[0])
-            ml_controlsIK.insert(_idx,mHeadIK)
+            if (mBlock.neckIK
+                    and mBlock.getEnumValueString('neckIK') == 'bezier'):
+                ml_controlsIK.append(mHeadIK)
+            elif self.ml_ikMidControls:
+                _idx = ml_controlsIK.index(self.ml_ikMidControls[0])
+                ml_controlsIK.insert(_idx, mHeadIK)
+            else:
+                ml_controlsIK.append(mHeadIK)
         else:
+            mHeadIK.masterGroup.parent = mRootParent
             ml_controlsIK.append(mHeadIK)
+        ml_controlsAll.append(mHeadIK)
     
     
     #>> headLookAt ========================================================================================
@@ -3185,7 +3433,8 @@ def rig_segments(self):
         mRigNull = self.mRigNull
         mRootParent = self.mDeformNull
         mModule = self.mModule
-        mRoot = mRigNull.rigRoot
+        try:mRoot = mRigNull.scaleRoot
+        except:mRoot = mRigNull.rigRoot
         
         ml_segJoints = mRigNull.msgList_get('segmentJoints')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
@@ -3213,16 +3462,11 @@ def rig_segments(self):
         log.debug("|{0}| >> Ribbon setup...".format(_str_func))    
         
         ml_influences = copy.copy(ml_handleJoints)
-        
-        _settingsControl = None
-        if mBlock.squashExtraControl:
-            _settingsControl = mRigNull.settings.mNode
-        
-        _extraSquashControl = mBlock.squashExtraControl
                
         res_segScale = self.UTILS.get_blockScale(self,'segMeasure')
         mPlug_masterScale = res_segScale[0]
         mMasterCurve = res_segScale[1]
+        self.fnc_connect_toRigGutsVis(mMasterCurve)
         
         if self.ml_ikMidControls and mBlock.neckControls == 1:
             log.debug("|{0}| >> seg mid IK control found...".format(_str_func))
@@ -3230,28 +3474,28 @@ def rig_segments(self):
         
         _d = {'jointList':[mObj.mNode for mObj in ml_segJoints],
               'baseName':'{0}_rigRibbon'.format(self.d_module['partName']),
-              'connectBy':'constraint',
-              'extendEnds':True,
+              'connectBy':mBlock.getEnumValueString('ribbonConnectBy') or 'constraint',
+              'extendEnds':mBlock.ribbonExtendEnds,
               'masterScalePlug':mPlug_masterScale,
               'paramaterization':mBlock.getEnumValueString('ribbonParam'),          
               'influences':ml_influences,
-              'settingsControl':_settingsControl,
-              'attachEndsToInfluences':False,
-              'parentDeformTo':self.mDeformNull,
+              'settingsControl':mRigNull.settings.mNode,
+              'attachStartToInfluence':False,
+              'attachEndToInfluence':False,
+              'parentDeformTo':mRoot,
+              'driverSetup':mBlock.getEnumValueString('ribbonAim'),
               'skipAim':mBlock.squashSkipAim,
-                            
               'moduleInstance':mModule}
         
         if self.ml_ikMidControls:
             _d['sectionSpans'] = 1 + len(self.ml_ikMidControls)
             
-        _d.update(self.d_squashStretch)
+        _d.update(BLOCKSHARE.squash_stretch_ik_share_kwargs(self.d_squashStretch))
         
         if self.str_segmentType in ['ribbon','ribbonLive']:
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
+                
             _d['liveSurface'] = False if self.str_segmentType == 'ribbon' else True
-            
-            if self.str_segmentStretchBy == 'scale':
-                _d['setupAimScale'] = True
                 
             if self.str_ribbonAttachEndsToInfluence == 'both':
                 _d['attachEndsToInfluences'] = True
@@ -3260,15 +3504,12 @@ def rig_segments(self):
             elif self.str_ribbonAttachEndsToInfluence == 'end':
                 _d['attachEndToInfluence'] = True            
             
-            _d['extendEnds'] = mBlock.ribbonExtendEnds
-            
             res_ribbon = IK.ribbon(**_d)
             #ml_surfaces = res_ribbon['mlSurfaces']
         else:
             _l_segJoints = _d['jointList']
             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)
-            if self.str_segmentStretchBy == 'scale':
-                _d['setupAimScale'] = True            
+            _d['setupAimScale'] = (self.str_segmentStretchBy == 'scale')
             _d['setupAim'] = 1                
             #_d['attachEndToInfluence'] = False                
             pprint.pprint(_d)
@@ -3351,6 +3592,9 @@ def rig_frame(self):
         ml_handleJoints = self.mRigNull.msgList_get('handleJoints')
         ml_baseIKDrivers = self.mRigNull.msgList_get('baseIKDrivers')
         ml_blendJoints = mRigNull.msgList_get('blendJoints')
+        d_bezierStretch = None
+        self.d_stretchInflateRes = None
+        self.mSplineDriverCurve = None
         ml_segBlendTargets = copy.copy(ml_blendJoints)
         mSegMidIK = mRigNull.getMessageAsMeta('controlSegMidIK')
         
@@ -3559,6 +3803,10 @@ def rig_frame(self):
                 mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
                 if mControlIKNeckRoot:
                     mControlIKNeckRoot.masterGroup.p_parent = mIKGroup
+                mIKControlNeck = mRigNull.getMessageAsMeta('controlIK')
+                if (mIKControlNeck and mHeadIK
+                        and mIKControlNeck.mNode != mHeadIK.mNode):
+                    mIKControlNeck.masterGroup.p_parent = mIKGroup
                     
                 
                 """
@@ -4052,7 +4300,6 @@ def rig_frame(self):
                             
 
                         ml_ribbonIkHandles[-1].parent = mIKControl
-                        cgmGEN._reloadMod(RIGFRAME)
 
                         if _ikNeck == 'spline':
                             for i,mJnt in enumerate(ml_ikJoints[1:]):
@@ -4146,7 +4393,9 @@ def rig_frame(self):
                                               'extendEnds':True,
                                               'settingsControl':mSettings.mNode,
                                               'moduleInstance':mModule}
-                            _d_ribbonShare.update(self.d_squashStretch)                    
+                            _d_ribbonShare.update(
+                                BLOCKSHARE.squash_stretch_ik_share_kwargs(
+                                    self.d_squashStretch))
                             
                             
                             _d = {'jointList':[mObj.mNode for mObj in ml_ikJoints],
@@ -4162,7 +4411,6 @@ def rig_frame(self):
                             _d['parentDeformTo'] = mIKGroup
                             _d['setupAim'] = 1
                             
-                            cgmGEN._reloadMod(IK)
                             #_l_segJoints = _d['jointList']
                             #_ml_segTmp = cgmMeta.asMeta(_l_segJoints)                                    
                             IK.curve(**_d)                                  
@@ -4178,6 +4426,150 @@ def rig_frame(self):
                             pprint.pprint(ml_ikJoints)
                             
                             mc.parentConstraint([mIKControl.mNode], ml_ikJoints[-1].mNode, maintainOffset = True)
+
+                    elif _ikNeck == 'bezier':
+                        log.debug("|{0}| >> bezier setup...".format(_str_func))
+
+                        _b_headIkSeparate = bool(
+                            mHeadIK and mIKControl
+                            and mHeadIK.mNode != mIKControl.mNode)
+
+                        BEZIERIKBLOCK.rig_frame_bezier_ik_track_vis(
+                            mRigNull, mPlug_IKon, self.ml_bezierIKTrackCurves)
+
+                        ml_ribbonIkHandles = mRigNull.msgList_get('ribbonIKDrivers')
+                        if not ml_ribbonIkHandles:
+                            raise ValueError("No ribbon IKDriversFound")
+
+                        ml_segMidDrivers = copy.copy(ml_ribbonIkHandles)
+
+                        if self.ml_ikMidControls and mBlock.ikMidSetup:
+                            RIGFRAME.segment_mid(self, self.ml_ikMidControls,
+                                                 ml_segMidDrivers, mIKGroup,
+                                                 mIKBaseControl, mIKControl, ml_ikJoints)
+
+                        if mIKBaseControl:
+                            ml_ribbonIkHandles[0].parent = mIKBaseControl
+                        else:
+                            ml_ribbonIkHandles[0].parent = mSpinGroup
+
+                        ml_ribbonIkHandles[-1].parent = mIKControl
+
+                        for i, mJnt in enumerate(ml_ikJoints[1:]):
+                            mJnt.p_parent = ml_ikJoints[i]
+
+                        mIKSplineEnd = ml_ikJoints[-1].doDuplicate()
+                        mIKSplineEnd.rename("{}_splineEnd".format(ml_ikJoints[-1].p_nameBase))
+
+                        ml_ikUse = copy.copy(ml_ikJoints)
+                        ml_ikUse[-1] = mIKSplineEnd
+
+                        if _b_headIkSeparate:
+                            mIKSplineEnd.p_parent = ml_ikJoints[-2]
+                            ml_ikJoints[-1].p_parent = mHeadIK
+                        else:
+                            mIKSplineEnd.p_parent = ml_ikJoints[-1].p_parent
+                            ml_ikJoints[-1].p_parent = mIKControl  # ...to get free orient
+
+                        BEZIERIKBLOCK.bezier_ik_reinit_session_meta(self)
+                        ml_bezierMainIK = BEZIERIKBLOCK.bezier_ik_bezier_main_ik_list(
+                            mIKBaseControl, self.ml_ikMidControls, mIKControl)
+                        ml_bezierSubsPerMain = []
+                        for mMain in ml_bezierMainIK:
+                            str_slot = BEZIERIKBLOCK.rig_shapes_bezier_main_slot_key(
+                                mMain, ml_bezierMainIK, mIKBaseControl, mIKControl)
+                            ml_bezierSubsPerMain.append(
+                                list((self.md_bezierIKSubsBySlot or {}).get(str_slot, [])))
+
+                        log.info(cgmGEN.logString_msg(
+                            _str_func,
+                            'bezier rig_frame | sections={0} mains={1} subs={2}'.format(
+                                max(1, len(ml_bezierMainIK) - 1),
+                                len(ml_bezierMainIK),
+                                len(self.ml_bezierIKSubControls or []))))
+
+                        mTwistEndControl = (
+                            mHeadIK if _b_headIkSeparate else None)
+                        RIGFRAME.bezier(
+                            self,
+                            ml_ikUse,
+                            mIKControl,
+                            mIKBaseControl,
+                            mPlug_masterScale,
+                            mBlock.ikSplineTwistEndConnect,
+                            mSettings=mSettings,
+                            ml_bezierMainIK=ml_bezierMainIK,
+                            ml_bezierSubsPerMain=ml_bezierSubsPerMain,
+                            mTwistEndControl=mTwistEndControl)
+
+                        if mSettings.hasAttr('twistType'):
+                            ATTR.set_default(mSettings.mNode, 'twistType', 1)
+                            ATTR.set(mSettings.mNode, 'twistType', 1)
+
+                        if not _b_headIkSeparate:
+                            mc.pointConstraint(
+                                [mIKSplineEnd.mNode],
+                                ml_ikJoints[-1].mNode,
+                                maintainOffset=True)
+                            mIKSplineIKDriver = ml_ikJoints[-1].doDuplicate()
+                            mIKSplineIKDriver.rename(
+                                "{}_splineControl".format(
+                                    ml_ikJoints[-1].p_nameBase))
+                            mIKSplineIKDriver.p_parent = mIKControl
+
+                            mPlug_followIK = cgmMeta.cgmAttr(
+                                mIKControl.mNode, 'followIK', attrType='float',
+                                lock=False, keyable=True, defaultValue=0.0)
+                            mPlug_followIK.p_value = 0.0
+                            ATTR.set_default(mIKControl.mNode, 'followIK', 0.0)
+
+                            RIGCONSTRAINT.blendChainsBy(
+                                mIKSplineEnd, mIKSplineIKDriver, ml_ikJoints[-1],
+                                driver=mPlug_followIK.p_combinedName,
+                                l_constraints=['orient'])
+
+                        if BEZIERIKBLOCK._segment_bezier_should_run_spline_stretch(self, mBlock):
+                            mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
+                            _d_stretch = (
+                                BEZIERIKBLOCK.segment_bezier_module_ik_spline_stretch_profile(
+                                    self, mBlock, self.str_segmentType, self.d_squashStretch))
+                            log.info(cgmGEN.logString_msg(
+                                _str_func,
+                                'bezier_spline_stretch | aim:{0} stretchBy:{1} joints:{2} '
+                                'segmentType:{3} measure:{4} ikVolumeSquash:{5}'.format(
+                                    _d_stretch['aimAxis'],
+                                    _d_stretch['stretchBy'],
+                                    len(ml_ikUse),
+                                    self.str_segmentType,
+                                    _d_stretch['squashStretchMain'],
+                                    _d_stretch['ikVolumeSquash'])))
+                            d_bezierStretch = IK.bezier_spline_stretch(
+                                jointList=[mObj.mNode for mObj in ml_ikUse],
+                                mDriverCurve=mBezierDriver,
+                                mSettings=mSettings,
+                                aimAxis=_d_stretch['aimAxis'],
+                                stretchBy=_d_stretch['stretchBy'],
+                                globalScalePlug=mPlug_masterScale.p_combinedName,
+                                baseName='{0}_bezier'.format(self.d_module['partName']),
+                                squashStretchMain=_d_stretch['squashStretchMain'],
+                                extraSquashControl=_d_stretch['extraSquashControl'],
+                                extraInflateControl=False,
+                                squashFactorMin=mBlock.squashFactorMin,
+                                squashFactorMax=mBlock.squashFactorMax,
+                                squashFactorMode=self.str_squashFactorMode,
+                                parentGutsTo=mRigNull,
+                                inflateDriveDirectParents=False,
+                                applyVolumeSquash=_d_stretch['applyVolumeSquash'],
+                                useUndoChunk=False)
+                            if _d_stretch['ikVolumeSquash']:
+                                self.d_stretchInflateRes = d_bezierStretch
+                            if mSettings and mSettings.hasAttr('squash'):
+                                ATTR.set_default(
+                                    mSettings.mNode, 'squash',
+                                    _d_stretch['settingsSquashDefault'])
+                                ATTR.set(
+                                    mSettings.mNode, 'squash',
+                                    _d_stretch['settingsSquashDefault'])
            
                     else:
                         raise ValueError("Not implemented {0} ik setup".format(_ikNeck))                    
@@ -4189,7 +4581,10 @@ def rig_frame(self):
                 
                 #Parent --------------------------------------------------            
                 ml_blendJoints[0].parent = mRoot
-                ml_ikJoints[0].parent = mRigNull.controlIKBase
+                if _ikNeck in ['spline', 'bezier'] and mRigNull.getMessage('controlIKBase'):
+                    ml_ikJoints[0].parent = mRigNull.controlIKBase.masterGroup.p_parent
+                else:
+                    ml_ikJoints[0].parent = mRigNull.controlIKBase
                 
                     
                     
@@ -4197,60 +4592,220 @@ def rig_frame(self):
                 log.debug("|{0}| >> blend setup...".format(_str_func))                
                 
                 if self.b_scaleSetup:
-                    log.debug("|{0}| >> scale blend chain setup...".format(_str_func))                
-                    RIGCONSTRAINT.blendChainsBy(ml_fkJoints,ml_ikJoints,ml_blendJoints,
-                                                driver = mPlug_FKIK.p_combinedName,
-                                                l_constraints=['point','orient','scale'])
-            
-            
-                    #Scale setup for ik joints                
-                    ml_ikScaleTargets = [mHeadIK]
-            
-                    if mIKBaseControl:
-                        mc.scaleConstraint(mIKBaseControl.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
-                        ml_ikScaleTargets.append(mIKBaseControl)
+                    log.debug("|{0}| >> scale blend chain setup...".format(_str_func))
+                    if _ikNeck == 'bezier':
+                        RIGCONSTRAINT.blendChainsBy(
+                            ml_fkJoints, ml_ikJoints, ml_blendJoints,
+                            driver=mPlug_FKIK.p_combinedName,
+                            l_constraints=['parent'])
+                        RIGCONSTRAINT.blendChainsScaleByAttr(
+                            ml_fkJoints, ml_ikJoints, ml_blendJoints,
+                            driver=mPlug_FKIK.p_combinedName)
+                        if (mHeadIK
+                                and not (
+                                    _ikNeck == 'bezier'
+                                    and mHeadIK.mNode != mIKControl.mNode)):
+                            mc.scaleConstraint(
+                                mHeadIK.mNode,
+                                ml_ikJoints[-1].mNode,
+                                maintainOffset=True)
+                        for mJnt in ml_blendJoints:
+                            if not self.b_squashSetup:
+                                mJnt.segmentScaleCompensate = False
+                            if mJnt == ml_blendJoints[0]:
+                                continue
+                            mJnt.p_parent = ml_blendJoints[0].p_parent
                     else:
-                        mc.scaleConstraint(mRoot.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
-                        ml_ikScaleTargets.append(mRoot)
-                        
-                    #TMP
-                    #mc.scaleConstraint(mHeadIK.mNode, ml_ikJoints[-1].mNode,maintainOffset=True)
-            
-                    _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
-            
-                    #Scale setup for mid set IK
-                    if mSegMidIK:
-                        mMasterGroup = mSegMidIK.masterGroup
-                        _vList = DIST.get_normalizedWeightsByDistance(mMasterGroup.mNode,_targets)
-                        _scale = mc.scaleConstraint(_targets,mMasterGroup.mNode,maintainOffset = True)#Point contraint loc to the object
-                        CONSTRAINT.set_weightsByDistance(_scale[0],_vList)                
-                        ml_ikScaleTargets.append(mSegMidIK)
+                        RIGCONSTRAINT.blendChainsBy(ml_fkJoints,ml_ikJoints,ml_blendJoints,
+                                                    driver = mPlug_FKIK.p_combinedName,
+                                                    l_constraints=['point','orient','scale'])
+                
+                        #Scale setup for ik joints                
+                        ml_ikScaleTargets = [mHeadIK]
+                
+                        if mIKBaseControl:
+                            mc.scaleConstraint(mIKBaseControl.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
+                            ml_ikScaleTargets.append(mIKBaseControl)
+                        else:
+                            mc.scaleConstraint(mRoot.mNode, ml_ikJoints[0].mNode,maintainOffset=True)
+                            ml_ikScaleTargets.append(mRoot)
+                            
                         _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
-            
-                    for mJnt in ml_ikJoints[1:-1]:
-                        _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode,_targets)
-                        _scale = mc.scaleConstraint(_targets,mJnt.mNode,maintainOffset = True)#Point contraint loc to the object
-                        CONSTRAINT.set_weightsByDistance(_scale[0],_vList)
+                
+                        if mSegMidIK:
+                            mMasterGroup = mSegMidIK.masterGroup
+                            _vList = DIST.get_normalizedWeightsByDistance(mMasterGroup.mNode,_targets)
+                            _scale = mc.scaleConstraint(_targets,mMasterGroup.mNode,maintainOffset = True)
+                            CONSTRAINT.set_weightsByDistance(_scale[0],_vList)                
+                            ml_ikScaleTargets.append(mSegMidIK)
+                            _targets = [mHandle.mNode for mHandle in ml_ikScaleTargets]
+                
+                        for mJnt in ml_ikJoints[1:-1]:
+                            _vList = DIST.get_normalizedWeightsByDistance(mJnt.mNode,_targets)
+                            _scale = mc.scaleConstraint(_targets,mJnt.mNode,maintainOffset = True)
+                            CONSTRAINT.set_weightsByDistance(_scale[0],_vList)
+                            
                         
-                    
-                    for mJnt in ml_ikJoints[1:]:
-                        if _ikNeck not in ['spline','curve']:mJnt.p_parent = mIKGroup
-                        mJnt.segmentScaleCompensate = False
-            
-                    for mJnt in ml_blendJoints:
-                        mJnt.segmentScaleCompensate = False
-                        if mJnt == ml_blendJoints[0]:
-                            continue
-                        mJnt.p_parent = ml_blendJoints[0].p_parent
-                        
-                    mc.scaleConstraint(mHeadIK.mNode,ml_ikJoints[-1].mNode,maintainOffset = True)#need to contrain 
+                        for mJnt in ml_ikJoints[1:]:
+                            if _ikNeck not in ['spline','curve']:mJnt.p_parent = mIKGroup
+                            mJnt.segmentScaleCompensate = False
+                
+                        for mJnt in ml_blendJoints:
+                            mJnt.segmentScaleCompensate = False
+                            if mJnt == ml_blendJoints[0]:
+                                continue
+                            mJnt.p_parent = ml_blendJoints[0].p_parent
+                            
+                        mc.scaleConstraint(mHeadIK.mNode,ml_ikJoints[-1].mNode,maintainOffset = True)
                 else:
-                    RIGCONSTRAINT.blendChainsBy(ml_fkJoints,ml_ikJoints,ml_blendJoints,
-                                                driver = mPlug_FKIK.p_combinedName,
-                                                l_constraints=['point','orient'])                
+                    if _ikNeck == 'bezier':
+                        RIGCONSTRAINT.blendChainsBy(
+                            ml_fkJoints, ml_ikJoints, ml_blendJoints,
+                            driver=mPlug_FKIK.p_combinedName,
+                            l_constraints=['parent'])
+                    else:
+                        RIGCONSTRAINT.blendChainsBy(ml_fkJoints,ml_ikJoints,ml_blendJoints,
+                                                    driver = mPlug_FKIK.p_combinedName,
+                                                    l_constraints=['point','orient'])                
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
 
-    
+
+@cgmGEN.Timer
+def rig_inflate(self):
+    _str_func = 'rig_inflate'
+    log.debug("|{0}| >>  ".format(_str_func) + '-' * 80)
+    mBlock = self.mBlock
+    mRigNull = self.mRigNull
+
+    if not mBlock.neckBuild:
+        log.debug("|{0}| >> No neck build optioned".format(_str_func))
+        return True
+
+    if not BEZIERIKBLOCK.block_squash_inflate_control(mBlock):
+        return True
+    if self.str_segmentType not in BEZIERIKBLOCK._SEGMENT_INFLATE_OVERLAY_SEGMENT_TYPES:
+        return True
+
+    mSettings = mRigNull.getMessageAsMeta('settings')
+    ml_rigJoints = mRigNull.msgList_get('rigJoints') or []
+    _str_aim_inflate = BEZIERIKBLOCK.segment_squash_stretch_aim_axis(self)
+    ml_inflate_parents = BEZIERIKBLOCK.segment_inflate_direct_parent_joint_list(
+        mRigNull, self.str_segmentType)
+    _ikNeck = mBlock.getEnumValueString('neckIK') if mBlock.neckIK else None
+    d_inflate_res = None
+
+    if self.str_segmentType in BEZIERIKBLOCK._SEGMENT_INFLATE_AFTER_DEFORM_RIBBON_TYPES:
+        ml_seg_joints = mRigNull.msgList_get('segmentJoints') or []
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock, self.d_squashStretch)
+        _str_inf_mode = self.d_squashStretch.get(
+            'squashInflateFactorMode',
+            BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'ribbon segment overlay | segJoints:{0} (leave joint squash wiring)'.format(
+                len(ml_seg_joints))))
+        d_inflate_res = BEZIERIKBLOCK.segment_inflate_stretch_result_from_volume_joints(
+            ml_seg_joints,
+            mSettings,
+            _str_aim_inflate,
+            '{0}_segInflate'.format(self.d_module['partName']),
+            inflate_factor_min=_f_inf_min,
+            inflate_factor_max=_f_inf_max,
+            inflate_factor_mode=_str_inf_mode,
+            inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
+            parentGutsTo=mRigNull,
+            extra_keyable=True,
+            leave_joint_volume_wiring=True)
+    elif self.str_segmentType == 'bezier':
+        if getattr(self, 'd_segmentBezierStretch', None):
+            d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
+                self, mBlock, mRigNull, mSettings,
+                mRigNull.msgList_get('segmentJoints') or [])
+    elif (_ikNeck == 'bezier'
+            and getattr(self, 'd_stretchInflateRes', None)):
+        d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
+            self, mBlock, mRigNull, mSettings,
+            mRigNull.msgList_get('ikJoints') or [])
+
+    if (not d_inflate_res
+            and self.b_scaleSetup
+            and _ikNeck in ['curve', 'spline']):
+        ml_ik_joints = mRigNull.msgList_get('ikJoints') or []
+        _f_inf_min, _f_inf_max = BEZIERIKBLOCK.block_squash_inflate_factor_min_max(
+            mBlock, self.d_squashStretch)
+        _str_inf_mode = self.d_squashStretch.get(
+            'squashInflateFactorMode',
+            BEZIERIKBLOCK.block_squash_inflate_factor_mode(mBlock, 'midPeak'))
+        res_seg_scale = self.UTILS.get_blockScale(self, 'segMeasure')
+        m_plug_master_scale = res_seg_scale[0]
+        m_spline_driver = getattr(self, 'mSplineDriverCurve', None)
+        if (_ikNeck == 'spline'
+                and m_spline_driver
+                and mBlock.squashExtraControl):
+            log.info(cgmGEN.logString_msg(
+                _str_func,
+                'spline volume squash + inflate | driver:{0}'.format(
+                    m_spline_driver.p_nameShort)))
+            d_inflate_res = IK.bezier_spline_stretch(
+                jointList=[mObj.mNode for mObj in ml_ik_joints],
+                mDriverCurve=m_spline_driver,
+                mSettings=mSettings,
+                aimAxis=_str_aim_inflate,
+                stretchBy=self.str_segmentStretchBy,
+                globalScalePlug=m_plug_master_scale.p_combinedName,
+                baseName='{0}_splineVol'.format(self.d_module['partName']),
+                squashStretchMain=(
+                    self.d_squashStretch.get('squashStretchMain') or 'arcLength'),
+                extraSquashControl=mBlock.squashExtraControl,
+                extraInflateControl=True,
+                squashFactorMin=mBlock.squashFactorMin,
+                squashFactorMax=mBlock.squashFactorMax,
+                squashFactorMode=self.str_squashFactorMode,
+                inflateFactorMin=_f_inf_min,
+                inflateFactorMax=_f_inf_max,
+                inflateFactorMode=_str_inf_mode,
+                inflateFactorBaseName='{0}_inflate'.format(self.d_module['partName']),
+                parentGutsTo=mRigNull,
+                inflateDriveDirectParents=True,
+                volumeSquashInflateOnly=True,
+                replaceExisting=True,
+                useUndoChunk=False)
+        elif self.b_squashSetup and ml_ik_joints:
+            d_inflate_res = BEZIERIKBLOCK.segment_inflate_stretch_result_from_volume_joints(
+                ml_ik_joints,
+                mSettings,
+                _str_aim_inflate,
+                '{0}_segInflate'.format(self.d_module['partName']),
+                inflate_factor_min=_f_inf_min,
+                inflate_factor_max=_f_inf_max,
+                inflate_factor_mode=_str_inf_mode,
+                inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
+                parentGutsTo=mRigNull,
+                extra_keyable=True)
+
+    if d_inflate_res and d_inflate_res.get('l_inflateDirectPlugs'):
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'inflate direct parents | neckIK:{0} segmentType:{1} | plugs:{2}'.format(
+                _ikNeck,
+                self.str_segmentType,
+                len(d_inflate_res.get('l_inflateDirectPlugs') or []))))
+        BEZIERIKBLOCK.segment_inflate_parent_rig_direct_controls(
+            mRigNull,
+            d_inflate_res,
+            ml_inflate_parents,
+            ml_rigJoints,
+            _str_aim_inflate)
+    else:
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'skip parent wire | segmentType:{0} neckIK:{1}'.format(
+                self.str_segmentType, _ikNeck)))
+
+    return True
+
+
 def rig_cleanUp(self):
     try:
         _short = self.d_block['shortName']
@@ -4341,11 +4896,15 @@ def rig_cleanUp(self):
                 
             mDynGroup.rebuild()
             
-            if mBlock.root_dynParentScaleMode == 2:
-                mRoot.scaleSpace = 'puppet'
-                ATTR.set_default(mRoot.mNode, 'scaleSpace', 'puppet')
+            if self.b_scaleSetup:
+                BUILDERUTILS.scaleSetup_dynParentDefaultIndex(
+                    self, mRoot, mDynGroup, mBlock=mBlock, ml_targetDynParents=ml_targetDynParents)
+            
+            BUILDERUTILS.scaleSetup_scaleSpacePuppetDefault(self, mRoot, mBlock)
             
             ml_endDynParents.insert(0,mRoot)
+            if self.b_scaleSetup:
+                ml_baseDynParents.append(mRoot)
             if mDynGroup.getMessage('dynFollow'):
                 mDynGroup.dynFollow.p_parent = self.mDeformNull   
             
@@ -4412,13 +4971,59 @@ def rig_cleanUp(self):
                 mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
                 if mControlIKNeckRoot:
                     ml_targetDynParents.insert(0,mControlIKNeckRoot )
-                    
+                mHeadIK_dyn = mRigNull.getMessageAsMeta('headIK')
+                if (mBlock.neckIK
+                        and mBlock.getEnumValueString('neckIK') == 'bezier'
+                        and mHeadIK_dyn
+                        and mHeadIK_dyn.mNode != mHandle.mNode):
+                    ml_targetDynParents.insert(0, mHeadIK_dyn)
+            
+            if self.b_scaleSetup:
+                ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
             
             mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mHandle,dynMode=2)
             #mDynGroup.dynMode = 2
             
             pprint.pprint(ml_targetDynParents)
             for mTar in ml_targetDynParents:
+                mDynGroup.addDynParent(mTar)
+            mDynGroup.rebuild()
+            mDynGroup.dynFollow.p_parent = self.mDeformNull
+
+        # Head anim IK — not in ml_ikControls when neck bezier splits headIK / controlIK
+        mHeadIK = mRigNull.getMessageAsMeta('headIK')
+        _b_head_ik_dyn = bool(
+            mHeadIK
+            and (not mControlIK or mHeadIK.mNode != mControlIK.mNode))
+        if _b_head_ik_dyn:
+            log.info("|{0}| >> Head IK dynParent: {1}".format(_str_func, mHeadIK))
+            if b_ikOrientToWorld:
+                BUILDERUTILS.control_convertToWorldIK(mHeadIK)
+            ml_headIkDynParents = (
+                ml_baseDynParents
+                + [self.md_dynTargetsParent['attachDriver']]
+                + ml_endDynParents
+                + [self.md_dynTargetsParent['world']])
+            ml_headIkDynParents.extend(
+                mHeadIK.msgList_get('spacePivots', asMeta=True) or [])
+            mControlIKNeckRoot = mRigNull.getMessageAsMeta('controlIKNeckRoot')
+            if mControlIKNeckRoot:
+                ml_headIkDynParents.insert(0, mControlIKNeckRoot)
+            if mModuleParent:
+                mi_parentRigNull = mModuleParent.rigNull
+                if mi_parentRigNull.getMessage('controlIK'):
+                    ml_headIkDynParents.append(mi_parentRigNull.controlIK)
+                if mi_parentRigNull.getMessage('controlIKBase'):
+                    ml_headIkDynParents.append(mi_parentRigNull.controlIKBase)
+                if mi_parentRigNull.getMessage('rigRoot'):
+                    ml_headIkDynParents.append(mi_parentRigNull.rigRoot)
+            if mRoot:
+                ml_headIkDynParents.append(mRoot)
+            if self.b_scaleSetup:
+                ml_headIkDynParents = LISTS.get_noDuplicates(ml_headIkDynParents)
+            mDynGroup = cgmRIGMETA.cgmDynParentGroup(
+                dynChild=mHeadIK, dynMode=2)
+            for mTar in ml_headIkDynParents:
                 mDynGroup.addDynParent(mTar)
             mDynGroup.rebuild()
             mDynGroup.dynFollow.p_parent = self.mDeformNull
@@ -4457,6 +5062,9 @@ def rig_cleanUp(self):
                 mMainDriver = mHandle.getMessageAsMeta('mainDriver')
                 if mMainDriver:
                     ml_targetDynParents.insert(0,mMainDriver)
+                
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
                 
                 mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mHandle,dynMode=0)
                 #mDynGroup.dynMode = 2
@@ -4622,6 +5230,9 @@ def rig_cleanUp(self):
                 ml_targetDynParents.extend(ml_endDynParents)
                 ml_targetDynParents.extend(mObj.msgList_get('spacePivots',asMeta = True))
             
+                if self.b_scaleSetup:
+                    ml_targetDynParents = LISTS.get_noDuplicates(ml_targetDynParents)
+            
                 mDynGroup = cgmRIGMETA.cgmDynParentGroup(dynChild=mObj.mNode, dynMode=_mode)# dynParents=ml_targetDynParents)
                 #mDynGroup.dynMode = 2
             
@@ -4640,6 +5251,11 @@ def rig_cleanUp(self):
         log.debug("|{0}| >> Settings...".format(_str_func))
         mSettings.visRoot = 0
         mSettings.visDirect = 0
+        if (mBlock.neckBuild and mBlock.neckIK
+                and mBlock.getEnumValueString('neckIK') == 'bezier'
+                and mSettings.hasAttr('visSub')):
+            ATTR.set_default(mSettings.mNode, 'visSub', True)
+            mSettings.visSub = True
         
         ml_handleJoints = mRigNull.msgList_get('handleJoints')
         #if ml_handleJoints:
@@ -4767,9 +5383,6 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                 
                 ml_headStuff.append(  mObj )
                 mObj.p_parent = False
-                if parent:
-                    mObj.p_parent = parent
-                    #if skin:mObj.doCopyPivot(parent)
                 if skin:
                     mc.skinCluster ([ ml_moduleJoints[-1].mNode],
                                     mObj.mNode,
@@ -4788,10 +5401,6 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             
             
             ml_headStuff.extend(ml_neckMesh)
-            if parent:
-                for mObj in ml_neckMesh:
-                    mObj.p_parent = parent
-                    #if skin:mObj.doCopyPivot(parent)
             
             if skin:
                 for mMesh in ml_neckMesh:
@@ -4808,7 +5417,7 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
                 _res = mc.polyUniteSkinned([mObj.mNode for mObj in ml_headStuff],ch=False,objectPivot=True)
                 _mesh = mc.rename(_res[0],'{0}_0_geo'.format(self.p_nameBase))
                 mc.rename(_res[1],'{0}_skinCluster'.format(_mesh))       
-                
+                ml_headStuff = []
             else:
                 _mesh = ml_headStuff[0]
                 ml_headStuff = []
@@ -4830,8 +5439,12 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             return
         
         for mObj in ml_headStuff:
-            try:mObj.delete()
-            except:pass
+            try:
+                if parent and hasattr(parent, 'mNode') and mObj.mNode == parent.mNode:
+                    continue
+                mObj.delete()
+            except:
+                pass
         
         return cgmMeta.validateObjListArg(_mesh)
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err,localDat=vars())        
@@ -4920,8 +5533,10 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
     mRigNull = mModule.rigNull
     mSettings = mRigNull.settings
     mPuppet = self.atUtils('get_puppet')
-    mMaster = mPuppet.masterControl
-    mPuppetSettings = mMaster.controlSettings
+    mMaster = mPuppet.masterControl if mPuppet else None
+    mPuppetSettings = mMaster.controlSettings if mMaster else None
+    if not mPuppetSettings:
+        log.debug("|{0}| >> No puppet/masterControl/controlSettings. Skipping proxyLock wiring.".format(_str_func))
     str_partName = mModule.get_partNameBase()
     directProxy = mBlock.proxyDirect        
     
@@ -5001,7 +5616,9 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 if mPrerigProxy.getMayaType() == 'nurbsSurface':
                     mPrerigProxyDup = RIGCREATE.get_meshFromNurbs(mPrerigProxy,
                                                         mode = 'general',
-                                                        uNumber = mBlock.loftSplit, vNumber=mBlock.loftSides)                
+                                                        uNumber = mBlock.loftSplit, vNumber=mBlock.loftSides)
+                    mPrerigProxyDup = BLOCKUTILS.proxy_mesh_cap_after_nurbs_tessellate(
+                        mBlock, mPrerigProxyDup, _str_func, label='neckPrerigLoft')
                 else:
                     mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
                     
@@ -5163,7 +5780,16 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
                 if mBlock.neckJoints == 1:
                     mProxy = ml_moduleJoints[0].doCreateAt(setClass=True)
                     mPrerigProxy = mBlock.getMessage('prerigLoftMesh',asMeta=True)[0]
-                    mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
+                    if mPrerigProxy.getMayaType() == 'nurbsSurface':
+                        mPrerigProxyDup = RIGCREATE.get_meshFromNurbs(
+                            mPrerigProxy,
+                            mode='general',
+                            uNumber=mBlock.loftSplit,
+                            vNumber=mBlock.loftSides)
+                        mPrerigProxyDup = BLOCKUTILS.proxy_mesh_cap_after_nurbs_tessellate(
+                            mBlock, mPrerigProxyDup, _str_func, label='neckPrerigLoftPuppet')
+                    else:
+                        mPrerigProxyDup = mPrerigProxy.doDuplicate(po=False)
                     CORERIG.shapeParent_in_place(mProxy.mNode, mPrerigProxyDup.mNode,False,True)
                     ATTR.copy_to(ml_moduleJoints[0].mNode,'cgmName',mProxy.mNode,driven = 'target')
                     mProxy.addAttr('cgmType','proxyPuppetGeo')
@@ -5281,12 +5907,14 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False)
         #Vis connect -----------------------------------------------------------------------
         mProxy.overrideEnabled = 1
         ATTR.connect("{0}.proxyVis_out".format(mRigNull.mNode),"{0}.visibility".format(mProxy.mNode) )
-        ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
+        if mPuppetSettings:
+            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayType".format(mProxy.mNode) )
         for mShape in mProxy.getShapes(asMeta=1):
             str_shape = mShape.mNode
             mShape.overrideEnabled = 0
             #ATTR.connect("{0}.proxyVis".format(mPuppetSettings.mNode),"{0}.visibility".format(str_shape) )
-            ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
+            if mPuppetSettings:
+                ATTR.connect("{0}.proxyLock".format(mPuppetSettings.mNode),"{0}.overrideDisplayTypes".format(str_shape) )
             
     if directProxy:
         for mObj in ml_rigJoints:
@@ -5302,7 +5930,7 @@ def controller_getDat(self):
     _str_func = 'controller_getDat'
     log.debug("|{0}| >>  {1}".format(_str_func,self)+ '-'*80)
     mRigNull = self.rigNull
-    
+
     def checkList(l):
         ml = []
         for o in l:
@@ -5329,18 +5957,12 @@ def controller_getDat(self):
     
     md['pivots'] = checkList(['pivot{0}'.format(n.capitalize()) for n in BLOCKSHARE._l_pivotOrder])
     
-    #FK...
-    md['fk'] = checkList(['leverFK','fkJoints','controlsFK','controlFK'])
+    #FK... (controlsFK order from rig_controls — not fkJoints skeleton list)
+    md['fk'] = checkList(['leverFK', 'controlsFK', 'controlFK'])
     
     md['noHide'] = md['root'] + md['settings']
     
-    #IK...
-    md['ik'] = checkList(['leverFK',
-                          'controlIKBase',
-                          'controlIKMid','controlSegMidIK',
-                          'controlBallRotation','leverIK',
-                          'controlIKBall','controlIKBallHinge','controlIKToe',
-                          'controlIKEnd','controlIK'])
+    md['ik'] = checkList(d_controlDat_links['ik'])
     #seg...
     md['segmentHandles'] = mRigNull.msgList_get('handleJoints')
         

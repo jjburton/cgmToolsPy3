@@ -178,8 +178,12 @@ n1.msgMultiTest=['pCube2','pCube3']
 n1.msgMultiTest   #>>['pCube2','pCube3']
 
 #... Let's look at a potential problem with multi message attributes and how they're natively connected.
-from cgm.lib import attributes
-attributes.storeObjectsToMessage(l_cubes,n1.mNode,'msgMultiTest')#...this uses maya's connection format
+_plug = n1.mNode + '.msgMultiTest'
+if mc.objExists(_plug):
+    mc.deleteAttr(_plug)
+mc.addAttr(n1.mNode, ln='msgMultiTest', at='message', m=True, im=False)
+for obj in l_cubes:
+    mc.connectAttr(obj + '.message', _plug, nextAvailable=True)#...Maya's native multi-message format
 n1.msgMultiTest   #>> looks good...
 mc.duplicate(l_cubes[2])
 n1.msgMultiTest   #>> um...our list grew. There is a bug in some versions of maya that this connection is duplicated.

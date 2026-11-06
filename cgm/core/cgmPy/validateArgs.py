@@ -112,8 +112,8 @@ def shapeArg(node = None, types = None, singleReturn = False, noneValid = True):
             log.error("|{0}| >> too many shapes({1}). Using first: {2}".format(_str_func,len(_res), _res))
         return _res[0]
     return _res
-                
-                
+
+
 def get_mayaType(node = None):
     """
     What kind of nodeect is this as maya's type return isn't always great
@@ -229,7 +229,7 @@ def get_mayaType(node = None):
         raise RuntimeError("Shouldn't have gotten here. Need another check for component type. '{0}'".format(_node))
     #elif mc.listRelatives(_node,shapes=True,fullPath=False) == None:
         #return 'shape'
-    return _intialCheck
+    return SHARED.d_mayaNodeType_canonical.get(_intialCheck, _intialCheck)
 
 def is_component(arg = None):
     """

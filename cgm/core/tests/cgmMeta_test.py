@@ -11,8 +11,8 @@ import copy
 import time
 import logging
 
-from cgm.lib import (distance,attributes)
-#from cgm.core.lib import attribute_utils as ATTR
+from cgm.core.lib import attribute_utils as ATTR
+from cgm.core.lib import position_utils as POS
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -442,7 +442,7 @@ def ut_cgmMeta(*args, **kws):
                 assert self.cgmIntAttr.p_locked == True
                 self.cgmIntAttr.p_hidden == False #Unhide        
                 assert self.cgmIntAttr.intTest == 7
-                assert attributes.doGetAttr(node.mNode,'intTest') == 7
+                assert ATTR.get(node.mNode,'intTest') == 7
                 assert self.cgmIntAttr.get() == 7,self.cgmIntAttr.intTest
                 assert self.cgmIntAttr.p_keyable == True   
                 assert self.cgmIntAttr.p_hidden == False   
@@ -729,7 +729,7 @@ def ut_cgmMeta(*args, **kws):
 
             #NOTE : cmds returns shortName, but all MetaClass attrs are always longName
             try:
-                assert attributes.returnMessageData(node.mNode,'msgSingleTest') == [cube3.getLongName()],"%s is not [%s]"%(attributes.returnMessageData(node.mNode,'msgSingleTest'),cube3.getLongName())
+                assert ATTR.get_messageLong(node.mNode,'msgSingleTest') == [cube3.getLongName()],"%s is not [%s]"%(ATTR.get_messageLong(node.mNode,'msgSingleTest'),cube3.getLongName())
                 assert node.msgSingleTest2==[cube3.getLongName()]
                 assert node.msgMultiTest ==[cube1.mNode,cube2.mNode,cube3.mNode],"%s is not [%s,%s,%s]"%(node.getMessage('msgMultiTest',False),cube1.mNode,cube2.mNode,cube3.mNode)        
                 assert node.getMessage('msgMultiTest',False) ==[cube1.getShortName(),cube2.getShortName(),cube3.getShortName()],"%s is not [%s,%s,%s]"%(node.getMessage('msgMultiTest',False),cube1.mNode,cube2.mNode,cube3.mNode)
@@ -783,9 +783,9 @@ def ut_cgmMeta(*args, **kws):
             except Exception as error:raise Exception("[Rotate order]{%s}"%error)
 
             try:#Group
-                previousPos = distance.returnWorldSpacePosition(self.pCube.mNode)
+                previousPos = POS.get(self.pCube.mNode)
                 self.pCube.doGroup(True)
-                #assert previousPos == distance.returnWorldSpacePosition(self.pCube.mNode),"previous %s != %s"%(previousPos,distance.returnWorldSpacePosition(self.pCube.mNode))
+                #assert previousPos == POS.get(self.pCube.mNode),"previous %s != %s"%(previousPos,POS.get(self.pCube.mNode))
                 assert self.pCube.getParent() != self.nCube.mNode,"nCube shouldn't be the parent"
             except Exception as error:raise Exception("[Grouping]{%s}"%error)
 
@@ -800,7 +800,7 @@ def ut_cgmMeta(*args, **kws):
 
                 for shape in self.pCube.getShapes():
                     for a in list(TestDict.keys()):
-                        assert attributes.doGetAttr(shape,a) == TestDict[a],"'%s.%s' is not %s"%(shape,a,TestDict[a])
+                        assert ATTR.get(shape,a) == TestDict[a],"'%s.%s' is not %s"%(shape,a,TestDict[a])
             except Exception as error:raise Exception("[Drawing overrides]{%s}"%error)
 
             try:#Copy pivot
@@ -1248,7 +1248,7 @@ def ut_msgList(*args, **kws):
 
             try:
                 mi_catcher.msgList_connect(ml_objs, 'msgAttr', 'connectBack')
-                attributes.doBreakConnection(mi_catcher.mNode, 'msgAttr_2')#Break it
+                ATTR.break_connection(mi_catcher.mNode, 'msgAttr_2')#Break it
             except Exception as error:raise Exception("[connecting all]{%s}"%error)  
 
             try:
@@ -1340,8 +1340,8 @@ def ut_cgmPuppet(*args, **kws):
                     assert Puppet.hasAttr(attr),("'%s' missing attr:%s"%(self.mi_puppet.mNode,attr))
                     assert mc.getAttr('%s.%s'%(Puppet.mNode,attr), type=True) == puppetDefaultValues.get(attr)[0], "Type is '%s'"%(mc.getAttr('%s.%s' %(Puppet.mNode,attr), type=True))
                     if len(puppetDefaultValues.get(attr)) > 1:#assert that value
-                        log.debug("%s"% attributes.doGetAttr(Puppet.mNode,attr))                
-                        assert attributes.doGetAttr(Puppet.mNode,attr) == puppetDefaultValues.get(attr)[1],"%s is not %s"%(attributes.doGetAttr(Puppet.mNode,attr),puppetDefaultValues.get(attr)[1])
+                        log.debug("%s"% ATTR.get(Puppet.mNode,attr))                
+                        assert ATTR.get(Puppet.mNode,attr) == puppetDefaultValues.get(attr)[1],"%s is not %s"%(ATTR.get(Puppet.mNode,attr),puppetDefaultValues.get(attr)[1])
             except Exception as error:raise Exception("[network null]{%s}"%error)
 
             try:#Assertions on the masterNull
@@ -1358,8 +1358,8 @@ def ut_cgmPuppet(*args, **kws):
                     assert Puppet.masterNull.hasAttr(attr),("'%s' missing attr:%s"%(Puppet.masterNull.mNode,attr))
                     assert mc.getAttr('%s.%s'%(Puppet.masterNull.mNode,attr), type=True) == masterDefaultValues.get(attr)[0], "Type is '%s'"%(mc.getAttr('%s.%s' %(Puppet.masterNull.mNode,attr), type=True))
                     if len(masterDefaultValues.get(attr)) > 1:#assert that value
-                        log.debug("%s"% attributes.doGetAttr(Puppet.masterNull.mNode,attr))
-                        assert attributes.doGetAttr(Puppet.masterNull.mNode,attr) == masterDefaultValues.get(attr)[1],"MasterDefault value keys dont' match. {0}".format(attr)
+                        log.debug("%s"% ATTR.get(Puppet.masterNull.mNode,attr))
+                        assert ATTR.get(Puppet.masterNull.mNode,attr) == masterDefaultValues.get(attr)[1],"MasterDefault value keys dont' match. {0}".format(attr)
             except Exception as error:raise Exception("[masterNull]{%s}"%error)
 
             Puppet2 = 'Failed'
@@ -1372,11 +1372,11 @@ def ut_cgmPuppet(*args, **kws):
 
 		for attr in puppetDefaultValues.keys():
 		    assert Puppet2.hasAttr(attr),("'%s' missing attr:%s"%(self.mi_puppetIO.mNode,attr))
-		    assert attributes.doGetAttr(Puppet2.mNode,attr) == attributes.doGetAttr(Puppet.mNode,attr)
+		    assert ATTR.get(Puppet2.mNode,attr) == ATTR.get(Puppet.mNode,attr)
 
 		for attr in masterDefaultValues.keys():
 		    assert Puppet2.masterNull.hasAttr(attr),("'%s' missing attr:%s"%(self.mi_puppetIO.mNode,attr))
-		    assert attributes.doGetAttr(Puppet2.masterNull.mNode,attr) == attributes.doGetAttr(Puppet.masterNull.mNode,attr)
+		    assert ATTR.get(Puppet2.masterNull.mNode,attr) == ATTR.get(Puppet.masterNull.mNode,attr)
 	    except Exception,error:
 		self.log_error("puppet: %s"%Puppet)		
 		self.log_error("puppetIO: %s"%Puppet2)

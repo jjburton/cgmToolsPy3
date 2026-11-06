@@ -7,3 +7,11 @@ __pycache__
 .gitignore
 
 .vs/
+
+# Agent / IDE config belongs in cgmToolsDev, never in the ship tree.
+# See cgmToolsDev/AGENTS.md "Keep cgmToolsPy3 clean".
+.cursor/
+.claude/
+CLAUDE.md
+AGENTS.md
+*.code-workspace

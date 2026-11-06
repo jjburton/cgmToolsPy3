@@ -1,0 +1,59 @@
+{
+    "datKind": "hair",
+    "differential": true,
+    "profile": {
+        "attractionScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.20000000298023224,
+                0.8999999761581421,
+                1.0
+            ],
+            "2": [
+                0.5,
+                0.75,
+                1.0
+            ],
+            "3": [
+                0.800000011920929,
+                0.550000011920929,
+                1.0
+            ]
+        },
+        "bendResistance": 32.0,
+        "compressionResistance": 125.0,
+        "damp": 0.1,
+        "drag": 0.08,
+        "extraBendLinks": 3,
+        "mass": 1.75,
+        "motionDrag": 0.06,
+        "startCurveAttract": 3.0,
+        "stiffnessScale": {
+            "0": [
+                0.0,
+                1.0,
+                1.0
+            ],
+            "1": [
+                0.3499999940395355,
+                0.9200000166893005,
+                1.0
+            ],
+            "2": [
+                1.0,
+                0.699999988079071,
+                1.0
+            ]
+        },
+        "stretchDamp": 0.06,
+        "stretchResistance": 285.0,
+        "tangentialDrag": 0.08
+    },
+    "profileKind": "hair",
+    "schemaVersion": 1,
+    "section": "hs"
+}

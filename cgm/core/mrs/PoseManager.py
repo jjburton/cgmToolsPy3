@@ -1458,11 +1458,18 @@ class manager(mUI.MelColumn):
             enableState = False
     
         if self.poseGridMode == 'thumb':
-            parent = self.posePopupGrid
-            mc.popupMenu(self.posePopupGrid, e=True, deleteAllItems=True)
+            parent = getattr(self, 'posePopupGrid', None)
         else:
-            parent = self.posePopupText
-            mc.popupMenu(self.posePopupText, e=True, deleteAllItems=True)
+            parent = getattr(self, 'posePopupText', None)
+        if not parent:
+            return
+        try:
+            _alive = mc.popupMenu(parent, q=True, exists=True)
+        except Exception:
+            _alive = False
+        if not _alive:
+            return
+        mc.popupMenu(parent, e=True, deleteAllItems=True)
     
         
         #mc.menuItem(label=LANGUAGE_MAP._AnimationUI_.pose_rmb_blender, p=parent,

@@ -1,0 +1,12 @@
+{
+    "datKind": "nucleus",
+    "differential": false,
+    "profile": {
+        "maxCollisionIterations": 50,
+        "subSteps": 20,
+        "timeScale": 1.0
+    },
+    "profileKind": "solver",
+    "schemaVersion": 1,
+    "section": "n"
+}

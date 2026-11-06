@@ -103,7 +103,6 @@ def get_base(obj = None):
     raise ValueError("{0} || No object exists!".format(_str_func)) 
 base = get_base
 
-
 def get_refPrefix(node = None):
     """
     Return reference prefix if a node has one
@@ -161,7 +160,7 @@ def clean(arg = None,invalidChars = """`~!@#$%^&*()-+=[]\\{}|;':"/?><., """, noN
                     str_Clean = str_Clean[ 1: ]	
         if cleanDoubles and replaceChar:
             doubleChar = replaceChar + replaceChar
-            while doubleChar in cleanStr:
+            while doubleChar in str_Clean:
                 str_Clean = str_Clean.replace( doubleChar, replaceChar )
 
         if stripTailing:

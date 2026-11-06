@@ -38,9 +38,6 @@ from cgm.core.tools import dynParentTool as DYNPARENTTOOL
 from cgm.core.mrs import Builder as RBUILDER
 from cgm.core.lib import node_utils as NODES
 import cgm.core.mrs.Animate as MRSANIMATE
-from cgm.lib import search
-from cgm.lib import locators
-from cgm.tools.lib import tdToolsLib#...REFACTOR THESE!!!!
 from cgm.core.tools.markingMenus.lib import contextual_utils as MMCONTEXT
 from cgm.core.tools import meshTools
 from cgm.core.tools import attrTools as ATTRTOOLS
@@ -564,16 +561,29 @@ class cgmMarkingMenu(cgmUI.markingMenu):
 
         
         if 'joint' in self._l_contextTypes or _contextMode != 'selection':
-            uiJoints = mc.menuItem(parent = parent, l='Joints', subMenu=True)
-            
-                           
-            mc.menuItem(l='Axis*', subMenu = True)
-            mc.menuItem(l='Show',
-                        c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',1,self.var_contextTD.value,'joint'))
-                        
-            mc.menuItem(l='Hide',
-                        c = lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
-                        
+            uiJoints = mc.menuItem(parent=parent, l='Joints', subMenu=True,
+                                   ann='Joint display attributes and joint utilities')
+
+            _axis = mc.menuItem(parent=uiJoints, l='Axis*', subMenu=True,
+                                ann='Show or hide local axis display on joints (uses Setup context)')
+            mc.menuItem(parent=_axis, l='Show',
+                        ann='Show local axis on joints in the current context',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',1,self.var_contextTD.value,'joint'))
+            mc.menuItem(parent=_axis, l='Hide',
+                        ann='Hide local axis on joints in the current context',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint'))
+
+            _ssc = mc.menuItem(parent=uiJoints, l='SSC*', subMenu=True,
+                               ann='Toggle segmentScaleCompensate on joints (uses Setup context). '
+                                    'On: parent scale affects child segment length. '
+                                    'Off: segment length ignores parent scale.')
+            mc.menuItem(parent=_ssc, l='On',
+                        ann='Enable segmentScaleCompensate — parent scale stretches child segments',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint'))
+            mc.menuItem(parent=_ssc, l='Off',
+                        ann='Disable segmentScaleCompensate — child segment length ignores parent scale',
+                        c=lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint'))
+
             mc.menuItem(parent = uiJoints,
                         l='cometJO',
                         c=lambda *a: mel.eval('cometJointOrient'),

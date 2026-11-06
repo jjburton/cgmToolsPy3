@@ -1,0 +1,22 @@
+{
+    "datKind": "hairShape",
+    "differential": true,
+    "profile": {
+        "hairWidth": 80.0,
+        "hairWidthScale": {
+            "0": [
+                0.043478261679410934,
+                1.0,
+                1.0
+            ],
+            "1": [
+                1.0,
+                0.05999999865889549,
+                1.0
+            ]
+        }
+    },
+    "profileKind": "hairShape",
+    "schemaVersion": 1,
+    "section": "hs"
+}

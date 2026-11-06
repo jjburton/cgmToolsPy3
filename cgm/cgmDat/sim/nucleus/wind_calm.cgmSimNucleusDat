@@ -1,0 +1,12 @@
+{
+    "datKind": "nucleus",
+    "differential": false,
+    "profile": {
+        "airDensity": 1.0,
+        "windNoise": 0.0,
+        "windSpeed": 0.0
+    },
+    "profileKind": "wind",
+    "schemaVersion": 1,
+    "section": "n"
+}

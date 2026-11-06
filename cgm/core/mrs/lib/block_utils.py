@@ -104,6 +104,30 @@ def get_side(self):
         _side = self.getEnumValueString('side') 
     return _side
 
+def puppetMesh_colorGeo(mBlock, ml_geo, controlType='main'):
+    """Puppet/proxy display mesh shader — matches limb/segment color_mesh usage."""
+    if not ml_geo:
+        return
+    _side = get_side(mBlock)
+    if _side in ['none', '']:
+        _side = 'center'
+    for mObj in cgmMeta.validateObjListArg(ml_geo):
+        CORERIG.color_mesh(mObj.mNode, _side, controlType, transparent=False, proxy=True)
+
+def puppetMesh_normalCheck(ml_geo, post_unite=False):
+    """
+    Flip poly normals when GEO.is_reversed detects inside-out tessellation.
+    Skip post_unite — compound skinned/united puppet meshes false-trigger is_reversed.
+    Proxy/limb puppet pieces are already checked in build_proxyMesh / mesh_proxyCreate.
+    """
+    if not ml_geo or post_unite:
+        return
+    for mObj in cgmMeta.validateObjListArg(ml_geo):
+        for s in TRANS.shapes_get(mObj.mNode, True):
+            if mc.nodeType(s) != 'mesh':
+                continue
+            GEO.normalCheck(s)
+
 def reorder_udAttrs(self):
     ATTR.reorder_ud(self.mNode)
     
@@ -1375,6 +1399,102 @@ def get_castSize(self, casters, castMesh = None, axis1 = 'x', axis2 = 'y',extend
             axis1:l_x,
             axis2:l_y}
     
+def proxy_geo_cap_enabled(mBlock, default=True):
+    """Whether proxy mesh lofts should use create_loftMesh end caps (proxyGeoCap enum)."""
+    if not mBlock.hasAttr('proxyGeoCap'):
+        return default
+    return mBlock.getEnumValueString('proxyGeoCap') == 'both'
+
+def proxy_mesh_close_border_at_curve(mMesh, crv, _str_func, tolerance=0.1, mode='default'):
+    """Close one open border loop on a mesh, guided by a curve on or near the border."""
+    _mesh = mMesh.mNode if hasattr(mMesh, 'mNode') else mMesh
+    _crv = crv.mNode if hasattr(crv, 'mNode') else crv
+    vtxs = []
+    for _mode, _tol in (('default', tolerance), ('bbCheck', max(tolerance, 1.0))):
+        vtxs = GEO.get_vertsFromCurve(_mesh, _crv, tolerance=_tol, mode=_mode)
+        if vtxs:
+            break
+    if not vtxs:
+        log.warning(cgmGEN.logString_msg(_str_func, 'cap skip — no verts on curve {0}'.format(_crv)))
+        return False
+    l_edges = GEO.get_edgeLoopFromVerts(vtxs)
+    if not l_edges:
+        log.warning(cgmGEN.logString_msg(_str_func, 'cap skip — no edge loop on curve {0}'.format(_crv)))
+        return False
+    mc.polyCloseBorder(_mesh, edgeLoop=l_edges, ch=False)
+    log.info(cgmGEN.logString_msg(_str_func, 'polyCloseBorder edgeLoop | mesh={0} | guide={1}'.format(_mesh, _crv)))
+    return True
+
+def _simple_loft_main_end_curves(ml_form_handles, skip=None):
+    """First/last primary form-handle loft curves (not subShaper rings)."""
+    ml_main = []
+    for i, mHandle in enumerate(ml_form_handles or []):
+        if skip and i in skip:
+            continue
+        _loft = mHandle.getMessage('loftCurve', asMeta=True)
+        if _loft:
+            ml_main.append(_loft[0])
+    if not ml_main:
+        return None, None
+    if len(ml_main) == 1:
+        return ml_main[0], None
+    return ml_main[0], ml_main[-1]
+
+def proxy_mesh_cap_simple_loft_ends(mMesh, ml_form_handles, skip, _str_func, label='simpleLoft'):
+    """Block Mesh limb/segment: cap tube ends without create_loftMesh collapse or full-mesh close."""
+    mMesh = cgmMeta.validateObjArg(mMesh, 'cgmObject', setClass=True)
+    mStart, mEnd = _simple_loft_main_end_curves(ml_form_handles, skip)
+    if not mStart:
+        log.warning(cgmGEN.logString_msg(_str_func, 'simple loft cap skip — no form loft curves | {0}'.format(label)))
+        return mMesh
+    _ok = proxy_mesh_close_border_at_curve(mMesh, mStart, _str_func, tolerance=0.25)
+    if mEnd:
+        _ok = proxy_mesh_close_border_at_curve(mMesh, mEnd, _str_func, tolerance=0.25) and _ok
+    if not _ok:
+        log.warning(cgmGEN.logString_msg(_str_func, 'simple loft guided cap incomplete | {0}'.format(label)))
+    return mMesh
+
+def proxy_mesh_poly_close_full(mMesh, _str_func, label=''):
+    mMesh = cgmMeta.validateObjArg(mMesh, 'cgmObject', setClass=True)
+    log.info(cgmGEN.logString_msg(_str_func, 'polyCloseBorder full | {0} | {1}'.format(mMesh.p_nameShort, label)))
+    mc.polyCloseBorder(mMesh.mNode, ch=False)
+    return mMesh
+
+def proxy_mesh_apply_segment_caps(mBlock, mMesh, loft_curves, segment_index, n_segments,
+                                  cap_enabled, extend_to_start, extend_to_end, _str_func):
+    """
+    Limb/segment/head neck: open loft per joint slice; cap each piece at its isoparm ends
+    (not create_loftMesh collapse rings).
+    """
+    if not cap_enabled:
+        return mMesh
+    mMesh = cgmMeta.validateObjArg(mMesh, 'cgmObject', setClass=True)
+    if not loft_curves:
+        log.warning(cgmGEN.logString_msg(_str_func, 'segment cap skip — no loft curves'))
+        return mMesh
+    if n_segments <= 1:
+        return proxy_mesh_poly_close_full(mMesh, _str_func, 'single segment')
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'segment cap {0}/{1} | isoparms on piece={2}'.format(
+            segment_index + 1, n_segments, len(loft_curves))))
+    _ok_start = proxy_mesh_close_border_at_curve(mMesh, loft_curves[0], _str_func, tolerance=0.25)
+    _ok_end = True
+    if len(loft_curves) > 1:
+        _ok_end = proxy_mesh_close_border_at_curve(mMesh, loft_curves[-1], _str_func, tolerance=0.25)
+    if not (_ok_start and _ok_end):
+        proxy_mesh_poly_close_full(mMesh, _str_func, 'segment piece fallback')
+    return mMesh
+
+def proxy_mesh_cap_after_nurbs_tessellate(mBlock, mMesh, _str_func, label='nurbsTessellate'):
+    """Open nurbs tessellation → polyCloseBorder when proxyGeoCap is both (head neck, etc.)."""
+    mMesh = cgmMeta.validateObjArg(mMesh, 'cgmObject', setClass=True)
+    if proxy_geo_cap_enabled(mBlock):
+        return proxy_mesh_poly_close_full(mMesh, _str_func, label)
+    log.info(cgmGEN.logString_msg(_str_func, 'cap off — open ends after {0}'.format(label)))
+    return mMesh
+
+
 #@cgmGEN.Timer
 def get_castMesh(self,extend=False,pivotEnd=False):
     _str_func =  'get_castMesh'
@@ -1472,13 +1592,8 @@ def get_castMesh(self,extend=False,pivotEnd=False):
                         ml_delete.append(mShape2)                
         
                     l_targets.append(mBaseCrv.mNode)
-                    
-        for v in [.9,.5,.0001]:
-            mBaseCollapse = cgmMeta.asMeta(l_targets[-1]).doDuplicate(po=False)
-            mBaseCollapse.p_parent = False
-            mBaseCollapse.scale = [v* vScale for vScale in mBaseCollapse.scale]
-            l_targets.append(mBaseCollapse.mNode)
-            ml_delete.append(mBaseCollapse)
+
+        # End collapse curves not added — mesh_proxyCreate uses open lofts + polyCloseBorder.
         
         if self.blockType == 'head':
             uAttr = 'neckControls'
@@ -6514,10 +6629,10 @@ _d_attrStateVisOn = {0:['blockState','scaleSetup','numControls',
                      2:['ikEnd','ikSetup','ikOrientToWorld','ikBase',
                         'mainRotAxis','hasEndJoint',
                         'ribbonAim','ribbonParam','rigSetup',
-                        'segmentMidIKControl','settingsDirection','settingsPlace',
+                        'segmentMidIKControl','segmentMidIKSetup','ikMidSetup','settingsDirection','settingsPlace',
                         'spaceSwitch_fk','ribbonConnectBy','numSpacePivots',
                         'rollCount'],
-                     3:['spaceSwitch_direct','squash','squashExtraControl',
+                     3:['spaceSwitch_direct','squash','squashExtraControl','squashInflateControl',
                         'squashFactorMax','squashFactorMin','squashMeasure',
                         'offsetMode','proxyDirect',],
                      4:['proxyLoft','proxyGeoRoot']}
@@ -6535,7 +6650,7 @@ _d_attrStateVisOff = {0:[],
                         'ribbonAim','ribbonParam','rigSetup','scaleSetup',
                         'segmentMidIKControl','settingsDirection','settingsPlace',
                         'numSpacePivots',
-                        'spaceSwitch_direct','squash','squashExtraControl',
+                        'spaceSwitch_direct','squash','squashExtraControl','squashInflateControl',
                         'squashFactorMax','squashFactorMin','squashMeasure',
                         'offsetMode',
                         'ribbonConnectBy',
@@ -7623,7 +7738,7 @@ def form_segment(self,aShapers = 'numShapers',aSubShapers = 'numSubShapers',
                 l_clusters.append(_res)
 
             mLinearCurve.parent = mNoTransformNull
-            mLinearCurve.rename('seg_{0}_trackCrv'.format(i))
+            mLinearCurve.rename('{0}_seg_{1}_trackCrv'.format(self.p_nameBase, i))
 
 
 
@@ -8608,15 +8723,25 @@ def datList_validate(self,count = None, datList = 'rollCount',checkAttr = 'numCo
 
         if count is None:
             len_needed = self.getMayaAttr(checkAttr)
-        else:len_needed = count
+        else:
+            len_needed = count
         l_current = self.datList_get(datList)
         len_current = len(l_current)
-        
+
         if defaultAttr is not None:
             _default = self.getMayaAttr(defaultAttr)
             if _default:
                 default = _default
-        
+
+        if len_needed is None and defaultAttr is not None:
+            len_needed = self.getMayaAttr(defaultAttr)
+        if len_needed is None:
+            len_needed = default
+        try:
+            len_needed = int(len_needed)
+        except (TypeError, ValueError):
+            len_needed = len_current if len_current else int(default)
+
         if len_current < len_needed or forceEdit:
             log.debug(cgmGEN.logString_sub(_str_func,'Getting via dialog'))
             msg_base = ''
@@ -8779,9 +8904,19 @@ def nameList_validate(self,count = None, nameList = 'nameList',checkAttr = 'numC
         
         if count is None:
             len_needed = self.getMayaAttr(checkAttr)
-        else:len_needed = count
+        else:
+            len_needed = count
         l_current = self.datList_get(nameList)
         len_current = len(l_current)
+
+        if len_needed is None:
+            len_needed = len_current if len_current else 1
+        else:
+            try:
+                len_needed = int(len_needed)
+            except (TypeError, ValueError):
+                len_needed = len_current if len_current else 1
+
         if len_current < len_needed:
             log.debug(cgmGEN.logString_sub(_str_func,'Getting via dialog'))
             msg_base= "{2} \n nameList does not match num controls \n Current: {0} | Needed: {1}".format(len_current,len_needed,self.p_nameShort)
@@ -9399,13 +9534,146 @@ def puppetMesh_delete(self):
     if not mPuppet:
         return log.error("|{0}| >> Must have puppet to check".format(_str_func))
 
-    #Check for existance of mesh ========================================================================
-    bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-    if bfr:
-        log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
-        mc.delete([mObj.mNode for mObj in bfr])
+    return puppet_mesh_delete_existing(mPuppet)
+
+_l_faceProxyBlockTypes = ['muzzle', 'brow', 'eye', 'facs']
+_l_puppetMeshSelfColoredBlockTypes = ['eye']
+
+def block_proxy_mesh_flow(mBlock):
+    """
+    Whether a block should use the proxy mesh pipeline.
+    Face blocks use proxy mesh only when proxyBuild is on; otherwise puppet skinned mesh.
+    """
+    if mBlock.blockType in _l_faceProxyBlockTypes:
+        return mBlock.getMayaAttr('proxyBuild') in [True, 1]
+    return True
+
+_l_puppetProxyPipelineBlockTypes = ('limb', 'segment', 'head')
+_l_simpleLoftOpenCapBlockTypes = ('limb', 'segment')
+
+def puppet_mesh_use_proxy_pipeline(mBlock, proxy=False, skin_unify=False):
+    """
+    Puppet mesh should call build_proxyMesh / mesh_proxyCreate (not generic create_simpleLoftMesh).
+    """
+    if not block_proxy_mesh_flow(mBlock):
+        return False
+    if proxy:
+        return True
+    if skin_unify and mBlock.blockType in _l_puppetProxyPipelineBlockTypes:
         return True
     return False
+
+def block_proxy_skip_shader_assignment(mBlock):
+    """Handle blocks: skip proxy/puppet geo shaders when proxySetColorAdded is off."""
+    if mBlock.blockType == 'handle' and mBlock.hasAttr('proxySetColorAdded'):
+        return mBlock.getMayaAttr('proxySetColorAdded') in (False, 0)
+    return False
+
+def block_puppet_mesh_self_colored(mBlock):
+    """Blocks that assign per-part puppet/proxy shaders in build_proxyMesh / create_simpleMesh."""
+    if mBlock.blockType in _l_puppetMeshSelfColoredBlockTypes:
+        return True
+    return block_proxy_skip_shader_assignment(mBlock)
+
+_l_puppetMeshProtectedGroupPlugs = [
+    'rigGroup', 'deformGroup', 'noTransformGroup', 'geoGroup', 'skeletonGroup',
+    'partsGroup', 'worldSpaceObjectsGroup', 'puppetSpaceObjectsGroup', 'spacePivotsGroup',
+]
+
+def _puppet_mesh_has_mesh_shape(mNode):
+    for s in TRANS.shapes_get(mNode, True) or []:
+        if mc.nodeType(s) == 'mesh':
+            return True
+    return False
+
+def puppet_mesh_protected_mNodes(mPuppet):
+    """Puppet structure transforms that must never be deleted or fed to polyUnite."""
+    _protected = set()
+    if not mPuppet:
+        return _protected
+    mMasterNull = mPuppet.masterNull
+    if mMasterNull:
+        _protected.add(mMasterNull.mNode)
+        for _plug in _l_puppetMeshProtectedGroupPlugs:
+            mGrp = mMasterNull.getMessageAsMeta(_plug)
+            if not mGrp:
+                continue
+            if VALID.isListArg(mGrp):
+                for mSub in mGrp:
+                    _protected.add(mSub.mNode)
+            else:
+                _protected.add(mGrp.mNode)
+    mArmature = mPuppet.getMessageAsMeta('armature')
+    if mArmature:
+        _protected.add(mArmature.mNode)
+        for _plug in ('geoGroup', 'skeletonGroup'):
+            mGrp = mArmature.getMessageAsMeta(_plug)
+            if not mGrp:
+                continue
+            if VALID.isListArg(mGrp):
+                for mSub in mGrp:
+                    _protected.add(mSub.mNode)
+            else:
+                _protected.add(mGrp.mNode)
+    mMaster = mPuppet.getMessageAsMeta('masterControl')
+    if mMaster:
+        _protected.add(mMaster.mNode)
+    return _protected
+
+def puppet_geoGroup_get(mPuppet, verify=True):
+    """Resolve puppet geo group; verify/create puppet groups when missing."""
+    _str_func = 'puppet_geoGroup_get'
+    if not mPuppet:
+        return False
+    if verify:
+        mPuppet.UTILS.groups_verify(mPuppet)
+    mMasterNull = mPuppet.masterNull
+    if not mMasterNull:
+        log.error("|{0}| >> No masterNull on puppet: {1}".format(_str_func, mPuppet))
+        return False
+    mGeoGroup = mMasterNull.getMessageAsMeta('geoGroup')
+    if not mGeoGroup:
+        mArmature = mPuppet.getMessageAsMeta('armature')
+        if mArmature:
+            mGeoGroup = mArmature.getMessageAsMeta('geoGroup')
+    if VALID.isListArg(mGeoGroup):
+        mGeoGroup = mGeoGroup[0]
+    if not mGeoGroup or not mc.objExists(mGeoGroup.mNode):
+        log.error("|{0}| >> geoGroup missing on puppet: {1}".format(_str_func, mPuppet))
+        return False
+    return mGeoGroup
+
+def puppet_mesh_filter_nodes(mPuppet, ml_nodes, for_delete=False):
+    """Drop puppet structure groups and (for unite) non-mesh transforms."""
+    _str_func = 'puppet_mesh_filter_nodes'
+    _protected = puppet_mesh_protected_mNodes(mPuppet)
+    _filtered = []
+    for mObj in cgmMeta.validateObjListArg(ml_nodes, noneValid=True) or []:
+        if not mObj or not mc.objExists(mObj.mNode):
+            continue
+        if mObj.mNode in _protected:
+            log.warning("|{0}| >> skipping protected node: {1}".format(_str_func, mObj.mNode))
+            continue
+        if not for_delete and not _puppet_mesh_has_mesh_shape(mObj.mNode):
+            log.warning("|{0}| >> skipping non-mesh node: {1}".format(_str_func, mObj.mNode))
+            continue
+        _filtered.append(mObj)
+    return _filtered
+
+def puppet_mesh_delete_existing(mPuppet):
+    """Delete prior puppetMesh msgList entries without touching puppet groups."""
+    _str_func = 'puppet_mesh_delete_existing'
+    if not mPuppet:
+        return False
+    bfr = mPuppet.msgList_get('puppetMesh', asMeta=True)
+    if not bfr:
+        return False
+    ml_delete = puppet_mesh_filter_nodes(mPuppet, bfr, for_delete=True)
+    if not ml_delete:
+        return False
+    log.debug("|{0}| >> deleting puppetMesh: {1}".format(_str_func, [m.mNode for m in ml_delete]))
+    mc.delete([mObj.mNode for mObj in ml_delete])
+    return True
 
 @cgmGEN.Timer
 def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True):
@@ -9440,7 +9708,9 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
             if not mPuppet:
                 return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))"""
             
-        mGeoGroup = mPuppet.masterNull.geoGroup
+        mGeoGroup = puppet_geoGroup_get(mPuppet)
+        if not mGeoGroup:
+            return log.error("|{0}| >> Must have geoGroup for skining mode".format(_str_func))
         mParent = mGeoGroup
         log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
         log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
@@ -9455,23 +9725,17 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
     
     
     #Check for existance of mesh ========================================================================
-    if mPuppet:
+    if mPuppet and skin:
         bfr = mPuppet.msgList_get('puppetMesh',asMeta=True)
-        if skin and bfr:
+        if bfr:
             log.debug("|{0}| >> puppetMesh detected...".format(_str_func))            
             if forceNew:
-                log.debug("|{0}| >> force new...".format(_str_func))                            
-                mc.delete([mObj.mNode for mObj in bfr])
+                log.debug("|{0}| >> force new...".format(_str_func))
+                puppet_mesh_delete_existing(mPuppet)
             else:
                 return bfr
     
-    if proxy:
-        if unified:
-            log.warning("|{0}| >> Proxy mode detected, unified option overridden".format(_str_func))            
-            unified = False
-        if skin:
-            log.warning("|{0}| >> Proxy mode detected, skin option overridden".format(_str_func))
-            skin = False
+    _skinUnify = skin
     
     #Process-------------------------------------------------------------------------------------
     if self.blockType == 'master':
@@ -9480,37 +9744,46 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
         mRoot = self.getBlockParents()[-1]
     log.debug("|{0}| >> mRoot: {1}".format(_str_func,mRoot))
     ml_ordered = mRoot.getBlockChildrenAll()
-    ml_mesh = []
-    subSkin = False
-    if skin:
-        #if not unified:
-        subSkin=True
+    ml_skinned = []
+    ml_proxy = []
+    subSkin = bool(_skinUnify)
             
     for mBlock in ml_ordered:
         if mBlock.blockType in ['master']:
             log.debug("|{0}| >> unmeshable: {1}".format(_str_func,mBlock))
             continue
         log.debug("|{0}| >> Meshing... {1}".format(_str_func,mBlock))
-        
 
-        if mBlock.getMayaAttr('meshBuild') in [False,0]:
-            log.error("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
+        if mBlock.getMayaAttr('meshBuild') in [False, 0]:
+            log.debug("|{0}| >> meshBuild off: {1}".format(_str_func,mBlock))
             continue
         
-        if proxy:
-            _res = mBlock.verify_proxyMesh(puppetMeshMode=True)
-            if _res:ml_mesh.extend(_res)
-            
+        _blockProxyFlow = puppet_mesh_use_proxy_pipeline(mBlock, proxy, _skinUnify)
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'block={0} type={1} | path={2} | proxy={3} skinUnify={4}'.format(
+                mBlock.p_nameShort,
+                mBlock.blockType,
+                'verify_proxyMesh' if _blockProxyFlow else 'create_simpleMesh',
+                proxy,
+                _skinUnify)))
+
+        if _blockProxyFlow:
+            _res = mBlock.verify_proxyMesh(
+                forceNew=True,
+                puppetMeshMode=True,
+                skin=bool(_skinUnify))
+            if _res:
+                ml_proxy.extend(_res)
         else:
-            if mBlock.blockType not in ['brow','muzzle','eyeMain']:
-                
-                _res = create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
-                if _res:ml_mesh.extend(_res)
-                
-                _side = get_side(mBlock)
-                
-                for mObj in _res:
-                    CORERIG.colorControl(mObj.mNode,_side,'main',transparent=False,proxy=True)
+            if mBlock.blockType in ['eyeMain']:
+                continue
+            _res = create_simpleMesh(mBlock,skin=subSkin,forceNew=subSkin,deleteHistory=True,)
+            if _res:
+                puppetMesh_normalCheck(_res)
+                if not block_puppet_mesh_self_colored(mBlock):
+                    puppetMesh_colorGeo(mBlock, _res)
+                ml_skinned.extend(_res)
         
         
         """
@@ -9525,59 +9798,55 @@ def puppetMesh_create(self,unified=True,skin=False, proxy = False, forceNew=True
                 return log.error("|{0}| >> Must have moduleJoints for skining mode".format(_str_func))
             ml_moduleJoints.extend(ml_joints)"""
         
+    ml_mesh = []
     if unified:
-        if skin:
-            #self.msgList_connect('simpleMesh',ml_mesh)
+        if _skinUnify and (ml_skinned or ml_proxy):
+            # Handle (create_simpleMesh) + limb/segment/head (verify_proxyMesh skin) in one skinned unite.
+            ml_parts = puppet_mesh_filter_nodes(mPuppet, (ml_skinned or []) + (ml_proxy or []))
+            if not ml_parts:
+                return log.error("|{0}| >> No valid skinned mesh nodes to unify".format(_str_func))
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'polyUniteSkinned | parts={0}'.format([m.p_nameShort for m in ml_parts])))
+            if ml_skinned:
+                puppetMesh_normalCheck(ml_skinned)
             mMesh = False
-            for mObj in ml_mesh:
+            for mObj in ml_parts:
                 TRANS.pivots_zeroTransform(mObj)
                 mObj.dagLock(False)
                 mObj.p_parent = False
-            #Have to dup and copy weights because the geo group isn't always world center
-            if len(ml_mesh)>1:
-                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_mesh],ch=0))
+            if len(ml_parts) > 1:
+                mMesh = cgmMeta.validateObjListArg(mc.polyUniteSkinned([mObj.mNode for mObj in ml_parts], ch=0))
                 mMesh = mMesh[0]
-            elif ml_mesh:
-                mMesh = ml_mesh[0]
+            elif ml_parts:
+                mMesh = ml_parts[0]
             if mMesh:
-                
                 mMesh.dagLock(False)
-                
-                #mMeshBase = mMeshBase[0]
-                #mMesh = mMeshBase.doDuplicate(po=False,ic=False)
                 mMesh.rename('{0}_unified_geo'.format(mPuppet.p_nameBase))
                 mMesh.p_parent = mParent
-                #cgmGEN.func_snapShot(vars())
-                
-                #now copy weights
-                #CORESKIN.transfer_fromTo(mMeshBase.mNode, [mMesh.mNode])
-                #mMeshBase.delete()
-                
-                ml_mesh = [mMesh]
-                #ml_mesh[0].p_parent = mGeoGroup
+                ml_mesh.append(mMesh)
                 mMesh.dagLock(True)
-                
-                """
-                log.debug("|{0}| >> skinning..".format(_str_func))
-                for mMesh in ml_mesh:
-                    log.debug("|{0}| >> skinning {1}".format(_str_func,mMesh))
-                    mMesh.p_parent = mGeoGroup
-                    skin = mc.skinCluster ([mJnt.mNode for mJnt in ml_moduleJoints],
-                                           mMesh.mNode,
-                                           tsb=True,
-                                           bm=0,
-                                           wd=0,
-                                           heatmapFalloff = 1.0,
-                                           maximumInfluences = 2,
-                                           normalizeWeights = 1, dropoffRate=10.0)
-                    skin = mc.rename(skin,'{0}_skinCluster'.format(mMesh.p_nameBase))        """
-        else:
-            if len(ml_mesh)>1:
-                ml_mesh = cgmMeta.validateObjListArg(mc.polyUnite([mObj.mNode for mObj in ml_mesh],ch=False))
+        elif ml_skinned:
+            if len(ml_skinned)>1:
+                _united = mc.polyUnite([mObj.mNode for mObj in ml_skinned], ch=False)[0]
+                _ml_united = cgmMeta.validateObjListArg(_united, 'cgmObject', setClass=True)
+                ml_mesh.extend(_ml_united)
+            else:
+                ml_mesh.extend(ml_skinned)
+
+        if ml_proxy and not _skinUnify:
+            if len(ml_proxy)>1:
+                _united = mc.polyUnite([mObj.mNode for mObj in ml_proxy], ch=False)[0]
+                _ml_united = cgmMeta.validateObjListArg(_united, 'cgmObject', setClass=True)
+                ml_mesh.extend(_ml_united)
+            else:
+                ml_mesh.extend(ml_proxy)
+        
         if ml_mesh:
             ml_mesh[0].rename('{0}_unified_geo'.format(mRoot.p_nameBase))
+    else:
+        ml_mesh = ml_skinned + ml_proxy
         
-    if skin or proxy and ml_mesh:
+    if _skinUnify or proxy and ml_mesh:
         mPuppet.msgList_connect('puppetMesh',ml_mesh)
         
     #for mGeo in ml_mesh:
@@ -9597,6 +9866,24 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
     _str_func = 'create_simpleMesh'
     log.debug("|{0}| >>  forceNew: {1} | skin: {2} ".format(_str_func,forceNew,skin)+ '-'*80)
     log.debug("{0}".format(self))
+
+    _proxy_cap = self.getEnumValueString('proxyGeoCap') if self.hasAttr('proxyGeoCap') else 'n/a'
+    log.info(cgmGEN.logString_sub(_str_func, 'start'))
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'block={0} type={1} profile={2} state={3} | connect={4} skin={5} forceNew={6} '
+        'deleteHistory={7} loftMode={8} | meshBuild={9} proxyGeoCap={10} (Block Mesh uses loft cap, not proxy pipeline)'.format(
+            self.p_nameShort,
+            self.blockType,
+            self.getEnumValueString('blockProfile') if self.hasAttr('blockProfile') else getattr(self, 'blockProfile', 'n/a'),
+            self.getState(asString=True) if hasattr(self, 'getState') else 'n/a',
+            connect,
+            skin,
+            forceNew,
+            deleteHistory,
+            loftMode,
+            self.getMayaAttr('meshBuild'),
+            _proxy_cap)))
     
     if self.getMayaAttr('isBlockFrame'):
         log.debug(cgmGEN.logString_sub(_str_func,'blockFrame bypass'))
@@ -9620,7 +9907,9 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
         mPuppet = puppet_get(self,mModuleTarget)
         if not mPuppet:
             return log.error("|{0}| >> Must have puppet for skining mode".format(_str_func))
-        mGeoGroup = mPuppet.masterNull.geoGroup
+        mGeoGroup = puppet_geoGroup_get(mPuppet)
+        if not mGeoGroup:
+            return log.error("|{0}| >> Must have geoGroup for skining mode".format(_str_func))
         mParent = mGeoGroup
         log.debug("|{0}| >> mPuppet: {1}".format(_str_func,mPuppet))
         log.debug("|{0}| >> mGeoGroup: {1}".format(_str_func,mGeoGroup))        
@@ -9628,7 +9917,10 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
             
     #BlockModule call? ====================================================================================
     mBlockModule = self.p_blockModule
+    ml_mesh = None
     if 'create_simpleMesh' in mBlockModule.__dict__:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'path=blockModule.create_simpleMesh | module={0}'.format(mBlockModule.__name__)))
         log.debug("|{0}| >> BlockModule 'create_simpleMesh' call found...".format(_str_func))            
         ml_mesh = mBlockModule.create_simpleMesh(self,skin=skin,parent=mParent,deleteHistory=deleteHistory)
     
@@ -9638,13 +9930,15 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
                 loftMode = 'evenCubic'
             else:
                 loftMode = 'evenLinear'
-            
-            
+
         kws = {}
         if self.blockType in ['limb']:
             if self.addLeverBase and self.getEnumValueString('addLeverBase') != 'joint' and skin:
                 kws['skip'] = [0]
-            
+
+        log.info(cgmGEN.logString_msg(
+            _str_func,
+            'path=create_simpleLoftMesh | loftMode={0} skip={1}'.format(loftMode, kws.get('skip'))))
         ml_mesh = create_simpleLoftMesh(self,form=2,degree=None,divisions=2,deleteHistory=deleteHistory,loftMode=loftMode,**kws)
     
         
@@ -9697,7 +9991,12 @@ def create_simpleMesh(self, forceNew = True, skin = False,connect=True,reverseNo
                 mJnt.p_parent = md_parents[mJnt]
             #pprint.pprint(md_parents)
     if connect and ml_mesh:
-        self.msgList_connect('simpleMesh',ml_mesh)        
+        self.msgList_connect('simpleMesh',ml_mesh)
+    if ml_mesh:
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'result={0}'.format([m.p_nameShort for m in cgmMeta.validateObjListArg(ml_mesh)])))
+    else:
+        log.info(cgmGEN.logString_msg(_str_func, 'result=none'))
     return ml_mesh
             
 
@@ -9723,6 +10022,8 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
 
     ml_delete = []
     ml_formHandles = self.msgList_get('formHandles')
+    log.info(cgmGEN.logString_sub(_str_func, 'start | block={0} type={1}'.format(
+        self.p_nameShort, self.blockType)))
     ml_loftCurves = []
     
     if degree == None:
@@ -9734,6 +10035,11 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     if uSplit == None:
         uSplit = self.loftSides
         
+    _b_loftCollapseCap = cap
+    if cap and self.blockType in _l_simpleLoftOpenCapBlockTypes:
+        # create_loftMesh collapse caps on multi-profile limb lofts add extra end geo.
+        _b_loftCollapseCap = False
+
     b_doPivot = True
     str_addPivot = self.getEnumValueString('addPivot')
     str_ikEnd = self.getEnumValueString('ikEnd')
@@ -9743,6 +10049,16 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
         b_doPivot = False
     elif str_ikEnd and str_ikEnd in ['ball']:
         b_doPivot = False
+    if _b_loftCollapseCap:
+        # Pivot foot/top loft sections at the end are separate geometry; synthetic
+        # create_loftMesh caps on the same span read as a double cap.
+        b_doPivot = False
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'loft plan | cap={0} create_loftMesh collapseCap={1} | degree={2} form={3} uSplit={4} vSplit={5} '
+        'loftMode={6} skip={7} b_doPivot={8} | formHandles={9}'.format(
+            cap, _b_loftCollapseCap, degree, form, uSplit, vSplit, loftMode, skip, b_doPivot,
+            len(ml_formHandles or []))))
 
     log.debug(cgmGEN.logString_sub(_str_func,"Gather loft curves"))
     for i,mHandle in enumerate(ml_formHandles):
@@ -9780,7 +10096,12 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
                 ml_delete.append(mShape2)                
             mChild.delete()"""
         ml_loftCurves.append(mBaseCrv)
-        
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'loft curves={0} | pivotHelper={1}'.format(
+            len(ml_loftCurves),
+            bool(ml_formHandles[-1].getMessage('pivotHelper') if ml_formHandles else False))))
+
     """
     if cap:
         log.debug(cgmGEN.logString_sub(_str_func,"cap"))        
@@ -9803,7 +10124,7 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
     
     _d = {'uSplit':uSplit,
           'vSplit':vSplit,
-          'cap' : cap,
+          'cap' : _b_loftCollapseCap,
           'form':form,
           'uniform':uniform,
           'deleteHistory':deleteHistory,
@@ -9849,8 +10170,13 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
 
     #pprint.pprint(vars())
     
+    log.info(cgmGEN.logString_msg(_str_func, 'create_loftMesh | curves={0} cap={1}'.format(
+        len(ml_loftCurves), _d.get('cap'))))
     _mesh = BUILDUTILS.create_loftMesh([mCrv.mNode for mCrv in ml_loftCurves],
                                       **_d)
+    
+    for s in TRANS.shapes_get(_mesh, True):
+        GEO.normalCheck(s)
     
     """
     if form in [1,2]:
@@ -9860,6 +10186,14 @@ def create_simpleLoftMesh(self, form = 2, degree=None, uSplit = None,vSplit=None
         
     
     _mesh = mc.rename(_mesh,'{0}_0_geo'.format(self.p_nameBase))
+
+    if cap and not _b_loftCollapseCap:
+        _b_end_cap = proxy_geo_cap_enabled(self) if self.hasAttr('proxyGeoCap') else True
+        if _b_end_cap:
+            proxy_mesh_cap_simple_loft_ends(
+                _mesh, ml_formHandles, skip, _str_func, label='block mesh openLoft')
+
+    log.info(cgmGEN.logString_msg(_str_func, 'result={0} | deleteHistory={1}'.format(_mesh, deleteHistory)))
     
     if deleteHistory:
         log.debug("|{0}| >> delete history...".format(_str_func))        
@@ -12057,7 +12391,15 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
     if self.getMayaAttr('isBlockFrame'):
         log.debug(cgmGEN.logString_sub(_str_func,'blockFrame bypass'))
         return            
-    
+
+    _b_proxyCap = proxy_geo_cap_enabled(self)
+    log.info(cgmGEN.logString_msg(
+        _str_func,
+        'proxyGeoCap={0} ({1}) | extendCastSurface={2} | extendToStart={3}'.format(
+            self.getEnumValueString('proxyGeoCap') if self.hasAttr('proxyGeoCap') else 'n/a',
+            _b_proxyCap,
+            extendCastSurface,
+            extendToStart)))
 
     mRigNull = self.moduleTarget.rigNull
     ml_shapes = []
@@ -12198,6 +12540,9 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
         l_sets.append(_l)
         log.debug("|{0}| >> uSet [{1}] : {2} ...".format(_str_func,i,_l))
 
+    _n_segments = len(l_sets)
+    log.info(cgmGEN.logString_msg(_str_func, 'segment count={0} | cap mode=polyCloseBorder (not loft collapse)'.format(_n_segments)))
+
     if extendToStart:
         _low = min(l_sets[0])
         l_add =[]
@@ -12334,7 +12679,8 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
                 #now loft new mesh...
                 _loftTargets = [end,mid2,mid1]#root
 
-                _mesh = BUILDUTILS.create_loftMesh(_loftTargets+_loftCurves, name="{0}_{1}".format('test',i), degree=1,divisions=1)
+                _mesh = BUILDUTILS.create_loftMesh(_loftTargets+_loftCurves, name="{0}_{1}".format('test',i),
+                                                   degree=1, divisions=1, cap=False)
 
                 log.debug("|{0}| >> mesh created...".format(_str_func))                            
                 #CORERIG.match_transform(_mesh,ml_targets[i])
@@ -12385,7 +12731,8 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
             else:
                 log.debug(cgmGEN.logString_msg(_str_func,'d2 <...'))
                 
-                _mesh = BUILDUTILS.create_loftMesh(_loftCurves, name="{0}_{1}".format('test',i), degree=_degree,divisions=1)
+                _mesh = BUILDUTILS.create_loftMesh(_loftCurves, name="{0}_{1}".format('test',i),
+                                                   degree=_degree, divisions=1, cap=False)
                 log.debug("|{0}| >> mesh created...".format(_str_func))                            
 
                 #TRANS.orient_set(_sphere[0], ml_targets[i].p_orient)
@@ -12428,7 +12775,7 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
 
         if not _mesh:
             _mesh = BUILDUTILS.create_loftMesh(_loftCurves, name="{0}_{1}".format('test',i),
-                                               degree=_degree,divisions=1)
+                                               degree=_degree, divisions=1, cap=False)
             log.debug("|{0}| >> mesh created...".format(_str_func))
             
             l_edges = []
@@ -12439,13 +12786,14 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
             try:mc.polySoftEdge(l_edges, a=0, ch=0)                
             except:pass
             
+        proxy_mesh_apply_segment_caps(
+            self, _mesh, _loftCurves, i, _n_segments, _b_proxyCap,
+            extendToStart, extendCastSurface, _str_func)
+
+        log.debug(_mesh)
+        CORERIG.match_transform(_mesh, ml_targets[i])
         for s in TRANS.shapes_get(_mesh):
             GEO.normalCheck(s)
-
-        #_mesh = mc.polyUnite([_mesh,_sphere[0]], ch=False )[0]
-        #mc.polyNormal(_mesh,setUserNormal = True)
-        log.debug(_mesh)
-        CORERIG.match_transform(_mesh,ml_targets[i])
         l_new.append(_mesh)
 
     #...clean up 
@@ -12454,6 +12802,10 @@ def mesh_proxyCreate(self, targets = None, aimVector = None, degree = 1,firstToS
 
     if str_start:
         mc.delete(str_start)
+
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'done | proxy pieces={0} | names={1}'.format(
+            len(l_new), [cgmMeta.asMeta(m).p_nameShort for m in l_new])))
     #>>Parent to the joints ----------------------------------------------------------------- 
     return l_new
     #except Exception,err:

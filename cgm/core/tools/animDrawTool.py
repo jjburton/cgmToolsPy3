@@ -32,7 +32,6 @@ from cgm.core import cgm_Meta as cgmMeta
 import cgm.core.lib.transform_utils as TRANS
 from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgm.core.lib.math_utils as MATH
-from cgm.lib import lists
 
 from cgm.core.tools import animDraw
 #from cgm.core.tools import dragger as DRAGGER

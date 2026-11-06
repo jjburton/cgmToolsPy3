@@ -60,15 +60,9 @@ import cgm.core.lib.skinDat as SKINDAT
 import cgm.core.tools.lib.tool_chunks as UICHUNKS
 import cgm.core.tools.lib.tool_calls as LOADTOOL
 import cgm.core.tools.snapTools as SNAPTOOLS
-from cgm.lib.ml import (ml_breakdownDragger,
-                        ml_resetChannels,
-                        ml_deleteKey,
-                        ml_setKey,
-                        ml_hold,
-                        ml_stopwatch,
-                        ml_arcTracer,
-                        ml_convertRotationOrder,
-                        ml_copyAnim)
+from cgm.core.lib.ml_tools import (ml_hold,
+                                   ml_arcTracer,
+                                   ml_copyAnim)
 
 __version__ = cgmGEN.__RELEASESTRING
 
@@ -409,15 +403,13 @@ class ui(cgmUI.cgmGUI):
         uiTab_td = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')
         uiTab_anim = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')        
         uiTab_options = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
-        uiTab_legacy = mUI.MelFormLayout(ui_tabs,ut='cgmUITemplate')       
 
-        for i,tab in enumerate(['TD','Anim','Settings','Legacy']):
+        for i,tab in enumerate(['TD','Anim','Settings']):
             ui_tabs.setLabel(i,tab)
 
         buildTab_td(self,uiTab_td)
         buildTab_anim(self,uiTab_anim)
         buildTab_options(self,uiTab_options)
-        buildTab_legacy(self,uiTab_legacy)
 
         #self.buildTab_create(uiTab_create)
         #self.buildTab_update(uiTab_update)
@@ -806,6 +798,21 @@ def buildSection_rigging(self,parent):
               ut = 'cgmUITemplate',                                        
               l = 'CrvLin',
               c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.create_at, None,'all','Create Curve',**{'create':'curveLinear'}))                          
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'Bezier',
+              ann='Create Maya Bezier curve from selection (segment count prompt)',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_createBezierCurve))
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'BzrTrk',
+              ann='Bezier track — spans from target count; CV clusters to selection',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_createBezierTrackCurve))
+    mc.button(parent=_row_create,
+              ut = 'cgmUITemplate',
+              l = 'BzrCtl',
+              ann='CV controls on bezierIKCurve after IK.bezier_spline',
+              c = cgmGEN.Callback(UICHUNKS.uiFunc_addBezierControls))
 
     mUI.MelSpacer(_row_create,w=5)                                              
     _row_create.layout()  
@@ -877,6 +884,35 @@ def buildSection_rigging(self,parent):
 
     mUI.MelSpacer(_row_group,w=5)                                              
     _row_group.layout()      
+
+    _row_dagFlags = mUI.MelHSingleStretchLayout(_inside,ut='cgmUISubTemplate',padding = 5)
+    mUI.MelSpacer(_row_dagFlags,w=5)
+    mUI.MelLabel(_row_dagFlags,l='Flags:')
+    _row_dagFlags.setStretchWidget(mUI.MelSeparator(_row_dagFlags))
+
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'dagLock',
+              ann = 'Lock standard transform attrs (tx–sz, v) on selection',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagLock',True,**{'state':True}))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'dagUnlock',
+              ann = 'Unlock standard transform attrs on selection',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.dag_lock, None,'each','dagUnlock',True,**{'state':False}))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'Hide Std',
+              ann = 'Lock and hide standard transform attrs (setAttrFlags defaults)',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_hide, None,'each','Hide Std Attrs',True))
+    mc.button(parent=_row_dagFlags,
+              ut = 'cgmUITemplate',
+              l = 'Unhide Std',
+              ann = 'Unlock and unhide standard transform attrs in the channel box',
+              c = cgmGEN.Callback(MMCONTEXT.func_process, RIGGING.standard_attrs_unhide, None,'each','Unhide Std Attrs',True))
+
+    mUI.MelSpacer(_row_dagFlags,w=5)
+    _row_dagFlags.layout()
 
     
     #>>>Attr -------------------------------------------------------------------------------------
@@ -950,8 +986,19 @@ def buildSection_rigging(self,parent):
               l = '*Hide x',
               ann = "Hide the joint axis by current context",                                        
               c= lambda *a:MMCONTEXT.set_attrs(self,'displayLocalAxis',0,self.var_contextTD.value,'joint',select=False),
-              )     
-
+              )
+    mc.button(parent=_row_joints,
+              ut = 'cgmUITemplate',
+              l = '*SSC On',
+              ann = "Enable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',1,self.var_contextTD.value,'joint',select=False),
+              )
+    mc.button(parent=_row_joints,
+              ut = 'cgmUITemplate',
+              l = '*SSC Off',
+              ann = "Disable segment scale compensate by current context",
+              c= lambda *a:MMCONTEXT.set_attrs(self,'segmentScaleCompensate',0,self.var_contextTD.value,'joint',select=False),
+              )
 
     mc.button(parent = _row_joints,
               ut = 'cgmUITemplate',                                                                                                
@@ -1539,6 +1586,11 @@ def buildTab_anim(self,parent):
               l='cgmMocapBakeTool',
               ann = "Launch cgmMocapBakeTool -A tool for retargeting and baking control transforms from an animated source",
               c=lambda *a: MOCAPBAKE.ui())
+    mc.button(parent = _column,
+              ut = 'cgmUITemplate',
+              l='cgmAnimClip',
+              ann = "Launch cgmAnimClip - animation clip Dat",
+              c=lambda *a: LOADTOOL.ANIMCLIPDATui())
     
     mc.button(parent = _column,
               ut = 'cgmUITemplate',                                                                                                
@@ -1577,43 +1629,6 @@ def buildTab_anim(self,parent):
               l='red9.Studio Tools',
               ann = "Launch Red 9's tools",
               c=lambda *a:Red9.start())           
-
-
-def buildTab_legacy(self,parent):
-    _column = mUI.MelScrollLayout(parent,useTemplate = 'cgmUITemplate') 
-    parent(edit = True,
-           af = [(_column,"top",0),
-                 (_column,"left",0),
-                 (_column,"right",0),                        
-                 (_column,"bottom",0)])    
-
-    #>>>Shape Creation ====================================================================================
-    mc.setParent(_column)
-
-    cgmUI.add_Button(_column,
-                     'AnimTools',
-                     lambda a:LOADTOOL.animToolsLEGACY(),
-                     "Old simple anim tool holder")
-
-    cgmUI.add_Button(_column,
-                     'SetTools 1.0',
-                     lambda a:LOADTOOL.setToolsLEGACY(),
-                     "Old object set tool window. Crashy. Use with caution")        
-
-    cgmUI.add_Button(_column,
-                     'Locinator 1.0',
-                     lambda a:LOADTOOL.locinatorLEGACY(),
-                     "Original Tool for creating, updating, locators")
-
-    cgmUI.add_Button(_column,
-                     'tdTools 1.0',
-                     lambda a:LOADTOOL.tdToolsLEGACY(),
-                     "Series of tools for general purpose TD work - curves, naming, position, deformers") 
-
-    cgmUI.add_Button(_column,
-                     'attrTools 1.0',
-                     lambda a:LOADTOOL.attrToolsLEGACY(),
-                     "Old attribute tools")
 
 
 def buildTab_options(self,parent):

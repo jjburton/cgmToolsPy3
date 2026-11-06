@@ -36,16 +36,34 @@ from cgm.core.cgmPy import path_Utils as CGMPATH
 import cgmUpdate
 #reload(cgmUpdate)
 
+def _bind_branch_var(self):
+    _default = cgmUpdate._defaultBranch
+    try:
+        self.var_branchMode
+    except:
+        self.var_branchMode = cgmMeta.cgmOptionVar('cgmVar_branchUpdateMode', defaultValue=_default)
+    _val = self.var_branchMode.getValue()
+    if cgmUpdate.branch_is_foreign(_val) or _val not in cgmUpdate._l_branches:
+        log.warning("{0} stored branch [{1}] is not valid here. Using [{2}].".format(
+            cgmUpdate.get_pyString(), _val, _default))
+        self.var_branchMode.setValue(_default)
+
+def _reject_foreign_last_branch(branch, str_func):
+    if not cgmUpdate.branch_is_foreign(branch):
+        return False
+    log.error("|{0}| {1} last update was [{2}] — not fetching the other repo.".format(
+        str_func, cgmUpdate.get_pyString(), branch))
+    return True
+
 #>>> Root settings =============================================================
 __version__ = cgmGEN.__RELEASESTRING
 __toolname__ ='cgmUpdate'
 _commit_limit = 12
-_l_branches = ['MRSDAILY','MRSDEV','stable','master','MRS','MRSWORKSHOP','MRSWORKSHOPDEV']
 
 class ui(cgmUI.cgmGUI):
     USE_Template = 'cgmUITemplate'
     WINDOW_NAME = '{0}_ui'.format(__toolname__)    
-    WINDOW_TITLE = '{1} - {0}'.format(__version__,__toolname__)
+    WINDOW_TITLE = '{0} {1} - {2}'.format(__toolname__, cgmUpdate.get_pyString(), __version__)
     DEFAULT_MENU = None
     RETAIN = True
     MIN_BUTTON = True
@@ -141,7 +159,9 @@ class ui(cgmUI.cgmGUI):
             return log.error("No last update found. Can't check for updates")
         
         try:_lastBranch = _lastUpdate[0]
-        except:_lastBranch = 'MRS'
+        except:_lastBranch = cgmUpdate._defaultBranch
+        if _reject_foreign_last_branch(_lastBranch, _str_func):
+            return
         
         try:_lastHash = _lastUpdate[1]
         except:_lastHash = None
@@ -152,6 +172,8 @@ class ui(cgmUI.cgmGUI):
         
         #Get our dat from the server
         _d_serverDat = cgmUpdate.get_dat(_lastBranch,1,True)
+        if not _d_serverDat:
+            return log.error("Could not fetch update data for [{0}]".format(_lastBranch))
         _targetHash = _d_serverDat[0].get('hash')
         _targetMsg = _d_serverDat[0].get('msg')
         _targetDate = _d_serverDat[0].get('date')
@@ -287,11 +309,15 @@ class ui(cgmUI.cgmGUI):
         _sidePadding = 25
         _parent = self.uiScroll_commits
         _branch = self.var_branchMode.value
-        _dat = cgmUpdate.get_dat(_branch,_commit_limit,True)
+        _dat = cgmUpdate.get_dat(_branch,_commit_limit,True) or []
         
         uiRC = mUI.MelRadioCollection()
         self.uiRC_commits = uiRC
         self.dat_commits = _dat
+        
+        if not _dat:
+            cgmUI.mUI.MelLabel(_parent, l='Could not fetch commits. Check network / GitHub.')
+            return
         
         for i,d in enumerate(_dat):
             _hash = d['hash']
@@ -347,13 +373,14 @@ def buildRow_branches(self,parent):
     except:self.var_matchMode = cgmMeta.cgmOptionVar('cgmVar_matchMode', defaultValue = 2)
     """
     try:self.var_branchMode
-    except:self.var_branchMode = cgmMeta.cgmOptionVar('cgmVar_branchUpdateMode', defaultValue = 'master')
+    except:self.var_branchMode = cgmMeta.cgmOptionVar('cgmVar_branchUpdateMode', defaultValue = cgmUpdate._defaultBranch)
+    _bind_branch_var(self)
     
     #>>>Branch -------------------------------------------------------------------------------------
     _row = mUI.MelHSingleStretchLayout(parent,ut='cgmUISubTemplate',padding = 5)
 
     mUI.MelSpacer(_row,w=5)
-    mUI.MelLabel(_row,l='Choose which branch you want to use:')
+    mUI.MelLabel(_row,l='{0} branch:'.format(cgmUpdate.get_pyString()))
     
     #>>>Settings -------------------------------------------------------------------------------------
     
@@ -361,7 +388,7 @@ def buildRow_branches(self,parent):
     #cc = Callback(puppetBoxLib.uiModuleOptionMenuSet,self,self.moduleDirectionMenus,self.moduleDirections,'cgmDirection',i)
     self.uiSelector_branch = mUI.MelOptionMenu(_row,useTemplate = 'cgmUITemplate')
     
-    for a in _l_branches:
+    for a in cgmUpdate._l_branches:
         self.uiSelector_branch.append(a)
       
     
@@ -377,13 +404,19 @@ def buildRow_branches(self,parent):
 
     _row.layout()
 
-def uiFunc_setLastUpdateDebug(branch = 'MRS',clear=False):
+def uiFunc_setLastUpdateDebug(branch = None,clear=False):
     var_lastUpdate = cgmMeta.cgmOptionVar('cgmVar_branchLastUpdate', defaultValue = ['None'])
     if clear:
         var_lastUpdate.setValue(['None'])
         var_lastUpdate.report()
         return
+    if branch is None:
+        branch = cgmUpdate._defaultBranch
+    if _reject_foreign_last_branch(branch, 'uiFunc_setLastUpdateDebug'):
+        return
     d_branch = cgmUpdate.get_dat(branch,1,True)
+    if not d_branch:
+        return log.error("Could not fetch data for [{0}]".format(branch))
     var_lastUpdate.setValue([branch,
                              d_branch[0]['hash'],
                              d_branch[0]['msg'],
@@ -449,6 +482,8 @@ def checkBranch():
         return log.error("Not returning list. Problem with data")
     
     _lastBranch = _lastUpdate[0]
+    if _reject_foreign_last_branch(_lastBranch, _str_func):
+        return
     
     try:_lastHash = _lastUpdate[1]
     except:_lastHash = None
@@ -459,6 +494,8 @@ def checkBranch():
     
     #Get our dat from the server
     _d_serverDat = cgmUpdate.get_dat(_lastBranch,1,True)
+    if not _d_serverDat:
+        return log.error("Could not fetch update data for [{0}]".format(_lastBranch))
     _targetHash = _d_serverDat[0].get('hash')
     _targetMsg = _d_serverDat[0].get('msg')
     _targetDate = _d_serverDat[0].get('date')

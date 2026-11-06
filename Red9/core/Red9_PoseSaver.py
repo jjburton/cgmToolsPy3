@@ -85,7 +85,7 @@ def store_nodepose_to_clipboard(nodes=[], clipboard=True, verbose=True):
     _data_map._buildBlock_poseDict(nodes)
     structured = {'poseDict': _data_map.poseDict, 'infoDict':_data_map.infoDict}
     if clipboard:
-        import pyperclip
+        import Red9.packages.pyperclip as pyperclip
         pyperclip.copy(json.dumps(structured))
         if verbose:
             cmds.inViewMessage(amg='Attribute Data stored to Clipboard for %i Objects' % len(nodes),
@@ -116,7 +116,7 @@ def apply_nodepose_from_clipboad(nodes=None, cb_selection=True, world_space=Fals
     if cb_selection:
         attrs = r9Anim.getChannelBoxSelection(longNames=True) or []
 
-    import pyperclip
+    import Red9.packages.pyperclip as pyperclip
     datamap = pyperclip.paste()
     if type(datamap) == str:
         try:

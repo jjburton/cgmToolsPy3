@@ -29,18 +29,6 @@ import cgm.core.lib.rigging_utils as CORERIG
 #from cgm.core.rigger.lib import rig_Utils as rUtils
 from cgm.core.lib import attribute_utils as ATTR
 #from cgm.core.lib import transform_utils as TRANS
-from cgm.lib import (#lists,
-                     #search,
-                     attributes,
-                     #distance,
-                     #constraints,
-                     #dictionary,
-                     #rigging,
-                     #settings,
-                     #guiFactory,
-                     #locators
-                     )
-
 
 #=========================================================================
 import logging
@@ -72,7 +60,8 @@ class cgmDynamicSwitch(cgmMeta.cgmObject):
 
         if dynOwner is not None:
             if mc.objExists(dynOwner):
-                node = attributes.returnMessageObject(dynOwner, str_dynSwitchDriverPlug) or None
+                _buf = ATTR.get_message(dynOwner, str_dynSwitchDriverPlug, simple=True)
+                node = _buf[0] if _buf else None
                 #log.debug("pBuffer: %s"%pBuffer)
                 #if pBuffer:
                     #node = pBuffer[0]
@@ -548,9 +537,9 @@ class cgmDynamicMatch(cgmMeta.cgmObject):
         d_attrBuffers = {}
         for a in self.l_dynAttrs:
             if i_object.hasAttr(a):#we probably need to index these to the previous settings in case order changes
-                d_attrBuffers[a] = attributes.doGetAttr(i_object.mNode,a)
+                d_attrBuffers[a] = ATTR.get(i_object.mNode,a)
             if a not in d_DynMatchTargetNullModeAttrs[self.dynMode]:
-                attributes.doDeleteAttr(i_object.mNode,a)
+                ATTR.delete(i_object.mNode,a)
         if d_attrBuffers:log.debug("d_attrBuffers: %s"%d_attrBuffers)
 
         l_parentShortNames = [cgmMeta.cgmNode(o).getNameAlias() for o in self.msgList_get('dynMatchTargets',asMeta=False)]
@@ -1262,9 +1251,9 @@ class cgmDynamicMatch(cgmMeta.cgmObject):
         if i_object:
             for a in self.l_dynAttrs:
                 if i_object.hasAttr(a):
-                    attributes.doDeleteAttr(i_object.mNode,a)
+                    ATTR.delete(i_object.mNode,a)
             if i_object.hasAttr('dynMatchTargetNull'):
-                attributes.doDeleteAttr(i_object.mNode,'dynMatchTargetNull')
+                ATTR.delete(i_object.mNode,'dynMatchTargetNull')
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
 # cgmDynParentGroup
@@ -1907,9 +1896,9 @@ class cgmDynParentGroup(cgmMeta.cgmObject):
         if mChild:
             for a in self.l_dynAttrs:
                 if mChild.hasAttr(a):
-                    attributes.doDeleteAttr(mChild.mNode,a)
+                    ATTR.delete(mChild.mNode,a)
             if mChild.hasAttr('dynParentGroup'):
-                attributes.doDeleteAttr(mChild.mNode,'dynParentGroup')
+                ATTR.delete(mChild.mNode,'dynParentGroup')
             mChild.parent = _parent
             
         self.delete()

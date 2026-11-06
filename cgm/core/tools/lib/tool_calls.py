@@ -54,8 +54,7 @@ def mrsBlockEditor():
     
 def mrsBlockCreate():
     import cgm.core.mrs.Builder as MRSBUILDER
-    cgmGEN._reloadMod(MRSBUILDER)
-    MRSBUILDER.ui_createBlock()
+    MRSBUILDER.blockCreate_open()
     
 def mrsBlockPicker():
     import cgm.core.mrs.Builder as MRSBUILDER
@@ -70,6 +69,23 @@ def mrsPOSER():
     import cgm.core.mrs.PoseManager as MRSPOSER
     cgmGEN._reloadMod(MRSPOSER)
     MRSPOSER.ui()
+
+def mrsANIMCLIP():
+    try:
+        from cgm.core import cgm_Dat as CGMDAT
+        import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
+        import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+        import cgm.core.mrs.lib.animate_utils as MRSANIMUTILS
+        import cgm.core.mrs.mrsAnimClip as MRSANIMCLIP
+        cgmGEN._reloadMod(CGMDAT)
+        cgmGEN._reloadMod(MRSANIMUTILS)
+        cgmGEN._reloadMod(ANIMCLIPCURVE)
+        cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
+        cgmGEN._reloadMod(MRSANIMCLIP)
+        MRSANIMCLIP.ui()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
     
 def cgmSnapTools():
     try:
@@ -92,7 +108,9 @@ def mocapBakeTool():
         
 def cgmUpdateTool():
     try:
+        import cgmUpdate
         import cgm.core.tools.updateTool as CGMUPDATE
+        cgmGEN._reloadMod(cgmUpdate)
         cgmGEN._reloadMod(CGMUPDATE)
         CGMUPDATE.ui()
     except Exception as err:
@@ -164,6 +182,19 @@ def SHAPEDATui():
     import cgm.core.mrs.MRSDat as MRSDAT
     cgmGEN._reloadMod(MRSDAT)
     MRSDAT.uiShapeDat()
+
+def ANIMCLIPDATui():
+    try:
+        from cgm.core import cgm_Dat as CGMDAT
+        import cgm.core.lib.animClip_curve as ANIMCLIPCURVE
+        import cgm.core.lib.animClip_dat as ANIMCLIPDAT
+        cgmGEN._reloadMod(CGMDAT)
+        cgmGEN._reloadMod(ANIMCLIPCURVE)
+        cgmGEN._reloadMod(ANIMCLIPDAT)
+        ANIMCLIPDAT.reload_dependencies()
+        ANIMCLIPDAT.ui()
+    except Exception as err:
+        cgmGEN.cgmExceptCB(Exception, err)
     
 def mrsShots():
     try:
@@ -267,14 +298,24 @@ def rotateOrderChangeAnimation(*a):
 
     #except Exception,err:
     #    log.warning("[mrsScene] failed to load. | {0}".format(err))
-def cgmSimChain():
+def cgmDynSimTool():
     try:
         from cgm.core.tools import dynFKTool
         dynFKTool.reload_dependencies()
         cgmGEN._reloadMod(dynFKTool)
         dynFKTool.ui()
     except Exception as err:
-        cgmGEN.cgmException(Exception,err)
+        cgmGEN.cgmException(Exception, err)
+
+
+def cgmSimChain():
+    """Legacy shelf/menu alias for :func:`cgmDynSimTool`."""
+    cgmDynSimTool()
+
+
+def cgmDynamicsTool():
+    """Legacy alias for :func:`cgmDynSimTool`."""
+    cgmDynSimTool()
 
 
 def cgmP4Tool():
@@ -311,16 +352,6 @@ def cgmProject():
     #    log.warning("[cgmProject] failed to load. | {0}".format(err))
     #    raise Exception,err
 
-def loadPuppetBox( *a ):
-    from cgm.tools import puppetBox
-    cgmGEN._reloadMod(puppetBox)
-    cgmPuppetBoxWin = puppetBox.run()
-
-def loadPuppetBox2( *a ):
-    from cgm.tools import puppetBox2
-    cgmGEN._reloadMod(puppetBox2)
-    cgmPuppetBoxWin = puppetBox2.run()	
-
 def loadCGMSimpleGUI( *a ):
     try:
         
@@ -342,48 +373,3 @@ def testMorpheus( *a ):
     cgmGEN._reloadMod(testCGM)
     testCGM.MorpheusBase_Test()
 
-
-#Zoo stuff =====================================================================
-def loadZooToolbox( *a ):
-    import zooToolbox
-    zooToolbox.ToolboxWindow()
-
-def loadSkinPropagation( *a ):
-    from cgm.lib.zoo.zooPyMaya import refPropagation
-    refPropagation.propagateWeightChangesToModel_confirm()
-
-def loadXferAnim( *a ):
-    from cgm.lib.zoo.zooPyMaya import xferAnimUI
-    xferAnimUI.XferAnimWindow()
-    
-    
-
-#>>Legacy Tools =======================================================================================
-def attrToolsLEGACY( *a ):
-    from cgm.tools import attrTools as attrTools1
-    cgmGEN._reloadMod(attrTools1)
-    cgmAttrToolsWin = attrTools1.run()
-    
-def animToolsLEGACY( *a ):
-    from cgm.tools import animTools
-    cgmGEN._reloadMod(animTools)
-    cgmAnimToolsWin = animTools.run()
-
-def setToolsLEGACY( *a ):
-    from cgm.tools import setTools
-    cgmGEN._reloadMod(setTools)
-    cgmSetToolsWin = setTools.run()	
-    
-    
-def locinatorLEGACY( *a ):
-    from cgm.tools import locinator
-    cgmGEN._reloadMod(locinator)
-    locinator.run()
-    
-def tdToolsLEGACY( *a ):
-    import maya.cmds as mc
-    import maya.mel as mel
-    mel.eval('python("import maya.cmds as mc;")')
-    from cgm.tools import tdTools
-    cgmGEN._reloadMod(tdTools)
-    tdTools.run()

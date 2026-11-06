@@ -36,7 +36,26 @@ from cgm.core.lib import transform_utils as TRANS
 import cgm.core.lib.name_utils as NAMES
 
 
-from cgm.lib.zoo.zooPyMaya import skinWeights
+def _transfer_skinning(source, target):
+    """
+    Copy closest-point skin weights source → target.
+    Owns the old zooPyMaya.skinWeights.transferSkinning path (unmaintained).
+    """
+    source_skin = get_cluster(source)
+    if not source_skin:
+        raise ValueError("Cannot find a skin cluster on {0}".format(source))
+
+    target_skin = get_cluster(target)
+    if not target_skin:
+        influences = mc.skinCluster(source_skin, q=True, inf=True)
+        target_skin = mc.skinCluster(target, influences, toSelectedBones=True)[0]
+
+    mc.copySkinWeights(sourceSkin=source_skin,
+                       destinationSkin=target_skin,
+                       noMirror=True,
+                       surfaceAssociation='closestPoint',
+                       smooth=True)
+    return target_skin
 
 
 def transfer_fromTo(source = None, targets = None):
@@ -71,7 +90,7 @@ def transfer_fromTo(source = None, targets = None):
 
     for obj in targets:
         try:
-            skinWeights.transferSkinning( source, obj )
+            _transfer_skinning(source, obj)
         except Exception as err:
             log.error("|{0}| >> Target failure: {1} |  {2}".format(_str_func,obj,err))
 
@@ -97,3 +116,10 @@ def get_influences_fromCluster(skinCluster):
 
 def get_influences_fromMatrix(skinCluster):
     return mc.listConnections(skinCluster+'.matrix') or []
+
+def get_cluster(obj):
+    """First skinCluster in object history (Maya findRelatedSkinCluster). Empty string if none."""
+    if not obj or not mc.objExists(obj):
+        return ''
+    found = mc.ls(mc.listHistory(obj, pruneDagObjects=True) or [], type='skinCluster')
+    return found[0] if found else ''

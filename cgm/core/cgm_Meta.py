@@ -45,17 +45,8 @@ from cgm.core.lib import search_utils as SEARCH
 from cgm.core.lib import constraint_utils as CONSTRAINT
 import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.lib.list_utils as CORELISTS
-
-from cgm.lib.ml import ml_resetChannels
-from cgm.lib import lists
-from cgm.lib import search
-from cgm.lib import attributes
+from cgm.core.lib import shared_data as SHARED
 from cgm.core.lib import attribute_utils as ATTR
-from cgm.lib import constraints
-from cgm.lib import dictionary
-from cgm.lib import rigging
-from cgm.lib import locators
-from cgm.lib import names
 
 """from cgm.lib import (lists,
                      curves,
@@ -80,6 +71,13 @@ drawingOverrideAttrsDict = {'overrideEnabled':0,
                             'overrideVisibility':1}
 l_componentTypes = ['polyVertex','curveCV','surfaceCV','polyEdge','editPoint','isoparm','polyFace','polyUV','curvePoint','surfacePatch','nurbsUV']
 l_cgmNameTags = ['cgmName','cgmNameModifier','cgmPosition','cgmDirection','cgmDirectionModifier','cgmIterator','cgmType','cgmTypeModifier']
+
+def _hierarchyQueryFullPath(asMeta, fullPath):
+    """listRelatives long names when wrapping results as meta (unambiguous resolve)."""
+    if asMeta:
+        return True
+    return fullPath
+
 #KWS ================================================================================================================
 _d_KWARG_asMeta = {'kw':'asMeta',"default":True, 'help':"Whether to return as meta or not", "argType":"bool"}
 _d_KWARG_attr = {'kw':'attr',"default":None, 'help':"Attribute name to look for", "argType":"string"}
@@ -93,7 +91,8 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 #=========================================================================
-from cgm.lib.classes import NameFactory as Old_Name#   TMP<<<<<<<<<<<<<<<<<<<<<<<<
+# NameFactory leftover (factory wave): unused; do not re-add until Old_Name callers exist.
+# from cgm.lib.classes import NameFactory as Old_Name
 
 #namesDictionaryFile = cgmLIB.settings.getNamesDictionaryFile()
 #typesDictionaryFile = cgmLIB.settings.getTypesDictionaryFile()
@@ -576,7 +575,7 @@ class cgmNode(r9Meta.MetaClass):
             _str_nameCandidate =  nameTools.returnCombinedNameFromDict(d_updatedNamesDict)
             mc.rename(self.mNode, _str_nameCandidate	)
             if nameChildren:
-                for mObj in validateObjListArg(TRANS.descendents_get(self.mNode)):
+                for mObj in validateObjListArg(TRANS.descendents_get(self.mNode, fullPath=True)):
                     mObj.doName()
                     
         else:
@@ -651,7 +650,7 @@ class cgmNode(r9Meta.MetaClass):
     #>>> Transforms...
     #========================================================================================================
     def getParent(self,asMeta = False):
-        buffer = TRANS.parent_get(self)
+        buffer = TRANS.parent_get(self, _hierarchyQueryFullPath(asMeta, True))
         if buffer and asMeta:
             return validateObjArg(buffer,mType = cgmObject)
         return buffer
@@ -660,7 +659,7 @@ class cgmNode(r9Meta.MetaClass):
     parent = p_parent
     
     def getSiblings(self,asMeta = False):
-        _res = TRANS.siblings_get(self)
+        _res = TRANS.siblings_get(self, _hierarchyQueryFullPath(asMeta, True))
         if _res and asMeta:
             return validateObjListArg(_res,'cgmNode')
         return _res     
@@ -1275,7 +1274,10 @@ class cgmNode(r9Meta.MetaClass):
          
         buffer = False
         if self.isComponent():
-            buffer =  locators.locMeObject(self.getComponent(),forceBBCenter = forceBBCenter)
+            _src = self.getComponent()
+            buffer = cgmObject(mc.spaceLocator()[0])
+            objTrans = POS.get(_src, 'bb' if forceBBCenter else 'rp')
+            mc.move(objTrans[0], objTrans[1], objTrans[2], buffer.mNode)
             #log.info("{0}>> component loc: {1}".format(_str_func, "%0.3f seconds"%(time.time() - t1)))
             #t1 = time.time()	            
         else:
@@ -1433,7 +1435,7 @@ class cgmObject(cgmNode):
     #>>> Heirarchy ...
     #========================================================================================================  
     def getParent(self,asMeta = False,fullPath = True):
-        _res = TRANS.parent_get(self,fullPath)
+        _res = TRANS.parent_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjArg(_res,'cgmObject')
         return _res
@@ -1477,7 +1479,7 @@ class cgmObject(cgmNode):
                 raise Exception(error)
             raise Exception("Failed to parent")
         else:#If not, do so to world
-            rigging.doParentToWorld(self.mNode)
+            TRANS.parent_set(self.mNode, False)
             return True
 
     parent = property(getParent, doParent)
@@ -1495,7 +1497,7 @@ class cgmObject(cgmNode):
         :returns
             parents(list)
         """ 
-        _res = TRANS.parents_get(self,fullPath)
+        _res = TRANS.parents_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1512,7 +1514,7 @@ class cgmObject(cgmNode):
         :returns
             siblings(list)
         """         
-        _res = TRANS.siblings_get(self, fullPath)
+        _res = TRANS.siblings_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1529,7 +1531,7 @@ class cgmObject(cgmNode):
         :returns
             children(list)
         """         
-        _res = TRANS.descendents_get(self, fullPath,type)
+        _res = TRANS.descendents_get(self, _hierarchyQueryFullPath(asMeta, fullPath), type)
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res 
@@ -1547,7 +1549,7 @@ class cgmObject(cgmNode):
         :returns
             children(list)
         """         
-        _res = TRANS.children_get(self, fullPath, type)
+        _res = TRANS.children_get(self, _hierarchyQueryFullPath(asMeta, fullPath), type)
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res  
@@ -1564,7 +1566,7 @@ class cgmObject(cgmNode):
         :returns
             parents(list)
         """         
-        _res = TRANS.shapes_get(self, fullPath)
+        _res = TRANS.shapes_get(self, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res
@@ -1581,7 +1583,7 @@ class cgmObject(cgmNode):
         :returns
             listPath(list)
         """         
-        _res = TRANS.get_listPathTo(self, target, fullPath)
+        _res = TRANS.get_listPathTo(self, target, _hierarchyQueryFullPath(asMeta, fullPath))
         if _res and asMeta:
             return validateObjListArg(_res)
         return _res   
@@ -2163,9 +2165,9 @@ class cgmControl(cgmObject):
 
             l_enums = mc.attributeQuery('axisAim', node=self.mNode, listEnum=True)[0].split(':')
 
-            aimVector = dictionary.stringToVectorDict.get("%s"%l_enums[self.axisAim])
-            upVector = dictionary.stringToVectorDict.get("%s"%l_enums[self.axisUp])
-            outVector = dictionary.stringToVectorDict.get("%s"%l_enums[self.axisOut])
+            aimVector = SHARED._d_axis_string_to_vector.get("%s"%l_enums[self.axisAim])
+            upVector = SHARED._d_axis_string_to_vector.get("%s"%l_enums[self.axisUp])
+            outVector = SHARED._d_axis_string_to_vector.get("%s"%l_enums[self.axisOut])
 
             #log.debug("aimVector: %s"%aimVector)
             #log.debug("upVector: %s"%upVector)
@@ -2618,7 +2620,7 @@ class cgmObjectSet(cgmNode):
         #log.info("|{0}| >> Appended to objectSet: {1} | data: {2}".format(_str_func,self.p_nameShort,info))   
         log.warning("|{0}| >> New objectSet : {1} | from: {2}".format(_str_func, buffer, self.p_nameShort))   
 
-        for attr in dictionary.cgmNameTags:
+        for attr in l_cgmNameTags:
             if mc.objExists("%s.%s"%(self.mNode,attr)):
                 ATTR.copy_to(self.mNode,attr,buffer)
                 
@@ -3220,7 +3222,7 @@ class cgmBufferNode(cgmNode):
         if self.messageOverride:
             cgmAttr(self.mNode,('item_'+str(cnt)),value = info,lock=True)	    
         else:
-            attributes.storeInfo(self.mNode,('item_'+str(cnt)),info)	    
+            ATTR.set_message(self.mNode,('item_'+str(cnt)),info, simple=True) 
 
         #attributes.storeInfo(self.mNode,('item_'+str(cnt)),info,overideMessageCheck = self.messageOverride)
         self.updateData()
@@ -5163,7 +5165,8 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
             raise ValueError("Invalid arg({0}). noneValid = False".format(arg))
     else:
         if arg in [None,False]:
-            if arg not in [None,False]:log.warning("%s arg fail: %s"%(__str_reportStart,arg))
+            if arg not in [None,False]:
+                log.warning("|{0}| >> arg fail: {1}".format(_str_func, arg))
             return False
     try:
         arg.mNode
@@ -5172,7 +5175,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
         log.debug("instance already...")		
     except:
         log.debug("not an instance arg...")
-        try:_arg = names.getLongName(arg)
+        try:_arg = NAMES.get_long(arg)
         except Exception as err:
             if noneValid:return False
             raise err 
@@ -5181,7 +5184,7 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
         else:
             raise ValueError("'{0}' is not a valid arg. Validated to {1}".format(arg,_arg))
 
-    _argShort = names.getShortName(_arg)
+    _argShort = NAMES.get_short(_arg)
 
     log.debug("Checking: '{0} | mType: {1}'".format(_arg,mType))
     mTypeClass = _r9ClassRegistry.get(mType)
@@ -5195,7 +5198,9 @@ def validateObjArg(arg = None, mType = None, noneValid = False,
         str_type = VALID.get_mayaType(_arg)
         if str_type not in l_mayaTypes:
             if noneValid:
-                log.warning("%s '%s' mayaType: '%s' not in: '%s'"%(__str_reportStart,_argShort,str_type,l_mayaTypes))
+                log.warning(
+                    "|{0}| >> '{1}' mayaType: '{2}' not in: '{3}'".format(
+                        _str_func, _argShort, str_type, l_mayaTypes))
                 return False
             raise Exception("'%s' mayaType: '%s' not in: '%s'"%(_argShort,str_type,l_mayaTypes))			    	
         t2 = time.time()
@@ -5478,7 +5483,7 @@ def validateObjArgOLD(*args,**kws):
                 self.log_debug("instance already...")		
             except:
                 self.log_debug("not an instance arg...")
-                try:_arg = names.getLongName(arg)
+                try:_arg = NAMES.get_long(arg)
                 except Exception as err:
                     if noneValid:return False
                     raise err 
@@ -5487,7 +5492,7 @@ def validateObjArgOLD(*args,**kws):
                 else:
                     raise ValueError("'{0}' is not a valid arg. Validated to {1}".format(arg,_arg))
 
-            _argShort = names.getShortName(_arg)
+            _argShort = NAMES.get_short(_arg)
 
             self.log_debug("Checking: '{0} | mType: {1}'".format(_arg,mType))
             mTypeClass = _r9ClassRegistry.get(mType)

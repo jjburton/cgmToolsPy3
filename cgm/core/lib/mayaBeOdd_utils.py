@@ -30,8 +30,6 @@ from cgm.core import cgm_General as cgmGEN
 from cgm.core.cgmPy import validateArgs as cgmValid
 from cgm.core import cgm_Meta as cgmMeta
 
-from cgm.lib import attributes
-from cgm.core.lib import attribute_utils as coreAttr
 import cgm.core.cgmPy.path_Utils as PATHS
 import cgm.core.cgmPy.os_Utils as CGMOS
 
@@ -263,9 +261,12 @@ def mayaScanner_batch(path= None, process=True):
     #'logger = logging.getLogger("mayascan")',
     #'time.sleep(3)',
     #'logger.setLevel(logging.INFO)',
-    'om2.MGlobal.displayInfo("MAYAODD")',    
+    'om2.MGlobal.displayInfo("MAYAODD")',
+    'import Red9',
+    'Red9.setup.addPythonPackages()',
+    'import cgm.core.cgm_General as cgmGEN',
     'import cgm.core.lib.mayaBeOdd_utils as MAYAODD',
-    'reload(MAYAODD)',
+    'cgmGEN._reloadMod(MAYAODD)',
     #'time.sleep(3)',    
     'om2.MGlobal.displayInfo("Os")',    
     'import os',

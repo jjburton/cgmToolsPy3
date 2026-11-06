@@ -28,10 +28,8 @@ from cgm.core.cgmPy import validateArgs as cgmValid
 from cgm.core import cgm_Meta as cgmMeta
 from cgm.core.cgmPy import OM_Utils as cgmOM
 from cgm.core.lib import geo_Utils as geoUtils
-
-from cgm.lib import search
-from cgm.lib import attributes
-from cgm.lib import cgmMath
+from cgm.core.lib import attribute_utils as ATTR
+from cgm.core.lib import math_utils as MATH
 
 #=========================================================================
 import logging
@@ -42,7 +40,7 @@ log.setLevel(logging.INFO)
 
 class cgmBlendShape(cgmMeta.cgmNode):  
     def __init__(self,node = None, name = 'null', **kws):
-        if not search.returnObjectType(node) == 'blendShape':
+        if not cgmValid.get_mayaType(node) == 'blendShape':
             raise ValueError("Not a blendshape")
 
         super(cgmBlendShape, self).__init__(node = node)
@@ -114,7 +112,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                         #log.info(_str_funcName + "Missing: {0},{1} | created '{2}'".format(i,ii,_created))
                         #log.info(_shapes[0] + '.worldMesh[0]')
                         log.info(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputGeomTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
-                        attributes.doConnectAttr(_shapes[0] + '.worldMesh[0]',
+                        ATTR.connect(_shapes[0] + '.worldMesh[0]',
                                                  self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputGeomTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
                         #_data = mc.getAttr(self.mNode + '.inputTarget[0].inputTargetGroup[{0}].inputTargetItem[{1}].inputPointsTarget'.format(_d_buffer['index'],_d_buffer['weightIndex']))
                     except Exception as err:
@@ -163,7 +161,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 else:
                     _c_data = _data[idx][:-1]
 
-                _deltaPlus_base = cgmMath.list_add(_l_deltaBaseLine[_idx], _c_data)
+                _deltaPlus_base = MATH.list_add(_l_deltaBaseLine[_idx], _c_data)
                 #log.info(_str_funcName + c)
                 mc.xform(c, t =_deltaPlus_base, os = True, a=True)
                 #mc.xform(c, t = [-v for v in _data[idx][:-1]], r = True, os = True)		
@@ -188,9 +186,9 @@ class cgmBlendShape(cgmMeta.cgmNode):
         for mDef in _deformers:
             _d = {}
             _envelopeAttr = "{0}.envelope".format(mDef.mNode)
-            _plug = attributes.returnDriverAttribute(_envelopeAttr) or False
+            _plug = ATTR.get_driver(_envelopeAttr) or False
             if _plug:
-                attributes.doBreakConnection(_envelopeAttr)
+                ATTR.break_connection(_envelopeAttr)
             _d['plug'] = _plug
             _d['value'] = mDef.envelope
             _d['attr'] = _envelopeAttr
@@ -202,7 +200,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         for mDef in list(_d_wiring.keys()):
             _d = _d_wiring[mDef]
             if _d.get('plug'):
-                attributes.doConnectAttr( _d.get('plug'),_d['attr'])
+                ATTR.connect( _d.get('plug'),_d['attr'])
             else:
                 mDef.envelope = _d.get('value')
         return _dup
@@ -224,9 +222,9 @@ class cgmBlendShape(cgmMeta.cgmNode):
         for mDef in _deformers:
             _d = {}
             _envelopeAttr = "{0}.envelope".format(mDef.mNode)
-            _plug = attributes.returnDriverAttribute(_envelopeAttr) or False
+            _plug = ATTR.get_driver(_envelopeAttr) or False
             if _plug:
-                attributes.doBreakConnection(_envelopeAttr)
+                ATTR.break_connection(_envelopeAttr)
             _d['plug'] = _plug
             _d['value'] = mDef.envelope
             _d['attr'] = _envelopeAttr
@@ -243,7 +241,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         for mDef in list(_d_wiring.keys()):
             _d = _d_wiring[mDef]
             if _d.get('plug'):
-                attributes.doConnectAttr( _d.get('plug'),_d['attr'])
+                ATTR.connect( _d.get('plug'),_d['attr'])
             else:
                 mDef.envelope = _d.get('value')
         return _result
@@ -284,7 +282,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                     #_c_data = [weight*v for v in _l_deltaVs[i][:-1]]
                 _c_data = _l_deltaVs[i][:-1]
                 log.debug("idx: {0} | data:{1}".format(_idx,_c_data))
-                #_l_delta[_idx] = cgmMath.list_add(_l_delta[i][:-1], _c_data)
+                #_l_delta[_idx] = MATH.list_add(_l_delta[i][:-1], _c_data)
                 _l_delta[_idx] = _c_data
         #log.info(len(_l_deltaVs))
         #log.info(len(_split_idx))
@@ -672,7 +670,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 _match = False
                 for pair in _buffer:
                     log.info("{0} =?= {1}".format(weight,pair[1]))
-                    if cgmMath.isFloatEquivalent(weight, pair[1]):
+                    if MATH.is_float_equivalent(weight, pair[1]):
                         _match = True
                         _indexBuffer = _d_targetsData[pair[0]][pair[1]]
                         _index = pair[0]
@@ -843,7 +841,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         log.debug("newArgs: {0}".format(_d_new_arg))
 
         #Get the data for rebuilding
-        plug_in = attributes.returnDriverAttribute("{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
+        plug_in = ATTR.get_driver("{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
 
         #Remove the existing targets on that index
         for w in _d_targetsData[_index]:
@@ -858,7 +856,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             self.bsShape_add(_d_new_arg[w]['shape'], index = _index, weight = w)   
 
         if plug_in:
-            attributes.doConnectAttr(plug_in, "{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
+            ATTR.connect(plug_in, "{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
 
         log.debug(cgmGeneral._str_subLine)	
         log.debug("cgmBlendshape.bsShape_replace...")
@@ -1041,7 +1039,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
                 else:
                     _c_data = _data[idx][:-1]
 
-                _deltaPlus_base = cgmMath.list_add(_l_deltaBaseLine[_idx], _c_data)
+                _deltaPlus_base = MATH.list_add(_l_deltaBaseLine[_idx], _c_data)
                 #log.info(_str_funcName + c)
                 mc.xform(c, t =_deltaPlus_base, os = True, a=True)
                 #mc.xform(c, t = [-v for v in _data[idx][:-1]], r = True, os = True)		
@@ -1096,7 +1094,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
         log.debug("newArgs: {0}".format(_d_new_arg))
 
         #Get the data for rebuilding
-        plug_in = attributes.returnDriverAttribute("{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
+        plug_in = ATTR.get_driver("{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
 
         #Remove the existing targets on that index
         for w in _d_targetsData[_index]:
@@ -1111,7 +1109,7 @@ class cgmBlendShape(cgmMeta.cgmNode):
             self.bsShape_add(_d_new_arg[w]['shape'], index = _index, weight = w)   
 
         if plug_in:
-            attributes.doConnectAttr(plug_in, "{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
+            ATTR.connect(plug_in, "{0}.{1}".format(self.mNode, self.get_weight_attrs()[_index]))
 
         log.debug(cgmGeneral._str_subLine)	
         log.debug("cgmBlendshape.bsShape_replace...")

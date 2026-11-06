@@ -317,6 +317,14 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
     if calledFrom is not None:_str_func = "{0}".format(calledFrom)
     else:_str_func = "func_process"
 
+    resultWarning = kws.pop('resultWarning', False)
+
+    def _report_result(msg):
+        if resultWarning:
+            log.warning(msg)
+        else:
+            print(msg)
+
     
     if objects == None:
         log.debug("|{0}| >> objects None. Gathering".format(_str_func)) 
@@ -347,11 +355,12 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
             if processMode == 'each':
                 _res = func(o,**kws)    
                 
-            if _res:print( "|{0}.{1}| >> {2}".format( _str_func,processMode, _res ))
+            if _res:
+                _report_result("|{0}.{1}| >> {2}".format(_str_func, processMode, _res))
     elif processMode in ['all']:
         _res = func(objects,**kws)    
         if _res:
-            print( "{} >> {}".format( _msg, _res ))
+            _report_result("{} >> {}".format(_msg, _res))
         
     elif processMode in ['eachToNext','fromPreviousEach','eachToLast','eachToNextSet']:
         for i,o in enumerate(objects[:-1]):
@@ -372,8 +381,11 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
                 _res = func(o,objects[-1],**kws)
             
             if _res:
-                print(_msg)
-                pprint.pprint(_res)
+                if resultWarning:
+                    _report_result("{} >> {}".format(_msg, pprint.pformat(_res)))
+                else:
+                    print(_msg)
+                    pprint.pprint(_res)
             #except Exception as err:
             #    log.error("|{0}| >> {1} : {2} failed! | processMode:{4} | err: {3}".format(_str_func,i,o,err,processMode))
     elif processMode in ['firstToEach','eachToFirst','eachToPrevious','previousToEach']:
@@ -391,8 +403,11 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
                     elif processMode == 'previousToEach':
                         _res = func(objects[i],o,**kws)                       
                     if _res:
-                        print(_msg)
-                        pprint.pprint(_res)                        
+                        if resultWarning:
+                            _report_result("{} >> {}".format(_msg, pprint.pformat(_res)))
+                        else:
+                            print(_msg)
+                            pprint.pprint(_res)
                 except Exception as err:
                     log.error("|{0}| >> {1} : {2} failed! | processMode:{4} | err: {3}".format(_str_func,i,o,err,processMode))                 
     elif processMode in ['lastFromRest','restFromLast','firstToRest','restFromFirst','all']:
@@ -406,7 +421,8 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
             _res = func(objects[0],objects[1:],**kws)
         elif processMode == 'restFromFirst':
             _res = func(objects[1:],objects[0],**kws)               
-        if _res:print(( "|{0}| >> {1}".format( _str_func, _res )))
+        if _res:
+            _report_result("|{0}| >> {1}".format(_str_func, _res))
     elif processMode in ['eachToNextReverse']:
         #reload(LISTS)
         l_sets = LISTS.get_listPairs(objects)
@@ -416,8 +432,9 @@ def func_process(func,objects = None, processMode = 'all', calledFrom = None, no
             _res = func(pair[0],pair[1],**kws)
                 
             if _res:
-                print(( "|{0}| >> {1}".format( _str_func, _res )))            
-                pprint.pprint(_res)                
+                _report_result("|{0}| >> {1}".format(_str_func, _res))
+                if not resultWarning:
+                    pprint.pprint(_res)
     else:
         raise ValueError("|{0}.{1}| Unkown processMode: {2}".format(__name__,_str_func,processMode))
     
