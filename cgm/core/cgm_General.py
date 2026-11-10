@@ -10,7 +10,7 @@ Website : https://github.com/jjburton/cgmTools/wiki
 """
 __MAYALOCAL = "cgmGEN"
 __RELEASE = "26.11.06.01"
-__BRANCH = "main"
+__BRANCH = "Fall26"
 
 import maya.cmds as mc
 import maya.mel as mel
