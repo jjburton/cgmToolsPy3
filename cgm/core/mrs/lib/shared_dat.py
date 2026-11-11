@@ -123,9 +123,9 @@ d_uiAttrDict = {'name':['nameList','cgmName','nameIter'],
                 'basic':['attachPoint','attachIndex'],
                 'define':['basicShape','shapeDirection','jointRadius'],
                 'form':['numShapers','numSubShapers','formAim','shapersAim','shapersAimUp',
-                        'loftSetup','loftList','loftShape','loftShapeEnd','loftShapeStart',
-                        'proxyShape'],
-                'proxySurface':['loftSides','loftDegree','loftSplit','meshBuild','proxyBuild','proxyEnd','castVector','proxyGeoCap','proxyHardenEdge','proxySetColorAdded'],
+                        'loftSetup','loftList','loftShape','loftShapeEnd','loftShapeStart'],
+                'proxySurface':['proxyShape','proxyType',
+                                'loftSides','loftDegree','loftSplit','meshBuild','proxyBuild','proxyEnd','castVector','proxyGeoCap','proxyHardenEdge','proxySetColorAdded'],
                 'prerig':['addAim','addCog','addPivot','addScalePivot','rotPivotplace',
                           'numControls',],
                 'skeleton':['numRoll','hasJoint','rollCount'],
@@ -155,7 +155,7 @@ d_uiAttrDict = {'name':['nameList','cgmName','nameIter'],
                                  'squashSkipAim'],
                 'vis':[ 'visLabels','visMeasure','visProximityMode','visJointHandle','visRotatePlane'],
                 'data':['version','blockType','blockProfile'],
-                'post':['proxyLoft','proxyGeoRoot','proxyType','castVector']}
+                'post':['proxyLoft','proxyGeoRoot','castVector']}
 
 
 #These are our default attrs to make library. To be called via modules

@@ -240,6 +240,7 @@ _EXPORT_PREPARE_FAILURE_OUTCOMES = frozenset([
     'p4_checkout_failed',
     'p4_user_cancel',
     'not_writable',
+    'p4_offline_existing',
 ])
 
 _EXPORT_PREPARE_SKIPPED_OUTCOMES = frozenset([
@@ -521,6 +522,8 @@ def _reason_to_export_p4_outcome(reason):
         return 'p4_out_of_date'
     if 'locked' in _rl or 'open elsewhere' in _rl:
         return 'p4_locked'
+    if 'not connected' in _rl:
+        return 'p4_offline_existing'
     if 'not writable' in _rl or 'read-only' in _rl:
         return 'not_writable'
     return 'p4_checkout_failed'
@@ -657,6 +660,37 @@ def _record_export_prepare_path(path, outcome, ok, reason=None, p4_action='none'
     ))
 
 
+def _p4_offline_existing_block(path, cached, confirm, prepare_context, stage, _str_func):
+    """
+    Block save over an existing file while P4 is offline (no safe cached fstat status).
+    Raises PathWritePrepareError.
+    """
+    _reason = 'P4 not connected — existing file requires checkout'
+    log.debug('{0} || P4 offline, existing file blocked (cached={1}): {2}'.format(
+        _str_func, bool(cached), path))
+    if confirm:
+        mc.confirmDialog(
+            title='Perforce not connected',
+            message=(
+                'Cannot save over an existing file while Perforce is not connected:\n\n{0}\n\n'
+                'Connect in cgmP4 and save again, or save as a new file/version.'
+            ).format(path),
+            button=['OK'],
+            defaultButton='OK',
+        )
+    if prepare_context is not None:
+        _record_export_prepare_path(
+            path,
+            'p4_offline_existing',
+            False,
+            reason=_reason,
+            prepare_context=prepare_context,
+            stage=stage,
+            _str_func=_str_func,
+        )
+    raise PathWritePrepareError(path, reason=_reason)
+
+
 def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=False,
                           prepare_context=None, _str_func='prepare_output_for_write'):
     """
@@ -774,7 +808,10 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
     Pass p4_add=True for silent p4 add (export Auto Check Out). Never prompts to add.
     When p4_checkout is False, skip edit/add (writability check only) — export batch with
     Auto Check Out Export Files off.
-    When P4 is unavailable, skips P4 silently (optional layer — no behavior change).
+    When P4 is unavailable (versionControl=perforce but not connected): new files (path not on
+    disk) write locally with no dialog; existing files are blocked unless the session fstat cache
+    shows checked out by me / marked for add / not on depot (unknown). No cache entry -> block.
+    With p4_checkout=False, offline behavior is unchanged (writability check only).
     Returns normalized path string.
 
     Callers should invoke this (or prepare_paths_for_write) before expensive save work.
@@ -830,6 +867,18 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
                     _str_func))
         else:
             _p4_disconnected = True
+            if p4_checkout and os.path.isfile(_norm):
+                try:
+                    _cached = P4UTIL.get_cached_file_status(_norm, p4_user=_user, p4_client=_client)
+                except Exception:
+                    _cached = None
+                _key = P4UTIL.classify_file_status_ui(_cached) if _cached else None
+                if _key in ('checked_out', 'marked_for_add', 'unknown'):
+                    log.debug('{0} || P4 offline, existing file allowed by cached status ({1}): {2}'.format(
+                        _str_func, _key, _norm))
+                else:
+                    _p4_offline_existing_block(
+                        _norm, _cached, confirm_p4, prepare_context, _stage, _str_func)
             log.debug('{0} || P4 skipped (not connected) — writability check only'.format(_str_func))
 
     def _record_writability_failure(reason):

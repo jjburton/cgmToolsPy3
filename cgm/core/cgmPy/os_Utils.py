@@ -508,11 +508,8 @@ def find_emptyDirs(path = None,
     return
  
 def find_tmpFiles(path = None, level = None, cleanFiles = False,
-                  endMatch = ['_batch.py','_MRSbatch.py'],
-                  l_mask = ['max',
-                            'mab',
-                            'markdown',
-                            'mapping']):
+                  endMatch = None,
+                  l_mask = None):
     """
     Function for walking below a given directory looking for modules to reload. It finds modules that have pyc's as
     well for help in reloading. There is a cleaner on it as well to clear all pycs found.
@@ -530,17 +527,23 @@ def find_tmpFiles(path = None, level = None, cleanFiles = False,
         _d_files - dict of import key to file
         _l_ordered - ordered list of module keys as found
         _l_pycd - list of modules that were _pycd
-    
+
     """
     _str_func = 'find_tmpFiles'
     _b_debug = log.isEnabledFor(logging.DEBUG)
+    # Same trash definition the P4 sweeps exclude (perforce.is_scene_trash_file)
+    import cgm.core.lib.shared_data as SHARED
+    if endMatch is None:
+        endMatch = list(SHARED.l_sceneTrashEndMatch)
+    if l_mask is None:
+        l_mask = list(SHARED.l_sceneTrashExtMask)
 
     _path = PATH.Path(path)
-    
+
     _l_subs = []
     _d_files = {}
     _d_names = {}
-    
+
     _l_duplicates = []
     _l_errors = []
     _base = _path.split()[-1]

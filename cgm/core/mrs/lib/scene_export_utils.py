@@ -44,20 +44,62 @@ def _static_base_name(export_obj):
     return str(export_obj).split('|')[-1].split(':')[-1]
 
 
+def rig_export_file_name(asset_name, sub_asset=None, export_name=None, variation=None):
+    """
+    Rig FBX file name: {asset}[_{subAsset}][_{variation}]_rig.fbx — 'rig' always last.
+
+    Sub asset = Scene Sets-list folder (e.g. rig/Hero); skipped when it matches the asset
+    name or the asset name already ends with _{subAsset} (namespace already carries it).
+    """
+    _ext = os.path.splitext(export_name or '')[1] or '.fbx'
+    _tokens = [asset_name]
+    _sub = CORESTRING.stripInvalidChars(str(sub_asset)) if sub_asset else ''
+    if _sub:
+        _asset_l = str(asset_name).lower()
+        _sub_l = _sub.lower()
+        if _asset_l != _sub_l and not _asset_l.endswith('_' + _sub_l):
+            _tokens.append(_sub)
+    _var = CORESTRING.stripInvalidChars(str(variation)) if variation else ''
+    if _var:
+        _tokens.append(_var)
+    _tokens.append('rig')
+    return '{0}{1}'.format('_'.join(_tokens), _ext)
+
+
+def resolve_rig_export_file_name(export_obj, rig_export_name='namespace', sub_asset=None,
+                                 export_name=None, export_asset_path=None, variation=None):
+    """
+    Single-root rig FBX name per project option ``rigExportName``.
+
+    - ``namespace`` (default/legacy): {refNamespace or DAG leaf}_rig.fbx
+    - ``generated``: {browser asset}_{subAsset}_{variation}_rig.fbx — asset is the export
+      asset folder name (exportAssetPath leaf); falls back to the namespace token when no path.
+    """
+    if rig_export_name == 'generated':
+        _asset = os.path.basename(os.path.normpath(export_asset_path)) if export_asset_path else ''
+        if not _asset:
+            log.warning("resolve_rig_export_file_name | generated naming but no exportAssetPath; using namespace")
+            _asset = _asset_name_from_hint(export_obj)
+        return rig_export_file_name(_asset, sub_asset=sub_asset, export_name=export_name,
+                                    variation=variation)
+    return rig_export_file_name(_asset_name_from_hint(export_obj), export_name=export_name)
+
+
 def _base_export_file_for_obj(export_obj, export_static=False, export_as_rig=False,
                               add_namespace_suffix=False, export_name=None,
                               effective_export_name=None, export_asset_path=None,
-                              export_anim_path=None):
+                              export_anim_path=None, sub_asset=None,
+                              rig_export_name='namespace', variation=None):
     """Single-object export path before per-shot branching."""
     asset_name = _asset_name_from_hint(export_obj)
     if export_static:
         export_file = os.path.normpath(os.path.join(
             export_asset_path, '{0}.fbx'.format(_static_base_name(export_obj))))
     elif export_as_rig:
-        _stem, _ext = os.path.splitext(export_name or '')
-        if not _ext:
-            _ext = '.fbx'
-        _rig_file_name = '{0}_rig{1}'.format(asset_name, _ext)
+        _rig_file_name = resolve_rig_export_file_name(
+            export_obj, rig_export_name=rig_export_name, sub_asset=sub_asset,
+            export_name=export_name, export_asset_path=export_asset_path,
+            variation=variation)
         export_file = os.path.normpath(os.path.join(export_asset_path, _rig_file_name))
     else:
         export_file = os.path.normpath(os.path.join(
@@ -80,7 +122,10 @@ def resolve_export_fbx_paths(export_objs=None,
                              export_anim_path=None,
                              export_shots_to_individual_files=False,
                              shot_list=None,
-                             cameras=None):
+                             cameras=None,
+                             sub_asset=None,
+                             rig_export_name='namespace',
+                             variation=None):
     """
     Return deduped planned FBX output paths ExportScene would write (pre-bake).
 
@@ -136,6 +181,9 @@ def resolve_export_fbx_paths(export_objs=None,
             effective_export_name=effective_export_name,
             export_asset_path=export_asset_path,
             export_anim_path=export_anim_path,
+            sub_asset=sub_asset,
+            rig_export_name=rig_export_name,
+            variation=variation,
         )
 
         if _per_shot_mode and export_obj not in cameras and shot_list:

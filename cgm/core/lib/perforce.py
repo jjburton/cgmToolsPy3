@@ -2218,6 +2218,16 @@ def _fstat_cache_key(p4_user, p4_client, normpath):
     return (p4_user or '', p4_client or '', _path_lookup_key(normpath))
 
 
+def get_cached_file_status(path, p4_user=None, p4_client=None):
+    """Session fstat cache lookup only — never spawns p4 (safe when offline). Returns dict or None."""
+    _user, _client = resolve_connection(p4_user, p4_client)
+    _norm = _normalize_disk_path(path)
+    if not _user or not _client or not _norm:
+        return None
+    _dat = _fstat_cache_store().get(_fstat_cache_key(_user, _client, _norm))
+    return dict(_dat) if _dat else None
+
+
 def _path_key_under_root(path_key, root_key):
     if not path_key or not root_key:
         return False
@@ -2257,7 +2267,7 @@ def _fstat_cache_depot_skip_and_unknown(root_path, p4_user, p4_client):
             continue
         if _is_unknown_file(_dat):
             _norm = _normalize_disk_path(_dat.get('path'))
-            if _norm and os.path.isfile(_norm):
+            if _norm and os.path.isfile(_norm) and not is_scene_trash_file(_norm):
                 _unknown_entries.append({'path': _norm, 'dat': dict(_dat)})
             continue
         if _dat.get('notInClient'):
@@ -2687,6 +2697,32 @@ def _is_unknown_file(dat):
     return classify_file_status_ui(dat) == 'unknown'
 
 
+def is_scene_trash_file(disk_path):
+    """
+    True when disk_path is a Scene "File Trash" file (MRS batch scripts, Maya temp
+    extensions). Same rules as os_Utils.find_tmpFiles; tables in shared_data.
+    P4 sweeps never list these as unknown, and add() refuses them.
+    """
+    if not disk_path:
+        return False
+    import cgm.core.lib.shared_data as SHARED
+    _name = os.path.basename(str(disk_path))
+    for _suffix in SHARED.l_sceneTrashEndMatch:
+        if _name.endswith(_suffix):
+            return True
+    if '.' not in _name:
+        return False
+    _ext = _name.split('.')[-1]
+    if _ext in SHARED.l_sceneTrashExtMask:
+        return False
+    return len(_ext) > 3 and (_ext.startswith('ma') or _ext.startswith('mb'))
+
+
+def _drop_scene_trash_entries(entries):
+    """Filter unknown-file entries ({'path': ...}) that are Scene trash."""
+    return [_e for _e in entries or [] if not is_scene_trash_file(_e.get('path'))]
+
+
 def _collect_disk_files(root, dir_mask=None):
     """Local file paths under root (respecting dir_mask), no p4 calls."""
     _root = _normalize_disk_path(root)
@@ -2699,6 +2735,8 @@ def _collect_disk_files(root, dir_mask=None):
         for _walk_root, _dirnames, _filenames in os.walk(_root):
             _dirnames[:] = [d for d in _dirnames if not _fstat_dir_mask_skip(d, _mask)]
             for _fname in _filenames:
+                if is_scene_trash_file(_fname):
+                    continue
                 _path = os.path.normpath(os.path.join(_walk_root, _fname))
                 if not os.path.isfile(_path):
                     continue
@@ -2786,7 +2824,11 @@ def get_cached_unknown_files(root_path, p4_user=None, p4_client=None):
     _cached = _unknown_cache_store().get(_unknown_cache_key(_user, _client, _root))
     if not _cached:
         return None
-    return dict(_cached)
+    _payload = dict(_cached)
+    # Cache may predate the trash filter (perforce_session survives reload)
+    _payload['entries'] = _drop_scene_trash_entries(_payload.get('entries'))
+    _payload['fileCount'] = len(_payload['entries'])
+    return _payload
 
 
 def collect_unknown_files(
@@ -3207,6 +3249,10 @@ def add(disk_path, p4_user=None, p4_client=None, file_type=None, changelist=None
     _path = _normalize_disk_path(disk_path)
     if not _path:
         return {'ok': False, 'action': 'add', 'path': disk_path, 'stderr': 'path is empty', 'lines': []}
+    if is_scene_trash_file(_path):
+        log.warning('P4 add skipped (Scene trash file): {0}'.format(_path))
+        return {'ok': False, 'action': 'add', 'path': _path,
+                'stderr': 'Scene trash file — never added to Perforce', 'lines': []}
 
     _user, _client, _err = _require_connection(p4_user, p4_client)
     if _err:

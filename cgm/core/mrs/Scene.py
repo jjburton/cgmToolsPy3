@@ -8131,6 +8131,8 @@ example:
                       'noShotListExportName':PU.exportOption_getValue(self, 'noShotListExportName'),
                       'parentExportToWorld':PU.exportOption_getValue(self, 'parentExportToWorld'),
                       'deleteMesh':PU.exportOption_getValue(self, 'deleteMesh'),
+                      'rigExportName':PU.exportOption_getValue(self, 'rigExportName'),
+                      'bakeRigExport':PU.exportOption_getValue(self, 'bakeRigExport'),
                       'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                       }
             d_base.update(BATCH.batch_export_context_from_ui(self))
@@ -8176,6 +8178,11 @@ example:
 
                 exportFileName = "_".join(_exportFileName) + '.fbx'
 
+                # Sub asset = Sets-list folder only (not a version file name in the Sets list).
+                _subSet = animDict.get('set')
+                if _subSet and not os.path.isdir(os.path.join(path_set, _subSet)):
+                    _subSet = None
+
                 #exportFileName = '%s_%s_%s.fbx' % (animDict["asset"], animDict["set"], animDict["variation"])
 
                 d = {
@@ -8185,6 +8192,8 @@ example:
                     'exportMode':animDict['exportMode'],
                     'exportName':exportFileName,
                     'animationName':animDict["set"],
+                    'subSet':_subSet,
+                    'variation':animDict.get('variation'),
                     'exportAssetPath' : PATHS.Path(exportAssetPath).split(),
                     'categoryExportPath' : PATHS.Path(categoryExportPath).split(),
                     'exportAnimPath' : PATHS.Path(exportAnimPath).split(),
@@ -8326,6 +8335,12 @@ example:
             noShotListExportName = PU.exportOption_getValue(self, 'noShotListExportName')
             parentExportToWorld = PU.exportOption_getValue(self, 'parentExportToWorld')
             deleteMesh = PU.exportOption_getValue(self, 'deleteMesh')
+            rigExportName = PU.exportOption_getValue(self, 'rigExportName')
+            bakeRigExport = PU.exportOption_getValue(self, 'bakeRigExport')
+            # Variation folder only (rig generated naming); not a version file in that list.
+            _variation = self._version_list_variation_token()
+            if _variation and not os.path.isdir(os.path.join(self.path_set or '', _variation)):
+                _variation = None
 
             pprint.pprint(vars())
             pprint.pprint(self.d_tf['exportOptions'])
@@ -8377,6 +8392,9 @@ example:
                     'noShotListExportName':noShotListExportName,
                     'parentExportToWorld':parentExportToWorld,
                     'deleteMesh':deleteMesh,
+                    'rigExportName':rigExportName,
+                    'bakeRigExport':bakeRigExport,
+                    'variation':_variation,
                     'worldUp': (self.mDat.d_world.get('worldUp', 'y') if self.mDat else 'y'),
                 }
                 d.update(BATCH.batch_export_context_from_ui(self))
@@ -8415,6 +8433,9 @@ example:
                                  parentExportToWorld=parentExportToWorld,
                                  deleteMesh=deleteMesh,
                                  autoCheckoutExportFiles=self.autoCheckoutExportFiles,
+                                 rigExportName=rigExportName,
+                                 bakeRigExport=bakeRigExport,
+                                 variation=_variation,
                                  )
             return bool(result)
         except Exception:
@@ -8460,7 +8481,11 @@ def BatchExport(dataList = []):
             _d['exportAnimPath'] = PATHS.NICE_SEPARATOR.join(fileDat.get('exportAnimPath'))
             _d['exportAssetPath'] = PATHS.NICE_SEPARATOR.join(fileDat.get('exportAssetPath'))
             _d['subType'] = fileDat.get('subType')
-            _d['subSet'] = fileDat.get('set')            
+            # RunExportCommand / batch_buildFile write 'subSet'; legacy payloads used 'set'.
+            _subSet = fileDat.get('subSet', fileDat.get('set'))
+            _d['subSet'] = None if _subSet in (None, '', 'None') else _subSet
+            _variation = fileDat.get('variation')
+            _d['variation'] = None if _variation in (None, '', 'None') else _variation
             _d['exportName'] = fileDat.get('exportName')
             mFile = PATHS.Path(fileDat.get('file'))
             _d['mode'] = int(fileDat.get('mode'))
@@ -8494,6 +8519,9 @@ def BatchExport(dataList = []):
             _d['parentExportToWorld'] = False if _parentExportToWorld == "False" else True
             _deleteMesh = fileDat.get('deleteMesh', "False")
             _d['deleteMesh'] = False if _deleteMesh == "False" else True
+            _d['rigExportName'] = fileDat.get('rigExportName', 'namespace')
+            _bakeRig = fileDat.get('bakeRigExport', "False")
+            _d['bakeRigExport'] = _bakeRig not in (False, "False", "0", 0, '')
             _d['sampleBy'] = float(fileDat.get('sampleBy',1.0))
             _d['logExportSummary'] = False
             _auto_co = fileDat.get('autoCheckoutExportFiles', 0)
@@ -8616,6 +8644,9 @@ def ExportScene(mode = -1,
                 noShotListExportName = 'asset',
                 parentExportToWorld = True,
                 autoCheckoutExportFiles = None,
+                rigExportName = 'namespace',
+                bakeRigExport = False,
+                variation = None,
                 ):
 
     _str_func = 'ExportScene'
@@ -8963,6 +8994,9 @@ def ExportScene(mode = -1,
             export_shots_to_individual_files=exportShotsToIndividualFiles,
             shot_list=animList.shotList if animList else None,
             cameras=cameras,
+            sub_asset=subSet,
+            rig_export_name=rigExportName,
+            variation=variation,
         )
         if _planned:
             log.info("{0} | export preflight | {1} path(s)".format(_str_func, len(_planned)))
@@ -9070,8 +9104,11 @@ def ExportScene(mode = -1,
 
     #Bake Check -----------------------------------------------------------------------------------------------
     #if mc.objExists(bakeSetName) and mc.sets(bakeSetName, q=True):
-    #    log.info("bake...")        
-    if not exportStatic:
+    #    log.info("bake...")
+    _skipRigBake = exportAsRig and not bakeRigExport
+    if _skipRigBake:
+        log.info(log_sub(_str_func, 'Rig export | bakeRigExport=False | skipping bake, FBX without animation'))
+    if not exportStatic and not _skipRigBake:
         try:
             bakeAndPrep.Bake(exportObjs,bakeSetName,startFrame= _start, endFrame= _end,sampleBy=sampleBy,
                              euler=euler, fixRotation=fixRotation, tangent=tangent,
@@ -9102,12 +9139,12 @@ def ExportScene(mode = -1,
         return _finalize_failure('fbx_export', 'Failed loading FBX plugin', _ctx)
 
     def _rig_fbx_export_to_path(exportPathAbs):
-        """Rig FBX only: no FBXExportSplitAnimationIntoTakes (no takes)."""
+        """Rig FBX only: no FBXExportSplitAnimationIntoTakes (no takes); no animation when unbaked."""
         _dir = os.path.dirname(exportPathAbs)
         if _dir and not os.path.exists(_dir):
             log.info("making export dir... {0}".format(_dir))
             os.makedirs(_dir)
-        cgmGEN.fbx_export_preamble(clear_takes=False)
+        cgmGEN.fbx_export_preamble(clear_takes=False, include_animation=not _skipRigBake)
         cgmGEN.fbx_export_selection(exportPathAbs)
 
     def _export_single_anim_fbx(exportFile, exportObj, animList, cameras):
@@ -9271,11 +9308,14 @@ def ExportScene(mode = -1,
         if( addNamespaceSuffix ):
             exportFile = exportFile.replace(".fbx", "_%s.fbx" % assetName )
         if( exportAsRig ):
-            # {refNamespace}_rig.fbx (e.g. CrateBase_rig.fbx) — exportName stem is not the ref prefix.
-            _stem, _ext = os.path.splitext(exportName)
-            if not _ext:
-                _ext = '.fbx'
-            _rigFileName = '{0}_rig{1}'.format(assetName, _ext)
+            # rigExportName: namespace -> {refNamespace}_rig.fbx (e.g. CrateBase_rig.fbx);
+            # generated -> {browserAsset}_{subAsset}_rig.fbx. Must match preflight path.
+            _rigFileName = SCENEEXPORTUTIL.resolve_rig_export_file_name(
+                obj, rig_export_name=rigExportName, sub_asset=subSet,
+                export_name=exportName, export_asset_path=exportAssetPath,
+                variation=variation)
+            log.info("{0} | rig name | rigExportName={1} | subSet={2} | variation={3} | {4}".format(
+                _str_func, rigExportName, subSet, variation, _rigFileName))
             exportFile = os.path.normpath(os.path.join(exportAssetPath, _rigFileName))
 
         cgmObj.select()

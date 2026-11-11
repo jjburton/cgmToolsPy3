@@ -2783,11 +2783,36 @@ def pivots_setup(self, mControl = None,
             mPlug.doConnectOut("{0}.ry".format(mInnerSpinGroup.mNode))   
 
     if setup == 'ballRotate':
-        #add_ball_auto_roll(ball_grp="ball_pivotHelper1", rotate_target = "ball_pivotHelper1", ctrl="box_tilt_pivot_anim", invertX = True, invertZ = False, radius=26)
-        _radius = DIST.get_bb_size(self.pivotHelper.pivotBall.mNode,True,True)
-        RIGUTILS.add_ball_auto_roll(pivotResult.mNode, ctrl=d_pivots['tilt'].mNode, maintain_ground=False, radius=_radius, invertX=True, invertZ=False)
+        # The roll plane is the tilt control's frame (pivotCenter -> pivot root). add_ball_auto_roll wires
+        # local channels, so it needs a node whose rest transform is identity in that frame. Wiring
+        # pivotResult directly lost its handle-space offset/orientation whenever the pivot root wasn't world.
+        mTilt = d_pivots['tilt']
+        mBallRoll = mTilt.doCreateAt(setClass='cgmObject')
+        mBallRoll.addAttr('cgmName', mTilt.getMayaAttr('cgmName') or 'ball')
+        mBallRoll.addAttr('cgmType', 'ballRoll')
+        mBallRoll.doName()
+        mBallRoll.p_parent = mTilt.getParent(asMeta=True)
+        mBallRoll.rotateOrder = mTilt.rotateOrder
+        mTilt.connectChildNode(mBallRoll, 'ballRollGroup', 'pivot')
 
-        mLastParent = d_pivots['tilt'].masterGroup.p_parent  
+        # Tilt sits at the ground contact; rotating there sinks the ball (center drops to r*cos). Rotation goes
+        # on a child at the ball center (tilt orientation) - translate stays unwired so the offset holds.
+        mPivotBall = self.pivotHelper.pivotBall
+        mBallSpin = mTilt.doCreateAt(setClass='cgmObject')
+        mBallSpin.p_position = mPivotBall.p_position
+        mBallSpin.addAttr('cgmName', mTilt.getMayaAttr('cgmName') or 'ball')
+        mBallSpin.addAttr('cgmType', 'ballSpin')
+        mBallSpin.doName()
+        mBallSpin.p_parent = mBallRoll
+        mBallSpin.rotateOrder = mTilt.rotateOrder
+        mTilt.connectChildNode(mBallSpin, 'ballSpinGroup', 'pivot')
+
+        # bb size is the diameter
+        _radius = DIST.get_bb_size(mPivotBall.mNode,True,True) * 0.5
+        RIGUTILS.add_ball_auto_roll(mBallRoll.mNode, ctrl=mTilt.mNode, rotate_target=mBallSpin.mNode,
+                                    maintain_ground=False, radius=_radius, invertX=True, invertZ=False)
+
+        mLastParent = mBallSpin
             
     if mPivotResult:#Do this at the very end...
         mPivotResult.parent = mLastParent     
@@ -6027,7 +6052,59 @@ def connect_jointLabels(self):
                 ATTR.connect(_driver, "{0}.overrideVisibility".format(mObj.mNode))        
 
     except Exception as err:cgmGEN.cgmExceptCB(Exception,err)
-    
+
+def proxyGeoGroup_wireLock(self):
+    """
+    Retrofit the form proxyGeo group lock on an existing block (Handle) without rebuilding form.
+
+    Same wiring handle.form() does for non-shapers proxyShapes: block.proxy (off:lock:on) ->
+    proxyVis / proxyLock -> group visibility / overrideDisplayType. Shapers forms never got it.
+    Also pushes proxyLock to shapes under the group (Proxy Geo > Add selected geo).
+    """
+    _short = self.p_nameShort
+    _str_func = 'proxyGeoGroup_wireLock'
+    log.debug(cgmGEN.logString_start(_str_func))
+
+    mGroup = self.getMessageAsMeta('proxyGeoGroup')
+    if not mGroup:
+        log.info(cgmGEN.logString_msg(_str_func, "[{0}] no proxyGeoGroup (not a Handle in form+). Skipped.".format(_short)))
+        return False
+
+    attr = 'proxy'
+    if not self.hasAttr(attr):
+        self.addAttr(attr, enumName='off:lock:on', defaultValue=1, attrType='enum', keyable=False, hidden=False)
+
+    d_args = {'Vis': "{0}.{1}Vis = if {0}.{1} > 0".format(_short, attr),
+              'Lock': "{0}.{1}Lock = if {0}.{1} == 2:0 else 2".format(_short, attr)}
+    _baseDat = self.baseDat or {}
+    _baseDat.setdefault('aHidden', [])
+    for a in 'Vis', 'Lock':
+        _attr = "{0}{1}".format(attr, a)
+        if not (self.hasAttr(_attr) and ATTR.get_driver(_short, _attr)):
+            if self.hasAttr(_attr):
+                ATTR.set_lock(_short, _attr, False)
+            log.info(cgmGEN.logString_msg(_str_func, "[{0}] building {1}".format(_short, _attr)))
+            NODEFACTORY.argsToNodes(d_args[a]).doBuild()
+        ATTR.set_hidden(_short, _attr, True)
+        ATTR.set_lock(_short, _attr, True)
+        if _attr not in _baseDat['aHidden']:
+            _baseDat['aHidden'].append(_attr)
+    self.baseDat = _baseDat
+
+    _lock = "{0}.{1}Lock".format(_short, attr)
+    str_group = mGroup.mNode
+    mGroup.overrideEnabled = 1
+    ATTR.connect("{0}.{1}Vis".format(_short, attr), "{0}.visibility".format(str_group))
+    ATTR.connect(_lock, "{0}.overrideDisplayType".format(str_group))
+
+    l_shapes = mc.listRelatives(str_group, allDescendents=True, type='shape', fullPath=True) or []
+    for str_shape in l_shapes:
+        ATTR.connect(_lock, "{0}.overrideDisplayType".format(str_shape))
+
+    log.info(cgmGEN.logString_msg(_str_func, "[{0}] wired {1} | shapes: {2} | proxy: {3}".format(
+        _short, mGroup.p_nameShort, len(l_shapes), self.getEnumValueString(attr))))
+    return True
+
 def shapers_get(self):
     _short = self.p_nameShort        
     _str_func = '[{0}] controls_get'.format(_short)

@@ -992,6 +992,16 @@ class handleFactory(object):
                                                             'front':'y+',
                                                             'left':'x+',
                                                             'right':'x-'}},
+                                        'x+':{'up':'y+',
+                                              'directions':{'back':'x-',
+                                                            'front':'x+',
+                                                            'left':'z-',
+                                                            'right':'z+'}},
+                                        'x-':{'up':'y+',
+                                              'directions':{'back':'x-',
+                                                            'front':'x+',
+                                                            'left':'z-',
+                                                            'right':'z+'}},
                                  }
             _d_shapeDirection = _d_shapeDirectionOptions.get(shapeDirection)
             if not _d_shapeDirection:

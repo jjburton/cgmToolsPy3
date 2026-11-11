@@ -427,3 +427,14 @@ objectSetTypes = {'animation':'animSet',
 #>>>Option vars
 #=================================================================
 l_resetModes = ('all','transforms','keyable')
+
+
+#>>>Scene trash files
+#=================================================================
+# Generated / temp files the Scene "File Trash" Query/Clean treats as trash.
+# P4 sweeps (unknown files, p4 add) never offer or add these.
+# Consumers: cgmPy.os_Utils.find_tmpFiles, lib.perforce.is_scene_trash_file
+l_sceneTrashEndMatch = ('_batch.py', '_MRSbatch.py')
+# Extensions longer than 3 chars that start with ma/mb are Maya temp/backup files,
+# except these real extensions.
+l_sceneTrashExtMask = ('max', 'mab', 'markdown', 'mapping')

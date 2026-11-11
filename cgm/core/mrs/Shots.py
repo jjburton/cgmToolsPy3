@@ -166,6 +166,27 @@ example:
         if mc.optionVar( exists=self.autoAdjustOptionVar ):
             mc.menuItem( self.autoAdjustFramesMI, e=True, checkBox=mc.optionVar( q=self.autoAdjustOptionVar ))
 
+        # Raw mc.window (not a zoo BaseMelWindow), so no setSceneChangeCB - register the same
+        # SceneOpened scriptJob directly, parented to the window so it dies with it. Every
+        # CreateWindow deletes/rebuilds the window, which also kills the previous job.
+        mc.scriptJob(event=('SceneOpened', self.uiFunc_on_scene_change), parent=self.window, compressUndo=True)
+
+    def uiFunc_on_scene_change(self):
+        """scriptJob SceneOpened - defer until the new scene DAG is ready."""
+        _str_func = 'uiFunc_on_scene_change'
+        log.info(cgmGEN.logString_msg(_str_func, 'Scene opened - scheduling shot list refresh'))
+        mc.evalDeferred(self.uiFunc_refresh_after_scene_open, lp=True)
+
+    def uiFunc_refresh_after_scene_open(self):
+        _str_func = 'uiFunc_refresh_after_scene_open'
+        if not self.window or not mc.window(self.window, exists=True):
+            return
+        try:
+            self.RefreshShotListUI()
+            log.info(cgmGEN.logString_msg(_str_func, 'Shot list refreshed | {0} shots'.format(len(self.animDict))))
+        except Exception as err:
+            log.warning(cgmGEN.logString_msg(_str_func, 'refresh failed: {0}'.format(err)))
+
     def SaveOptions(self, *args):
         mc.optionVar( iv=(self.autoAdjustOptionVar, mc.menuItem(self.autoAdjustFramesMI, q=True, checkBox=True) ) )
 
@@ -596,6 +617,12 @@ example:
         mc.button(self.animUIDict[newName]['maxButton'], e=True, command=partial(self.SetShotRange, newName, min=False) )
 
     def LoadAnimList(self):
+        # Reset first - after a scene open/new with no AnimListNode, the previous scene's
+        # shots and its (now deleted) node must not carry over into the list or AddShot.
+        self.animDict     = {}
+        self.animList     = []
+        self.animListNode = None
+
         # Find anim list node
         animListNodes = mc.ls("*.subAnimList")
         if len(animListNodes) > 0:

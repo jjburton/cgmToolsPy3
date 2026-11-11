@@ -1441,11 +1441,17 @@ def ensure_fbx_plugin(_str_func='ensure_fbx_plugin'):
     return True
 
 
-def fbx_export_preamble(clear_takes=False):
-    """Common FBX export flags used by Scene export paths."""
+def fbx_export_preamble(clear_takes=False, include_animation=True):
+    """Common FBX export flags used by Scene export paths.
+
+    include_animation=False drops the FBX Animation group (unbaked rig export).
+    """
     mel.eval('FBXResetExport;')
     if clear_takes:
         mel.eval('FBXExportSplitAnimationIntoTakes -clear;')
+    if not include_animation:
+        mel.eval('FBXExportBakeComplexAnimation -v false;')
+        mel.eval('FBXProperty Export|IncludeGrp|Animation -v false;')
     mel.eval('FBXExportSkins -v true;')
     mel.eval('FBXExportConstraints -v false;')
     mel.eval('FBXExportSmoothingGroups -v true;')

@@ -95,10 +95,10 @@ d_build_profiles = {'unityLow':{'default':{}},
 
 
 d_attrStateMask = {'define':[],
-                   'form':['loftList','basicShape','proxyShape','proxyType','shapersAim'],
+                   'form':['loftList','basicShape','shapersAim'],
                    'prerig':['addScalePivot','addPivot','pivotDriverSetup'],
                    'skeleton':['hasJoint'],
-                   'proxySurface':['proxy','proxySetColorAdded'],
+                   'proxySurface':['proxyShape','proxyType','proxy','proxySetColorAdded'],
                    'rig':['rotPivotPlace','dynParentMode','dynParentScaleMode','mirrorSetup'],
                    'vis':[]}
 
@@ -316,6 +316,24 @@ def proxyGeo_getGroup(self,select=False):
         mc.select(mGroup.mNode)
     return mGroup
 
+def proxyGeo_lock(self,arg=None):
+    """Toggle (arg=None) or set selectability of the form proxyGeo group via overrideEnabled.
+
+    Non-shapers forms drive overrideDisplayType from the block's proxyLock; shapers forms leave it
+    unwired, so set it to reference (2) when locking or the toggle would do nothing.
+    """
+    _str_func = 'proxyGeo_lock'
+    mGroup = proxyGeo_getGroup(self)
+    if not mGroup:
+        return log.error("|{0}| >> [{1}] No proxyGeoGroup. Is the block in form state?".format(_str_func,self.p_nameShort))
+    if arg is None:
+        arg = not mGroup.overrideEnabled
+    if arg and not ATTR.get_driver(mGroup.mNode,'overrideDisplayType'):
+        mGroup.overrideDisplayType = 2
+    mGroup.overrideEnabled = arg
+    log.debug("|{0}| >> {1} locked: {2}".format(_str_func,mGroup.p_nameShort,bool(arg)))
+    return arg
+
 _PROXY_GEO_OVERRIDE_PLUGS = (
     'overrideEnabled', 'overrideVisibility', 'overrideDisplayType',
     'overrideColor', 'overrideRGBColors',
@@ -438,7 +456,10 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] Select Geo Group'.format(_short),
                 c = cgmGEN.Callback(proxyGeo_getGroup,self,True),
                 label = "Select Group")
-    
+    mc.menuItem(ann = '[{0}] Toggle proxy geo group lock (selectable vs reference)'.format(_short),
+                c = cgmGEN.Callback(proxyGeo_lock,self,None),
+                label = "Toggle Lock")
+
     mc.menuItem(en=True,divider = True,
                 label = "Utilities")
     _sub = mc.menuItem(en=True,subMenu = True,tearOff=True,
@@ -1590,7 +1611,7 @@ def rig_shapes(self):
     _str_rotPivot = mBlock.getEnumValueString('rotPivotPlace')
     
     if _str_rotPivot == 'cog' and mBlock.addCog and mBlock.getMessage('cogHelper'):
-        log.info("|{0}| >> Cog pivot setup... ".format(_str_func))    
+        log.info("|{0}| >> Cog pivot setup... ".format(_str_func))
         mControl = mBlock.cogHelper.doCreateAt()
     elif _str_rotPivot == 'jointHelper':
         mControl = mHelper.doCreateAt()        
@@ -1644,7 +1665,7 @@ def rig_shapes(self):
         
     else:
         CORERIG.shapeParent_in_place(mControl,mMainHandle.mNode,True)
-        
+
     mControl = cgmMeta.validateObjArg(mControl,'cgmObject',setClass=True)
     
     

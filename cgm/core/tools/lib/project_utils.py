@@ -338,6 +338,10 @@ _exportOptionSettings = [
     {'n':'exportShotsToIndividualFiles','t':'bool','dv':False,'label':'Export shots to individual files','section':'FBX output'},
     {'n':'noShotListExportName','t':['asset','sceneFile'],'dv':'asset','label':'No shot list naming','section':'FBX output',
      'ann':'When shot list is empty: asset browser name (asset) or scene file stem (sceneFile)'},
+    {'n':'rigExportName','t':['namespace','generated'],'dv':'namespace','label':'Rig export naming','section':'FBX output',
+     'ann':'Rig FBX name: namespace = {refNamespace}_rig.fbx; generated = {asset}_{subAsset}_{variation}_rig.fbx from the asset browser'},
+    {'n':'bakeRigExport','t':'bool','dv':False,'label':'Bake rig export','section':'FBX output',
+     'ann':'Off: rig export skips bake and writes no animation (prep + FBX only). On: legacy bake before rig FBX.'},
     {'n':'fbxVersion','t':['default'],'dv':'default','label':'FBX version','section':'FBX output'},
 ]
 
