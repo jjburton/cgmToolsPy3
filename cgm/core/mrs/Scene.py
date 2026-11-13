@@ -111,6 +111,10 @@ log.setLevel(logging.INFO)
 #=========================================================================
 _d_ann = SCENEUTILS.d_annotations
 
+# Subtype menu entry that browses loose Maya files directly under content/assetType/asset/
+# (offered only when the asset folder holds both subfolders and .ma/.mb files).
+_SUBTYPE_ASSET_ROOT = '<asset root>'
+
 _EXPORT_ERROR_STAGES = (
     'path_resolve',
     'prep',
@@ -586,7 +590,7 @@ example:
             return True
         if not self.hasSub:
             _sub = self.subType
-            if _sub:
+            if _sub and not self._subtype_is_asset_root():
                 return '{0}_{1}_'.format(_asset, _sub) in filename
             return True
         _set_token = self._version_list_set_token()
@@ -939,7 +943,10 @@ example:
             else:
                 return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), self.subTypeSearchList['scrollList'].getSelectedItem())
         else:
-            return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), PU.subtype_file_token(self.subType))
+            _tok = self._subtype_file_token()
+            if not _tok:
+                return '{0}.fbx'.format(self.assetList['scrollList'].getSelectedItem())
+            return '{0}_{1}.fbx'.format(self.assetList['scrollList'].getSelectedItem(), _tok)
 
 
     @property
@@ -955,13 +962,26 @@ example:
         log.debug(log_msg(_str_func, self.subTypeIndex))
         return self.subTypes[min(self.subTypeIndex, len(self.subTypes)-1)] if self.subTypes else None
 
+    def _subtype_is_asset_root(self):
+        """True when the subtype menu is on the asset-root entry (loose files under path_asset)."""
+        return self.subType == _SUBTYPE_ASSET_ROOT
+
+    def _subtype_file_token(self):
+        """Subtype token for Maya/FBX basenames; '' for the asset-root entry."""
+        if not self.subType or self._subtype_is_asset_root():
+            return ''
+        return PU.subtype_file_token(self.subType)
+
     @property
     def hasSub(self):
         """
         True when path_subType has child folders (sets tier).
         asset/type/*.ma only → False. asset/type with any subfolder → True (root .ma also show in Sets).
+        Asset-root entry → always False (subfolders there are the other subtypes, not sets).
         """
         _str_func = 'hasSub'
+        if self._subtype_is_asset_root():
+            return False
         _path = self.path_subType
         if not _path or not os.path.isdir(_path):
             return False
@@ -1348,7 +1368,7 @@ example:
         Resolve legacy/plural subtype directory discrepancies only under a single asset directory.
         """
         _str_func = '_fix_subType_directory_discrepancy'
-        if not assetPath or not subType:
+        if not assetPath or not subType or subType == _SUBTYPE_ASSET_ROOT:
             return False
 
         _candidates = PU.subtype_dir_candidates(subType, prefer_plural=self._use_plural_subdirs())
@@ -1397,6 +1417,8 @@ example:
         _str_func = '_resolve_subType_container_path'
         if not assetPath or not subType:
             return False
+        if subType == _SUBTYPE_ASSET_ROOT:
+            return os.path.normpath(assetPath)
 
         _candidates = PU.subtype_dir_candidates(subType, prefer_plural=self._use_plural_subdirs())
         if not _candidates:
@@ -1503,7 +1525,7 @@ example:
         """
         if not setName:
             return setName
-        _canonical = PU.subtype_file_token(self.subType)
+        _canonical = self._subtype_file_token()
         if not _canonical:
             return setName
 
@@ -1532,6 +1554,8 @@ example:
         _token = subTypeToken if subTypeToken else self.subType
         if not _token:
             return _token
+        if _token == _SUBTYPE_ASSET_ROOT:
+            return ''
         _subName = self._resolveSubTypeLabelFromPathToken(_token) or _token
         return PU.subtype_dir_preferred(_subName, prefer_plural=self._use_plural_subdirs())
 
@@ -1539,6 +1563,8 @@ example:
         """UI display label for subtype actions should use canonical singular token."""
         if not self.subType:
             return "Subtype"
+        if self._subtype_is_asset_root():
+            return "Asset"
         _tok = PU.subtype_file_token(self.subType) or self.subType
         return _tok.capitalize()
 
@@ -3058,7 +3084,8 @@ example:
 
         l_newTypes = []
         l_expected = []
-        for d in CGMOS.get_lsFromPath(path_set,'dir'):
+        _l_dirs = CGMOS.get_lsFromPath(path_set,'dir')
+        for d in _l_dirs:
             _subName = self._resolveSubTypeLabelFromPathToken(d) or d
             if _subName in self.l_subTypesBase:
                 l_expected.append(_subName)
@@ -3075,6 +3102,10 @@ example:
             self.subTypes.extend(l_newTypes)
         # De-dupe while preserving order so canonical subtype labels win.
         self.subTypes = list(dict.fromkeys(self.subTypes))
+        # Mixed asset folder (subfolders + loose .ma/.mb): offer the asset level as its own entry,
+        # last so config subtype indices stay aligned.
+        if self.subTypes and self._dir_maya_files(path_set):
+            self.subTypes.append(_SUBTYPE_ASSET_ROOT)
 
 
         #print self.subType
@@ -3795,7 +3826,7 @@ example:
         data = {}
         data['asset'] = self.assetList['scrollList'].getSelectedItem()
         data['type'] = self.category
-        data['subType'] = PU.subtype_file_token(self.subType) if self.subType else self.subType
+        data['subType'] = self._subtype_file_token()
         data['subTypeAsset'] = self.subTypeSearchList['scrollList'].getSelectedItem() if self.hasSub else ""
         data['variation'] = self.variationList['scrollList'].getSelectedItem() if self.hasVariant else ""
         data['user'] = getpass.getuser()
@@ -4035,7 +4066,9 @@ example:
         for i,subType in enumerate(self.subTypes):
             # mc.menuItem(label=subType, c=cgmGEN.Callback(self.SetSubType,i))
 
-            if subType not in self.l_subTypesBase and not b_extra:
+            if subType == _SUBTYPE_ASSET_ROOT:
+                mUI.MelMenuItemDiv( self.subTypeMenu, label='Asset level..' )
+            elif subType not in self.l_subTypesBase and not b_extra:
                 mUI.MelMenuItemDiv( self.subTypeMenu, label='Extras..' )
                 b_extra = True
             self.subTypeMenuItemList.append( mc.menuItem(
@@ -5012,9 +5045,10 @@ example:
         versionList = self.versionList if self.hasSub else self.subTypeSearchList
         existingFiles = versionList['items']
 
-        _stok = PU.subtype_file_token(self.subType) if self.subType else self.subType
+        _stok = self._subtype_file_token()
         _setToken = self._canonicalize_set_token_for_filename(self.subTypeSearchList['scrollList'].getSelectedItem())
-        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), _setToken if self.hasSub else _stok)
+        _nameTok = _setToken if self.hasSub else _stok
+        wantedName = "%s_%s" % (self.assetList['scrollList'].getSelectedItem(), _nameTok) if _nameTok else self.assetList['scrollList'].getSelectedItem()
         if self.hasVariant:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
 
@@ -5206,7 +5240,7 @@ example:
             wantedName = "%s_%s" % (wantedName, self.variationList['scrollList'].getSelectedItem())
             log.debug("Has variant name: {}".format(wantedName))
 
-        _fileTok = PU.subtype_file_token(self.subType) if self.subType else ''
+        _fileTok = self._subtype_file_token()
         if _fileTok and _fileTok not in ['animation', 'anim']:
             wantedName = "%s_%s" % (wantedName, _fileTok)
             log.debug("Has subTpe name: {}".format(wantedName))
@@ -5594,6 +5628,8 @@ example:
             sourceName = self.selectedSet
             path = self.path_subType            
         elif mode == 'subtype':
+            if self._subtype_is_asset_root():
+                return log.warning(log_msg(_str_func, "Asset root is not a subtype folder — nothing to rename"))
             sourceName = self.selectedSet
             path = self.path_asset
         elif mode in ['variant','variation']:
@@ -5985,9 +6021,16 @@ example:
                 log.error(">> Replacing Cancelled | {0}".format(filePath))
                 return False
 
-            mc.file(rn=os.path.normpath(filePath))
-            #mc.file(filePath)
+            # Same writability / P4 checkout prompt as Save As before overwriting.
+            try:
+                _save_path = PATHUTIL.prepare_maya_scene_for_save(filePath, mDat=self.mDat)
+            except PATHUTIL.PathWritePrepareError as err:
+                log.error(str(err))
+                return False
+
+            mc.file(rn=os.path.normpath(_save_path))
             mc.file(s=True)
+            self._republish_navigation_lists(focus_path=_save_path)
         else:
             log.info( "Version file doesn't exist" )
 
@@ -7660,6 +7703,8 @@ example:
             os.mkdir(PATHS.get_dir(charPath))
             log.info('{0}>> Path not found. Appending: {1}'.format(_str_func, assetPath))		
         for subType in self.subTypes:
+            if subType == _SUBTYPE_ASSET_ROOT:
+                continue
             subPath = os.path.normpath(os.path.join(assetPath, subType))
             if not os.path.exists(subPath):
                 os.mkdir(PATHS.get_dir(subPath))

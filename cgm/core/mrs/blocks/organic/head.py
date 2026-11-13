@@ -4532,7 +4532,8 @@ def rig_frame(self):
                             mBezierDriver = mRigNull.getMessageAsMeta('bezierIKDriverCurve')
                             _d_stretch = (
                                 BEZIERIKBLOCK.segment_bezier_module_ik_spline_stretch_profile(
-                                    self, mBlock, self.str_segmentType, self.d_squashStretch))
+                                    self, mBlock, self.str_segmentType, self.d_squashStretch,
+                                    str_ik_attr='neckIK'))
                             log.info(cgmGEN.logString_msg(
                                 _str_func,
                                 'bezier_spline_stretch | aim:{0} stretchBy:{1} joints:{2} '

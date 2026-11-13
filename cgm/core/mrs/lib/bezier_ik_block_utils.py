@@ -1325,41 +1325,43 @@ def segment_ik_end_orient_follow_setup(m_segment,
     }
 
 
-def block_uses_bezier_module_ik(mBlock):
-    """Segment ``ikSetup=bezier`` or Head ``neckIK=bezier`` module IK spline."""
+def block_uses_bezier_module_ik(mBlock, str_ik_attr='ikSetup'):
+    """
+    Module IK spline is bezier on ``str_ik_attr``.
+
+    Segment passes ``ikSetup`` (default); Head passes ``neckIK``.
+    """
     if not mBlock:
         return False
-    if mBlock.ikSetup and mBlock.getEnumValueString('ikSetup') == 'bezier':
-        return True
-    if getattr(mBlock, 'neckIK', None) and mBlock.getEnumValueString('neckIK') == 'bezier':
-        return True
-    return False
+    return mBlock.getEnumValueString(str_ik_attr) == 'bezier'
 
 
-def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
+def segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type,
+                                                  str_ik_attr='ikSetup'):
     """
     Full volume squash on module **ikJoints** in ``rig_frame`` ``bezier_spline_stretch``.
 
     ``segmentType=parent`` only. Other segment types: IK gets translate stretch only;
     **segmentJoints** / ribbon own block ``segmentStretchBy`` and volume squash.
     """
-    if not block_uses_bezier_module_ik(mBlock):
+    if not block_uses_bezier_module_ik(mBlock, str_ik_attr):
         return False
     return str_segment_type == 'parent'
 
 
 def segment_bezier_module_ik_spline_stretch_profile(
-        self, mBlock, str_segment_type, d_squash_stretch=None):
+        self, mBlock, str_segment_type, d_squash_stretch=None, str_ik_attr='ikSetup'):
     """
     ``bezier_spline_stretch`` options for module **ik** chain in ``rig_frame``.
 
     **parent** — block ``segmentStretchBy``, measure, volume squash.
     **Other segmentType** — ``translate`` + arcLength only (no volume on ikJoints).
+    ``str_ik_attr`` — block enum holding the IK mode: ``ikSetup`` (Segment) / ``neckIK`` (Head).
     """
     _str_aim = bezier_ik_stretch_aim_axis(self)
     if str_segment_type == 'parent':
         _squash_main = segment_bezier_ik_module_chain_stretch_squash_measure(
-            mBlock, str_segment_type, d_squash_stretch)
+            mBlock, str_segment_type, d_squash_stretch, str_ik_attr)
         return {
             'aimAxis': _str_aim,
             'stretchBy': self.str_segmentStretchBy,
@@ -1381,14 +1383,15 @@ def segment_bezier_module_ik_spline_stretch_profile(
 
 
 def segment_bezier_ik_module_chain_stretch_squash_measure(
-        mBlock, str_segment_type, d_squash_share=None):
+        mBlock, str_segment_type, d_squash_share=None, str_ik_attr='ikSetup'):
     """
     ``squashStretchMain`` for module **ik** ``bezier_spline_stretch``.
 
     Non-**parent** segment types always use **arcLength** (no pointDist POCI on IK).
     **parent** uses block ``squashMeasure`` / shared squash kwargs.
     """
-    if not segment_bezier_ik_module_chain_volume_squash(mBlock, str_segment_type):
+    if not segment_bezier_ik_module_chain_volume_squash(
+            mBlock, str_segment_type, str_ik_attr):
         return 'arcLength'
     _squash_main = (
         (d_squash_share or {}).get('squashStretchMain') or 'arcLength')

@@ -47,6 +47,7 @@ import cgm.core.lib.distance_utils as DIST
 import cgm.core.lib.shared_data as CORESHARE
 import cgm.core.rig.create_utils as RIGCREATE
 import cgm.core.rig.constraint_utils as RIGCONSTRAINT
+import cgm.core.rig.shader_utils as SHADERS
 import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
 #reload(BLOCKSHAPES)
 import cgm.core.lib.transform_utils as TRANS
@@ -334,6 +335,98 @@ def proxyGeo_lock(self,arg=None):
     log.debug("|{0}| >> {1} locked: {2}".format(_str_func,mGroup.p_nameShort,bool(arg)))
     return arg
 
+def _proxy_geo_under_group(str_group, str_node):
+    """True when str_node sits anywhere below str_group (any depth, not just direct child)."""
+    _l_grp = mc.ls(str_group, long=True)
+    _l_node = mc.ls(str_node, long=True)
+    if not _l_grp or not _l_node:
+        return False
+    return _l_node[0].startswith(_l_grp[0] + '|')
+
+def proxyGeo_getGroupGeo(self):
+    """Every mesh/nurbsSurface transform under the proxyGeo group, any parentage. Returns ml_geo (dag order)."""
+    mGroup = proxyGeo_getGroup(self)
+    if not mGroup:
+        return []
+    l_shapes = mc.listRelatives(mGroup.mNode, allDescendents=True, fullPath=True,
+                                type=['mesh','nurbsSurface']) or []
+    l_trans = []
+    for str_shape in reversed(l_shapes):#listRelatives ad is deepest-first
+        if mc.getAttr("{0}.intermediateObject".format(str_shape)):
+            continue
+        str_trans = mc.listRelatives(str_shape, parent=True, fullPath=True)[0]
+        if str_trans not in l_trans:
+            l_trans.append(str_trans)
+    if not l_trans:
+        return []
+    return cgmMeta.validateObjListArg(l_trans, 'cgmObject')
+
+def proxyGeo_refresh(self):
+    """
+    Resync proxyMeshGeo with the proxyGeo group: append any geo under the group (nested under other geo
+    included) that isn't listed. Keeps existing entries outside the group (shapers form loft proxyHelper).
+    """
+    _str_func = 'proxyGeo_refresh'
+    _short = self.p_nameShort
+    mGroup = proxyGeo_getGroup(self)
+    if not mGroup:
+        log.error("|{0}| >> [{1}] No proxyGeoGroup. Is the block in form state?".format(_str_func,_short))
+        return []
+    ml_current = self.msgList_get('proxyMeshGeo') or []
+    l_current = [mObj.mNode for mObj in ml_current]
+    ml_added = []
+    for mGeo in proxyGeo_getGroupGeo(self):
+        if mGeo.mNode in l_current:
+            continue
+        self.msgList_append('proxyMeshGeo',mGeo,'block')
+        ml_added.append(mGeo)
+        log.info("|{0}| >> [{1}] added: {2}".format(_str_func,_short,mGeo.p_nameShort))
+    log.info("|{0}| >> [{1}] proxyMeshGeo: {2} existing | {3} added".format(_str_func,_short,
+                                                                             len(ml_current),len(ml_added)))
+    return self.msgList_get('proxyMeshGeo')
+
+def _proxy_geo_duplicate_piece(mGeo, mBlock=None):
+    """Duplicate one proxy geo piece without its child transforms (nested geo is its own msgList entry).
+    When the block keeps its own materials, referenced shading is swapped for scene-local copies."""
+    mDup = mGeo.doDuplicate(po=False)
+    l_kids = mc.listRelatives(mDup.mNode, children=True, type='transform', fullPath=True) or []
+    if l_kids:
+        mc.delete(l_kids)
+    if mBlock and BLOCKUTILS.block_proxy_skip_shader_assignment(mBlock):
+        SHADERS.shadingEngines_localize([mDup.mNode])
+    return mDup
+
+def proxyGeo_localizeMaterials(self):
+    """
+    Swap referenced materials on all geo under the proxyGeo group for scene-local duplicate shading networks,
+    so proxy/puppet meshes survive the source reference being unloaded or removed.
+    """
+    _str_func = 'proxyGeo_localizeMaterials'
+    ml_geo = proxyGeo_getGroupGeo(self)
+    if not ml_geo:
+        log.error("|{0}| >> [{1}] No geo under proxyGeoGroup.".format(_str_func,self.p_nameShort))
+        return {}
+    return SHADERS.shadingEngines_localize([mGeo.mNode for mGeo in ml_geo])
+
+def proxyGeo_validate(self):
+    """
+    Bring the proxyGeo group's geo up to date: resync proxyMeshGeo with everything under the group (nested
+    included), then, when the block keeps its own materials (proxySetColorAdded off), localize referenced shading.
+    """
+    _str_func = 'proxyGeo_validate'
+    _short = self.p_nameShort
+    if not proxyGeo_getGroup(self):
+        log.error("|{0}| >> [{1}] No proxyGeoGroup. Is the block in form state?".format(_str_func,_short))
+        return False
+    ml_geo = proxyGeo_refresh(self)
+    if BLOCKUTILS.block_proxy_skip_shader_assignment(self):
+        d_local = proxyGeo_localizeMaterials(self)
+        _matMsg = "{0} referenced SG(s) localized".format(len(d_local))
+    else:
+        _matMsg = "materials skipped (proxySetColorAdded on, cgm proxy shaders are used)"
+    log.info("|{0}| >> [{1}] proxyMeshGeo: {2} | {3}".format(_str_func,_short,len(ml_geo or []),_matMsg))
+    return True
+
 _PROXY_GEO_OVERRIDE_PLUGS = (
     'overrideEnabled', 'overrideVisibility', 'overrideDisplayType',
     'overrideColor', 'overrideRGBColors',
@@ -391,6 +484,8 @@ def proxyGeo_add(self,arg = None):
         #TRANS.scale_to_boundingBox(mProxy.mNode,_bb_axisBox)
         if not BLOCKUTILS.block_proxy_skip_shader_assignment(self):
             CORERIG.colorControl(mProxy.mNode,_side,'main',transparent = True)
+        else:
+            SHADERS.shadingEngines_localize([mProxy.mNode])
         mProxy.p_parent = mProxyGeoGrp
         self.msgList_append('proxyMeshGeo',mProxy,'block')
         mProxy.rename("{0}_proxyGeo".format(mProxy.p_nameBase))
@@ -456,6 +551,9 @@ def uiBuilderMenu(self,parent = None):
     mc.menuItem(ann = '[{0}] Select Geo Group'.format(_short),
                 c = cgmGEN.Callback(proxyGeo_getGroup,self,True),
                 label = "Select Group")
+    mc.menuItem(ann = '[{0}] Validate proxy geo: add any geo under the group (nested included) to the list; localize referenced materials when proxySetColorAdded is off'.format(_short),
+                c = cgmGEN.Callback(proxyGeo_validate,self),
+                label = "Validate Geo")
     mc.menuItem(ann = '[{0}] Toggle proxy geo group lock (selectable vs reference)'.format(_short),
                 c = cgmGEN.Callback(proxyGeo_lock,self,None),
                 label = "Toggle Lock")
@@ -2295,7 +2393,7 @@ def _proxy_geo_cap_enabled(mBlock, default=True):
     return mBlock.getEnumValueString('proxyGeoCap') == 'both'
 
 def _proxy_loft_shaper_curves(mBlock):
-    """Same loft targets as form create_prerigLoftMesh (shapers only — not subShaper rings)."""
+    """Same loft targets as form create_prerigLoftMesh (shapers only â€” not subShaper rings)."""
     if mBlock.getMayaAttr('numShapers'):
         ml_handles = mBlock.msgList_get('shaperHandles')
     else:
@@ -2308,7 +2406,7 @@ def _proxy_loft_shaper_curves(mBlock):
     return ml_loft
 
 def _proxy_loft_all_form_curves(mBlock):
-    """All form + subShaper loft curves (create_simpleLoftMesh-style — for log compare only)."""
+    """All form + subShaper loft curves (create_simpleLoftMesh-style â€” for log compare only)."""
     ml_loft = []
     for mH in (mBlock.msgList_get('formHandles') or []):
         mCrv = mH.getMessageAsMeta('loftCurve')
@@ -2362,7 +2460,7 @@ def _handle_proxy_finalize_mesh(mMesh, mBlock, cap_enabled, _str_func, path_labe
             _str_func, 'path=polyCloseBorder | after={0}'.format(path_label)))
         mc.polyCloseBorder(mMesh.mNode, ch=False)
     else:
-        log.info(cgmGEN.logString_msg(_str_func, 'cap off — open ends (no polyCloseBorder)'))
+        log.info(cgmGEN.logString_msg(_str_func, 'cap off â€” open ends (no polyCloseBorder)'))
     _node = mc.rename(mMesh.mNode, '{0}_0_geo'.format(mBlock.p_nameBase))
     mMesh = cgmMeta.validateObjArg(_node, 'cgmObject', setClass=True)
     log.info(cgmGEN.logString_msg(_str_func, 'result={0}'.format(mMesh.p_nameShort)))
@@ -2371,7 +2469,7 @@ def _handle_proxy_finalize_mesh(mMesh, mBlock, cap_enabled, _str_func, path_labe
 def _handle_cast_proxy_mesh(mBlock, cap_enabled, ml_geo, _str_func='handle_cast_proxy_mesh'):
     """
     castMesh proxy/puppet mesh from prerig nurbs or shaper lofts.
-    End caps use polyCloseBorder only — create_loftMesh cap=False (start/end shapers are already end sections).
+    End caps use polyCloseBorder only â€” create_loftMesh cap=False (start/end shapers are already end sections).
     """
     mMesh = None
     _path = None
@@ -2433,7 +2531,7 @@ def _handle_proxy_mesh_geo_user_only(mBlock, ml_geo, _str_func):
         if mGeo.getMayaAttr('cgmType') == 'proxyHelper':
             log.info(cgmGEN.logString_msg(_str_func, 'geoOnly skip cgmType=proxyHelper | {0}'.format(_short)))
             continue
-        if mProxyGrp and mGeo.getParent(asMeta=True) == mProxyGrp:
+        if mProxyGrp and _proxy_geo_under_group(mProxyGrp.mNode, mGeo.mNode):
             ml_user.append(mGeo)
             continue
         if _short.endswith('_proxyGeo'):
@@ -2488,7 +2586,7 @@ def _handle_build_proxy_meshes(mBlock, str_proxyType, ml_geo, cap_enabled, _str_
             _str_func,
             'path=geoOnly | proxyMeshGeo duplicates only | count={0}'.format(len(ml_geo))))
         for mGeo in ml_geo:
-            mMesh = mGeo.doDuplicate(po=False)
+            mMesh = _proxy_geo_duplicate_piece(mGeo, mBlock)
             mMesh.p_parent = False
             ml_proxy.append(mMesh)
         return ml_proxy
@@ -2501,7 +2599,7 @@ def _handle_build_proxy_meshes(mBlock, str_proxyType, ml_geo, cap_enabled, _str_
             ml_proxy.append(mMesh)
         ml_user = _handle_proxy_mesh_geo_user_only(mBlock, ml_geo, _str_func)
         for mGeo in ml_user:
-            mDup = mGeo.doDuplicate(po=False)
+            mDup = _proxy_geo_duplicate_piece(mGeo, mBlock)
             mDup.p_parent = False
             ml_proxy.append(mDup)
         if not ml_proxy:
@@ -2529,7 +2627,7 @@ def _handle_build_proxy_meshes(mBlock, str_proxyType, ml_geo, cap_enabled, _str_
                         uNumber=mBlock.loftSplit,
                         vNumber=mBlock.loftSides)
                 else:
-                    mMesh = mGeo.doDuplicate(po=False)
+                    mMesh = _proxy_geo_duplicate_piece(mGeo, mBlock)
                 mMesh.p_parent = False
                 ml_proxy.append(mMesh)
     return ml_proxy
@@ -2555,8 +2653,10 @@ def create_simpleMesh(self, deleteHistory = True, cap=True, skin = False, parent
             ml_moduleJoints = mModuleTarget.rigNull.msgList_get('moduleJoints')
             if not ml_moduleJoints:
                 return log.error("|{0}| >> Must have moduleJoints for skining mode".format(_str_func))        
-        
-        
+
+
+        if proxyGeo_getGroup(self):
+            proxyGeo_refresh(self)#nested geo under the group isn't always on the msgList
         ml_geo = self.msgList_get('proxyMeshGeo')
         ml_proxy = []
         str_setup = self.getEnumValueString('proxyShape')
@@ -2656,6 +2756,8 @@ def build_proxyMesh(self, forceNew = True, puppetMeshMode = False, skin = False,
         
     #>> Build bbProxy -----------------------------------------------------------------------------
     mMeshCheck = mBlock.getMessageAsMeta('proxyHelper')
+    if proxyGeo_getGroup(mBlock):
+        proxyGeo_refresh(mBlock)#nested geo under the group isn't always on the msgList
     ml_geo = mBlock.msgList_get('proxyMeshGeo')
     #if not ml_geo and mMeshCheck:
         #ml_geo = [mMeshCheck]

@@ -660,6 +660,10 @@ def _record_export_prepare_path(path, outcome, ok, reason=None, p4_action='none'
     ))
 
 
+class _P4ConnectionLost(Exception):
+    """Internal: P4 server unreachable mid-prepare; prepare_output_for_write falls back to offline rules."""
+
+
 def _p4_offline_existing_block(path, cached, confirm, prepare_context, stage, _str_func):
     """
     Block save over an existing file while P4 is offline (no safe cached fstat status).
@@ -722,6 +726,10 @@ def _prepare_p4_for_write(path, p4_user, p4_client, confirm=True, p4_add=False,
     _stat = P4UTIL.query_file_status(path, p4_user=p4_user, p4_client=p4_client)
     if _stat.get('error') and not _stat.get('notInClient') and not _stat.get('notOnDepot'):
         _reason = _stat.get('error')
+        if P4UTIL.is_connection_error(_reason):
+            # Server unreachable despite a warm 'available' cache — caller applies offline rules.
+            P4UTIL.mark_unavailable(p4_user=p4_user, p4_client=p4_client, reason=_reason)
+            raise _P4ConnectionLost(_reason)
         _log_p4('p4_checkout_failed', False, reason=_reason)
         raise PathWritePrepareError(path, reason=_reason)
 
@@ -849,23 +857,29 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
     if _p4_mode:
         import cgm.core.lib.perforce as P4UTIL
         _user, _client = P4UTIL.resolve_connection(p4_user, p4_client)
-        if _user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client):
+        _p4_connected = bool(_user and _client and P4UTIL.is_available(p4_user=_user, p4_client=_client))
+        if _p4_connected:
             if p4_checkout:
-                _prepare_p4_for_write(
-                    _norm,
-                    _user,
-                    _client,
-                    confirm=confirm_p4,
-                    p4_add=p4_add,
-                    prepare_context=prepare_context,
-                    _str_func=_str_func,
-                )
-                _p4_ran = True
+                try:
+                    _prepare_p4_for_write(
+                        _norm,
+                        _user,
+                        _client,
+                        confirm=confirm_p4,
+                        p4_add=p4_add,
+                        prepare_context=prepare_context,
+                        _str_func=_str_func,
+                    )
+                    _p4_ran = True
+                except _P4ConnectionLost as err:
+                    log.warning('{0} || P4 server unreachable — applying offline rules: {1}'.format(
+                        _str_func, err))
+                    _p4_connected = False
             else:
                 _p4_checkout_skipped = True
                 log.debug('{0} || P4 checkout skipped (p4_checkout=False) — writability check only'.format(
                     _str_func))
-        else:
+        if not _p4_connected:
             _p4_disconnected = True
             if p4_checkout and os.path.isfile(_norm):
                 try:

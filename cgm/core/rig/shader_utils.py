@@ -374,6 +374,115 @@ class build_conditionNetworkFromGroup(object):
         return True
     
     
+#>> Localize referenced shading =========================================================================
+_str_localizedFromAttr = 'cgmLocalizedFrom'
+_l_sgInputSkipAttrs = ('dagSetMembers', 'dnSetMembers', 'groupNodes', 'partition',
+                       'memberWireframeColor', 'message')
+
+def _shadingEngine_shaderInputs(sg):
+    """[(sgAttr, srcPlug)] feeding the shadingEngine's shader slots (surface/volume/displacement/renderer)."""
+    _l = mc.listConnections(sg, s=True, d=False, plugs=True, connections=True) or []
+    _res = []
+    for i in range(0, len(_l), 2):
+        _dst, _src = _l[i], _l[i+1]
+        _attr = _dst.split('.', 1)[-1].split('[')[0]
+        if _attr in _l_sgInputSkipAttrs:
+            continue
+        _srcNode = _src.split('.')[0]
+        if mc.objectType(_srcNode, isAType='dagNode') or mc.objectType(_srcNode) in ('groupId', 'partition'):
+            continue
+        _res.append((_dst.split('.', 1)[-1], _src))
+    return _res
+
+def _shadingEngine_isReferenced(sg):
+    if mc.referenceQuery(sg, isNodeReferenced=True):
+        return True
+    for _attr, _src in _shadingEngine_shaderInputs(sg):
+        if mc.referenceQuery(_src.split('.')[0], isNodeReferenced=True):
+            return True
+    return False
+
+def _shadingEngine_localGet(sg):
+    """Existing local copy made by shadingEngine_localize (tagged cgmLocalizedFrom), or None."""
+    for _sgLocal in mc.ls(type='shadingEngine') or []:
+        if mc.referenceQuery(_sgLocal, isNodeReferenced=True):
+            continue
+        if not mc.attributeQuery(_str_localizedFromAttr, node=_sgLocal, exists=True):
+            continue
+        if mc.getAttr('{0}.{1}'.format(_sgLocal, _str_localizedFromAttr)) == sg:
+            return _sgLocal
+    return None
+
+def shadingEngine_localize(sg):
+    """
+    Scene-local copy of a referenced shadingEngine: duplicates each upstream shader network
+    (material, textures, place2d) and wires it into a new local SG. Reuses a copy already made for sg.
+    Members are NOT moved here. Returns the local SG name.
+    """
+    _str_func = 'shadingEngine_localize'
+    _sgLocal = _shadingEngine_localGet(sg)
+    if _sgLocal:
+        log.debug("|{0}| >> reuse: {1} -> {2}".format(_str_func, sg, _sgLocal))
+        return _sgLocal
+
+    _base = sg.split('|')[-1].split(':')[-1]
+    _sgLocal = mc.sets(renderable=True, noSurfaceShader=True, empty=True, name='{0}_local'.format(_base))
+    mc.addAttr(_sgLocal, ln=_str_localizedFromAttr, dt='string')
+    mc.setAttr('{0}.{1}'.format(_sgLocal, _str_localizedFromAttr), sg, type='string')
+
+    d_dup = {}#src shader node -> duplicated node; one dup per network even if it feeds several slots
+    for _attr, _src in _shadingEngine_shaderInputs(sg):
+        _srcNode, _srcAttr = _src.split('.', 1)
+        if _srcNode not in d_dup:
+            _dup = mc.duplicate(_srcNode, upstreamNodes=True)[0]
+            d_dup[_srcNode] = mc.rename(_dup, '{0}_local'.format(_srcNode.split(':')[-1]))
+        mc.connectAttr('{0}.{1}'.format(d_dup[_srcNode], _srcAttr), '{0}.{1}'.format(_sgLocal, _attr), force=True)
+    log.info("|{0}| >> {1} -> {2} | shaders: {3}".format(_str_func, sg, _sgLocal, list(d_dup.values())))
+    return _sgLocal
+
+def shadingEngines_localize(nodes = None):
+    """
+    For mesh/nurbs under nodes (transforms or shapes), move any assignment on a referenced shadingEngine
+    (or one fed by a referenced material) to a scene-local duplicate network. Per-face assignments kept.
+
+    :returns: {referencedSG: localSG}
+    """
+    _str_func = 'shadingEngines_localize'
+    if not nodes:
+        nodes = mc.ls(sl=1)
+    nodes = VALID.listArg(nodes)
+
+    l_shapes = []
+    for _node in nodes:
+        _node = _node.mNode if hasattr(_node, 'mNode') else _node
+        _l = mc.ls(_node, long=True, type=['mesh', 'nurbsSurface']) or []
+        _l += mc.listRelatives(_node, allDescendents=True, fullPath=True, type=['mesh', 'nurbsSurface']) or []
+        for _shape in _l:
+            if _shape not in l_shapes and not mc.getAttr('{0}.intermediateObject'.format(_shape)):
+                l_shapes.append(_shape)
+
+    d_map = {}
+    for _shape in l_shapes:
+        _trans = mc.listRelatives(_shape, parent=True, fullPath=True)[0]
+        _l_mine = [_shape, _trans]
+        for sg in list(set(mc.listConnections(_shape, type='shadingEngine', d=True, s=False) or [])):
+            if sg not in d_map:
+                if not _shadingEngine_isReferenced(sg):
+                    continue
+                d_map[sg] = shadingEngine_localize(sg)
+            _l_members = []
+            for _m in mc.sets(sg, q=True) or []:
+                _l_obj = mc.ls(_m, objectsOnly=True, long=True) or []
+                if _l_obj and _l_obj[0] in _l_mine:
+                    _l_members.append(_m)
+            if _l_members:
+                mc.sets(_l_members, e=True, forceElement=d_map[sg])
+                log.info("|{0}| >> {1} | {2} -> {3} | members: {4}".format(
+                    _str_func, _trans.split('|')[-1], sg, d_map[sg], len(_l_members)))
+    if not d_map:
+        log.info("|{0}| >> no referenced shading on {1} shapes".format(_str_func, len(l_shapes)))
+    return d_map
+
 def shaderDat_get(nodes = []):
     if not nodes:
         nodes = mc.ls(sl=1)

@@ -110,6 +110,40 @@ def _clear_cache():
     P4SESSION.clear()
 
 
+_P4_CONNECTION_ERROR_MARKERS = (
+    'connect to server failed',
+    'no such host',
+    'check $p4port',
+    'tcp connect to',
+    'connection refused',
+    'partner exited unexpectedly',
+    'p4 info failed',
+)
+
+
+def is_connection_error(text):
+    """True when p4 output/error text means the server is unreachable (not a per-file error)."""
+    if not text:
+        return False
+    _t = str(text).lower()
+    return any(_m in _t for _m in _P4_CONNECTION_ERROR_MARKERS)
+
+
+def mark_unavailable(p4_user=None, p4_client=None, reason=None):
+    """
+    Mark the session P4 connection unavailable without flushing the fstat cache.
+    Used when a query hits a connection error while 'available' was cached True.
+    """
+    _user, _client = resolve_connection(p4_user, p4_client)
+    _cache['p4_user'] = _user
+    _cache['p4_client'] = _client
+    _cache['available'] = False
+    _cache['info'] = None
+    _cache['connection_report_key'] = None
+    _cache['connection_report'] = None
+    log.warning('Perforce marked unavailable for session ({0})'.format(reason or 'connection error'))
+
+
 def flush_status_cache():
     """Clear all session P4 status/query caches (writes, Refresh — in-place, no module reload)."""
     P4SESSION.clear()
@@ -2477,9 +2511,20 @@ def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False, pr
                 break
         _chunk = _miss[_i:_i + FSTAT_QUERY_CHUNK]
         _fresh = _query_files_status_batch(_chunk, _user, _client)
+        _conn_err = None
         for _norm, _dat in _fresh.items():
             _out[_norm] = _dat
+            if _dat.get('error'):
+                # Never cache errors — they would mask real status after reconnect.
+                if is_connection_error(_dat.get('error')):
+                    _conn_err = _dat.get('error')
+                continue
             _store[_fstat_cache_key(_user, _client, _norm)] = dict(_dat)
+        if _conn_err:
+            mark_unavailable(p4_user=_user, p4_client=_client, reason=_conn_err)
+            for _norm in _miss[_i + FSTAT_QUERY_CHUNK:]:
+                _out[_norm] = dict(_new_file_status_out(_norm), error=_conn_err)
+            break
     return _out
 
 
