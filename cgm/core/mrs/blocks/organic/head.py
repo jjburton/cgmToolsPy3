@@ -4717,17 +4717,20 @@ def rig_inflate(self):
             inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
             parentGutsTo=mRigNull,
             extra_keyable=True,
-            leave_joint_volume_wiring=True)
+            leave_joint_volume_wiring=True,
+            skip_tip_inflate=True)
     elif self.str_segmentType == 'bezier':
         if getattr(self, 'd_segmentBezierStretch', None):
             d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
                 self, mBlock, mRigNull, mSettings,
-                mRigNull.msgList_get('segmentJoints') or [])
+                mRigNull.msgList_get('segmentJoints') or [],
+                skip_tip_inflate=True)
     elif (_ikNeck == 'bezier'
             and getattr(self, 'd_stretchInflateRes', None)):
         d_inflate_res = BEZIERIKBLOCK.segment_inflate_result_from_module_volume(
             self, mBlock, mRigNull, mSettings,
-            mRigNull.msgList_get('ikJoints') or [])
+            mRigNull.msgList_get('ikJoints') or [],
+            skip_tip_inflate=True)
 
     if (not d_inflate_res
             and self.b_scaleSetup
@@ -4771,6 +4774,7 @@ def rig_inflate(self):
                 inflateDriveDirectParents=True,
                 volumeSquashInflateOnly=True,
                 replaceExisting=True,
+                skipTipInflate=True,
                 useUndoChunk=False)
         elif self.b_squashSetup and ml_ik_joints:
             d_inflate_res = BEZIERIKBLOCK.segment_inflate_stretch_result_from_volume_joints(
@@ -4783,7 +4787,8 @@ def rig_inflate(self):
                 inflate_factor_mode=_str_inf_mode,
                 inflate_factor_base_name='{0}_inflate'.format(self.d_module['partName']),
                 parentGutsTo=mRigNull,
-                extra_keyable=True)
+                extra_keyable=True,
+                skip_tip_inflate=True)
 
     if d_inflate_res and d_inflate_res.get('l_inflateDirectPlugs'):
         log.info(cgmGEN.logString_msg(

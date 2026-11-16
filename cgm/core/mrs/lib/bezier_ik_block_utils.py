@@ -256,7 +256,7 @@ def segment_inflate_direct_parent_joint_list(mRigNull, str_segment_type):
 
 def segment_inflate_result_from_module_volume(
         self_seg, mBlock, mRigNull, mSettings, ml_volume_joints,
-        leave_joint_volume_wiring=True):
+        leave_joint_volume_wiring=True, skip_tip_inflate=False):
     """
     ``rig_inflate`` only: inflate settings + direct-parent plugs from volume
     already on ``ml_volume_joints`` (stretch built in rig_frame / rig_segments).
@@ -285,7 +285,8 @@ def segment_inflate_result_from_module_volume(
         inflate_factor_base_name='{0}_inflate'.format(str_part),
         parentGutsTo=mRigNull,
         extra_keyable=True,
-        leave_joint_volume_wiring=leave_joint_volume_wiring)
+        leave_joint_volume_wiring=leave_joint_volume_wiring,
+        skip_tip_inflate=skip_tip_inflate)
 
 
 def segment_inflate_stretch_result_from_volume_joints(
@@ -299,7 +300,8 @@ def segment_inflate_stretch_result_from_volume_joints(
         inflate_factor_base_name=None,
         parentGutsTo=None,
         extra_keyable=True,
-        leave_joint_volume_wiring=False):
+        leave_joint_volume_wiring=False,
+        skip_tip_inflate=False):
     """
     Build inflate factor plugs for direct rig controls when volume squash already
     exists on a joint chain (ribbon **segmentJoints**, curve IK joints, etc.).
@@ -307,6 +309,9 @@ def segment_inflate_stretch_result_from_volume_joints(
     ``leave_joint_volume_wiring=True`` for ribbon segment deform: read existing
     ribbon squash drivers only — do not reconnect segment joint scale (inflate
     rides on direct-parent nulls).
+
+    ``skip_tip_inflate=True`` — no tip pass on the chain-end direct (Head: the head
+    control must not inherit neck volume; same contract as limb ``skipTipInflate``).
 
     Returns the same shape as ``bezier_spline_stretch`` inflate slice for
     ``segment_inflate_parent_rig_direct_controls``.
@@ -382,7 +387,7 @@ def segment_inflate_stretch_result_from_volume_joints(
                 m_jnt, l_volume_scale, str_vol_scale, str_inflate_scale,
                 True, l_inflate_direct_plugs, int_i)
 
-    if len(ml_volume_joints) >= 1:
+    if len(ml_volume_joints) >= 1 and not skip_tip_inflate:
         int_tip = len(ml_volume_joints) - 1
         m_tip = ml_volume_joints[int_tip]
         str_tip_vol = _segment_inflate_volume_plug_from_ik_joint(

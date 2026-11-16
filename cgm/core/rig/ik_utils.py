@@ -6860,12 +6860,22 @@ def bezier_spline_stretch(ml_joints=None,
                 ATTR.connect(globalScalePlug, mGlobalMd.mNode + '.input2X')
                 str_length = mGlobalMd.mNode + '.outputX'
 
+            # Rest = measured curve length at bind (same plug as input1X), not the joint
+            # chord sum — a curved bezier arc != chord sum, which squashed at rest.
+            f_rest_arc = float(mc.getAttr(str_length))
+            if f_rest_arc <= _BEZIER_STRETCH_BIND_REST_EPS:
+                log.warning(cgmGEN.logString_msg(
+                    _str_func,
+                    'bind arcLength ~0 ({0}); falling back to chain rest {1}'.format(
+                        f_rest_arc, f_rest_length)))
+                f_rest_arc = f_rest_length
+
             mRatioMd = cgmMeta.cgmNode(
                 nodeType='multiplyDivide',
                 name='{0}_stretch_lengthRatio_md'.format(str_base))
             ATTR.set(mRatioMd.mNode, 'operation', 2)
             ATTR.connect(str_length, mRatioMd.mNode + '.input1X')
-            ATTR.set(mRatioMd.mNode, 'input2X', f_rest_length)
+            ATTR.set(mRatioMd.mNode, 'input2X', f_rest_arc)
 
             str_curve_blend, ml_curve_blend_nodes, mFinalRatio = (
                 _bezier_stretch_curve_blend_network(
@@ -7005,8 +7015,8 @@ def bezier_spline_stretch(ml_joints=None,
             f_arc = float(ATTR.get(mCurveInfo.mNode, 'arcLength'))
             log.info(cgmGEN.logString_msg(
                 _str_func,
-                'arcLength | restLength:{0} arcLength:{1}'.format(
-                    f_rest_length, f_arc)))
+                'arcLength | chainRest:{0} restArc:{1} arcLength:{2}'.format(
+                    f_rest_length, f_rest_arc, f_arc)))
 
         ml_dg = ml_measure_dg + ml_segment_mdl + ml_squash_dg
         if mCurveInfo:
