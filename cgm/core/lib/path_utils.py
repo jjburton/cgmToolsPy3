@@ -817,8 +817,9 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
     When p4_checkout is False, skip edit/add (writability check only) — export batch with
     Auto Check Out Export Files off.
     When P4 is unavailable (versionControl=perforce but not connected): new files (path not on
-    disk) write locally with no dialog; existing files are blocked unless the session fstat cache
-    shows checked out by me / marked for add / not on depot (unknown). No cache entry -> block.
+    disk) write locally with no dialog; existing files are allowed when the session fstat cache
+    shows checked out by me / marked for add / not on depot (unknown), or when there is no cache
+    entry and the file is writable (local work). Read-only or cached-as-synced depot files -> block.
     With p4_checkout=False, offline behavior is unchanged (writability check only).
     Returns normalized path string.
 
@@ -890,6 +891,11 @@ def prepare_output_for_write(path, mDat=None, use_p4=None, p4_user=None, p4_clie
                 if _key in ('checked_out', 'marked_for_add', 'unknown'):
                     log.debug('{0} || P4 offline, existing file allowed by cached status ({1}): {2}'.format(
                         _str_func, _key, _norm))
+                elif not _cached and os.access(_norm, os.W_OK):
+                    # No cached depot status + writable: local/offline work (e.g. new version + its
+                    # meta written moments ago). P4-synced files are read-only until checked out.
+                    log.debug('{0} || P4 offline, existing writable file with no cached status allowed: {1}'.format(
+                        _str_func, _norm))
                 else:
                     _p4_offline_existing_block(
                         _norm, _cached, confirm_p4, prepare_context, _stage, _str_func)
