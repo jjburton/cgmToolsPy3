@@ -461,8 +461,13 @@ def bezier_cvs_from_bend_prioritized(l_positions,
         clamp_handles=clamp_handles)
 
 
-def create_bezier_nurbs_curve(str_name, l_points):
-    """Create a multi-span degree-3 Maya Bezier NURBS curve transform name."""
+def create_bezier_nurbs_curve(str_name, l_points, bezier=True):
+    """
+    Create a multi-span degree-3 Maya Bezier NURBS curve transform name.
+
+    bezier=False: plain nurbsCurve with the same CVs + Bezier knot vector — identical shape,
+    usable where a nurbsCurve shape is required (e.g. ikSplineSolver driver fed from a bezierCurve).
+    """
     _degree = 3
     if (len(l_points) - 1) % _degree:
         raise ValueError(
@@ -477,6 +482,12 @@ def create_bezier_nurbs_curve(str_name, l_points):
     if len(l_knots) != len(l_points) + _degree - 1:
         raise ValueError('Invalid Bezier knot count for {0} CVs.'.format(len(l_points)))
 
+    if not bezier:
+        return mc.curve(
+            name=str_name,
+            degree=_degree,
+            point=l_points,
+            knot=l_knots)
     return mc.curve(
         name=str_name,
         degree=_degree,
@@ -2439,8 +2450,9 @@ def getPercentPointOnCurve(*args, **kws):
             """
             """	    
             self.f_factor = cgmValid.valueArg(self.d_kws['factor'],minValue=0,maxValue=1.0)
-            self.mi_crv = cgmMeta.validateObjArg(self.d_kws['curve'],mayaType='nurbsCurve',noneValid=False)
-            #self._str_funcCombined = self._str_funcCombined + "('{0}')".format(self.mi_crv.p_nameShort)	    
+            # bezierCurve subclasses nurbsCurve — .u[*] / pointPosition work as-is (factor is of U, not arc length).
+            self.mi_crv = cgmMeta.validateObjArg(self.d_kws['curve'],mayaType=['nurbsCurve','bezierCurve'],noneValid=False)
+            #self._str_funcCombined = self._str_funcCombined + "('{0}')".format(self.mi_crv.p_nameShort)
             try:self.str_bufferU = mc.ls("{0}{1}".format(self.mi_crv.mNode,".u[*]"))[0]
             except Exception as error:raise Exception("ls fail | error: {0}".format(error))
             self.f_maxU = float(self.str_bufferU.split(':')[-1].split(']')[0])	

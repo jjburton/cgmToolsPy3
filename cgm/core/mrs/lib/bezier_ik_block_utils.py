@@ -440,9 +440,261 @@ def block_bezier_anchor_mode(mBlock):
         _attr = 'splineBezierMode'
     if mBlock.hasAttr(_attr):
         _mode = mBlock.getEnumValueString(_attr)
+        if _mode == 'prerig':
+            # prerig: the curve is authored at prerig and passed as useBezierCurve
+            # (Head neckIK=bezier / Segment ikSetup=bezier only).
+            # bezier_spline has no 'prerig' anchor mode — uniform is only used if no curve is passed.
+            if not block_bezier_prerig_curve_active(mBlock):
+                log.warning(cgmGEN.logString_msg(
+                    'block_bezier_anchor_mode',
+                    '{0} | ikSplineBezierMode prerig needs Head neckIK=bezier or Segment ikSetup=bezier — using uniform'.format(
+                        mBlock.p_nameShort)))
+            return 'uniform'
         if _mode:
             return _mode
     return 'uniform'
+
+
+def block_bezier_prerig_curve_active(mBlock):
+    """
+    Prerig-authored bezier gate. True only for:
+      - Head: neckBuild + neckIK=bezier + ikSplineBezierMode=prerig
+      - Segment: ikSetup=bezier + ikSplineBezierMode=prerig
+    Anything else builds as before.
+    """
+    if not mBlock:
+        return False
+    if not mBlock.hasAttr('ikSplineBezierMode'):
+        return False
+    if not mBlock.hasAttr('neckIK'):
+        # Segment (no neck attrs): module ikSetup drives the bezier.
+        if not mBlock.hasAttr('ikSetup') or not mBlock.ikSetup:
+            return False
+        if mBlock.getEnumValueString('ikSetup') != 'bezier':
+            return False
+        return mBlock.getEnumValueString('ikSplineBezierMode') == 'prerig'
+    for _attr in ('neckBuild', 'neckIK', 'ikSplineBezierMode'):
+        if not mBlock.hasAttr(_attr):
+            return False
+    if not mBlock.neckBuild:
+        return False
+    if mBlock.getEnumValueString('neckIK') != 'bezier':
+        return False
+    return mBlock.getEnumValueString('ikSplineBezierMode') == 'prerig'
+
+
+def block_bezier_prerig_curve(mBlock):
+    """Prerig-authored bezierCurve (prerigNull.bezierPrerigCurve) or None."""
+    mPrerigNull = mBlock.getMessageAsMeta('prerigNull') if mBlock else None
+    if not mPrerigNull:
+        return None
+    return mPrerigNull.getMessageAsMeta('bezierPrerigCurve')
+
+
+def bezier_prerig_curve_copy_for_rig(mBlock, str_baseName, int_anchor_count):
+    """
+    Static rig copy of the prerig bezier (world CV positions) for IK.bezier_spline useBezierCurve.
+
+    The rig never references prerig nodes directly — block state changes would break it.
+    Raises when the prerig curve is missing or its anchor count no longer matches the bezier mains
+    (e.g. ikMidControlNum changed without a prerig rebuild).
+    """
+    _str_func = 'bezier_prerig_curve_copy_for_rig'
+    mPrerigCurve = block_bezier_prerig_curve(mBlock)
+    if not mPrerigCurve:
+        raise ValueError(
+            '{0} | {1} ikSplineBezierMode=prerig but no prerig bezier curve — rebuild prerig.'.format(
+                _str_func, mBlock.p_nameShort))
+
+    # Skip the cluster deformer's intermediate (orig) shape — we want the deformed CVs.
+    l_shapes = [_s for _s in (mPrerigCurve.getShapes(asMeta=False) or [])
+                if mc.nodeType(_s) == 'bezierCurve'
+                and not mc.getAttr('{0}.intermediateObject'.format(_s))]
+    if not l_shapes:
+        raise ValueError('{0} | {1} has no bezierCurve shape.'.format(
+            _str_func, mPrerigCurve.p_nameShort))
+    str_shape = l_shapes[0]
+
+    # Bezier interior knots repeat (spans+degree != CV count) and the clustered shape's controlPoints
+    # can be sparse — count CV components instead.
+    int_cvs = len(mc.ls('{0}.cv[*]'.format(str_shape), flatten=True) or [])
+    int_expected = (3 * (int_anchor_count - 1)) + 1
+    if int_cvs != int_expected:
+        raise ValueError(
+            '{0} | prerig bezier has {1} CVs, bezier mains need {2} ({3} anchors) — rebuild prerig.'.format(
+                _str_func, int_cvs, int_expected, int_anchor_count))
+
+    l_cvs = [mc.xform('{0}.cv[{1}]'.format(str_shape, _i), q=True, ws=True, t=True)
+             for _i in range(int_cvs)]
+    mBezierCurve = cgmMeta.asMeta(
+        CURVES.create_bezier_nurbs_curve('{0}_bezier_crv'.format(str_baseName), l_cvs),
+        'cgmObject', setClass=True)
+    mBezierCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+    mBezierCurve.addAttr('cgmType', 'bezierIKCurve', attrType='string', lock=True)
+    mBezierCurve.doName()
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'from prerig {0} | cvs={1}'.format(mPrerigCurve.p_nameShort, int_cvs)))
+    return mBezierCurve
+
+
+# Prerig-authored bezier build (Head / Segment, block_bezier_prerig_curve_active only) ==============
+def prerig_parent_world_space(mObj, mParent):
+    """
+    Parent a world-space-deformed curve (decomposeMatrix CVs / linearTrack clusters) under mParent
+    without double transforms: inheritsTransform off + identity local.
+
+    Parenting keeps world position (local = inverse of mParent); with inheritsTransform off that
+    offset would apply to every CV, so reset to identity.
+    """
+    mObj.p_parent = mParent
+    mObj.inheritsTransform = 0
+    mc.setAttr('{0}.translate'.format(mObj.mNode), 0, 0, 0)
+    mc.setAttr('{0}.rotate'.format(mObj.mNode), 0, 0, 0)
+    mc.setAttr('{0}.scale'.format(mObj.mNode), 1, 1, 1)
+    mc.setAttr('{0}.shear'.format(mObj.mNode), 0, 0, 0)
+
+
+def prerig_attach_to_curve_fraction(mHandle, mCrv, parentTo=None, fraction=0.0, mDrivenGroup=None):
+    """
+    Arc-length attach (motionPath fractionMode) for the prerig bezier.
+
+    Bezier U is per-section, so a percent-parameter attach would bunch joints in short sections;
+    fractionMode keeps spacing even as tangents are edited.
+    mDrivenGroup: group to pointConstrain (default: mHandle trackGroup, created if missing).
+    """
+    if mDrivenGroup:
+        mTrackGroup = mDrivenGroup
+    else:
+        if not mHandle.getMessage('trackGroup'):
+            mHandle.doGroup(True, True, asMeta=True, typeModifier='track', setClass='cgmObject')
+        mTrackGroup = mHandle.trackGroup
+    for mConst in mTrackGroup.getConstraintsTo(asMeta=1):
+        mConst.delete()
+
+    str_shape = mCrv.getShapes(asMeta=False)[0]
+    mMotionPath = cgmMeta.cgmNode(nodeType='motionPath')
+    mMotionPath.rename('{0}_bezierPrerig_mp'.format(mHandle.p_nameBase))
+    mMotionPath.fractionMode = 1
+    mc.connectAttr('{0}.worldSpace[0]'.format(str_shape), '{0}.geometryPath'.format(mMotionPath.mNode))
+
+    mPlug = cgmMeta.cgmAttr(mHandle.mNode, 'param', attrType='float',
+                            minValue=0.0, maxValue=1.0, keyable=True, hidden=False)
+    mPlug.value = fraction
+    mPlug.p_defaultValue = fraction
+    mMotionPath.doConnectIn('uValue', mPlug.p_combinedName)
+
+    mTrackLoc = mHandle.doLoc()
+    mc.connectAttr('{0}.allCoordinates'.format(mMotionPath.mNode), '{0}.translate'.format(mTrackLoc.mNode))
+    mTrackLoc.p_parent = parentTo
+    mTrackLoc.v = False
+    mc.pointConstraint(mTrackLoc.mNode, mTrackGroup.mNode, maintainOffset=False)
+
+
+def prerig_bezier_curve_build(mBlock, ml_anchors, f_size):
+    """
+    Prerig-authored bezier (block_bezier_prerig_curve_active only).
+
+    ml_anchors match the rig bezier mains: first prerig handle, ikMidHelpers, last prerig handle.
+    In/out tangent handles are children of their anchor. create_jointHelpers rides joint helpers on
+    this curve; RIGFRAME.bezier copies it as the IK curve (bezier_prerig_curve_copy_for_rig).
+    Stores prerigNull.bezierPrerigCurve + msgList bezierPrerigHandles.
+    """
+    import cgm.core.mrs.lib.blockShapes_utils as BLOCKSHAPES
+
+    _str_func = 'prerig_bezier_curve_build'
+    mPrerigNull = mBlock.prerigNull
+
+    l_cvs = CURVES.bezier_cvs_from_anchors([mObj.p_position for mObj in ml_anchors])
+
+    mCurve = cgmMeta.asMeta(
+        CURVES.create_bezier_nurbs_curve('{0}_prerigBezier_crv'.format(mBlock.cgmName), l_cvs),
+        'cgmObject', setClass=True)
+    prerig_parent_world_space(mCurve, mPrerigNull)
+    mCurve.overrideEnabled = 1
+    mCurve.overrideDisplayType = 2  # reference — visible, not selectable (edit via handles)
+
+    # Driver per CV: anchors at 3n, tangents at 3n±1 ----------------------------------------
+    l_drivers = [None] * len(l_cvs)
+    ml_tangents = []
+    for i, mAnchor in enumerate(ml_anchors):
+        l_drivers[i * 3] = mAnchor
+        for str_dir, idx_cv in (('in', (i * 3) - 1), ('out', (i * 3) + 1)):
+            if idx_cv < 0 or idx_cv >= len(l_cvs):
+                continue
+            # bakeScale: size lives in the shape, so the transform scale below only cancels the anchor.
+            mTangent = cgmMeta.validateObjArg(
+                CURVES.create_fromName('sphere', size=f_size * 5.0, bakeScale=True), 'cgmObject', setClass=True)
+            mTangent.doCopyNameTagsFromObject(mAnchor.mNode, ignore=['cgmType', 'cgmTypeModifier'])
+            mTangent.doStore('cgmTypeModifier', 'bezier{0}'.format(CORESTRING.capFirst(str_dir)))
+            mTangent.doStore('cgmType', 'preHandle')
+            mTangent.doName()
+            # Match the anchor's orient: parent, zero rotate locally, then place on the CV.
+            # Local scale cancels the anchor's world scale so every tangent is the same world size.
+            mTangent.p_parent = mAnchor
+            mc.setAttr('{0}.rotate'.format(mTangent.mNode), 0, 0, 0)
+            l_anchorScale = mc.xform(mAnchor.mNode, q=True, ws=True, scale=True)
+            mc.setAttr('{0}.scale'.format(mTangent.mNode),
+                       *[1.0 / _s if abs(_s) > 1e-6 else 1.0 for _s in l_anchorScale])
+            mTangent.p_position = l_cvs[idx_cv]
+            BLOCKSHAPES.color(mBlock, mTangent.mNode, controlType='sub')
+            ATTR.set_standardFlags(mTangent.mNode, ['rx', 'ry', 'rz', 'sx', 'sy', 'sz', 'v'])
+            l_drivers[idx_cv] = mTangent
+            ml_tangents.append(mTangent)
+
+            # Anchor → tangent line (same linearTrack pattern as rig_shapes_bezier_main_to_sub_track).
+            trackcrv, l_clusters = CORERIG.create_at(
+                [mAnchor.mNode, mTangent.mNode], 'linearTrack',
+                baseName='{0}_{1}_bezierPrerigTrack'.format(mAnchor.p_nameBase, str_dir))
+            mTrackCrv = cgmMeta.asMeta(trackcrv)
+            prerig_parent_world_space(mTrackCrv, mPrerigNull)
+            BLOCKSHAPES.color(mBlock, mTrackCrv.mNode, controlType='aux')
+            for mShape in mTrackCrv.getShapes(asMeta=True):
+                mShape.overrideEnabled = 1
+                mShape.overrideDisplayType = 2
+
+    # decomposeMatrix -> controlPoints: no cluster orig shape to filter when the rig copies CVs.
+    str_shape = mCurve.getShapes(asMeta=False)[0]
+    for i, mDriver in enumerate(l_drivers):
+        mDecomp = cgmMeta.cgmNode(nodeType='decomposeMatrix')
+        mDecomp.rename('{0}_bezierCv_{1}_decomp'.format(mBlock.cgmName, i))
+        mc.connectAttr('{0}.worldMatrix[0]'.format(mDriver.mNode),
+                       '{0}.inputMatrix'.format(mDecomp.mNode))
+        mc.connectAttr('{0}.outputTranslate'.format(mDecomp.mNode),
+                       '{0}.controlPoints[{1}]'.format(str_shape, i))
+
+    mPrerigNull.connectChildNode(mCurve.mNode, 'bezierPrerigCurve')
+    mPrerigNull.msgList_connect('bezierPrerigHandles', ml_tangents)
+
+    # Pickwalk in curve order — same as rig bezier_ik_pickwalk_controls:
+    # base, base_out, mid_in, mid, mid_out, …, end_in, end. Call after the block's prerig / ikHelpers
+    # chains so the anchors' controller parents follow the bezier order in this mode.
+    mBlock.UTILS.controller_walkChain(mBlock, list(l_drivers), 'prerig')
+    log.info(cgmGEN.logString_msg(
+        _str_func, 'anchors={0} tangents={1} cvs={2}'.format(
+            len(ml_anchors), len(ml_tangents), len(l_cvs))))
+    return mCurve
+
+
+def prerig_bezier_handles_ride(ml_handles, mBezierCurve, mParentNoTrans):
+    """
+    Interior prerig handles (ml_handles[1:-1]) ride the prerig bezier by arc length, like the joint
+    helpers. Replaces the masterGroup's attach_toShape conPoint (constraint + curve loc).
+    """
+    int_last = len(ml_handles) - 1
+    if int_last < 2:
+        return
+    for i, mHandle in enumerate(ml_handles[1:-1], 1):
+        mMasterGroup = mHandle.masterGroup
+        for mConst in mMasterGroup.getConstraintsTo(asMeta=1):
+            l_targets = []
+            if mc.nodeType(mConst.mNode) == 'pointConstraint':
+                l_targets = mc.pointConstraint(mConst.mNode, q=True, targetList=True) or []
+            mConst.delete()
+            if l_targets:
+                mc.delete(l_targets)
+        prerig_attach_to_curve_fraction(mHandle, mBezierCurve, mParentNoTrans,
+                                        float(i) / float(int_last),
+                                        mDrivenGroup=mMasterGroup)
 
 
 def block_ik_bezier_control_shape(mBlock):

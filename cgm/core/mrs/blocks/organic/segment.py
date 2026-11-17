@@ -1585,6 +1585,16 @@ def prerig(self):
         if key.startswith('mid'):
             mHandle.doSnapTo(ml_handles[d_ikHandles['start']['idx']])
             mHandle.p_position = dat['pos']
+            if BEZIERIKBLOCK.block_bezier_prerig_curve_active(self):
+                # Prerig bezier anchor: orient like the start ik / prerig handles — aim at the next
+                # point down the chain with the chain up — not the start handle's orient.
+                _idx_key = l_ikHandlesKeys.index(key)
+                _next_key = l_ikHandlesKeys[_idx_key + 1] if _idx_key + 1 < len(l_ikHandlesKeys) else None
+                if _next_key and _next_key.startswith('mid'):
+                    _pos_next = d_ikHandles[_next_key]['pos']
+                else:
+                    _pos_next = ml_handles[-1].p_position
+                SNAP.aim_atPoint(mHandle.mNode, _pos_next, mode='vector', vectorUp=_worldUpVector)
             mHandle.p_parent = mPrerigNull
             ml_midIKHandles.append(mHandle)
     
@@ -1613,7 +1623,23 @@ def prerig(self):
         
     mPrerigNull.msgList_connect('ikHelpers', ml_ikHandles)
     self.UTILS.controller_walkChain(self,ml_ikHandles,'prerig')
-        
+
+    #Prerig bezier — ikSetup=bezier + ikSplineBezierMode=prerig only ================================
+    if BEZIERIKBLOCK.block_bezier_prerig_curve_active(self):
+        if str_start in ['hips','head'] or str_end == 'tipBase':
+            # Rig bezier spans every ik joint (first..last), so the curve runs handle 0..-1 here too.
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'ikBase {0} / ikEnd {1} | prerig bezier spans first..last prerig handle, '
+                'not the ik start/end handles — verify base/end mains'.format(str_start, str_end)))
+        # Form-only track curve — ikMid anchors follow this (create_jointHelpers) so nothing that
+        # rides the bezier feeds back into its anchors.
+        mPrerigNull.connectChildNode(mTrackCurve.mNode, 'bezierPrerigTrackCurve')
+        # Anchors match the rig bezier mains: first prerig handle, ikMids, last prerig handle.
+        ml_bezierAnchors = [ml_handles[0]] + list(ml_midIKHandles) + [ml_handles[-1]]
+        mBezierPrerig = BEZIERIKBLOCK.prerig_bezier_curve_build(self, ml_bezierAnchors, _sizeUse)
+        # Interior prerig handles ride the bezier (arc length) like the joint helpers.
+        BEZIERIKBLOCK.prerig_bezier_handles_ride(ml_handles, mBezierPrerig, mNoTransformNull)
+
     
     #...cog -----------------------------------------------------------------------------
     mCog = False
@@ -1736,6 +1762,17 @@ def create_jointHelpers(self,cnt=None, force = False):
     #data
     ml_handles = self.msgList_get('prerigHandles')
     mDriven = self.prerigNull.getMessageAsMeta('drivenCurve')
+    # ikSetup=bezier + ikSplineBezierMode=prerig: joint helpers ride the prerig bezier (arc length) so
+    # the skeleton sits on the same curve the IK solves on (drivenCurve leaves the bezier between
+    # handles, which made the Head chain jump when IK turned on).
+    mBezierPrerig = None
+    if BEZIERIKBLOCK.block_bezier_prerig_curve_active(self):
+        mBezierPrerig = BEZIERIKBLOCK.block_bezier_prerig_curve(self)
+        if mBezierPrerig:
+            mDriven = mBezierPrerig
+        else:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'prerig bezier mode but no bezierPrerigCurve — using drivenCurve'))
     mNoTrans = self.noTransPrerigNull
     
     ml_formHandles = self.msgList_get('formHandles')
@@ -1768,7 +1805,7 @@ def create_jointHelpers(self,cnt=None, force = False):
     ml_jointHelpers = []
     
     
-    if self.numJoints == len(ml_handles):
+    if self.numJoints == len(ml_handles) and not mBezierPrerig:
         for mHandle in ml_handles:
             mJointHelper = BLOCKSHAPES.addJointHelper(self,size = _size,
                                                       d_nameTags= mHandle.getNameDict(ignore=['cgmType']))
@@ -1788,15 +1825,23 @@ def create_jointHelpers(self,cnt=None, force = False):
                                              name = "pct_{0}_loc".format(i)))"""
             
             
-            mJointHelper = BLOCKSHAPES.addJointHelper(self,size = _size, d_nameTags=_l_names[i])
-            
-    
+            d_nameTags = _l_names[i]
+            if mBezierPrerig and self.numJoints == len(ml_handles):
+                # Prerig bezier always takes this curve branch; keep the handle-branch names
+                # (from the prerig handles) so joint names match the other modes.
+                d_nameTags = ml_handles[i].getNameDict(ignore=['cgmType'])
+            mJointHelper = BLOCKSHAPES.addJointHelper(self,size = _size, d_nameTags=d_nameTags)
+
+
             mJointHelper.p_position = CURVES.getPercentPointOnCurve(mDriven.mNode, pct)
             mJointHelper.p_parent = mGroup
             mTrackGroup = mJointHelper.doGroup(True,True,asMeta=True,typeModifier = 'track',setClass='cgmObject')
-            
-            
-            attachToCurve(mJointHelper,mDriven,None,mGroupNoTrans,pct,False)
+
+
+            if mBezierPrerig:
+                BEZIERIKBLOCK.prerig_attach_to_curve_fraction(mJointHelper, mDriven, mGroupNoTrans, pct)
+            else:
+                attachToCurve(mJointHelper,mDriven,None,mGroupNoTrans,pct,False)
             
             """
             res_attach = RIGCONSTRAINT.attach_toShape(mTrackGroup.mNode,mDriven.mNode,'conPoint')
@@ -1858,12 +1903,26 @@ def create_jointHelpers(self,cnt=None, force = False):
     """
     mCrv.p_parent = mGroupNoTrans
      
+    # Prerig bezier: ikMid helpers are bezier anchors. Joint helpers and interior prerig handles ride
+    # the bezier, so following either back would cycle — anchors follow the form-only track curve.
+    l_bezierAnchorMids = []
+    mAnchorTrackCurve = None
+    if mBezierPrerig:
+        l_bezierAnchorMids = [mObj.mNode for mObj in (mPrerigNull.msgList_get('ikMidHelpers') or [])]
+        mAnchorTrackCurve = mPrerigNull.getMessageAsMeta('bezierPrerigTrackCurve')
+        if not mAnchorTrackCurve:
+            log.warning(cgmGEN.logString_msg(
+                _str_func, 'no bezierPrerigTrackCurve — ikMid anchors left on joint-helper curve (may cycle)'))
+
     ml_ikHelpers = mPrerigNull.msgList_get('ikHelpers')
-    
+
     #for k in ['start','end','mid']:
     for mHandle in ml_ikHelpers:
-        #_str = 'ik{0}Handle'.format(CORESTRING.capFirst(k))    
+        #_str = 'ik{0}Handle'.format(CORESTRING.capFirst(k))
         #mHandle = self.getMessageAsMeta(_str)
+        if mAnchorTrackCurve and mHandle.mNode in l_bezierAnchorMids:
+            attachToCurve(mHandle,mAnchorTrackCurve,None,mGroupNoTrans)
+            continue
         attachToCurve(mHandle,mCrv,mShape,mGroupNoTrans)
         
     #Cog
