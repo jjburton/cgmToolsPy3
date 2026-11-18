@@ -129,6 +129,30 @@ def is_connection_error(text):
     return any(_m in _t for _m in _P4_CONNECTION_ERROR_MARKERS)
 
 
+_P4_AUTH_ERROR_MARKERS = (
+    'session has expired',
+    'please login again',
+    'p4passwd',
+    'password invalid',
+    'perforce password',
+    'not logged in',
+)
+
+
+def is_auth_error(text):
+    """True when p4 output/error text means the login ticket is expired or missing.
+    p4 info still succeeds without a ticket, so a warm 'available' cache can hide this."""
+    if not text:
+        return False
+    _t = str(text).lower()
+    return any(_m in _t for _m in _P4_AUTH_ERROR_MARKERS)
+
+
+def is_session_unusable_error(text):
+    """Connection or login failure — the session cannot run file queries/writes."""
+    return is_connection_error(text) or is_auth_error(text)
+
+
 def mark_unavailable(p4_user=None, p4_client=None, reason=None):
     """
     Mark the session P4 connection unavailable without flushing the fstat cache.
@@ -139,6 +163,7 @@ def mark_unavailable(p4_user=None, p4_client=None, reason=None):
     _cache['p4_client'] = _client
     _cache['available'] = False
     _cache['info'] = None
+    _cache['unavailable_reason'] = reason or 'connection error'
     _cache['connection_report_key'] = None
     _cache['connection_report'] = None
     log.warning('Perforce marked unavailable for session ({0})'.format(reason or 'connection error'))
@@ -193,12 +218,7 @@ def _project_status_from_report(report):
         }
 
     if not _report.get('connected'):
-        _reason = _report.get('reason') or _conn.get('reason') or 'unknown'
-        return {
-            'connected': False,
-            'label': 'P4: not connected — {0}'.format(_reason),
-            'reason': _reason,
-        }
+        return _unavailable_status(_report.get('reason') or _conn.get('reason') or 'unknown')
 
     _uname = _conn.get('userName') or _user
     _cname = _conn.get('clientName') or _client
@@ -222,11 +242,7 @@ def _project_status_from_info_cache(p4_user, p4_client):
     if not _info_cache_matches(p4_user, p4_client):
         return None
     if not _cache.get('available'):
-        return {
-            'connected': False,
-            'label': 'P4: not connected — p4 info failed',
-            'reason': 'p4 info failed',
-        }
+        return _unavailable_status(_cache.get('unavailable_reason'))
     _info = connection_info(force=False, p4_user=p4_user, p4_client=p4_client)
     if not _info.get('connected'):
         _reason = _info.get('reason') or 'unknown'
@@ -1701,14 +1717,77 @@ def is_available(force=False, p4_user=None, p4_client=None):
     _cache['p4_user'] = _user
     _cache['p4_client'] = _client
     _cache['available'] = bool(_res['ok'])
+    _cache['unavailable_reason'] = None if _res['ok'] else (_res.get('stderr') or 'p4 info failed')
     if _res['ok']:
         _info = dict(_res['tag'])
         if not _info:
             _info = _parse_colon_dict(_res['lines'])
         _cache['info'] = _info
+        # p4 info works without a login ticket — confirm the session can run file commands.
+        _login = check_login(p4_user=_user, p4_client=_client)
+        if _login.get('authExpired'):
+            _cache['available'] = False
+            _cache['info'] = None
+            _cache['unavailable_reason'] = _login.get('reason')
     else:
         _cache['info'] = None
     return _cache['available']
+
+
+def check_login(p4_user=None, p4_client=None):
+    """
+    Uncached `p4 login -s` ticket check (one subprocess).
+
+    Returns dict ok, authExpired, reason. Only auth-marker failures count as expired —
+    servers/users without passwords report 'not necessary' and stay ok.
+    """
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return {'ok': False, 'authExpired': False, 'reason': _err}
+    _res = _p4run('login', '-s', p4_user=_user, p4_client=_client, ztag=False)
+    _text = ' '.join([_res.get('stderr') or ''] + list(_res.get('lines') or []))
+    if not _res.get('ok') and is_auth_error(_text):
+        return {
+            'ok': False,
+            'authExpired': True,
+            'reason': 'Not logged in — log in (P4V or p4 login), then Refresh ({0})'.format(
+                (_res.get('stderr') or _text).strip()),
+        }
+    return {'ok': True, 'authExpired': False, 'reason': None}
+
+
+def verify_cached_login(p4_user=None, p4_client=None):
+    """
+    When the session cache says available, re-check the login ticket (one subprocess).
+    On expiry: mark_unavailable (fstat cache kept) and return False. Use on cache-first UI opens.
+    """
+    _user, _client, _err = _require_connection(p4_user, p4_client)
+    if _err:
+        return False
+    if not (_info_cache_matches(_user, _client) and _cache.get('available')):
+        return bool(_cache.get('available'))
+    _login = check_login(p4_user=_user, p4_client=_client)
+    if _login.get('authExpired'):
+        mark_unavailable(p4_user=_user, p4_client=_client, reason=_login.get('reason'))
+        return False
+    return True
+
+
+def _unavailable_status(reason):
+    """Project/Scene status dict for a not-connected session with an optional cached reason."""
+    _reason = reason or 'p4 info failed'
+    if is_auth_error(_reason):
+        return {
+            'connected': False,
+            'authExpired': True,
+            'label': 'P4: not logged in — log in (P4V / p4 login), then Refresh',
+            'reason': _reason,
+        }
+    return {
+        'connected': False,
+        'label': 'P4: not connected — {0}'.format(_reason),
+        'reason': _reason,
+    }
 
 
 def query_project_p4_status(p4_user=None, p4_client=None, force=False):
@@ -1733,11 +1812,7 @@ def query_project_p4_status(p4_user=None, p4_client=None, force=False):
 
     log.debug('Getting Perforce status (project)...')
     if not is_available(force=force, p4_user=_user, p4_client=_client):
-        return {
-            'connected': False,
-            'label': 'P4: not connected — p4 info failed',
-            'reason': 'p4 info failed',
-        }
+        return _unavailable_status(_cache.get('unavailable_reason'))
 
     _info = connection_info(force=force, p4_user=_user, p4_client=_client)
     if not _info.get('connected'):
@@ -1772,10 +1847,14 @@ def connection_info(force=False, p4_user=None, p4_client=None):
         }
 
     if not is_available(force=force, p4_user=_user, p4_client=_client):
-        _res = _p4run('info', p4_user=_user, p4_client=_client, ztag=True)
+        _reason = _cache.get('unavailable_reason')
+        if not _reason:
+            _res = _p4run('info', p4_user=_user, p4_client=_client, ztag=True)
+            _reason = _res.get('stderr') or 'p4 info failed'
         return {
             'connected': False,
-            'reason': _res.get('stderr') or 'p4 info failed',
+            'authExpired': is_auth_error(_reason),
+            'reason': _reason,
             'p4User': _user,
             'p4Client': _client,
         }
@@ -2516,7 +2595,7 @@ def query_files_status(disk_paths, p4_user=None, p4_client=None, force=False, pr
             _out[_norm] = _dat
             if _dat.get('error'):
                 # Never cache errors — they would mask real status after reconnect.
-                if is_connection_error(_dat.get('error')):
+                if is_session_unusable_error(_dat.get('error')):
                     _conn_err = _dat.get('error')
                 continue
             _store[_fstat_cache_key(_user, _client, _norm)] = dict(_dat)
@@ -4484,6 +4563,7 @@ def query_connection(scene_path=None, force=False, p4_user=None, p4_client=None,
 
     if not _report['connected']:
         _report['reason'] = _info.get('reason')
+        _report['authExpired'] = bool(_info.get('authExpired'))
         _set_cached_connection_report(_key, _report)
         return dict(_report)
 

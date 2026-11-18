@@ -105,6 +105,12 @@ class ui(cgmUI.cgmGUI):
         if cls.Exists():
             _ui = cls.Get()
             _ui.show(forceDefaultSize=False)
+            # Reused window shows its last buffer — re-render if the login ticket expired since.
+            _dat = getattr(_ui, '_p4_status_dat', None) or {}
+            if _dat.get('connected'):
+                _user, _client = uiFunc_get_connection(_ui)
+                if _user and _client and not P4UTIL.verify_cached_login(p4_user=_user, p4_client=_client):
+                    uiFunc_refresh(_ui)
             return _ui
         return cls()
 
@@ -1321,6 +1327,9 @@ def uiFunc_refresh(self, force=False):
     if force:
         P4UTIL.save_connection_prefs(p4_user=_user, p4_client=_client)
 
+    if not force and _user and _client:
+        # Cache-first open: p4 info can stay 'connected' after the login ticket expires.
+        P4UTIL.verify_cached_login(p4_user=_user, p4_client=_client)
     _dat = P4UTIL.query_connection(p4_user=_user, p4_client=_client, force=force)
     self._p4_status_dat = _dat
 
@@ -1335,7 +1344,7 @@ def uiFunc_refresh(self, force=False):
 
     if not _dat.get('connected'):
         uiFunc_set_status_panel(self, [
-            'Not connected',
+            'Not logged in' if _dat.get('authExpired') else 'Not connected',
             _dat.get('reason') or _conn.get('reason') or 'unknown',
         ])
         uiFunc_build_opened_rows(self, None)
