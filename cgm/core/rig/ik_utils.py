@@ -5333,6 +5333,7 @@ def bezier_spline(jointList=None,
                   moduleInstance=None,
                   parentGutsTo=None,
                   useUndoChunk=True,
+                  driverMatchBezier=False,
                   **kws):
     """
     Bezier-authored curve driving a hidden nurbs curve for ikSplineSolver.
@@ -5352,6 +5353,8 @@ def bezier_spline(jointList=None,
         moduleInstance(cgmRigModule) | Optional; MRS rigNull parenting (omit for native Maya tests)
         parentGutsTo(transform) | Parent setup group under an existing transform
         useUndoChunk(bool) | Wrap build in mc.undoInfo chunk
+        driverMatchBezier(bool) | Driver = nurbsCurve copy of the Bezier (same CVs + knots, live from
+            Bezier worldSpace) instead of POCI-sampled CVs. Exact IK curve; sampleCount / driverSampleMode ignored.
 
     :returns:
         dict with mIKHandle, mIKEffector, mBezierCurve, mDriverCurve, mSetupGroup, ml_joints, ...
@@ -5516,36 +5519,64 @@ def bezier_spline(jointList=None,
                     'bezierAuthorCancelled': True,
                 }
 
-        l_driver_bezier_u = None
-        if _driver_mode == 'joints':
-            l_driver_pts = [list(_p) for _p in l_positions]
-            l_driver_bezier_u = CURVES.polyline_length_fractions(l_positions)
-            if len(l_driver_pts) != _sample_count:
-                raise ValueError(
-                    'driverSampleMode joints: sampleCount must match joint count ({0}).'.format(
-                        len(ml_joints)))
+        if VALID.boolArg(driverMatchBezier):
+            # Sampled CVs only approximate the Bezier (a cubic doesn't pass through its CVs), so joints
+            # shift between rest and IK. A nurbs copy with the Bezier's own CVs + knots is the same shape.
+            _bezier_shape = [_s for _s in (mBezierCurve.getShapes(asMeta=False) or [])
+                             if not mc.getAttr('{0}.intermediateObject'.format(_s))][0]
+            _int_cvs = len(mc.ls('{0}.cv[*]'.format(_bezier_shape), flatten=True) or [])
+            l_driver_cvs = [mc.xform('{0}.cv[{1}]'.format(_bezier_shape, _i), q=True, ws=True, t=True)
+                            for _i in range(_int_cvs)]
+            mDriverCurve = cgmMeta.asMeta(
+                CURVES.create_bezier_nurbs_curve(
+                    '{0}_ikDriver_crv'.format(str_baseName), l_driver_cvs, bezier=False),
+                'cgmObject', setClass=True)
+            mDriverCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+            mDriverCurve.addAttr('cgmType', 'splineIKCurve', attrType='string', lock=True)
+            mDriverCurve.doName()
+            mDriverCurve.p_parent = mSetupGroup
+            # Fed world-space geometry: no inherited transform, identity local.
+            mDriverCurve.inheritsTransform = 0
+            mc.setAttr('{0}.translate'.format(mDriverCurve.mNode), 0, 0, 0)
+            mc.setAttr('{0}.rotate'.format(mDriverCurve.mNode), 0, 0, 0)
+            mc.setAttr('{0}.scale'.format(mDriverCurve.mNode), 1, 1, 1)
+            mc.setAttr('{0}.shear'.format(mDriverCurve.mNode), 0, 0, 0)
+            _driver_shape = mDriverCurve.getShapes(asMeta=False)[0]
+            mc.connectAttr('{0}.worldSpace[0]'.format(_bezier_shape), '{0}.create'.format(_driver_shape))
+            ml_poci, ml_wtl = [], []
+            log.info(cgmGEN.logString_msg(
+                _str_func, 'driverMatchBezier | driver = bezier copy | cvs={0}'.format(_int_cvs)))
         else:
-            l_driver_pts = []
-            for _i in range(_sample_count):
-                _t = float(_i) / float(_sample_count - 1)
-                l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
+            l_driver_bezier_u = None
+            if _driver_mode == 'joints':
+                l_driver_pts = [list(_p) for _p in l_positions]
+                l_driver_bezier_u = CURVES.polyline_length_fractions(l_positions)
+                if len(l_driver_pts) != _sample_count:
+                    raise ValueError(
+                        'driverSampleMode joints: sampleCount must match joint count ({0}).'.format(
+                            len(ml_joints)))
+            else:
+                l_driver_pts = []
+                for _i in range(_sample_count):
+                    _t = float(_i) / float(_sample_count - 1)
+                    l_driver_pts.append(CURVES.sample_polyline_by_parameter(l_positions, _t))
 
-        _driver_xform = mc.curve(
-            name='{0}_ikDriver_crv'.format(str_baseName),
-            degree=3,
-            point=l_driver_pts)
-        mDriverCurve = cgmMeta.asMeta(_driver_xform, 'cgmObject', setClass=True)
-        mDriverCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
-        mDriverCurve.addAttr('cgmType', 'splineIKCurve', attrType='string', lock=True)
-        mDriverCurve.doName()
-        mDriverCurve.p_parent = mSetupGroup
+            _driver_xform = mc.curve(
+                name='{0}_ikDriver_crv'.format(str_baseName),
+                degree=3,
+                point=l_driver_pts)
+            mDriverCurve = cgmMeta.asMeta(_driver_xform, 'cgmObject', setClass=True)
+            mDriverCurve.addAttr('cgmName', str_baseName, attrType='string', lock=True)
+            mDriverCurve.addAttr('cgmType', 'splineIKCurve', attrType='string', lock=True)
+            mDriverCurve.doName()
+            mDriverCurve.p_parent = mSetupGroup
 
-        ml_poci, ml_wtl = _bezier_bind_driver_cvs_from_bezier(
-            mBezierCurve,
-            mDriverCurve,
-            _sample_count,
-            str_baseName,
-            l_bezier_parameters=l_driver_bezier_u)
+            ml_poci, ml_wtl = _bezier_bind_driver_cvs_from_bezier(
+                mBezierCurve,
+                mDriverCurve,
+                _sample_count,
+                str_baseName,
+                l_bezier_parameters=l_driver_bezier_u)
 
         _buffer = mc.ikHandle(
             sj=ml_joints[0].mNode,

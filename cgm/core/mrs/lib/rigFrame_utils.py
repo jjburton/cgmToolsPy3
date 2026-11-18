@@ -970,10 +970,19 @@ def bezier(self, ml_ikJoints=None, mIKControl=None, mIKBaseControl=None,
         log.info(cgmGEN.logString_msg(
             _str_func, 'bezierAnchorMode={0}'.format(_str_bezier_mode)))
 
+        # ikSplineBezierMode=prerig + (Head neckIK=bezier | Segment ikSetup=bezier) only:
+        # use the prerig-authored curve.
+        mUseBezierCurve = None
+        if BEZIERIKBLOCK.block_bezier_prerig_curve_active(self.mBlock):
+            mUseBezierCurve = BEZIERIKBLOCK.bezier_prerig_curve_copy_for_rig(
+                self.mBlock, str_base, len(ml_bezierMainIK))
+
         res_bezier = IK.bezier_spline(
             jointList=[mObj.mNode for mObj in ml_ikJoints],
             baseName=str_base,
             bezierSections=int_bezier_sections,
+            useBezierCurve=mUseBezierCurve.mNode if mUseBezierCurve else None,
+            driverMatchBezier=bool(mUseBezierCurve),
             bezierAnchorMode=_str_bezier_mode,
             advancedTwistSetup=True,
             moduleInstance=self.mModule,
