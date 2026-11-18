@@ -408,13 +408,15 @@ def uiFunc_helper_build(self):
     def returnFail():
         return log.error("No helpers found. Reinitialize.")
     
+    # Cached self.ml_helpers can be stale (scene open/new, reload) — re-read mrsHelpers
+    helpers_ui_update_registered(self, syncFromDag=True)
+    log.info("|{0}| >> {1} helper(s) from mrsHelpers".format(_str_func, len(self.ml_helpers or [])))
     if not self.ml_helpers:
         return returnFail()
-    
+
     ml_helpers = []
     for mObj in self.ml_helpers:
-        if mObj.mNode:
-            mObj.mNode
+        if mObj and getattr(mObj, 'mNode', None) and mc.objExists(mObj.mNode):
             ml_helpers.append(mObj)
         else:
             return returnFail()

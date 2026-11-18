@@ -9575,7 +9575,34 @@ class ui_createBlock(CGMUI.cgmGUI):
         
         # Initialize helper system and restore existing helpers
         self._init_helper_system()
-        
+
+        # RETAIN window: rebind mrsHelpers when File > Open / New swaps the scene
+        self.setSceneChangeCB(cgmGEN.Callback(self.uiFunc_on_scene_change))
+
+    def uiFunc_on_scene_change(self):
+        """scriptJob SceneOpened — defer until the new scene DAG is ready."""
+        _str_func = 'uiFunc_on_scene_change[BlockCreate]'
+        log.info(cgmGEN.logString_msg(
+            _str_func, 'Scene opened — scheduling helper refresh'))
+        mc.evalDeferred(cgmGEN.Callback(self.uiFunc_refresh_helpers_after_scene_open), lp=True)
+
+    def uiFunc_refresh_helpers_after_scene_open(self):
+        """Drop old-scene helper handles; rebind mrsHelpers only if the new scene has one.
+
+        Does not create mrsHelpers (would dirty every opened scene) and skips the
+        name-pattern fallback search; Initialize / Build create the node on demand.
+        """
+        _str_func = 'uiFunc_refresh_helpers_after_scene_open'
+        self.mHelper = None
+        self.mDag = False
+        self.ml_helpers = []
+        if mc.objExists('mrsHelpers'):
+            HELPERS.helpers_ensure_mDag(self)
+            self.ml_helpers = HELPERS.helpers_msglist_get(self.mDag)
+        HELPERS.helpers_ui_update_registered(self, syncFromDag=False)
+        log.info(cgmGEN.logString_msg(
+            _str_func, '{0} helper(s) on mrsHelpers'.format(len(self.ml_helpers))))
+
     def _init_helper_system(self):
         """Initialize helper system and restore existing helpers from scene"""
         _str_func = '_init_helper_system'
