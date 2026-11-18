@@ -614,10 +614,10 @@ def prerig_bezier_curve_build(mBlock, ml_anchors, f_size):
     mCurve.overrideDisplayType = 2  # reference — visible, not selectable (edit via handles)
 
     # Driver per CV: anchors at 3n, tangents at 3n±1 ----------------------------------------
-    l_drivers = [None] * len(l_cvs)
+    ml_drivers = [None] * len(l_cvs)
     ml_tangents = []
     for i, mAnchor in enumerate(ml_anchors):
-        l_drivers[i * 3] = mAnchor
+        ml_drivers[i * 3] = mAnchor
         for str_dir, idx_cv in (('in', (i * 3) - 1), ('out', (i * 3) + 1)):
             if idx_cv < 0 or idx_cv >= len(l_cvs):
                 continue
@@ -638,7 +638,7 @@ def prerig_bezier_curve_build(mBlock, ml_anchors, f_size):
             mTangent.p_position = l_cvs[idx_cv]
             BLOCKSHAPES.color(mBlock, mTangent.mNode, controlType='sub')
             ATTR.set_standardFlags(mTangent.mNode, ['rx', 'ry', 'rz', 'sx', 'sy', 'sz', 'v'])
-            l_drivers[idx_cv] = mTangent
+            ml_drivers[idx_cv] = mTangent
             ml_tangents.append(mTangent)
 
             # Anchor → tangent line (same linearTrack pattern as rig_shapes_bezier_main_to_sub_track).
@@ -654,7 +654,7 @@ def prerig_bezier_curve_build(mBlock, ml_anchors, f_size):
 
     # decomposeMatrix -> controlPoints: no cluster orig shape to filter when the rig copies CVs.
     str_shape = mCurve.getShapes(asMeta=False)[0]
-    for i, mDriver in enumerate(l_drivers):
+    for i, mDriver in enumerate(ml_drivers):
         mDecomp = cgmMeta.cgmNode(nodeType='decomposeMatrix')
         mDecomp.rename('{0}_bezierCv_{1}_decomp'.format(mBlock.cgmName, i))
         mc.connectAttr('{0}.worldMatrix[0]'.format(mDriver.mNode),
@@ -668,7 +668,7 @@ def prerig_bezier_curve_build(mBlock, ml_anchors, f_size):
     # Pickwalk in curve order — same as rig bezier_ik_pickwalk_controls:
     # base, base_out, mid_in, mid, mid_out, …, end_in, end. Call after the block's prerig / ikHelpers
     # chains so the anchors' controller parents follow the bezier order in this mode.
-    mBlock.UTILS.controller_walkChain(mBlock, list(l_drivers), 'prerig')
+    mBlock.UTILS.controller_walkChain(mBlock, ml_drivers, 'prerig')
     log.info(cgmGEN.logString_msg(
         _str_func, 'anchors={0} tangents={1} cvs={2}'.format(
             len(ml_anchors), len(ml_tangents), len(l_cvs))))

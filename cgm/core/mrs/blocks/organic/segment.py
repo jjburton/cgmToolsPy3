@@ -1905,10 +1905,10 @@ def create_jointHelpers(self,cnt=None, force = False):
      
     # Prerig bezier: ikMid helpers are bezier anchors. Joint helpers and interior prerig handles ride
     # the bezier, so following either back would cycle — anchors follow the form-only track curve.
-    l_bezierAnchorMids = []
+    ml_bezierAnchorMids = []
     mAnchorTrackCurve = None
     if mBezierPrerig:
-        l_bezierAnchorMids = [mObj.mNode for mObj in (mPrerigNull.msgList_get('ikMidHelpers') or [])]
+        ml_bezierAnchorMids = mPrerigNull.msgList_get('ikMidHelpers') or []
         mAnchorTrackCurve = mPrerigNull.getMessageAsMeta('bezierPrerigTrackCurve')
         if not mAnchorTrackCurve:
             log.warning(cgmGEN.logString_msg(
@@ -1920,7 +1920,7 @@ def create_jointHelpers(self,cnt=None, force = False):
     for mHandle in ml_ikHelpers:
         #_str = 'ik{0}Handle'.format(CORESTRING.capFirst(k))
         #mHandle = self.getMessageAsMeta(_str)
-        if mAnchorTrackCurve and mHandle.mNode in l_bezierAnchorMids:
+        if mAnchorTrackCurve and mHandle in ml_bezierAnchorMids:
             attachToCurve(mHandle,mAnchorTrackCurve,None,mGroupNoTrans)
             continue
         attachToCurve(mHandle,mCrv,mShape,mGroupNoTrans)

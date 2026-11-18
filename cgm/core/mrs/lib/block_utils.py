@@ -6214,7 +6214,7 @@ def controls_get(self,define = False, form = False, prerig= False, asDict =False
                 if mFound:
                     addMObj(mFound,'prerig')
 
-            # Head prerig bezier tangents — only exist when ikSplineBezierMode=prerig built them.
+            # Prerig bezier tangents (Head / Segment) — only exist when ikSplineBezierMode=prerig built them.
             # Appended last so blockDat indices for every other handle are unchanged.
             mPrerigNull = self.getMessageAsMeta('prerigNull')
             if mPrerigNull:
