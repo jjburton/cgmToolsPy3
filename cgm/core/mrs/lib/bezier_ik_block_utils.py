@@ -684,7 +684,15 @@ def prerig_bezier_handles_ride(ml_handles, mBezierCurve, mParentNoTrans):
     if int_last < 2:
         return
     for i, mHandle in enumerate(ml_handles[1:-1], 1):
-        mMasterGroup = mHandle.masterGroup
+        # Explicit lookup: Segment's masterGroup is made without setClass, so attribute access
+        # (mHandle.masterGroup) comes back as a list there; Head's comes back as one object.
+        l_master = mHandle.getMessage('masterGroup') or []
+        if not l_master:
+            log.warning(cgmGEN.logString_msg(
+                'prerig_bezier_handles_ride',
+                '{0} has no masterGroup — left on track curve'.format(mHandle.p_nameShort)))
+            continue
+        mMasterGroup = cgmMeta.validateObjArg(l_master[0], 'cgmObject')
         for mConst in mMasterGroup.getConstraintsTo(asMeta=1):
             l_targets = []
             if mc.nodeType(mConst.mNode) == 'pointConstraint':
