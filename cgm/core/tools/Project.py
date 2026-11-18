@@ -1088,7 +1088,12 @@ def uiProject_refresh_p4_status(self, force=False):
     _dat = P4UTIL.query_project_p4_status(force=force)
     _connected = bool(_dat.get('connected'))
     _bgc = _colorGood if _connected else _colorWarn
-    _text = 'Connected' if _connected else 'Not connected'
+    if _connected:
+        _text = 'Connected'
+    elif _dat.get('authExpired'):
+        _text = 'Not logged in'
+    else:
+        _text = 'Not connected'
     _detail = _dat.get('label') or ''
     _ann = (
         '{0} | Click to open cgmP4'.format(_detail)
